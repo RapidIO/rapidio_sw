@@ -198,21 +198,32 @@ uint32_t idt_tsi721_pc_get_config  ( DAR_DEV_INFO_t           *dev_info,
         out_parms->pc[port_idx].pnum = good_ptl.pnums[port_idx];
 
    // Always get LRTO
-	{ uint32_t lrto;
+   { uint32_t lrto;
       rc = DARRegRead( dev_info, TSI721_RIO_SP_LT_CTL, &lrto); 
 	  if (RIO_SUCCESS != rc) {
-         out_parms->imp_rc = PC_SET_CONFIG(0x2);
-         goto idt_tsi721_pc_get_config_exit;
+         	out_parms->imp_rc = PC_SET_CONFIG(0x2);
+         	goto idt_tsi721_pc_get_config_exit;
 	  }
 	  out_parms->lrto = (lrto >> 8) * 100;
     };
 	
+    // Always get LOG_RTO
+    { uint32_t log_rto;
+    	  rc = DARRegRead(dev_info, TSI721_RIO_SR_RSP_TO, &log_rto);
+	  if (RIO_SUCCESS != rc) {
+         	out_parms->imp_rc = PC_SET_CONFIG(0x3);
+         	goto idt_tsi721_pc_get_config_exit;
+	  }
+	  out_parms->log_rto = (log_rto * 188) / 100;
+    }
 
     for (port_idx = 0; port_idx < out_parms->num_ports; port_idx++)
     {
         out_parms->pc[port_idx].port_available = true;
         out_parms->pc[port_idx].pw = idt_pc_pw_last;
         out_parms->pc[port_idx].ls = idt_pc_ls_last;
+        out_parms->pc[port_idx].iseq = idt_pc_is_one;
+        out_parms->pc[port_idx].fc = idt_pc_fc_rx;
         out_parms->pc[port_idx].xmitter_disable = false;
         out_parms->pc[port_idx].port_lockout = false;
         out_parms->pc[port_idx].nmtc_xfer_enable = false;
@@ -340,13 +351,13 @@ uint32_t idt_tsi721_pc_set_config_with_resets  ( DAR_DEV_INFO_t           *dev_i
     rc = DARRegRead( dev_info, TSI721_RIO_PLM_SP_IMP_SPEC_CTL, &saved_plmCtl );
     if (RIO_SUCCESS != rc) {
        out_parms->imp_rc = PC_SET_CONFIG(2);
-       goto idt_tsi721_pc_set_config_resets_exit;
+       goto exit;
     }
    
 	rc = DARRegRead( dev_info, TSI721_DEVCTL, &saved_devCtl );
     if (RIO_SUCCESS != rc) {
        out_parms->imp_rc = PC_SET_CONFIG(3);
-       goto idt_tsi721_pc_set_config_resets_exit;
+       goto exit;
     }
 
     // Default is to ignore resets...
@@ -360,13 +371,13 @@ uint32_t idt_tsi721_pc_set_config_with_resets  ( DAR_DEV_INFO_t           *dev_i
     rc = DARRegWrite( dev_info, TSI721_RIO_PLM_SP_IMP_SPEC_CTL, plmCtl );
     if (RIO_SUCCESS != rc) {
        out_parms->imp_rc = PC_SET_CONFIG(8);
-       goto idt_tsi721_pc_set_config_resets_exit;
+       goto exit;
     }
    
 	rc = DARRegWrite( dev_info, TSI721_DEVCTL, devCtl );
     if (RIO_SUCCESS != rc) {
        out_parms->imp_rc = PC_SET_CONFIG(9);
-       goto idt_tsi721_pc_set_config_resets_exit;
+       goto exit;
     }
 
         // Check that RapidIO transmitter is enabled...
@@ -378,7 +389,7 @@ uint32_t idt_tsi721_pc_set_config_with_resets  ( DAR_DEV_INFO_t           *dev_i
            rc = DARRegRead( dev_info, TSI721_RIO_SP_CTL, &spxCtl );
            if (RIO_SUCCESS != rc) {
               out_parms->imp_rc = PC_SET_CONFIG(0x20);
-              goto idt_tsi721_pc_set_config_resets_exit;       
+              goto exit;       
            };
 
            if (in_parms->pc[0].xmitter_disable) {
@@ -412,7 +423,7 @@ uint32_t idt_tsi721_pc_set_config_with_resets  ( DAR_DEV_INFO_t           *dev_i
                                     break;
               default:
               case idt_pc_pw_1x_l1: out_parms->imp_rc = PC_SET_CONFIG(8);
-                                    goto idt_tsi721_pc_set_config_resets_exit;       
+                                    goto exit;       
            };
 
            rc = DARRegWrite( dev_info, TSI721_RIO_SP_CTL, spxCtl );
@@ -425,7 +436,7 @@ uint32_t idt_tsi721_pc_set_config_with_resets  ( DAR_DEV_INFO_t           *dev_i
            };
            if (RIO_SUCCESS != rc) {
               out_parms->imp_rc = PC_SET_CONFIG(0x30);
-              goto idt_tsi721_pc_set_config_resets_exit;       
+              goto exit;       
            };
         };
 
@@ -436,13 +447,13 @@ uint32_t idt_tsi721_pc_set_config_with_resets  ( DAR_DEV_INFO_t           *dev_i
 
            if (in_parms->pc[0].ls >= sizeof(ls_check)/sizeof(spx_ctl2_ls_check_info_t)) {
               out_parms->imp_rc = PC_SET_CONFIG(0x31);
-              goto idt_tsi721_pc_set_config_resets_exit;       
+              goto exit;       
            };
 
            rc = DARRegRead( dev_info, TSI721_RIO_SP_CTL2, &spxCtl2 );
            if (RIO_SUCCESS != rc) {
               out_parms->imp_rc = PC_SET_CONFIG(0x40);
-              goto idt_tsi721_pc_set_config_resets_exit;       
+              goto exit;       
            };
            spxCtl2 &= ~(TSI721_RIO_SP_CTL2_GB_6p25_EN  |
                         TSI721_RIO_SP_CTL2_GB_5p0_EN   |
@@ -459,7 +470,7 @@ uint32_t idt_tsi721_pc_set_config_with_resets  ( DAR_DEV_INFO_t           *dev_i
            };
            if (RIO_SUCCESS != rc) {
               out_parms->imp_rc = PC_SET_CONFIG(0x41);
-              goto idt_tsi721_pc_set_config_resets_exit;       
+              goto exit;       
            };
 
 		   // Apply 5G training work around, or remove it, as necessary
@@ -467,7 +478,7 @@ uint32_t idt_tsi721_pc_set_config_with_resets  ( DAR_DEV_INFO_t           *dev_i
               rc = DARRegWrite( dev_info, TSI721_5G_WA_REG0(reg), fiveg_wa_val );
               if (RIO_SUCCESS != rc) {
                  out_parms->imp_rc = PC_SET_CONFIG(0x3A);
-                 goto idt_tsi721_pc_set_config_resets_exit;       
+                 goto exit;       
               };
 	       };
 
@@ -476,7 +487,7 @@ uint32_t idt_tsi721_pc_set_config_with_resets  ( DAR_DEV_INFO_t           *dev_i
                  rc = DARRegWrite( dev_info, TSI721_5G_WA_REG1(reg), 0 );
                  if (RIO_SUCCESS != rc) {
                     out_parms->imp_rc = PC_SET_CONFIG(0x3C);
-                    goto idt_tsi721_pc_set_config_resets_exit;       
+                    goto exit;       
                  };
               };
 	       };
@@ -484,7 +495,7 @@ uint32_t idt_tsi721_pc_set_config_with_resets  ( DAR_DEV_INFO_t           *dev_i
 		   rc = DARRegWrite( dev_info, TSI721_RIO_PRESCALAR_SRV_CLK, ls_check[(int)(in_parms->pc[0].ls)].prescalar_srv_clk );
            if (RIO_SUCCESS != rc) {
               out_parms->imp_rc = PC_SET_CONFIG(0x3E);
-              goto idt_tsi721_pc_set_config_resets_exit;       
+              goto exit;       
            };
         };
        
@@ -495,7 +506,7 @@ uint32_t idt_tsi721_pc_set_config_with_resets  ( DAR_DEV_INFO_t           *dev_i
           rc = DARRegRead( dev_info, TSI721_RIO_PLM_SP_IMP_SPEC_CTL, &plmCtl );
           if (RIO_SUCCESS != rc) {
              out_parms->imp_rc = PC_SET_CONFIG(0x40);
-             goto idt_tsi721_pc_set_config_resets_exit;       
+             goto exit;       
           };
 
           plmCtl &= ~(TSI721_RIO_PLM_SP_IMP_SPEC_CTL_SWAP_RX | 
@@ -517,7 +528,7 @@ uint32_t idt_tsi721_pc_set_config_with_resets  ( DAR_DEV_INFO_t           *dev_i
           };
           if (RIO_SUCCESS != rc) {
              out_parms->imp_rc = PC_SET_CONFIG(0x50);
-             goto idt_tsi721_pc_set_config_resets_exit;       
+             goto exit;       
           };
        };
 
@@ -531,15 +542,15 @@ uint32_t idt_tsi721_pc_set_config_with_resets  ( DAR_DEV_INFO_t           *dev_i
 	rc = DARRegWrite( dev_info, TSI721_RIO_PLM_SP_IMP_SPEC_CTL, plmCtl );
     if (RIO_SUCCESS != rc) {
        out_parms->imp_rc = PC_SET_CONFIG(0x60);
-       goto idt_tsi721_pc_set_config_resets_exit;
+       goto exit;
     }
    
 	rc = DARRegWrite( dev_info, TSI721_DEVCTL, devCtl );
     if (RIO_SUCCESS != rc) {
        out_parms->imp_rc = PC_SET_CONFIG(0x61);
-       goto idt_tsi721_pc_set_config_resets_exit;
+       goto exit;
     }
-idt_tsi721_pc_set_config_resets_exit:
+exit:
        return rc;
 };
 
@@ -570,8 +581,21 @@ uint32_t idt_tsi721_pc_set_config  ( DAR_DEV_INFO_t           *dev_info,
         goto idt_tsi721_pc_set_config_exit;
     }
 
-   // Always set LRTO
-    rc = DARRegWrite( dev_info, TSI721_RIO_SP_LT_CTL, ((in_parms->lrto/100) << 8) & TSI721_RIO_SP_LT_CTL_TVAL );
+   // Always set LRTO.  LRTO coincidentally is in units of 100 nsec...
+    rc = DARRegWrite( dev_info, TSI721_RIO_SP_LT_CTL,
+		((in_parms->lrto) << 8) & TSI721_RIO_SP_LT_CTL_TVAL );
+	if (RIO_SUCCESS != rc) {
+        out_parms->imp_rc = PC_SET_CONFIG(0x1);
+        goto idt_tsi721_pc_set_config_exit;
+    }
+
+   // Always set LOG_RTO 
+   // Note: Tsi721 logical response timeout field does not appear at the 
+   // correct location in the register.  We generically correct this in the
+   // IDT_tsi721WriteReg routine, so we must write a generic value here.
+    rc = DARRegWrite( dev_info, TSI721_RIO_SR_RSP_TO,
+	((((in_parms->log_rto * 100) + 187)/ 188) << 8)
+						& RIO_SP_RTO_CTL_TVAL);
 	if (RIO_SUCCESS != rc) {
         out_parms->imp_rc = PC_SET_CONFIG(0x1);
         goto idt_tsi721_pc_set_config_exit;

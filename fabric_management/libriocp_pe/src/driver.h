@@ -32,6 +32,8 @@ int RIOCP_WU riocp_drv_set_route_entry(struct riocp_pe *pe,
                         uint8_t port, uint32_t did, pe_rt_val rt_val);
 int RIOCP_WU riocp_drv_get_port_state(struct riocp_pe *pe,
                         uint8_t port, struct riocp_pe_port_state_t *state);
+int RIOCP_WU riocp_drv_reset_port(struct riocp_pe *pe, uint8_t port,
+								bool reset_lp);
 
 int RIOCP_WU riocp_drv_reg_rd(struct riocp_pe *pe,
                         uint32_t offset, uint32_t *val);

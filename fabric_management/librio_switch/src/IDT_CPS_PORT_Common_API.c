@@ -57,6 +57,8 @@ extern "C" {
 
 typedef struct set_cfg_port_info_t_TAG {
    uint32_t p_ctl1;
+   uint32_t p_ops;
+   uint32_t p_errstat;
    bool   reset_reg_vals;
 } set_cfg_port_info_t;
    
@@ -431,7 +433,7 @@ uint32_t IDT_CPS_pc_get_config(
     uint8_t  quad_cfg;
     uint8_t  lane_num, first_lane, last_lane, pll_num;
     cps_port_info_t  pi;
-    uint32_t pll_ctl1, lane_ctl, spx_ctl1;
+    uint32_t pll_ctl1, lane_ctl, spx_ctl1, spx_errstat, spx_ops;
 	struct DAR_ptl good_ptl;
 
     out_parms->num_ports = 0;
@@ -467,6 +469,8 @@ uint32_t IDT_CPS_pc_get_config(
 
         out_parms->pc[port_idx].pw = idt_pc_pw_last;
         out_parms->pc[port_idx].ls = idt_pc_ls_last;
+        out_parms->pc[port_idx].iseq = idt_pc_is_last;
+        out_parms->pc[port_idx].fc = idt_pc_fc_last;
         out_parms->pc[port_idx].xmitter_disable = false;
         out_parms->pc[port_idx].port_lockout = false;
 		out_parms->pc[port_idx].nmtc_xfer_enable = false;
@@ -530,6 +534,18 @@ uint32_t IDT_CPS_pc_get_config(
                  goto idt_CPS_pc_get_config_exit;
               };
 
+              rc = DARRegRead( dev_info, CPS1848_PORT_X_ERR_STAT_CSR(pnum), &spx_errstat );
+              if (RIO_SUCCESS != rc) {
+                 out_parms->imp_rc = PC_GET_CONFIG(0x21);
+                 goto idt_CPS_pc_get_config_exit;
+              };
+
+              rc = DARRegRead(dev_info, CPS1848_PORT_X_OPS(pnum), &spx_ops);
+              if (RIO_SUCCESS != rc) {
+                 out_parms->imp_rc = PC_GET_CONFIG(0x22);
+                 goto idt_CPS_pc_get_config_exit;
+              };
+
               switch (pi.cpr[pnum].cfg[quad_cfg].lane_count) {
                   case 1: out_parms->pc[port_idx].pw = idt_pc_pw_1x;
                           break;
@@ -569,7 +585,7 @@ uint32_t IDT_CPS_pc_get_config(
                        break;
    
                   default: rc = RIO_ERR_SW_FAILURE;
-                           out_parms->imp_rc = PC_GET_CONFIG(0x21);
+                           out_parms->imp_rc = PC_GET_CONFIG(0x25);
                            goto idt_CPS_pc_get_config_exit;
               };
    
@@ -603,9 +619,23 @@ uint32_t IDT_CPS_pc_get_config(
                  out_parms->pc[port_idx].port_lockout = true;
               };
 
-			  // Note: 1432 & 1848 Rev C has errata about maintenance packet handling
-			  // OUTPUT_EN should always be set.
-			  if ((DEV_CODE(dev_info) == IDT_CPS1848_DEV_ID ) || \
+		/* Determine Idle Sequence enabled  */
+		if (spx_errstat & CPS1848_PORT_X_ERR_STAT_CSR_IDLE2_EN) {
+                 	out_parms->pc[port_idx].iseq = idt_pc_is_two;
+		} else {
+                 	out_parms->pc[port_idx].iseq = idt_pc_is_one;
+		};
+
+		/* Determine Flow Control enabled  */
+		if (spx_ops & CPS1848_PORT_X_OPS_TX_FLOW_CTL_DIS) {
+                 	out_parms->pc[port_idx].fc = idt_pc_fc_rx;
+		} else {
+                 	out_parms->pc[port_idx].fc = idt_pc_fc_tx;
+		};
+
+	  // Note: 1432 & 1848 Rev C has errata about maintenance packet handling
+	  // OUTPUT_EN should always be set.
+		if ((DEV_CODE(dev_info) == IDT_CPS1848_DEV_ID ) || \
                    (DEV_CODE(dev_info) == IDT_CPS1432_DEV_ID )) {
 				if (spx_ctl1 & CPS1848_PORT_X_CTL_1_CSR_INPUT_PORT_EN) {
 					out_parms->pc[port_idx].nmtc_xfer_enable = true;
@@ -709,6 +739,7 @@ uint32_t CPS_set_config_init_parms_check_conflict( DAR_DEV_INFO_t          *dev_
              if (( sorted->pc[pnum].pw >= idt_pc_pw_last ) ||
                  ( sorted->pc[pnum].ls >= idt_pc_ls_last ) ||
                  ( sorted->pc[pnum].tx_lswap             ) ||
+                 ( sorted->pc[pnum].iseq == idt_pc_is_three) ||
                  ( sorted->pc[pnum].rx_lswap             )) {
                 *fail_pt = PC_SET_CONFIG(0x12);
                 goto chk_parms_exit;
@@ -834,7 +865,7 @@ uint32_t CPS_set_config_init_parms_check_conflict( DAR_DEV_INFO_t          *dev_
           *fail_pt = PC_SET_CONFIG(0x33);
           goto chk_parms_exit;
        };
-       rc = DARRegRead( dev_info, CPS1848_LANE_X_uint32_t_4_CSR(lane), &regs->lanes[lane].l_stat_4 );
+       rc = DARRegRead( dev_info, CPS1848_LANE_X_STATUS_4_CSR(lane), &regs->lanes[lane].l_stat_4 );
        if (RIO_SUCCESS != rc) {
           *fail_pt = PC_SET_CONFIG(0x33);
           goto chk_parms_exit;
@@ -847,6 +878,16 @@ uint32_t CPS_set_config_init_parms_check_conflict( DAR_DEV_INFO_t          *dev_
        if (RIO_ALL_PORTS == sorted->pc[port_idx].pnum)
           continue;
        rc = DARRegRead( dev_info, CPS1848_PORT_X_CTL_1_CSR(port_idx), &regs->ports[port_idx].p_ctl1 );
+       if (RIO_SUCCESS != rc) {
+          *fail_pt = PC_SET_CONFIG(0x34);
+          goto chk_parms_exit;
+       };
+       rc = DARRegRead( dev_info, CPS1848_PORT_X_OPS(port_idx), &regs->ports[port_idx].p_ops );
+       if (RIO_SUCCESS != rc) {
+          *fail_pt = PC_SET_CONFIG(0x34);
+          goto chk_parms_exit;
+       };
+       rc = DARRegRead( dev_info, CPS1848_PORT_X_ERR_STAT_CSR(port_idx), &regs->ports[port_idx].p_errstat );
        if (RIO_SUCCESS != rc) {
           *fail_pt = PC_SET_CONFIG(0x34);
           goto chk_parms_exit;
@@ -1014,18 +1055,18 @@ uint32_t compute_baudrate_config( DAR_DEV_INFO_t          *dev_info,
                                   break;
             case idt_pc_ls_1p25 : // Lane speed 0 is selected by clearing TX & RX Rates
                                   chgd->lanes[lane_num].l_ctl   &= ~(CPS1848_LANE_X_CTL_RX_RATE | CPS1848_LANE_X_CTL_TX_RATE);
-				  chgd->lanes[lane_num].l_stat_4 = CPS1848_LANE_X_uint32_t_4_CSR_CC_MONITOR_THRESH;
+				  chgd->lanes[lane_num].l_stat_4 = CPS1848_LANE_X_STATUS_4_CSR_CC_MONITOR_THRESH;
                                   break;
             case idt_pc_ls_2p5  :
             case idt_pc_ls_3p125: chgd->lanes[lane_num].l_ctl &= ~(CPS1848_LANE_X_CTL_RX_RATE | CPS1848_LANE_X_CTL_TX_RATE);
                                   chgd->lanes[lane_num].l_ctl |= CPS1848_LANE_X_CTL_SPD1;
-				  chgd->lanes[lane_num].l_stat_4 = CPS1848_LANE_X_uint32_t_4_CSR_CC_MONITOR_THRESH;
+				  chgd->lanes[lane_num].l_stat_4 = CPS1848_LANE_X_STATUS_4_CSR_CC_MONITOR_THRESH;
                                   break;
             case idt_pc_ls_5p0  :
             case idt_pc_ls_6p25 : chgd->lanes[lane_num].l_ctl &= ~(CPS1848_LANE_X_CTL_RX_RATE | CPS1848_LANE_X_CTL_TX_RATE);
                                   chgd->lanes[lane_num].l_ctl |= CPS1848_LANE_X_CTL_SPD2;
-				  chgd->lanes[lane_num].l_stat_4 = CPS1848_LANE_X_uint32_t_4_CSR_CC_MONITOR_THRESH | 
-					                           CPS1848_LANE_X_uint32_t_4_CSR_CC_MONITOR_EN;
+				  chgd->lanes[lane_num].l_stat_4 = CPS1848_LANE_X_STATUS_4_CSR_CC_MONITOR_THRESH | 
+					                           CPS1848_LANE_X_STATUS_4_CSR_CC_MONITOR_EN;
                                   break;
             default: *fail_pt = PC_SET_CONFIG(0x61);
                      goto compute_baudrate_config_exit;
@@ -1135,7 +1176,7 @@ uint32_t compute_laneswap_config( DAR_DEV_INFO_t        *dev_info,
          chgd->ports[pnum].p_ctl1 &= ~CPS1848_PORT_X_CTL_1_CSR_PORT_LOCKOUT;
       };
 
-	  if (sorted->pc[pnum].nmtc_xfer_enable) {
+      if (sorted->pc[pnum].nmtc_xfer_enable) {
          chgd->ports[pnum].p_ctl1 |= CPS1848_PORT_X_CTL_1_CSR_INPUT_PORT_EN | CPS1848_PORT_X_CTL_1_CSR_OUTPUT_PORT_EN;
       } else {
 		 // Note: 1432 & 1848 Rev C has errata about maintenance packet handling
@@ -1147,6 +1188,40 @@ uint32_t compute_laneswap_config( DAR_DEV_INFO_t        *dev_info,
          } else { /* SPS1616 CASE */
 			chgd->ports[pnum].p_ctl1 &= ~(CPS1848_PORT_X_CTL_1_CSR_INPUT_PORT_EN | CPS1848_PORT_X_CTL_1_CSR_OUTPUT_PORT_EN);
 		 };
+      };
+
+      switch (sorted->pc[pnum].iseq) {
+	case idt_pc_is_one:
+         	chgd->ports[pnum].p_errstat &= 
+					~CPS1848_PORT_X_ERR_STAT_CSR_IDLE2_EN;
+		break;
+	case idt_pc_is_two:
+         	chgd->ports[pnum].p_errstat |= 
+					CPS1848_PORT_X_ERR_STAT_CSR_IDLE2_EN;
+		break;
+	case idt_pc_is_last: /* No chnage to idle sequence */
+			break;
+	default: 
+		/* Should never get here, illegal value that would be detected
+		as part of parameter checking */
+		break;
+      };
+
+      switch (sorted->pc[pnum].fc) {
+	case idt_pc_fc_rx:
+         	chgd->ports[pnum].p_ops |= 
+					CPS1848_PORT_X_OPS_TX_FLOW_CTL_DIS;
+		break;
+	case idt_pc_fc_tx:
+         	chgd->ports[pnum].p_errstat &= 
+					~CPS1848_PORT_X_OPS_TX_FLOW_CTL_DIS;
+		break;
+	case idt_pc_fc_last: /* No chnage to idle sequence */
+			break;
+	default: 
+		/* Should never get here, illegal value that would be detected
+		as part of parameter checking */
+		break;
       };
 
       // Must compute the override value
@@ -1437,9 +1512,14 @@ uint32_t CPS_set_config_preserve_host_port( DAR_DEV_INFO_t          *dev_info,
 
    // Make sure that this port does not get PORT_DIS or PORT_LOCKOUT set, 
    // or change the port width override setting.
+   // Or change idle sequence, or flow control setting, as found in err_stat
+   // and ops respectively...
    chgd->ports[pnum].p_ctl1 &= ~(CPS1848_PORT_X_CTL_1_CSR_PORT_DIS | CPS1848_PORT_X_CTL_1_CSR_PWIDTH_OVRD | 
                                  CPS1848_PORT_X_CTL_1_CSR_PORT_LOCKOUT);
    chgd->ports[pnum].p_ctl1 |= (regs->ports[pnum].p_ctl1           & CPS1848_PORT_X_CTL_1_CSR_PWIDTH_OVRD );
+
+   chgd->ports[pnum].p_errstat = regs->ports[pnum].p_errstat;
+   chgd->ports[pnum].p_ops = regs->ports[pnum].p_ops;
 
    rc = RIO_SUCCESS;
 
@@ -1466,11 +1546,11 @@ reset_reg_vals_t CPS_reset_reg_vals[ARRAY_SIZE_CPS_RESET_REG_VALS] = {
    {0x00000000, 0xffffffff, CPS1848_PORT_X_CAPT_3_CSR(0)         ,  0x040, 0x000, false, true},
    {0x80000000, 0xffffffff, CPS1848_PORT_X_ERR_RATE_CSR(0)       ,  0x040, 0x000, false, true},
    {0xFFFF0000, 0xffffffff, CPS1848_PORT_X_ERR_RATE_THRESH_CSR(0),  0x040, 0x000, false, true},
-   {0x00000000, 0xffffffff, CPS1848_LANE_X_uint32_t_0_CSR(0)       ,  0x000, 0x020, true , false}, // Register values change
-   {0x00000000, 0xffffffff, CPS1848_LANE_X_uint32_t_1_CSR(0)       ,  0x000, 0x020, true , false}, // Register values change
-   {0x00000000, 0xffffffff, CPS1848_LANE_X_uint32_t_2_CSR(0)       ,  0x000, 0x020, false, true},
-   {0xDFF80000, 0xffffffff, CPS1848_LANE_X_uint32_t_3_CSR(0)       ,  0x000, 0x020, false, true},
-   {0x80011388, 0xffffffff, CPS1848_LANE_X_uint32_t_4_CSR(0)       ,  0x000, 0x020, false, false}, // idtPcSetConfig legitimately messes with these registers
+   {0x00000000, 0xffffffff, CPS1848_LANE_X_STATUS_0_CSR(0)       ,  0x000, 0x020, true , false}, // Register values change
+   {0x00000000, 0xffffffff, CPS1848_LANE_X_STATUS_1_CSR(0)       ,  0x000, 0x020, true , false}, // Register values change
+   {0x00000000, 0xffffffff, CPS1848_LANE_X_STATUS_2_CSR(0)       ,  0x000, 0x020, false, true},
+   {0xDFF80000, 0xffffffff, CPS1848_LANE_X_STATUS_3_CSR(0)       ,  0x000, 0x020, false, true},
+   {0x80011388, 0xffffffff, CPS1848_LANE_X_STATUS_4_CSR(0)       ,  0x000, 0x020, false, false}, // idtPcSetConfig legitimately messes with these registers
 
    {0x000020C4, 0xffffffff, CPS1848_PORT_X_WM(0)                 ,  0x010, 0x000, false, true},
    {0x00000000, 0xffffffff, CPS1848_PORT_X_ERR_RPT_EN(0)         ,  0x040, 0x000, false, true},
@@ -1512,7 +1592,7 @@ reset_reg_vals_t CPS_reset_reg_vals[ARRAY_SIZE_CPS_RESET_REG_VALS] = {
    {0x00000000, 0xffffffff, CPS1848_PORT_X_VC0_TTL_DROP_CNTR(0)  ,  0x100, 0x000, true , true},
    {0x00000000, 0xffffffff, CPS1848_PORT_X_VC0_CRC_LIMIT_DROP_CNTR(0), 0x100, 0x000, true , true},
    {0xFFFF0000, 0xffffffff, CPS1848_PORT_X_RETRY_CNTR(0)         ,  0x100, 0x000, true , true},
-   {0x00000004, 0xfffffffB, CPS1848_PORT_X_uint32_t_AND_CTL(0)     ,  0x100, 0x000, false, true},   
+   {0x00000004, 0xfffffffB, CPS1848_PORT_X_STATUS_AND_CTL(0)     ,  0x100, 0x000, false, true},   
 // {0x00000000, 0xffffffff, CPS1848_PLL_X_CTL_1(0)               ,  0x010, 0x000, false, true}, // Handled elsewhere by pc_set_cfg
 // {0x00000000, 0xffffffff, CPS1848_PLL_X_CTL_2(0)               ,  0x010, 0x000, false, true}, // Handled elsewhere by pc_set_cfg
 
@@ -1721,6 +1801,13 @@ uint32_t CPS_set_config_write_changes( DAR_DEV_INFO_t          *dev_info,
          };
       };
 
+	/* See if need to reset port for idle sequence or flow control change */
+	if ((regs->ports[pnum].p_errstat != chgd->ports[pnum].p_errstat) ||
+	    (regs->ports[pnum].p_ops != chgd->ports[pnum].p_ops)) {
+		make_chg = true;
+            	reset_val |= 1 << pnum;
+	};
+
       if (make_chg) {
          uint8_t  dep_pidx, dep_pnum = 0xFF;
          uint32_t ctl1;
@@ -1802,7 +1889,7 @@ uint32_t CPS_set_config_write_changes( DAR_DEV_INFO_t          *dev_info,
             };
 
             if (regs->lanes[lane_num].l_stat_4 != chgd->lanes[lane_num].l_stat_4) { 
-               rc = DARRegWrite( dev_info, CPS1848_LANE_X_uint32_t_4_CSR(lane_num), chgd->lanes[lane_num].l_stat_4 );
+               rc = DARRegWrite( dev_info, CPS1848_LANE_X_STATUS_4_CSR(lane_num), chgd->lanes[lane_num].l_stat_4 );
                if (RIO_SUCCESS != rc) {
                   *fail_pt = PC_SET_CONFIG(0x97);
                   goto write_changes_exit;
@@ -1844,7 +1931,7 @@ uint32_t CPS_set_config_write_changes( DAR_DEV_INFO_t          *dev_info,
                   };
 
                   if (regs->lanes[lane_num].l_stat_4 != chgd->lanes[lane_num].l_stat_4) { 
-                     rc = DARRegWrite( dev_info, CPS1848_LANE_X_uint32_t_4_CSR(lane_num), chgd->lanes[lane_num].l_stat_4 );
+                     rc = DARRegWrite( dev_info, CPS1848_LANE_X_STATUS_4_CSR(lane_num), chgd->lanes[lane_num].l_stat_4 );
                      if (RIO_SUCCESS != rc) {
                         *fail_pt = PC_SET_CONFIG(0x98);
                         goto write_changes_exit;
@@ -1873,6 +1960,24 @@ uint32_t CPS_set_config_write_changes( DAR_DEV_INFO_t          *dev_info,
             regs->glob_info.pll_ctl_vals[pll_num] = chgd->glob_info.pll_ctl_vals[pll_num];
          };
 
+	 // Update ops and errstat registers
+
+	 if (regs->ports[pnum].p_ops != chgd->ports[pnum].p_ops) {
+         	rc = DARRegWrite(dev_info, CPS1848_PORT_X_OPS(pnum),
+						chgd->ports[pnum].p_ops );
+               if (RIO_SUCCESS != rc) {
+                  *fail_pt = PC_SET_CONFIG(0xB8);
+                  goto write_changes_exit;
+               };
+	};
+	 if (regs->ports[pnum].p_errstat != chgd->ports[pnum].p_errstat) {
+         	rc = DARRegWrite(dev_info, CPS1848_PORT_X_ERR_STAT_CSR(pnum),
+						chgd->ports[pnum].p_errstat );
+               if (RIO_SUCCESS != rc) {
+                  *fail_pt = PC_SET_CONFIG(0xB9);
+                  goto write_changes_exit;
+               };
+	};
          // Lanes and PLL controls are all updated,
          // time to reset the PLLs and lanes...
 
@@ -1893,6 +1998,7 @@ uint32_t CPS_set_config_write_changes( DAR_DEV_INFO_t          *dev_info,
                goto write_changes_exit;
             };
          };
+
          // And finally, remove the "port disable" as necessary...
          if (dep_ports) { 
             for (dep_pidx = 0; (dep_pidx < MAX_CPS_DEP_PORTS) && (RIO_ALL_PORTS != pi->cpr[pnum].cfg[quad_cfg].other_ports[dep_pidx]); dep_pidx++) {
@@ -2037,7 +2143,7 @@ uint32_t IDT_CPS_pc_get_status(
     idt_pc_get_status_out_t  *out_parms )
 {
     uint32_t rc = RIO_ERR_INVALID_PARAMETER;
-    uint32_t err_stat, ctl1, err_det;
+    uint32_t err_stat, ctl1, err_det, stat_ctl;
     uint8_t  pnum, quad_cfg, port_idx;
     cps_port_info_t  pi;
 	struct DAR_ptl good_ptl;
@@ -2072,6 +2178,8 @@ uint32_t IDT_CPS_pc_get_status(
         out_parms->ps[port_idx].port_error     = false ;
         out_parms->ps[port_idx].input_stopped  = false ;
         out_parms->ps[port_idx].output_stopped = false ;
+        out_parms->ps[port_idx].fc = idt_pc_fc_last ;
+        out_parms->ps[port_idx].iseq = idt_pc_is_last ;
 
         out_parms->ps[port_idx].num_lanes  = pi.cpr[pnum].cfg[quad_cfg].lane_count; 
         out_parms->ps[port_idx].first_lane = pi.cpr[pnum].cfg[quad_cfg].first_lane;
@@ -2092,6 +2200,12 @@ uint32_t IDT_CPS_pc_get_status(
               rc = DARRegRead( dev_info, CPS1848_PORT_X_CTL_1_CSR(pnum), &ctl1);
               if (RIO_SUCCESS != rc) {
                  out_parms->imp_rc = PC_GET_uint32_t(4);
+                 goto idt_CPS_pc_get_status_exit;
+              };
+
+              rc = DARRegRead( dev_info, CPS1848_PORT_X_STATUS_AND_CTL(pnum), &stat_ctl);
+              if (RIO_SUCCESS != rc) {
+                 out_parms->imp_rc = PC_GET_uint32_t(5);
                  goto idt_CPS_pc_get_status_exit;
               };
 
@@ -2130,6 +2244,18 @@ uint32_t IDT_CPS_pc_get_status(
         
               if ( err_stat & CPS1848_PORT_X_ERR_STAT_CSR_PORT_ERR )
                   out_parms->ps[port_idx].port_error = true ;
+
+              if ( err_stat & CPS1848_PORT_X_ERR_STAT_CSR_IDLE_SEQ ) {
+                  out_parms->ps[port_idx].iseq = idt_pc_is_two;
+		} else {
+                  out_parms->ps[port_idx].iseq = idt_pc_is_one;
+		};
+
+              if ( stat_ctl & CPS1848_PORT_X_STATUS_AND_CTL_RX_FC ) {
+                  out_parms->ps[port_idx].fc = idt_pc_fc_rx;
+		} else {
+                  out_parms->ps[port_idx].fc = idt_pc_fc_tx;
+		};
 
               if ( err_stat & CPS1848_PORT_X_ERR_STAT_CSR_OUTPUT_FAIL ) {
                  if (ctl1 & CPS1848_PORT_X_CTL_1_CSR_DROP_PKT_EN)
@@ -2418,13 +2544,13 @@ uint32_t set_int_pw_ignore_reset( DAR_DEV_INFO_t      *dev_info,
       *policy_out = idt_pc_rst_ignore;
 
       for (pnum = start_port; pnum <= end_port; pnum++) {
-         rc = DARRegRead( dev_info, CPS1616_PORT_X_uint32_t_AND_CTL(pnum), &regVal );
+         rc = DARRegRead( dev_info, CPS1616_PORT_X_STATUS_AND_CTL(pnum), &regVal );
          if (RIO_SUCCESS != rc) {
             *fail_pt = 1;
             goto set_int_pw_ignore_reset_exit;
          };
-         rc = DARRegWrite( dev_info, CPS1616_PORT_X_uint32_t_AND_CTL(pnum), 
-                            regVal | CPS1616_PORT_X_uint32_t_AND_CTL_IGNORE_RST_CS );
+         rc = DARRegWrite( dev_info, CPS1616_PORT_X_STATUS_AND_CTL(pnum), 
+                            regVal | CPS1616_PORT_X_STATUS_AND_CTL_IGNORE_RST_CS );
          if (RIO_SUCCESS != rc) {
             *fail_pt = 2;
             goto set_int_pw_ignore_reset_exit;
@@ -2513,19 +2639,19 @@ uint32_t IDT_CPS_pc_secure_port (
 
 		/* Only SPS1616 supports ignoring MECS */
 		if ((IDT_SPS1616_DEV_ID == DEV_CODE(dev_info)) || (IDT_CPS1616_DEV_ID == DEV_CODE(dev_info))) {
-		   rc = DARRegRead( dev_info, CPS1616_PORT_X_uint32_t_AND_CTL(pnum), &regVal );
+		   rc = DARRegRead( dev_info, CPS1616_PORT_X_STATUS_AND_CTL(pnum), &regVal );
 		   if ( RIO_SUCCESS != rc ) {
 			  out_parms->imp_rc = PC_SECURE_PORT(0x10);
 			  goto IDT_CPS_pc_secure_port_exit;
 		   };
 
 		   if ( in_parms->MECS_acceptance ) {
-			  regVal &= ~CPS1616_PORT_X_uint32_t_AND_CTL_IGNORE_MC_CS;
+			  regVal &= ~CPS1616_PORT_X_STATUS_AND_CTL_IGNORE_MC_CS;
 		   } else {
-			  regVal |= CPS1616_PORT_X_uint32_t_AND_CTL_IGNORE_MC_CS;
+			  regVal |= CPS1616_PORT_X_STATUS_AND_CTL_IGNORE_MC_CS;
 		   };
 
-		   rc = DARRegWrite( dev_info, CPS1616_PORT_X_uint32_t_AND_CTL(pnum), regVal );
+		   rc = DARRegWrite( dev_info, CPS1616_PORT_X_STATUS_AND_CTL(pnum), regVal );
 		   if ( RIO_SUCCESS != rc ) {
 			  out_parms->imp_rc = PC_SECURE_PORT(0x11);
 			  goto IDT_CPS_pc_secure_port_exit;

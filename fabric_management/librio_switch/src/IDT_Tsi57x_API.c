@@ -498,6 +498,8 @@ uint32_t idt_tsi57x_pc_get_config  ( DAR_DEV_INFO_t           *dev_info,
         port_num = out_parms->pc[port_idx].pnum;
 	out_parms->pc[port_idx].pw = idt_pc_pw_last;
         out_parms->pc[port_idx].ls = idt_pc_ls_last;
+        out_parms->pc[port_idx].fc = idt_pc_fc_rx;
+        out_parms->pc[port_idx].iseq = idt_pc_is_one;
         out_parms->pc[port_idx].nmtc_xfer_enable = false;
         out_parms->pc[port_idx].xmitter_disable = false;
         out_parms->pc[port_idx].port_lockout = false;

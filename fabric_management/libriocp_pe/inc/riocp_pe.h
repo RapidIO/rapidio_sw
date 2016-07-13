@@ -128,6 +128,8 @@ struct riocp_pe_driver {
 				struct riocp_pe_port_state_t *state);
 	int RIOCP_WU (* port_start)(struct riocp_pe *pe, uint8_t port);
 	int RIOCP_WU (* port_stop)(struct riocp_pe *pe, uint8_t port);
+	int RIOCP_WU (* reset_port)(struct riocp_pe *pe, uint8_t port,
+								bool reset_lp);
 
 	int RIOCP_WU (* set_route_entry)(struct riocp_pe *pe,
 			pe_port_t port, uint32_t did, pe_rt_val rt_val);
@@ -195,6 +197,9 @@ int RIOCP_WU riocp_pe_update_comptag(riocp_pe_handle pe, uint32_t *comptag,
 					uint32_t did, uint32_t wr_did);
 
 int RIOCP_WU riocp_pe_clear_enumerated(struct riocp_pe *pe);
+
+int RIOCP_WU riocp_pe_reset_port(riocp_pe_handle sw, pe_port_t port,
+	bool reset_lp);
 
 /* Routing */
 int RIOCP_WU riocp_sw_get_route_entry(riocp_pe_handle sw, pe_port_t port,

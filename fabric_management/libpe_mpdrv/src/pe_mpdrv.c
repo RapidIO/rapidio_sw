@@ -354,18 +354,19 @@ fail:
 
 int generic_device_init(struct riocp_pe *pe, uint32_t *ct)
 {
+	uint32_t port_info;
 	struct mpsw_drv_private_data *priv = NULL;
 	DAR_DEV_INFO_t *dev_h = NULL;
 	struct DAR_ptl ptl;
+	idt_pc_set_config_in_t set_pc_in;
 	idt_pc_dev_reset_config_in_t    rst_in = {idt_pc_rst_port};
 	idt_pc_dev_reset_config_out_t   rst_out;
 	idt_pc_get_status_in_t	  ps_in;
 	idt_pc_get_config_in_t	  pc_in;
 	idt_rt_probe_all_in_t	   rt_in;
 	idt_rt_probe_all_out_t	  rt_out;
-	/* FIXME: Commented out temporarily to avoid build error. */
-	// idt_sc_init_dev_ctrs_in_t       sc_in;
-	// idt_sc_init_dev_ctrs_out_t      sc_out;
+	idt_sc_init_dev_ctrs_in_t       sc_in;
+	idt_sc_init_dev_ctrs_out_t      sc_out;
 	idt_em_dev_rpt_ctl_in_t	 rpt_in;
 	int rc = 1;
 
@@ -443,6 +444,34 @@ int generic_device_init(struct riocp_pe *pe, uint32_t *ct)
 	if (RIO_SUCCESS != rc)
 		goto exit;
 
+	set_pc_in.lrto = 50; /* 5 microsecond link timeout */
+	set_pc_in.log_rto = 500; /* 50 microsecond logical response timeout */
+	set_pc_in.oob_reg_acc = false;
+	set_pc_in.num_ports = priv->st.pc.num_ports;
+	memcpy(set_pc_in.pc, priv->st.pc.pc, sizeof(priv->st.pc));
+
+/* Commented out for now to avoid possible issues with port resets in
+ * larger configurations.
+ */
+/*
+	for (int i = 0; i < priv->st.pc.num_ports; i++) {
+		set_pc_in.pc[i].fc = idt_pc_fc_rx;
+		set_pc_in.pc[i].iseq = idt_pc_is_one;
+	};
+*/
+
+	rc = mpsw_drv_raw_reg_rd(pe, pe->destid, pe->hopcount, RIO_SW_PORT_INF,
+				&port_info);
+	if (rc) {
+		CRIT("Unable to port info %d:%s\n", rc, strerror(rc));
+		goto exit;
+	};
+	set_pc_in.reg_acc_port = RIO_ACCESS_PORT(port_info);
+	
+	rc = idt_pc_set_config(dev_h, &set_pc_in, &priv->st.pc);
+	if (RIO_SUCCESS != rc)
+		goto exit;
+
 	ps_in.ptl.num_ports = RIO_ALL_PORTS;
 	rc = idt_pc_get_status(dev_h, &ps_in, &priv->st.ps);
 	if (RIO_SUCCESS != rc)
@@ -484,8 +513,6 @@ int generic_device_init(struct riocp_pe *pe, uint32_t *ct)
 	};
 
 	/* Initialize performance counter structure */
-	/* FIXME: Commented out temporarily to avoid build error. */
-	/*
 	sc_in.ptl.num_ports = RIO_ALL_PORTS;
 	sc_in.dev_ctrs = &priv->st.sc_dev;
 	priv->st.sc_dev.num_p_ctrs   = IDT_MAX_PORTS;
@@ -495,7 +522,6 @@ int generic_device_init(struct riocp_pe *pe, uint32_t *ct)
 	rc = idt_sc_init_dev_ctrs(dev_h, &sc_in, &sc_out);
 	if (RIO_SUCCESS != rc)
 		goto exit;
-	*/
 
 	if (!RIOCP_PE_IS_HOST(pe))
 		goto exit;
@@ -1103,6 +1129,50 @@ fail:
 	return 1;
 };
 
+int mpsw_drv_reset_port(struct riocp_pe  *pe, pe_port_t port, bool reset_lp)
+{
+	struct mpsw_drv_private_data *p_dat = NULL;
+	int ret;
+	idt_pc_reset_port_in_t reset_in;
+	idt_pc_reset_port_out_t reset_out;
+
+	DBG("ENTRY\n");
+	if (riocp_pe_handle_get_private(pe, (void **)&p_dat)) {
+		DBG("Private Data does not exist EXITING!\n");
+		goto fail;
+	};
+
+	if (!p_dat->dev_h_valid) {
+		DBG("Device handle not valid EXITING!\n");
+		goto fail;
+	};
+
+	if (port >= NUM_PORTS(&p_dat->dev_h)) {
+		DBG("Port illegal, EXITING!\n");
+		goto fail;
+	};
+
+	reset_in.port_num = port;
+	reset_in.oob_reg_acc = false;
+	reset_in.reg_acc_port = RIOCP_PE_SW_PORT(pe->cap);
+	reset_in.reset_lp = reset_lp;
+	reset_in.preserve_config = true;
+
+	ret = idt_pc_reset_port(&p_dat->dev_h, &reset_in, &reset_out);
+	if (ret) {
+		DBG("PC_reset_port %s port %d ret 0x%x imp_rc 0x%x\n",
+			pe->name?pe->name:"Unknown", port, ret,
+			reset_out.imp_rc);
+		goto fail;
+	};
+
+	DBG("EXIT\n");
+	return 0;
+fail:
+	DBG("FAIL\n");
+	return 1;
+};
+
 int mpsw_drv_get_port_state(struct riocp_pe  *pe, pe_port_t port,
 			struct riocp_pe_port_state_t *state)
 {
@@ -1215,6 +1285,7 @@ struct riocp_pe_driver pe_mpsw_driver = {
 	mpsw_drv_get_port_state,
 	mpsw_drv_port_start,
 	mpsw_drv_port_stop,
+	mpsw_drv_reset_port,
 	mpsw_drv_set_route_entry,
 	mpsw_drv_get_route_entry,
 	mpsw_drv_alloc_mcast_mask,

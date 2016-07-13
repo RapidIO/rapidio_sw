@@ -111,20 +111,22 @@ int riocp_pe_switch_port_set_enumerated(struct riocp_pe *sw, uint8_t port)
 
 uint32_t drvr_ok = 0;
 
-struct riocp_pe_driver drvr =
-{ NULL,
+struct riocp_pe_driver drvr = {
 NULL,
 NULL,
 NULL,
 NULL,
-NULL, 
-NULL, 
-NULL, 
-NULL, 
-NULL, 
-NULL, 
 NULL,
-NULL };
+NULL,
+NULL,
+NULL,
+NULL,
+NULL,
+NULL,
+NULL,
+NULL,
+NULL
+};
 
 /**
 * @brief Bind driver routines which support all devices.
@@ -240,6 +242,22 @@ int RIOCP_WU riocp_drv_port_stop(struct riocp_pe *pe, pe_port_t port)
 {
 	if (drvr.port_start && drvr_ok)
 		return drvr.port_start(pe, port);
+	else
+		return -ENOSYS;
+}
+
+/**
+* @brief Halt all activity on this port and power it down if possible
+*
+* @param[in] pe Processing element whose port should be stopped
+* @param[in] port Stop this port number
+*
+*/
+int RIOCP_WU riocp_drv_reset_port(struct riocp_pe *pe, pe_port_t port,
+							bool reset_lp)
+{
+	if (drvr.reset_port && drvr_ok)
+		return drvr.reset_port(pe, port, reset_lp);
 	else
 		return -ENOSYS;
 }

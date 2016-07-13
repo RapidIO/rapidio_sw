@@ -75,6 +75,19 @@ char *rst_to_str[(int)(idt_pc_rst_ignore)+1] = {
 	(char *)"Ignr"
 };
 
+char *fc_to_str[(int)(idt_pc_fc_last)+1] = {
+	(char *)"RX",
+	(char *)"TX",
+	(char *)"??"
+};
+
+char *is_to_str[(int)(idt_pc_is_last)+1] = {
+	(char *)"IDLE1",
+	(char *)"IDLE2",
+	(char *)"IDLE3",
+	(char *)"UNKWN"
+};
+
 uint32_t idt_pc_get_config( DAR_DEV_INFO_t           *dev_info, 
                           idt_pc_get_config_in_t   *in_parms, 
                           idt_pc_get_config_out_t  *out_parms )

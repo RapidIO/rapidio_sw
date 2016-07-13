@@ -79,6 +79,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "fmd_mgmt_cli.h"
 #include "fmd_mgmt_master.h"
 #include "fmd_dev_rw_cli.h"
+#include "fmd_dev_conf_cli.h"
 #include "fmd_opts.h"
 #include "libfmdd.h"
 #include "pe_mpdrv_private.h"
@@ -268,6 +269,7 @@ void spawn_threads(struct fmd_opt_vals *cfg)
 	// fmd_bind_dbg_cmds();
 	fmd_bind_mgmt_dbg_cmds();
 	fmd_bind_dev_rw_cmds();
+	fmd_bind_dev_conf_cmds();
 
 	/* Create independent threads each of which will execute function */
 	poll_ret = pthread_create( &poll_thread, NULL, poll_loop, 

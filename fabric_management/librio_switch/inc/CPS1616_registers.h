@@ -81,12 +81,12 @@ extern "C" {
 #define CPS1616_PORT_X_CAPT_3_CSR(X)                       (0x1058 + 0x040*(X))
 #define CPS1616_PORT_X_ERR_RATE_CSR(X)                     (0x1068 + 0x040*(X))
 #define CPS1616_PORT_X_ERR_RATE_THRESH_CSR(X)              (0x106c + 0x040*(X))
-#define CPS1616_LANE_uint32_t_BLK_HEAD                               (0x00002000)
-#define CPS1616_LANE_X_uint32_t_0_CSR(X)                     (0x2010 + 0x020*(X))
-#define CPS1616_LANE_X_uint32_t_1_CSR(X)                     (0x2014 + 0x020*(X))
-#define CPS1616_LANE_X_uint32_t_2_CSR(X)                     (0x2018 + 0x020*(X))
-#define CPS1616_LANE_X_uint32_t_3_CSR(X)                     (0x201c + 0x020*(X))
-#define CPS1616_LANE_X_uint32_t_4_CSR(X)                     (0x2020 + 0x020*(X))
+#define CPS1616_LANE_STATUS_BLK_HEAD                               (0x00002000)
+#define CPS1616_LANE_X_STATUS_0_CSR(X)                     (0x2010 + 0x020*(X))
+#define CPS1616_LANE_X_STATUS_1_CSR(X)                     (0x2014 + 0x020*(X))
+#define CPS1616_LANE_X_STATUS_2_CSR(X)                     (0x2018 + 0x020*(X))
+#define CPS1616_LANE_X_STATUS_3_CSR(X)                     (0x201c + 0x020*(X))
+#define CPS1616_LANE_X_STATUS_4_CSR(X)                     (0x2020 + 0x020*(X))
 #define CPS1616_RTE_PORT_SEL                                       (0x00010070)
 #define CPS1616_MCAST_RTE_SEL                                      (0x00010080)
 #define CPS1616_PORT_X_WM(X)                              (0x11000 + 0x010*(X))
@@ -206,8 +206,8 @@ extern "C" {
 #define CPS1616_SWITCH_PARAM_2                                     (0x00f2006c)
 #define CPS1616_DEVICE_PW_TIMEOUT                                  (0x00f20180)
 #define CPS1616_DEVICE_PW_PNDG                                     (0x00f20184)
-#define CPS1616_DEVICE_INT_uint32_t_0                                (0x00f20188)
-#define CPS1616_DEVICE_INT_uint32_t_1                                (0x00f2018c)
+#define CPS1616_DEVICE_INT_STATUS_0                                (0x00f20188)
+#define CPS1616_DEVICE_INT_STATUS_1                                (0x00f2018c)
 #define CPS1616_QUAD_CFG                                           (0x00f20200)
 #define CPS1616_DEVICE_RESET_CTL                                   (0x00f20300)
 #define CPS1616_BCAST__MCAST_MASK_X(X)                   (0xf30000 + 0x004*(X))
@@ -239,7 +239,7 @@ extern "C" {
 #define CPS1616_PORT_X_VC0_TTL_DROP_CNTR(X)              (0xf4006c + 0x100*(X))
 #define CPS1616_PORT_X_VC0_CRC_LIMIT_DROP_CNTR(X)        (0xf40070 + 0x100*(X))
 #define CPS1616_PORT_X_RETRY_CNTR(X)                     (0xf400cc + 0x100*(X))
-#define CPS1616_PORT_X_uint32_t_AND_CTL(X)                 (0xf400f0 + 0x100*(X))
+#define CPS1616_PORT_X_STATUS_AND_CTL(X)                 (0xf400f0 + 0x100*(X))
 #define CPS1616_PORT_X_BUF_ALLOC(X)                      (0xf400f4 + 0x100*(X))
 #define CPS1616_BCAST_PORT_OPS                                     (0x00f4ff04)
 #define CPS1616_BCAST_PORT_IMPL_SPEC_ERR_DET                       (0x00f4ff08)
@@ -537,64 +537,64 @@ extern "C" {
 #define CPS1616_PORT_X_ERR_RATE_THRESH_CSR_DEGR_THRESH             (0x00ff0000)
 #define CPS1616_PORT_X_ERR_RATE_THRESH_CSR_FAIL_THRESH             (0xff000000)
 
-/* CPS1616_LANE_uint32_t_BLK_HEAD : Register Bits Masks Definitions */
-#define CPS1616_LANE_uint32_t_BLK_HEAD_EF_ID                         (0x0000ffff)
-#define CPS1616_LANE_uint32_t_BLK_HEAD_EF_PTR                        (0xffff0000)
+/* CPS1616_LANE_STATUS_BLK_HEAD : Register Bits Masks Definitions */
+#define CPS1616_LANE_STATUS_BLK_HEAD_EF_ID                         (0x0000ffff)
+#define CPS1616_LANE_STATUS_BLK_HEAD_EF_PTR                        (0xffff0000)
 
-/* CPS1616_LANE_X_uint32_t_0_CSR : Register Bits Masks Definitions */
-#define CPS1616_LANE_X_uint32_t_0_CSR_uint32_t_CSR                     (0x00000007)
-#define CPS1616_LANE_X_uint32_t_0_CSR_uint32_t_1                       (0x00000008)
-#define CPS1616_LANE_X_uint32_t_0_CSR_RX_TRAINED_CHG                 (0x00000020)
-#define CPS1616_LANE_X_uint32_t_0_CSR_RX_SYNC_CHG                    (0x00000040)
-#define CPS1616_LANE_X_uint32_t_0_CSR_ERR_8B10B                      (0x00000780)
-#define CPS1616_LANE_X_uint32_t_0_CSR_RX_LANE_RDY                    (0x00000800)
-#define CPS1616_LANE_X_uint32_t_0_CSR_LP_RX_TRAINED                  (0x00001000)
-#define CPS1616_LANE_X_uint32_t_0_CSR_RX_LANE_SYNC                   (0x00002000)
-#define CPS1616_LANE_X_uint32_t_0_CSR_RX_TRAINED                     (0x00004000)
-#define CPS1616_LANE_X_uint32_t_0_CSR_RX_INVERT                      (0x00008000)
-#define CPS1616_LANE_X_uint32_t_0_CSR_RX_TYPE                        (0x00030000)
-#define CPS1616_LANE_X_uint32_t_0_CSR_TX_MODE                        (0x00040000)
-#define CPS1616_LANE_X_uint32_t_0_CSR_TX_TYPE                        (0x00080000)
-#define CPS1616_LANE_X_uint32_t_0_CSR_LANE                           (0x00f00000)
-#define CPS1616_LANE_X_uint32_t_0_CSR_PORT                           (0xff000000)
+/* CPS1616_LANE_X_STATUS_0_CSR : Register Bits Masks Definitions */
+#define CPS1616_LANE_X_STATUS_0_CSR_STATUS_CSR                     (0x00000007)
+#define CPS1616_LANE_X_STATUS_0_CSR_STATUS_1                       (0x00000008)
+#define CPS1616_LANE_X_STATUS_0_CSR_RX_TRAINED_CHG                 (0x00000020)
+#define CPS1616_LANE_X_STATUS_0_CSR_RX_SYNC_CHG                    (0x00000040)
+#define CPS1616_LANE_X_STATUS_0_CSR_ERR_8B10B                      (0x00000780)
+#define CPS1616_LANE_X_STATUS_0_CSR_RX_LANE_RDY                    (0x00000800)
+#define CPS1616_LANE_X_STATUS_0_CSR_LP_RX_TRAINED                  (0x00001000)
+#define CPS1616_LANE_X_STATUS_0_CSR_RX_LANE_SYNC                   (0x00002000)
+#define CPS1616_LANE_X_STATUS_0_CSR_RX_TRAINED                     (0x00004000)
+#define CPS1616_LANE_X_STATUS_0_CSR_RX_INVERT                      (0x00008000)
+#define CPS1616_LANE_X_STATUS_0_CSR_RX_TYPE                        (0x00030000)
+#define CPS1616_LANE_X_STATUS_0_CSR_TX_MODE                        (0x00040000)
+#define CPS1616_LANE_X_STATUS_0_CSR_TX_TYPE                        (0x00080000)
+#define CPS1616_LANE_X_STATUS_0_CSR_LANE                           (0x00f00000)
+#define CPS1616_LANE_X_STATUS_0_CSR_PORT                           (0xff000000)
 
-/* CPS1616_LANE_X_uint32_t_1_CSR : Register Bits Masks Definitions */
-#define CPS1616_LANE_X_uint32_t_1_CSR_LP_SCRAM                       (0x00008000)
-#define CPS1616_LANE_X_uint32_t_1_CSR_LP_POS1_TAP                    (0x00030000)
-#define CPS1616_LANE_X_uint32_t_1_CSR_LP_NEG1_TAP                    (0x000c0000)
-#define CPS1616_LANE_X_uint32_t_1_CSR_LP_LANE                        (0x00f00000)
-#define CPS1616_LANE_X_uint32_t_1_CSR_LP_PORT_WIDTH                  (0x07000000)
-#define CPS1616_LANE_X_uint32_t_1_CSR_LP_TRAINED                     (0x08000000)
-#define CPS1616_LANE_X_uint32_t_1_CSR_LP_RX_TYPE                     (0x10000000)
-#define CPS1616_LANE_X_uint32_t_1_CSR_VALUES_CHG                     (0x20000000)
-#define CPS1616_LANE_X_uint32_t_1_CSR_CURRENT                        (0x40000000)
-#define CPS1616_LANE_X_uint32_t_1_CSR_IDLE2_RX                       (0x80000000)
+/* CPS1616_LANE_X_STATUS_1_CSR : Register Bits Masks Definitions */
+#define CPS1616_LANE_X_STATUS_1_CSR_LP_SCRAM                       (0x00008000)
+#define CPS1616_LANE_X_STATUS_1_CSR_LP_POS1_TAP                    (0x00030000)
+#define CPS1616_LANE_X_STATUS_1_CSR_LP_NEG1_TAP                    (0x000c0000)
+#define CPS1616_LANE_X_STATUS_1_CSR_LP_LANE                        (0x00f00000)
+#define CPS1616_LANE_X_STATUS_1_CSR_LP_PORT_WIDTH                  (0x07000000)
+#define CPS1616_LANE_X_STATUS_1_CSR_LP_TRAINED                     (0x08000000)
+#define CPS1616_LANE_X_STATUS_1_CSR_LP_RX_TYPE                     (0x10000000)
+#define CPS1616_LANE_X_STATUS_1_CSR_VALUES_CHG                     (0x20000000)
+#define CPS1616_LANE_X_STATUS_1_CSR_CURRENT                        (0x40000000)
+#define CPS1616_LANE_X_STATUS_1_CSR_IDLE2_RX                       (0x80000000)
 
-/* CPS1616_LANE_X_uint32_t_2_CSR : Register Bits Masks Definitions */
-#define CPS1616_LANE_X_uint32_t_2_CSR_POS1_ON_RST                    (0x0000003f)
-#define CPS1616_LANE_X_uint32_t_2_CSR_NEG1_ON_RST                    (0x00001f00)
-#define CPS1616_LANE_X_uint32_t_2_CSR_POS1_ON_PRE                    (0x001f8000)
-#define CPS1616_LANE_X_uint32_t_2_CSR_NEG1_ON_PRE                    (0x0f800000)
+/* CPS1616_LANE_X_STATUS_2_CSR : Register Bits Masks Definitions */
+#define CPS1616_LANE_X_STATUS_2_CSR_POS1_ON_RST                    (0x0000003f)
+#define CPS1616_LANE_X_STATUS_2_CSR_NEG1_ON_RST                    (0x00001f00)
+#define CPS1616_LANE_X_STATUS_2_CSR_POS1_ON_PRE                    (0x001f8000)
+#define CPS1616_LANE_X_STATUS_2_CSR_NEG1_ON_PRE                    (0x0f800000)
 
-/* CPS1616_LANE_X_uint32_t_3_CSR : Register Bits Masks Definitions */
-#define CPS1616_LANE_X_uint32_t_3_CSR_POS1_TAP                       (0x0000003f)
-#define CPS1616_LANE_X_uint32_t_3_CSR_NEG1_TAP                       (0x000007c0)
-#define CPS1616_LANE_X_uint32_t_3_CSR_POS1_CMD                       (0x00007800)
-#define CPS1616_LANE_X_uint32_t_3_CSR_NEG1_CMD                       (0x00078000)
-#define CPS1616_LANE_X_uint32_t_3_CSR_GBAUD_6p25_EN                  (0x00080000)
-#define CPS1616_LANE_X_uint32_t_3_CSR_GBAUD_5_EN                     (0x00100000)
-#define CPS1616_LANE_X_uint32_t_3_CSR_GBAUD_3p125_EN                 (0x00200000)
-#define CPS1616_LANE_X_uint32_t_3_CSR_GBAUD_2p5_EN                   (0x00400000)
-#define CPS1616_LANE_X_uint32_t_3_CSR_GBAUD_1p25_EN                  (0x00800000)
-#define CPS1616_LANE_X_uint32_t_3_CSR_GBAUD_6p25                     (0x01000000)
-#define CPS1616_LANE_X_uint32_t_3_CSR_GBAUD_5                        (0x02000000)
-#define CPS1616_LANE_X_uint32_t_3_CSR_GBAUD_3p125                    (0x04000000)
-#define CPS1616_LANE_X_uint32_t_3_CSR_GBAUD_2p5                      (0x08000000)
-#define CPS1616_LANE_X_uint32_t_3_CSR_GBAUD_1p25                     (0x10000000)
-#define CPS1616_LANE_X_uint32_t_3_CSR_AMP_PROG_EN                    (0x20000000)
+/* CPS1616_LANE_X_STATUS_3_CSR : Register Bits Masks Definitions */
+#define CPS1616_LANE_X_STATUS_3_CSR_POS1_TAP                       (0x0000003f)
+#define CPS1616_LANE_X_STATUS_3_CSR_NEG1_TAP                       (0x000007c0)
+#define CPS1616_LANE_X_STATUS_3_CSR_POS1_CMD                       (0x00007800)
+#define CPS1616_LANE_X_STATUS_3_CSR_NEG1_CMD                       (0x00078000)
+#define CPS1616_LANE_X_STATUS_3_CSR_GBAUD_6p25_EN                  (0x00080000)
+#define CPS1616_LANE_X_STATUS_3_CSR_GBAUD_5_EN                     (0x00100000)
+#define CPS1616_LANE_X_STATUS_3_CSR_GBAUD_3p125_EN                 (0x00200000)
+#define CPS1616_LANE_X_STATUS_3_CSR_GBAUD_2p5_EN                   (0x00400000)
+#define CPS1616_LANE_X_STATUS_3_CSR_GBAUD_1p25_EN                  (0x00800000)
+#define CPS1616_LANE_X_STATUS_3_CSR_GBAUD_6p25                     (0x01000000)
+#define CPS1616_LANE_X_STATUS_3_CSR_GBAUD_5                        (0x02000000)
+#define CPS1616_LANE_X_STATUS_3_CSR_GBAUD_3p125                    (0x04000000)
+#define CPS1616_LANE_X_STATUS_3_CSR_GBAUD_2p5                      (0x08000000)
+#define CPS1616_LANE_X_STATUS_3_CSR_GBAUD_1p25                     (0x10000000)
+#define CPS1616_LANE_X_STATUS_3_CSR_AMP_PROG_EN                    (0x20000000)
 
-/* CPS1616_LANE_X_uint32_t_4_CSR : Register Bits Masks Definitions */
-#define CPS1616_LANE_X_uint32_t_4_CSR_CTL_BY_LP_EN                   (0x80000000)
+/* CPS1616_LANE_X_STATUS_4_CSR : Register Bits Masks Definitions */
+#define CPS1616_LANE_X_STATUS_4_CSR_CTL_BY_LP_EN                   (0x80000000)
 
 /* CPS1616_RTE_PORT_SEL : Register Bits Masks Definitions */
 #define CPS1616_RTE_PORT_SEL_PORT                                  (0x0000001f)
@@ -1125,15 +1125,15 @@ extern "C" {
 #define CPS1616_DEVICE_PW_PNDG_JTAG_PW_PEND                        (0x00020000)
 #define CPS1616_DEVICE_PW_PNDG_CFG_PW_PEND                         (0x00040000)
 
-/* CPS1616_DEVICE_INT_uint32_t_0 : Register Bits Masks Definitions */
-#define CPS1616_DEVICE_INT_uint32_t_0_PORT_INT_uint32_t                (0x0000ffff)
-#define CPS1616_DEVICE_INT_uint32_t_0_LANE_INT_uint32_t                (0xffff0000)
+/* CPS1616_DEVICE_INT_STATUS_0 : Register Bits Masks Definitions */
+#define CPS1616_DEVICE_INT_STATUS_0_PORT_INT_uint32_t                (0x0000ffff)
+#define CPS1616_DEVICE_INT_STATUS_0_LANE_INT_uint32_t                (0xffff0000)
 
-/* CPS1616_DEVICE_INT_uint32_t_1 : Register Bits Masks Definitions */
-#define CPS1616_DEVICE_INT_uint32_t_1_LT_INT_uint32_t                  (0x00000001)
-#define CPS1616_DEVICE_INT_uint32_t_1_I2C_INT_uint32_t                 (0x00000002)
-#define CPS1616_DEVICE_INT_uint32_t_1_JTAG_INT_uint32_t                (0x00000004)
-#define CPS1616_DEVICE_INT_uint32_t_1_CFG_INT_uint32_t                 (0x00000008)
+/* CPS1616_DEVICE_INT_STATUS_1 : Register Bits Masks Definitions */
+#define CPS1616_DEVICE_INT_STATUS_1_LT_INT_uint32_t                  (0x00000001)
+#define CPS1616_DEVICE_INT_STATUS_1_I2C_INT_uint32_t                 (0x00000002)
+#define CPS1616_DEVICE_INT_STATUS_1_JTAG_INT_uint32_t                (0x00000004)
+#define CPS1616_DEVICE_INT_STATUS_1_CFG_INT_uint32_t                 (0x00000008)
 
 /* CPS1616_QUAD_CFG : Register Bits Masks Definitions */
 #define CPS1616_QUAD_CFG_QUAD0_CFG                                 (0x00000003)
@@ -1313,12 +1313,12 @@ extern "C" {
 /* CPS1616_PORT_X_RETRY_CNTR : Register Bits Masks Definitions */
 #define CPS1616_PORT_X_RETRY_CNTR_RETRY_LIM                        (0xffff0000)
 
-/* CPS1616_PORT_X_uint32_t_AND_CTL : Register Bits Masks Definitions */
-#define CPS1616_PORT_X_uint32_t_AND_CTL_RX_FC                        (0x00000001)
-#define CPS1616_PORT_X_uint32_t_AND_CTL_RETRY_LIM_EN                 (0x00000002)
-#define CPS1616_PORT_X_uint32_t_AND_CTL_CLR_MANY_RETRY               (0x00000004)
-#define CPS1616_PORT_X_uint32_t_AND_CTL_IGNORE_MC_CS                 (0x00000008)
-#define CPS1616_PORT_X_uint32_t_AND_CTL_IGNORE_RST_CS                (0x00000010)
+/* CPS1616_PORT_X_STATUS_AND_CTL : Register Bits Masks Definitions */
+#define CPS1616_PORT_X_STATUS_AND_CTL_RX_FC                        (0x00000001)
+#define CPS1616_PORT_X_STATUS_AND_CTL_RETRY_LIM_EN                 (0x00000002)
+#define CPS1616_PORT_X_STATUS_AND_CTL_CLR_MANY_RETRY               (0x00000004)
+#define CPS1616_PORT_X_STATUS_AND_CTL_IGNORE_MC_CS                 (0x00000008)
+#define CPS1616_PORT_X_STATUS_AND_CTL_IGNORE_RST_CS                (0x00000010)
 
 /* CPS1616_PORT_X_BUF_ALLOC : Register Bits Masks Definitions */
 #define CPS1616_PORT_X_BUF_ALLOC_FB_ALLOC                          (0x00000007)
@@ -1439,14 +1439,14 @@ extern "C" {
 #define CPS1616_LOG_MATCH_X_ERR_SOURCE_MASK                        (0x00400000)
 
 /* CPS1616_LOG_MATCH_uint32_t : Register Bits Masks Definitions */
-#define CPS1616_LOG_MATCH_uint32_t_FLAG_ERR_0                        (0x00000001)
-#define CPS1616_LOG_MATCH_uint32_t_FLAG_ERR_1                        (0x00000002)
-#define CPS1616_LOG_MATCH_uint32_t_FLAG_ERR_2                        (0x00000004)
-#define CPS1616_LOG_MATCH_uint32_t_FLAG_ERR_3                        (0x00000008)
-#define CPS1616_LOG_MATCH_uint32_t_FLAG_ERR_4                        (0x00000010)
-#define CPS1616_LOG_MATCH_uint32_t_FLAG_ERR_5                        (0x00000020)
-#define CPS1616_LOG_MATCH_uint32_t_FLAG_ERR_6                        (0x00000040)
-#define CPS1616_LOG_MATCH_uint32_t_FLAG_ERR_7                        (0x00000080)
+#define CPS1616_LOG_MATCH_STATUS_FLAG_ERR_0                        (0x00000001)
+#define CPS1616_LOG_MATCH_STATUS_FLAG_ERR_1                        (0x00000002)
+#define CPS1616_LOG_MATCH_STATUS_FLAG_ERR_2                        (0x00000004)
+#define CPS1616_LOG_MATCH_STATUS_FLAG_ERR_3                        (0x00000008)
+#define CPS1616_LOG_MATCH_STATUS_FLAG_ERR_4                        (0x00000010)
+#define CPS1616_LOG_MATCH_STATUS_FLAG_ERR_5                        (0x00000020)
+#define CPS1616_LOG_MATCH_STATUS_FLAG_ERR_6                        (0x00000040)
+#define CPS1616_LOG_MATCH_STATUS_FLAG_ERR_7                        (0x00000080)
 
 /* CPS1616_LOG_EVENTS : Register Bits Masks Definitions */
 #define CPS1616_LOG_EVENTS_CNT                                     (0x0000ffff)

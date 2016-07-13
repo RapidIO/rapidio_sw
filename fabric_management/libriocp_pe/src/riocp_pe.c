@@ -1109,6 +1109,33 @@ int RIOCP_SO_ATTR riocp_pe_set_destid(riocp_pe_handle pe,
 	return 0;
 }
 
+int RIOCP_SO_ATTR riocp_pe_reset_port(riocp_pe_handle pe, pe_port_t port,
+        bool reset_lp)
+{
+	int ret;
+
+	ret = riocp_pe_handle_check(pe);
+	if (ret)
+		return ret;
+
+	if (!RIOCP_PE_IS_HOST(pe) && !RIOCP_PE_IS_MPORT(pe)) {
+		RIOCP_ERROR("Pe is not a host\n");
+		return -EPERM;
+	}
+
+	if (port >= RIOCP_PE_PORT_COUNT(pe->cap)) {
+		RIOCP_ERROR("Invalid port number, max is %d",
+			RIOCP_PE_PORT_COUNT(pe->cap));
+		return -EINVAL;
+	}
+
+	ret = riocp_drv_reset_port(pe, port, reset_lp);
+	if (ret)
+		return ret;
+
+	return 0;
+}
+
 /**
  * Obtain the mapping between a given destination ID and egress port of the
  *  given switch and LUT. The number of route LUTs supported by a RapidIO

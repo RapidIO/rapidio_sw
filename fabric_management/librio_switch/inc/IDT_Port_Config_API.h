@@ -102,6 +102,28 @@ extern char *ls_to_str[];
 
 #define LS_TO_STR(x) (x>=idt_pc_ls_last?ls_to_str[idt_pc_ls_last]:ls_to_str[x])
 
+enum idt_pc_fc {
+	idt_pc_fc_rx,
+	idt_pc_fc_tx,
+	idt_pc_fc_last
+};
+
+// Convert flow control to a string
+extern char *fc_to_str[];
+#define FC_TO_STR(x) (x>=idt_pc_fc_last?fc_to_str[idt_pc_fc_last]:fc_to_str[x])
+
+enum idt_pc_idle_seq {
+	idt_pc_is_one,
+	idt_pc_is_two,
+	idt_pc_is_three,
+	idt_pc_is_last
+};
+
+// Convert idle sequenceto a string
+extern char *is_to_str[];
+
+#define ISEQ_TO_STR(x) (x>=idt_pc_is_last?is_to_str[idt_pc_is_last]:is_to_str[x])
+
 typedef struct idt_pc_one_port_config_t_TAG
 {
     uint8_t       pnum;           /* Port number.  Allows port configuration
@@ -125,6 +147,11 @@ typedef struct idt_pc_one_port_config_t_TAG
                                 */   
     idt_pc_ls_t ls;             /* Lane speed
                                 */
+    enum idt_pc_fc 	fc; /* Type of flow control that is enabled.
+			 */
+    enum idt_pc_idle_seq iseq; /* Idle sequence configured
+			 * IDLE2 means that IDLE2 or IDLE1 may be used.
+			 */
     bool        xmitter_disable;   /* True if the port should be disabled, false if
 				      the port should be enabled.  NOTE that if
 				      a port is disabled, the transmitter is disabled
@@ -177,6 +204,10 @@ typedef struct idt_pc_one_port_status_t_TAG
                                 */
     idt_pc_pw_t pw;             /* Port width
                                 */
+    idt_pc_fc  fc;          /* Flow control algorithm for the link
+				*/
+    idt_pc_idle_seq iseq; /* Idle sequence being used
+			 */
     bool        port_error;     /* true if a fatal error is present which
                                      prevents packet transmission.
                                    This is a combination of the standard 
@@ -200,6 +231,7 @@ typedef struct idt_pc_one_port_status_t_TAG
                                      the port.  It is assumed that sequentially
                                      numbered lanes are connected to a port.
                                 */
+    
 } idt_pc_one_port_status_t;
     
 typedef struct idt_pc_get_config_in_t_TAG
@@ -212,6 +244,9 @@ typedef struct idt_pc_set_config_in_t_TAG
     uint32_t      lrto;            // Link response timeout value for all ports.
                                  // Specified in hundreds of nanoseconds, range of 0 (disabled)
 				 // up to 60,000,000 (6 seconds).
+    uint32_t      log_rto;      // Logical layer response timeout, specified
+                                // in hundreds of nanoseconds.  Range of 0
+                                // (disabled) up to 60,000,000 (6 seconds)
     bool        oob_reg_acc;     /* If true, register access is not dependent
                                       upon RapidIO (i.e. JTAG, I2C).  It is
 				      possible to reprogram the port used for
@@ -240,6 +275,9 @@ typedef struct idt_pc_set_config_out_t_TAG
     uint32_t      lrto;        // Link response timeout value for all ports.
                              // Specified in hundreds of nanoseconds, range of 0 (disabled)
 			     // up to 60,000,000 (6 seconds).
+    uint32_t      log_rto;      // Logical layer response timeout, specified
+                                // in hundreds of nanoseconds.  Range of 0
+                                // (disabled) up to 60,000,000 (6 seconds)
     uint8_t       num_ports;  /* Number of ports which are now present.
                                If RIO_ALL_PORTS was passed in,  
                                  this reflects the actual number of ports
