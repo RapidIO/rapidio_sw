@@ -498,7 +498,7 @@ int setup_mport_slave(int mport, uint32_t m_did, uint32_t m_cm_port)
                 } else {
 			rc = riomp_mgmt_device_add(acc_p->maint,
 				(uint16_t)fmd->opts->mast_devid,
-				1, fmd->opts->mast_devid,
+				0xff, fmd->opts->mast_devid,
 				FMD_SLAVE_MASTER_NAME);
 		};
 		if (rc) {

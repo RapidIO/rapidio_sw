@@ -125,6 +125,22 @@ int CLIDevSelCmd(struct cli_env *env, int argc, char **argv)
 	}
 
 	if (argc) {
+		for (i = 0; i < pes_count; i++) {
+			if (cfg_find_dev_by_ct(pes[i]->comptag, &cfg_dev)) {
+				continue;
+			};
+			if (!strcmp(cfg_dev.name, argv[0]) &&
+				(strlen(cfg_dev.name) == strlen(argv[0]))) {
+				env->h = pes[i];
+				set_prompt(env);
+				sprintf(env->output, 
+					"\nFound device named \"%s\"\n",
+					argv[0]);
+				logMsg(env);
+				goto exit;
+			};
+		};
+		
 		comptag = getHex(argv[0], 0);
 
 		for (i = 0; i < pes_count; i++) {
@@ -206,7 +222,8 @@ struct cli_cmd CLIDevSel = {
 (char *)"display available devices or select a device",
 (char *)"{<comptag>}\n"
 	"<comptag> : Optional parameter, used to select a device as\n"
-	"            the target for register reads and writes.\n",
+	"            the target for register reads and writes.\n"
+	"            Can be component tag value of device name.\n",
 CLIDevSelCmd,
 ATTR_RPT
 };

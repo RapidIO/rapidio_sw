@@ -451,8 +451,8 @@ int start_peer_mgmt_slave(uint32_t mast_acc_skt_num, uint32_t mast_did,
 		if ((ETIME == errno) || (EPERM == errno)) {
 			struct timespec dly, rem;
 
- 			dly.tv_sec = 0;
-			dly.tv_nsec = 500000000; /* 500 msec */
+ 			dly.tv_sec = 5;
+			dly.tv_nsec = 0; 
 			rem.tv_sec = 0;
 			rem.tv_nsec = 0;
 

@@ -52,10 +52,12 @@ extern "C" {
 
 int CLIConfigCmd(struct cli_env *env, int argc, char **argv)
 {
-	int rc;
+	int rc, info_rc;
         riocp_pe_handle pe_h = (riocp_pe_handle)(env->h);
 	struct mpsw_drv_private_data *h;
 	int j;
+	struct riocp_pe_port pe_port_info[24];
+        struct cfg_dev cfg_dev;
 
 	if (NULL == pe_h) {
 		sprintf(env->output, "\nNo Device Selected...\n");
@@ -82,7 +84,14 @@ int CLIConfigCmd(struct cli_env *env, int argc, char **argv)
 		logMsg(env);
 		goto exit;
 	};
-	
+
+	info_rc = riocp_pe_get_ports(pe_h, pe_port_info);
+	if (info_rc) {
+		sprintf(env->output, "\nGet port information failed: rc %d.",
+			info_rc);
+		logMsg(env);
+	};
+
 	sprintf(env->output, "\nPhysLink TO: %8.1f microseconds..",
 		((float)(h->st.pc.lrto))/10.0);
 	logMsg(env);
@@ -90,13 +99,28 @@ int CLIConfigCmd(struct cli_env *env, int argc, char **argv)
 		((float)(h->st.pc.log_rto))/10.0);
 	logMsg(env);
 
-	sprintf(env->output, "\nPt A OK Port Width  Speed   FC     Idle    TxDis Enables TX L_INV RX L_INV\n");
+	sprintf(env->output, "\nPt A OK Port Width  Speed   FC   Idle TxEn Enables TX L_INV RX L_INV CONN    \n");
 	logMsg(env);
 	
 	for (int i = 0; i < h->st.pc.num_ports; i++) {
 		char *enables;
 		char tx_linvert[5] = {' '};
 		char rx_linvert[5] = {' '};
+		char *name = (char *)" ";
+		uint32_t port = 0;
+
+		if (!info_rc) {
+			if (NULL == pe_port_info[i].peer) {
+				name = (char *)"NO_CONN";
+			} else {
+				port = pe_port_info[i].peer->id;
+				if (!cfg_find_dev_by_ct(
+					pe_port_info[i].peer->pe->comptag,
+					&cfg_dev)) {
+						name = (char *)cfg_dev.name;
+				};
+			};
+		};
 		if (h->st.pc.pc[i].port_lockout) {
 			enables = (char *)"LOCKOUT";
 		} else if (h->st.pc.pc[i].nmtc_xfer_enable) {
@@ -121,9 +145,9 @@ int CLIConfigCmd(struct cli_env *env, int argc, char **argv)
 		};
 
 		sprintf(env->output,
-			"%2d %1s %2s %5s/%5s %5s %2s/%2s %5s/%5s %4s %7s %2s %5s %2s %5s\n", 
-			i, h->st.pc.pc[i].port_available?"Y":"N",
-			(j != -1)?(h->st.ps.ps[j].port_ok?"OK":"Dn"):"--",
+			"%2d %1s %2s %5s/%5s %5s %2s/%2s %2s/%2s %4s %7s %2s %5s %2s %5s %8s.%2d\n", 
+			i, h->st.pc.pc[i].port_available?"Y":"-",
+			(j != -1)?(h->st.ps.ps[j].port_ok?"OK":"no"):"--",
 			PW_TO_STR(h->st.pc.pc[i].pw),
 			(j != -1)?PW_TO_STR(h->st.ps.ps[j].pw):"-----",
 			LS_TO_STR(h->st.pc.pc[i].ls),
@@ -131,10 +155,11 @@ int CLIConfigCmd(struct cli_env *env, int argc, char **argv)
 			(j != -1)?FC_TO_STR(h->st.ps.ps[j].fc):"--",
 			ISEQ_TO_STR(h->st.pc.pc[i].iseq),
 			(j != -1)?ISEQ_TO_STR(h->st.ps.ps[i].iseq):"-----",
-			h->st.pc.pc[i].xmitter_disable?"Y":"N",
+			h->st.pc.pc[i].xmitter_disable?"N":"Y",
 			enables, 
 			h->st.pc.pc[i].tx_lswap?"Y":"N", tx_linvert,
-			h->st.pc.pc[i].rx_lswap?"Y":"N", rx_linvert);
+			h->st.pc.pc[i].rx_lswap?"Y":"N", rx_linvert,
+			name, port);
 		logMsg(env);
 		
 	};

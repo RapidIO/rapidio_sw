@@ -82,10 +82,10 @@ char *fc_to_str[(int)(idt_pc_fc_last)+1] = {
 };
 
 char *is_to_str[(int)(idt_pc_is_last)+1] = {
-	(char *)"IDLE1",
-	(char *)"IDLE2",
-	(char *)"IDLE3",
-	(char *)"UNKWN"
+	(char *)" 1",
+	(char *)" 2",
+	(char *)" 3",
+	(char *)"??"
 };
 
 uint32_t idt_pc_get_config( DAR_DEV_INFO_t           *dev_info, 

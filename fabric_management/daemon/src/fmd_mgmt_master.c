@@ -120,7 +120,7 @@ void send_add_dev_msg(struct fmd_peer *peer, struct fmd_dd_dev_info *dev)
 	peer->m2s->mod_rq.op = htonl(FMD_P_OP_ADD);
 	peer->m2s->mod_rq.did = htonl(dev->destID);
 	peer->m2s->mod_rq.did_sz = htonl(dev->destID_sz);
-	peer->m2s->mod_rq.hc = htonl(dev->hc);
+	peer->m2s->mod_rq.hc = htonl(0xff);
 	peer->m2s->mod_rq.ct = htonl(dev->ct);
 	peer->m2s->mod_rq.is_mp = 0;
 
