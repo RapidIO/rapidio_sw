@@ -204,7 +204,7 @@ uint32_t idt_tsi721_pc_get_config  ( DAR_DEV_INFO_t           *dev_info,
          	out_parms->imp_rc = PC_SET_CONFIG(0x2);
          	goto idt_tsi721_pc_get_config_exit;
 	  }
-	  out_parms->lrto = (lrto >> 8) * 100;
+	  out_parms->lrto = lrto >> 8;
     };
 	
     // Always get LOG_RTO
@@ -214,7 +214,7 @@ uint32_t idt_tsi721_pc_get_config  ( DAR_DEV_INFO_t           *dev_info,
          	out_parms->imp_rc = PC_SET_CONFIG(0x3);
          	goto idt_tsi721_pc_get_config_exit;
 	  }
-	  out_parms->log_rto = (log_rto * 188) / 100;
+	  out_parms->log_rto = ((log_rto >> 8) * 188) / 100;
     }
 
     for (port_idx = 0; port_idx < out_parms->num_ports; port_idx++)
@@ -309,8 +309,9 @@ uint32_t idt_tsi721_pc_get_config  ( DAR_DEV_INFO_t           *dev_info,
        out_parms->pc[port_idx].port_lockout = 
           (spxCtl & TSI721_RIO_SP_CTL_PORT_LOCKOUT)?true:false;
 
-       out_parms->pc[port_idx].port_lockout = 
-          (!(spxCtl & (TSI721_RIO_SP_CTL_INP_EN|TSI721_RIO_SP_CTL_OTP_EN)))?false:true;
+       out_parms->pc[port_idx].nmtc_xfer_enable = 
+          ((spxCtl & (TSI721_RIO_SP_CTL_INP_EN|TSI721_RIO_SP_CTL_OTP_EN))
+	== (TSI721_RIO_SP_CTL_INP_EN|TSI721_RIO_SP_CTL_OTP_EN));
 
        // Check for lane swapping & inversion
        // FIXME!!! LANE SWAPPING AND INVERSION NOT SUPPORTED
