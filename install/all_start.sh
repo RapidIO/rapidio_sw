@@ -5,13 +5,13 @@ RIO_CLASS_MPORT_DIR=/sys/class/rio_mport/rio_mport0
 
 START_FMD=y
 START_DMATUN=n
-START_UMDD=y
+START_UMDD=n
 START_RDMAD=y
 START_RSKTD=y
 
 echo "$@" | grep -q nofmd  && START_FMD=n;
 echo "$@" | grep -qw dmatun &&  START_DMATUN=y;
-echo "$@" | grep -q noumdd  && START_UMDD=n;
+echo "$@" | grep -q umdd  && START_UMDD=y;
 echo "$@" | grep -q nordmad && {
   START_RDMAD=n; START_RSKTD=n
 }
@@ -33,11 +33,12 @@ echo "Enable/disable daemons by entering named keywords."
 [ "$START_FMD" = 'y' ]    && echo "FMD and no kernel enum         (nofmd   to disable)"
 [ "$START_FMD" = 'n' ]    && echo "RapidIO kernel enum required -- has $SOURCE_PATH/rio_start.sh been run?"
 [ "$START_DMATUN" = 'y' ] && echo "IPv4 Tunnelling over DMA"
-[ "$START_DMATUN" = 'n' ] && echo "IPv4 Tunnelling over DMA       (dmatun  to ENABLE )"
-[ "$START_UMDD" = 'y' ]   && echo "Shared Tsi721 User Mode Driver (noumdd  to disable)"
+[ "$START_UMDD" = 'y' ]   && echo "Shared Tsi721 User Mode Driver"
 [ "$START_RDMAD" = 'y' ]  && echo "Remote Memory Access Daemon    (nordmad to disable)"
 [ "$START_RSKTD" = 'y' ]  && echo "RMA Sockets Daemon             (norsktd to disable)"
-
+echo " "
+[ "$START_DMATUN" = 'n' ] && echo "Not Started: IPv4 Tunnelling over DMA       (dmatun  to ENABLE )"
+[ "$START_UMDD" = 'n' ] && echo "Not Started: Shared Tsi721 User Mode Driver (umdd    to ENABLE )"
 # Load drivers on each node -- unless nofmd specified
 if [ "$START_FMD" = 'y' ]; then
 	$SOURCE_PATH/rio_start.sh noenum
