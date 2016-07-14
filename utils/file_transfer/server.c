@@ -313,7 +313,7 @@ int FXStatusCmd(struct cli_env *env, int argc, char **argv)
 	logMsg(env);
 	sprintf(env->output, "\nServer mport       : %d\n", mp_h_mport_num);
 	logMsg(env);
-	sprintf(env->output, "Server destID      : %x\n", qresp.hdid);
+	sprintf(env->output, "Server destID      : %d\n", qresp.hdid);
 	logMsg(env);
 
 	return 0;
