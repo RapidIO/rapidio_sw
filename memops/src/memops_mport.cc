@@ -135,6 +135,7 @@ bool RIOMemOpsMport::alloc_dmawin(DmaMem_t& mem /*out*/, const int _size)
     size = k * 4096;
   }
 
+	mem.win_handle = RIO_ANY_ADDR;
   int ret = riomp_dma_dbuf_alloc(m_mp_h, size, &mem.win_handle);
   if (ret) {
     XCRIT("riodp_dbuf_alloc failed: %d:%s\n", ret, strerror(ret));

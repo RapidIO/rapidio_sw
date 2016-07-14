@@ -1209,14 +1209,13 @@ uint32_t compute_laneswap_config( DAR_DEV_INFO_t        *dev_info,
 
       switch (sorted->pc[pnum].fc) {
 	case idt_pc_fc_rx:
-         	chgd->ports[pnum].p_ops |= 
-					CPS1848_PORT_X_OPS_TX_FLOW_CTL_DIS;
+         	chgd->ports[pnum].p_ops |= CPS1848_PORT_X_OPS_TX_FLOW_CTL_DIS;
 		break;
 	case idt_pc_fc_tx:
-         	chgd->ports[pnum].p_errstat &= 
+         	chgd->ports[pnum].p_ops &= 
 					~CPS1848_PORT_X_OPS_TX_FLOW_CTL_DIS;
 		break;
-	case idt_pc_fc_last: /* No chnage to idle sequence */
+	case idt_pc_fc_last: /* No chnage to flow control setting */
 			break;
 	default: 
 		/* Should never get here, illegal value that would be detected
@@ -1802,8 +1801,7 @@ uint32_t CPS_set_config_write_changes( DAR_DEV_INFO_t          *dev_info,
       };
 
 	/* See if need to reset port for idle sequence or flow control change */
-	if ((regs->ports[pnum].p_errstat != chgd->ports[pnum].p_errstat) ||
-	    (regs->ports[pnum].p_ops != chgd->ports[pnum].p_ops)) {
+	if (regs->ports[pnum].p_errstat != chgd->ports[pnum].p_errstat) {
 		make_chg = true;
             	reset_val |= 1 << pnum;
 	};
@@ -1960,16 +1958,8 @@ uint32_t CPS_set_config_write_changes( DAR_DEV_INFO_t          *dev_info,
             regs->glob_info.pll_ctl_vals[pll_num] = chgd->glob_info.pll_ctl_vals[pll_num];
          };
 
-	 // Update ops and errstat registers
+	 // Update errstat registers
 
-	 if (regs->ports[pnum].p_ops != chgd->ports[pnum].p_ops) {
-         	rc = DARRegWrite(dev_info, CPS1848_PORT_X_OPS(pnum),
-						chgd->ports[pnum].p_ops );
-               if (RIO_SUCCESS != rc) {
-                  *fail_pt = PC_SET_CONFIG(0xB8);
-                  goto write_changes_exit;
-               };
-	};
 	 if (regs->ports[pnum].p_errstat != chgd->ports[pnum].p_errstat) {
          	rc = DARRegWrite(dev_info, CPS1848_PORT_X_ERR_STAT_CSR(pnum),
 						chgd->ports[pnum].p_errstat );
@@ -2032,6 +2022,19 @@ uint32_t CPS_set_config_write_changes( DAR_DEV_INFO_t          *dev_info,
          *fail_pt = PC_SET_CONFIG(0xBB);
          goto write_changes_exit;
       };
+
+	/* And lastly, if we're changing flow control operation, update the
+	* ops register and do a force_reinit.
+	*/
+	 if (regs->ports[pnum].p_ops != chgd->ports[pnum].p_ops) {
+         	chgd->ports[pnum].p_ops |= CPS1848_PORT_X_OPS_FORCE_REINIT;
+         	rc = DARRegWrite(dev_info, CPS1848_PORT_X_OPS(pnum),
+						chgd->ports[pnum].p_ops );
+               if (RIO_SUCCESS != rc) {
+                  *fail_pt = PC_SET_CONFIG(0xBC);
+                  goto write_changes_exit;
+               };
+	};
    };
 
    rc = RIO_SUCCESS;

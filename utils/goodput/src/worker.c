@@ -678,6 +678,7 @@ int alloc_dma_tx_buffer(struct worker *info)
 	int rc = 0;
 
 	if (info->use_kbuf) {
+		info->rdma_kbuff = RIO_ANY_ADDR;
 		rc = riomp_dma_dbuf_alloc(info->mp_h, info->rdma_buff_size,
 					&info->rdma_kbuff);
 		if (rc) {

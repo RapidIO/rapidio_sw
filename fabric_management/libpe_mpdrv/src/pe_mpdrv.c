@@ -450,20 +450,14 @@ int generic_device_init(struct riocp_pe *pe, uint32_t *ct)
 	set_pc_in.num_ports = priv->st.pc.num_ports;
 	memcpy(set_pc_in.pc, priv->st.pc.pc, sizeof(priv->st.pc));
 
-/* Commented out for now to avoid possible issues with port resets in
- * larger configurations.
- */
-/*
 	for (int i = 0; i < priv->st.pc.num_ports; i++) {
 		set_pc_in.pc[i].fc = idt_pc_fc_rx;
-		set_pc_in.pc[i].iseq = idt_pc_is_one;
 	};
-*/
 
 	rc = mpsw_drv_raw_reg_rd(pe, pe->destid, pe->hopcount, RIO_SW_PORT_INF,
 				&port_info);
 	if (rc) {
-		CRIT("Unable to port info %d:%s\n", rc, strerror(rc));
+		CRIT("Unable to get port info %d:%s\n", rc, strerror(rc));
 		goto exit;
 	};
 	set_pc_in.reg_acc_port = RIO_ACCESS_PORT(port_info);

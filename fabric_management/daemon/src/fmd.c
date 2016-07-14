@@ -125,6 +125,7 @@ void set_prompt(struct cli_env *e)
         uint32_t comptag = 0;
         const char *name = NULL;
         uint16_t pe_did = 0;
+	struct cfg_dev cfg_dev;
 
         if (NULL == e) {
                 strncpy(e->prompt, "UNINIT> ", PROMPTLEN);
@@ -142,9 +143,13 @@ void set_prompt(struct cli_env *e)
 		comptag = 0xFFFFFFFF;
 	pe_did = comptag & 0x0000FFFF;
 
-	name = riocp_pe_handle_get_device_str(pe_h);
+	if (cfg_find_dev_by_ct(comptag, &cfg_dev)) {
+		name = riocp_pe_handle_get_device_str(pe_h);
+	} else {
+		name = (char *)cfg_dev.name;
+	};
 
-	snprintf(e->prompt, PROMPTLEN,  "%4x_%s> ", pe_did, name);
+	snprintf(e->prompt, PROMPTLEN,  "%s.%03x >", name, pe_did);
 };
 
 void *poll_loop( void *poll_interval ) 
