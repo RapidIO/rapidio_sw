@@ -1703,8 +1703,10 @@ int send_bytes(rskt_h skt_h, void *data, int byte_cnt,
 
 		DBG("Calling push_msub\n");
 		if (rdma_push_msub(hdr_in, &hdr_out)) {
-			skt->hdr->loc_tx_wr_flags |= htonl(RSKT_FLAG_ERROR);
-			skt->hdr->loc_rx_rd_flags |= htonl(RSKT_FLAG_ERROR);
+			skt->hdr->loc_tx_wr_flags |=
+						htonl(RSKT_BUF_HDR_FLAG_ERROR);
+			skt->hdr->loc_rx_rd_flags |=
+						htonl(RSKT_BUF_HDR_FLAG_ERROR);
 			ERR("Failed in rdma_push_msub()..exiting\n");
 			return -1;
 		};
@@ -1748,16 +1750,19 @@ int update_remote_hdr(struct rskt_socket_t * volatile skt,
 		rc = rdma_push_msub(hdr_in, &hdr_out);
 		if (rc) {
 			ERR("Failed to push update to remote header\n");
-			skt->hdr->loc_tx_wr_flags |= htonl(RSKT_FLAG_ERROR);
-			skt->hdr->loc_rx_rd_flags |= htonl(RSKT_FLAG_ERROR);
+			skt->hdr->loc_tx_wr_flags |=
+						htonl(RSKT_BUF_HDR_FLAG_ERROR);
+			skt->hdr->loc_rx_rd_flags |=
+						htonl(RSKT_BUF_HDR_FLAG_ERROR);
 		};
 	};
 	
 	return rc;
 }; /* update_remote_hdr() */
 
-#define WR_SKT_CLOSED(x) (x->hdr->loc_tx_wr_flags & htonl(RSKT_FLAG_CLOSING))
-#define RD_SKT_CLOSING(x) (x->hdr->rem_rx_wr_flags & htonl(RSKT_FLAG_CLOSING))
+#define WR_SKT_CLOSED(x) (x->hdr->loc_tx_wr_flags & htonl(RSKT_BUF_HDR_FLAG_CLOSING))
+#define RD_SKT_CLOSING(x) (x->hdr->rem_rx_wr_flags & htonl(RSKT_BUF_HDR_FLAG_CLOSING))
+#define RD_SKT_ERROR(x) (x->hdr->rem_rx_wr_flags & htonl(RSKT_BUF_HDR_FLAG_ERROR))
 #define SKT_CONNECTED(x) ((rskt_connected == x->st) || (rskt_closing == x->st))
 #define DMA_FLUSHED(x) (RD_SKT_CLOSING(x) && WR_SKT_CLOSED(x))
 
@@ -1894,9 +1899,13 @@ exit:
 	return -1;
 }; /* rskt_write() */
 
-//static inline
-int  get_avail_bytes(struct rskt_buf_hdr volatile *hdr,
-					uint32_t buf_sz)
+//static inlineo
+// Returns:
+// 0-xxx Number of bytes sent by the other end of the connection.
+// -1 - no more bytes will ever be seen from this link partner
+#define AVAIL_BYTES_END -1
+#define AVAIL_BYTES_ERROR -2
+int  get_avail_bytes(struct rskt_buf_hdr volatile *hdr, uint32_t buf_sz)
 {
 	uint32_t avail_bytes = 0;
 
@@ -1911,18 +1920,27 @@ int  get_avail_bytes(struct rskt_buf_hdr volatile *hdr,
 	
 	INFO("rem_rx_wr_flags 0x%8x loc_rx_rd_flags 0x%8x",
 		htonl(hdr->rem_rx_wr_flags), htonl(hdr->loc_rx_rd_flags));
-	if (!(hdr->rem_rx_wr_flags & htonl(RSKT_FLAG_INIT))) {
-		/* Not an error; just means there are no bytes available */
+	if (!(hdr->rem_rx_wr_flags & htonl(RSKT_BUF_HDR_FLAG_INIT))) {
+		/* There cannot be any bytes available */
 		return 0;
-	}
+	};
+
+	if ((hdr->loc_rx_rd_flags & htonl(RSKT_BUF_HDR_FLAG_ERROR)) ||
+		(hdr->rem_rx_wr_flags & htonl(RSKT_BUF_HDR_FLAG_ERROR))) {
+		/* Error condition signalled, something's busted... */
+		return AVAIL_BYTES_ERROR;
+	};
+
+	INFO("rrw 0x%8x lrr 0x%8x buf_sz 0x%8x", rrw, lrr, buf_sz);
 
 	avail_bytes = rrw - lrr - 1;
-	if (rrw < lrr)
+	if (rrw < lrr) {
 		avail_bytes = buf_sz - lrr + rrw - 1;
+	};
 
 	if (!avail_bytes) {
-		if (!(hdr->rem_rx_wr_flags & htonl(RSKT_FLAG_CLOSING))) {
-			avail_bytes = -1;
+		if (hdr->rem_rx_wr_flags & htonl(RSKT_BUF_HDR_FLAG_CLOSING)) {
+			avail_bytes = AVAIL_BYTES_END;
 		};
 	};
 
@@ -2002,7 +2020,8 @@ int rskt_read(rskt_h skt_h, void *data, uint32_t max_byte_cnt)
 	errno = 0;
 	avail_bytes = get_avail_bytes(skt->hdr, skt->buf_sz);
 	
-	while (!avail_bytes && !errno && !RD_SKT_CLOSING(skt)) {
+	// avail_btes < 0 on error/end, >0 when theres something available 
+	while (!avail_bytes && !errno) {
 		sem_post(&lib.skts_mtx);
 		sleep(0);
 		if (librskt_wait_for_sem(&lib.skts_mtx, 0x9333)) {
@@ -2032,7 +2051,8 @@ int rskt_read(rskt_h skt_h, void *data, uint32_t max_byte_cnt)
 		goto fail;
 	};
 
-	if (-1 == avail_bytes) {
+	if ((AVAIL_BYTES_END == avail_bytes) ||
+					(AVAIL_BYTES_ERROR == avail_bytes)) {
 		if (DMA_FLUSHED(skt)) {
 			rskt_close_locked(skt_h);
 		}
@@ -2073,6 +2093,13 @@ int rskt_read(rskt_h skt_h, void *data, uint32_t max_byte_cnt)
 	};
 done:
 	sem_post(&lib.skts_mtx);
+	switch(avail_bytes) {
+	case AVAIL_BYTES_END: avail_bytes = 0;
+			break;
+	case AVAIL_BYTES_ERROR: avail_bytes = -1;
+			break;
+	default: break;
+	};
 	return avail_bytes;
 fail:
 	/* FIXME: Needs review */
@@ -2143,7 +2170,8 @@ int rskt_close_locked(rskt_h skt_h)
 			skt_h->st = rskt_close_by_local;
 		};
 
-		if (skt->hdr->loc_tx_wr_flags & htonl(RSKT_FLAG_CLOSING)) {
+		if (skt->hdr->loc_tx_wr_flags &
+					htonl(RSKT_BUF_HDR_FLAG_CLOSING)) {
 			/* Something stupid happenned - we're connected, but
 			* our flags are set to indicate closure. Print an
 			* error log and cleanup.
@@ -2158,8 +2186,8 @@ int rskt_close_locked(rskt_h skt_h)
 		* returning 0 bytes read, and rskt_write returning 
 		* -EPIPE, or allow rskt_close_locked to continue to completion.
 		*/
-		skt->hdr->loc_tx_wr_flags |= htonl(RSKT_FLAG_CLOSING);
-		skt->hdr->loc_rx_rd_flags |= htonl(RSKT_FLAG_CLOSING);
+		skt->hdr->loc_tx_wr_flags |= htonl(RSKT_BUF_HDR_FLAG_CLOSING);
+		skt->hdr->loc_rx_rd_flags |= htonl(RSKT_BUF_HDR_FLAG_CLOSING);
 		hdr_in.loc_msubh = skt->msubh;
 		hdr_in.rem_msubh = skt->con_msubh;
 		hdr_in.priority = 0;
