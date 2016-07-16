@@ -169,7 +169,7 @@ void* www_read_thr(void* arg)
   fprintf(stderr, "%s: REQ %d bytes.\n", __func__, rc);
 
   // Ignore request for now
-  char resp[] = "Content/type: text/plain\r\n\r\nTest text from RSKT server.\r\n";
+  char resp[] = "HTTP/1.1 200 OK\r\nContent/type: text/plain\r\n\r\nTest text from RSKT server.\r\n";
 
   rskt_write(comm_sock, resp, strlen(resp));
 

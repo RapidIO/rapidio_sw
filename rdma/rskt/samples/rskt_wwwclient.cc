@@ -117,6 +117,8 @@ int setup_rskt_cli(uint16_t destid)
   return 1;
 }
 
+extern "C" int get_avail_bytes(struct rskt_buf_hdr volatile *hdr, uint32_t buf_sz);
+
 int main(int argc, char *argv[])
 {
   int rc = 0;
@@ -189,6 +191,19 @@ int main(int argc, char *argv[])
     char req[] = "GET / HTTP/1.1\r\n";
     char resp[RX_SIZE + 0x10] = {0};
     rskt_write(g_comm_sock, req, strlen(req));
+
+#if 0
+    struct rskt_socket_t* skt = (struct rskt_socket_t*)g_comm_sock->skt;
+    assert(skt);
+
+    int avb = 0;
+    uint32_t count = 0;
+    while((avb = get_avail_bytes(skt->hdr, skt->buf_sz)) == 0) {
+      usleep(1);
+      count++;
+    }
+    printf("get_avail_bytes indicated %d (non-zero) after %uus\n", avb, count);
+#endif
 
     do {
       rc = rskt_read(g_comm_sock, resp, RX_SIZE);
