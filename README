@@ -78,7 +78,7 @@ To install the RRMAP, perform the following steps:
 	- The RRMAP Ethernet Frame Tunnelling (DMATUN) 
    facility will be installedinvoke install.sh with the required parameters.
 
-******* INSTALLING THE RRMAP SOFTWARE *******
+******* RRMAP SOFTWARE OVERVIEW *******
 
 The RRMAP software stack consists of the following functionality:
 - Fabric Management
