@@ -373,14 +373,14 @@ int close(int fd)
   return glibc_close(fd);
 }
 
-static inline void make_sockpair(const int sockfd, int sockp[2]) throw()
+static inline void make_sockpair(const int sockfd, int sockp[2], const char* __caller) throw()
 {
   if (0 != socketpair(PF_LOCAL, SOCK_STREAM | SOCK_CLOEXEC, 0, sockp)) {
     glibc_close(sockp[0]); glibc_close(sockp[1]);
     throw std::runtime_error("RSKT Shim: socketpair failed!");
   }
 
-  if (sockfd >=0 && -1 == glibc_dup2(sockp[0], sockfd)) {
+  if (sockfd >= 0 && -1 == glibc_dup2(sockp[0], sockfd)) {
     static char tmp[129] = {0};
     const int saved_errno = errno;
     glibc_close(sockp[0]); glibc_close(sockp[1]);
@@ -396,6 +396,8 @@ static inline void make_sockpair(const int sockfd, int sockp[2]) throw()
     snprintf(tmp, 128, "RSKT Shim: fcntl(socketpair, O_NONBLOCK) failed: %s", strerror(saved_errno));
     throw std::runtime_error(tmp);
   }
+
+  Dprintf("TCPv4 sock %d := socketpair(%d, %d) called by %s\n", sockfd, sockp[0], sockp[1], __caller?: "???");
 }
 
 ///< \note This will ONLY connect to 0.0.x.y, all other addresses passthru
@@ -437,7 +439,7 @@ int bind(int sockfd, const struct sockaddr* addr, socklen_t addrlen)
       SocketTracker_t& sock_tr = it->second;
 
       int sockp[2] = { -1, -1 };
-      try { make_sockpair(sockfd, sockp); }
+      try { make_sockpair(sockfd, sockp, __func__); }
       catch(std::runtime_error ex) {
         pthread_mutex_unlock(&g_map_mutex);
         throw ex;
@@ -538,7 +540,7 @@ int connect(int sockfd, const struct sockaddr* addr, socklen_t addrlen)
     }
 
     int sockp[2] = { -1, -1 };
-    try { make_sockpair(sockfd, sockp); }
+    try { make_sockpair(sockfd, sockp, __func__); }
     catch(std::runtime_error ex) {
       pthread_mutex_unlock(&g_map_mutex);
       throw ex;
@@ -592,7 +594,7 @@ ssize_t write(int fd, const void *buf, size_t count)
       rc = RSKT_shim_rskt_write(it->second.rsock, (void*)buf, count);
     pthread_mutex_unlock(&g_map_mutex);
     if (rc < 0) errno = EPIPE;
-    assert(rc == count);
+    //assert(rc == count);
     return rc >=0? rc : -1;
   }
   pthread_mutex_unlock(&g_map_mutex);
@@ -630,12 +632,16 @@ static void* select_thr(void* arg)
   
   pthread_setname_np(pthread_self(), "select/poll_minder");
 
-  Dprintf("TCPv4 sock %d SELECT minder thread.\n", sock_tr->fd);
+  Dprintf("TCPv4 sock %d SELECT/POLL minder thread.\n", sock_tr->fd);
+
+  assert(sock_tr->fd >= 0);
+  assert(sock_tr->sockp[0] >= 0);
+  assert(sock_tr->sockp[1] >= 0);
 
   while (!sock_tr->stop_req) {
     const int r = RSKT_shim_rskt_get_avail_bytes(sock_tr->rsock);
     if (r != 0) {
-      Dprintf("TCPv4 sock %d SELECT minder thread avail_bytes=%d.\n", sock_tr->fd, r);
+      Dprintf("TCPv4 sock %d SELECT/POLL minder thread (sockp[1]=%d) avail_bytes=%d.\n", sock_tr->fd, sock_tr->sockp[1], r);
       glibc_write(sock_tr->sockp[1], (r > 0? "r" : "e"), 1);
       break;
     }
@@ -796,10 +802,10 @@ int poll(struct pollfd *fds, nfds_t nfds, int timeout)
 
     if (!data_ready) continue;
 
-    char c = 0;
+    char c = '~';
     glibc_read(known_fds[i].sock_tr->sockp[0], &c, 1);
 
-    Dprintf("TCPv4 sock %d POLL ready c=%c\n", known_fds[i].sock_tr->fd, c);
+    Dprintf("TCPv4 sock %d POLL ready (sockp[0]=%d) c=%c\n", known_fds[i].sock_tr->fd, known_fds[i].sock_tr->sockp[0], c);
 
     if (c == 'e') known_fds[i].sock_tr->borked = 1;
   }
@@ -1091,13 +1097,14 @@ _accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen, bool nonblocking 
 
       // OK, we have a connection....
       int sockp[2] = { -1, -1 };
-      make_sockpair(-1, sockp); // will throw!
+      make_sockpair(-1, sockp, __func__); // will throw!
 
       SocketTracker_t sock_tr_new = ZERO_SOCK; init_SocketTracker(sock_tr_new);
 
-      sock_tr_new.fd = dup(sockp[0]);
-      sock_tr_new.sockp[0] = sockp[0]; sock_tr.sockp[1] = sockp[1];
-      sock_tr_new.rsock = res.rsock;
+      sock_tr_new.fd       = dup(sockp[0]);
+      sock_tr_new.sockp[0] = sockp[0];
+      sock_tr_new.sockp[1] = sockp[1];
+      sock_tr_new.rsock    = res.rsock;
 
       sock_tr_new.raddr.sin_family      = AF_INET;
       sock_tr_new.raddr.sin_port        = htons(res.r_port);
@@ -1108,7 +1115,8 @@ _accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen, bool nonblocking 
       if (addr != NULL) memcpy(addr, &sock_tr_new.raddr, sizeof(sock_tr_new.raddr));
       if (addrlen != NULL) *addrlen = sizeof(sock_tr_new.raddr);
  
-      Dprintf("TCPv4 sock %d ACCEPTed async as new sockfd=%d.\n", sockfd, sock_tr_new.fd);
+      Dprintf("TCPv4 sock %d ACCEPTed async as new sockfd=%d with sockp(%d, %d).\n",
+              sockfd, sock_tr_new.fd, sock_tr_new.sockp[0], sock_tr_new.sockp[1]);
 
       pthread_mutex_lock(&g_map_mutex);
         g_sock_map[sock_tr_new.fd] = sock_tr_new;
@@ -1144,7 +1152,7 @@ _accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen, bool nonblocking 
 
   // OK, we have a connection....
   int sockp[2] = { -1, -1 };
-  make_sockpair(-1, sockp); // will throw!
+  make_sockpair(-1, sockp, __func__); // will throw!
   SocketTracker_t sock_tr_new = ZERO_SOCK;
   sock_tr_new.acc_list.clear();
   sock_tr_new.acc_thr_list.clear();

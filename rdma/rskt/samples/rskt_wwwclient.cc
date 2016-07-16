@@ -220,6 +220,7 @@ int main(int argc, char *argv[])
 done:
   if (g_comm_sock != NULL) {
     if (g_wait) sleep(1);
+    printf("Close RSKT\n");
     rskt_close(g_comm_sock);
   }
 
