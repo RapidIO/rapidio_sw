@@ -358,7 +358,7 @@ int close(int fd)
     if (sock_tr.rsock != NULL) RSKT_shim_rskt_close(sock_tr.rsock);
     pthread_mutex_lock(&sock_tr.acc_mutex);
       for (int i = 0; i < sock_tr.acc_thr_list.size(); i++) 
-      pthread_kill(sock_tr.acc_thr_list[i], SIGUSR1);
+        pthread_kill(sock_tr.acc_thr_list[i], SIGUSR1);
     pthread_mutex_unlock(&sock_tr.acc_mutex);
 
     pthread_mutex_unlock(&g_map_mutex);
@@ -982,7 +982,7 @@ static void* accept_thr(void* arg)
       pthread_mutex_unlock(&g_map_mutex);
 
       Dprintf("TCPv4 sock %d ACCEPT minder => error rc=%d.\n", sockfd, rc);
-      assert(sockp1 != -1);
+      //assert(sockp1 != -1); // XXX fail silently
       glibc_write(sockp1, "e", 1);
       break;
     } 
