@@ -188,7 +188,7 @@ int main(int argc, char *argv[])
   if (! setup_rskt_cli(destid)) { rc = 3; goto done; }
  
   {{
-    char req[] = "GET / HTTP/1.1\r\n";
+    char req[] = "GET / HTTP/1.1\r\n\r\n";
     char resp[RX_SIZE + 0x10] = {0};
     rskt_write(g_comm_sock, req, strlen(req));
 
