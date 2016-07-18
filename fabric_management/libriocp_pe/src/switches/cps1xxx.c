@@ -1900,7 +1900,7 @@ static int cps1xxx_get_capabilities(struct riocp_pe *sw, uint8_t port, cap_if_t 
     uint8_t width;
 
     caps[PORT_X_VC0_PA_TX_CNTR].get_counter = cps1xxx_read_CPS1xxx_PORT_X_VC0_PA_TX_CNTR;
-    caps[PORT_X_VC0_PA_TX_CNTR].get_counter = cps1xxx_read_CPS1xxx_PORT_X_VC0_NACK_TX_CNTR;
+    caps[PORT_X_VC0_NACK_TX_CNTR].get_counter = cps1xxx_read_CPS1xxx_PORT_X_VC0_NACK_TX_CNTR;
     caps[PORT_X_VC0_RTRY_TX_CNTR].get_counter = cps1xxx_read_CPS1xxx_PORT_X_VC0_RTRY_TX_CNTR;
     caps[PORT_X_VC0_PKT_TX_CNTR].get_counter = cps1xxx_read_CPS1xxx_PORT_X_VC0_PKT_TX_CNTR;
     caps[PORT_X_VC0_PA_RX_CNTR].get_counter = cps1xxx_read_CPS1xxx_PORT_X_VC0_PA_RX_CNTR;
