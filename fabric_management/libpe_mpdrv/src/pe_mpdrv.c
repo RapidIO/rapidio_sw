@@ -448,7 +448,7 @@ int generic_device_init(struct riocp_pe *pe, uint32_t *ct)
 	set_pc_in.log_rto = 500; /* 50 microsecond logical response timeout */
 	set_pc_in.oob_reg_acc = false;
 	set_pc_in.num_ports = priv->st.pc.num_ports;
-	memcpy(set_pc_in.pc, priv->st.pc.pc, sizeof(priv->st.pc));
+	memcpy(set_pc_in.pc, priv->st.pc.pc, sizeof(set_pc_in.pc));
 
 	for (int i = 0; i < priv->st.pc.num_ports; i++) {
 		set_pc_in.pc[i].fc = idt_pc_fc_rx;
