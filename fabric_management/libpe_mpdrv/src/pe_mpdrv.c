@@ -462,9 +462,11 @@ int generic_device_init(struct riocp_pe *pe, uint32_t *ct)
 	};
 	set_pc_in.reg_acc_port = RIO_ACCESS_PORT(port_info);
 	
+/*
 	rc = idt_pc_set_config(dev_h, &set_pc_in, &priv->st.pc);
 	if (RIO_SUCCESS != rc)
 		goto exit;
+*/
 
 	ps_in.ptl.num_ports = RIO_ALL_PORTS;
 	rc = idt_pc_get_status(dev_h, &ps_in, &priv->st.ps);
