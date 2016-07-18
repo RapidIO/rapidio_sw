@@ -69,6 +69,11 @@ typedef uint32_t rio_mc_mask_t; /* Biggest mask available */
 #define RIO_MAX_DEV_LANES   ((rio_lane_t)(RIO_SW_PORT_INF_LANE_MAX))
 #define RIO_MAX_MC_MASKS    RIO_RT_GRP_SIZE
 
+/* Maximum values for number of routing table groups at particular level. */
+#define RIO_MAX_RT_L0 8
+#define RIO_MAX_RT_L1 3
+#define RIO_MAX_RT_L2 4
+
 #define RIO_VEND_RESERVED        0xffff
 #define RIO_DEVI_RESERVED        0xffff
 #define RIO_BAD_OFFSET 0xFFFFFF
@@ -86,16 +91,9 @@ typedef uint32_t rio_mc_mask_t; /* Biggest mask available */
 #define RIO_VEND_TI             0x0030
 
 #define RIO_VEND_IDT            0x0038
-#define RIO_DEVI_IDT_70K200     0x0310
-#define RIO_DEVI_IDT_CPS8       0x035c
-#define RIO_DEVI_IDT_CPS12      0x035d
-#define RIO_DEVI_IDT_CPS16      0x035b
-#define RIO_DEVI_IDT_CPS6Q      0x035f
-#define RIO_DEVI_IDT_CPS10Q     0x035e
 #define RIO_DEVI_IDT_CPS1848    0x0374
 #define RIO_DEVI_IDT_CPS1432    0x0375
 #define RIO_DEVI_IDT_CPS1616    0x0379
-#define RIO_DEVI_IDT_VPS1616    0x0377
 #define RIO_DEVI_IDT_SPS1616    0x0378
 
 #define RIO_DEVI_IDT_TSI721     0x80ab

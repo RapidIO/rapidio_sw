@@ -50,12 +50,38 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 extern "C" {
 #endif
 
+struct const_regs {
+        RIO_PE_FEAT_T pe_feat;
+        uint32_t sw_port_info;
+        uint32_t src_ops;
+        uint32_t dst_ops;
+        uint32_t sw_mc_sup;
+        uint32_t sw_rt_lim;
+        uint32_t sw_mc_inf;
+	uint32_t sp_oset; /* RO: RIO_EFB_T_SP_EP3, RIO_EFB_T_SP_EP3_SAER, */
+			/* RIO_EFB_T_SP_NOEP3, RIO_EFB_T_SP_NOEP3_SAER */
+	uint32_t sp3_oset; /* RIO_EFB_T_SP_EP3,RIO_EFB_T_SP_EP3_SAER, 
+			* RIO_EFB_T_SP_NOEP3, RIO_EFB_T_SP_NOEP3_SAER */
+	uint32_t sp_type;
+	uint32_t emhs_oset; /* RIO_EFB_T_EMHS */
+
+	uint32_t hs_oset; /* RIO_EFB_T_HS */
+	uint32_t em_info; /* RIO_EMHS_INFO */
+	uint32_t lane_oset; /* RO: RIO_EFB_T_LANE */
+	uint32_t lane_regs; /* RIO_LNX_ST0_STAT1 + RIO_LNX_ST0_STAT2_7 */
+	uint32_t rt_oset; /* RO: RIO_EFB_T_RT */
+};
+
 struct rt_regs {
 	uint32_t ctl; /* RIO_RT_BC_CTL, RIO_RT_SPX_CTL */
-	uint32_t mc_oset; /* RIO_RT_BC_MC, RIO_RT_SPX_MC */
-	uint32_t lvl0_oset; /* RIO_RT_BC_LVL0, RIO_RT_SPX_LVL0 */
-	uint32_t lvl1_oset; /* RIO_RT_BC_LVL1, RIO_RT_SPX_LVL1 */
-	uint32_t lvl2_oset; /* RIO_RT_BC_LVL2, RIO_RT_SPX_LVL2 */
+	uint32_t mc_i; /* RIO_RT_BC_MC, RIO_RT_SPX_MC */
+	uint32_t lvl0_i; /* RIO_RT_BC_LVL0, RIO_RT_SPX_LVL0 */
+	uint32_t lvl1_i; /* RIO_RT_BC_LVL1, RIO_RT_SPX_LVL1 */
+	uint32_t lvl2_i; /* RIO_RT_BC_LVL2, RIO_RT_SPX_LVL2 */
+	rt_val_t mc[RIO_LVL_GRP_SZ];
+	rt_val_t rt0[RIO_MAX_RT_L0 * RIO_LVL_GRP_SZ];
+	rt_val_t rt1[RIO_MAX_RT_L1][RIO_LVL_GRP_SZ];
+	rt_val_t rt2[RIO_MAX_RT_L2][RIO_LVL_GRP_SZ];
 };
 
 struct rt_regs_blk {
@@ -63,9 +89,10 @@ struct rt_regs_blk {
 	struct rt_regs pt[RIO_MAX_DEV_PORT];
 };
 
-
 /* Offsets, field masks and value definitions for Device CARs and CSRs
 */
+
+#define MAX_DAR_SCRPAD_IDX  30
 
 struct regrw_i {
 	/** \brief RapidIO CARs */
@@ -73,13 +100,9 @@ struct regrw_i {
 	uint32_t dev_info; /* RIO_DEV_INF */
 	uint32_t assy_id; /* RIO_ASSY_ID */
 	uint32_t assy_info; /* RIO_ASSY_INF */
-	RIO_PE_FEAT_T pe_feat; /* RIO_PE_FEAT */
-	uint32_t sw_port_info; /* RIO_SW_PORT_INF */
-	uint32_t src_ops; /* RIO_SRC_OPS */
-	uint32_t dst_ops; /* RIO_SRC_OPS */
-	uint32_t sw_mc_sup; /* RIO_SW_MC_SUP */
-	uint32_t sw_rt_lim; /* RIO_SW_RT_TBL_LIM */
-	uint32_t sw_mc_info; /* RIO_SW_MC_INFO */
+
+	/** Other constant registers */
+	struct const_regs cregs;
 
 	/** \brief RapidIO CSRs */
 	RIO_PE_ADDR_T pe_ll_ctl; /* RIO_PE_LL_CTL */
@@ -94,18 +117,6 @@ struct regrw_i {
 	uint32_t global_scratch;
 
 	/** \brief RapidIO block headers */
-	uint32_t sp_oset; /* RO: RIO_EFB_T_SP_EP3, RIO_EFB_T_SP_EP3_SAER, */
-			/* RIO_EFB_T_SP_NOEP3, RIO_EFB_T_SP_NOEP3_SAER */
-	uint32_t sp3_oset; /* RIO_EFB_T_SP_EP3,RIO_EFB_T_SP_EP3_SAER, 
-			* RIO_EFB_T_SP_NOEP3, RIO_EFB_T_SP_NOEP3_SAER */
-	uint32_t sp_type;
-	uint32_t emhs_oset; /* RIO_EFB_T_EMHS */
-
-	uint32_t hs_oset; /* RIO_EFB_T_HS */
-	uint32_t em_info; /* RIO_EMHS_INFO */
-	uint32_t lane_oset; /* RO: RIO_EFB_T_LANE */
-	uint32_t lane_regs; /* RIO_LNX_ST0_STAT1 + RIO_LNX_ST0_STAT2_7 */
-	uint32_t rt_oset; /* RO: RIO_EFB_T_RT */
 	struct rt_regs_blk *rt;
 
 	/** \brief Vendor and device type name strings */
@@ -123,12 +134,15 @@ struct regrw_i {
 			*/
 	/** \brief Register access driver handle */
 	struct regrw_driver regrw;
-	void *sw_info;
+
+	/** Device specific information.
+	* SW_INFO is specific to switches
+	* scratchpad is infor that may (or may not) be needed for a device.
+	**/
+	
+	uint32_t *scratchpad;
 };
 
-struct regrw_sw {
-	rt_val_t rt0[256];
-};
 
 /** \brief Macros to extract/check common fields/values
  *   from a * struct rio_car_csr.
@@ -179,6 +193,7 @@ struct regrw_sw {
 #define RIO_SW_ACC_PORT(x) \
 	(rio_port_t)((PE_IS_SW(x))? \
 		RIO_ACCESS_PORT((regrw_i *)(x)->sw_port_info):0)
+#define RIO_MC_MASK_COUNT(x) ((regrw_i *)x->sw_mc_inf & RIO_SW_MC_INF_MC_MSK)
 
 #define REGRW_RT_BC_CTL(h)     ((regrw_i *)(h)->evb_rt + 0x020)
 #define REGRW_RT_BC_MC(h)      ((regrw_i *)(h)->evb_rt + 0x028)

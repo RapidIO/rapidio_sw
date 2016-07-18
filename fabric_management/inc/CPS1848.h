@@ -292,8 +292,17 @@ extern "C" {
 
 #define CPS_BROADCAST_DEVICE_ROUTE_TABLE		0xE00000
 #define CPS_BROADCAST_DOMAIN_ROUTE_TABLE		0xE00400
+#define CPS_PORT_DEVICE_ROUTE_TABLE			0xE10000
+#define CPS_PORT_DOMAIN_ROUTE_TABLE 			0xE10400
+#define CPS_PORT_ROUTE_TABLE_PORT_STRIDE		0x001000
 
 #define IDT_CPS_MAX_MC_MASK  (40)
+
+#define CPS_MC_FIRST 0x40
+#define CPS_MC_LAST (CPS_MC_FIRST + IDT_CPS_MAX_MC_MASK - 1)
+#define CPS_RTE_USE_L2 0xDD
+#define CPS_RTE_DROP 0xDE
+#define CPS_RTE_DFLT 0xDF
 
 /* Get a device destination ID (8 bit) from a 16 bit destination ID
 */
@@ -380,11 +389,14 @@ extern "C" {
 
 /* Broadcast Multicast Mask Entry: 0xF30000 + MaskNo * 4
 */
+#define CPS_BROADCAST_MC_MASK_BASE 0xE30000
 #define CPS_BROADCAST_MC_MASK_ENTRY(maskno) \
             ( CPS_BROADCAST_MC_MASK_BASE + ((uint32_t)maskno << 2) )
 
 /* Port-base Multicast Mask Entry: 0xF30000 + MaskNo * 4
 */
+#define CPS_PORT_N_MC_MASK_BASE 0xE38000
+#define CPS_PORT_N_MC_MASK_STRIDE 0x100
 #define CPS_PORT_BASE_MC_MASK_ENTRY(port, maskno) \
             ( CPS_PORT_N_MC_MASK_BASE + \
               ((uint32_t)port << 8) + ((uint32_t)maskno << 2) )

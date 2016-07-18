@@ -54,25 +54,6 @@ struct regrw_vendor {
         const char *vendor;
 };
 
-struct const_regs {
-        RIO_PE_FEAT_T pe_feat;
-        uint32_t sw_port_info;
-        uint32_t src_ops;
-        uint32_t dst_ops;
-        uint32_t sw_mc_sup;
-        uint32_t sw_rt_lim;
-        uint32_t sw_mc_info;
-        uint32_t sp_oset
-        uint32_t sp3_oset;
-        uint32_t sp_type;
-        uint32_t emhs_oset;
-        uint32_t hs_oset;
-        uint32_t em_info;
-        uint32_t lane_oset;
-        uint32_t lane_regs; /* RIO_LNX_ST0_STAT1 + RIO_LNX_ST0_STAT2_7 */
-        uint32_t rt_oset;
-};
-
 struct const_regs Tsi57x_const = {
         (RIO_PE_FEAT_T)Tsi578_PE_FEAT_VAL,
         Tsi578_SRC_OP_VAL,
@@ -91,6 +72,24 @@ struct const_regs Tsi57x_const = {
 };
 
 struct const_regs CPS1848_const = {
+        (RIO_PE_FEAT_T)CPS1848_PE_FEAT_VAL,
+        CPS1848_SRC_OP_VAL,
+	0,
+        CPS1848_MC_FEAT_VAL,
+        CPS1848_LUT_SIZE_VAL,
+        CPS1848_SW_MC_INFO_VAL,
+        CPS1848_PORT_MAINT_BLK_HEAD,
+        0, 
+        RIO_EFB_T_SP_NOEP_SAER,
+        CPS1848_ERR_MGT_EXTENSION_BLK_HEAD,
+        0,
+        0,
+        CPS1848_LANE_STATUS_BLK_HEAD,
+	0x0000000B,
+        0
+};
+
+struct const_regs CPS1432_const = {
         (RIO_PE_FEAT_T)CPS1848_PE_FEAT_VAL,
         CPS1848_SRC_OP_VAL,
 	0,
@@ -189,36 +188,6 @@ static const struct regrw_vendor regrw_vendors[] = {
 };
 
 static const struct regrw_dev_id regrw_device_ids[] = {
-        /* Prodrive */
-        {0x0000, 0x5130, "QHA (domo capable)", NULL},
-        {0x0000, 0x5131, "QHA", NULL},
-        {0x0000, 0x5148, "QHA", NULL},
-        {0x0000, 0x4130, "AMCBTB", NULL},
-        {0x0000, 0x4131, "AMCBTB", NULL},
-        {0x0000, 0x0001, "SMA", NULL},
-        {0x0000, 0x534d, "SMA", NULL},
-
-        /* Freescale*/
-        {RIO_VEND_FREESCALE, 0x0012, "MPC8548E", NULL},
-        {RIO_VEND_FREESCALE, 0x0013, "MPC8548", NULL},
-        {RIO_VEND_FREESCALE, 0x0014, "MPC8543E", NULL},
-        {RIO_VEND_FREESCALE, 0x0015, "MPC8543", NULL},
-        {RIO_VEND_FREESCALE, 0x0018, "MPC8547E", NULL},
-        {RIO_VEND_FREESCALE, 0x0019, "MPC8545E", NULL},
-        {RIO_VEND_FREESCALE, 0x001a, "MPC8545", NULL},
-        {RIO_VEND_FREESCALE, 0x0400, "P4080E", NULL},
-        {RIO_VEND_FREESCALE, 0x0401, "P4080", NULL},
-        {RIO_VEND_FREESCALE, 0x0408, "P4040E", NULL},
-        {RIO_VEND_FREESCALE, 0x0409, "P4040", NULL},
-        {RIO_VEND_FREESCALE, 0x0420, "P5020E", NULL},
-        {RIO_VEND_FREESCALE, 0x1810, "MSC8151, MSC8152, MSC8154, MSC8251, MSC8252 or MSC8254", NULL},
-        {RIO_VEND_FREESCALE, 0x1812, "MSC8154E", NULL},
-        {RIO_VEND_FREESCALE, 0x1818, "MSC8156 or MSC8256", NULL},
-        {RIO_VEND_FREESCALE, 0x181a, "MSC8156E", NULL},
-
-        /* Tundra */
-        {RIO_VEND_TUNDRA, RIO_DEVI_TSI500,        "Tsi500", NULL},
-        {RIO_VEND_TUNDRA, RIO_DEVI_TSI568,        "Tsi568", NULL},
         {RIO_VEND_TUNDRA, RIO_DEVI_TSI572,        "Tsi572", &Tsi57x_const},
         {RIO_VEND_TUNDRA, RIO_DEVI_TSI574,        "Tsi574", &Tsi57x_const},
         {RIO_VEND_TUNDRA, RIO_DEVI_TSI577,        "Tsi577", &Tsi57x_const},
@@ -226,46 +195,18 @@ static const struct regrw_dev_id regrw_device_ids[] = {
         {RIO_VEND_TUNDRA, RIO_DEVI_TSI578,        "Tsi578", &Tsi57x_const},
 
         /* IDT */
-        {RIO_VEND_IDT, RIO_DEVI_IDT_70K200,       "70K200", NULL},
-        {RIO_VEND_IDT, RIO_DEVI_IDT_CPS8,         "CPS8", NULL},
-        {RIO_VEND_IDT, RIO_DEVI_IDT_CPS12,        "CPS12", NULL},
-        {RIO_VEND_IDT, RIO_DEVI_IDT_CPS16,        "CPS16", NULL},
-        {RIO_VEND_IDT, RIO_DEVI_IDT_CPS6Q,        "CPS6Q", NULL},
-        {RIO_VEND_IDT, RIO_DEVI_IDT_CPS10Q,       "CPS10Q", NULL},
-        {RIO_VEND_IDT, RIO_DEVI_IDT_CPS1432,      "CPS1432", &CPS1848_const},
+        {RIO_VEND_IDT, RIO_DEVI_IDT_CPS1432,      "CPS1432", &CPS1432_const},
         {RIO_VEND_IDT, RIO_DEVI_IDT_CPS1848,      "CPS1848", &CPS1848_const},
-        {RIO_VEND_IDT, RIO_DEVI_IDT_CPS1616,      "CPS1616", &CPS1848_const},
-        {RIO_VEND_IDT, RIO_DEVI_IDT_SPS1616,      "SPS1616", &CPS1848_const},
-        {RIO_VEND_IDT, RIO_DEVI_IDT_VPS1616,      "VPS1616", &CPS1848_const},
+        {RIO_VEND_IDT, RIO_DEVI_IDT_CPS1616,      "CPS1616", &CPS1616_const},
+        {RIO_VEND_IDT, RIO_DEVI_IDT_SPS1616,      "SPS1616", &CPS1616_const},
         {RIO_VEND_IDT, RIO_DEVI_IDT_TSI721,       "Tsi721", &Tsi721_const},
 
         {RIO_VEND_IDT, RIO_DEVI_IDT_RXS2448,      "RXS2448", NULL},
         {RIO_VEND_IDT, RIO_DEVI_IDT_RXS1632,      "RXS1632", NULL},
 
-        /* Texas Instruments */
-        {RIO_VEND_TI, 0x009e, "TMS320C6678", NULL},
-        {RIO_VEND_TI, 0xb981, "66AK2H12/06", NULL},
 
         /* End of list */
         {RIO_VEND_RESERVED, RIO_DEVI_RESERVED, "Unknown", NULL},
-};
-
-void copy_constant_regs(regrw_i *h, const struct const_regs *regs)
-{
-	h->pe_feat = regs->pe_feat;
-	h->sw_port_info = regs->sw_port_info;
-	h->src_ops = regs->src_ops;
-	h->dst_ops = regs->dst_ops;
-	h->sw_mc_sup = regs->sw_mc_sup;
-	h->sw_rt_lim = regs->sw_rt_lim;
-	h->sw_mc_info = regs->sw_mc_info;
-	h->sp_oset = regs->sp_oset;
-	h->sp3_oset = regs->sp3_oset;
-	h->emhs_oset = regs->emhs_oset;
-	h->hs_oset = regs->hs_oset;
-	h->em_info = regs->em_info;
-	h->lane_oset = regs->lane_oset;
-	h->lane_regs = regs->lane_regs;
 };
 
 struct const_regs const_regs_offsets {
@@ -287,11 +228,6 @@ struct const_regs const_regs_offsets {
         RIO_BAD_OFFSET
 };
 
-#ifndef REGRW_USE_MALLOC
-struct rt_regs_blk rt_a[NUM_RT_REGS];
-bool rt_u[NUM_RT_REGS] = {false};
-#endif
-
 int read_rt_regs(regrw_h hnd)
 {
 	rio_port_t port;
@@ -304,38 +240,20 @@ int read_rt_regs(regrw_h hnd)
 		goto failed;
 	};
 
-#ifdef REGRW_USE_MALLOC
 	h->rt = (struct rt_regs_blk *)calloc(1, sizeof(struct rt_regs_blk));
 	if (NULL == h->rt) {
 		errno = ENOMEM;
 		goto failed;
 	};
-#else
-	int i;
-	bool found = false;
-
-	for (i = 0; i < NUM_RT_REGS; i++) {
-		if (!(rt_u[i])) {
-			rt_u = true;
-			h->rt = &rt_a[i];
-			found = true;
-			break;
-		};
-	};
-	if (!found) {
-		errno = ENOMEM;
-		goto failed;
-	};
-#endif
 	if (regrw_raw_rd(hnd, RIO_RT_BC_CTL(rtp), &h->rt->bc.ctl))
 		goto failed;
 	if (regrw_raw_rd(hnd, RIO_RT_BC_MC(rtp), &h->rt->bc.mc_oset))
 		goto failed;
-	if (regrw_raw_rd(hnd, RIO_RT_BC_LVL0(rtp), &h->rt->bc.lvl0_oset))
+	if (regrw_raw_rd(hnd, RIO_RT_BC_LVL0(rtp), &h->rt->bc.lvl0_i))
 		goto failed;
-	if (regrw_raw_rd(hnd, RIO_RT_BC_LVL1(rtp), &h->rt->bc.lvl1_oset))
+	if (regrw_raw_rd(hnd, RIO_RT_BC_LVL1(rtp), &h->rt->bc.lvl1_i))
 		goto failed;
-	if (regrw_raw_rd(hnd, RIO_RT_BC_LVL2(rtp), &h->rt->bc.lvl2_oset))
+	if (regrw_raw_rd(hnd, RIO_RT_BC_LVL2(rtp), &h->rt->bc.lvl2_i))
 		goto failed;
 	for (i = 0; i < PE_PORT_COUNT(h); i++) {
 		struct rt_regs *pt = &h->rt->pt[i];
@@ -343,11 +261,11 @@ int read_rt_regs(regrw_h hnd)
 			oto failed;
 		if (regrw_raw_rd(hnd, RIO_RT_MC(rtp), &pt->mc_oset))
 			oto failed;
-		if (regrw_raw_rd(hnd, RIO_RT_LVL0(rtp), &pt->lvl0_oset))
+		if (regrw_raw_rd(hnd, RIO_RT_LVL0(rtp), &pt->lvl0_i))
 			oto failed;
-		if (regrw_raw_rd(hnd, RIO_RT_LVL1(rtp), &pt->lvl1_oset))
+		if (regrw_raw_rd(hnd, RIO_RT_LVL1(rtp), &pt->lvl1_i))
 			oto failed;
-		if (regrw_raw_rd(hnd, RIO_RT_LVL2(rtp), &pt->lvl2_oset))
+		if (regrw_raw_rd(hnd, RIO_RT_LVL2(rtp), &pt->lvl2_i))
 			goto failed;
 	};
 
@@ -361,7 +279,7 @@ int read_efb_headers(regrw_h h)
         uint32_t efb;
         uint32_t efb_p = GET_EXT_FEAT_OSET(h);
 
-	while (prev_addr) {
+	while (efb_p) {
 		if (regrw_raw_rd(h, efb_p, &efb))
 			goto failed;
 
@@ -421,21 +339,21 @@ void read_variable_regs(regrw_h h, bool read_const_regs)
 	struct regrw_i *hnd = (struct regrw_i *)h;
 
 	if (read_const_regs) {
-    		if (regrw_raw_rd(h, RIO_PROC_ELEM_FEAT, &h->pe_feat))
+    		if (regrw_raw_rd(h, RIO_PROC_ELEM_FEAT, &h->cregs.pe_feat))
         		goto failed;
-    		if (regrw_raw_rd(h, RIO_SW_PORT_INF, &h->sw_port_inf))
+    		if (regrw_raw_rd(h, RIO_SW_PORT_INF, &h->cregs.sw_port_inf))
         		goto failed;
-    		if (regrw_raw_rd(h, RIO_SRC_OPS, &h->src_ops))
+    		if (regrw_raw_rd(h, RIO_SRC_OPS, &h->cregs.src_ops))
         		goto failed;
-    		if (regrw_raw_rd(h, RIO_DST_OPS, &h->dst_ops))
+    		if (regrw_raw_rd(h, RIO_DST_OPS, &h->cregs.dst_ops))
         		goto failed;
 		if (PE_IS_SW(h)) {
-    			if (regrw_raw_rd(h, RIO_SW_MC_SUP, &h->sw_mc_sup))
+    			if (regrw_raw_rd(h, RIO_SW_MC_SUP, &h->cregs.sw_mc_sup))
         			goto failed;
     			if (regrw_raw_rd(h, RIO_SW_RT_TBL_LIM,
-							&h->sw_rt_tbl_lim))
+						&h->cregs.sw_rt_tbl_lim))
         			goto failed;
-    			if (regrw_raw_rd(h, RIO_SW_MC_INF, &h->sw_mc_inf))
+    			if (regrw_raw_rd(h, RIO_SW_MC_INF, &h->cregs.sw_mc_inf))
         			goto failed;
 		};
 	};
@@ -446,7 +364,12 @@ void read_variable_regs(regrw_h h, bool read_const_regs)
 		goto failed;
  	if (regrw_raw_rd(h, RIO_ASSY_INF, &h->assy_info))
 		goto failed;
- 	if (regrw_raw_rd(h, RIO_SW_PORT_INF, &h->sw_port_info))
+	/* Make sure every device has at least one port. */
+ 	if (regrw_raw_rd(h, RIO_SW_PORT_INF, &h->cregs.sw_port_info))
+		goto failed;
+	if (!h->sw_port_info)
+		h->sw_port_info = 0x00000100;
+ 	if (regrw_raw_rd(h, RIO_PE_LL_CTL, &h->pe_ll_ctl))
 		goto failed;
  	if (regrw_raw_rd(h, RIO_LCS_ADDR0, &h->lcs_addr0))
 		goto failed;
@@ -462,9 +385,6 @@ void read_variable_regs(regrw_h h, bool read_const_regs)
  		if (regrw_raw_rd(h, RIO_DFLT_RTE, &h->dflt_rte))
 			goto failed;
 	};
-	/* Make sure every device has at least one port. */
-	if (!h->sw_port_info)
-		h->sw_port_info = 0x00000100;
 
 	if (!(h->pe_feat & RIO_PE_FEAT_EFB_VALID) || !read_const_regs)
 		return 0;
@@ -473,6 +393,8 @@ void read_variable_regs(regrw_h h, bool read_const_regs)
 failed:
 	return -1;
 };
+
+#define SPX_CTL1(h,p) RIO_SPX_CTL(h->sp_oset, h->sp_type, p)
 
 int regrw_fill_in_handle(regrw_i *h, RIO_DEV_IDENT_T vend_devi)
 {
@@ -493,10 +415,11 @@ int regrw_fill_in_handle(regrw_i *h, RIO_DEV_IDENT_T vend_devi)
 
 	if (!found)
 		goto fail;
+	found = false;
 
 	for (i = 0; RIO_VEND_RESERVED != regrw_device_ids[i]; i++) {
 		if ((regrw_device_ids[i].vid == vendor) &&
-				(regrw_device_ids[i].did == devi) &&
+				(regrw_device_ids[i].did == devi)) {
 			found = true;
 			break;
 		};
@@ -506,18 +429,112 @@ int regrw_fill_in_handle(regrw_i *h, RIO_DEV_IDENT_T vend_devi)
 		goto fail;
 
 	h->dev_t_name = regrw_device_ids[i].name;
-	if (NULL != regrw_device_ids[i].regs)
-		copy_constant_regs(h, regrw_device_ids[i].regs);
+	if (NULL != regrw_device_ids[i].regs) {
+		memcpy(&h->cregs, &regrw_device_ids[i].regs, sizeof(h->cregs));
+	};
 
 	if (read_variable_regs((regrw_h)h, NULL == regrw_device_ids[i].regs))
 		goto failed;
 
+	if (PE_IS_SW(h)) {
+		h->rt = (struct rt_regs_blk *)
+					calloc(sizeof(struct rt_regs_blk),1);
+		if (NULL == h->rt) {
+			errno = ENOMEM;
+			goto failed;
+		};
+	};
+
+	switch (GET_DEV_VENDOR(h)) {
+	case RIO_VEND_TUNDRA: tundra_fill_in_handle(h);
+		break;
+	case RIO_VEND_IDT: idt_fill_in_handle(h);
+		break;
+	default: goto fail;
+		break;
+	};
+
+	if  (h->sp_oset) {
+		rio_pt_t pt;
+		for (pt = 0; pt < PE_PORT_COUNT(h); pt++) {
+ 			if (regrw_raw_rd(h, SPX_CTL1(h,pt), &h->ctl1[pt])) {
+				goto failed;
+			};
+		};
+	};
 	return 0;
 fail:
 	errno = ENXIO;
 failed:
 	return -1;
+};
 
+int regrw_update_h_info_on_write(regrw_i *h, uint32_t offset, uint32_t data)
+{
+	int rc = 0;
+
+	switch (GET_DEV_VENDOR(h)) {
+	case RIO_VEND_TUNDRA: tundra_update_h_info_on_write(h, offseet, data);
+			break;
+	case RIO_VEND_IDT: idt_update_h_info_on_write(h, offseet, data);
+			break;
+	default: rc = -1;
+		errno = -RIO_VEND_IDT;
+		break;
+	};
+	return rc;
+};
+
+int regrw_get_info_from_h_on_read(regrw_i *h, uint32_t offset, uint32_t *data)
+{
+	int rc = 0;
+
+	switch (GET_DEV_VENDOR(h)) {
+	case RIO_VEND_TUNDRA: tundra_update_h_info_on_write(h, offseet, data);
+			break;
+	case RIO_VEND_IDT: idt_update_h_info_on_write(h, offseet, data);
+			break;
+	default: rc = -1;
+		errno = -RIO_VEND_IDT;
+		break;
+	};
+	return rc;
+};
+
+/** \brief Device specific corrections to data read from device
+ *  */
+int regrw_read_fixups(regrw_i *h, uint32_t offset, uint32_t *data)
+{
+	int rc = 0;
+
+	switch (GET_DEV_VENDOR(h)) {
+	case RIO_VEND_TUNDRA: tundra_update_h_info_on_write(h, offseet, data);
+			break;
+	case RIO_VEND_IDT: idt_update_h_info_on_write(h, offseet, data);
+			break;
+	default: rc = -1;
+		errno = -RIO_VEND_IDT;
+		break;
+	};
+	return rc;
+};
+
+/** \brief Device specific corrections to data to be written to device
+ *  */
+int regrw_write_fixups(regrw_i *h, uint32_t offset, uint32_t *data);
+{
+	int rc = 0;
+
+	switch (GET_DEV_VENDOR(h)) {
+	case RIO_VEND_TUNDRA: tundra_update_h_info_on_write(h, offseet, data);
+			break;
+	case RIO_VEND_IDT: idt_update_h_info_on_write(h, offseet, data);
+			break;
+	default: rc = -1;
+		errno = -RIO_VEND_IDT;
+		break;
+	};
+	return rc;
 };
 
 #ifdef __cplusplus

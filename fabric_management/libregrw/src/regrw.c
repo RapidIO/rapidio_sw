@@ -45,96 +45,47 @@ extern "C" {
 #endif
 
 struct regrw_driver dflt_driver;
-
-#ifndef REGRW_USE_MALLOC
-struct regrw_i regrw_hndl[REGRW_NUM_HANDLES];
-struct regrw_sw regrw_sw_hndl[REGRW_NUM_SWITCHES];
-
-bool hdnl_use[REGRW_NUM_HANDLES] = {false};
-bool sw_use[REGRW_NUM_SWITCHES] = {false};
-#endif
+#define MAX_DAR_SCRPAD_IDX 30
 
 int regrw_get_handle(regrw_h *h)
 {
 	regrw_i *hnd;
 	errno = 0;
-#ifdef REGRW_USE_MALLOC
 	hnd = (regrw_h)calloc(1, sizeof(struct regrw_i));
 	if (NULL == hnd) {
 		return -1;
 	*h = (void *)hnd;
 	memcpy((*h)->regrw, &dflt_driver, sizeof(struct regrw_driver));
 	return 0;
-#else
-	bool found_one = false;
-	*h = NULL;
-
-	for (int srch_i = 0; srch_i < REGRW_NUM_HANDLES; srch_i++) {
-		if (!hdnl_use[srch_i]) {
-			hdnl_use[srch_i] = true;
-			memset(&regrw_hndl[srch_i], 0, sizeof(struct regrw_i));
-			memcpy(&regrw_hndl[srch_i], &dflt_driver,
-						sizeof(struct regrw_driver));
-			*h = &regrw_hndl[srch_i];
-			found_one = true;
-			break;
-		};
-	};
-	if (found_one)
-		return 0;
-	
-	errno = ENOMEM;
-	return -1;
-#endif;
 };
 
 int regrw_destroy_handle(regrw_h *h)
 {
-#ifdef REGRW_USE_MALLOC
+	struct regrw_i *hndl;
 	errno = 0;
+	if (NULL == h) {
+		errno = EINVAL;
+		return -1;
+	};
+
+	if (NULL == *h) {
+		return 0;
+	};
+	hndl = (struct regrw_i *)h;
+
+	if (NULL != h) {
+		if (NULL != hndl->sw_info) {
+			free(hndl->sw_info);
+			hndl->sw_info = NULL;
+		};
+		if (NULL != hndlh->scratchpad) {
+			free(hndl->scratchpad);
+			hndl->scratchpad = NULL;
+		};
+	};
 	free(*h);
 	*h = NULL;
 	return 0;
-#else
-	bool found_one = false;
-	uint idx;
-	struct regrw_i *hndl = (struct regrw_i *)h;
-
-	errno = 0;
-	if (NULL == h)
-		goto fail;
-
-	if (NULL == *h)
-		return 0;
-
- 	idx = ((uint64_t)*h - (uint64_t)&regrw_hndl[0]) /
-			sizeof(regrw_hndl[0]);
-	if (idx >= REGRW_NUM_HANDLES) {
-		goto fail;
-	};
-
-	if (hndl->sw_info) {
-		uint sw_idx = (((uint64_t)hndl->sw_info -
-				(uint64_t)&regrw_sw_hndl[0]) /
-				sizeof(regrw_sw_hndl[0]);
-		if (sw_idx >= REGRW_NUM_SWITCHES)
-			goto fail;
-
-		sw_use[sw_idx] = false;
-		memset(&regrw_sw_hndl[sw_idx], 0, sizeof(regrw_sw_hndl[0]));
-	};
-
-	hndl_use[idx] = false;
-	memset(&regrw_hndl[idx], 0, sizeof(regrw_hndl[0]));
-		
-	*h = NULL;
-
-	return 0;
-fail:
-	errno = EINVAL;
-	return -1;
-
-#endif;
 };
 
 int regrw_init_handle(regrw_h h, uint32_t did, rio_hc_t hc)
@@ -157,8 +108,12 @@ int regrw_init_handle(regrw_h h, uint32_t did, rio_hc_t hc)
 
 /* FIXME: Allocate switch information here */
 
-	if (regrw_fill_in_handle(hnd, vend_devi);
+	if (regrw_fill_in_handle(hnd, vend_devi)) {
 		goto fail;
+	};
+
+	if (PE_IS_SW(h)) {
+	};
 
 	return 0;
 fail:
@@ -237,7 +192,7 @@ int regrw_rd(struct rio_car_csr *rcc, uint32_t offset, uint32_t *val)
 		return EINVAL;
 	};
 
-	return rcc->regrw.reg_rd(rcc, offset, val);
+	rc = rcc->regrw.reg_rd(rcc, offset, val);
 };
 
 int regrw_wr(struct rio_car_csr *rcc, uint32_t offset, uint32_t val)
@@ -274,7 +229,7 @@ int regrw_raw_wr(struct rio_car_csr *rcc, uint32_t did, rio_hc_t hc,
 /* To override functions above, pass in structure with new function.
  * If the existing function should be unchanged, pass in NULL.
  */
-extern struct regrw_driver regrw_dflt_drv;
+struct regrw_driver regrw_dflt_drv;
 
 int init_rcc_driver(struct rio_car_csr *rcc)
 {
