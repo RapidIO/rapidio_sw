@@ -71,7 +71,7 @@ memops_demo_log: $(SOURCES) libmemops_intf.a samples/memops_demo.cc
 		-DRDMA_LL=$(LOG_LEVEL) \
 		-L$(COMMONLIB) -L. $(LIBS_RPATH) -Wl,-rpath=. \
 		-L$(COMMONLIBA) libmemops_intf.a -lumd_tsi721_tik \
-		-ltime_utils -lmport -llog -lcli \
+		-ltime_utils -lmport -llog -lcli -lrsvdmem \
 		-lpthread -lrt -ldl 
 
 memops_test_cf: $(SOURCES) libmemops_intf.so src/memops_test_cf.cc

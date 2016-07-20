@@ -32,10 +32,12 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 #include <stdio.h> // snprintf
+#include <assert.h>
 
 #include <vector>
 
 #include "memops_mport.h"
+#include "librsvdmem.h"
 
 #define XCRIT(fmt, ...)
 
@@ -151,6 +153,65 @@ bool RIOMemOpsMport::alloc_dmawin(DmaMem_t& mem /*out*/, const int _size)
 
   mem.type = DMAMEM;
   mem.win_size = size;
+
+  pthread_mutex_lock(&m_memreg_mutex);
+    m_memreg[mem.win_handle] = &mem;
+  pthread_mutex_unlock(&m_memreg_mutex);
+
+  return true;
+}
+
+bool RIOMemOpsMport::alloc_ibwin_rsvd(DmaMem_t& mem /*out*/, const int _size, const char* RegionName)
+{
+  int size = _size;
+
+  if ((size % 4096) != 0) {
+    int k = size / 4096;
+    k++;
+    size = k * 4096;
+  }
+
+  if (RegionName == NULL || RegionName[0] == '\0') {
+    XCRIT("FAIL Must supply a RegionName\n");
+    return false;
+  }
+
+  uint64_t rsvd_addr = 0;
+  uint64_t rsvd_size = 0;
+  int ret = get_rsvd_phys_mem((char*)RegionName, &rsvd_addr, &rsvd_size);
+  if (ret) {
+    XCRIT("FAIL get_rsvd_phys_mem for RegionName=%s -- check /etc/rapidio/rsvd_phys_mem.conf\n", RegionName);
+    return false;
+  }
+
+  assert(rsvd_addr);
+  assert(rsvd_size);
+
+  if ((uint32_t)size < rsvd_size) {
+    XCRIT("FAIL RegionName=%s of size 0x%x is smaller than requested size 0x%x\ns -- check /etc/rapidio/rsvd_phys_mem.conf",
+          RegionName, rsvd_size, _size);
+    return false;
+  }
+
+  mem.rio_address = RIO_ANY_ADDR;
+  mem.win_handle  = rsvd_addr;
+
+  ret = riomp_dma_ibwin_map(m_mp_h, &mem.rio_address, rsvd_size, &mem.win_handle);
+  if (ret) {
+    mem.win_handle = 0;
+    XCRIT("FAIL riomp_dma_ibwin_map/get_rsvd_phys_mem: %d:%s\n", ret, strerror(ret));
+    return false;
+  }
+
+  ret = riomp_dma_map_memory(m_mp_h, rsvd_size, mem.win_handle, &mem.win_ptr);
+  if (ret) {
+    mem.win_handle = 0;
+    XCRIT("FAIL riomp_dma_map_memory: %d:%s\n", ret, strerror(ret));
+    return false;
+  }
+
+  mem.type     = IBWIN;
+  mem.win_size = rsvd_size;
 
   pthread_mutex_lock(&m_memreg_mutex);
     m_memreg[mem.win_handle] = &mem;
