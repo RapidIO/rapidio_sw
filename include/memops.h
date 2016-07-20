@@ -71,8 +71,9 @@ typedef enum {
 typedef enum {
 	INVALID = 0, ///< Uninitialized, or unallocated */
 	IBWIN = 1, ///< Inbound memory window, accessible locally and remotely
-	DMAMEM = 2, ///< Local physically contiguous memory, suitable for DMA
-	MALLOC = 3 ///< Locally allocated memory, low performance, must be
+	IBWIN_FIXD = 2, ///< Inbound memory "window" managed by RSKTD , accessible locally and remotely
+	DMAMEM = 3, ///< Local physically contiguous memory, suitable for DMA
+	MALLOC = 4 ///< Locally allocated memory, low performance, must be
 		///< used with common/include/rapidio_mport_dma.h driver
 } DmaMemType_t;
 
@@ -226,6 +227,23 @@ public:
 	 */
 	virtual bool alloc_ibwin_rsvd(DmaMem_t& mem /*out*/, const int size, const char* RegionName) = 0;
 
+	/** \brief Used to map a local memory buffer.  This memory is accessible from other nodes using nread_mem and nwrite_mem.
+	 *
+	 * \note This should be used with a handle obtained from RSKTD which had already programmed the Tsi721 IBwin register for the region which includes the handle/size.
+	 *
+	 * @param[in] mem Parameters used to request memory te_mem.
+	 * @param[in] rio_address For documentation purposes -- passed in from RSKTD
+	 * @param[in] handle Physical memory address mapped as IBwin
+	 * @param[in] size number of bytes to allocate. 0 is illegal.
+	 *                 Will be rounded up to at least the next power of
+	 *                 2.
+	 * \note This is done via kernel "memmap=" memory area.
+	 * return false - memory allocated successfully.
+	 * 	  true - memory could not be allocated.
+	 * 	  	Check errno to determine reason for failure.
+	 */
+	virtual bool alloc_ibwin_fixd(DmaMem_t& mem /*out*/, const uint64_t rio_address, const uint64_t handle, const int size) = 0;
+
 	// TODO: UMD impl will overload alloc_mem and throw an error
 	/** \brief allocate buffer in virtual memory.  Memory allocated with this routine
 	 * can be used by MEMOPS_MPORT but not by other drivers. */
@@ -242,7 +260,8 @@ public:
 	virtual void free_xwin(DmaMem_t& mem) {
 		switch (mem.type) {
 			case DMAMEM: free_dmawin(mem); break;
-			case IBWIN:	free_ibwin(mem); break;
+			case IBWIN:  free_ibwin(mem); break;
+			case IBWIN_FIXD: free_fixd(mem); break;
 			case MALLOC: free(mem.win_ptr); break;
 			default: throw std::runtime_error("free_xwin: Invalid type!"); break;
 		}
@@ -256,6 +275,7 @@ public:
 private:
 	virtual bool free_dmawin(DmaMem_t& mem) = 0;
 	virtual bool free_ibwin(DmaMem_t& mem) = 0;
+	virtual bool free_fixd(DmaMem_t& mem) = 0;
 };
 
 RIOMemOpsIntf* RIOMemOps_classFactory(const MEMOPSAccess_t type, const int mport, const int channel = -1);

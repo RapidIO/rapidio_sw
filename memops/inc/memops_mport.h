@@ -56,12 +56,15 @@ public:
   virtual bool alloc_ibwin(DmaMem_t& mem /*out*/, const int size);
   virtual bool alloc_ibwin_rsvd(DmaMem_t& mem /*out*/, const int size, const char* RegionName);
 
+  virtual bool alloc_ibwin_fixd(DmaMem_t& mem /*out*/, const uint64_t rio_address, const uint64_t handle, const int size);
+
   virtual int getAbortReason() { return -m_errno; }
   virtual const char* abortReasonToStr(const int dma_abort_reason) { return strerror(dma_abort_reason); }
 
 private:
   virtual bool free_dmawin(DmaMem_t& mem);
   virtual bool free_ibwin(DmaMem_t& mem);
+  virtual bool free_fixd(DmaMem_t& mem);
 
 protected:
   riomp_mport_t m_mp_h;
