@@ -38,3 +38,10 @@ uint16_t mport_my_destid()
 
   return my_destid;
 }
+
+extern "C"
+void mport_set_ioctl(void* arg)
+{
+  riomp_mgmt_set_ioctl(arg);
+}
+

@@ -159,6 +159,7 @@ RSKT_DECLARE(shim_rskt_write, int, (void*, void*, int));
 } while(0);
 
 MPORT_DECLARE(mport_my_destid, uint16_t, (void));
+MPORT_DECLARE(mport_set_ioctl, void, (void*));
 
 static inline uint16_t mport_my_destid()
 {
@@ -172,7 +173,11 @@ static inline uint16_t mport_my_destid()
   MPORT_DLSYMCAST(mport_my_destid, uint16_t, (void));
   did = MPORT_mport_my_destid();
 
-  dlclose(dh);
+  MPORT_DLSYMCAST(mport_set_ioctl, void, (void*));
+
+  MPORT_mport_set_ioctl((void*)glibc_ioctl);
+
+  //dlclose(dh); /// XXX mem leak
   return did;
 }
 
@@ -355,7 +360,6 @@ int close(int fd)
     if (sock_tr.fd >= 0) glibc_close(sock_tr.fd);
     if (sock_tr.sockp[0] != -1) glibc_close(sock_tr.sockp[0]);
     if (sock_tr.sockp[1] != -1) glibc_close(sock_tr.sockp[1]);
-    if (sock_tr.rsock != NULL) RSKT_shim_rskt_close(sock_tr.rsock);
     pthread_mutex_lock(&sock_tr.acc_mutex);
       for (int i = 0; i < sock_tr.acc_thr_list.size(); i++) 
         pthread_kill(sock_tr.acc_thr_list[i], SIGUSR1);
@@ -366,6 +370,10 @@ int close(int fd)
     g_sock_map.erase(it);
 
     pthread_mutex_unlock(&g_map_mutex);
+
+    // rskt_close BUGs and locks up. Better call it in unlocked context.
+    if (sock_tr.rsock != NULL) RSKT_shim_rskt_close(sock_tr.rsock);
+
     return 0;
   }
   pthread_mutex_unlock(&g_map_mutex);

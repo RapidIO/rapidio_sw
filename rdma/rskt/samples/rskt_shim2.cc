@@ -119,8 +119,6 @@ int shim_rskt_read(void* sock, void* data, const int data_len)
 
 extern "C" int get_avail_bytes(struct rskt_buf_hdr volatile *hdr, uint32_t buf_sz);
 
-#define SKT_CONNECTED(x) ((rskt_connected == x->st) || (rskt_closing == x->st))
-
 int shim_rskt_get_avail_bytes(void* sock)
 {
   assert(sock);
