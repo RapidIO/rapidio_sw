@@ -54,7 +54,7 @@ SERVER_DEPS=
 
 SERVER_OBJS= server.o
 
-LIBS = -L$(COMMONLIB) -lfxfr -lmemops_intf -lmport -llog -lcli \
+LIBS = -L$(COMMONLIB) -lfxfr -lmemops_intf -lmport -llog -lcli -lrsvdmem \
 			-lpthread -ldl -lrt
 
 LIB_DEPS= libfxfr
