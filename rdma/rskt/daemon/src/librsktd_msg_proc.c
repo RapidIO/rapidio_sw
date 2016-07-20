@@ -808,6 +808,9 @@ int rsktd_a2w_connect_req(struct librsktd_unified_msg *r)
 	d_con->dst_sn = htonl(sn);
 	d_con->dst_ct = htonl(ct);
 	d_con->src_sn = htonl(new_sn);
+	r->loc_ms->loc_sn = new_sn;
+	r->loc_ms->rem_sn = 0;
+	r->loc_ms->rem_ct = ct;
 	if (dmn.use_mport) {
 		PACK_PTR(r->loc_ms->rio_addr, d_con->r_addr_u, d_con->r_addr_l);
 		
@@ -848,8 +851,9 @@ void rsktd_a2w_connect_resp(struct librsktd_unified_msg *r)
 
 	r->tx->a_rsp.err = r->dresp->err;
 
-	if (r->dresp->err)
+	if (r->dresp->err) {
 		goto fail;
+	};
 
 	INFO("Msg %s 0x%x Type 0x%x %s Proc %s Stage %s",
 		UMSG_W_OR_S(r),
@@ -862,7 +866,7 @@ void rsktd_a2w_connect_resp(struct librsktd_unified_msg *r)
 	/* Pass con_resp info into a_rsp */
 	a_rsp->new_sn = d_req->src_sn;
 	a_rsp->new_ct = htonl(dmn.qresp.hdid);
-	/* use_addr must be eual to use_mport, or the universe has suffered
+	/* use_addr must be equal to use_mport, or the universe has suffered
 	* a rift in the space-time continuum.
 	*/
 	if (!!a_rsp->use_addr != dmn.use_mport) {
@@ -886,6 +890,21 @@ void rsktd_a2w_connect_resp(struct librsktd_unified_msg *r)
 		memcpy(a_rsp->ms, d_req->src_ms, MAX_MS_NAME);
 		memcpy(a_rsp->rem_ms, d_resp->dst_ms, MAX_MS_NAME);
 	}
+
+	// Fill in ms_state information
+	if (NULL == r->loc_ms) {
+		CRIT("Msg %s 0x%x Type 0x%x %s Proc %s Stage %s "
+							"loc_ms is NULL !!!",
+			UMSG_W_OR_S(r),
+			UMSG_CT(r),
+			r->msg_type,
+			UMSG_TYPE_TO_STR(r),
+			UMSG_PROC_TO_STR(r),
+			UMSG_STAGE_TO_STR(r));
+		goto fail;
+	};
+	r->loc_ms->rem_sn = ntohl(d_resp->acc_sn);
+
 	a_rsp->rem_sn = d_resp->acc_sn;
 	a_rsp->msub_sz = d_resp->msub_sz;
 	r->loc_ms->state = rsktd_ms_used;

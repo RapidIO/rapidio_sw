@@ -833,16 +833,23 @@ void display_wpeers_list(struct cli_env *env)
 
 		if (!found_one) {
 			sprintf(env->output, 
-			"\nWPEERS\nComp_Tag CM_Sockt PeerPid  A D  SeqNum  Rx_Buff\n");
+			"\nWPEERS\nComp_Tag CM_Sockt PeerPid  A D  Req     Seq# Resp      Seq#   Next Seq#\n");
         		logMsg(env);
 			found_one = 1;
 		};
 		
-		sprintf(env->output, "%8d %8d %8d %1d %1d %8d %p\n", 
-			dmn.wpeers[i].ct, dmn.wpeers[i].cm_skt,
-			dmn.wpeers[i].peer_pid, dmn.wpeers[i].wpeer_alive,
-			dmn.wpeers[i].i_must_die, dmn.wpeers[i].w_seq_num,
-			dmn.wpeers[i].rx_buff);
+		sprintf(env->output,
+			"%8d %8d %8d %1d %1d %8s %4d %8s %4d %8d \n", 
+			dmn.wpeers[i].ct,
+			dmn.wpeers[i].cm_skt,
+			dmn.wpeers[i].peer_pid,
+			dmn.wpeers[i].wpeer_alive,
+			dmn.wpeers[i].i_must_die, 
+			RSKTD_REQ_STR(ntohl(dmn.wpeers[i].req->msg_type)),
+			ntohl(dmn.wpeers[i].req->msg_seq),
+			RSKTD_RESP_STR(ntohl(dmn.wpeers[i].resp->msg_type)),
+			ntohl(dmn.wpeers[i].resp->msg_seq),
+			dmn.wpeers[i].w_seq_num);
         	logMsg(env);
 	};
 
