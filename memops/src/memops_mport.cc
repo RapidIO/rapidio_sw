@@ -153,6 +153,7 @@ bool RIOMemOpsMport::alloc_dmawin(DmaMem_t& mem /*out*/, const int _size)
 
   mem.type = DMAMEM;
   mem.win_size = size;
+  mem.offset = 0;
 
   pthread_mutex_lock(&m_memreg_mutex);
     m_memreg[mem.win_handle] = &mem;
@@ -195,6 +196,7 @@ bool RIOMemOpsMport::alloc_ibwin_rsvd(DmaMem_t& mem /*out*/, const int _size, co
 
   mem.rio_address = RIO_ANY_ADDR;
   mem.win_handle  = rsvd_addr;
+  mem.offset = 0;
 
   ret = riomp_dma_ibwin_map(m_mp_h, &mem.rio_address, rsvd_size, &mem.win_handle);
   if (ret) {
@@ -212,6 +214,40 @@ bool RIOMemOpsMport::alloc_ibwin_rsvd(DmaMem_t& mem /*out*/, const int _size, co
 
   mem.type     = IBWIN;
   mem.win_size = rsvd_size;
+
+  pthread_mutex_lock(&m_memreg_mutex);
+    m_memreg[mem.win_handle] = &mem;
+  pthread_mutex_unlock(&m_memreg_mutex);
+
+  return true;
+}
+
+bool RIOMemOpsMport::alloc_ibwin_fixd(DmaMem_t& mem /*out*/, const uint64_t rio_address, const uint64_t handle, const int _size)
+{
+  assert(handle);
+  assert(_size);
+
+  int size = _size;
+
+  if ((size % 4096) != 0) {
+    int k = size / 4096;
+    k++;
+    size = k * 4096;
+  }
+
+  mem.rio_address = mem.rio_address;
+  mem.win_handle  = handle;
+
+  int ret = riomp_dma_map_memory(m_mp_h, size, mem.win_handle, &mem.win_ptr);
+  if (ret) {
+    mem.win_handle = 0;
+    XCRIT("FAIL riomp_dma_map_memory: %d:%s\n", ret, strerror(ret));
+    return false;
+  }
+
+  mem.type     = IBWIN_FIXD;
+  mem.win_size = size;
+  mem.offset   = 0;
 
   pthread_mutex_lock(&m_memreg_mutex);
     m_memreg[mem.win_handle] = &mem;
@@ -239,6 +275,7 @@ bool RIOMemOpsMport::alloc_ibwin(DmaMem_t& ibwin /*out*/, const int size)
 
   ibwin.type = IBWIN;
   ibwin.win_size = size;
+  ibwin.offset = 0;
 
   pthread_mutex_lock(&m_memreg_mutex);
     m_memreg[ibwin.win_handle] = &ibwin;
@@ -298,12 +335,32 @@ bool RIOMemOpsMport::free_ibwin(DmaMem_t& ibwin)
   /* Free the inbound window via the mport driver */
   rc = riomp_dma_ibwin_free(m_mp_h, &ibwin.win_handle);
   if (rc) {
-        XCRIT("Failed to free inbound memory: %d:%s\n",
-              ret, strerror(ret));
-    /* Don't return; still try to free the inbound window */
+    XCRIT("Failed to free inbound memory: %d:%s\n", ret, strerror(ret));
     ret = false;
   }
 
   return ret;
 }
 
+bool RIOMemOpsMport::free_fixd(DmaMem_t& ibwin)
+{
+  bool ret = true;
+
+  if(ibwin.type != IBWIN_FIXD)
+    throw std::runtime_error("RioMport: Invalid type for ibwin/RSKTD!");
+
+  pthread_mutex_lock(&m_memreg_mutex);
+    std::map<uint64_t, DmaMem_t*>::iterator it = m_memreg.find(ibwin.win_handle);
+    if (it != m_memreg.end()) m_memreg.erase(it);
+  pthread_mutex_unlock(&m_memreg_mutex);
+
+  /* Memory-unmap the inbound window's virtual pointer */
+  int rc = riomp_dma_unmap_memory(m_mp_h, ibwin.win_size, ibwin.win_ptr);
+  if (rc) {
+    XCRIT("Failed to unmap inbound memory: @%p %d:%s\n",
+          ibwin.win_ptr, ret, strerror(ret));
+    ret = false;
+  }
+
+  return ret;
+}
