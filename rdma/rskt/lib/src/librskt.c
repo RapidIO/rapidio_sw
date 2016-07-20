@@ -1035,6 +1035,7 @@ int setup_skt_ptrs(struct rskt_socket_t *volatile skt)
 {
 	struct rdma_xfer_ms_in hdr_in;
 	int    rc = 0;
+	int delay;
 
 	DBG("ENTER\n");
 /*
@@ -1074,7 +1075,7 @@ int setup_skt_ptrs(struct rskt_socket_t *volatile skt)
 	rc = update_remote_hdr(skt, &hdr_in);
 	if (rc) {
 		ERR("Failed to update remote header, rc = %d\n", rc);
-		goto exit_setup_skt_ptrs;
+		goto exit;
 	}
 
 	/**
@@ -1100,9 +1101,20 @@ int setup_skt_ptrs(struct rskt_socket_t *volatile skt)
 	DBG("skt->hdr->rem_rx_wr_flags = 0x%08X, skt->hdr->rem_tx_rd_flags\n",
 			ntohl(skt->hdr->rem_rx_wr_flags), ntohl(skt->hdr->rem_tx_rd_flags));
 	DBG("Waiting for INIT_DONE and ZEROED or for ZEROED only\n");
-	while (!COND1 && !COND2) {
+	delay = 10000;
+	while (!COND1 && !COND2 && delay--) {
 		usleep(10);
 	}
+
+	if (!COND1 && !COND2) {
+		DBG("skt->hdr->rem_rx_wr_flags = 0x%08X,"
+						" skt->hdr->rem_tx_rd_flags\n",
+			ntohl(skt->hdr->rem_rx_wr_flags),
+			ntohl(skt->hdr->rem_tx_rd_flags));
+		DBG("FAILED wait INIT_DONE and ZEROED or for ZEROED only\n");
+		rc = -1;
+		goto exit;
+	};
 #undef COND1
 #undef COND2
 
@@ -1118,7 +1130,7 @@ int setup_skt_ptrs(struct rskt_socket_t *volatile skt)
 	rc = update_remote_hdr(skt, &hdr_in);
 	if (rc) {
 		ERR("Failed to update remote header, rc = %d\n", rc);
-		goto exit_setup_skt_ptrs;
+		goto exit;
 	}
 
 	/* COND1: !INIT_DONE, ZEROED, and !INIT (!A, B, !C) */
@@ -1141,9 +1153,23 @@ int setup_skt_ptrs(struct rskt_socket_t *volatile skt)
 	&&  (skt->hdr->rem_tx_rd_flags & htonl(RSKT_BUF_HDR_FLAG_INIT)) \
 	      )
 
-	while (!COND1 && !COND2) {
+	DBG("skt->hdr->rem_rx_wr_flags = 0x%08X, skt->hdr->rem_tx_rd_flags\n",
+		ntohl(skt->hdr->rem_rx_wr_flags),
+		ntohl(skt->hdr->rem_tx_rd_flags));
+	DBG("Waiting for ZEROED only or INIT only\n");
+	delay = 10000;
+	while (!COND1 && !COND2 && delay--) {
 		usleep(10);
 	}
+	if (!COND1 && !COND2) {
+		DBG("skt->hdr->rem_rx_wr_flags = 0x%08X,"
+						" skt->hdr->rem_tx_rd_flags\n",
+			ntohl(skt->hdr->rem_rx_wr_flags),
+			ntohl(skt->hdr->rem_tx_rd_flags));
+		DBG("FAILED for ZEROED only or INIT only\n");
+		rc = -1;
+		goto exit;
+	};
 #undef COND1
 #undef COND2
 
@@ -1160,7 +1186,7 @@ int setup_skt_ptrs(struct rskt_socket_t *volatile skt)
 	rc = update_remote_hdr(skt, &hdr_in);
 	if (rc) {
 		ERR("Failed to update remote header, rc = %d\n", rc);
-		goto exit_setup_skt_ptrs;
+		goto exit;
 	}
 
 	/**
@@ -1174,12 +1200,22 @@ int setup_skt_ptrs(struct rskt_socket_t *volatile skt)
 	&&  (skt->hdr->rem_rx_wr_flags & htonl(RSKT_BUF_HDR_FLAG_INIT)) \
 	&&  (skt->hdr->rem_tx_rd_flags & htonl(RSKT_BUF_HDR_FLAG_INIT)) \
 	      )
-	while (!COND1) {
+	DBG("skt->hdr->rem_rx_wr_flags = 0x%08X, skt->hdr->rem_tx_rd_flags\n",
+		ntohl(skt->hdr->rem_rx_wr_flags),
+		ntohl(skt->hdr->rem_tx_rd_flags));
+	DBG("Waiting for INIT only\n");
+	delay = 10000;
+	while (!COND1 && delay--) {
 		usleep(10);
 	}
+	if (!COND1) {
+		DBG("FAILED for INIT only\n");
+		rc = -1;
+		goto exit;
+	};
 #undef COND1
 
-exit_setup_skt_ptrs:
+exit:
 	DBG("EXIT\n");
 	return rc;
 }; /* setup_skt_ptrs() */
@@ -1918,8 +1954,10 @@ int  get_avail_bytes(struct rskt_buf_hdr volatile *hdr, uint32_t buf_sz)
 
 	errno = 0;
 	
+/*
 	INFO("rem_rx_wr_flags 0x%8x loc_rx_rd_flags 0x%8x\n",
 		htonl(hdr->rem_rx_wr_flags), htonl(hdr->loc_rx_rd_flags));
+*/
 	if (!(hdr->rem_rx_wr_flags & htonl(RSKT_BUF_HDR_FLAG_INIT))) {
 		/* There cannot be any bytes available */
 		return 0;
@@ -1931,7 +1969,9 @@ int  get_avail_bytes(struct rskt_buf_hdr volatile *hdr, uint32_t buf_sz)
 		return AVAIL_BYTES_ERROR;
 	};
 
+/*
 	INFO("rrw 0x%8x lrr 0x%8x buf_sz 0x%8x", rrw, lrr, buf_sz);
+*/
 
 	avail_bytes = rrw - lrr - 1;
 	if (rrw < lrr) {
