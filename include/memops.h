@@ -177,6 +177,8 @@ public:
 	 * does not have a RapidIO address, so it cannot be accessed by other
 	 * nodes.
 	 * 
+	 * \note This is done via kernel CMA allocator. Beware of alignment.
+	 *
 	 * @param[in] mem Parameters used to request memory te_mem.
 	 * @param[in] size number of bytes to allocate. 0 is illegal.
 	 *                 Will be rounded up to at least the next power of
@@ -188,18 +190,41 @@ public:
 	virtual bool alloc_dmawin(DmaMem_t& mem, const int size) = 0;
 
 	/** \brief Used to allocate a local memory buffer and map it to a RapidIO
-	* address.  This memory is accessible from other nodes using nread_mem and
-	* nwrite_mem.
-	*
-	* @param[in] mem Parameters used to request memory te_mem.
-	* @param[in] size number of bytes to allocate. 0 is illegal.
-	*                 Will be rounded up to at least the next power of
-	*                 2.
-	* return false - memory allocated successfully.
-	* 	  true - memory could not be allocated.
-	* 	  	Check errno to determine reason for failure.
-	*/
+	 * address.  This memory is accessible from other nodes using nread_mem and
+	 * nwrite_mem.
+	 *
+	 * \note This is done via kernel CMA allocator. Beware of alignment.
+	 *
+	 * @param[in] mem Parameters used to request memory te_mem.
+	 * @param[in] size number of bytes to allocate. 0 is illegal.
+	 *                 Will be rounded up to at least the next power of
+	 *                 2.
+	 * return false - memory allocated successfully.
+	 * 	  true - memory could not be allocated.
+	 * 	  	Check errno to determine reason for failure.
+	 */
 	virtual bool alloc_ibwin(DmaMem_t& mem /*out*/, const int size) = 0;
+
+	/** \brief Used to allocate a local memory buffer and map it to a RapidIO
+	 * address.  This memory is accessible from other nodes using nread_mem and
+	 * nwrite_mem.
+	 *
+	 * \note This is done via kernel "memmap=" memory area.
+	 * \note This can be done only once per node (no locking/exclusion). Use external locking.
+	 *
+	 * \note Size of memory allocated may be bigger than \ref size -- prescribed in /etc/rapidio/rsvd_phys_mem.conf
+	 *
+	 * @param[in] mem Parameters used to request memory te_mem.
+	 * @param[in] size number of bytes to allocate. 0 is illegal.
+	 *                 Will be rounded up to at least the next power of
+	 *                 2.
+	 * @param[in] RegionName Eg. "DMATUN" -- see /etc/rapidio/rsvd_phys_mem.conf
+	 *
+	 * return false - memory allocated successfully.
+	 * 	  true - memory could not be allocated.
+	 * 	  	Check errno to determine reason for failure.
+	 */
+	virtual bool alloc_ibwin_rsvd(DmaMem_t& mem /*out*/, const int size, const char* RegionName) = 0;
 
 	// TODO: UMD impl will overload alloc_mem and throw an error
 	/** \brief allocate buffer in virtual memory.  Memory allocated with this routine
