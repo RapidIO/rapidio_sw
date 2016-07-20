@@ -365,14 +365,14 @@ int close(int fd)
         pthread_kill(sock_tr.acc_thr_list[i], SIGUSR1);
     pthread_mutex_unlock(&sock_tr.acc_mutex);
 
-    pthread_mutex_unlock(&g_map_mutex);
+    const void* rsock = sock_tr.rsock;
 
     g_sock_map.erase(it);
 
     pthread_mutex_unlock(&g_map_mutex);
 
     // rskt_close BUGs and locks up. Better call it in unlocked context.
-    if (sock_tr.rsock != NULL) RSKT_shim_rskt_close(sock_tr.rsock);
+    if (rsock != NULL) RSKT_shim_rskt_close((void*)rsock);
 
     return 0;
   }
