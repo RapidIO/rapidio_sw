@@ -61,7 +61,7 @@ memops_demo: $(SOURCES) libmemops_intf.so samples/memops_demo.cc
 		-o $@ \
 		-lpthread -lrt -ldl \
 		-L$(COMMONLIB) $(LIBS_RPATH) -L. -Wl,-rpath=. \
-		-ltime_utils -lmport -lmemops_intf -lrt 
+		-ltime_utils -lmport -lmemops_intf -lcli -lrsvdmem -lrt 
 
 ## libmemops_intf.a is the version without logging and debugging.
 ## The .a library must be bound into memops_demo_log.
@@ -79,7 +79,7 @@ memops_test_cf: $(SOURCES) libmemops_intf.so src/memops_test_cf.cc
 		-o $@ \
 		-L$(COMMONLIBA) -lmemops_intf -L. -Wl,-rpath=. \
 		-L$(COMMONLIB) $(LIBS_RPATH) -ltime_utils -lmport  \
-		-lpthread -lrt -ldl 
+		-lcli -lrsvdmem -lpthread -lrt -ldl 
 
 clean:
 	rm -f *.[ao] *.so* a.out memops_demo*
