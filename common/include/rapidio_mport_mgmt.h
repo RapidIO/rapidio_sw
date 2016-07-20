@@ -431,6 +431,11 @@ int riomp_mgmt_device_add(riomp_mport_t mport_handle, uint16_t destid, uint8_t h
  */
 int riomp_mgmt_device_del(riomp_mport_t mport_handle, uint16_t destid, uint8_t hc, uint32_t ctag, const char *name);
 
+/** \brief Set the ioctl(2) function to call.
+ * \note This is a hack required by RSKT Shim which overloads the "ioctl" symbol with its own implementation.
+ */
+void riomp_mgmt_set_ioctl(void* arg);
+
 #ifdef __cplusplus
 }
 #endif
