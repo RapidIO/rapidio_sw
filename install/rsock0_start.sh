@@ -5,6 +5,16 @@ RIO_CLASS_MPORT_DIR=/sys/class/rio_mport/rio_mport0
 
 . /etc/rapidio/nodelist.sh
 
+MTU='/bin/true';
+[ -z "$1" ] || {
+	MTU=$1;
+	if (($MTU < 576 || $MTU > 65500)); then
+		echo "Invalid MTU=$MTU. ¡Hasta la vista!" 1>&2
+		exit 42;
+	fi
+	MTU="/sbin/ifconfig rsock0 mtu $MTU";
+}
+
 for node in $NODES; do
 	DESTID=$(ssh root@"$node" "cat $RIO_CLASS_MPORT_DIR/device/port_destid")
 	echo $DESTID | grep -qi ffff && {
@@ -26,5 +36,5 @@ for node in $NODES; do
 
 	# XXX This IPv4 assignment is naive at best and works with up to 254 node clusters
 	# XXX DESTID=0 will yield 169.254.0.0 which is bcast addr. Use FMD for enumeration.
-	ssh root@"$node" "/sbin/ifconfig rsock0 169.254.0.$DESTID"
+	ssh root@"$node" "$MTU; /sbin/ifconfig rsock0 169.254.0.$DESTID up"
 done
