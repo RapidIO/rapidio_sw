@@ -18,11 +18,14 @@ function atexit()
 
 . /etc/rapidio/nodelist.sh
 
+MY_IP=$( /sbin/ifconfig rsock0 | awk '/inet /{print $2}' );
+
 PEERS=''
 for node in $NODES
 do
         # Check that the node was properly enumerated
         IP=$(ssh root@"$node" "/sbin/ifconfig rsock0" | awk '/inet /{print $2}')
+	[ "$MY_IP" = "$IP" ] && continue;
 	PEERS="$PEERS $IP"
 done
 
@@ -40,7 +43,7 @@ echo $@ | grep -q ping && {
   for p in $PEERS; do
     # Tsi721 has up to 16 reassembly contexts?
     for((i=0; i < 18; i++)); do
-      ping -qf $p &>/dev/null &
+      sudo ping -qf $p &>/dev/null &
     done
   done
 }
