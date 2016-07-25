@@ -48,6 +48,10 @@ XFLAGS+=-DDEBUG
 XFLAGS+=-I../inc
 XFLAGS+=-DRDMA_LL=$(LOG_LEVEL)
 XFLAGS+=$(addprefix -I,inc $(INCDIR))
+XFLAGS+=-I$(TOPDIR)/memops/inc
+XFLAGS+=-I$(UMDDIR)/inc
+XFLAGS+=-I$(FMDDIR)/librio_switch/inc
+XFLAGS+=-Wno-unused-parameter -Wno-type-limits
 
 CXXFLAGS+=$(XFLAGS) --std=c++11
 CFLAGS+=$(XFLAGS)

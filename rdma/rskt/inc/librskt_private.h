@@ -45,6 +45,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "liblist.h"
 #include "rapidio_mport_mgmt.h"
 
+#include "memops.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -187,6 +189,11 @@ struct rskt_socket_t {
 				valid if lib.use_mport is asserted */
 	uint64_t phy_addr; /* Physical address of local buffer,
 				valid if lib.use_mport is asserted */
+
+	/* Memops stuff -- in lieu of RDMA and libmport/DMA */
+	RIOMemOpsIntf* memops;
+	DmaMem_t memops_ibwin; /* Managed by RSKTd, we just map a portion of a phy addr IBwin into our address space */
+
 	/* Connected MS */
 	char con_msh_name[MAX_MS_NAME];
 	conn_h connh;	/* Connection handle - for use in disconnection */

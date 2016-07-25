@@ -64,6 +64,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rapidio_mport_dma.h"
 
 #include "memops.h"
+#include "memops_umd.h"
 
 #include "liblog.h"
 
@@ -92,6 +93,8 @@ char *rskt_state_strs[rskt_max_state] = {
 	(char *)"SHTDWN",
 	(char *)"CLOSED"
 };
+
+static void rskt_init_memops(struct rskt_socket_t * volatile skt) throw();
 
 void rskt_clear_skt(volatile struct rskt_socket_t *skt) 
 {
@@ -511,6 +514,9 @@ void cleanup_skt(rskt_h skt_h, volatile struct rskt_socket_t *skt,
 		struct l_item_t *li)
 {
 	if (lib.use_mport == 0x666) { /// TODO memops
+		assert(skt->memops);
+		skt->memops->free_xwin(((struct rskt_socket_t*)skt)->memops_ibwin); // XXX g++ makes me de-volatile skt
+		skt->msub_p = NULL;
 	} else if (lib.use_mport) {
 		if (NULL != skt->msub_p) {
 			int rc = riomp_dma_unmap_memory(lib.mp_h, skt->msub_sz, 
@@ -760,7 +766,7 @@ int librskt_init(int rsktd_port, int rsktd_mpnum)
 
 	free(resp);
 
-	if (lib.use_mport) {
+	if (lib.use_mport && lib.use_mport != 0x666) {
 		rc = riomp_mgmt_mport_create_handle(lib.mpnum, 0, &lib.mp_h);
 		if (rc) {
 			ERR("Could no topen mport %d\n", lib.mpnum);
@@ -873,6 +879,9 @@ rskt_h rskt_create_socket(void)
 		free(skt_h);
 		skt_h = NULL;
 	};
+
+	skt_h->skt->memops = NULL; /// TODO memops
+
 	return skt_h;
 fail:
 	if (NULL != skt_h)
@@ -901,6 +910,11 @@ void rskt_destroy_socket(rskt_h *skt_h)
 
 	if (NULL != (*skt_h)->skt)
 		rskt_close_locked(*skt_h);
+
+	if (NULL != (*skt_h)->skt->memops) {
+		delete (*skt_h)->skt->memops;
+		(*skt_h)->skt->memops = NULL;
+	}
 
 	free(*skt_h);
 	*skt_h = NULL;
@@ -1391,7 +1405,9 @@ int rskt_accept(rskt_h l_skt_h, rskt_h skt_h,
 		goto unlock;
 	};
 
-	if (lib.use_mport == 0x666) { /// TODO memops
+	if (lib.use_mport == 0x666) { /// TODO memops rskt_accept
+		skt->con_sz = ntohl(rx->a_rsp.msg.accept.ms_size);
+		rskt_init_memops(skt);
 	} else if (lib.use_mport) {
 		UNPACK_PTR(rx->a_rsp.msg.accept.p_addr_u,
 				rx->a_rsp.msg.accept.p_addr_l,
@@ -1517,11 +1533,59 @@ fail:
 	return rc;
 };
 
+static void rskt_init_memops(struct rskt_socket_t * volatile skt) throw()
+{
+	assert(skt);
+
+	// defaults for using libmport
+	bool shared = true;
+	int  chan = ANY_CHANNEL;
+
+	if (NULL != getenv("RSKT_UMD_UNSHARED")) shared = false; // flag use of UMD standalone
+	if (NULL != getenv("RSKT_UMD_CHANNEL")) {
+		int chn = -1;
+		if (sscanf(getenv("RSKT_UMD_CHANNEL"), "%d", &chn) != 1)
+			throw std::runtime_error("rskt_accept: Invalid content of $RSKT_UMD_CHANNEL");
+		if (chn < 0) 
+			throw std::runtime_error("rskt_accept: Negative $RSKT_UMD_CHANNEL");
+		if (chn > 7) 
+			throw std::runtime_error("rskt_accept: Invalid/exceeding-7 $RSKT_UMD_CHANNEL");
+		chan = chn;
+	}
+	
+	skt->memops = RIOMemOpsChanMgr(lib.mpnum, shared, chan);
+	assert(skt->memops);
+
+	if (!shared && chan != ANY_CHANNEL) { // Standalone UMD
+		RIOMemOpsUMD* mops_umd = dynamic_cast<RIOMemOpsUMD*>(skt->memops);
+
+		// TODO pick up bufc and sts from $RSKT_UMD_BUFC and $RSKT_UMD_STS
+
+		bool r = mops_umd->setup_channel(0x100 /*bufc*/, 0x400 /*sts aka FIFO*/);
+		assert(r);
+		r = mops_umd->start_fifo_thr(-1 /*isolcpu*/);
+		assert(r);
+	}
+
+	memset(&skt->memops_ibwin, 0, sizeof(skt->memops_ibwin));
+
+	const uint64_t rio_address = RIO_ANY_ADDR; // XXX Barry: does RSKTD report this?
+
+        bool r = skt->memops->alloc_ibwin_fixd(skt->memops_ibwin /*out*/, rio_address, skt->phy_addr /*handle*/, skt->con_sz);
+	assert(r);
+
+	skt->msub_p = (volatile uint8_t*)skt->memops_ibwin.win_ptr;
+
+	memset((void *)skt->msub_p, 0, skt->msub_sz);
+
+	skt->msh_valid = 1;
+}
+
 int rskt_connect(rskt_h skt_h, struct rskt_sockaddr *sock_addr )
 {
 	struct librskt_app_to_rsktd_msg *tx = NULL;
 	struct librskt_rsktd_to_app_msg *rx = NULL;
-	struct rskt_socket_t * volatile skt;
+	struct rskt_socket_t * volatile skt = NULL;
 	int temp_errno;
 	int rc = -1;
 
@@ -1619,7 +1683,9 @@ int rskt_connect(rskt_h skt_h, struct rskt_sockaddr *sock_addr )
 	if (lib.all_must_die)
 		goto unlock;
 
-	if (lib.use_mport == 0x666) { /// TODO memops
+	if (lib.use_mport == 0x666) { /// TODO memops rskt_connect
+		skt->con_sz = ntohl(rx->a_rsp.msg.conn.msub_sz);
+		rskt_init_memops(skt);
 	} else if (lib.use_mport) {
 		UNPACK_PTR(rx->a_rsp.msg.conn.p_addr_u,
 				rx->a_rsp.msg.conn.p_addr_l,
@@ -1715,14 +1781,45 @@ int send_bytes(rskt_h skt_h, void *data, int byte_cnt,
 	DBG("loc_tx_wr_ptr = 0x%X, loc_rx_rd_ptr = 0x%X\n",
 		ntohl(skt->hdr->loc_tx_wr_ptr), ntohl(skt->hdr->loc_rx_rd_ptr));
 
-	if (lib.use_mport == 0x666) { /// TODO memops
+	if (lib.use_mport == 0x666) { /// TODO memops send_bytes
+		const uint16_t destID = skt->sai.sa.ct;
+
+                MEMOPSRequest_t req; memset(&req, 0, sizeof(req));
+
+		req.mem = ((struct rskt_socket_t*)skt)->memops_ibwin;
+
+                req.destid      = destID;
+                req.bcount      = byte_cnt;
+                req.raddr.lsb64 = skt->rio_addr + dma_wr_offset;
+                req.mem.offset  = dma_rd_offset;
+                req.sync        = RIO_DIRECTIO_TRANSFER_SYNC;
+                req.wr_mode     = RIO_DIRECTIO_TYPE_NWRITE_R;
+
+                int rc = skt->memops->nwrite_mem(req);
+		if (!rc) {
+                         ERR("File TX: DMA op failed with rc=%d reason=%d (%s)\n",
+                              rc,
+                              skt->memops->getAbortReason(),
+                              skt->memops->abortReasonToStr(skt->memops->getAbortReason()));
+		}
+
+		if (skt->memops->canRestart() && skt->memops->checkAbort()) {
+			int abort = skt->memops->getAbortReason();
+			ERR("NWRITE_R ABORTed with reason %d (%s). Restarting channel.\n", abort, skt->memops->abortReasonToStr(abort));
+			skt->memops->restartChannel();
+		}
+
+		if (!rc) return -1;
 	} else if (lib.use_mport) {
 		int dma_err;
 		DBG("riomp_dma_write_d \n");
 		do {
-			dma_err = riomp_dma_write_d(lib.mp_h, skt->sai.sa.ct,
-				skt->rio_addr + dma_wr_offset, skt->phy_addr,
-				dma_rd_offset, byte_cnt,
+			dma_err = riomp_dma_write_d(lib.mp_h,
+				skt->sai.sa.ct,			// destid
+				skt->rio_addr + dma_wr_offset,  // tgt_addr
+				skt->phy_addr,			// handle -- kernel allocated!
+				dma_rd_offset,			// offset
+				byte_cnt,			// bcount
 				RIO_DIRECTIO_TYPE_NWRITE,
 				RIO_DIRECTIO_TRANSFER_SYNC);
 		} while (dma_err && ((EINTR == errno) || (EAGAIN == errno)));
@@ -1770,13 +1867,43 @@ int update_remote_hdr(struct rskt_socket_t * volatile skt,
 	struct rdma_xfer_ms_out hdr_out;
 	int rc;
 
-	if (lib.use_mport == 0x666) { /// TODO memops
+	if (lib.use_mport == 0x666) { /// TODO memops update_remote_hdr
+               const uint16_t destID = skt->sai.sa.ct;
+
+                MEMOPSRequest_t req; memset(&req, 0, sizeof(req));
+
+                req.mem = ((struct rskt_socket_t*)skt)->memops_ibwin;
+
+                req.destid      = destID;
+                req.bcount      = RSKT_LOC_HDR_SIZE;
+                req.raddr.lsb64 = skt->rio_addr + RSKT_REM_RX_WR_PTR_OFFSET;
+                req.mem.offset  = RSKT_LOC_TX_WR_PTR_OFFSET;
+                req.sync        = RIO_DIRECTIO_TRANSFER_SYNC;
+                req.wr_mode     = RIO_DIRECTIO_TYPE_NWRITE_R;
+
+                int rc = skt->memops->nwrite_mem(req);
+                if (!rc) {
+                         ERR("File TX: DMA op failed with rc=%d reason=%d (%s)\n",
+                              rc,
+                              skt->memops->getAbortReason(),
+                              skt->memops->abortReasonToStr(skt->memops->getAbortReason()));
+                }
+
+                if (skt->memops->canRestart() && skt->memops->checkAbort()) {
+                        int abort = skt->memops->getAbortReason();
+                        ERR("NWRITE_R ABORTed with reason %d (%s). Restarting channel.\n", abort, skt->memops->abortReasonToStr(abort));
+                        skt->memops->restartChannel();
+                }
+
+                if (!rc) return -1;
 	} else if (lib.use_mport) {
 		do {
-			rc = riomp_dma_write_d(lib.mp_h, skt->sai.sa.ct,
-				skt->rio_addr + RSKT_REM_RX_WR_PTR_OFFSET,
-				skt->phy_addr,
-				RSKT_LOC_TX_WR_PTR_OFFSET, RSKT_LOC_HDR_SIZE,
+			rc = riomp_dma_write_d(lib.mp_h,
+				skt->sai.sa.ct,					// destid
+				skt->rio_addr + RSKT_REM_RX_WR_PTR_OFFSET,	// tgt_addr
+				skt->phy_addr,					// handle
+				RSKT_LOC_TX_WR_PTR_OFFSET,			// offset
+				RSKT_LOC_HDR_SIZE,				// bcount
 				RIO_DIRECTIO_TYPE_NWRITE,
 				RIO_DIRECTIO_TRANSFER_SYNC);
 		} while (rc && ((EINTR == errno) || (EAGAIN == errno)));
