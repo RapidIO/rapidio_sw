@@ -506,7 +506,8 @@ void cleanup_skt_rdma(rskt_h skt_h, volatile struct rskt_socket_t *skt)
 void cleanup_skt(rskt_h skt_h, volatile struct rskt_socket_t *skt,
 		struct l_item_t *li)
 {
-	if (lib.use_mport) {
+	if (lib.use_mport == 0x666) { /// TODO memops
+	} else if (lib.use_mport) {
 		if (NULL != skt->msub_p) {
 			int rc = riomp_dma_unmap_memory(lib.mp_h, skt->msub_sz, 
 						(void *)skt->msub_p);
@@ -749,7 +750,9 @@ int librskt_init(int rsktd_port, int rsktd_mpnum)
 
 	lib.init_ok = rsktd_port;
 	lib.ct = ntohl(resp->a_rsp.msg.hello.ct);
-	lib.use_mport = !!(ntohl(resp->a_rsp.msg.hello.use_mport));
+	lib.use_mport = ntohl(resp->a_rsp.msg.hello.use_mport);
+
+	if(lib.use_mport && getenv("RSKT_MEMOPS") != NULL) lib.use_mport = 0x666;
 
 	free(resp);
 
@@ -1384,7 +1387,8 @@ int rskt_accept(rskt_h l_skt_h, rskt_h skt_h,
 		goto unlock;
 	};
 
-	if (lib.use_mport) {
+	if (lib.use_mport == 0x666) { /// TODO memops
+	} else if (lib.use_mport) {
 		UNPACK_PTR(rx->a_rsp.msg.accept.p_addr_u,
 				rx->a_rsp.msg.accept.p_addr_l,
 				skt->phy_addr);
@@ -1611,7 +1615,8 @@ int rskt_connect(rskt_h skt_h, struct rskt_sockaddr *sock_addr )
 	if (lib.all_must_die)
 		goto unlock;
 
-	if (lib.use_mport) {
+	if (lib.use_mport == 0x666) { /// TODO memops
+	} else if (lib.use_mport) {
 		UNPACK_PTR(rx->a_rsp.msg.conn.p_addr_u,
 				rx->a_rsp.msg.conn.p_addr_l,
 				skt->phy_addr);
@@ -1705,7 +1710,9 @@ int send_bytes(rskt_h skt_h, void *data, int byte_cnt,
 	INC_PTR(skt->hdr->loc_tx_wr_ptr, byte_cnt, skt->buf_sz);
 	DBG("loc_tx_wr_ptr = 0x%X, loc_rx_rd_ptr = 0x%X\n",
 		ntohl(skt->hdr->loc_tx_wr_ptr), ntohl(skt->hdr->loc_rx_rd_ptr));
-	if (lib.use_mport) {
+
+	if (lib.use_mport == 0x666) { /// TODO memops
+	} else if (lib.use_mport) {
 		int dma_err;
 		DBG("riomp_dma_write_d \n");
 		do {
@@ -1759,7 +1766,8 @@ int update_remote_hdr(struct rskt_socket_t * volatile skt,
 	struct rdma_xfer_ms_out hdr_out;
 	int rc;
 
-	if (lib.use_mport) {
+	if (lib.use_mport == 0x666) { /// TODO memops
+	} else if (lib.use_mport) {
 		do {
 			rc = riomp_dma_write_d(lib.mp_h, skt->sai.sa.ct,
 				skt->rio_addr + RSKT_REM_RX_WR_PTR_OFFSET,
@@ -2310,7 +2318,7 @@ cleanup:
 	
 		tx->msg_type = LIBRSKTD_RELEASE;
 		tx->a_rq.msg.release.sn = htonl(skt_h->sa.sn);
-		tx->a_rq.msg.release.use_addr = htonl((uint32_t)lib.use_mport);
+		tx->a_rq.msg.release.use_addr = htonl(!!(uint32_t)lib.use_mport);
 		PACK_PTR(phy_addr, tx->a_rq.msg.release.p_addr_u,
 				tx->a_rq.msg.release.p_addr_l);
 		memcpy(tx->a_rq.msg.release.ms_name, ms_name, MAX_MS_NAME+1);
