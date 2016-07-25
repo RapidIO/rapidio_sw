@@ -35,6 +35,8 @@ include $(TOPDIR)/rules.mk
 LOG_LEVEL?=7
 DEBUG?=DEBUG
 
+CC := $(CXX)
+
 NAME:=rskt
 TARGETS:=lib$(NAME).a
 HEADERS:=inc/lib$(NAME).h inc/lib$(NAME)_private.h src/*.h

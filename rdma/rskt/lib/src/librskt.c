@@ -48,7 +48,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <assert.h>
 #include <stdbool.h>
 
-#define __USE_GNU
+#ifndef __USE_GNU
+  #define __USE_GNU
+#endif
 #include <pthread.h>
 
 #define __STDC_FORMAT_MACROS
@@ -60,6 +62,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "liblist.h"
 #include "libcli.h"
 #include "rapidio_mport_dma.h"
+
+#include "memops.h"
 
 #include "liblog.h"
 
