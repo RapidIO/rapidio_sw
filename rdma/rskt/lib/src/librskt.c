@@ -1793,7 +1793,7 @@ int send_bytes(rskt_h skt_h, void *data, int byte_cnt,
                 req.raddr.lsb64 = skt->rio_addr + dma_wr_offset;
                 req.mem.offset  = dma_rd_offset;
                 req.sync        = RIO_DIRECTIO_TRANSFER_SYNC;
-                req.wr_mode     = RIO_DIRECTIO_TYPE_NWRITE_R;
+                req.wr_mode     = RIO_DIRECTIO_TYPE_NWRITE;
 
                 int rc = skt->memops->nwrite_mem(req);
 		if (!rc) {
@@ -1805,7 +1805,7 @@ int send_bytes(rskt_h skt_h, void *data, int byte_cnt,
 
 		if (skt->memops->canRestart() && skt->memops->checkAbort()) {
 			int abort = skt->memops->getAbortReason();
-			ERR("NWRITE_R ABORTed with reason %d (%s). Restarting channel.\n", abort, skt->memops->abortReasonToStr(abort));
+			ERR("NWRITE ABORTed with reason %d (%s). Restarting channel.\n", abort, skt->memops->abortReasonToStr(abort));
 			skt->memops->restartChannel();
 		}
 
@@ -1879,7 +1879,7 @@ int update_remote_hdr(struct rskt_socket_t * volatile skt,
                 req.raddr.lsb64 = skt->rio_addr + RSKT_REM_RX_WR_PTR_OFFSET;
                 req.mem.offset  = RSKT_LOC_TX_WR_PTR_OFFSET;
                 req.sync        = RIO_DIRECTIO_TRANSFER_SYNC;
-                req.wr_mode     = RIO_DIRECTIO_TYPE_NWRITE_R;
+                req.wr_mode     = RIO_DIRECTIO_TYPE_NWRITE;
 
                 int rc = skt->memops->nwrite_mem(req);
                 if (!rc) {
@@ -1891,7 +1891,7 @@ int update_remote_hdr(struct rskt_socket_t * volatile skt,
 
                 if (skt->memops->canRestart() && skt->memops->checkAbort()) {
                         int abort = skt->memops->getAbortReason();
-                        ERR("NWRITE_R ABORTed with reason %d (%s). Restarting channel.\n", abort, skt->memops->abortReasonToStr(abort));
+                        ERR("NWRITE ABORTed with reason %d (%s). Restarting channel.\n", abort, skt->memops->abortReasonToStr(abort));
                         skt->memops->restartChannel();
                 }
 
