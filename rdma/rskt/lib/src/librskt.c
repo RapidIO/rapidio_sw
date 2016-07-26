@@ -76,6 +76,8 @@ extern "C" {
 #define RDMA_CONN_POLL_USECS 50
 #define RDMA_ACC_TO_SECS  30
 
+#define SIX6SIX_FLAG 0x666
+
 struct librskt_globals lib;
 
 char *rskt_state_strs[rskt_max_state] = {
@@ -513,7 +515,7 @@ void cleanup_skt_rdma(rskt_h skt_h, volatile struct rskt_socket_t *skt)
 void cleanup_skt(rskt_h skt_h, volatile struct rskt_socket_t *skt,
 		struct l_item_t *li)
 {
-	if (lib.use_mport == 0x666) { /// TODO memops
+	if (lib.use_mport == SIX6SIX_FLAG) { /// TODO memops
 		assert(skt->memops);
 		skt->memops->free_xwin(((struct rskt_socket_t*)skt)->memops_ibwin); // XXX g++ makes me de-volatile skt
 		skt->msub_p = NULL;
@@ -762,11 +764,11 @@ int librskt_init(int rsktd_port, int rsktd_mpnum)
 	lib.ct = ntohl(resp->a_rsp.msg.hello.ct);
 	lib.use_mport = ntohl(resp->a_rsp.msg.hello.use_mport);
 
-	if(lib.use_mport && getenv("RSKT_MEMOPS") != NULL) lib.use_mport = 0x666;
+	if(lib.use_mport && getenv("RSKT_MEMOPS") != NULL) lib.use_mport = SIX6SIX_FLAG;
 
 	free(resp);
 
-	if (lib.use_mport && lib.use_mport != 0x666) {
+	if (lib.use_mport && lib.use_mport != SIX6SIX_FLAG) {
 		rc = riomp_mgmt_mport_create_handle(lib.mpnum, 0, &lib.mp_h);
 		if (rc) {
 			ERR("Could no topen mport %d\n", lib.mpnum);
@@ -1405,7 +1407,7 @@ int rskt_accept(rskt_h l_skt_h, rskt_h skt_h,
 		goto unlock;
 	};
 
-	if (lib.use_mport == 0x666) { /// TODO memops rskt_accept
+	if (lib.use_mport == SIX6SIX_FLAG) { /// TODO memops rskt_accept
 		skt->con_sz = ntohl(rx->a_rsp.msg.accept.ms_size);
 		rskt_init_memops(skt);
 	} else if (lib.use_mport) {
@@ -1569,7 +1571,7 @@ static void rskt_init_memops(struct rskt_socket_t * volatile skt) throw()
 
 	memset(&skt->memops_ibwin, 0, sizeof(skt->memops_ibwin));
 
-	const uint64_t rio_address = RIO_ANY_ADDR; // XXX Barry: does RSKTD report this?
+	const uint64_t rio_address = RIO_ANY_ADDR;
 
         bool r = skt->memops->alloc_ibwin_fixd(skt->memops_ibwin /*out*/, rio_address, skt->phy_addr /*handle*/, skt->con_sz);
 	assert(r);
@@ -1683,7 +1685,7 @@ int rskt_connect(rskt_h skt_h, struct rskt_sockaddr *sock_addr )
 	if (lib.all_must_die)
 		goto unlock;
 
-	if (lib.use_mport == 0x666) { /// TODO memops rskt_connect
+	if (lib.use_mport == SIX6SIX_FLAG) { /// TODO memops rskt_connect
 		skt->con_sz = ntohl(rx->a_rsp.msg.conn.msub_sz);
 		rskt_init_memops(skt);
 	} else if (lib.use_mport) {
@@ -1781,7 +1783,7 @@ int send_bytes(rskt_h skt_h, void *data, int byte_cnt,
 	DBG("loc_tx_wr_ptr = 0x%X, loc_rx_rd_ptr = 0x%X\n",
 		ntohl(skt->hdr->loc_tx_wr_ptr), ntohl(skt->hdr->loc_rx_rd_ptr));
 
-	if (lib.use_mport == 0x666) { /// TODO memops send_bytes
+	if (lib.use_mport == SIX6SIX_FLAG) { /// TODO memops send_bytes
 		const uint16_t destID = skt->sai.sa.ct;
 
                 MEMOPSRequest_t req; memset(&req, 0, sizeof(req));
@@ -1867,7 +1869,7 @@ int update_remote_hdr(struct rskt_socket_t * volatile skt,
 	struct rdma_xfer_ms_out hdr_out;
 	int rc;
 
-	if (lib.use_mport == 0x666) { /// TODO memops update_remote_hdr
+	if (lib.use_mport == SIX6SIX_FLAG) { /// TODO memops update_remote_hdr
                const uint16_t destID = skt->sai.sa.ct;
 
                 MEMOPSRequest_t req; memset(&req, 0, sizeof(req));
