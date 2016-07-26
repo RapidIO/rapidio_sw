@@ -1290,39 +1290,40 @@ void *worker_thread(void *parm)
 			migrate_thread_to_cpu(&info->wkr_thr);
 
 		switch (info->action) {
-        	case alloc_ibwin:
-				dma_alloc_ibwin(info);
-				break;
-        	case free_ibwin:
-				dma_free_ibwin(info);
-				break;
+		case alloc_ibwin:
+			dma_alloc_ibwin(info);
+			break;
+		case free_ibwin:
+			dma_free_ibwin(info);
+			break;
 #ifdef USER_MODE_DRIVER
 		case umd_shm:
-				umd_shm_goodput_demo(info);
-				break;
+			umd_shm_goodput_demo(info);
+			break;
 		case umd_dma:
-				umd_dma_goodput_demo(info);
-				break;
+			umd_dma_goodput_demo(info);
+			break;
 		case umd_dmalrx:
-				umd_dma_goodput_latency_demo(info, 'R');
-				break;
+			umd_dma_goodput_latency_demo(info, 'R');
+			break;
 		case umd_dmaltx:
-				umd_dma_goodput_latency_demo(info, 'T');
-				break;
+			umd_dma_goodput_latency_demo(info, 'T');
+			break;
 		case umd_dmalnr: // NREAD
-				umd_dma_goodput_latency_demo(info, 'N');
-				break;
+			umd_dma_goodput_latency_demo(info, 'N');
+			break;
 		case umd_dmatest: 
-				umd_dma_goodput_testbed(info);
-				break;
+			umd_dma_goodput_testbed(info);
+			break;
 #endif // USER_MODE_DRIVER
 		
         	case shutdown_worker:
-				info->stat = 0;
-		default:
+			info->stat = 0;
+			break;
 		case no_action:
 		case last_action:
-				break;
+		default:
+			break;
 		};
 
 		if (info->stat) {

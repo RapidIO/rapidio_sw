@@ -338,8 +338,11 @@ int riomp_mgmt_lcfg_read(riomp_mport_t mport_handle, uint32_t offset,
 	};
 
 	switch (offset) {
-	case RIO_COMPTAG: *data = FAKE_LIBMPORT_CT;
-	default: *data = 0;
+	case RIO_COMPTAG:
+		*data = FAKE_LIBMPORT_CT;
+		break;
+	default:
+		*data = 0;
 	};
 
 	return 0 * offset * size;

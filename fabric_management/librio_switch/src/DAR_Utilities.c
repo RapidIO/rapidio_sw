@@ -390,83 +390,87 @@ static void DAR_util_get_wrsize_wdptr( uint32_t  addr,
                                        uint32_t *wdptr )
 {
     *wrsize = BAD_SIZE; 
-    switch( pkt_bytes )
-    {
-    case (0): *wdptr = BAD_SIZE;
-              break;
-    case (1): *wdptr  = (addr & 4) >> 2;
-              *wrsize = (addr & 3);
-              break;
-    case (2): if (!(addr & 1))
-              {
-                  *wdptr = (addr & 4) >> 2;
-                  *wrsize = 4 + (addr & 2);
-              };
-              break;
-    case(3):  switch (addr & 7)
-              {
-                  case (0): 
-                  case (5): *wdptr  = (addr & 4) >> 2 ;
-                            *wrsize = 5;
-                  default: ;
-              };
-              break;
-    case(4): switch (addr & 7)
-              {
-                  case (0): 
-                  case (4): *wdptr  = (addr & 4) >> 2 ;
-                            *wrsize = 8;
-                  default: ;
-              };
-              break;
-    case(5): switch (addr & 7)
-              {
-                  case (0): 
-                  case (3): *wdptr  = addr & 1;
-                            *wrsize = 7;
-                  default: ;
-              };
-              break;
-    case(6): switch (addr & 7)
-              {
-                  case (0): 
-                  case (2): *wdptr  = (addr & 2) >> 1 ;
-                            *wrsize = 9;
-                  default: ;
-              };
-              break;
-    case(7): switch (addr & 7)
-              {
-                  case (0): 
-                  case (1): *wdptr  = addr & 1 ;
-                            *wrsize = 10;
-                  default: ;
-              };
-              break;
-    case(8): 
-    case(16): *wdptr  = (pkt_bytes/8) - 1;
-              *wrsize = 11;
-               break;
+    switch( pkt_bytes ) {
+    case (0):
+        *wdptr = BAD_SIZE;
+        break;
+    case (1):
+        *wdptr  = (addr & 4) >> 2;
+        *wrsize = (addr & 3);
+        break;
+    case (2):
+        if (!(addr & 1)) {
+            *wdptr = (addr & 4) >> 2;
+            *wrsize = 4 + (addr & 2);
+        };
+        break;
+    case(3):
+        switch (addr & 7) {
+        case (0):
+        case (5):
+            *wdptr  = (addr & 4) >> 2 ;
+            *wrsize = 5;
+            break;
+        default:
+        };
+        break;
+    case(4):
+        switch (addr & 7) {
+        case (0):
+        case (4):
+            *wdptr  = (addr & 4) >> 2 ;
+            *wrsize = 8;
+            break;
+        default:
+        };
+        break;
+    case(5):
+        switch (addr & 7) {
+        case (0):
+        case (3):
+            *wdptr  = addr & 1;
+            *wrsize = 7;
+            break;
+        default:
+        };
+        break;
+    case(6):
+        switch (addr & 7) {
+        case (0):
+        case (2):
+            *wdptr  = (addr & 2) >> 1 ;
+            *wrsize = 9;
+            break;
+        default:
+        };
+        break;
+    case(7):
+        switch (addr & 7) {
+        case (0):
+        case (1):
+           *wdptr  = addr & 1 ;
+           *wrsize = 10;
+           break;
+        default:
+        };
+        break;
+    case(8):
+    case(16):
+        *wdptr  = (pkt_bytes/8) - 1;
+        *wrsize = 11;
+        break;
     default:
-        if ((addr & 7) || (pkt_bytes & 7))
-        {
+        if ((addr & 7) || (pkt_bytes & 7)) {
             *wrsize = BAD_SIZE;
             *wdptr  = BAD_SIZE;
-        }
-        else
-        {
-            if (pkt_bytes <= 64)
-            {
+        } else {
+            if (pkt_bytes <= 64) {
                 *wrsize = 12;
                 *wdptr  = (pkt_bytes > 32);
-            }
-            else if (pkt_bytes <= 128)
-            {
+            } else if (pkt_bytes <= 128) {
                 *wrsize = 13;
                 *wdptr  = 1;
-            }
-            else
-            {
+            } else {
                 *wrsize = 15;
                 *wdptr  = 1;
             };
@@ -617,6 +621,7 @@ static uint32_t DAR_add_rw_addr ( rio_addr_size     pkt_addr_size,
                          (uint8_t)((addr[1] >> 24) & 0x000000FF);
             bytes_out->pkt_data[bytes_out->num_chars++] = 
                          (uint8_t)((addr[1] >> 16) & 0x000000FF);
+            break;
 
         case rio_addr_50: if (rio_addr_50 == pkt_addr_size)
                                 xaddr_xamsbs = 
@@ -625,14 +630,17 @@ static uint32_t DAR_add_rw_addr ( rio_addr_size     pkt_addr_size,
                          (uint8_t)((addr[1] >>  8) & 0x000000FF);
             bytes_out->pkt_data[bytes_out->num_chars++] = 
                          (uint8_t)(addr[1] & 0x000000FF);
+            break;
 
         case rio_addr_34: if (rio_addr_34 == pkt_addr_size)
                               xaddr_xamsbs = 
                          (uint8_t)(addr[1] & 0x00000003);
+            break;
 
         case rio_addr_32: 
             bytes_out->pkt_data[bytes_out->num_chars++] = 
                          (uint8_t)((addr[0] >> 24) & 0x000000FF);
+            break;
 
         case rio_addr_21: /* Maintenance transaction */
             bytes_out->pkt_data[bytes_out->num_chars++] = 
@@ -686,35 +694,41 @@ int DAR_get_rw_addr ( DAR_pkt_bytes_t  *bytes_in,
 
     switch (fields_out->log_rw.pkt_addr_size)
     {
-        case rio_addr_66: fields_out->log_rw.addr[2] = 
-                                             bytes_in->pkt_data[lbidx+7] & 3;
-                          fields_out->log_rw.addr[1] |= 
-                                            (bytes_in->pkt_data[lbidx++] << 24);
-                          fields_out->log_rw.addr[1] |= 
-                                            (bytes_in->pkt_data[lbidx++] << 16);
+        case rio_addr_66:
+            fields_out->log_rw.addr[2] = bytes_in->pkt_data[lbidx+7] & 3;
+            fields_out->log_rw.addr[1] |= (bytes_in->pkt_data[lbidx++] << 24);
+            fields_out->log_rw.addr[1] |= (bytes_in->pkt_data[lbidx++] << 16);
+            break;
 
-        case rio_addr_50: if (rio_addr_50 == fields_out->log_rw.pkt_addr_size)
-                             fields_out->log_rw.addr[1] = 
-                                       (bytes_in->pkt_data[lbidx+5] & 3) << 16;
+        case rio_addr_50:
+            if (rio_addr_50 == fields_out->log_rw.pkt_addr_size) {
+                fields_out->log_rw.addr[1] =
+                    (bytes_in->pkt_data[lbidx+5] & 3) << 16;
+            }
+            fields_out->log_rw.addr[1] |=
+                (bytes_in->pkt_data[lbidx++] << 8);
+            fields_out->log_rw.addr[1] |=
+                bytes_in->pkt_data[lbidx++];
+            break;
 
-                          fields_out->log_rw.addr[1] |= 
-                                       (bytes_in->pkt_data[lbidx++] << 8); 
-                          fields_out->log_rw.addr[1] |= 
-                                        bytes_in->pkt_data[lbidx++];
+        case rio_addr_34:
+            if (rio_addr_34 == fields_out->log_rw.pkt_addr_size) {
+                fields_out->log_rw.addr[1] |=
+                    (bytes_in->pkt_data[lbidx+3] & 3);
+            }
+            break;
 
-        case rio_addr_34: if (rio_addr_34 == fields_out->log_rw.pkt_addr_size)
-                              fields_out->log_rw.addr[1] |= 
-                                       (bytes_in->pkt_data[lbidx+3] & 3);
+        case rio_addr_32:
+            fields_out->log_rw.addr[0] = (bytes_in->pkt_data[lbidx++] << 24 );
+            break;
 
-        case rio_addr_32: fields_out->log_rw.addr[0] = 
-                                       (bytes_in->pkt_data[lbidx++] << 24 );
-
-        case rio_addr_21: fields_out->log_rw.addr[0] |= 
-                                  ((uint32_t)(bytes_in->pkt_data[lbidx++]) << 16 );
-                          fields_out->log_rw.addr[0] |= 
-                                  ((uint32_t)(bytes_in->pkt_data[lbidx++]) << 8  );
-                          fields_out->log_rw.addr[0] |=  
-                                   (uint32_t)(bytes_in->pkt_data[lbidx++]) & 0xF8;
+        case rio_addr_21:
+            fields_out->log_rw.addr[0] |=
+                ((uint32_t)(bytes_in->pkt_data[lbidx++]) << 16 );
+            fields_out->log_rw.addr[0] |=
+                ((uint32_t)(bytes_in->pkt_data[lbidx++]) << 8  );
+            fields_out->log_rw.addr[0] |=
+                (uint32_t)(bytes_in->pkt_data[lbidx++]) & 0xF8;
             break;
         default: lbidx = DAR_UTIL_BAD_ADDRSIZE;
     };

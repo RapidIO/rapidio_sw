@@ -1963,6 +1963,7 @@ int rskt_close_locked(rskt_h skt_h)
 			ERR("Failed in update_remote_hdr\n");
 			goto exit;
 		}
+		break;
         case rskt_bound  :
         case rskt_listening:
         case rskt_accepting:
@@ -1977,6 +1978,7 @@ int rskt_close_locked(rskt_h skt_h)
 	
 		librskt_dmsg_req_resp(tx, rx);
 		free(rx);
+		break;
 	default:
 		break;
 	};

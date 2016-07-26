@@ -376,7 +376,7 @@ int main (int argc, char **argv)
 		switch (c) {
 		case 'c':
 			peer.cons_skt = atoi(optarg);
-		break;
+			break;
 		case 'h':
 			puts("rdmad -h -m<port> -l<loglv> -c<socket num>|-n");
 			puts("-h           Display this help message");
@@ -385,18 +385,20 @@ int main (int argc, char **argv)
 			puts("-c<sock num> Socket number for remote console");
 			puts("-n	   Do not run console (background)");
 			exit(1);
-		break;
+			break;
 		case 'm':
 			peer.mport_id = atoi(optarg);
+			break;
 		case 'l':
 			g_level = atoi(optarg);
-		break;
+			break;
 		case 'n':	/* Same as doing "rdmad &" */
 			peer.run_cons = 0;
-		break;
+			break;
 		case '?':
 			/* Invalid command line option */
 			exit(1);
+			break;
 		default:
 			abort(); /* Unexpected error */
 		}

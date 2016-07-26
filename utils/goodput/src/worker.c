@@ -3432,11 +3432,12 @@ void *worker_thread(void *parm)
 #endif // USER_MODE_DRIVER
 		
         	case shutdown_worker:
-				info->stat = 0;
-		default:
+			info->stat = 0;
+			break;
 		case no_action:
 		case last_action:
-				break;
+		default:
+			break;
 		};
 
 		if (info->stat) {

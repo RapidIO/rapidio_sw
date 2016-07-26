@@ -1046,9 +1046,12 @@ int mpsw_drv_port_start(struct riocp_pe  *pe, pe_port_t port)
 	};
 
 	switch (probe_out.status) {
-	case port_ok: break; /* Alls good... */
-	case port_degr: break; /* Port is up, but not at maximum width */
-	case port_los: goto fail; /* Port could not initialize, fail */
+	case port_ok:
+		break; /* Alls good... */
+	case port_degr:
+		break; /* Port is up, but not at maximum width */
+	case port_los:
+		goto fail; /* Port could not initialize, fail */
 	case port_err:
 		// FIXME: Link partner port not set correctly.
 		recover_ret = mpsw_drv_recover_port(pe, port, 0);
@@ -1056,6 +1059,7 @@ int mpsw_drv_port_start(struct riocp_pe  *pe, pe_port_t port)
 			DBG("Recover Port %s port %d failed.\n",
 				pe->name?pe->name:"Unknown", port);
 		};
+		break;
 
 	default: 
 		DBG("PC_Probes %s port %d Unknown status 0x%x\n", 
@@ -1213,12 +1217,23 @@ int mpsw_drv_get_port_state(struct riocp_pe  *pe, pe_port_t port,
 	else
 		state->port_cur_width = 0;
 	switch (p_dat->st.pc.pc[port].ls) {
-	case idt_pc_ls_1p25 : state->port_lane_speed = 1250;
-	case idt_pc_ls_2p5  : state->port_lane_speed = 2500;
-	case idt_pc_ls_3p125: state->port_lane_speed = 3125;
-	case idt_pc_ls_5p0  : state->port_lane_speed = 5000;
-	case idt_pc_ls_6p25 : state->port_lane_speed = 6250;
-	default: state->port_lane_speed = 0;
+	case idt_pc_ls_1p25:
+		state->port_lane_speed = 1250;
+		break;
+	case idt_pc_ls_2p5:
+		state->port_lane_speed = 2500;
+		break;
+	case idt_pc_ls_3p125:
+		state->port_lane_speed = 3125;
+		break;
+	case idt_pc_ls_5p0:
+		state->port_lane_speed = 5000;
+		break;
+	case idt_pc_ls_6p25:
+		state->port_lane_speed = 6250;
+		break;
+	default:
+		state->port_lane_speed = 0;
 	};
 	state->link_errs = p_dat->st.ps.ps[port].port_error |
 				p_dat->st.ps.ps[port].input_stopped |
@@ -1260,12 +1275,23 @@ int mpsw_drv_set_port_speed(struct riocp_pe  *pe, pe_port_t port,
 	pc_in.num_ports = p_dat->st.pc.num_ports;
 	memcpy(&pc_in.pc, p_dat->st.pc.pc, sizeof(pc_in.pc));
 	switch (lane_speed) {
-	case 1250: pc_in.pc[port].ls = idt_pc_ls_1p25;
-	case 2500: pc_in.pc[port].ls = idt_pc_ls_2p5;
-	case 3125: pc_in.pc[port].ls = idt_pc_ls_3p125;
-	case 5000: pc_in.pc[port].ls = idt_pc_ls_5p0;
-	case 6250: pc_in.pc[port].ls = idt_pc_ls_6p25; 
-	default  : pc_in.pc[port].ls = idt_pc_ls_last;
+	case 1250:
+		pc_in.pc[port].ls = idt_pc_ls_1p25;
+		break;
+	case 2500:
+		pc_in.pc[port].ls = idt_pc_ls_2p5;
+		break;
+	case 3125:
+		pc_in.pc[port].ls = idt_pc_ls_3p125;
+		break;
+	case 5000:
+		pc_in.pc[port].ls = idt_pc_ls_5p0;
+		break;
+	case 6250:
+		pc_in.pc[port].ls = idt_pc_ls_6p25;
+		break;
+	default :
+		pc_in.pc[port].ls = idt_pc_ls_last;
 	};
 
 	return idt_pc_set_config(&p_dat->dev_h, &pc_in, &p_dat->st.pc);

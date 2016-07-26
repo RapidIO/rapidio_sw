@@ -1465,19 +1465,25 @@ uint32_t idt_tsi721_em_cfg_pw  ( DAR_DEV_INFO_t       *dev_info,
   };
 
   switch (regData) {
-     case 0                               : out_parms->port_write_re_tx = 0;
-     case TSI721_RIO_PW_CTL_PW_TIMER_103us: out_parms->port_write_re_tx = 103000/PORT_WRITE_RE_TX_NSEC;
-             break;
-     case TSI721_RIO_PW_CTL_PW_TIMER_205us: out_parms->port_write_re_tx = 205000/PORT_WRITE_RE_TX_NSEC;
-             break;
-     case TSI721_RIO_PW_CTL_PW_TIMER_410us: out_parms->port_write_re_tx = 410000/PORT_WRITE_RE_TX_NSEC;
-             break;
-     case TSI721_RIO_PW_CTL_PW_TIMER_820us: out_parms->port_write_re_tx = 820000/PORT_WRITE_RE_TX_NSEC;
-             break;
-     default: out_parms->port_write_re_tx = regData;
-             rc = RIO_ERR_READ_REG_RETURN_INVALID_VAL;
-             out_parms->imp_rc = EM_CFG_PW(9);
-             break;
+     case 0:
+         out_parms->port_write_re_tx = 0;
+         break;
+     case TSI721_RIO_PW_CTL_PW_TIMER_103us:
+         out_parms->port_write_re_tx = 103000/PORT_WRITE_RE_TX_NSEC;
+         break;
+     case TSI721_RIO_PW_CTL_PW_TIMER_205us:
+         out_parms->port_write_re_tx = 205000/PORT_WRITE_RE_TX_NSEC;
+         break;
+     case TSI721_RIO_PW_CTL_PW_TIMER_410us:
+         out_parms->port_write_re_tx = 410000/PORT_WRITE_RE_TX_NSEC;
+         break;
+     case TSI721_RIO_PW_CTL_PW_TIMER_820us:
+         out_parms->port_write_re_tx = 820000/PORT_WRITE_RE_TX_NSEC;
+         break;
+     default:
+         out_parms->port_write_re_tx = regData;
+         rc = RIO_ERR_READ_REG_RETURN_INVALID_VAL;
+         out_parms->imp_rc = EM_CFG_PW(9);
   }
 
   idt_tsi721_em_cfg_pw_exit:
