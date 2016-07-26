@@ -225,7 +225,7 @@ struct librskt_globals {
         struct sockaddr_un addr; /* RSKTD Linux socket address */
         int addr_sz;	/* size of addr */
         int fd;		/* Connection to RSKTD */
-	bool use_mport; /* TRUE if sockets library & daemon use mport,
+	int use_mport; /* TRUE if sockets library & daemon use mport, 0x666 if using memops,
 			* FALSE if they use rdma.
 			* Set by HELLO response from RSKT daemon.
 			*/
