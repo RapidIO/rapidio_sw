@@ -1649,7 +1649,7 @@ int rskt_connect(rskt_h skt_h, struct rskt_sockaddr *sock_addr )
 		goto unlock;
 	}
 
-	if (!!rx->a_rsp.msg.conn.use_addr != lib.use_mport) {
+	if (!!rx->a_rsp.msg.conn.use_addr != !!lib.use_mport) {
 		CRIT("Received reply with use_addr %d lib.use_mport %d",
 			(int)rx->a_rsp.msg.conn.use_addr, (int)lib.use_mport);
 		goto unlock;
@@ -1686,6 +1686,9 @@ int rskt_connect(rskt_h skt_h, struct rskt_sockaddr *sock_addr )
 		goto unlock;
 
 	if (lib.use_mport == SIX6SIX_FLAG) { /// TODO memops rskt_connect
+		UNPACK_PTR(rx->a_rsp.msg.conn.p_addr_u,
+				rx->a_rsp.msg.conn.p_addr_l,
+				skt->phy_addr);
 		skt->con_sz = ntohl(rx->a_rsp.msg.conn.msub_sz);
 		rskt_init_memops(skt);
 	} else if (lib.use_mport) {
