@@ -1870,7 +1870,7 @@ int update_remote_hdr(struct rskt_socket_t * volatile skt,
 			struct rdma_xfer_ms_in *hdr_in)
 {
 	struct rdma_xfer_ms_out hdr_out;
-	int rc;
+	int rc = -1;
 
 	if (lib.use_mport == SIX6SIX_FLAG) { /// TODO memops update_remote_hdr
                const uint16_t destID = skt->sai.sa.ct;
