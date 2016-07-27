@@ -35,7 +35,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sys/time.h>
 #include <stdint.h>
 #include <string.h>
-#include "time_utils.h"
+#include "libtime_utils.h"
 
 #ifndef __TIME_UTILS_PRIV__
 #define __TIME_UTILS_PRIV__
