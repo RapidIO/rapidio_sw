@@ -39,7 +39,7 @@ void *rpc_thread_f(void *arg)
 	try {
 		other_server = new unix_server("other_server", nullptr, ti->accept_socket);
 	}
-	catch(unix_sock_exception e) {
+	catch(unix_sock_exception& e) {
 		cout << e.what() << endl;
 		sem_post(&ti->started);
 		pthread_exit(0);
@@ -96,7 +96,7 @@ int run_rpc_alternative()
 	try {
 		server = new unix_server("main_server");
 	}
-	catch(unix_sock_exception e) {
+	catch(unix_sock_exception& e) {
 		cout << e.what() << endl;
 		return 1;
 	}

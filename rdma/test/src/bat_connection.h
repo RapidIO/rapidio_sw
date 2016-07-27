@@ -28,7 +28,7 @@ public:
 		catch(exception& e) {
 			fprintf(stderr, "%s: %s\n", name, e.what());
 		}
-		catch(int e) {
+		catch(int& e) {
 			fprintf(stderr, "'%s' failed to connect to destid(0x%X)\n",
 								name, destid);
 		}

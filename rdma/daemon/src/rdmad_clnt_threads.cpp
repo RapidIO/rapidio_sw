@@ -236,7 +236,7 @@ int provision_rdaemon(uint32_t destid)
 		CRIT("Failed to create hello_client %s\n", e.what());
 		rc = RDMA_MALLOC_FAIL;
 	}
-	catch(int e) {
+	catch(int& e) {
 		rc = e;
 	}
 	catch(...) {

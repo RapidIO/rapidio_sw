@@ -243,7 +243,7 @@ int rdma_get_ibwin_properties(unsigned *num_ibwins, uint32_t *ibwin_size)
 		*num_ibwins = out_msg.get_ibwin_properties_out.num_ibwins;
 		*ibwin_size = out_msg.get_ibwin_properties_out.ibwin_size;
 	}
-	catch(int e) {
+	catch(int& e) {
 		rc = e;
 	}
 
@@ -447,7 +447,7 @@ static int initialize(void)
 		client.reset();
 		ret = RDMA_MALLOC_FAIL;
 	}
-	catch(int e) {
+	catch(int& e) {
 		switch (e) {
 		case RDMA_MPORT_OPEN_FAIL:
 		case RDMA_DAEMON_UNREACHABLE:
@@ -561,7 +561,7 @@ int rdma_create_mso_h(const char *owner_name, mso_h *msoh)
 			throw RDMA_DB_ADD_FAIL;
 		}
 	} /* try */
-	catch(int e) {
+	catch(int& e) {
 		rc = e;
 	}
 
@@ -635,7 +635,7 @@ int rdma_open_mso_h(const char *owner_name, mso_h *msoh)
 		}
 	} /* try */
 
-	catch(int e) {
+	catch(int& e) {
 		rc = e;
 	}
 	DBG("EXIT");
@@ -730,7 +730,7 @@ int rdma_close_mso_h(mso_h msoh)
 
 		INFO("msoh(0x%" PRIx64 ") removed from local database", msoh);
 	} /* try */
-	catch(int e) {
+	catch(int& e) {
 		rc = e;
 	} /* catch */
 
@@ -822,7 +822,7 @@ int rdma_destroy_mso_h(mso_h msoh)
 			throw RDMA_DB_REM_FAIL;
 		}
 	} /* try */
-	catch(int e) {
+	catch(int& e) {
 		rc = e;
 	}
 	sem_post(&rdma_lock);
@@ -914,7 +914,7 @@ int rdma_create_ms_h(const char *ms_name,
 		INFO("Stored info about '%s' in database as msh(0x%" PRIx64 ")",
 								ms_name, *msh);
 	} /* try */
-	catch(int e) {
+	catch(int& e) {
 		rc = e;
 	}
 
@@ -1036,7 +1036,7 @@ int rdma_open_ms_h(const char *ms_name, mso_h msoh, uint32_t flags,
 								ms_name, *msh);
 		*bytes = out_msg.open_ms_out.bytes;
 	}
-	catch(int e) {
+	catch(int& e) {
 		rc = e;
 	}
 	sem_post(&rdma_lock);
@@ -1105,7 +1105,7 @@ int rdma_close_ms_h_locked(mso_h msoh, ms_h msh)
 		}
 		INFO("msh(0x%" PRIx64 ") removed from local database", msh);
 	}
-	catch(int e) {
+	catch(int& e) {
 		rc = e;
 	}
 	DBG("EXIT");
@@ -1177,7 +1177,7 @@ int rdma_destroy_ms_h_locked(mso_h msoh, ms_h msh)
 
 		INFO("msh(0x%" PRIx64 ") removed from local database", msh);
 	}
-	catch(int e) {
+	catch(int& e) {
 		rc = e;
 	}
 	return rc;
@@ -1272,7 +1272,7 @@ int rdma_create_msub_h(ms_h	msh,
 	
 		DBG("msubh = 0x%" PRIx64 "", msubh);
 	} /* try */
-	catch(int e) {
+	catch(int& e) {
 		rc = e;
 	} /* catch */
 	sem_post(&rdma_lock);
@@ -1331,7 +1331,7 @@ int rdma_destroy_msub_h_locked(ms_h msh, msub_h msubh)
 		DBG("Destroyed msub in msh = 0x%" PRIx64 ", msubh = 0x%"
 						PRIx64 "", msh, msubh);
 	}
-	catch(int e) {
+	catch(int& e) {
 		rc = e;
 	}
 	return rc;
@@ -1388,7 +1388,7 @@ int rdma_mmap_msub(msub_h msubh, void **vaddr)
 		INFO("phys_addr = 0x%" PRIx64 ", virt_addr = %p, size = 0x%x",
 						pmsub->paddr, *vaddr, pmsub->bytes);
 	} /* try */
-	catch(int e) {
+	catch(int& e) {
 		rc = e;
 	}
 	sem_post(&rdma_lock);
@@ -1428,7 +1428,7 @@ int rdma_munmap_msub(msub_h msubh, void *vaddr)
 		INFO("Unmapped vaddr(%p), of size %u", vaddr, pmsub->bytes);
 		rc = 0;
 	}
-	catch(int e) {
+	catch(int& e) {
 		rc = e;
 	}
 	sem_post(&rdma_lock);
@@ -1637,7 +1637,7 @@ int rdma_accept_ms_h(ms_h loc_msh,
 			*rem_msub_len = conn_req_msg->client_msub_bytes;
 		}
 	}
-	catch(int e) {
+	catch(int& e) {
 		rc = e;
 	}
 	sem_post(&rdma_lock);
@@ -1894,7 +1894,7 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 							rem_msname, *rem_msh);
 		}
 	} /* try */
-	catch(int e) {
+	catch(int& e) {
 		rc = e;
 		ERR("Exiting due to failure. rc = 0x%X", rc);
 	}
@@ -2027,7 +2027,7 @@ int client_disc_ms_h(conn_h connh, ms_h server_msh, msub_h client_msubh,
 				throw RDMA_DB_REM_FAIL;
 		}
 	} /* try */
-	catch(int e) {
+	catch(int& e) {
 		rc = e;
 	}
 	sem_post(&rdma_lock);
@@ -2125,7 +2125,7 @@ int server_disc_ms_h(conn_h connh, ms_h server_msh, msub_h client_msubh)
 			}
 		}
 	} /* try */
-	catch(int e) {
+	catch(int& e) {
 		rc = e;
 	}
 	sem_post(&rdma_lock);

@@ -97,7 +97,7 @@ int main(int argc, char* argv[])
 {
   try {
     POSIXSem s("/"); // only this throws
-  } catch(std::runtime_error e) { fprintf(stderr, "Exception: %s\n", e.what()); }
+  } catch(std::runtime_error& e) { fprintf(stderr, "Exception: %s\n", e.what()); }
 
   if (write(STDOUT_FILENO, "LOCK?\n", 6) < 0)
 	fprintf(stderr, "write to STDOUT_FILENO failed.");
@@ -110,7 +110,7 @@ int main(int argc, char* argv[])
     int c;
     read(STDIN_FILENO, &c, 1);
     s.unlock();
-  } catch(std::runtime_error e) { fprintf(stderr, "Exception: %s\n", e.what()); }
+  } catch(std::runtime_error& e) { fprintf(stderr, "Exception: %s\n", e.what()); }
 
   if (write(STDOUT_FILENO, "UNLOCK\n", 7) < 0)
 	fprintf(stderr, "write to STDOUT_FILENO failed.");

@@ -79,7 +79,7 @@ RioMport::RioMport(const int mportid)
 
   try {
     m_bar0 = new PCIeBAR(m_portid, 0);                    
-  } catch(std::runtime_error e) {
+  } catch(std::runtime_error& e) {
     riomp_mgmt_mport_destroy_handle(&mp_h);
     throw std::runtime_error("failed PCIeBAR");
   }
@@ -112,7 +112,7 @@ RioMport::RioMport(const int mportid, riomp_mport_t mp_h_in)
 
   try {
     m_bar0 = new PCIeBAR(m_portid, 0);                    
-  } catch(std::runtime_error e) {
+  } catch(std::runtime_error& e) {
     throw std::runtime_error("failed PCIeBAR");
   }
   m_bar0_base_ptr = m_bar0->getMem(m_bar0_size); 

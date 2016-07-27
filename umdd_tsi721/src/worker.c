@@ -1094,7 +1094,7 @@ exit:
                 info->umd_dch->free_dmamem(info->dmamem[0]);
 
         try { delete info->umd_dch; info->umd_dch = NULL; }
-	catch(std::runtime_error ex) {}
+	catch(std::runtime_error& ex) {}
 }
 
 /** \brief UMD SHM Testbed for BD ordering. Possible broken code.
@@ -1274,7 +1274,7 @@ exit:
                 info->umd_dch->free_dmamem(info->dmamem[0]);
 
         try { delete info->umd_dch; info->umd_dch = NULL; }
-	catch(std::runtime_error ex) {}
+	catch(std::runtime_error& ex) {}
 }
 #endif // USER_MODE_DRIVER
 

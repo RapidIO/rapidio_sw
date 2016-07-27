@@ -594,7 +594,7 @@ void DMAChannel::cleanup()
   try { // May not have these things allocated at all
     free_dmacompldesc();
     free_dmatxdesc();
-  } catch(std::runtime_error e) {}
+  } catch(std::runtime_error& e) {}
 
   // We clean up in case we'll be reusing this object
   memset(&m_dmadesc, 0, sizeof(m_dmadesc));

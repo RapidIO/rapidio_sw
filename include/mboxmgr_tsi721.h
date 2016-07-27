@@ -109,7 +109,7 @@ private:
   {
     try {
       m_lock = ChannelLock::TakeLock("MBOX", m_mportid, m_mbox);
-    } catch(std::runtime_error ex) {
+    } catch(std::runtime_error& ex) {
       delete m_super;
       CRIT("\n\tTaking lock %s failed: %s\n", ex.what());
       throw ex;

@@ -223,7 +223,7 @@ extern "C" void* POSIXShm_new(const char* name, const int size, int* fo)
     POSIXShm* shm = new POSIXShm(name, size, first_opener);
     if (fo != NULL) *fo = first_opener;
     return shm;
-  } catch(std::runtime_error e) { fprintf(stderr, "Exception: %s\n", e.what()); }
+  } catch(std::runtime_error& e) { fprintf(stderr, "Exception: %s\n", e.what()); }
 
   return NULL;
 }
@@ -258,11 +258,11 @@ int main()
 {
   try {
     POSIXShm shm("/", 5000);
-  } catch(std::runtime_error e) { fprintf(stderr, "Exception: %s\n", e.what()); }
+  } catch(std::runtime_error& e) { fprintf(stderr, "Exception: %s\n", e.what()); }
 
   try {
     POSIXShm shm("xxx", 0);
-  } catch(std::runtime_error e) { fprintf(stderr, "Exception: %s\n", e.what()); }
+  } catch(std::runtime_error& e) { fprintf(stderr, "Exception: %s\n", e.what()); }
 
   try {
     POSIXShm shm("mumma", 5000);
@@ -275,7 +275,7 @@ int main()
     };
     int c;
     read(STDIN_FILENO, &c, 1);
-  } catch(std::runtime_error e) { fprintf(stderr, "Exception: %s\n", e.what()); }
+  } catch(std::runtime_error& e) { fprintf(stderr, "Exception: %s\n", e.what()); }
 
   return 0;
 }

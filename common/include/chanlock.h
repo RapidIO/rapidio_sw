@@ -90,7 +90,7 @@ public:
     snprintf(lock_name, 80, "/var/lock/UMD-%s-%u:%u..LCK", module, mport, instance);
 
     try { lock = new LockFile(lock_name); }
-    catch(std::runtime_error ex) {
+    catch(std::runtime_error& ex) {
       ChannelLock::getInstance()->ReleaseLockInproc(module, mport, instance);
       throw ex;
     }

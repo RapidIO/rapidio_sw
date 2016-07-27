@@ -468,7 +468,7 @@ int connect_ms_resp_disp(const unix_msg_t *in_msg,
 		/* Send the CM_ACCEPT_MS message to remote (client) daemon */
 		cm_tx_eng->send_message(move(in_msg));
 	} /* try */
-	catch(int e) {
+	catch(int& e) {
 		 rc = e;
 	} /* catch() */
 
@@ -601,7 +601,7 @@ int server_disconnect_ms_disp(const unix_msg_t *in_msg,
 			throw rc;
 		}
 	}
-	catch(int e) {
+	catch(int& e) {
 		rc = e;
 	}
 	DBG("EXIT, rc = %d\n", rc);

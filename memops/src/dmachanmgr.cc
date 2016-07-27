@@ -78,7 +78,7 @@ RIOMemOpsIntf* RIOMemOpsChanMgr(uint32_t mport_id, bool shared, int channel)
 // UMD monolithic
   if (! shared) {
     try { return RIOMemOps_classFactory(MEMOPS_UMD, mport_id, channel); }
-    catch(std::runtime_error ex) {
+    catch(std::runtime_error& ex) {
       return NULL;
     }
   }

@@ -34,7 +34,7 @@ int main()
 	try {
 		client = new unix_client("sample", nullptr);
 	}
-	catch(unix_sock_exception e) {
+	catch(unix_sock_exception& e) {
 		cout << e.what() << endl;
 		return 1;
 	}
