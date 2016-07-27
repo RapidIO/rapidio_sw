@@ -411,7 +411,7 @@ static void DAR_util_get_wrsize_wdptr( uint32_t  addr,
             *wdptr  = (addr & 4) >> 2 ;
             *wrsize = 5;
             break;
-        default:
+        default:;
         };
         break;
     case(4):
@@ -421,7 +421,7 @@ static void DAR_util_get_wrsize_wdptr( uint32_t  addr,
             *wdptr  = (addr & 4) >> 2 ;
             *wrsize = 8;
             break;
-        default:
+        default:;
         };
         break;
     case(5):
@@ -431,7 +431,7 @@ static void DAR_util_get_wrsize_wdptr( uint32_t  addr,
             *wdptr  = addr & 1;
             *wrsize = 7;
             break;
-        default:
+        default:;
         };
         break;
     case(6):
@@ -441,7 +441,7 @@ static void DAR_util_get_wrsize_wdptr( uint32_t  addr,
             *wdptr  = (addr & 2) >> 1 ;
             *wrsize = 9;
             break;
-        default:
+        default:;
         };
         break;
     case(7):
@@ -451,7 +451,7 @@ static void DAR_util_get_wrsize_wdptr( uint32_t  addr,
            *wdptr  = addr & 1 ;
            *wrsize = 10;
            break;
-        default:
+        default:;
         };
         break;
     case(8):
