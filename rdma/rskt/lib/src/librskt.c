@@ -1886,7 +1886,7 @@ int update_remote_hdr(struct rskt_socket_t * volatile skt,
                 req.sync        = RIO_DIRECTIO_TRANSFER_SYNC;
                 req.wr_mode     = RIO_DIRECTIO_TYPE_NWRITE;
 
-                int rc = skt->memops->nwrite_mem(req);
+                rc = skt->memops->nwrite_mem(req);
                 if (!rc) {
                          ERR("File TX: DMA op failed with rc=%d reason=%d (%s)\n",
                               rc,
@@ -1901,6 +1901,7 @@ int update_remote_hdr(struct rskt_socket_t * volatile skt,
                 }
 
                 if (!rc) return -1;
+		rc = 0;
 	} else if (lib.use_mport) {
 		do {
 			rc = riomp_dma_write_d(lib.mp_h,
