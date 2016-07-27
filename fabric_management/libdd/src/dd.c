@@ -193,7 +193,7 @@ int fmd_dd_mtx_open(char *dd_mtx_fn, int *dd_mtx_fd, struct fmd_dd_mtx **dd_mtx)
                 goto fail;
         };
 
-	if (((*dd_mtx)->dd_ref_cnt == (*dd_mtx)->dd_ref_cnt) &&
+	if (/*((*dd_mtx)->dd_ref_cnt == (*dd_mtx)->dd_ref_cnt) &&*/
 						(*dd_mtx)->init_done) {
 		(*dd_mtx)->mtx_ref_cnt++;
 		(*dd_mtx)->dd_ref_cnt++;	

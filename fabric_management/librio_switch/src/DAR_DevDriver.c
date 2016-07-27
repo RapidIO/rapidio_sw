@@ -97,13 +97,14 @@ STATUS DARRegWrite( DAR_DEV_INFO_t *dev_info, UINT32 offset, UINT32 writedata )
 {
    STATUS rc = DAR_DB_INVALID_HANDLE;
 
-   if ( VALIDATE_DEV_INFO( dev_info ) )
+   if ( VALIDATE_DEV_INFO( dev_info ) ) {
        rc = driver_db[DAR_DB_INDEX(dev_info)].WriteReg( dev_info,
                                                         offset,
                                                         writedata );
        if (RIO_SUCCESS == rc) {
           rc = update_dev_info_regvals( dev_info, offset, writedata );
        };
+   }
    return rc;
 }
 
