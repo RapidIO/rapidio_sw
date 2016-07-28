@@ -118,7 +118,7 @@ rskt_shim2.so: rskt_shim2.cc $(COMMONDIR)/include/*.h
 	-I./inc -I../inc \
 	-DRDMA_LL=$(LOG_LEVEL) \
 	$(RSKTLIB_OBJECTS) rskt_shim2.cc \
-	$(LIB_DIRS) -lrskt -lrdma -lfmdd -ldd -llist -lcli -llog -lmport -ltime_utils -lrt -lpthread \
+	$(LIB_DIRS) -lrskt -lrdma -lfmdd -ldd -llist -lcli -llog -lmport -lmemops_intf -ltime_utils -lrt -lpthread \
 	$(LIBS_RPATH) \
 	-shared -fPIC -ldl \
 	-O0 -ggdb \

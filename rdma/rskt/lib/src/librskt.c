@@ -567,8 +567,7 @@ int cleanup_skt(rskt_h skt_h, volatile struct rskt_socket_t *skt,
 		assert(skt->memops);
 		skt->memops->free_xwin(((struct rskt_socket_t*)skt)->memops_ibwin); // XXX g++ makes me de-volatile skt
 		skt->msub_p = NULL;
-		delete skt->memops;
-		skt->memops = NULL;
+		delete skt->memops; skt->memops = NULL;
 	} else if (lib.use_mport) {
 		if (NULL != skt->msub_p) {
 			int rc = riomp_dma_unmap_memory(lib.mp_h, skt->msub_sz, 
@@ -1608,14 +1607,14 @@ static void rskt_init_memops(struct rskt_socket_t * volatile skt) throw()
 	int  chan = ANY_CHANNEL;
 
 	if (NULL != getenv("RSKT_UMD_UNSHARED")) shared = false; // flag use of UMD standalone
-	if (NULL != getenv("RSKT_UMD_CHANNEL")) {
+	if (NULL != getenv("RSKT_UMD_CHAN")) {
 		int chn = -1;
-		if (sscanf(getenv("RSKT_UMD_CHANNEL"), "%d", &chn) != 1)
-			throw std::runtime_error("rskt_accept: Invalid content of $RSKT_UMD_CHANNEL");
+		if (sscanf(getenv("RSKT_UMD_CHAN"), "%d", &chn) != 1)
+			throw std::runtime_error("rskt_accept: Invalid content of $RSKT_UMD_CHAN");
 		if (chn < 0) 
-			throw std::runtime_error("rskt_accept: Negative $RSKT_UMD_CHANNEL");
+			throw std::runtime_error("rskt_accept: Negative $RSKT_UMD_CHAN");
 		if (chn > 7) 
-			throw std::runtime_error("rskt_accept: Invalid/exceeding-7 $RSKT_UMD_CHANNEL");
+			throw std::runtime_error("rskt_accept: Invalid/exceeding-7 $RSKT_UMD_CHAN");
 		chan = chn;
 	}
 	
