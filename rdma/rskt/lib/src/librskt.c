@@ -62,6 +62,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "liblist.h"
 #include "libcli.h"
 #include "rapidio_mport_dma.h"
+#include "libtime_utils.h"
 
 #include "memops.h"
 #include "memops_umd.h"
@@ -92,6 +93,7 @@ char *rskt_state_strs[rskt_max_state] = {
 	(char *)"Shutng",
 	(char *)"ClsLoc",
 	(char *)"ClsRem",
+	(char *)"Closin",
 	(char *)"SHTDWN",
 	(char *)"CLOSED"
 };
@@ -125,6 +127,28 @@ int librskt_wait_for_sem(sem_t *sema, int err_code)
 		lib.all_must_die = err_code;
 	}
 	return rc;
+};
+
+#define DEFAULT_RESPONSE_TIMEOUT ((struct timespec){60, 500000000})
+
+int wait_for_response(sem_t *sema, int err_code)
+{
+        int rc;
+        struct timespec ts;
+        clock_gettime(CLOCK_MONOTONIC, &ts);
+
+        ts = time_add(ts, DEFAULT_RESPONSE_TIMEOUT);
+
+        do {
+                rc = sem_timedwait(sema, &ts);
+        } while (rc && (EINTR == errno) && !lib.all_must_die);
+
+        if (rc && (ETIMEDOUT != errno)) {
+                ERR("Failed in sem_timedwait() loc 0x%x rc= %d errno = %d %s\n",
+                        err_code, rc, errno, strerror(errno));
+                lib.all_must_die = err_code;
+        }
+        return rc;
 };
 
 struct librskt_app_to_rsktd_msg *alloc_app2d(void)
@@ -184,8 +208,12 @@ fail:
 	return 1;
 };
 
+#define TIMEOUT true
+#define NO_TIMEOUT false
+
 int librskt_dmsg_req_resp(struct librskt_app_to_rsktd_msg *tx, 
-			struct librskt_rsktd_to_app_msg *rx)
+			struct librskt_rsktd_to_app_msg *rx,
+			bool chk_rsp_to)
 {
 	struct rsvp_li *rsvp = alloc_rsvp();
 	int rc = 0;
@@ -225,10 +253,18 @@ int librskt_dmsg_req_resp(struct librskt_app_to_rsktd_msg *tx,
 	sem_post(&lib.msg_tx_cnt);
 
 	DBG("Waiting for rsvp->resp_rx\n");
-	if (librskt_wait_for_sem(&rsvp->resp_rx, 0x1003)) {
-		ERR("Failed on resp_rx\n");
-		goto fail;
-	}
+
+        if (chk_rsp_to && 0) {
+                if (wait_for_response(&rsvp->resp_rx, 0x1003)) {
+                        ERR("Failed on resp_rx\n");
+                        goto fail;
+                }
+        } else {
+                if (librskt_wait_for_sem(&rsvp->resp_rx, 0x1004)) {
+                        ERR("Failed on resp_rx\n");
+                        goto fail;
+                }
+        };
 	DBG("NOT Waiting for rsvp->resp_rx\n");
 	if (rx->a_rsp.err) {
 		li = NULL;
@@ -248,7 +284,7 @@ fail:
 	if (NULL != li) {
 		int saved_errno = errno;
 
-		librskt_wait_for_sem(&lib.rsvp_mtx, 0x1004);
+		librskt_wait_for_sem(&lib.rsvp_mtx, 0x1005);
 		DBG("Calling l_lremove()\n");
 		l_lremove(&lib.rsvp, li);
 		sem_post(&lib.rsvp_mtx);
@@ -420,8 +456,7 @@ void *rsvp_loop(void *unused)
 		if (lib.all_must_die)
 			goto exit;
 
-		DBG("Received %d bytes max %d, %s Seq %d", rc, 
-			sizeof(struct librskt_rsktd_to_app_msg),
+		DBG("Received %d bytes max %d, %s Seq %d", rc, RSKTD2A_SZ,
 			LIBRSKT_APP_MSG_TO_STR(htonl(rxd->msg_type)),
 			LIBRSKT_DMN_2_APP_MSG_SEQ_NO(rxd, htonl(rxd->msg_type)) );
 
@@ -466,8 +501,9 @@ void prep_response(struct librskt_rsktd_to_app_msg *req,
 	resp->rsp_a.req_a = req->rq_a;
 };
 
-void cleanup_skt_rdma(rskt_h skt_h, volatile struct rskt_socket_t *skt)
+int cleanup_skt_rdma(rskt_h skt_h, volatile struct rskt_socket_t *skt)
 {
+	int dma_flushed = 1;
 #if defined(RDMA_LL) // avoid stupid compiler unused param warning
 	if(RDMA_LL < RDMA_LL_DBG) { skt_h += 0; }
 #endif
@@ -488,19 +524,29 @@ void cleanup_skt_rdma(rskt_h skt_h, volatile struct rskt_socket_t *skt)
 		}
 		if (skt_rdma_connector == skt->connector) {
 			DBG("sn %d skt->connector == skt_rdma_connector, disconnecting msubh 0x%lx", skt_h->sa.sn, skt->msubh);
-			rdma_disc_ms_h(skt->connh, skt->con_msh, skt->msubh);
+                        if (rdma_disc_ms_h(skt->connh, skt->con_msh,
+								skt->msubh)) {
+				dma_flushed = 0;
+				ERR("rdma_disc_ms_h failed");
+                        };
 		}
 		DBG("sn %d skt->connector != skt_rdma_connector", skt_h->sa.sn);
 		if (skt->msubh_valid) {
 			DBG("sn %d skt->msubh_valid is true. Closing skt->msubh 0x%lx\n", skt_h->sa.sn, skt->msubh);
-			rdma_destroy_msub_h(skt->msh, skt->msubh);
+			if (rdma_destroy_msub_h(skt->msh, skt->msubh)) {
+				dma_flushed = 0;
+				ERR("rdma_destroy_msub_h failed");
+			};
 			skt->msubh_valid = 0;
 		} else {
 			WARN("sn %d skt->msubh_valid is false", skt_h->sa.sn);
 		}
 		if (skt->msh_valid) {
 			DBG("sn %d skt->msh_valid is true. Closing skt->msh", skt_h->sa.sn, skt->msh);
-			rdma_close_ms_h(skt->msoh, skt->msh);
+			if (rdma_close_ms_h(skt->msoh, skt->msh)) {
+				dma_flushed = 0;
+				ERR("rdma_close_ms_h failed");
+			};
 			skt->msh_valid = 0;
 		} else {
 			WARN("sn %d skt->msh_valid is false", skt_h->sa.sn);
@@ -510,15 +556,19 @@ void cleanup_skt_rdma(rskt_h skt_h, volatile struct rskt_socket_t *skt)
 	}
 	// li can be null if we're closing a socket before it has been
 	// connected.
+	return dma_flushed;
 };
 
-void cleanup_skt(rskt_h skt_h, volatile struct rskt_socket_t *skt,
+int cleanup_skt(rskt_h skt_h, volatile struct rskt_socket_t *skt,
 		struct l_item_t *li)
 {
+	int dma_flushed = 1;
 	if (lib.use_mport == SIX6SIX_FLAG) { /// TODO memops
 		assert(skt->memops);
 		skt->memops->free_xwin(((struct rskt_socket_t*)skt)->memops_ibwin); // XXX g++ makes me de-volatile skt
 		skt->msub_p = NULL;
+		delete skt->memops;
+		skt->memops = NULL;
 	} else if (lib.use_mport) {
 		if (NULL != skt->msub_p) {
 			int rc = riomp_dma_unmap_memory(lib.mp_h, skt->msub_sz, 
@@ -526,38 +576,43 @@ void cleanup_skt(rskt_h skt_h, volatile struct rskt_socket_t *skt,
 			if (rc) {
 				ERR("sn %d failed to unmap memory",
 					skt_h->sa.sn);
+				dma_flushed = 0;
 			}
 		};
 	} else {
-		cleanup_skt_rdma(skt_h, skt);
+		dma_flushed = cleanup_skt_rdma(skt_h, skt);
 	};
 
+	INFO("dma_flushed = %d", dma_flushed);
 	l_lremove(&lib.skts, li); /* Do not deallocate socket */
 	free((void *)skt);
 	skt_h->skt = NULL;
 	skt_h->st = rskt_uninit;
+	return dma_flushed;
 };
 
-void lib_handle_dmn_close_req(rskt_h skt_h, struct l_item_t *li)
+int lib_handle_dmn_close_req(rskt_h skt_h, struct l_item_t *li)
 {
 	volatile struct rskt_socket_t *skt;
+	int rc = 0;
 
 	DBG("ENTER\n");
 	if (NULL == skt_h) {
 		WARN("skt_h is NULL...returning");
-		return;
+		return 1;
 	}
 
 	skt = skt_h->skt;
 	if (skt == NULL) {
 		DBG("skt_h->sa.sn = %d already closed", skt_h->sa.sn);
-		return;
+		return 1;
 	}
 	DBG("skt_h->sa.sn = %d skt->sai.sn = %d", skt_h->sa.sn,
 							skt->sai.sa.sn);
-	cleanup_skt(skt_h, skt, li);
+	rc = cleanup_skt(skt_h, skt, li);
 
 	DBG("EXIT");
+	return rc;
 };
 
 /* Request Processing Thread */
@@ -568,6 +623,7 @@ void *req_loop(void *unused)
 	struct l_item_t *li;
 	rskt_h skt_h;
 	char my_name[16];
+	int flushed;
 
         memset(my_name, 0, 16);
         snprintf(my_name, 15, "LIBRSKT_REQ");
@@ -623,18 +679,24 @@ void *req_loop(void *unused)
 			skt_h = (rskt_h)l_find(&lib.skts,
 					ntohl(req->rq_a.msg.clos.sn), &li);
 			if (NULL == skt_h) {
-				WARN("%s Seq %d No socket found",
-					LIBRSKT_APP_MSG_TO_STR(htonl(req->msg_type)),
-					LIBRSKT_DMN_2_APP_MSG_SEQ_NO(req, htonl(req->msg_type)) );
+                                WARN("%s Seq %d SN %d No socket found",
+                                        LIBRSKT_APP_MSG_TO_STR(
+                                                        htonl(req->msg_type)),
+                                        LIBRSKT_DMN_2_APP_MSG_SEQ_NO(
+                                                req, htonl(req->msg_type)),
+                                         ntohl(req->rq_a.msg.clos.sn));
 				sem_post(&lib.skts_mtx);
 				break;
 			}
 			DBG("%s Seq %d SN %d",
 				LIBRSKT_APP_MSG_TO_STR(htonl(req->msg_type)),
-				LIBRSKT_DMN_2_APP_MSG_SEQ_NO(req, htonl(req->msg_type)),
+				LIBRSKT_DMN_2_APP_MSG_SEQ_NO(
+						req, htonl(req->msg_type)),
 				skt_h->sa.sn );
 			lib_handle_dmn_close_req(skt_h, li);
 			sem_post(&lib.skts_mtx);
+			flushed = lib_handle_dmn_close_req(skt_h, li);
+			resp->rsp_a.req_a.msg.clos.dma_flushed = htonl(flushed);
 			break;
 		default: resp->msg_type |= htonl(LIBRSKTD_FAIL);
 			ERR("Unknown daemon request type: 0x%x", ntohl(req->msg_type));
@@ -754,7 +816,7 @@ int librskt_init(int rsktd_port, int rsktd_mpnum)
 	memset(req->a_rq.msg.hello.app_name, 0, MAX_APP_NAME);
 	snprintf(req->a_rq.msg.hello.app_name, MAX_APP_NAME-1, "%d", getpid());
 	DBG("Calling librskt_dmsg_req_resp to send LIBRSKTD_HELLO (A2RSKTD_SZ)\n");
-	if (librskt_dmsg_req_resp(req, resp)) {
+	if (librskt_dmsg_req_resp(req, resp, TIMEOUT)) {
 		ERR("ERROR on LIBRSKTD_HELLO\n");
 		free(resp);
 		goto fail;
@@ -913,9 +975,11 @@ void rskt_destroy_socket(rskt_h *skt_h)
 	if (NULL != (*skt_h)->skt)
 		rskt_close_locked(*skt_h);
 
-	if (NULL != (*skt_h)->skt->memops) {
-		delete (*skt_h)->skt->memops;
-		(*skt_h)->skt->memops = NULL;
+	if (NULL != (*skt_h)->skt) {
+		if (NULL != (*skt_h)->skt->memops) {
+			delete (*skt_h)->skt->memops;
+			(*skt_h)->skt->memops = NULL;
+		}
 	}
 
 	free(*skt_h);
@@ -969,7 +1033,7 @@ int rskt_bind(rskt_h skt_h, struct rskt_sockaddr *sock_addr)
 	tx->a_rq.msg.bind.sn = htonl(sock_addr->sn);
 
 	DBG("Calling librskt_dmsg_req_resp to send LIBRSKTD_BIND (A2RSKTD_SZ)\n");
-	if (librskt_dmsg_req_resp(tx, rx)) {
+	if (librskt_dmsg_req_resp(tx, rx, TIMEOUT)) {
 		ERR("librskt_dmsg_req_resp() failed\n");
 		goto unlock;
 	}
@@ -1031,7 +1095,7 @@ int rskt_listen(rskt_h skt_h, int max_backlog)
 	tx->a_rq.msg.listen.sn = htonl(skt_h->sa.sn);
 	tx->a_rq.msg.listen.max_bklog = htonl(skt_h->skt->max_backlog);
 	DBG("Calling librskt_dmsg_req_resp to send LIBRSKTD_LISTEN (A2RSKTD_SZ)\n");
-	if (librskt_dmsg_req_resp(tx, rx)) {
+	if (librskt_dmsg_req_resp(tx, rx, TIMEOUT)) {
 		ERR("librskt_dmsg_req_resp failed\n");
 		goto unlock;
 	}
@@ -1124,7 +1188,7 @@ int setup_skt_ptrs(struct rskt_socket_t *volatile skt)
 	DBG("skt->hdr->rem_rx_wr_flags = 0x%08X, skt->hdr->rem_tx_rd_flags\n",
 			ntohl(skt->hdr->rem_rx_wr_flags), ntohl(skt->hdr->rem_tx_rd_flags));
 	DBG("Waiting for INIT_DONE and ZEROED or for ZEROED only\n");
-	delay = 10000;
+	delay = 1000000;
 	while (!COND1 && !COND2 && delay--) {
 		usleep(10);
 	}
@@ -1180,7 +1244,7 @@ int setup_skt_ptrs(struct rskt_socket_t *volatile skt)
 		ntohl(skt->hdr->rem_rx_wr_flags),
 		ntohl(skt->hdr->rem_tx_rd_flags));
 	DBG("Waiting for ZEROED only or INIT only\n");
-	delay = 10000;
+	delay = 1000000;
 	while (!COND1 && !COND2 && delay--) {
 		usleep(10);
 	}
@@ -1227,7 +1291,7 @@ int setup_skt_ptrs(struct rskt_socket_t *volatile skt)
 		ntohl(skt->hdr->rem_rx_wr_flags),
 		ntohl(skt->hdr->rem_tx_rd_flags));
 	DBG("Waiting for INIT only\n");
-	delay = 10000;
+	delay = 1000000;
 	while (!COND1 && delay--) {
 		usleep(10);
 	}
@@ -1314,7 +1378,7 @@ int rskt_accept(rskt_h l_skt_h, rskt_h skt_h,
 {
 	struct librskt_app_to_rsktd_msg *tx = NULL;
 	struct librskt_rsktd_to_app_msg *rx = NULL;
-	struct rskt_socket_t * volatile l_skt, * volatile skt;
+	struct rskt_socket_t * volatile l_skt = NULL, * volatile skt = NULL;
 	int rc = -1;
 
 	DBG("ENTER\n");
@@ -1368,7 +1432,7 @@ int rskt_accept(rskt_h l_skt_h, rskt_h skt_h,
 	l_skt_h->st = rskt_accepting;
 
 	DBG("Calling librskt_dmsg_req_resp to send LIBRSKTD_ACCEPT (A2RSKTD_SZ)\n");
-	if (librskt_dmsg_req_resp(tx, rx)) {
+	if (librskt_dmsg_req_resp(tx, rx, TIMEOUT)) {
 		WARN("librskt_dmsg_req_resp() failed..closing\n");
 		goto unlock;
 	}
@@ -1643,7 +1707,7 @@ int rskt_connect(rskt_h skt_h, struct rskt_sockaddr *sock_addr )
 	if (lib.all_must_die)
 		goto unlock;
 
-	rc = librskt_dmsg_req_resp(tx, rx);
+	rc = librskt_dmsg_req_resp(tx, rx, TIMEOUT);
 	if (rc) {
 		ERR("librskt_dmsg_req_resp() failed..closing\n");
 		goto unlock;
@@ -1952,7 +2016,7 @@ int rskt_write(rskt_h skt_h, void *data, uint32_t byte_cnt)
 	int rc = -1;
 	uint32_t free_bytes = 0; 
 	struct rdma_xfer_ms_in hdr_in;
-	struct rskt_socket_t * volatile skt;
+	struct rskt_socket_t * volatile skt = NULL;
 
 	DBG("ENTER\n");
 
@@ -2145,7 +2209,7 @@ int rskt_read(rskt_h skt_h, void *data, uint32_t max_byte_cnt)
 	int avail_bytes = 0;
 	struct rdma_xfer_ms_in hdr_in;
 	uint32_t first_offset;
-	struct rskt_socket_t * volatile skt;
+	struct rskt_socket_t * volatile skt = NULL;
 
 	DBG("ENTER\n");
 
@@ -2306,15 +2370,18 @@ int rskt_close_locked(rskt_h skt_h)
 {
 	struct librskt_app_to_rsktd_msg *tx;
 	struct librskt_rsktd_to_app_msg *rx;
-	volatile struct rskt_socket_t * volatile skt;
+	volatile struct rskt_socket_t * volatile skt = NULL;
 	struct rdma_xfer_ms_in hdr_in;
 	struct l_item_t *li;
 	rskt_h l_skt_h;
 	bool ms_name_valid = false;
 	char ms_name[MAX_MS_NAME+1] = {0};
 	uint64_t phy_addr = 0;
+	int close_rc = 0;
+	int dma_flushed;
+	int delay_cnt = 10000;
 
-	DBG("ENTER SN %d\n", skt_h->sa.sn);
+	DBG("ENTER SN %d STATE %s\n", skt_h->sa.sn, SKT_STATE_STR(skt_h->st));
 	if (lib_uninit()) {
 		ERR("%s\n", strerror(errno));
 		return -errno;
@@ -2335,6 +2402,25 @@ int rskt_close_locked(rskt_h skt_h)
 	};
 
 	switch(skt_h->st) {
+                /* Close by remote means that this end has been flushed by
+		* the remote.  We don't know if the remote has seen our
+		* dma flush yet.
+		*
+		* Wait until the socket cannot be found, indicating that the
+		* other end closed it.  On timeout, proceed to close the socket.
+		*/
+		while (delay_cnt-- && (NULL != l_skt_h)) {
+			sem_post(&lib.skts_mtx);
+			usleep(100);
+			librskt_wait_for_sem(&lib.skts_mtx, 0xB050);
+			l_skt_h = (rskt_h)l_find(&lib.skts, skt_h->sa.sn, &li);
+		};
+		if (NULL == l_skt_h) {
+               		goto exit;
+		};
+		goto cleanup;
+		break;
+
         case rskt_connected:
 		/* Check to see if we're the end that initiateed closure,
 		* or if the other end has closed transmission.
@@ -2401,7 +2487,7 @@ int rskt_close_locked(rskt_h skt_h)
 				break;
 			};
 			sem_post(&lib.skts_mtx);
-			sleep(0);
+			usleep(30);
 			librskt_wait_for_sem(&lib.skts_mtx, 0xB099);
 
 			l_skt_h = (rskt_h)l_find(&lib.skts, skt_h->sa.sn, &li);
@@ -2423,8 +2509,9 @@ cleanup:
 	
 		tx->msg_type = LIBRSKTD_CLOSE;
 		tx->a_rq.msg.close.sn = htonl(skt_h->sa.sn);
+		tx->a_rq.msg.close.dma_flushed = htonl(1);
 	
-		librskt_dmsg_req_resp(tx, rx);
+		close_rc = librskt_dmsg_req_resp(tx, rx, TIMEOUT);
 		free(rx);
 	default:
 		break;
@@ -2444,7 +2531,7 @@ cleanup:
 		memcpy(ms_name, (void *)skt->msh_name, MAX_MS_NAME);
 	};
 
-	cleanup_skt(skt_h, skt, li);
+	dma_flushed = cleanup_skt(skt_h, skt, li);
 
 	/* Confirm to Daemon that memory space has been closed */
 	if (ms_name_valid) {
@@ -2456,11 +2543,14 @@ cleanup:
 		tx->msg_type = LIBRSKTD_RELEASE;
 		tx->a_rq.msg.release.sn = htonl(skt_h->sa.sn);
 		tx->a_rq.msg.release.use_addr = htonl(!!(uint32_t)lib.use_mport);
+		tx->a_rq.msg.release.dma_flushed =
+						htonl(dma_flushed && !close_rc);
+
 		PACK_PTR(phy_addr, tx->a_rq.msg.release.p_addr_u,
 				tx->a_rq.msg.release.p_addr_l);
 		memcpy(tx->a_rq.msg.release.ms_name, ms_name, MAX_MS_NAME+1);
 		
-		librskt_dmsg_req_resp(tx, rx);
+		librskt_dmsg_req_resp(tx, rx, TIMEOUT);
 		resp = (struct librskt_rsktd_to_app_msg *)rx;
 		if (resp->a_rsp.err) 
 			CRIT("SN %d MS %s LIBRSKTD_RELEASE Error %d %s", 

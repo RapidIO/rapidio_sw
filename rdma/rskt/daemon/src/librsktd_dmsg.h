@@ -54,7 +54,10 @@ extern "C" {
 
 #define RSKTD_REQ_STR(x) (x==RSKTD_HELLO_REQ)?"HELLO":  \
 			(x==RSKTD_CONNECT_REQ)?"CONN ": \
-			(x==RSKTD_CLOSE_REQ)?"CLOSE":">BAD<"  
+			(x==RSKTD_CLOSE_REQ)?"CLOSE": \
+			(x==RSKTD_CLEANUP_APP)?"CAPP ": \
+			(x==RSKTD_CLEANUP_WP)?"C_WP ": \
+			(x==RSKTD_CLEANUP_SPEER)?"C_SP ":">BAD<"  
 
 #define RSKTD_RESP_STR(x) (x==RSKTD_HELLO_RESP)?"HELLO_RSP":  \
 			(x==RSKTD_CONNECT_RESP)?"CONN_RSP ": \
@@ -103,11 +106,16 @@ struct librsktd_connect_resp {
 struct librsktd_close_req {
 	uint32_t rem_sn; /* Socket number on message transmitter being closed */
 	uint32_t loc_sn; /* Socket number on message receiver being closed */
-	uint32_t force; /* 1 means close it, 0 means shutdown */
+	uint32_t dma_flushed; /* non-zero means dma is proven complete,
+				* 0 means  you better wait a while...
+				*/
 };
 
 struct librsktd_close_resp {
 	uint32_t status; /* Status after closure, guaranteed to be closed */
+	uint32_t dma_flushed; /* non-zero means all dma to the MS is complete.
+				*  0 means DMA may still be in flight
+				*/
 };
 
 /* Note: src_msg_seq must match between request and response */

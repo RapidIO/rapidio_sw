@@ -150,6 +150,10 @@ struct librskt_connect_req {
 
 struct librskt_close_req {
 	uint32_t sn;
+	uint32_t dma_flushed; /* If there's any doubt about whether or not
+				* the DMA has been flushed, set this to
+				* a non-zero value.
+				*/
 };
 
 struct librskt_release_req {
@@ -160,6 +164,10 @@ struct librskt_release_req {
 	uint32_t p_addr_u; /* 4 MSBs of Physical address for local buffer. */
 	uint32_t p_addr_l; /* 4 LSBs of Physical address for local buffer. */
 	char ms_name[MAX_MS_NAME+1];
+	uint32_t dma_flushed; /* If there's any doubt about whether or not
+				* the DMA has been flushed, set this to
+				* a non-zero value.
+				*/
 };
 
 struct librskt_cli_req {
@@ -239,6 +247,9 @@ struct librskt_resp {
 
 struct close_req_librskt {
 	uint32_t sn;
+	uint32_t dma_flushed; /* If DMA was proven flushed, set this non-zero.
+				* If there is any doubt, set it to 0.
+				*/
 };
 
 struct cli_req_librskt {

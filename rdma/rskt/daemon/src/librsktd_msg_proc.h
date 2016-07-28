@@ -82,9 +82,16 @@ extern "C" {
 #define RSKTD_S2A_SEQ_ARESP 0x43
 #define RSKTD_S2A_SEQ_DRESP 0x44
 
+#define RSKTD_CLEANUP_APP 0xDEAD0A99
+#define RSKTD_CLEANUP_WP 0xDEADBEEF
+#define RSKTD_CLEANUP_SPEER 0xDEAD0A55
+#define RSKTD_PROC_CLEANUP 0x51
+#define JUST_DO_IT 0xBAD0F00D
+
 struct librsktd_unified_msg {
 	int	in_use; /* 1 - in use, 0 - free */
-	uint32_t msg_type; /* LIBRSKT and RSKTD message types */
+	uint32_t msg_type; /* LIBRSKT and RSKTD message types,
+				* RSKTD_PROC_CLEANUP*/
 	uint32_t proc_type; /* RSKTD_PROC_... */
 	uint32_t proc_stage; /* Processing stage, specific to proc_type */
 	struct rskt_dmn_speer **sp; /* RSKTD slave for peer */
@@ -101,8 +108,10 @@ struct librsktd_unified_msg {
 };
 
 #define UMSG_W_OR_S(x) ((NULL != x->sp)?"Slave": \
-			(NULL != x->wp)?"WORKER": \
-			(NULL != x->app)?(*x->app)->app_name:"UNKNOWN")
+		(NULL != x->wp)?"WORKER": \
+		(NULL != x->app)? \
+			((NULL != (*x->app))?((*x->app)->app_name):"NULLAPP"): \
+		"UNKNOWN")
 
 #define UMSG_CT(x) (((NULL != x->sp) && (NULL != *x->sp))?(*x->sp)->ct: \
 		((NULL != x->wp) && (NULL != *x->wp))?(*x->wp)->ct:-1)
@@ -119,6 +128,9 @@ struct librsktd_unified_msg {
 	(RSKTD_HELLO_REQ == x->msg_type  )?"DMN_HELO":  \
 	(RSKTD_CONNECT_REQ == x->msg_type)?"DMN_CONN":  \
 	(RSKTD_CLOSE_REQ == x->msg_type  )?"DMN_CLOS":  \
+	(RSKTD_CLEANUP_APP == x->msg_type  )?"APP_CLEN":  \
+	(RSKTD_CLEANUP_WP == x->msg_type  )?"WP_CLEAN":  \
+	(RSKTD_CLEANUP_SPEER == x->msg_type  )?"SP_CLEAN":  \
 	"*UNKNOWN")
 
 #define UMSG_PROC_TO_STR(x) ( \
@@ -126,6 +138,7 @@ struct librsktd_unified_msg {
 	(RSKTD_PROC_A2W  == x->proc_type  )?"A2WKR":  \
 	(RSKTD_PROC_SREQ == x->proc_type  )?"S_REQ":  \
 	(RSKTD_PROC_S2A  == x->proc_type  )?"S2APP":  \
+	(RSKTD_PROC_CLEANUP  == x->proc_type  )?"CLEAN":  \
 	"*BAD*")
 
 #define UMSG_STAGE_TO_STR(x) ( \
@@ -141,6 +154,7 @@ struct librsktd_unified_msg {
 	(RSKTD_S2A_SEQ_AREQ  == x->proc_stage )?"S2A_AREQ ":  \
 	(RSKTD_S2A_SEQ_ARESP == x->proc_stage )?"S2A_ARESP":  \
 	(RSKTD_S2A_SEQ_DRESP == x->proc_stage )?"S2A_SRESP":  \
+	(JUST_DO_IT == x->proc_stage )?"CLOS_JDI ":  \
 	"*BAD*")
 
 #define RSKTD_AREQ_SEQ_AREQ 0x10
@@ -204,6 +218,7 @@ struct librskt_rsktd_to_app_msg *alloc_tx(void);
 int free_tx(struct librskt_rsktd_to_app_msg *tx);
 
 struct rskt_dmn_wpeer **find_wpeer_by_ct(uint32_t ct);
+struct rskt_dmn_wpeer **find_in_use_wpeer_by_ct(uint32_t ct);
 
 #ifdef __cplusplus
 }

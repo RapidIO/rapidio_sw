@@ -707,15 +707,19 @@ void display_app_list(struct cli_env *env)
 			continue;
 		if (!found_one) {
 			sprintf(env->output, 
-				"\nAPP\nFd RxSeqNum DmnSqNum Alive I_Die Process App\n");
+				"\nAPP\nFd RxSeqNum DmnSqNum Alive I_Die Process App                Resps\n");
 			logMsg(env);
 			found_one = 1;
 		}
-		sprintf(env->output, "%2d %8d %8d %5d  %3d  %5d %30s\n", 
-			lib_st.apps[i].app_fd, lib_st.apps[i].rx_req_num,
-			lib_st.apps[i].dmn_req_num, lib_st.apps[i].alive,
-			lib_st.apps[i].i_must_die, lib_st.apps[i].proc_num,
-			lib_st.apps[i].app_name);
+		sprintf(env->output, "%2d %8d %8d %5d  %3d  %5d %20s %8d\n", 
+			lib_st.apps[i].app_fd,
+			lib_st.apps[i].rx_req_num,
+			lib_st.apps[i].dmn_req_num,
+			lib_st.apps[i].alive,
+			lib_st.apps[i].i_must_die,
+			lib_st.apps[i].proc_num,
+			lib_st.apps[i].app_name, 
+			l_size(&lib_st.apps[i].app_resp_q));
 		logMsg(env);
 	};
 	if (!found_one) {
@@ -833,13 +837,13 @@ void display_wpeers_list(struct cli_env *env)
 
 		if (!found_one) {
 			sprintf(env->output, 
-			"\nWPEERS\nComp_Tag CM_Sockt PeerPid  A D  Req     Seq# Resp      Seq#   Next Seq#\n");
+			"\nWPEERS\nComp_Tag CM_Sockt PeerPid  A D  Req     Seq# Resp      Seq#   Resp Cnt\n");
         		logMsg(env);
 			found_one = 1;
 		};
 		
 		sprintf(env->output,
-			"%8d %8d %8d %1d %1d %8s %4d %8s %4d %8d \n", 
+			"%8d %8d %8d %1d %1d %8s %4d %8s %4d %8d\n", 
 			dmn.wpeers[i].ct,
 			dmn.wpeers[i].cm_skt,
 			dmn.wpeers[i].peer_pid,
@@ -849,7 +853,7 @@ void display_wpeers_list(struct cli_env *env)
 			ntohl(dmn.wpeers[i].req->msg_seq),
 			RSKTD_RESP_STR(ntohl(dmn.wpeers[i].resp->msg_type)),
 			ntohl(dmn.wpeers[i].resp->msg_seq),
-			dmn.wpeers[i].w_seq_num);
+			l_size(&dmn.wpeers[i].w_rsp));
         	logMsg(env);
 	};
 
@@ -1282,10 +1286,10 @@ void display_dmn_req_msg(struct cli_env *env, struct rsktd_req_msg *rq)
 				ntohl(rq->msg.clos.loc_sn),
 				ntohl(rq->msg.clos.loc_sn)); 
 		logMsg(env);
-		sprintf(env->output, "Close Force :    0x%8x   0x%8x %12d\n",
-				rq->msg.clos.force,
-				ntohl(rq->msg.clos.force),
-				ntohl(rq->msg.clos.force)); 
+		sprintf(env->output, "Close FLUSH :    0x%8x   0x%8x %12d\n",
+				rq->msg.clos.dma_flushed,
+				ntohl(rq->msg.clos.dma_flushed),
+				ntohl(rq->msg.clos.dma_flushed)); 
 		logMsg(env);
 		break;
 
@@ -1407,10 +1411,10 @@ void display_dmn_resp_msg(struct cli_env *env, struct rsktd_resp_msg *rsp)
 				ntohl(rsp->req.clos.loc_sn),
 				ntohl(rsp->req.clos.loc_sn)); 
 		logMsg(env);
-		sprintf(env->output, "Close Force :   0x%8x   0x%8x %12d\n",
-				rsp->req.clos.force,
-				ntohl(rsp->req.clos.force),
-				ntohl(rsp->req.clos.force)); 
+		sprintf(env->output, "Close FLUSH :   0x%8x   0x%8x %12d\n",
+				rsp->req.clos.dma_flushed,
+				ntohl(rsp->req.clos.dma_flushed),
+				ntohl(rsp->req.clos.dma_flushed)); 
 		logMsg(env);
 		sprintf(env->output, "R     Stat:   0x%8x   0x%8x %12d\n",
 				rsp->msg.clos.status,
@@ -1464,7 +1468,8 @@ int RSKTDReqCmd(struct cli_env *env, int argc, char **argv)
 			goto show_help;
 		speer->req->msg.clos.rem_sn = htonl(getDecParm(argv[2], 1));
 		speer->req->msg.clos.loc_sn = htonl(getDecParm(argv[3], 1));
-		speer->req->msg.clos.force = htonl(getDecParm(argv[4], 1));
+		speer->req->msg.clos.dma_flushed
+						= htonl(getDecParm(argv[4], 1));
 		break;
 	default: 
 		break;

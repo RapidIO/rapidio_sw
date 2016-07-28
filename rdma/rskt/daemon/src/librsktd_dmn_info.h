@@ -75,14 +75,20 @@ typedef enum {
 	rsktd_ms_free = 0,
 	rsktd_ms_used,
 	rsktd_ms_rsvd,
-	rsktd_ms_flux
+	rsktd_ms_dma_flushed_remote,
+	rsktd_ms_wait_for_rel,
+	rsktd_ms_best_after
 } rsktd_ms_state;
 
 #define RSKTD_MS_STATE_TO_STR(x) ( \
 	(rsktd_ms_free == x)?"FREE": \
 	(rsktd_ms_used == x)?"USED": \
 	(rsktd_ms_rsvd == x)?"RSVD": \
-	(rsktd_ms_flux == x)?"FLUX": "UNKN")
+	(rsktd_ms_dma_flushed_remote == x)?"FSHd": \
+	(rsktd_ms_wait_for_rel == x)?"W4RL": \
+	(rsktd_ms_best_after == x)?"BAFT": "UNKN")
+
+#define DEFAULT_MS_BEST_AFTER_INTERVAL ((struct timespec){0, 100*1000})
 
 struct ms_info {
 	int	valid;
@@ -96,6 +102,7 @@ struct ms_info {
 	int	loc_sn;
 	int	rem_sn;
 	int	rem_ct;
+	struct timespec best_after;
 };
 
 struct mso_info {
@@ -161,13 +168,13 @@ struct dmn_globals {
 	sem_t app_tx_cnt;
 	struct l_head_t app_tx_q;
 
-	/* RSKTD peers that have connected to this RSKT Daemon */
 #ifdef NOT_DEFINED
 	sem_t speers_mtx;
+	/* RSKTD peers that have connected to this RSKT Daemon */
 	struct l_head_t speers; /* Item is ** struct rskt_dmn_speer */
 
-	/* RSKTD peers list this RSKT Daemon has connected to */
 	sem_t wpeers_mtx;
+	/* RSKTD peers list this RSKT Daemon has connected to */
 	struct l_head_t wpeers; /* Item is ** struct rskt_dmn_wpeer */
 				/* ordered by component tag (CT) */
 				/* Use ** to allow one write to clear all */

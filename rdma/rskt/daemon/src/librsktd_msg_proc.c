@@ -54,6 +54,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "liblist.h"
 #include "librsktd_msg_proc.h"
 #include "liblog.h"
+#include "libtime_utils.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -324,20 +325,33 @@ int rsktd_areq_release(struct librsktd_unified_msg *msg)
 		RSKTD_MS_STATE_TO_STR(dmn.mso.ms[i].state),
 		dmn.mso.ms[i].rem_sn, sn);
 
-	/* MS may have been freed prior to this message */
-	if (rsktd_ms_free == dmn.mso.ms[i].state)
-		goto exit;
-
-	if (rsktd_ms_flux == dmn.mso.ms[i].state) {
-		dmn.mso.ms[i].state = rsktd_ms_free;
-		goto exit;
-	};
 	/* MS may have been reallocated prior to this message */
 	if (sn != dmn.mso.ms[i].rem_sn)
 		goto exit; 
 
-	/* MS is being released by the end that did not initiate the close. */
-	dmn.mso.ms[i].state = rsktd_ms_free;
+	switch (dmn.mso.ms[i].state) {
+		case rsktd_ms_used:
+			WARN("SN %d MS %d state USED for release?",
+				sn, i);
+			break;
+		case rsktd_ms_dma_flushed_remote:
+		case rsktd_ms_rsvd:
+		case rsktd_ms_wait_for_rel:
+			INFO("SN %d MS %d state %s set to free.",
+			sn, i, RSKTD_MS_STATE_TO_STR(dmn.mso.ms[i].state));
+			dmn.mso.ms[i].state = rsktd_ms_free;
+			break;
+
+		case rsktd_ms_best_after:
+		case rsktd_ms_free:
+			INFO("SN %d MS %d state %s no change!",
+			sn, i, RSKTD_MS_STATE_TO_STR(dmn.mso.ms[i].state));
+			break;
+		default:
+			ERR("SN %d MS %d Unknown State %d?",
+				sn, i, dmn.mso.ms[i].state);
+			break;
+	};
 /*
 	msg->tx->a_rsp.err = htonl(EBADFD);
 	ERR("Msg %s 0x%x Type 0x%x %s Proc %s Stage %s MS %s State %d %s "
@@ -399,21 +413,38 @@ void rsktd_areq_listen(struct librsktd_unified_msg *msg)
 	l_add(&lib_st.acc, sn, (void *)new_skt);
 };
 
-struct rskt_dmn_wpeer **find_wpeer_by_ct(uint32_t ct)
+struct rskt_dmn_wpeer **find_wpeer_by_ct_base(uint32_t ct, bool must_be_alive)
 {
 	struct rskt_dmn_wpeer **wp = NULL;
 	int i;
 
 	for (i = 0; i < MAX_PEER; i++) {
-		if (dmn.wpeers[i].wpeer_alive && !dmn.wpeers[i].i_must_die &&
-				(dmn.wpeers[i].ct == ct)) {
-			if (wp) {
-				CRIT(">=2 WPEERs with ct of 0x%x", ct);
-			};
-			wp = dmn.wpeers[i].self_ref;
+		if (!dmn.wpeers[i].in_use) {
+			continue;
 		};
+		if (must_be_alive && (!dmn.wpeers[i].wpeer_alive ||
+						dmn.wpeers[i].i_must_die)) {
+			continue;
+		};
+		if (dmn.wpeers[i].ct != ct) {
+			continue;
+		};
+		if (wp != NULL) {
+			CRIT(">=2 WPEERs with ct of 0x%x", ct);
+		}
+		wp = dmn.wpeers[i].self_ref;
 	};
 	return wp;
+};
+
+struct rskt_dmn_wpeer **find_in_use_wpeer_by_ct(uint32_t ct)
+{
+	return find_wpeer_by_ct_base(ct, false);
+};
+
+struct rskt_dmn_wpeer **find_wpeer_by_ct(uint32_t ct)
+{
+	return find_wpeer_by_ct_base(ct, true);
 };
 
 void rsktd_connect_accept(struct acc_skts *acc)
@@ -428,6 +459,7 @@ void rsktd_connect_accept(struct acc_skts *acc)
 	struct librsktd_connect_resp *dresp = NULL;
 	struct con_skts *con = NULL;
 	int32_t mport_ms_size = 0;
+	struct timespec ts;
 
 	if ((NULL == acc->acc_req) || !l_size(&acc->conn_req)) {
 		ERR("NULL parameter or list member size");
@@ -461,11 +493,24 @@ void rsktd_connect_accept(struct acc_skts *acc)
 		UMSG_PROC_TO_STR(acc_req),
 		UMSG_STAGE_TO_STR(acc_req));
 
+	
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+
 	/* Find a free memory space on this RSKTD to rdma_connect to */
 	for (i = 0; i < dmn.mso.num_ms; i++) {
 		int idx = (dmn.mso.next_ms + i) % dmn.mso.num_ms; 
-		if (dmn.mso.ms[idx].valid && 
-				(rsktd_ms_free == dmn.mso.ms[idx].state)) {
+		if (!dmn.mso.ms[idx].valid) {
+			continue;
+		};
+		INFO("MS %d state %s TS %d %d BEST_AFTER %d %d.",
+			idx, RSKTD_MS_STATE_TO_STR(dmn.mso.ms[idx].state),
+			ts.tv_sec, ts.tv_nsec,
+			dmn.mso.ms[idx].best_after.tv_sec,
+			dmn.mso.ms[idx].best_after.tv_nsec);
+		if ((rsktd_ms_free == dmn.mso.ms[idx].state) ||
+			((rsktd_ms_best_after == dmn.mso.ms[idx].state) &&
+			(TS_LT(dmn.mso.ms[idx].best_after, ts))))
+		{
 			loc_ms_info = &dmn.mso.ms[idx];
 			dmn.mso.next_ms = (idx + 1) % dmn.mso.num_ms;
 			break;
@@ -701,6 +746,7 @@ int rsktd_a2w_connect_req(struct librsktd_unified_msg *r)
 	uint32_t new_sn = rsktd_sn_find_free();
 	int i, err = 0;
 	struct rskt_dmn_wpeer *w = NULL;
+	struct timespec ts;
 	
 	/* Initialize application response message */
 	r->dreq->msg_type = htonl(RSKTD_CONNECT_REQ);
@@ -759,11 +805,20 @@ int rsktd_a2w_connect_req(struct librsktd_unified_msg *r)
 		goto fail;
 	};
 
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+
 	/* If can't find a free memory space for this request, fail */
 	for (i = 0; i < dmn.mso.num_ms; i++) {
 		int idx = (dmn.mso.next_ms + i) % dmn.mso.num_ms; 
-		if (dmn.mso.ms[idx].valid && 
-				(rsktd_ms_free == dmn.mso.ms[idx].state)) {
+		INFO("MS %d state %s TS %d %d BEST_AFTER %d %d.",
+			idx, RSKTD_MS_STATE_TO_STR(dmn.mso.ms[idx].state),
+			ts.tv_sec, ts.tv_nsec,
+			dmn.mso.ms[idx].best_after.tv_sec,
+			dmn.mso.ms[idx].best_after.tv_nsec);
+		if ((rsktd_ms_free == dmn.mso.ms[idx].state) ||
+			((rsktd_ms_best_after == dmn.mso.ms[idx].state) &&
+			(TS_LT(dmn.mso.ms[idx].best_after, ts))))
+		{
 			r->loc_ms = &dmn.mso.ms[idx];
 			r->loc_ms->state = rsktd_ms_rsvd;
 			dmn.mso.next_ms = (idx + 1) % dmn.mso.num_ms;
@@ -996,42 +1051,61 @@ uint32_t terminate_connected_socket(struct librsktd_unified_msg *msg,
 	if (RSKTD_PROC_S2A == msg->proc_type) {
 		/* If the MS is still there, set it to free as
 		* the daemon originating the close action   
-		* stopped accessing this sm before sending the 
+		* stopped accessing this MS before sending the 
 		* close request.
 		*/
 		if (NULL != con->loc_ms) {
-			if (((rsktd_ms_used == con->loc_ms->state) ||
-				(rsktd_ms_flux == con->loc_ms->state)) &&
-				(con->loc_ms->rem_sn == sn))
-				con->loc_ms->state = rsktd_ms_free;
+			if (con->loc_ms->rem_sn == sn) {
+				switch (con->loc_ms->state) {
+				case rsktd_ms_used:
+				INFO("SN %d MS %s state %s now flushed_remote",
+					sn, con->loc_ms->ms_name,
+					RSKTD_MS_STATE_TO_STR(
+							con->loc_ms->state));
+					con->loc_ms->state
+						= rsktd_ms_dma_flushed_remote;
+					break;
+				case rsktd_ms_dma_flushed_remote:
+				case rsktd_ms_wait_for_rel:
+				case rsktd_ms_rsvd:
+					INFO("SN %d MS %s state %s now free",
+					sn, con->loc_ms->ms_name,
+					RSKTD_MS_STATE_TO_STR(
+							con->loc_ms->state));
+					con->loc_ms->state = rsktd_ms_free;
+					break;
+			
+				case rsktd_ms_best_after:
+				case rsktd_ms_free:
+					INFO("SN %d MS %s state %s no change",
+					sn, con->loc_ms->ms_name,
+					RSKTD_MS_STATE_TO_STR(
+							con->loc_ms->state));
+					break;
+				default:
+					ERR("SN %d MS %s Unknown State %d?",
+						sn, con->loc_ms->ms_name,
+						con->loc_ms->state);
+					break;
+				};
+			};
 		}
 		/* Request application close the local socket */
 		msg->tx->msg_type = htonl(LIBRSKT_CLOSE_CMD);
 		msg->rx->msg_type = msg->tx->msg_type | htonl(LIBRSKTD_RESP);
 		msg->tx->rq_a.msg.clos.sn = htonl(con->loc_sn);
+		msg->tx->rq_a.msg.clos.dma_flushed =
+						msg->dreq->msg.clos.dma_flushed;
 		msg->proc_stage = RSKTD_S2A_SEQ_AREQ;
 		msg->app = con->app;
 	} else {
-		if (NULL != con->loc_ms) {
-			/* If remote daemon has already said it  memory space.
-			* Mark it as "in flux" so that the local process can
-			* kill it.
-			*/
-			if (con->loc_ms->loc_sn == sn) {
-				if (rsktd_ms_used == con->loc_ms->state)
-					con->loc_ms->state = rsktd_ms_flux;
-			}
-		};
-		if (NULL != con->loc_ms) {
-			if (rsktd_ms_used == con->loc_ms->state)
-				con->loc_ms->state = rsktd_ms_flux;
-		}
 		msg->dreq->msg_type = htonl(RSKTD_CLOSE_REQ);
 		msg->dresp->msg_type = msg->dreq->msg_type | 
 					htonl(RSKTD_RESP_FLAG);
 		msg->dreq->msg.clos.rem_sn = htonl(con->loc_sn);
 		msg->dreq->msg.clos.loc_sn = htonl(con->rem_sn);
-		msg->dreq->msg.clos.force = htonl(1);
+		msg->dreq->msg.clos.dma_flushed =
+					msg->rx->a_rq.msg.close.dma_flushed;
 		msg->proc_stage = RSKTD_A2W_SEQ_DREQ;
 		msg->wp = con->w;
 	};
@@ -1058,10 +1132,7 @@ uint32_t rsktd_a2w_close_req(struct librsktd_unified_msg *r)
 
 	switch (rsktd_sn_get(sn)) {
 	case rskt_uninit:
-	case rskt_noconn:
-	case rskt_shutting_down:
 	case rskt_closing:
-	case rskt_shut_down:
 	case rskt_closed:
 	default:
 		/* Socket is not in use or is shutting down */
@@ -1091,7 +1162,6 @@ uint32_t rsktd_a2w_close_req(struct librsktd_unified_msg *r)
 		break;
 
 	case rskt_connecting:
-	case rskt_connected:
 		/* Tell the wpeer to close the socket */
 		rsktd_sn_set(sn, rskt_closing);
 		r->dreq->msg_type = htonl(RSKTD_CLOSE_REQ);
@@ -1103,6 +1173,7 @@ uint32_t rsktd_a2w_close_req(struct librsktd_unified_msg *r)
 	return send_resp_now;
 };
 
+void ms_set_best_after(ms_info *loc_ms);
 /* NOTE: A2W_HELLO_RESP is a special case, as there is no application 
  * associated with this request: HELLO requests are originated by the
  * RSKTD openning a worker peer connection.
@@ -1136,6 +1207,7 @@ void rsktd_a2w_hello_resp(struct librsktd_unified_msg *r)
 void rsktd_a2w_close_resp(struct librsktd_unified_msg *r)
 {
 	struct rsktd_req_msg *dreq = r->dreq;
+	struct rsktd_resp_msg *dresp = r->dresp;
 	uint32_t sn = ntohl(dreq->msg.clos.rem_sn);
 	struct l_item_t *li = NULL;
 	struct con_skts *con = (struct con_skts *)l_find(&lib_st.con, sn, &li);
@@ -1154,14 +1226,48 @@ void rsktd_a2w_close_resp(struct librsktd_unified_msg *r)
 		sn,
 		rsktd_sn_get(sn));
 
-	r->closing_skt->loc_ms->state = rsktd_ms_flux;
 	rsktd_sn_set(sn, rskt_closed);
 
-	if (NULL != con)
-		l_remove(&lib_st.con, li);
+	if (NULL == con)
+		return;
 
 	/* Prepare response */
 	r->tx->a_rsp.err = htonl(0);
+	if (dreq->msg.clos.dma_flushed && dresp->msg.clos.dma_flushed)
+	{
+		switch (con->loc_ms->state) {
+		case rsktd_ms_dma_flushed_remote:
+			INFO("SN %d MS state %s now free",
+				sn, RSKTD_MS_STATE_TO_STR(con->loc_ms->state));
+			con->loc_ms->state = rsktd_ms_free;
+			break;
+	
+		case rsktd_ms_used:
+			INFO("SN %d MS state %s now wait_for_rel",
+				sn, RSKTD_MS_STATE_TO_STR(con->loc_ms->state));
+			con->loc_ms->state = rsktd_ms_wait_for_rel;
+			break;
+		case rsktd_ms_best_after:
+		case rsktd_ms_free:
+			INFO("SN %d MS state %s no change",
+				sn, RSKTD_MS_STATE_TO_STR(con->loc_ms->state));
+			break;
+		case rsktd_ms_wait_for_rel:
+		default:
+			ERR("SN %d MS %s Illegal State %d?",
+				sn, con->loc_ms->ms_name, con->loc_ms->state);
+			break;
+		};
+	} else {
+		INFO("SN %d flushddreq %s dresp %s MS state %s now best_after",
+			sn,
+			dreq->msg.clos.dma_flushed?"Y":"N",
+			dresp->msg.clos.dma_flushed?"Y":"N",
+			RSKTD_MS_STATE_TO_STR(con->loc_ms->state));
+		ms_set_best_after(r->closing_skt->loc_ms);
+	};
+
+	l_remove(&lib_st.con, li);
 };
 
 void msg_q_handle_a2w(struct librsktd_unified_msg *r)
@@ -1371,16 +1477,16 @@ uint32_t rsktd_s2a_close_req(struct librsktd_unified_msg *r)
 		rsktd_sn_get(sn));
 
 	dresp->err = 0;
+	dresp->msg.clos.dma_flushed = -1;
 
 	switch (rsktd_sn_get(sn)) {
 	case rskt_uninit:
-	case rskt_noconn:
-	case rskt_shutting_down:
 	case rskt_closing:
-	case rskt_shut_down:
 	case rskt_closed:
 	default:
-		/* Socket is not in use or is shutting down */
+		/* Socket is not in use or has already been closed by this side.
+		* No need to bother the app, just shut it down...
+		*/
 		r->proc_stage = RSKTD_S2A_SEQ_ARESP;
 		break;
 
@@ -1397,7 +1503,6 @@ uint32_t rsktd_s2a_close_req(struct librsktd_unified_msg *r)
 		break;
 
 	case rskt_connecting:
-	case rskt_connected:
 		/* Tell the app to close the socket */
 		rsktd_sn_set(sn, rskt_closing);
 		send_resp_now = terminate_connected_socket(r, sn);
@@ -1424,11 +1529,47 @@ void rsktd_s2a_close_resp(struct librsktd_unified_msg *r)
 		rsktd_sn_get(sn));
 
 	/* App has confirmed that socket is closed. */
-	/* App has also confirmed that the memory space is freed in RDMAD */
-	/* Other side has confirmed that it will not write to this memory */
-	/* Free up local resources associated with the socket */
 
-	r->closing_skt->loc_ms->state = rsktd_ms_free;
+	if (r->dreq->msg.clos.dma_flushed &&
+			r->rx->rsp_a.req_a.msg.clos.dma_flushed) {
+		/* App has also confirmed the memory space is freed in RDMAD */
+		/* Other side has confirmed it will not write to this memory */
+		/* Free up local resources associated with the socket */
+		switch (r->closing_skt->loc_ms->state) {
+		case rsktd_ms_dma_flushed_remote:
+			INFO("SN %d MS %s state %s now free",
+				sn, r->closing_skt->loc_ms->ms_name,
+				RSKTD_MS_STATE_TO_STR(
+						r->closing_skt->loc_ms->state));
+			r->closing_skt->loc_ms->state = rsktd_ms_free;
+			break;
+		case rsktd_ms_wait_for_rel:
+		case rsktd_ms_best_after:
+		case rsktd_ms_free:
+			INFO("SN %d MS %s state %s no change",
+				sn, r->closing_skt->loc_ms->ms_name,
+				RSKTD_MS_STATE_TO_STR(
+						r->closing_skt->loc_ms->state));
+			break;
+		case rsktd_ms_used:
+			INFO("SN %d MS %s state %s ILLEGAL!!!",
+				sn, r->closing_skt->loc_ms->ms_name,
+				RSKTD_MS_STATE_TO_STR(
+						r->closing_skt->loc_ms->state));
+		default:
+			ERR("SN %d MS %s Illegal State %d?",
+				sn, r->closing_skt->loc_ms->ms_name,
+				r->closing_skt->loc_ms->state);
+			break;
+		};
+	} else {
+		INFO("SN %d flushddreq %s dresp %s MS state %s now best_after",
+			sn,
+			r->dreq->msg.clos.dma_flushed?"Y":"N",
+			r->rx->rsp_a.req_a.msg.clos.dma_flushed?"Y":"N",
+			RSKTD_MS_STATE_TO_STR(r->closing_skt->loc_ms->state));
+		ms_set_best_after(r->closing_skt->loc_ms);
+	}
 	rsktd_sn_set(sn, rskt_closed);
 
 	/* And remove the connected socket from the queues */
@@ -1486,6 +1627,227 @@ void msg_q_handle_s2a(struct librsktd_unified_msg *msg)
 		enqueue_speer_msg(msg);
 	else
 		enqueue_app_msg(msg);
+};
+
+void ms_set_best_after(ms_info *loc_ms)
+{
+	clock_gettime(CLOCK_MONOTONIC, &loc_ms->best_after);
+	loc_ms->best_after = time_add(loc_ms->best_after,
+						DEFAULT_MS_BEST_AFTER_INTERVAL);
+	loc_ms->state = rsktd_ms_best_after;
+};
+
+/* safely_cleanup_app is invoked when an application disconnects.
+ *
+ * The way this works is to originate messages to cleanup all application
+ * resources, and then to pass the closure message through the app_tx_queue,
+ * the speer tx queue, and the wpeer tx queue to ensure all references 
+ * to the application have been closed.
+ *
+ * Once all references have been closed, the application can be deallocated.
+ */
+void safely_cleanup_app(struct librsktd_unified_msg *msg)
+{
+	struct librskt_app *app = (struct librskt_app *)(*msg->app);
+	struct acc_skts *acc;
+	struct l_item_t *li, *next_li;
+	struct con_skts *con;
+
+	DBG("%s%s%s%s", app->app_cleanup_done?"y":"N",
+			app->no_more_app_tx?"y":"N",
+			app->no_more_speer_tx?"y":"N",
+			app->no_more_wpeer_tx?"y":"N");
+
+	if (app->app_cleanup_done) {
+		if (app->no_more_app_tx) {
+			if (app->no_more_speer_tx) {
+				if (app->no_more_wpeer_tx) {
+					// FIXME: allow apps to use malloc/free
+					DBG("Zeroing app FD");
+					app->app_fd = 0;
+					app->self_ptr = NULL;
+
+					dealloc_msg(msg);
+				} else {
+					enqueue_wpeer_msg(msg);
+				};
+			} else {
+				enqueue_speer_msg(msg);
+			};
+		} else {
+			enqueue_app_msg(msg);
+		}
+		return;
+	};
+
+	/* Cleanup any app specific messages, enqueue for processing */
+	mproc_cleanup_app(app);
+
+	/* Close all accepting/listening sockets associated with this app */
+	DBG("Closing all sockets associated with app\n");
+	acc = (struct acc_skts *)l_head(&lib_st.acc, &li);
+	next_li = li;
+	while (NULL != acc) {
+		struct acc_skts *next_acc;
+
+		next_acc = (struct acc_skts *)l_next(&next_li);
+
+		if (*acc->app == app) {
+			struct librsktd_unified_msg *msg =
+						(struct librsktd_unified_msg *)
+						l_pop_head(&acc->conn_req);
+			/* No more connect requests can be added. */
+			rsktd_sn_set(acc->skt_num, rskt_uninit);
+
+			/* Fail all connection requests */
+			while (NULL != msg) {
+				msg->dresp->err = htonl(ECONNRESET);
+				msg->proc_stage = RSKTD_AREQ_SEQ_ARESP;
+				enqueue_speer_msg(msg);
+			}
+			l_remove(&lib_st.acc, li);
+		};
+		acc = next_acc;
+		li = next_li;
+	};
+	
+	/* Close all connected sockets associated with this app */
+	con = (struct con_skts *)l_head(&lib_st.con, &li);
+	next_li = li;
+	while (NULL != con) {
+		struct con_skts *next_con;
+
+		next_con = (struct con_skts *)l_next(&next_li);
+
+		if (*con->app == app) {
+			librsktd_unified_msg *clos_req;
+
+			/* Wait for DMA transactions to drain, then reuse */
+			DBG("*con->app == NULL\n");
+			ms_set_best_after(con->loc_ms);
+			rsktd_sn_set(con->loc_sn, rskt_uninit);
+			l_remove(&lib_st.con, li);
+
+			/* Send "CLOSE" request to peer sockets,
+			* Discard respsponse if it is received.
+			*/
+			clos_req = alloc_msg(RSKTD_CLOSE_REQ, RSKTD_PROC_A2W,
+							RSKTD_A2W_SEQ_DREQ);
+			clos_req->wp = con->w;
+			clos_req->app = NULL;
+			clos_req->loc_ms = con->loc_ms;
+
+			clos_req->dreq = (rsktd_req_msg *)calloc(DMN_REQ_SZ, 1);
+			clos_req->dreq->in_use = htonl(1);
+			clos_req->dreq->msg_type = htonl(RSKTD_CLOSE_REQ);
+			clos_req->dreq->msg.clos.rem_sn = htonl(con->loc_sn);
+			clos_req->dreq->msg.clos.loc_sn = htonl(con->rem_sn);
+			clos_req->dreq->msg.clos.dma_flushed = htonl(-1);
+
+			clos_req->dresp = (rsktd_resp_msg *)
+							calloc(DMN_RESP_SZ, 1);
+			memcpy(&clos_req->dresp->req, clos_req->dreq,
+					sizeof(clos_req->dresp->req));
+			clos_req->dresp->in_use = htonl(1);
+			clos_req->dresp->msg_type = htonl(RSKTD_CLOSE_RESP);
+			clos_req->dresp->err = 0;
+			clos_req->dresp->msg.clos.status = 0;
+			clos_req->dresp->msg.clos.dma_flushed = htonl(-1);
+			enqueue_wpeer_msg(clos_req);
+		};
+		con = next_con;
+		li = next_li;
+	};
+
+	app->app_cleanup_done = true;
+
+	/* Forward this cleanup request to wpeer */
+
+	enqueue_mproc_msg(msg);
+};
+
+void safely_cleanup_wpeer(struct librsktd_unified_msg *msg)
+{
+	struct rskt_dmn_wpeer *wpeer = (struct rskt_dmn_wpeer *)*msg->wp;
+
+	DBG("%s%s%s%s", wpeer->wpeer_cleanup_done?"y":"N",
+			wpeer->no_more_app_tx?"y":"N",
+			wpeer->no_more_wpeer_tx?"y":"N");
+
+	if (wpeer->wpeer_cleanup_done) {
+		if (wpeer->no_more_app_tx) {
+			if (wpeer->no_more_wpeer_tx) {
+		        	if (wpeer->cm_skt_h_valid) {
+                			int rc;
+                			wpeer->cm_skt_h_valid = 0;
+                			rc = riomp_sock_close(&wpeer->cm_skt_h);
+                			if (rc) {
+                        			ERR("riomp_sock_close ERR %d\n", rc);
+                			};
+        			};
+				wpeer->in_use = false;
+				dealloc_msg(msg);
+			} else {
+				enqueue_wpeer_msg(msg);
+			};
+		} else {
+			/* Should set no_more_app_tx */
+			enqueue_app_msg(msg);
+		}
+		return;
+	};
+
+	mproc_cleanup_wpeer(wpeer);
+	wpeer->wpeer_cleanup_done = true;
+	
+	/* Should set no_more_wpeer_tx */
+	enqueue_wpeer_msg(msg);
+};
+
+void safely_cleanup_speer(struct librsktd_unified_msg *msg)
+{
+	struct rskt_dmn_speer *speer = *(msg->sp);
+
+	DBG("%s%s%s", speer->speer_cleanup_done?"y":"N",
+		speer->no_more_app_tx?"y":"N",
+		speer->no_more_speer_tx?"y":"N");
+
+	if (speer->speer_cleanup_done) {
+		if (speer->no_more_app_tx) {
+			if (speer->no_more_speer_tx) {
+				if (speer->cm_skt_h_valid) {
+					speer->cm_skt_h_valid = 0;
+					riomp_sock_close(&speer->cm_skt_h);
+				};
+				speer->in_use = false;
+				dealloc_msg(msg);
+			} else {
+				enqueue_speer_msg(msg);
+			}
+		} else {
+			/* Should set no_more_app_tx */
+			enqueue_app_msg(msg);
+		}
+		return;
+	};
+	speer->speer_cleanup_done = true;
+
+	/* Should set no_more_speer_tx */
+	enqueue_mproc_msg(msg);
+};
+
+void msg_q_handle_cleanup(struct librsktd_unified_msg *msg)
+{
+	switch (msg->msg_type) {
+	case RSKTD_CLEANUP_APP: safely_cleanup_app(msg);
+				break;
+	case RSKTD_CLEANUP_WP: safely_cleanup_wpeer(msg);
+				break;
+	case RSKTD_CLEANUP_SPEER: safely_cleanup_speer(msg);
+				break;
+	default:
+		ERR("CLEANUP STAGE: 0x%x", msg->proc_type);
+	};
 };
 
 void enqueue_mproc_msg(struct librsktd_unified_msg *msg) 
@@ -1559,6 +1921,10 @@ void *msg_q_loop(void *unused)
 		case RSKTD_PROC_S2A:
 					INFO("RSKTD_PROC_S2A");
 					msg_q_handle_s2a(msg);
+					break;
+		case RSKTD_PROC_CLEANUP:
+					INFO("RSKTD_PROC_CLEANUP");
+					msg_q_handle_cleanup(msg);
 					break;
 		default: 
 			ERR("MSG_Q_LOOP: Unknown proc type %d",

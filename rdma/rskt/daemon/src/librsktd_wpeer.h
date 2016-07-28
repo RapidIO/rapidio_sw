@@ -56,6 +56,7 @@ struct rskt_dmn_wpeer {
 	struct rskt_dmn_wpeer *self_ref_ref;
 	int cm_skt_h_valid;
 	riomp_sock_t cm_skt_h;
+	bool in_use;  /* True means this wpeer cannot be reallocated. */
 	int wpeer_alive;
 	int i_must_die;
 	struct l_item_t *wp_li; /* WPEER entry in dmn.wpeers */
@@ -79,11 +80,17 @@ struct rskt_dmn_wpeer {
 				/* ordered by w_seq_num */
 	uint32_t w_seq_num; /* Sequence number for requests sent to wpeer */
 	uint32_t peer_pid; /* Status in hello response */
+	bool wpeer_cleanup_in_progress;
+        bool wpeer_cleanup_done;
+        bool no_more_app_tx;
+        bool no_more_wpeer_tx;
 };
 
 int open_wpeers_for_requests(int num_peers, struct peer_rsktd_addr *peers);
 void enqueue_wpeer_msg(struct librsktd_unified_msg *msg);
 void update_wpeer_list(uint32_t destid_cnt, uint32_t *destids);
+
+void mproc_cleanup_wpeer(struct rskt_dmn_wpeer *wpeer);
 
 int start_wpeer_handler(void);
 void halt_wpeer_handler(void);

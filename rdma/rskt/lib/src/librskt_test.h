@@ -42,7 +42,8 @@ extern "C" {
 #endif
 
 extern int librskt_dmsg_req_resp(struct librskt_app_to_rsktd_msg *tx,
-                        struct librskt_rsktd_to_app_msg *rx);
+                        struct librskt_rsktd_to_app_msg *rx,
+			bool chk_rsp_to);
 extern struct librskt_resp_msg test_resp;
 extern uint32_t test_err;
 

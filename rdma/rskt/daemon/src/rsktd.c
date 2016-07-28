@@ -449,8 +449,9 @@ void *cli_session( void *rc_ptr )
 	};
 fail:
 	cli.cli_alive = 0;
-	if (ctrls.debug)
-		INFO("RSKTD REMOTE CLI Thread Exiting\n");
+	if (ctrls.debug) {
+		INFO("RSKTD REMOTE CLI Thread Exiting");
+	}
 
 	if (cli.cli_sess_fd > 0) {
 		close(cli.cli_sess_fd);

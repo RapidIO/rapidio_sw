@@ -81,7 +81,7 @@ REMDBG_SOURCE = src/remdbg.c
 REMDBG_OBJECTS = src/remdbg.o
 
 LIBRARIES = -lrskt -lrdma -lriocp_pe -lmport -lmemops_intf -lrsvdmem \
-	-llist -llog -lfmdd -ldd -lcli -lrt -ldl 
+	-llist -llog -lfmdd -ldd -lcli -ltime_utils -lrt -ldl 
 
 all: rsktd rskts remdbg 
 

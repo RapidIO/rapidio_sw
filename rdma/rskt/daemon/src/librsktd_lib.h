@@ -49,6 +49,7 @@ int start_lib_handler(uint32_t port, uint32_t mpnum, uint32_t backlog, int tst);
 void halt_lib_handler(void);
 
 void enqueue_app_msg(struct librsktd_unified_msg *msg);
+void mproc_cleanup_app(struct librskt_app *app);
 
 #ifdef __cplusplus
 }

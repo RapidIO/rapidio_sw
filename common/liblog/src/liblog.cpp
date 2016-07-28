@@ -105,7 +105,9 @@ int rdma_log_init(const char *log_filename, unsigned circ_buf_en)
 void rdma_log_close()
 {
 	if (log_file) {
+		sem_wait(&log_buf_sem);
 		fclose(log_file); log_file = NULL;
+		sem_post(&log_buf_sem);
 	} else
 		puts("rdma_log_close(): log_file is NULL");
 } /* rdma_log_close() */

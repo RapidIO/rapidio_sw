@@ -84,9 +84,11 @@ struct rskt_dmn_wpeer *alloc_wpeer(uint32_t ct, uint32_t cm_skt)
 	int i;
 
 	for (i = 0; i < MAX_PEER; i++) {
-		if (dmn.wpeers[i].wpeer_alive || dmn.wpeers[i].cm_skt_h_valid)
+		if (dmn.wpeers[i].in_use) {
 			continue;
+		};
 		w = &dmn.wpeers[i];
+		dmn.wpeers[i].in_use = true;
 		break;
 	};
 
@@ -201,7 +203,12 @@ void *wpeer_rx_loop(void *p_i)
 
 	/* Stop others from using the wpeer */
 	HIGH("Wpeer %d EXITING, cleaning up\n", w->ct);
+	
 	cleanup_wpeer(w);
+	if (NULL != w->rx_buff) {
+		riomp_sock_release_receive_buffer(w->cm_skt_h, w->rx_buff);
+		w->rx_buff = NULL;
+	};
 
 	pthread_exit(NULL);
 };
@@ -261,6 +268,10 @@ int init_wpeer(struct rskt_dmn_wpeer **wp, uint32_t ct, uint32_t cm_skt)
 		DBG("Waiting for wpeer_rx_loop() to start\n");
 		sem_wait(&w->started);
 		DBG("wpeer_rx_loop started\n");
+		/* Delay until wpeer begins to receive... */
+		while (!w->rx_buff_used && w->wpeer_alive && !w->i_must_die) {
+			usleep(10);
+		};
 	}
 	return 0;
 exit:
@@ -327,39 +338,11 @@ void enqueue_wpeer_msg(struct librsktd_unified_msg *msg)
 	INFO("EXIT");
 };
 
-void cleanup_wpeer(struct rskt_dmn_wpeer *wpeer)
+void mproc_cleanup_wpeer(struct rskt_dmn_wpeer *wpeer)
 {
 	struct librsktd_unified_msg *msg = NULL;
 
-	*wpeer->self_ref = NULL;
-	wpeer->wpeer_alive = 0;
-	wpeer->i_must_die = 1;
-	sem_post(&wpeer->started);
-
-	if (NULL != wpeer->rx_buff) {
-		riomp_sock_release_receive_buffer(wpeer->cm_skt_h, 
-							wpeer->rx_buff);
-		wpeer->rx_buff = NULL;
-	};
-	
-	if (NULL != wpeer->tx_buff) {
-		riomp_sock_release_send_buffer(wpeer->cm_skt_h,
-							wpeer->tx_buff);
-		wpeer->tx_buff = NULL;
-	};
-
-	if (wpeer->cm_skt_h_valid) {
-		int rc;
-		wpeer->cm_skt_h_valid = 0;
-		rc = riomp_sock_close(&wpeer->cm_skt_h);
-		if (rc) {
-			ERR("riomp_sock_close ERR %d\n", rc);
-		};
-	};
-
-	sem_wait(&wpeer->w_rsp_mutex);
 	msg = (struct librsktd_unified_msg *)l_pop_head(&wpeer->w_rsp);
-	sem_post(&wpeer->w_rsp_mutex);
 
 	/* Send "failed" responses to application */
 	while (NULL != msg) {
@@ -369,28 +352,48 @@ void cleanup_wpeer(struct rskt_dmn_wpeer *wpeer)
 		} else if (wpeer->resp == NULL) {
 			WARN("wpeer->resp == NULL\n");
 		} else {
-			wpeer->resp->err = ECONNRESET;
+			wpeer->resp->err = htonl(ECONNRESET);
 		}
 		enqueue_mproc_msg(msg);
 
-		sem_wait(&wpeer->w_rsp_mutex);
 		msg = (struct librsktd_unified_msg *)l_pop_head(&wpeer->w_rsp);
-		sem_post(&wpeer->w_rsp_mutex);
 	};
+
+};
+
+void cleanup_wpeer(struct rskt_dmn_wpeer *wpeer)
+{
+	struct librsktd_unified_msg *msg;
+
+	if (wpeer->wpeer_cleanup_in_progress)
+		return;
+
+	/* Formulate a message closing all sockets/resources axssociated
+	* with this app for processing.
+	*/
+
+	wpeer->wpeer_cleanup_in_progress = true;
+
+	wpeer->wpeer_alive = 0;
+	wpeer->i_must_die = 1;
+	sem_post(&wpeer->started);
+
+        msg = alloc_msg(RSKTD_CLEANUP_WP, RSKTD_PROC_CLEANUP, JUST_DO_IT);
+        msg->wp = wpeer->self_ref;
+        enqueue_mproc_msg(msg);
 };
 
 void close_wpeer(struct rskt_dmn_wpeer *wpeer)
 {
 	wpeer->i_must_die = 1;
+	wpeer->wpeer_alive = 0;
 
-	if (NULL != wpeer->self_ref) {
-		pthread_kill(wpeer->w_rx, SIGUSR1);
-		wpeer->wpeer_alive = 0;
-	};
+	pthread_kill(wpeer->w_rx, SIGUSR1);
 };
 
 void halt_wpeer_tx_loop(void)
 {
+	dmn.all_must_die = true;
         pthread_kill(dmn.wpeer_tx_thread, SIGUSR1);
         pthread_join(dmn.wpeer_tx_thread, NULL);
 };
@@ -427,6 +430,31 @@ void *wpeer_tx_loop(void *unused)
 		if (dmn.all_must_die || (NULL == msg))
 			break;
 
+                if (RSKTD_PROC_CLEANUP == msg->proc_type) {
+                        switch (msg->msg_type) {
+                        case RSKTD_CLEANUP_APP:
+				(*msg->app)->no_more_wpeer_tx = true;
+				enqueue_mproc_msg(msg);
+				break;
+                        case RSKTD_CLEANUP_WP:
+				(*msg->wp)->no_more_wpeer_tx = true;
+				enqueue_mproc_msg(msg);
+				if (NULL != (*msg->wp)->tx_buff) {
+					riomp_sock_release_send_buffer(
+						(*msg->wp)->cm_skt_h,
+						(*msg->wp)->tx_buff);
+					(*msg->wp)->tx_buff = NULL;
+				};
+				break;
+                        default: ERR("Unknown RSKTD_PROC_CLEANUP type 0x%x",
+                                			msg->msg_type);
+				msg->proc_stage = EINVAL;
+				enqueue_mproc_msg(msg);
+                                break;
+                        };
+
+                        continue;
+                };
 		if ((RSKTD_PROC_A2W != msg->proc_type) ||
 				(NULL == msg->wp) ||
 				(NULL == *msg->wp)) {
@@ -457,7 +485,7 @@ void *wpeer_tx_loop(void *unused)
 				UMSG_STAGE_TO_STR(msg));
 			enqueue_mproc_msg(msg);
 		} else {
-			/* Enqueue response, send request to wpeer */
+			/* Enqueue response, then send request to wpeer */
 			sem_wait(&w->w_rsp_mutex);
 			if (dmn.all_must_die)
 				continue;
@@ -476,8 +504,9 @@ void *wpeer_tx_loop(void *unused)
 				UMSG_STAGE_TO_STR(msg));
         		w->tx_rc = riomp_sock_send(w->cm_skt_h, w->tx_buff,
 						DMN_REQ_SZ);
-			if (w->tx_rc)
+			if (w->tx_rc) {
 				close_wpeer(w);
+			};
 		};
 	};
 	dmn.wpeer_tx_alive = 0;
@@ -485,27 +514,23 @@ void *wpeer_tx_loop(void *unused)
 	pthread_exit(unused);
 };
 
-void close_all_wpeers(void)
-{
-	int i;
-
-	for (i = 0; i < MAX_PEER; i++) {
-		if (dmn.wpeers[i].wpeer_alive || !dmn.wpeers[i].i_must_die)
-			close_wpeer(&dmn.wpeers[i]);
-	};
-};
-
 void update_wpeer_list(uint32_t destid_cnt, uint32_t *destids)
 {
 	uint32_t i, j, found;
 
-	/* Search for workers for destIDs that no longer exist */
-	/* OR where the peer RSKTD has died... */
+	/* Search for workers for destIDs that no longer exist
+	* OR where the peer RSKTD has died...
+	*
+	* FIXME: Eventually there must be a mutex on the wpeers list... */
 
 	INFO("Checking for dead WPeers\n");
 	for (j = 0; j < MAX_PEER; j++) {
-		if (!dmn.wpeers[j].wpeer_alive || dmn.wpeers[j].i_must_die) 
+		if (!dmn.wpeers[j].in_use) {
 			continue;
+		};
+		if (!dmn.wpeers[j].wpeer_alive || dmn.wpeers[j].i_must_die) {
+			continue;
+		};
 		found = 0;
 		DBG("Checking for destID %d, destid_cnt = %d\n",
 			dmn.wpeers[j].ct, destid_cnt);
@@ -535,16 +560,16 @@ void update_wpeer_list(uint32_t destid_cnt, uint32_t *destids)
 
 		found = 0;
 		INFO("Checking wpeer DID %d\n", destids[i]);
-		wp = find_wpeer_by_ct(destids[i]);
+		wp = find_in_use_wpeer_by_ct(destids[i]);
 
 		if (NULL != wp) {
-			DBG("Wpeer DID %d is ready running!\n", destids[i]);
+			DBG("Wpeer DID %d is in use", destids[i]);
 			continue;
 		}
 
 		/* Check that RSKTD is running on the peer... */
 		if (!fmdd_check_did(dd_h, destids[i], FMDD_RSKT_FLAG)) {
-			DBG("RSKTD is NOT running on the peer destid(%d)\n",
+			DBG("RSKTD is NOT running on the peer destid(%d)",
 					destids[i]);
 			continue;
 		}
@@ -582,7 +607,6 @@ fail:
 
 void halt_wpeer_handler(void)
 {
-	close_all_wpeers();
 	halt_wpeer_tx_loop();
 };
 

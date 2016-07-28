@@ -125,6 +125,11 @@ struct librskt_app {
 					*/
 	char app_name[MAX_APP_NAME];
 	int32_t proc_num;
+	bool app_cleanup_in_progress;
+	bool app_cleanup_done;
+	bool no_more_app_tx;
+	bool no_more_speer_tx;
+	bool no_more_wpeer_tx;
 };
 
 struct lib_msg_t {
@@ -152,10 +157,6 @@ struct librsktd_connect_globals {
 	struct librskt_app *new_app;
 
 	struct librskt_app apps[MAX_APPS];
-
-	struct l_head_t tx_msg_q; /* List of messages to transmit */
-				/* Items are struct lib_msg_t */
-				/* FIFO, for all apps! */
 
 	struct l_head_t acc; /* List of sockets listening/accepting */
 				/* Items are struct acc_skts */

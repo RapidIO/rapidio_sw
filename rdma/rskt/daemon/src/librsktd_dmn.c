@@ -209,6 +209,9 @@ int init_mport_memory(int num_ms, int ms_size)
 		dmn.mso.ms[i].ms_size = ms_size;
 		dmn.mso.ms[i].rio_addr = rio_addr + (ms_size * i);
 		dmn.mso.ms[i].phy_addr = phys_addr + (ms_size * i);
+		memset(dmn.mso.ms[i].ms_name, 0, sizeof(dmn.mso.ms[i].ms_name));
+		snprintf(dmn.mso.ms[i].ms_name, MAX_MS_NAME,
+			"MS_%d_0x%lx", i, dmn.mso.ms[i].phy_addr);
 	};
 	
 	rc = 0;

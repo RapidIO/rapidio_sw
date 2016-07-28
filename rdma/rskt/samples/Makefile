@@ -57,7 +57,7 @@ RSKT_CLIENT_SOURCE = rskt_client.c
 RSKT_CLIENT_OBJECTS = rskt_client.o
 
 LIBRARIES = -lrskt -lrdma -lriocp_pe -lmport -lmemops_intf -lrsvdmem \
-        -llist -llog -lfmdd -ldd -lcli -lrt -ldl
+        -llist -llog -lfmdd -ldd -lcli -ltime_utils -lrt -ldl
 
 all: rskt_client rskt_server rskt_tun rskt_shim.so rskt_wwwserver rskt_wwwclient
 
@@ -85,7 +85,7 @@ rskt_tun: rskt_tun.c $(COMMONDIR)/include/*.h
 	-I$(TOPDIR)/utils/goodput/inc \
 	-DRDMA_LL=$(LOG_LEVEL) \
 	$(RSKTLIB_OBJECTS) rskt_tun.c $(TOPDIR)/utils/goodput/src/tun_ipv4.c \
-	$(LIB_DIRS) -lrskt -lrdma -lfmdd -ldd -llist -lcli -llog -lmport -lmemops_intf -lrsvdmem -lrt -lpthread \
+	$(LIB_DIRS) -lrskt -lrdma -lfmdd -ldd -llist -lcli -llog -lmport -lmemops_intf -lrsvdmem -ltime_utils -lrt -lpthread \
 	$(LIBS_RPATH) \
 	-o $@
 
@@ -95,7 +95,7 @@ rskt_wwwserver: rskt_wwwserver.cc $(COMMONDIR)/include/*.h
 	-I./inc -I../inc \
 	-DRDMA_LL=$(LOG_LEVEL) \
 	$(RSKTLIB_OBJECTS) rskt_wwwserver.cc \
-	$(LIB_DIRS) -lrskt -lrdma -lfmdd -ldd -llist -lcli -llog -lmport -lmemops_intf -lrsvdmem -lrt -lpthread \
+	$(LIB_DIRS) -lrskt -lrdma -lfmdd -ldd -llist -lcli -llog -lmport -lmemops_intf -lrsvdmem -ltime_utils -lrt -lpthread \
 	$(LIBS_RPATH) \
 	-o $@
 
@@ -105,7 +105,7 @@ rskt_wwwclient: rskt_wwwclient.cc $(COMMONDIR)/include/*.h
 	-I./inc -I../inc \
 	-DRDMA_LL=$(LOG_LEVEL) \
 	$(RSKTLIB_OBJECTS) rskt_wwwclient.cc \
-	$(LIB_DIRS) -lrskt -lrdma -lfmdd -ldd -llist -lcli -llog -lmport -lmemops_intf -lrsvdmem -lrt -lpthread \
+	$(LIB_DIRS) -lrskt -lrdma -lfmdd -ldd -llist -lcli -llog -lmport -lmemops_intf -lrsvdmem -ltime_utils -lrt -lpthread \
 	$(LIBS_RPATH) \
 	-o $@
 
@@ -118,7 +118,7 @@ rskt_shim2.so: rskt_shim2.cc $(COMMONDIR)/include/*.h
 	-I./inc -I../inc \
 	-DRDMA_LL=$(LOG_LEVEL) \
 	$(RSKTLIB_OBJECTS) rskt_shim2.cc \
-	$(LIB_DIRS) -lrskt -lrdma -lfmdd -ldd -llist -lcli -llog -lmport -lrt -lpthread \
+	$(LIB_DIRS) -lrskt -lrdma -lfmdd -ldd -llist -lcli -llog -lmport -ltime_utils -lrt -lpthread \
 	$(LIBS_RPATH) \
 	-shared -fPIC -ldl \
 	-O0 -ggdb \
@@ -130,7 +130,7 @@ mport_shim.so: mport_shim.cc $(COMMONDIR)/include/*.h
 	-I./inc -I../inc \
 	-DRDMA_LL=$(LOG_LEVEL) \
 	$(RSKTLIB_OBJECTS) mport_shim.cc \
-	$(LIB_DIRS) -lmport -lrt -lpthread \
+	$(LIB_DIRS) -lmport -ltime_utils -lrt -lpthread \
 	$(LIBS_RPATH) \
 	-shared -fPIC \
 	-o $@

@@ -72,6 +72,9 @@ void time_track_lim(int i, const struct timespec *limit,
 		struct timespec *totaltime, struct timespec *mintime,
 		struct timespec *maxtime);
 
+#define TS_LT(a,b) ((a.tv_sec < b.tv_sec) || \
+		((a.tv_sec == b.tv_sec) && (a.tv_nsec < b.tv_sec)))
+
 #ifdef __cplusplus
 }
 #endif

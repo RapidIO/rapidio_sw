@@ -77,7 +77,6 @@ void *app_tx_loop(void *unused)
 	struct librsktd_unified_msg *msg = NULL;
 	int free_flag;
 	int valid_flag;
-	int rc;
 	char my_name[16];
 
         sem_init(&dmn.app_tx_mutex, 0, 1);
@@ -89,11 +88,6 @@ void *app_tx_loop(void *unused)
         memset(my_name, 0, 16);
         snprintf(my_name, 15, "RSKTD_APP_TX");
         pthread_setname_np(dmn.app_tx_thread, my_name);
-
-	rc = pthread_detach(dmn.app_tx_thread);
-	if (rc) {
-		WARN("pthread_detach rc %d", rc);
-	};
 
 	sem_post(&dmn.app_tx_loop_started);
 
@@ -117,6 +111,26 @@ void *app_tx_loop(void *unused)
 			break;
 		}
 
+		if (RSKTD_PROC_CLEANUP == msg->proc_type) {
+			switch (msg->msg_type) {
+			case RSKTD_CLEANUP_APP:
+				(*(msg->app))->no_more_app_tx = true;
+				break;
+			case RSKTD_CLEANUP_WP:
+				(*(msg->wp))->no_more_app_tx = true;
+				break;
+			case RSKTD_CLEANUP_SPEER:
+				(*(msg->sp))->no_more_app_tx = true;
+				break;
+			default: ERR("Unknown RSKTD_PROC_CLEANUP type 0x%x",
+						msg->msg_type);
+				msg->proc_stage = EINVAL;
+				break;
+			};
+			enqueue_mproc_msg(msg);
+			continue;
+		};
+			
 		/* Can't send request/response if connection has closed.
 		* Note: Cleanup of closed app is responsibility of
 		* the app receive thread */
@@ -214,6 +228,7 @@ void handle_app_msg(struct librskt_app *app,
 			return;
 		};
 		msg->proc_stage = RSKTD_S2A_SEQ_ARESP;
+		memcpy(msg->rx, rxed, sizeof(struct librskt_app_to_rsktd_msg));
 		/* Only message is a close, pass back the err status */
 		msg->dresp->err = rxed->rsp_a.err;
 		free(rxed);
@@ -270,14 +285,40 @@ void recv_loop_sig_handler(int sig)
 		return;
 };
 
+/* NOTE: mproc_cleanup_app is executed by the message processing thread.
+ * As a result, no changes are being made to any of the application
+ * data structures etc...
+ */
+void mproc_cleanup_app(struct librskt_app *app)
+{
+	struct librsktd_unified_msg *exit_msg;
+
+	/* Close the app file descriptor to prevent messages in the
+	* transmit queue from being sent.
+	*/
+	app->alive = false;
+
+	if (app->app_fd > 0) {
+		DBG("Closing app socket\n");
+		close(app->app_fd);
+		// Note: Do not zero the FD here, as this is the signal that
+		// the app entry can be reused in future.
+	};
+
+	/* Process completions for all responses waiting for this app */
+	exit_msg = (struct librsktd_unified_msg *)l_pop_head(&app->app_resp_q);
+	while (NULL != exit_msg) {
+		exit_msg->dresp->err = ECONNRESET;
+		enqueue_mproc_msg(exit_msg);
+		exit_msg = (struct librsktd_unified_msg *)
+						l_pop_head(&app->app_resp_q);
+	};
+};
+
 void *app_rx_loop(void *ip)
 {
 	struct librskt_app *app = (struct librskt_app *)ip;
-	struct l_item_t *li;
-	struct l_item_t *next_li;
 	int rc;
-	struct acc_skts *acc;
-	struct con_skts *con;
 	struct librskt_app_to_rsktd_msg *rxed;
 	struct sigaction sigh;
 
@@ -306,7 +347,7 @@ void *app_rx_loop(void *ip)
 	app->alive = 1;
 	
 	DBG("*** ENTER\n");
-	sem_post(&lib_st.new_app->up_and_running);	/* Added by SAK, Sherif */
+	sem_post(&lib_st.new_app->up_and_running); /* Added by SAK, Sherif */
 	int value;
 	if (sem_getvalue(&lib_st.new_app->up_and_running, &value)) {
 		WARN("Failed to obtain semaphore value!")
@@ -338,45 +379,18 @@ void *app_rx_loop(void *ip)
 	DBG("Posting app->started\n");
 	sem_post(&app->started);
 
-	*app->self_ptr = NULL;
+        /* Formulate a message closing all sockets/resources axssociated
+	* with this app for processing.
+	*/
 
-	/* Close all sockets associated with this app */
-	DBG("Closing all sockets associated with app\n");
-	acc = (struct acc_skts *)l_head(&lib_st.acc, &li);
-	next_li = li;
-	while (NULL != acc) {
-		struct acc_skts *next_acc;
+	if (!app->app_cleanup_in_progress) {
+		struct librsktd_unified_msg *msg;
 
-		next_acc = (struct acc_skts *)l_next(&next_li);
-		
-		if (*acc->app == NULL) {
-			rsktd_sn_set(acc->skt_num, rskt_uninit);
-			l_remove(&lib_st.acc, li);
-		};
-		acc = next_acc;
-		li = next_li;
-	};
-	con = (struct con_skts *)l_head(&lib_st.con, &li);
-	next_li = li;
-	while (NULL != con) {
-		struct con_skts *next_con;
-
-		next_con = (struct con_skts *)l_next(&next_li);
-		
-		if (*con->app == NULL) {
-			DBG("*con->app == NULL\n");
-			con->loc_ms->state = rsktd_ms_free;
-			rsktd_sn_set(con->loc_sn, rskt_uninit);
-			l_remove(&lib_st.con, li);
-		};
-		con = next_con;
-		li = next_li;
-	};
-
-	if (app->app_fd > 0) {
-		DBG("Closing app socket\n");
-		close(app->app_fd);
-		app->app_fd = 0;
+		app->app_cleanup_in_progress = true;
+        	msg = alloc_msg(RSKTD_CLEANUP_APP, RSKTD_PROC_CLEANUP, 
+								JUST_DO_IT);
+        	msg->app = app->self_ptr;
+        	enqueue_mproc_msg(msg);
 	};
 
 	/* FIXME: This does not free up the self_ref pointer, so there is a 

@@ -155,6 +155,7 @@ int log_dump_cmd_f(struct cli_env *env, int argc, char **argv)
         (void)argc;
         (void)argv;
         rdma_log_dump();
+	printf("\n");
         return 0;
 } /* log_dump_cmd_f() */
 

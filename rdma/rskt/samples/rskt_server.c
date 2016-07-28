@@ -380,7 +380,7 @@ int main(int argc, char *argv[])
 	splashScreen((char *)"RSKT Server Console");
 	rc = pthread_create( &cli.cons_thread, NULL,
 					console,
-				(void *)((char *)"RSKTD > "));
+				(void *)((char *)"RSKT_SRV > "));
 	if(rc) {
 		CRIT("Failed to create console_thread: %s\n", strerror(rc));
 		exit(EXIT_FAILURE);

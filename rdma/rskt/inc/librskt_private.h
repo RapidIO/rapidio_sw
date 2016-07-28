@@ -51,12 +51,14 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 extern "C" {
 #endif
 
-#define RSKT_FLAG_INIT 0x01
-#define RSKT_FLAG_CLOSING 0x04
-#define RSKT_FLAG_CLOSED 0x08
-#define RSKT_FLAG_ERROR  (RSKT_FLAG_CLOSED | 0x10)
+#define RSKT_BUF_HDR_FLAG_INIT		0x01
+#define RSKT_BUF_HDR_FLAG_ZEROED	0x02
+#define RSKT_BUF_HDR_FLAG_INIT_DONE	0x04
 
-#define RSKT_FLAG_CLOS_CHK (RSKT_FLAG_CLOSING | RSKT_FLAG_CLOSED)
+#define RSKT_BUF_HDR_FLAG_CLOSING	0x10
+#define RSKT_BUF_HDR_FLAG_LP_EXIT 0x00DEAD00
+
+#define RSKT_BUF_HDR_FLAG_ERROR	0x80000000
 
 /* Do not change the order/size of these fields without changing the
  * corresponding code and assumptions in librsktrdma.c!!!
@@ -74,15 +76,6 @@ extern "C" {
 #define RSKT_LOC_HDR_SIZE 16
 #define RSKT_TOT_HDR_SIZE 32
 
-#define RSKT_BUF_HDR_FLAG_INIT		1
-#define RSKT_BUF_HDR_FLAG_ZEROED    	2
-#define RSKT_BUF_HDR_FLAG_INIT_DONE 	4
-
-#define RSKT_BUF_HDR_FLAG_CLOSING 0x10
-#define RSKT_BUF_HDR_FLAG_CLOSED  0x20
-#define RSKT_BUF_HDR_CLOSE_CHK  (RSKT_BUF_HDR_FLAG_CLOSING | \
-				RSKT_BUF_HDR_FLAG_CLOSED)
-#define RSKT_BUF_HDR_FLAG_ERROR 0x80000000
 
 struct rskt_buf_hdr {
 	uint32_t loc_tx_wr_ptr; /* Transmit buffer write pointer */
@@ -189,14 +182,13 @@ struct rskt_socket_t {
 				valid if lib.use_mport is asserted */
 	uint64_t phy_addr; /* Physical address of local buffer,
 				valid if lib.use_mport is asserted */
-
 	/* Memops stuff -- in lieu of RDMA and libmport/DMA */
 	RIOMemOpsIntf* memops;
-	DmaMem_t memops_ibwin; /* Managed by RSKTd, we just map a portion of a phy addr IBwin into our address space */
-
+	DmaMem_t memops_ibwin; /* Managed by RSKTd, we just map a portion
+				* of a phy addr IBwin into our address space */
 	/* Connected MS */
 	char con_msh_name[MAX_MS_NAME];
-	conn_h connh;	/* Connection handle - for use in disconnection */
+	conn_h connh;	/* Connection handle - for use in socket close */
 	ms_h con_msh;
 	msub_h con_msubh;
 	uint32_t con_sz; 
@@ -225,8 +217,9 @@ struct librskt_globals {
         struct sockaddr_un addr; /* RSKTD Linux socket address */
         int addr_sz;	/* size of addr */
         int fd;		/* Connection to RSKTD */
-	int use_mport; /* TRUE if sockets library & daemon use mport, 0x666 if using memops,
-			* FALSE if they use rdma.
+	int use_mport; /*   1 if sockets library & daemon use mport directly,
+			* 666 if using memops,
+			*   0 if they use rdma.
 			* Set by HELLO response from RSKT daemon.
 			*/
 	riomp_mport_t mp_h;

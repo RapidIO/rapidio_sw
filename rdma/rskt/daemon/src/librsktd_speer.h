@@ -54,6 +54,7 @@ extern "C" {
 struct rskt_dmn_speer {
 	int cm_skt_h_valid;
 	riomp_sock_t cm_skt_h;
+	bool in_use;
 	int i_must_die;
 	int comm_fail;
 	struct rskt_dmn_speer **self_ref;
@@ -86,6 +87,10 @@ struct rskt_dmn_speer {
 	/* speer_loop messaging test infrastructure */
 	sem_t req_ready;
 	sem_t resp_ready;
+	bool speer_cleanup_in_progress;
+	bool speer_cleanup_done;
+	bool no_more_app_tx;
+	bool no_more_speer_tx;
 };
 
 #define SPEER_THRD_NM_FMT "SPEERx%x"
