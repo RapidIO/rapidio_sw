@@ -3289,9 +3289,6 @@ skip_port_errors:
 
 	if (impl_err_det & CPS1xxx_IMPL_SPEC_ERR_DET_MANY_RETRY) {
 		RIOCP_DEBUG("switch 0x%04x (0x%08x) port %d retry limit (%u) triggered\n", sw->destid, sw->comptag, port, priv->ports[port].retry_lim);
-
-		impl_err_det &= ~CPS1xxx_IMPL_SPEC_ERR_DET_MANY_RETRY;
-
 		event->event |= RIOCP_PE_EVENT_RETRY_LIMIT;
 	}
 
