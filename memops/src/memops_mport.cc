@@ -139,7 +139,7 @@ bool RIOMemOpsMport::alloc_dmawin(DmaMem_t& mem /*out*/, const int _size)
 
   int ret = riomp_dma_dbuf_alloc(m_mp_h, size, &mem.win_handle);
   if (ret) {
-    XCRIT("riodp_dbuf_alloc failed: %d:%s\n", ret, strerror(ret));
+    XCRIT("riodp_dbuf_alloc failed: %d:%s\n", ret, strerror(abs(ret)));
     return false;
   }
 
@@ -147,7 +147,7 @@ bool RIOMemOpsMport::alloc_dmawin(DmaMem_t& mem /*out*/, const int _size)
   if (ret) {
     riomp_dma_dbuf_free(m_mp_h, &mem.win_handle);
     mem.win_handle = 0;
-    XCRIT("FAIL riomp_dma_map_memory: %d:%s\n", ret, strerror(ret));
+    XCRIT("FAIL riomp_dma_map_memory: %d:%s\n", ret, strerror(abs(ret)));
     return false;
   };
 
@@ -201,14 +201,14 @@ bool RIOMemOpsMport::alloc_ibwin_rsvd(DmaMem_t& mem /*out*/, const int _size, co
   ret = riomp_dma_ibwin_map(m_mp_h, &mem.rio_address, rsvd_size, &mem.win_handle);
   if (ret) {
     mem.win_handle = 0;
-    XCRIT("FAIL riomp_dma_ibwin_map/get_rsvd_phys_mem: %d:%s\n", ret, strerror(ret));
+    XCRIT("FAIL riomp_dma_ibwin_map/get_rsvd_phys_mem: %d:%s\n", ret, strerror(abs(ret)));
     return false;
   }
 
   ret = riomp_dma_map_memory(m_mp_h, rsvd_size, mem.win_handle, &mem.win_ptr);
   if (ret) {
     mem.win_handle = 0;
-    XCRIT("FAIL riomp_dma_map_memory: %d:%s\n", ret, strerror(ret));
+    XCRIT("FAIL riomp_dma_map_memory: %d:%s\n", ret, strerror(abs(ret)));
     return false;
   }
 
@@ -241,7 +241,7 @@ bool RIOMemOpsMport::alloc_ibwin_fixd(DmaMem_t& mem /*out*/, const uint64_t rio_
   int ret = riomp_dma_map_memory(m_mp_h, size, mem.win_handle, &mem.win_ptr);
   if (ret) {
     mem.win_handle = 0;
-    XCRIT("FAIL riomp_dma_map_memory: %d:%s\n", ret, strerror(ret));
+    XCRIT("FAIL riomp_dma_map_memory: %d:%s\n", ret, strerror(abs(ret)));
     return false;
   }
 
@@ -298,13 +298,13 @@ bool RIOMemOpsMport::free_dmawin(DmaMem_t& mem)
 
   int rc = riomp_dma_unmap_memory(m_mp_h, mem.win_size, mem.win_ptr);
   if (rc) {
-    XCRIT("FAIL riomp_dma_unmap_memory: %d:%s\n", rc, strerror(rc));
+    XCRIT("FAIL riomp_dma_unmap_memory: %d:%s\n", rc, strerror(abs(rc)));
     ret = false;
   }
 
   rc = riomp_dma_dbuf_free(m_mp_h, &mem.win_handle);
   if (rc) {
-    XCRIT("FAIL riomp_dma_dbuf_free: %d:%s\n", rc, strerror(rc));
+    XCRIT("FAIL riomp_dma_dbuf_free: %d:%s\n", rc, strerror(abs(rc)));
     ret = false;
   }
 

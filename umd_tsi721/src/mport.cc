@@ -126,10 +126,9 @@ RioMport::RioMport(const int mportid, riomp_mport_t mp_h_in)
 bool RioMport::map_ibwin(const uint32_t size, DmaMem_t& ibwin)
 {
   /* First, obtain an inbound handle from the mport driver */
-  int ret;
-	ibwin.rio_address = RIO_ANY_ADDR;
-	ibwin.win_handle = RIO_ANY_ADDR;
-ret  = riomp_dma_ibwin_map(mp_h, &ibwin.rio_address, size, &ibwin.win_handle);
+  ibwin.rio_address = RIO_ANY_ADDR;
+  ibwin.win_handle = RIO_ANY_ADDR;
+  int ret = riomp_dma_ibwin_map(mp_h, &ibwin.rio_address, size, &ibwin.win_handle);
   if (ret) {
     XCRIT("Failed to map ibwin %d:%s", ret, strerror(errno));
     return false;
@@ -165,8 +164,7 @@ bool RioMport::unmap_ibwin(DmaMem_t& ibwin)
   if(ibwin.type != IBWIN)
     throw std::runtime_error("RioMport: Invalid type for ibwin!");
 
-  std::map <uint64_t, DmaMem_t>::iterator it
-        = m_dmaibwin_reg.find(ibwin.win_handle);
+  std::map <uint64_t, DmaMem_t>::iterator it = m_dmaibwin_reg.find(ibwin.win_handle);
   if (it == m_dmaibwin_reg.end())
     throw std::runtime_error("RioMport: Invalid DMA ibwin to unmap"
           " -- does NOT belog to this instance!");
@@ -177,7 +175,7 @@ bool RioMport::unmap_ibwin(DmaMem_t& ibwin)
   rc = riomp_dma_unmap_memory(mp_h, ibwin.win_size, ibwin.win_ptr);
   if (rc) {
     XCRIT("Failed to unmap inbound memory: @%p %d:%s\n",
-         ibwin.win_ptr, ret, strerror(ret));
+         ibwin.win_ptr, ret, strerror(abs(rc)));
     /* Don't return; still try to free the inbound window */
     ret = false;
   }
@@ -185,8 +183,8 @@ bool RioMport::unmap_ibwin(DmaMem_t& ibwin)
   /* Free the inbound window via the mport driver */
   rc = riomp_dma_ibwin_free(mp_h, &ibwin.win_handle);
   if (rc) {
-        XCRIT("Failed to free inbound memory: %d:%s\n",
-              ret, strerror(ret));
+    XCRIT("Failed to free inbound memory: %d:%s\n",
+          rc, strerror(abs(rc)));
     /* Don't return; still try to free the inbound window */
     ret = false;
   }
@@ -247,26 +245,25 @@ fail:
  */
 bool RioMport::map_dma_buf(uint32_t size, DmaMem_t& mem)
 {
-  int ret;
   if ((size % 4096) != 0) {
     int k = size / 4096;
     k++;
     size = k * 4096;
   }
 
-  ret = riomp_dma_dbuf_alloc(mp_h, size, &mem.win_handle);
+  int ret = riomp_dma_dbuf_alloc(mp_h, size, &mem.win_handle);
   if (ret) {
-        XCRIT("riodp_dbuf_alloc failed: %d:%s\n", ret, strerror(ret));
+    XCRIT("riodp_dbuf_alloc failed: %d:%s\n", ret, strerror(abs(ret)));
     return false;
   }
 
   ret = riomp_dma_map_memory(mp_h, size, mem.win_handle, &mem.win_ptr);
-    if (ret) {
-        riomp_dma_dbuf_free(mp_h, &mem.win_handle);
+  if (ret) {
+    riomp_dma_dbuf_free(mp_h, &mem.win_handle);
     mem.win_handle = 0;
-        XCRIT("FAIL riomp_dma_map_memory: %d:%s\n", ret, strerror(ret));
+    XCRIT("FAIL riomp_dma_map_memory: %d:%s\n", ret, strerror(abs(ret)));
     return false;
-  };
+  }
 
   mem.type = DMAMEM;
   mem.win_size = size;
@@ -289,8 +286,7 @@ bool RioMport::unmap_dma_buf(DmaMem_t& mem)
   if(mem.type != DMAMEM)
     throw std::runtime_error("RioMport: Invalid type for DMA buffer!");
 
-  std::map <uint64_t, DmaMem_t>::iterator it =
-          m_dmatxmem_reg.find(mem.win_handle);
+  std::map <uint64_t, DmaMem_t>::iterator it = m_dmatxmem_reg.find(mem.win_handle);
   if (it == m_dmatxmem_reg.end())
     throw std::runtime_error("RioMport: Invalid DMA buffer to unmap -- does NOT belog to this instance!");
 
@@ -300,13 +296,13 @@ bool RioMport::unmap_dma_buf(DmaMem_t& mem)
 
   rc = riomp_dma_unmap_memory(mp_h, mymem.win_size, mymem.win_ptr);
   if (rc) {
-        XCRIT("FAIL riomp_dma_unmap_memory: %d:%s\n", rc, strerror(rc));
+    XCRIT("FAIL riomp_dma_unmap_memory: %d:%s\n", rc, strerror(abs(rc)));
     ret = false;
   }
 
   rc = riomp_dma_dbuf_free(mp_h, &mem.win_handle);
   if (rc) {
-        XCRIT("FAIL riomp_dma_dbuf_free: %d:%s\n", rc, strerror(rc));
+    XCRIT("FAIL riomp_dma_dbuf_free: %d:%s\n", rc, strerror(abs(rc)));
     ret = false;
   }
 
