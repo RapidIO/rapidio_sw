@@ -1236,15 +1236,33 @@ static int cps1xxx_arm_port(struct riocp_pe *sw, uint8_t port)
  */
 static int cps1xxx_unlock_port(struct riocp_pe *sw, uint8_t port)
 {
+	uint32_t val;
+	int ret;
+
+	ret = riocp_pe_maint_read(sw, CPS1xxx_PORT_X_CTL_1_CSR(port), &val);
+	if (ret < 0)
+		return ret;
+
+	val &= ~CPS1xxx_CTL_PORT_LOCKOUT;
+	val |= (CPS1xxx_CTL_OUTPUT_EN | CPS1xxx_CTL_INPUT_EN);
+
 	/* enable input/output, clear lockout */
-	return riocp_pe_maint_write(sw, CPS1xxx_PORT_X_CTL_1_CSR(port), CPS1xxx_CTL_OUTPUT_EN | CPS1xxx_CTL_INPUT_EN);
+	return riocp_pe_maint_write(sw, CPS1xxx_PORT_X_CTL_1_CSR(port), val);
 }
 
 static int cps1xxx_lock_port(struct riocp_pe *sw, uint8_t port)
 {
+	uint32_t val;
+	int ret;
+
+	ret = riocp_pe_maint_read(sw, CPS1xxx_PORT_X_CTL_1_CSR(port), &val);
+	if (ret < 0)
+		return ret;
+
+	val |= CPS1xxx_CTL_PORT_LOCKOUT | CPS1xxx_CTL_OUTPUT_EN | CPS1xxx_CTL_INPUT_EN;
+
 	/* lockout port, simply wait for init notification to prevent race condition */
-	return riocp_pe_maint_write(sw, CPS1xxx_PORT_X_CTL_1_CSR(port), CPS1xxx_CTL_PORT_LOCKOUT |
-		CPS1xxx_CTL_OUTPUT_EN | CPS1xxx_CTL_INPUT_EN);
+	return riocp_pe_maint_write(sw, CPS1xxx_PORT_X_CTL_1_CSR(port), val);
 }
 
 /*
