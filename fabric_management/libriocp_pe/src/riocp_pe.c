@@ -2440,6 +2440,30 @@ int RIOCP_SO_ATTR riocp_pe_set_sw_trace_port(riocp_pe_handle sw, uint8_t port, u
     return riocp_pe_switch_set_trace_port(sw, port, flags);
 }
 
+/**
+ * Get port link state
+ * @param pe     Target PE
+ * @param port   port to be checked
+ * @param state  port state (true: link up, false: link down or port error
+ */
+int RIOCP_SO_ATTR riocp_pe_port_link_state(riocp_pe_handle pe, uint8_t port, bool *state)
+{
+	int ret;
+
+    if (riocp_pe_handle_check(pe))
+        return -EINVAL;
+    if (!state)
+    	return -EINVAL;
+
+    ret = riocp_pe_is_port_active(pe, port);
+    if(ret == 0)
+    	*state = false;
+    else if(ret == 1)
+    	*state = true;
+
+    return (ret < 0)?(ret):(0);
+}
+
 #ifdef __cplusplus
 }
 #endif

@@ -287,6 +287,7 @@ int RIOCP_WU riocp_pe_get_comptag(riocp_pe_handle pe, uint32_t *comptag);
 int RIOCP_WU riocp_pe_get_hopcount(riocp_pe_handle pe, uint8_t *hopcount);
 int RIOCP_WU riocp_pe_update_comptag(riocp_pe_handle pe, uint32_t *comptag, uint32_t did, uint32_t wr_did);
 int RIOCP_WU riocp_pe_get_peer_pe(riocp_pe_handle pe, uint8_t port, riocp_pe_handle *peer);
+int RIOCP_WU riocp_pe_port_link_state(riocp_pe_handle pe, uint8_t port, bool *state);
 
 /* Routing */
 int RIOCP_WU riocp_sw_get_default_route_action(riocp_pe_handle sw,
