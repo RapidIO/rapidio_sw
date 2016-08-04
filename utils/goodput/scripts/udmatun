@@ -6,7 +6,7 @@ set thruput ? 0
 thread 0 -1 0
 wait 0 h
 sleep 0.5
-IBAlloc 0 4000000
+IBAlloc 0 4000000 0 DMATUN
 sleep 0.5
 st i
 IBCheck 0 4000000

@@ -194,7 +194,7 @@ bool RIOMemOpsMport::alloc_ibwin_rsvd(DmaMem_t& mem /*out*/, const int _size, co
     return false;
   }
 
-  mem.rio_address = RIO_ANY_ADDR;
+  mem.rio_address = RIOMP_MAP_ANY_ADDR;
   mem.win_handle  = rsvd_addr;
   mem.offset = 0;
 
@@ -235,7 +235,7 @@ bool RIOMemOpsMport::alloc_ibwin_fixd(DmaMem_t& mem /*out*/, const uint64_t rio_
     size = k * 4096;
   }
 
-  mem.rio_address = mem.rio_address;
+  mem.rio_address = rio_address;
   mem.win_handle  = handle;
 
   int ret = riomp_dma_map_memory(m_mp_h, size, mem.win_handle, &mem.win_ptr);

@@ -936,7 +936,7 @@ int setup_mport(uint8_t mport_num, uint8_t num_win, uint32_t win_size,
 
 	for (i = 0; i < num_win; i++) {
 		ibwins[i].rio_base = ibwin_base + (win_size * i);
-		ibwins[i].handle = RIO_ANY_ADDR;
+		ibwins[i].handle = RIOMP_MAP_ANY_ADDR;
 		ibwins[i].length = win_size;
 		if (riomp_dma_ibwin_map(mp_h, &ibwins[i].rio_base, 
 					ibwins[i].length, &ibwins[i].handle)) {

@@ -1634,7 +1634,7 @@ static void rskt_init_memops(struct rskt_socket_t * volatile skt) throw()
 
 	memset(&skt->memops_ibwin, 0, sizeof(skt->memops_ibwin));
 
-	const uint64_t rio_address = RIO_ANY_ADDR;
+	const uint64_t rio_address = RIOMP_MAP_ANY_ADDR;
 
         bool r = skt->memops->alloc_ibwin_fixd(skt->memops_ibwin /*out*/, rio_address, skt->phy_addr /*handle*/, skt->con_sz);
 	assert(r);

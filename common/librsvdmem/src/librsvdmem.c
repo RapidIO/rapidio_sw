@@ -78,7 +78,7 @@ int get_phys_mem(const char *filename, char *parm_name, uint64_t *sa, uint64_t *
 	bool done = false;
 	char *saveptr;
 
-	*sa = RIO_ANY_ADDR;
+	*sa = RIOMP_MAP_ANY_ADDR;
 	*sz = 0;
 	errno = 0;
 

@@ -784,7 +784,7 @@ int setup_mport(uint8_t mport_num, uint8_t num_win, uint32_t win_size,
 
 	for (i = 0; i < num_win; i++) {
 		memset(&ibwins[i].mem, 0, sizeof(ibwins[i].mem));
-		ibwins[i].mem.rio_address = RIO_ANY_ADDR;
+		ibwins[i].mem.rio_address = RIOMP_MAP_ANY_ADDR;
 		bool rc = memops->alloc_ibwin(ibwins[i].mem, win_size);
 		if (!rc) goto close_ibwin;
 

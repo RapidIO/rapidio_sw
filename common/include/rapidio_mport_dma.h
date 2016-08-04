@@ -200,7 +200,7 @@ int riomp_dma_obwin_free(riomp_mport_t mport_handle, uint64_t *handle);
 /**
  * @brief Allocate a local kernel space data buffer for DMA data transfers
  *
- * @param[in] mport_handle port handle
+ * @param[in] mport_handle port handle. Set this to phy addr (from librsvd) or RIOMP_MAP_ANY_ADDR (for CMA)
  * @param[in] size number of bytes
  * @param[out] handle buffer handle
  * @return status of the function call

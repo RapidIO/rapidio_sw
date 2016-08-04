@@ -324,8 +324,8 @@ void dma_alloc_ibwin(struct worker *info)
 		return; 
 	};
 
-	info->ib_rio_addr = RIO_ANY_ADDR;
-	info->ib_handle = RIO_ANY_ADDR;
+	info->ib_rio_addr = RIOMP_MAP_ANY_ADDR;
+	info->ib_handle = RIOMP_MAP_ANY_ADDR;
 	rc = riomp_dma_ibwin_map(info->mp_h, &info->ib_rio_addr,
 					info->ib_byte_cnt, &info->ib_handle);
 	if (rc) {

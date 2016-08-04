@@ -561,7 +561,7 @@ bool DMAChannelSHM::alloc_dmamem(const uint32_t size, RioMport::DmaMem_t& mem)
 {
   if(size > SIXTYFOURMEG) return false;
 
-  mem.rio_address = RIO_ANY_ADDR;
+  mem.rio_address = RIOMP_MAP_ANY_ADDR;
   if(! m_mport->map_dma_buf(size, mem))
     throw std::runtime_error("DMAChannelSHM: Cannot alloc HW mem for DMA transfers!");
 
@@ -588,7 +588,7 @@ bool DMAChannelSHM::alloc_dmatxdesc(const uint32_t bd_cnt)
   else 
     size = ((size + 4095) / 4096) * 4096;
 
-  m_dmadesc.rio_address = RIO_ANY_ADDR;
+  m_dmadesc.rio_address = RIOMP_MAP_ANY_ADDR;
   if(! m_mport->map_dma_buf(size, m_dmadesc)) {
     XCRIT("DMAChannelSHM: Cannot alloc DMA TX ring descriptors!");
     return false;
@@ -760,7 +760,7 @@ bool DMAChannelSHM::alloc_dmacompldesc(const uint32_t bd_cnt)
   m_state->sts_size = roundup_pow_of_two(sts_entry_cnt);
   m_state->sts_log_two = pow_of_two(sts_entry_cnt) - 4;
 
-  m_dmacompl.rio_address = RIO_ANY_ADDR;
+  m_dmacompl.rio_address = RIOMP_MAP_ANY_ADDR;
   if (!m_mport->map_dma_buf(m_state->sts_size * 64, m_dmacompl)) {
     XERR("DMAChannelSHM: Cannot alloc HW mem for DMA completion ring!");
     goto exit;

@@ -185,7 +185,7 @@ int test_3(void)
 	if (!rc) {
 		goto fail;
 	};
-	if ((RIO_ANY_ADDR != st_addr) || size) {
+	if ((RIOMP_MAP_ANY_ADDR != st_addr) || size) {
 		goto fail;
 	};
 
@@ -193,7 +193,7 @@ int test_3(void)
 	if (!rc) {
 		goto fail;
 	};
-	if ((RIO_ANY_ADDR != st_addr) || size) {
+	if ((RIOMP_MAP_ANY_ADDR != st_addr) || size) {
 		goto fail;
 	};
 
@@ -201,7 +201,7 @@ int test_3(void)
 	if (!rc) {
 		goto fail;
 	};
-	if ((RIO_ANY_ADDR != st_addr) || size) {
+	if ((RIOMP_MAP_ANY_ADDR != st_addr) || size) {
 		goto fail;
 	};
 
@@ -209,7 +209,7 @@ int test_3(void)
 	if (!rc) {
 		goto fail;
 	};
-	if ((RIO_ANY_ADDR != st_addr) || size) {
+	if ((RIOMP_MAP_ANY_ADDR != st_addr) || size) {
 		goto fail;
 	};
 
@@ -218,7 +218,7 @@ int test_3(void)
 	if (!rc) {
 		goto fail;
 	};
-	if ((RIO_ANY_ADDR != st_addr) || size) {
+	if ((RIOMP_MAP_ANY_ADDR != st_addr) || size) {
 		goto fail;
 	};
 

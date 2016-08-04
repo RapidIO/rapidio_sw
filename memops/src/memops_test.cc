@@ -141,7 +141,7 @@ int main(int argc, char* argv[])
   }
 
   DmaMem_t ibmem; memset(&ibmem, 0, sizeof(ibmem));
-  ibmem.rio_address = RIO_ANY_ADDR;
+  ibmem.rio_address = RIOMP_MAP_ANY_ADDR;
   mops->alloc_dmawin(ibmem, 40960);
   printf("IBWin RIO addr @0x%lx size 0x%x\n", ibmem.win_handle, ibmem.win_size);
 
@@ -151,7 +151,7 @@ int main(int argc, char* argv[])
   req.destid = did;
   req.bcount = TR_SZ;
   req.raddr.lsb64 = rio_addr;
-  req.mem.rio_address = RIO_ANY_ADDR;
+  req.mem.rio_address = RIOMP_MAP_ANY_ADDR;
   mops->alloc_dmawin(req.mem, 40960);
   req.mem.offset = TR_SZ;
   req.sync       = sync;

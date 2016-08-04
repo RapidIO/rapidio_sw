@@ -83,7 +83,7 @@ typedef struct {
 				///<   calling alloc_dmawin
 	uint64_t rio_address;	///< RapidIO adddress for internal memory.
 				///<   Only valid for IBWIN buffers.  
-				///<   Set to RIO_ANY_ADDRESS to allow 
+				///<   Set to RIOMP_MAP_ANY_ADDRESS to allow 
 				///<   software to choose RapidIO address,
 				///<   otherwise set to required RapidIO address
 	uint64_t win_handle;	///< Physical mem address, also handle used by 
