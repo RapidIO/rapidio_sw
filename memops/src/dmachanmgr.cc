@@ -69,8 +69,10 @@ RIOMemOpsIntf* RIOMemOpsChanMgr(uint32_t mport_id, bool shared, int channel)
   if (shared && channel == ANY_CHANNEL)
     return RIOMemOps_classFactory(MEMOPS_MPORT, mport_id, channel);
 
+#if 0
   if (!check_chan_mask_dma(channel))
     throw std::runtime_error("RIOMemOpsChanMgr: Channel is in use by kernel!");
+#endif
 
   if (channel < 0 || channel > 6) 
     throw std::runtime_error("RIOMemOpsChanMgr: Invalid channel!");
