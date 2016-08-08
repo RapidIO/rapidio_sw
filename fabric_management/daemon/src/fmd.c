@@ -67,7 +67,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "riocp_pe.h"
 #include "riocp_pe.h"
 #include "DAR_DevDriver.h"
-#include "fmd_dd.h"
+#include "fmd_dd_priv.h"
 #include "fmd_app_msg.h"
 #include "liblist.h"
 #include "liblog.h"
@@ -609,7 +609,7 @@ int main(int argc, char *argv[])
 
 	if (!fmd->opts->simple_init)
 		if (fmd_dd_update(*fmd->mp_h, fmd->dd, fmd->dd_mtx))
-			goto fail;
+			goto dd_cleanup;
 
 	if (!fmd->opts->init_and_quit) {
 		spawn_threads(fmd->opts);

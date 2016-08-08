@@ -38,79 +38,33 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <semaphore.h>
 #include <riocp_pe.h>
 
-#include <rrmap_config.h>
+#include "rrmap_config.h"
+#include "fmd_dd.h"
 
-#ifndef _FMD_DD_H_
-#define _FMD_DD_H_
+// #include "fmd_state.h"
+
+#ifndef _FMD_DD_PRIV_H_
+#define _FMD_DD_PRIV_H_
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#define FMD_DEV08 0
-#define FMD_DEV16 1
-#define FMD_DEV32 2
-#define FMD_MAX_DEVID_SZ (FMD_DEV32+1)
-#define FMD_MAX_DEVS 20 
-#define FMD_MAX_DEVID 255
-#define FMD_MAX_NAME 47
-
-struct fmd_dd_dev_info {
-	uint32_t ct;
-	uint32_t destID;
-	uint32_t destID_sz;
-	uint32_t hc;
-	uint32_t is_mast_pt;
-	uint32_t flag;
-	char name[FMD_MAX_NAME+1];
-};
-
-struct fmd_dd {
-	uint32_t chg_idx;
-	struct timespec chg_time;
-	uint32_t md_ct;  
-	uint32_t num_devs;
-	uint32_t loc_mp_idx;
-	struct fmd_dd_dev_info devs[FMD_MAX_DEVS];
-};
-
-struct fmd_dd_events {
-	uint32_t in_use; /* 0 - Unallocated, 1 - Process number  */
-	uint32_t proc; /* 0 - Unused, 1 - Process number of intended user */
-	uint32_t waiting; /* 0 - waiting for event, 1 - processing event */
-	sem_t dd_event; /* sem_post() whenever the dd changes */
-};
-
-#define FMD_MAX_APPS 10
-
-struct fmd_dd_mtx {
-	uint32_t mtx_ref_cnt;
-	uint32_t dd_ref_cnt; /* R/W field for reference count to fmd_dd */
-	uint32_t init_done;
-	sem_t sem;
-	struct fmd_dd_events dd_ev[FMD_MAX_APPS];
-};
-
-extern int fmd_dd_mtx_open(char *dd_mtx_fn, int *dd_mtx_fd,
-		struct fmd_dd_mtx **dd_mtx);
-int fmd_dd_open(char *dd_fn, int *dd_fd, struct fmd_dd **dd,
-                                        struct fmd_dd_mtx *dd_mtx);
-extern uint32_t fmd_dd_atomic_copy(struct fmd_dd *dd,
-                        struct fmd_dd_mtx *dd_mtx,
-                        uint32_t *num_devs,
-                        struct fmd_dd_dev_info *devs,
-                        uint32_t max_devs);
-
+extern int fmd_dd_init(char *dd_mtx_fn, int *dd_mtx_fd, 
+			struct fmd_dd_mtx **dd_mtx,
+                	char *dd_fn, int *dd_fd, struct fmd_dd **dd);
 extern void fmd_dd_cleanup(char *dd_mtx_fn, int *dd_mtx_fd,
                         struct fmd_dd_mtx **dd_mtx_p,
                         char *dd_fn, int *dd_fd, struct fmd_dd **dd_p,
 			int dd_rw);
 
-extern void bind_dd_cmds(struct fmd_dd *dd, struct fmd_dd_mtx *dd_mtx,
-			char *dd_fn, char *dd_mtx_fn);
+extern void fmd_dd_incr_chg_idx(struct fmd_dd *dd, int dd_rw);
+extern uint32_t fmd_dd_get_chg_idx(struct fmd_dd *dd);
+
+// struct fmd_state;
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* _FMD_DD_H_ */
+#endif /* _FMD_DD_PRIV_H_ */

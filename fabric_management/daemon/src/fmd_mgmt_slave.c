@@ -384,6 +384,7 @@ void *mgmt_slave(void *unused)
 				goto fail;
 			}
 			slv->m_h_resp_valid = 1;
+			update_master_flags_from_peer();
 			break;
 		case FMD_P_REQ_MOD:
 			slave_process_mod();
@@ -516,8 +517,9 @@ void update_master_flags_from_peer(void)
 {
 	uint32_t did, did_sz, ct, flag, i;
 
-	if ((NULL == fmd->dd) || (NULL == fmd->dd_mtx))
+	if ((NULL == fmd->dd) || (NULL == fmd->dd_mtx) || (NULL == slv->s2m)) {
 		return;
+	};
 
 	sem_wait(&fmd->dd_mtx->sem);
 

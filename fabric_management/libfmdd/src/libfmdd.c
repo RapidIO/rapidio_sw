@@ -129,7 +129,7 @@ int open_dd(void)
 		ERR("fmd_dd_mtx_open failed\n");
 		goto fail;
 	}
-	if (fmd_dd_open_ro((char *)&fml.dd_fn, &fml.dd_fd, &fml.dd, fml.dd_mtx)) {
+	if (fmd_dd_open((char *)&fml.dd_fn, &fml.dd_fd, &fml.dd, fml.dd_mtx)) {
 		ERR("fmd_dd_mtx_open failed\n");
 		goto fail;
 	}

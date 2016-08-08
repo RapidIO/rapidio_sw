@@ -58,6 +58,8 @@ do
 
 	sleep 2
 
+	ssh root@"$node" "rm -f /dev/shm/RIO_SM_DEV_DIR"
+	ssh root@"$node" "rm -f /dev/shm/RIO_SM_DEV_DIR_MUTEX"
 	ssh root@"$node" "modprobe -r rio_mport_cdev"
 	ssh root@"$node" "modprobe -r rio_cm"
 done
