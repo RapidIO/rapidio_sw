@@ -265,6 +265,7 @@ int main(int argc, char* argv[])
 	req.bcount = TR_SZ;
 	req.raddr.lsb64 = rio_addr;
 	req.mem.rio_address = RIOMP_MAP_ANY_ADDR;
+	req.mem.win_handle = RIOMP_MAP_ANY_ADDR;
 	mops->alloc_dmawin(req.mem, 40960);
 	req.mem.offset = TR_SZ;
 	req.sync = sync;
