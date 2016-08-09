@@ -1669,7 +1669,7 @@ int cps1xxx_set_route_entry(struct riocp_pe *sw, uint8_t lut, uint32_t destid, u
 		return -EINVAL;
 	}
 
-	if ((destid & 0xff00) == 0 || (destid & 0xff00) == sw->destid) {
+	if ((destid & 0xff00) == 0 || (destid & 0xff00) == (sw->destid & 0xff00)) {
 		ret = riocp_pe_maint_write(sw, off_dev, value);
 		if (ret < 0)
 			return ret;
@@ -1755,7 +1755,7 @@ int cps1xxx_get_route_entry(struct riocp_pe *sw, uint8_t lut, uint32_t destid, u
 		return -EINVAL;
 	}
 
-	if ((destid && 0xff00) != 0 && (destid & 0xff00) != sw->destid) {
+	if ((destid && 0xff00) != 0 && (destid & 0xff00) != (sw->destid & 0xff00)) {
 		ret = riocp_pe_maint_read(sw, off_dm, &_port);
 		if (ret < 0)
 			return ret;
