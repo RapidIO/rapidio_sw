@@ -77,6 +77,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define DMA_STATUS_FIFO_LENGTH (4096)
 #define DMA_RUNPOLL_US 10
 
+#define DMACHANNELSTATE_SIG	0x55AA55AA
+
 #if defined(REGDEBUG)
   #define REGDBG(format, ...) XDBG(format, __VA_ARGS__)
 #else
@@ -503,6 +505,7 @@ public:
   } ShmClientCompl_t;
 
   typedef struct {
+    uint32_t            sig; // 0x55AA55AA
     pid_t               master_pid;
     volatile int        restart_pending;
     uint64_t            dmadesc_win_handle; ///< Sharable among processes, mmap'able

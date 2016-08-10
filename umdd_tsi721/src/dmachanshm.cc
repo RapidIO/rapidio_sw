@@ -94,29 +94,40 @@ void DMAChannelSHM::open_txdesc_shm(const uint32_t mportid, const uint32_t chan)
   //n += (m_state->bd_num+1)*sizeof(uint64_t);
 }
 
+/** \brief Test whether UMDd/SHM is running & ready.
+ * \note This method it too smart by half (knows about inner workings of class \ref POSIXShm) but it has to be.
+ */
 bool DMAChannelSHM::has_state(const uint32_t mport_id, const uint32_t chan)
 {
   char path[129] = {0};
 
-  strncpy(path, "/dev/shm/", 128);
+  strncpy(path, "/dev/shm/shm.", 128); // we need to append "shm." as that's what libc does
   const int N = strlen(path);
   snprintf(path+N, 128-N, DMA_SHM_STATE_NAME, mport_id, chan);
 
   if (access(path, F_OK)) return false;
 
-  DmaChannelState_t st; memset(&st, 0, sizeof(st));
+  const uint32_t PAGE_SIZE = sysconf(_SC_PAGESIZE);
+
+  const int buf_len = PAGE_SIZE + sizeof(DmaChannelState_t);
+  uint8_t* buffer = (uint8_t*)alloca(buf_len);
+  assert(buffer);
+  memset(buffer, 0, buf_len);
 
   int fd = open(path, O_RDONLY);
   if (fd < 0) return false;
-  int nr = read(fd, &st, sizeof(st));
+  int nr = read(fd, buffer, buf_len);
   close(fd);
 
-  if (nr < 0 || nr != sizeof(st)) return false;
+  if (nr < 0 || nr != buf_len) return false;
 
-  if (st.master_pid < 1) return false;
-  if (st.hw_ready < 2) return false;
+  DmaChannelState_t* st = (DmaChannelState_t*)(buffer + PAGE_SIZE);
 
-  return 0 == kill(st.master_pid, 0);
+  if (st->sig != DMACHANNELSTATE_SIG) return false;
+  if (st->master_pid < 1) return false;
+  if (st->hw_ready < 2) return false;
+
+  return 0 == kill(st->master_pid, 0);
 }
 
 void DMAChannelSHM::init(const uint32_t chan)
@@ -215,6 +226,7 @@ void DMAChannelSHM::init(const uint32_t chan)
   pthread_spin_init(&m_state->bl_splock,           PTHREAD_PROCESS_SHARED);
   pthread_spin_init(&m_state->client_splock,       PTHREAD_PROCESS_SHARED);
 
+  m_state->sig           = DMACHANNELSTATE_SIG;
   m_state->master_pid    = m_pid;
   m_state->bd_num        = 0;
   m_state->sts_size      = 0;
