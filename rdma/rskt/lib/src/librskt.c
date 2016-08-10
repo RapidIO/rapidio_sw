@@ -564,10 +564,11 @@ int cleanup_skt(rskt_h skt_h, volatile struct rskt_socket_t *skt,
 {
 	int dma_flushed = 1;
 	if (lib.use_mport == SIX6SIX_FLAG) { /// TODO memops
-		assert(skt->memops);
-		skt->memops->free_xwin(((struct rskt_socket_t*)skt)->memops_ibwin); // XXX g++ makes me de-volatile skt
+		if (skt->memops != NULL) {
+			skt->memops->free_xwin(((struct rskt_socket_t*)skt)->memops_ibwin); // XXX g++ makes me de-volatile skt
+			delete skt->memops; skt->memops = NULL;
+		}
 		skt->msub_p = NULL;
-		delete skt->memops; skt->memops = NULL;
 	} else if (lib.use_mport) {
 		if (NULL != skt->msub_p) {
 			int rc = riomp_dma_unmap_memory(lib.mp_h, skt->msub_sz, 
