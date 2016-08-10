@@ -990,8 +990,11 @@ void terminate_accept_and_conn_reqs(uint32_t sn)
 	struct acc_skts *acc = (struct acc_skts *)l_find(&lib_st.acc, sn, &li);
 	struct librsktd_unified_msg *con_req;
 
-	if (NULL == acc)
+	rsktd_sn_set(sn, rskt_closing);
+	if (NULL == acc) {
+		rsktd_sn_set(sn, rskt_closed);
 		return;
+	};
 
 	while (l_size(&acc->conn_req)) {
 		con_req = (struct librsktd_unified_msg *)
@@ -1008,6 +1011,7 @@ void terminate_accept_and_conn_reqs(uint32_t sn)
 	};
 	
 	l_remove(&lib_st.acc, li);
+	rsktd_sn_set(sn, rskt_closed);
 };
 
 uint32_t terminate_connected_socket(struct librsktd_unified_msg *msg, 
@@ -1147,7 +1151,6 @@ uint32_t rsktd_a2w_close_req(struct librsktd_unified_msg *r)
 	case rskt_listening:
 	case rskt_accepting:
 		/* Listening, clean up any pending connection requests */
-		rsktd_sn_set(sn, rskt_closing);
 		terminate_accept_and_conn_reqs(sn);
 		DBG("Msg %s 0x%x Type 0x%x %s Proc %s Stage %s SN %d ST %d", 
 			UMSG_W_OR_S(r),
@@ -1158,7 +1161,6 @@ uint32_t rsktd_a2w_close_req(struct librsktd_unified_msg *r)
 			UMSG_STAGE_TO_STR(r),
 			sn,
 			rsktd_sn_get(sn));
-		rsktd_sn_set(sn, rskt_closed);
 		break;
 
 	case rskt_connecting:
@@ -1693,19 +1695,7 @@ void safely_cleanup_app(struct librsktd_unified_msg *msg)
 		next_acc = (struct acc_skts *)l_next(&next_li);
 
 		if (*acc->app == app) {
-			struct librsktd_unified_msg *msg =
-						(struct librsktd_unified_msg *)
-						l_pop_head(&acc->conn_req);
-			/* No more connect requests can be added. */
-			rsktd_sn_set(acc->skt_num, rskt_uninit);
-
-			/* Fail all connection requests */
-			while (NULL != msg) {
-				msg->dresp->err = htonl(ECONNRESET);
-				msg->proc_stage = RSKTD_AREQ_SEQ_ARESP;
-				enqueue_speer_msg(msg);
-			}
-			l_remove(&lib_st.acc, li);
+			terminate_accept_and_conn_reqs(acc->skt_num);
 		};
 		acc = next_acc;
 		li = next_li;
