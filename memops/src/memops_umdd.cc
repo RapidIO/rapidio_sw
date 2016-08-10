@@ -86,7 +86,8 @@ bool RIOMemOpsUMDd::nwrite_mem(MEMOPSRequest_t& dmaopt /*inout*/)
   m_errno = 0;
   dmaopt.ticket = 0;
 
-  if (dmaopt.mem.type != DMAMEM) 
+  if (dmaopt.mem.type != DMAMEM &&
+      dmaopt.mem.type != IBWIN_FIXD /*RSKT special case*/) 
     throw std::runtime_error("RIOMemOpsUMDd::nwrite_mem: Unsupported memory type!");
   
   if (! DMAChannelSHM_checkMasterReady(m_dch)) { m_errno = ENOTCONN; return false; }
@@ -123,7 +124,7 @@ bool RIOMemOpsUMDd::nwrite_mem(MEMOPSRequest_t& dmaopt /*inout*/)
     }
   } else {
     if (! DMAChannelSHM_queueDmaOpT2(m_dch, DMAChannelSHM::convert_riomp_dma_directio(dmaopt.wr_mode),
-                                     &opt, (uint8_t *)dmaopt.mem.win_handle + dmaopt.mem.offset, dmaopt.bcount, &dma_abort_reason, &m_stats)) {
+                                     &opt, (uint8_t *)dmaopt.mem.win_ptr + dmaopt.mem.offset, dmaopt.bcount, &dma_abort_reason, &m_stats)) {
       if (q_was_full) { m_errno = ENOSPC; return false; }
       m_errno = EINVAL; return false;
     }

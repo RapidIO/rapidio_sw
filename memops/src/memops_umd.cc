@@ -315,7 +315,7 @@ bool RIOMemOpsUMD::nwrite_mem(MEMOPSRequest_t& dmaopt /*inout*/)
     }
   } else {
     if (! m_dch->queueDmaOpT2((int)DMAChannelSHM::convert_riomp_dma_directio(dmaopt.wr_mode),
-                              opt, (uint8_t *)dmaopt.mem.win_handle + dmaopt.mem.offset, dmaopt.bcount, dma_abort_reason, &m_stats)) {
+                              opt, (uint8_t *)dmaopt.mem.win_ptr + dmaopt.mem.offset, dmaopt.bcount, dma_abort_reason, &m_stats)) {
       if (q_was_full) { m_errno = ENOSPC; return false; }
 
       abortReasonToErrno(dma_abort_reason);
