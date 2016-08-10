@@ -92,6 +92,8 @@ void *app_tx_loop(void *unused)
 	sem_post(&dmn.app_tx_loop_started);
 
 	while (!dmn.all_must_die) {
+		struct l_item_t *resp;
+
 		free_flag = 1;
 		valid_flag = 0;
 		sem_wait(&dmn.app_tx_cnt);
@@ -148,7 +150,9 @@ void *app_tx_loop(void *unused)
 			valid_flag = 1;
 		};
 
-		if ((RSKTD_PROC_S2A == msg->proc_type) && (RSKTD_S2A_SEQ_AREQ == msg->proc_stage)) {
+		resp = NULL;
+		if ((RSKTD_PROC_S2A == msg->proc_type) &&
+				(RSKTD_S2A_SEQ_AREQ == msg->proc_stage)) {
 			uint32_t seq_num;
 			/* Sending request, must not deallocate */
 			/* Get rsktd sequence number for request */
@@ -158,24 +162,36 @@ void *app_tx_loop(void *unused)
 			seq_num = (*msg->app)->dmn_req_num++;
 			msg->tx->rq_a.rsktd_seq_num = htonl(seq_num);
 			msg->rx->rsp_a.req_a.rsktd_seq_num = htonl(seq_num);
-			l_add(&(*msg->app)->app_resp_q, seq_num, (void *)msg);
+			resp = l_add(&(*msg->app)->app_resp_q, seq_num,
+								(void *)msg);
 			sem_post(&(*msg->app)->app_resp_mutex);
 			msg->proc_stage = RSKTD_S2A_SEQ_ARESP;
 		};
 
 		/* Send message to application */
 		if (valid_flag) {
-			DBG("Sending %s Seq %d", LIBRSKT_APP_MSG_TO_STR(ntohl(msg->tx->msg_type)), 
-				LIBRSKT_DMN_2_APP_MSG_SEQ_NO(msg->tx, ntohl(msg->tx->msg_type)));
+			DBG("Sending %s Seq %d",
+				LIBRSKT_APP_MSG_TO_STR(ntohl(msg->tx->msg_type)), 
+				LIBRSKT_DMN_2_APP_MSG_SEQ_NO(msg->tx,
+						ntohl(msg->tx->msg_type)));
 			if (send((*msg->app)->app_fd, (void *)msg->tx, 
 					RSKTD2A_SZ, MSG_EOR) != RSKTD2A_SZ){
 				(*msg->app)->i_must_die = 33;
 				ERR("send() failed: %s\n", strerror(errno));
+				if (NULL != resp) {
+					msg->rx->rsp_a.err = EPIPE;
+					sem_wait(&(*msg->app)->app_resp_mutex);
+					l_lremove(&(*msg->app)->app_resp_q,
+									resp);
+					sem_post(&(*msg->app)->app_resp_mutex);
+					enqueue_mproc_msg(msg);
+				};
 			};
-		}
+		};
 dealloc:
-		if (free_flag || !valid_flag)
+		if (free_flag || !valid_flag) {
 			dealloc_msg(msg);
+		};
 	};
 	dmn.app_tx_alive = 0;
 	sem_post(&dmn.graceful_exit);
@@ -376,7 +392,7 @@ void *app_rx_loop(void *ip)
 	}
 
 	app->alive = 0;
-	DBG("Posting app->started\n");
+	DBG("Posting app->started");
 	sem_post(&app->started);
 
         /* Formulate a message closing all sockets/resources axssociated
@@ -385,12 +401,15 @@ void *app_rx_loop(void *ip)
 
 	if (!app->app_cleanup_in_progress) {
 		struct librsktd_unified_msg *msg;
+		DBG("Cleaning up app");
 
 		app->app_cleanup_in_progress = true;
         	msg = alloc_msg(RSKTD_CLEANUP_APP, RSKTD_PROC_CLEANUP, 
 								JUST_DO_IT);
         	msg->app = app->self_ptr;
         	enqueue_mproc_msg(msg);
+	} else {
+		DBG("Already cleaning up app?");
 	};
 
 	/* FIXME: This does not free up the self_ref pointer, so there is a 
@@ -488,6 +507,8 @@ void *lib_conn_loop( void *unused )
 			sleep(60);
 			continue;
 		};
+
+		memset(lib_st.new_app, 0, sizeof(struct librskt_app));
 
 		lib_st.new_app->self_ptr = &lib_st.new_app->self_ptr_ptr; 
 			
