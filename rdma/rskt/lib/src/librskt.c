@@ -1185,8 +1185,10 @@ int setup_skt_ptrs(struct rskt_socket_t *volatile skt)
       && ((skt->hdr->rem_tx_rd_flags & htonl(RSKT_BUF_HDR_FLAG_INIT)) == 0) \
       	       )
 
-	DBG("skt->hdr->rem_rx_wr_flags = 0x%08X, skt->hdr->rem_tx_rd_flags\n",
-			ntohl(skt->hdr->rem_rx_wr_flags), ntohl(skt->hdr->rem_tx_rd_flags));
+	DBG("skt->hdr->rem_rx_wr_flags = 0x%08X, "
+		"skt->hdr->rem_tx_rd_flags 0x%08X",
+			ntohl(skt->hdr->rem_rx_wr_flags),
+			ntohl(skt->hdr->rem_tx_rd_flags));
 	DBG("Waiting for INIT_DONE and ZEROED or for ZEROED only\n");
 	delay = 1000000;
 	while (!COND1 && !COND2 && delay--) {
@@ -1195,9 +1197,9 @@ int setup_skt_ptrs(struct rskt_socket_t *volatile skt)
 
 	if (!COND1 && !COND2) {
 		DBG("skt->hdr->rem_rx_wr_flags = 0x%08X,"
-						" skt->hdr->rem_tx_rd_flags\n",
-			ntohl(skt->hdr->rem_rx_wr_flags),
-			ntohl(skt->hdr->rem_tx_rd_flags));
+			" skt->hdr->rem_tx_rd_flags = 0x%08X",
+				ntohl(skt->hdr->rem_rx_wr_flags),
+				ntohl(skt->hdr->rem_tx_rd_flags));
 		DBG("FAILED wait INIT_DONE and ZEROED or for ZEROED only\n");
 		rc = -1;
 		goto exit;
@@ -1216,7 +1218,7 @@ int setup_skt_ptrs(struct rskt_socket_t *volatile skt)
 	DBG("Cleared INIT_DONE\n");
 	rc = update_remote_hdr(skt, &hdr_in);
 	if (rc) {
-		ERR("Failed to update remote header, rc = %d\n", rc);
+		ERR("Failed to update remote header, rc = %d", rc);
 		goto exit;
 	}
 
@@ -1240,9 +1242,10 @@ int setup_skt_ptrs(struct rskt_socket_t *volatile skt)
 	&&  (skt->hdr->rem_tx_rd_flags & htonl(RSKT_BUF_HDR_FLAG_INIT)) \
 	      )
 
-	DBG("skt->hdr->rem_rx_wr_flags = 0x%08X, skt->hdr->rem_tx_rd_flags\n",
-		ntohl(skt->hdr->rem_rx_wr_flags),
-		ntohl(skt->hdr->rem_tx_rd_flags));
+	DBG("skt->hdr->rem_rx_wr_flags = 0x%08X, "
+		"skt->hdr->rem_tx_rd_flags = 0x%08X",
+			ntohl(skt->hdr->rem_rx_wr_flags),
+			ntohl(skt->hdr->rem_tx_rd_flags));
 	DBG("Waiting for ZEROED only or INIT only\n");
 	delay = 1000000;
 	while (!COND1 && !COND2 && delay--) {
@@ -1250,9 +1253,9 @@ int setup_skt_ptrs(struct rskt_socket_t *volatile skt)
 	}
 	if (!COND1 && !COND2) {
 		DBG("skt->hdr->rem_rx_wr_flags = 0x%08X,"
-						" skt->hdr->rem_tx_rd_flags\n",
-			ntohl(skt->hdr->rem_rx_wr_flags),
-			ntohl(skt->hdr->rem_tx_rd_flags));
+			" skt->hdr->rem_tx_rd_flags = 0x%08X",
+				ntohl(skt->hdr->rem_rx_wr_flags),
+				ntohl(skt->hdr->rem_tx_rd_flags));
 		DBG("FAILED for ZEROED only or INIT only\n");
 		rc = -1;
 		goto exit;
@@ -1287,9 +1290,10 @@ int setup_skt_ptrs(struct rskt_socket_t *volatile skt)
 	&&  (skt->hdr->rem_rx_wr_flags & htonl(RSKT_BUF_HDR_FLAG_INIT)) \
 	&&  (skt->hdr->rem_tx_rd_flags & htonl(RSKT_BUF_HDR_FLAG_INIT)) \
 	      )
-	DBG("skt->hdr->rem_rx_wr_flags = 0x%08X, skt->hdr->rem_tx_rd_flags\n",
-		ntohl(skt->hdr->rem_rx_wr_flags),
-		ntohl(skt->hdr->rem_tx_rd_flags));
+	DBG("skt->hdr->rem_rx_wr_flags = 0x%08X, "
+		"skt->hdr->rem_tx_rd_flags= 0x%08X",
+			ntohl(skt->hdr->rem_rx_wr_flags),
+			ntohl(skt->hdr->rem_tx_rd_flags));
 	DBG("Waiting for INIT only\n");
 	delay = 1000000;
 	while (!COND1 && delay--) {
@@ -1396,31 +1400,31 @@ int rskt_accept(rskt_h l_skt_h, rskt_h skt_h,
 	if ((NULL == l_skt_h) || (NULL == skt_h) || (NULL == sktaddr)) {
 		CRIT("NULL parameter passed: l_skt_h=%p, skt_h=%p, sktaddr=%p\n",
 				l_skt_h, skt_h, sktaddr);
-		goto unlock;
+		goto failed_locked;
 	}
 
 	l_skt = (struct rskt_socket_t *)l_skt_h->skt;
 	if (NULL == l_skt) {
 		ERR("l_skt_h->skt is NULL\n");
-		goto unlock;
+		goto failed_locked;
 	}
 
 	if (NULL == skt_h->skt) {
 		INFO("skt_h->skt is NULL\n");
 		if (rskt_alloc_skt(skt_h)) {
 			CRIT("Failed to allocated skt_h..exiting\n");
-			goto unlock;
+			goto failed_locked;
 		}
 	}
 	skt = (struct rskt_socket_t *)skt_h->skt;
 
 	if (rskt_listening != l_skt_h->st) {
 		ERR("rskt_listening != l_skt->st..exiting\n");
-		goto unlock;
+		goto failed_locked;
 	}
 	if (rskt_alloced != skt_h->st) {
 		ERR("rskt_alloced != skt->st, st is %d\n", skt_h->st);
-		goto unlock;
+		goto failed_locked;
 	}
 
 	tx = alloc_app2d();
@@ -1434,8 +1438,10 @@ int rskt_accept(rskt_h l_skt_h, rskt_h skt_h,
 	DBG("Calling librskt_dmsg_req_resp to send LIBRSKTD_ACCEPT (A2RSKTD_SZ)\n");
 	if (librskt_dmsg_req_resp(tx, rx, TIMEOUT)) {
 		WARN("librskt_dmsg_req_resp() failed..closing\n");
-		goto unlock;
+		goto failed_locked;
 	}
+
+	l_skt_h->st = rskt_listening;
 
 	memcpy((void *)skt, (void *)l_skt, sizeof(struct rskt_socket_t));
 	skt->max_backlog = 0;
@@ -1449,6 +1455,12 @@ int rskt_accept(rskt_h l_skt_h, rskt_h skt_h,
 		skt->rio_addr);
 	memcpy((void *)skt->msoh_name, rx->a_rsp.msg.accept.mso_name, MAX_MS_NAME);
 	memcpy((void *)skt->msh_name, rx->a_rsp.msg.accept.ms_name, MAX_MS_NAME);
+
+	sktaddr->sn = skt_h->skt->sai.sa.sn;
+	sktaddr->ct = skt_h->skt->sai.sa.ct;
+	l_add(&lib.skts, skt_h->sa.sn, (void *)skt_h);
+	sem_post(&lib.skts_mtx);
+
 	if (lib.use_mport) {
 		DBG("ACCEPT: SN %d CT %d REM SN %d CT %d p_u 0x%x p_l 0x%x r_u 0x%x r_l 0x%x",
 			skt_h->sa.sn, skt_h->sa.ct, skt->sai.sa.sn,
@@ -1463,12 +1475,10 @@ int rskt_accept(rskt_h l_skt_h, rskt_h skt_h,
 	};
 	skt->msub_sz = ntohl(rx->a_rsp.msg.accept.ms_size);
 
-	l_skt_h->st = rskt_listening;
-
 	if (lib.use_mport != !!rx->a_rsp.msg.accept.use_addr) {
 		CRIT("ACCEPT response lib.use_mport %d use_addr %d",
 			lib.use_mport, !!rx->a_rsp.msg.accept.use_addr);
-		goto unlock;
+		goto failed_unlocked;
 	};
 
 	if (lib.use_mport == SIX6SIX_FLAG) { /// TODO memops rskt_accept
@@ -1484,31 +1494,34 @@ int rskt_accept(rskt_h l_skt_h, rskt_h skt_h,
 		if (rc) {
 			CRIT("Failed to map 0x%lx size 0x%x",
 				skt->phy_addr, skt->msub_sz);
-			goto unlock;
+			goto failed_unlocked;
 		}
 		memset((void *)skt->msub_p, 0, skt->msub_sz);
 		skt->msh_valid = 1;
 	} else {
 		rc = rskt_accept_rdma_open(skt);
 	};
-	if (rc)
-		goto unlock;
+	if (rc) {
+		goto failed_unlocked;
+	}
 
-	skt_h->st = rskt_connected;
 	rc = setup_skt_ptrs(skt);
 	if (rc) {
 		ERR("Failed in setup_skt_ptrs\n");
-		goto unlock;
+		goto failed_unlocked;
 	}
-	sktaddr->sn = skt_h->skt->sai.sa.sn;
-	sktaddr->ct = skt_h->skt->sai.sa.ct;
-	l_add(&lib.skts, skt_h->sa.sn, (void *)skt_h);
-	sem_post(&lib.skts_mtx);
 	free(rx);
+	skt_h->st = rskt_connected;
 	INFO("Exiting with SUCCESS\n");
 	return 0;
 
-unlock:
+failed_unlocked:
+	if (librskt_wait_for_sem(&lib.skts_mtx, 0x6001)) {
+		ERR("librskt_wait_for_sem failed, returning");
+		goto exit;
+	};
+
+failed_locked:
 	ERR("FAILED: closing socket\n");
 	rskt_close_locked(skt_h);
 	sem_post(&lib.skts_mtx);
@@ -1669,14 +1682,14 @@ int rskt_connect(rskt_h skt_h, struct rskt_sockaddr *sock_addr )
 	if ((NULL == skt_h) || (NULL == sock_addr)) {
 		CRIT("NULL parameter: skt_h = %p, sock_addr = %p\n",
 			skt_h, sock_addr);
-		goto unlock;
+		goto failed_locked;
 	}
 
 	if (NULL == skt_h->skt) {
 		WARN("skt_h->skt is NULL\n");
 		if (rskt_alloc_skt(skt_h)) {
 			CRIT("Failed to alloc skt_h\n");
-			goto unlock;
+			goto failed_locked;
 		}
 	}
 	skt = (struct rskt_socket_t *)skt_h->skt;
@@ -1690,7 +1703,7 @@ int rskt_connect(rskt_h skt_h, struct rskt_sockaddr *sock_addr )
 	(rskt_shutting_down == skt_h->st) ||
 	(rskt_closing == skt_h->st)) {
 		ERR("Condition failed..exiting\n");
-		goto unlock;
+		goto failed_locked;
 	}
 
 	tx = alloc_app2d();
@@ -1705,18 +1718,18 @@ int rskt_connect(rskt_h skt_h, struct rskt_sockaddr *sock_addr )
 	 */
 	DBG("Calling librskt_dmsg_req_resp to send LIBRSKTD_CONN (A2RSKTD_SZ)\n");
 	if (lib.all_must_die)
-		goto unlock;
+		goto failed_locked;
 
 	rc = librskt_dmsg_req_resp(tx, rx, TIMEOUT);
 	if (rc) {
 		ERR("librskt_dmsg_req_resp() failed..closing\n");
-		goto unlock;
+		goto failed_locked;
 	}
 
 	if (!!rx->a_rsp.msg.conn.use_addr != !!lib.use_mport) {
 		CRIT("Received reply with use_addr %d lib.use_mport %d",
 			(int)rx->a_rsp.msg.conn.use_addr, (int)lib.use_mport);
-		goto unlock;
+		goto failed_locked;
 	};
 
 	DBG("Received reply to LIBRSKTD_CONN containing:\n");
@@ -1732,6 +1745,7 @@ int rskt_connect(rskt_h skt_h, struct rskt_sockaddr *sock_addr )
 			rx->a_rsp.msg.conn.ms,
 			rx->a_rsp.msg.conn.msub_sz)
 	};
+
 	skt_h->st = rskt_connecting;
 	skt->connector = skt_rdma_connector;
 	skt_h->sa.ct = ntohl(rx->a_rsp.msg.conn.new_ct);
@@ -1746,8 +1760,11 @@ int rskt_connect(rskt_h skt_h, struct rskt_sockaddr *sock_addr )
 	skt->msub_sz = ntohl(rx->a_rsp.msg.conn.msub_sz);
 	skt->max_backlog = 0;
 
+	l_add(&lib.skts, skt_h->sa.sn, (void *)skt_h);
+	sem_post(&lib.skts_mtx);
+
 	if (lib.all_must_die)
-		goto unlock;
+		goto failed_unlocked;
 
 	if (lib.use_mport == SIX6SIX_FLAG) { /// TODO memops rskt_connect
 		UNPACK_PTR(rx->a_rsp.msg.conn.p_addr_u,
@@ -1765,7 +1782,7 @@ int rskt_connect(rskt_h skt_h, struct rskt_sockaddr *sock_addr )
 		if (rc) {
 			CRIT("Failed to map 0x%lx size 0x%x",
 				skt->phy_addr, skt->msub_sz);
-			goto unlock;
+			goto failed_unlocked;
 		}
 		memset((void *)skt->msub_p, 0, skt->msub_sz);
 		skt->msh_valid = 1;
@@ -1773,26 +1790,30 @@ int rskt_connect(rskt_h skt_h, struct rskt_sockaddr *sock_addr )
 		rc = rskt_connect_rdma_open(skt);
 	};
 	if (rc)
-		goto unlock;
+		goto failed_unlocked;
 
 	/* At this point the local buffer is mapped and zeroed.
 	 * We will initialize the buffer pointers below.
 	 */
 
-	skt_h->st = rskt_connected;
 	if (lib.all_must_die)
-		goto unlock;
+		goto failed_unlocked;
 
 	rc = setup_skt_ptrs(skt);
 	if (rc) {
 		ERR("Failed in setup_skt_ptrs\n");
-		goto unlock;
+		goto failed_unlocked;
 	}
-	l_add(&lib.skts, skt_h->sa.sn, (void *)skt_h);
+	skt_h->st = rskt_connected;
 	INFO("Exiting with SUCCESS\n");
-	sem_post(&lib.skts_mtx);
 	return 0;
-unlock:
+
+failed_unlocked:
+	if (librskt_wait_for_sem(&lib.skts_mtx, 0x7000)) {
+		ERR("librskt_wait_for_sem failed, returning");
+		goto exit;
+	};
+failed_locked:
 	temp_errno = errno;
 	CRIT("FAILED: closing socket\n");
 	rskt_close_locked(skt_h);
@@ -2402,6 +2423,7 @@ int rskt_close_locked(rskt_h skt_h)
 	};
 
 	switch(skt_h->st) {
+	case rskt_close_by_remote:
                 /* Close by remote means that this end has been flushed by
 		* the remote.  We don't know if the remote has seen our
 		* dma flush yet.
@@ -2421,6 +2443,7 @@ int rskt_close_locked(rskt_h skt_h)
 		goto cleanup;
 		break;
 
+        case rskt_connecting:
         case rskt_connected:
 		/* Check to see if we're the end that initiateed closure,
 		* or if the other end has closed transmission.
@@ -2502,7 +2525,6 @@ int rskt_close_locked(rskt_h skt_h)
         case rskt_bound  :
         case rskt_listening:
         case rskt_accepting:
-        case rskt_connecting:
 cleanup:
 		tx = alloc_app2d();
 		rx = alloc_d2app();
