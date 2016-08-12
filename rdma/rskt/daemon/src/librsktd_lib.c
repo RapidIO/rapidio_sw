@@ -92,8 +92,6 @@ void *app_tx_loop(void *unused)
 	sem_post(&dmn.app_tx_loop_started);
 
 	while (!dmn.all_must_die) {
-		struct l_item_t *resp;
-
 		free_flag = 1;
 		valid_flag = 0;
 		sem_wait(&dmn.app_tx_cnt);
@@ -150,7 +148,6 @@ void *app_tx_loop(void *unused)
 			valid_flag = 1;
 		};
 
-		resp = NULL;
 		if ((RSKTD_PROC_S2A == msg->proc_type) &&
 				(RSKTD_S2A_SEQ_AREQ == msg->proc_stage)) {
 			uint32_t seq_num;
@@ -162,7 +159,7 @@ void *app_tx_loop(void *unused)
 			seq_num = (*msg->app)->dmn_req_num++;
 			msg->tx->rq_a.rsktd_seq_num = htonl(seq_num);
 			msg->rx->rsp_a.req_a.rsktd_seq_num = htonl(seq_num);
-			resp = l_add(&(*msg->app)->app_resp_q, seq_num,
+			l_add(&(*msg->app)->app_resp_q, seq_num,
 								(void *)msg);
 			sem_post(&(*msg->app)->app_resp_mutex);
 			msg->proc_stage = RSKTD_S2A_SEQ_ARESP;
@@ -178,14 +175,6 @@ void *app_tx_loop(void *unused)
 					RSKTD2A_SZ, MSG_EOR) != RSKTD2A_SZ){
 				(*msg->app)->i_must_die = 33;
 				ERR("send() failed: %s\n", strerror(errno));
-				if (NULL != resp) {
-					msg->rx->rsp_a.err = EPIPE;
-					sem_wait(&(*msg->app)->app_resp_mutex);
-					l_lremove(&(*msg->app)->app_resp_q,
-									resp);
-					sem_post(&(*msg->app)->app_resp_mutex);
-					enqueue_mproc_msg(msg);
-				};
 			};
 		};
 dealloc:

@@ -1721,7 +1721,7 @@ void safely_cleanup_app(struct librsktd_unified_msg *msg)
 			/* Send "CLOSE" request to peer sockets,
 			* Discard respsponse if it is received.
 			*/
-			clos_req = alloc_msg(RSKTD_CLOSE_REQ, RSKTD_PROC_A2W,
+			clos_req = alloc_msg(LIBRSKTD_CLOSE, RSKTD_PROC_A2W,
 							RSKTD_A2W_SEQ_DREQ);
 			clos_req->wp = con->w;
 			clos_req->app = NULL;
@@ -1836,7 +1836,7 @@ void msg_q_handle_cleanup(struct librsktd_unified_msg *msg)
 	case RSKTD_CLEANUP_SPEER: safely_cleanup_speer(msg);
 				break;
 	default:
-		ERR("CLEANUP STAGE: 0x%x", msg->proc_type);
+		ERR("CLEANUP MSG_TYPE : 0x%x", msg->msg_type);
 	};
 };
 
