@@ -968,15 +968,15 @@ static void* accept_thr(void* arg)
   Accepted_t res; memset(&res, 0, sizeof(res));
 
   while (!sock_tr->stop_req) {
-    void* arsock = RSKT_shim_rskt_socket();
+    void* arsock = NULL;
     assert (arsock);
 
     uint16_t remote_destid = 0xFFFF;
     uint16_t remote_port = 0;
-    const int rc = RSKT_shim_rskt_accept(sock_tr->rsock, arsock, &remote_destid, &remote_port);
+    const int rc = RSKT_shim_rskt_accept(sock_tr->rsock, &arsock, &remote_destid, &remote_port);
     if (rc) {
       res.rskt_errno = errno ?: EINVAL;
-      RSKT_shim_rskt_close(arsock);
+      RSKT_shim_rskt_close(*(void **)arsock);
 
       int sockp1 = -1;
       pthread_mutex_lock(&g_map_mutex);
@@ -997,7 +997,7 @@ static void* accept_thr(void* arg)
 
     assert(remote_destid != 0xFFFF);
 
-    res.rsock    = arsock;
+    res.rsock    = *(void **)(arsock);
     res.r_destid = remote_destid;
     res.r_port   = remote_port;
 

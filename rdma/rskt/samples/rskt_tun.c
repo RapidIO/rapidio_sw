@@ -377,16 +377,10 @@ int setup_rskt_srv(uint16_t* destid)
   /** Loop untill interrupted, doing the following */
   while (1) {
     /** - Create a new accept socket for the next connection */
-    rskt_h accept_socket = rskt_create_socket();
-    if (!accept_socket) {
-      fprintf(stderr, "Cannot create accept socket, rc = %d: %s\n", rc, strerror(errno));
-      rskt_close(accept_socket);
-      rskt_close(g_listen_sock);
-      return 0;
-    }
+    rskt_h accept_socket = NULL;
 
     /** - Await connect requests from RSKT clients */
-    rc = rskt_accept(g_listen_sock, accept_socket, &sock_addr);
+    rc = rskt_accept(g_listen_sock, &accept_socket, &sock_addr);
     if (rc) {
       fprintf(stderr, "Failed in rskt_accept, rc = 0x%X, errno=%d: %s\n", rc, errno, strerror(errno));
       rskt_close(accept_socket);

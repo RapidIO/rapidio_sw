@@ -80,7 +80,7 @@ int shim_rskt_accept(void* listen_sock, void* accept_socket, uint16_t* remote_de
   assert(listen_sock);
   assert(accept_socket);
   rskt_h l_sock = (rskt_h)listen_sock;
-  rskt_h a_socket = (rskt_h)accept_socket;
+  rskt_h *a_socket = (rskt_h *)accept_socket;
   struct rskt_sockaddr sock_addr; memset(&sock_addr, 0, sizeof(sock_addr));
 
   int rc = rskt_accept(l_sock, a_socket, &sock_addr);

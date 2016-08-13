@@ -112,11 +112,11 @@ int rskt_listen(rskt_h skt_h, int max_backlog);
 /** @brief Accept and process connect requests for the socket
  *
  * @param[in] l_skt_h Socket than has been bound and is listening
- * @param[in] skt_h Allocated socket to use as local end of connection
+ * @param[out] skt_h New connected socket
  * @param[inout] new_sockaddr Address of other end of connection
  * @return 0 if successful, -1 if not, errno is set appropriately
  */
-int rskt_accept(rskt_h l_skt_h, rskt_h skt_h, 
+int rskt_accept(rskt_h l_skt_h, rskt_h *skt_h, 
 			struct rskt_sockaddr *new_sockaddr);
 
 /** @brief Connect to a socket which is accepting connect requests

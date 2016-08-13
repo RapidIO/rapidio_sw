@@ -422,16 +422,11 @@ int main(int argc, char *argv[])
 		struct slave_thread_params *slave_params;
 
 		/** - Create a new accept socket for the next connection */
-		accept_socket = rskt_create_socket();
-		if (!accept_socket) {
-			CRIT("Cannot create accept socket, rc = %d: %s\n",
-							rc, strerror(errno));
-			goto free_listen_socket;
-		}		
+		accept_socket = NULL;
 
 		/** - Await connect requests from RSKT clients */
 		INFO("%u threads active, accepting connections\n", num_threads);
-		rc = rskt_accept(listen_socket, accept_socket, &sock_addr);
+		rc = rskt_accept(listen_socket, &accept_socket, &sock_addr);
 		if (rc) {
 			CRIT("Failed in rskt_accept, rc = 0x%X, errno=%d: %s\n",
 					rc, errno, strerror(errno));

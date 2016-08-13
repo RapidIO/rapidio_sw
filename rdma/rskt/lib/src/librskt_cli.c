@@ -372,7 +372,7 @@ ATTR_NONE
 };
 
 rskt_h a_skt_h;  /* Socket used for bind, listen, and accept */
-rskt_h t_skt_h; /* Socket returned by accept, and used by connect/write/read */
+rskt_h *t_skt_h; /* Socket returned by accept, and used by connect/write/read */
 
 void check_test_socket(struct cli_env *env, rskt_h *skt_h)
 {
@@ -494,14 +494,14 @@ int RSKTDataDumpCmd(struct cli_env *env, int argc, char **argv)
 {
 	struct rskt_socket_t *skt;
 
-	check_test_socket(env, &t_skt_h);
+	check_test_socket(env, t_skt_h);
 
 	if (argc)
 		goto print_help;
 
-	skt = (struct rskt_socket_t *)t_skt_h->skt;
+	skt = (struct rskt_socket_t *)(*t_skt_h)->skt;
 	sprintf(env->output, "State : %d - \"%s\"\n", 
-			t_skt_h->st, SKT_STATE_STR(t_skt_h->st)); 
+			(*t_skt_h)->st, SKT_STATE_STR((*t_skt_h)->st)); 
 	logMsg(env);
 	sprintf(env->output, "Debug : %d\n", skt->debug);
 	logMsg(env);
@@ -588,10 +588,10 @@ int RSKTSocketDumpCmd(struct cli_env *env, int argc, char **argv)
 		opt = getHex(argv[0], 0);
 
 	if (opt) {
-		check_test_socket(env, &t_skt_h);
+		check_test_socket(env, t_skt_h);
         	sprintf(env->output, "\nDisplay t_skt_h\n");
         	logMsg(env);
-		librskt_display_skt(env, t_skt_h, 0, 1);
+		librskt_display_skt(env, *t_skt_h, 0, 1);
 	} else {
 		check_test_socket(env, &a_skt_h);
         	sprintf(env->output, "\nDisplay a_skt_h\n");
@@ -723,7 +723,7 @@ int RSKTAcceptCmd(struct cli_env *env, int argc, char **argv)
 	if (argc > 1)
 		goto show_help;
 	check_test_socket(env, &a_skt_h);
-	check_test_socket(env, &t_skt_h);
+	check_test_socket(env, t_skt_h);
 
 	sn = getDecParm(argv[0], 1);
 
@@ -742,7 +742,7 @@ int RSKTAcceptCmd(struct cli_env *env, int argc, char **argv)
 	librskt_display_skt(env, a_skt_h, 0, 0);
 	sprintf(env->output, "\nConnected Socket Status:\n");
 	logMsg(env);
-	librskt_display_skt(env, t_skt_h, 0, 0);
+	librskt_display_skt(env, *t_skt_h, 0, 0);
 	return 0;
 show_help:
         sprintf(env->output, "\nFAILED: Extra parms or invalid values: %s\n",
@@ -773,7 +773,7 @@ int RSKTConnectCmd(struct cli_env *env, int argc, char **argv)
 
 	if (argc > 2)
 		goto show_help;
-	check_test_socket(env, &t_skt_h);
+	check_test_socket(env, t_skt_h);
 
 	t_sa.ct = getDecParm(argv[0], 1);
 	t_sa.sn = getDecParm(argv[1], 1);
@@ -785,12 +785,12 @@ int RSKTConnectCmd(struct cli_env *env, int argc, char **argv)
 	sprintf(env->output, "Attempting connect...\n"); 
 	logMsg(env);
 
-	rc = rskt_connect(t_skt_h, &t_sa);
+	rc = rskt_connect(*t_skt_h, &t_sa);
 	if (rc)
 		sprintf(env->output, "%s,%u: rc = %d, errno = %d:%s\n",
 			__func__, __LINE__, rc, errno, strerror(errno));
 	logMsg(env);
-	librskt_display_skt(env, t_skt_h, 0, 1);
+	librskt_display_skt(env, *t_skt_h, 0, 1);
 	return 0;
 show_help:
         sprintf(env->output, "\nFAILED: Extra parms or invalid values: %s\n",
@@ -840,7 +840,7 @@ int RSKTWriteCmd(struct cli_env *env, int argc, char **argv)
 	for (i = 0; i < rskt_wr_cnt; i++)
 		data_buf[i] = value--;
 
-	check_test_socket(env, &t_skt_h);
+	check_test_socket(env, t_skt_h);
 
         sprintf(env->output, "Byte Cnt: %x\n", rskt_wr_cnt);
         logMsg(env);
@@ -848,7 +848,7 @@ int RSKTWriteCmd(struct cli_env *env, int argc, char **argv)
         logMsg(env);
 	for (i = 0; i < repeat; i++) {
 		do {
-			rc = rskt_write(t_skt_h, data_buf, rskt_wr_cnt);
+			rc = rskt_write(*t_skt_h, data_buf, rskt_wr_cnt);
 		} while (rc && (1 != repeat));
         	sprintf(env->output, "Return Code: %d\n", rc);
         	logMsg(env);
@@ -897,14 +897,14 @@ int RSKTReadCmd(struct cli_env *env, int argc, char **argv)
         if ((argc > 2) || !rskt_rd_cnt || !repeat)
                 goto show_help;
 
-        check_test_socket(env, &t_skt_h);
+        check_test_socket(env, t_skt_h);
 
         sprintf(env->output, "Byte Cnt: %x\n", rskt_rd_cnt);
         logMsg(env);
         data_buf = (uint8_t *)calloc(1, rskt_rd_cnt);
         for (r = 0; r < repeat; r++) {
                 do {
-                        rc = rskt_read(t_skt_h, data_buf, rskt_rd_cnt);
+                        rc = rskt_read(*t_skt_h, data_buf, rskt_rd_cnt);
                 } while ((rc <= 0) && (1 != repeat));
                 sprintf(env->output, "Return Code: %d\n", rc);
                 logMsg(env);
@@ -966,7 +966,7 @@ int RSKTTxTestCmd(struct cli_env *env, int argc, char **argv)
 	if ((argc > 2) || !repeat)
 		goto show_help;
 
-	check_test_socket(env, &t_skt_h);
+	check_test_socket(env, t_skt_h);
 
 	for (r = 0; r < TEST_BUFF_SIZE; r++)
 		data_buf[r] = (r % 0xFD) + 1; /* NO 0's, no FF's */
@@ -981,19 +981,19 @@ int RSKTTxTestCmd(struct cli_env *env, int argc, char **argv)
 			if (check)
 				memset(rx_data_buf, 0xFF, sz);
 			do {
-				rc = rskt_write(t_skt_h, data_buf, sz);
+				rc = rskt_write(*t_skt_h, data_buf, sz);
 			} while (rc && (ETIMEDOUT == errno));
 			if (check) {
 				sprintf(env->output, "\nWrote Sz %x Err %d\n",
 					sz, errno);
 				logMsg(env);
-				librskt_display_skt(env, t_skt_h, 0, 0);
+				librskt_display_skt(env, *t_skt_h, 0, 0);
 				fflush(stdout);
 				if (errno)
 					goto exit;
 			};
 			do {
-				rc = rskt_read(t_skt_h, rx_data_buf, sz);
+				rc = rskt_read(*t_skt_h, rx_data_buf, sz);
 			} while ((rc <= 0) && (ETIMEDOUT == errno));
 
 			if (rc <=0)
@@ -1062,7 +1062,7 @@ int RSKTRxTestCmd(struct cli_env *env, int argc, char **argv)
         if ((argc > 2) || !repeat)
                 goto show_help;
 
-        check_test_socket(env, &t_skt_h);
+        check_test_socket(env, t_skt_h);
 
         for (r = 0; r < TEST_BUFF_SIZE; r++)
                 data_buf[r] = (r % 0xFD) + 1; /* NO 0's, no FF's */
@@ -1077,13 +1077,13 @@ int RSKTRxTestCmd(struct cli_env *env, int argc, char **argv)
                         if (check)
                                 memset(rx_data_buf, 0xFF, sz);
                         do {
-				rc = rskt_read(t_skt_h, rx_data_buf, sz);
+				rc = rskt_read(*t_skt_h, rx_data_buf, sz);
                         } while ((rc <= 0) && (ETIMEDOUT == errno));
 			if (check) {
 				sprintf(env->output, "\nRead Sz %x %d\n",
 					sz, errno);
 				logMsg(env);
-				librskt_display_skt(env, t_skt_h, 0, 0);
+				librskt_display_skt(env, *t_skt_h, 0, 0);
 				fflush(stdout);
 				if (errno)
 					goto exit;
@@ -1095,7 +1095,7 @@ int RSKTRxTestCmd(struct cli_env *env, int argc, char **argv)
 				break;
                         };
                         do {
-                                rc = rskt_write(t_skt_h, rx_data_buf, sz);
+                                rc = rskt_write(*t_skt_h, rx_data_buf, sz);
                         } while (rc && (ETIMEDOUT == errno));
                         if (!check)
                                 continue;
@@ -1146,7 +1146,7 @@ int RSKTCloseCmd(struct cli_env *env, int argc, char **argv)
 	if (argc)
         	rc = rskt_close(a_skt_h);
 	else
-        	rc = rskt_close(t_skt_h);
+        	rc = rskt_close(*t_skt_h);
 
         sprintf(env->output, "\nrskt_close returned %d: %d %s\n", rc, errno,
                         strerror(errno));
@@ -1154,7 +1154,7 @@ int RSKTCloseCmd(struct cli_env *env, int argc, char **argv)
 	if (argc)
         	librskt_display_skt(env, a_skt_h, 0, 0);
 	else
-        	librskt_display_skt(env, t_skt_h, 0, 0);
+        	librskt_display_skt(env, *t_skt_h, 0, 0);
         return 0;
 
 show_help:
@@ -1186,7 +1186,7 @@ int RSKTDestroyCmd(struct cli_env *env, int argc, char **argv)
 	if (argc)
         	rskt_destroy_socket(&a_skt_h);
 	else
-        	rskt_destroy_socket(&t_skt_h);
+        	rskt_destroy_socket(t_skt_h);
 
         sprintf(env->output, "\nrskt_destroy completed.\n");
         logMsg(env);
