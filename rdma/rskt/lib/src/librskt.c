@@ -955,6 +955,20 @@ fail:
 	return skt_h;
 };
 
+int rskt_get_so_sndbuf(rskt_h skt_h)
+{
+	assert(skt_h);
+	assert(skt_h->skt);
+	return skt_h->skt->con_sz/2;
+}
+
+int rskt_get_so_rcvbuf(rskt_h skt_h)
+{
+	assert(skt_h);
+	assert(skt_h->skt);
+	return skt_h->skt->con_sz/2;
+}
+
 int rskt_close_locked(rskt_h skt_h);
 
 void rskt_destroy_socket(rskt_h *skt_h) 

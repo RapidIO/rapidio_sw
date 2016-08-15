@@ -78,7 +78,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "tun_ipv4.h"
 
-#define MTU_SIZE  16*1024
+#define MAX_MTU_SIZE  64*1024
 
 #define RSKT_DEFAULT_DAEMON_SOCKET  3333
 
@@ -109,7 +109,7 @@ struct {
   volatile uint64_t rio_rx_pkt_cnt_junk; ///< Read from RSKT a L3 frame which is neither IPV4 or IPv6
   volatile uint64_t rio_rx_bad_l2; ///< Read from RSKT an invalud length in L2
   volatile uint64_t rio_rx_pkt_bytes;
-  volatile uint64_t rio_rx_pkt_byte_sizes[MTU_SIZE+1];
+  volatile uint64_t rio_rx_pkt_byte_sizes[MAX_MTU_SIZE+1];
 } g_stats;
 
 static uint16_t g_my_destid = 0xFFFF;
@@ -132,7 +132,7 @@ static void dump_stats(char* buf, const int buf_len)
   #undef DUMP_STAT
 
   strncat(buf, "\trio_rx_pkt_byte_sizes[] = {", buf_len);
-  for (i=0; i <= MTU_SIZE; i++) { 
+  for (i=0; i <= MAX_MTU_SIZE; i++) { 
     if (g_stats.rio_rx_pkt_byte_sizes[i] == 0) continue;
     snprintf(tmp, 129, "%d=>%lu ", i, g_stats.rio_rx_pkt_byte_sizes[i]);
     strncat(buf, tmp, buf_len);
@@ -156,7 +156,7 @@ inline void hexdump(uint8_t* data, const int len, char* buf, const int buf_len)
   if (last_nl == 0) strncat(buf, "\n", buf_len);
 }
 
-int setup_TUN(const uint16_t my_destid, const uint16_t destid, const int DESTID_TRANSLATE)
+int setup_TUN(const uint16_t my_destid, const uint16_t destid, const int DESTID_TRANSLATE, const int MTU_SIZE)
 {
   char if_name[IFNAMSIZ] = {0};
   char Tap_Ifconfig_Cmd[257] = {0};
@@ -212,7 +212,9 @@ int setup_TUN(const uint16_t my_destid, const uint16_t destid, const int DESTID_
     }
   }}
 
-  printf("%s: my_destid=%u destid=%u DESTID_TRANSLATE=%d if_name=%s tun_fd=%d\n", __func__, my_destid, destid, DESTID_TRANSLATE, if_name, tun_fd);
+  printf("%s: my_destid=%u destid=%u DESTID_TRANSLATE=%d if_name=%s MTU=%d tun_fd=%d\n",
+         __func__,
+         my_destid, destid, DESTID_TRANSLATE, if_name, MTU_SIZE, tun_fd);
 
   return tun_fd;
 
@@ -224,7 +226,7 @@ error:
 
 void* tun_read_thr(void* arg)
 {
-  uint8_t send_buf[MTU_SIZE + 0x10];
+  uint8_t send_buf[MAX_MTU_SIZE + 0x10];
 
   struct epoll_event* events = NULL;
   const int events_sz = MAX_EPOLL_EVENTS * sizeof(struct epoll_event);
@@ -253,7 +255,7 @@ void* tun_read_thr(void* arg)
       uint8_t* pL3Buf = send_buf + sizeof(uint32_t);
 
       assert(g_tun_fd != -1);
-      const int nread = read(events[epi].data.fd, pL3Buf, MTU_SIZE);
+      const int nread = read(events[epi].data.fd, pL3Buf, MAX_MTU_SIZE);
       if (nread <= 0) {
         fprintf(stderr, "epoll error for data.ptr=%p: %s\n", events[epi].data.ptr, strerror(errno));
         goto exit;
@@ -408,7 +410,7 @@ static inline int min(int a, int b) { return a < b? a: b; }
 
 void* rskt_read_thr(void* arg)
 {
-  uint8_t recv_buf[MTU_SIZE + 0x10];
+  uint8_t recv_buf[MAX_MTU_SIZE + 0x10];
 
   pthread_setname_np(pthread_self(), "TUN_TX");
 
@@ -433,8 +435,8 @@ void* rskt_read_thr(void* arg)
     } 
 
     const uint32_t l2Len = ntohl(temp);
-    if (l2Len > MTU_SIZE) {
-      fprintf(stderr, "rskt_read hdr bad size, MAX %d got %d\n", l2Len, MTU_SIZE);
+    if (l2Len > MAX_MTU_SIZE) {
+      fprintf(stderr, "rskt_read hdr bad size, MAX %d got %d\n", l2Len, MAX_MTU_SIZE);
       g_stats.rio_rx_bad_l2++;
       break;
     } 
@@ -455,7 +457,7 @@ void* rskt_read_thr(void* arg)
 
     g_stats.rio_rx_pkt_cnt++;
     g_stats.rio_rx_pkt_bytes += rc;
-    if (rc >= 0 && rc <= MTU_SIZE) g_stats.rio_rx_pkt_byte_sizes[rc]++;
+    if (rc >= 0 && rc <= MAX_MTU_SIZE) g_stats.rio_rx_pkt_byte_sizes[rc]++;
 
     assert(errno == 0);
 
@@ -510,6 +512,7 @@ int main(int argc, char *argv[])
 {
   int rc = 0;
   int server = 0;
+  int MTU = 0;
 
   if (argc < 2) {
     puts("Insufficient arguments. Must specify <destid>");
@@ -600,8 +603,10 @@ int main(int argc, char *argv[])
     fprintf(stderr, "pthread_create failed: %s\n", strerror(errno));
     return 4;
   }
+  
+  MTU = min(MAX_MTU_SIZE, min(rskt_get_so_sndbuf(g_comm_sock), rskt_get_so_rcvbuf(g_comm_sock)) / 2);
 
-  if ((g_tun_fd = setup_TUN(g_my_destid, destid, 0x100)) < 0) { rc = 5; goto done; }
+  if ((g_tun_fd = setup_TUN(g_my_destid, destid, 0x100, MTU)) < 0) { rc = 5; goto done; }
 
   sem_post(&g_start_sem);
   sem_post(&g_start_sem);

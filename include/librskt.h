@@ -77,6 +77,9 @@ void librskt_finish(void);
  */
 rskt_h rskt_create_socket(void);
 
+int rskt_get_so_sndbuf(rskt_h skt_h);
+int rskt_get_so_rcvbuf(rskt_h skt_h);
+
 /** @brief Deallocate an RDMA socket data structure and free resources
  *
  * @param[inout] sock pointer to RDMA socket handle, updated to NULL on return
@@ -126,7 +129,6 @@ int rskt_accept(rskt_h l_skt_h, rskt_h skt_h,
  * @return 0 if successful, -1 if not, errno is set appropriately
  */
 int rskt_connect(rskt_h skt_h, struct rskt_sockaddr *sock_addr);
-
 
 /** @brief Send data to other end of connected socket
  *
