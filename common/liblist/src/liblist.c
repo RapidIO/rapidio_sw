@@ -152,8 +152,8 @@ void l_lremove(struct l_head_t *l, struct l_item_t *li)
 	}
 
 	if (!l->cnt) {
-		rdma_log_close();
 		CRIT("NEVER:(l->cnt == 0)\n");
+		rdma_log_close();
 	}
 	assert(l->cnt);
 
