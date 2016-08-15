@@ -100,7 +100,7 @@ void print_daemon_help(void)
 	printf("	Valid values are 128, 256, 512, 1024, and 2048.\n");
 	printf("	The default value is %d.\n", DFLT_DMN_MS_SIZE);
 	printf("-k <size>: Size of rskt socket buffers in kilobytes.\n");
-	printf("	Valid values are 2, 4, 8, 16, 32, 64, and 128.\n");
+	printf("	Valid values are powers of 2 from 2 to 512.\n");
 	printf("	Default is %d.\n", DFLT_DMN_SBUF_SIZE);
        	printf("	Must be less than -s value\n");
 	printf("	The larger the buffer, the faster the transfer.\n");
@@ -242,7 +242,9 @@ void parse_options(int argc, char *argv[])
 					(16 != ctrls.rskt_buff_size) &&
 					(32 != ctrls.rskt_buff_size) &&
 					(64 != ctrls.rskt_buff_size) &&
-					(128 != ctrls.rskt_buff_size)) {
+					(128 != ctrls.rskt_buff_size) &&
+					(256 != ctrls.rskt_buff_size) &&
+					(512 != ctrls.rskt_buff_size)) {
 					printf("\nBad socket buffer size\n");
 					ctrls.print_help = 1;
 					goto exit;

@@ -362,16 +362,18 @@ int cleanup_dmn(void)
                 dmn.mp_hnd = 0;
         };
 
-        for (i = 0; i < MAX_DMN_NUM_MS; i++) {
-                rc = d_rdma_drop_ms_h(&dmn.mso.ms[i]);
-                if (rc)
-                        CRIT("\nd_rdma_drop_ms_h returned %d: %s", rc,
-                                        strerror(rc));
-        };
+	if (!dmn.use_mport) {
+		for (i = 0; i < MAX_DMN_NUM_MS; i++) {
+			rc = d_rdma_drop_ms_h(&dmn.mso.ms[i]);
+			if (rc)
+				CRIT("\nd_rdma_drop_ms_h returned %d: %s", rc,
+								strerror(rc));
+		};
 
-        rc = d_rdma_drop_mso_h();
-        if (rc)
-                CRIT("\rdma_ndrop_mso_h: %d: %s", rc, strerror(rc));
+		rc = d_rdma_drop_mso_h();
+		if (rc)
+			CRIT("\rdma_ndrop_mso_h: %d: %s", rc, strerror(rc));
+	};
 
 	sem_post(&dmn.graceful_exit);
 	return rc;
