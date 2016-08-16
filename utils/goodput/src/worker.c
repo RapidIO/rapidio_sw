@@ -1974,7 +1974,77 @@ void calibrate_sched_yield(struct worker *info)
 	CRIT("\nSCH_YLD: Max %10d %10d\n", ts_max.tv_sec, ts_max.tv_nsec);
 	ts_tot = time_div(ts_tot, max);
 	CRIT("\nSCH_YLD: Avg per call %10d %10d\n",
-		ts_max.tv_sec, ts_max.tv_nsec);
+		ts_tot.tv_sec, ts_tot.tv_nsec);
+};
+
+void calibrate_mutex(struct worker *info)
+{
+	int i, j, max = 10000;
+	struct timespec st_time; /* Start of the run, for throughput */
+	struct timespec end_time; /* End of the run, for throughput*/
+	struct timespec ts_min, ts_max, ts_tot;
+	pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
+
+	CRIT("\n\nCalibrating mutex for %d runs, %d acc\n",
+		info->umd_sts_entries, max);
+
+	for (i = 0; !info->stop_req && (i < info->umd_sts_entries); i++) {
+        	clock_gettime(CLOCK_MONOTONIC, &st_time);
+		for (j = 0; j < max; j++) {
+			pthread_mutex_lock(&lock);
+			st_time.tv_nsec++;
+			pthread_mutex_unlock(&lock);
+		};
+
+        	clock_gettime(CLOCK_MONOTONIC, &end_time);
+		end_time = time_add(end_time, {0, max});
+		time_track(i, st_time, end_time, &ts_tot, &ts_min, &ts_max);
+	};
+
+	CRIT("\nMUTEX: Min %10d %10d\n", ts_min.tv_sec, ts_min.tv_nsec);
+	CRIT("\nMUTEX: Tot %10d %10d\n", ts_tot.tv_sec, ts_tot.tv_nsec);
+	ts_tot = time_div(ts_tot, info->umd_sts_entries);
+	CRIT("\nMUTEX: Avg %10d %10d\n", ts_tot.tv_sec, ts_tot.tv_nsec);
+	CRIT("\nMUTEX: Max %10d %10d\n", ts_max.tv_sec, ts_max.tv_nsec);
+	ts_tot = time_div(ts_tot, max);
+	CRIT("\nMUTEX: Avg per call %10d %10d\n",
+		ts_tot.tv_sec, ts_tot.tv_nsec);
+};
+
+void calibrate_sem(struct worker *info, int shared)
+{
+	int i, j, max = 10000;
+	struct timespec st_time; /* Start of the run, for throughput */
+	struct timespec end_time; /* End of the run, for throughput*/
+	struct timespec ts_min, ts_max, ts_tot;
+	sem_t lock;
+
+	sem_init(&lock, shared, 1);
+
+	CRIT("\n\nCalibrating sema for %d runs, %d acc, shared %d\n",
+		info->umd_sts_entries, max, shared);
+
+	for (i = 0; !info->stop_req && (i < info->umd_sts_entries); i++) {
+        	clock_gettime(CLOCK_MONOTONIC, &st_time);
+		for (j = 0; j < max; j++) {
+			sem_wait(&lock);
+			st_time.tv_nsec++;
+			sem_post(&lock);
+		};
+
+        	clock_gettime(CLOCK_MONOTONIC, &end_time);
+		end_time = time_add(end_time, {0, max});
+		time_track(i, st_time, end_time, &ts_tot, &ts_min, &ts_max);
+	};
+
+	CRIT("\nMUTEX: Min %10d %10d\n", ts_min.tv_sec, ts_min.tv_nsec);
+	CRIT("\nMUTEX: Tot %10d %10d\n", ts_tot.tv_sec, ts_tot.tv_nsec);
+	ts_tot = time_div(ts_tot, info->umd_sts_entries);
+	CRIT("\nMUTEX: Avg %10d %10d\n", ts_tot.tv_sec, ts_tot.tv_nsec);
+	CRIT("\nMUTEX: Max %10d %10d\n", ts_max.tv_sec, ts_max.tv_nsec);
+	ts_tot = time_div(ts_tot, max);
+	CRIT("\nMUTEX: Avg per call %10d %10d\n",
+		ts_tot.tv_sec, ts_tot.tv_nsec);
 };
 
 void umd_dma_calibrate(struct worker *info)
@@ -2001,7 +2071,15 @@ void umd_dma_calibrate(struct worker *info)
 	if (info->stop_req)
 		goto exit;
 	calibrate_sched_yield(info);
-
+	if (info->stop_req)
+		goto exit;
+	calibrate_mutex(info);
+	if (info->stop_req)
+		goto exit;
+	calibrate_sem(info, 0);
+	if (info->stop_req)
+		goto exit;
+	calibrate_sem(info, 1);
 exit:
         info->umd_dch->cleanup();
         delete info->umd_dch;
