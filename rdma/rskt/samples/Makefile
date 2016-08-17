@@ -59,7 +59,7 @@ RSKT_CLIENT_OBJECTS = rskt_client.o
 LIBRARIES = -lrskt -lrdma -lriocp_pe -lmport -lmemops_intf -lrsvdmem \
         -llist -llog -lfmdd -ldd -lcli -ltime_utils -lrt -ldl
 
-all: rskt_client rskt_server rskt_tun rskt_shim.so rskt_wwwserver rskt_wwwclient rskt_wwwclient1
+all: rskt_client rskt_server rskt_tun rskt_shim.so rskt_wwwserver rskt_wwwclient
 
 rskt_server:  $(RSKT_SERVER_SOURCE) $(COMMONDIR)/include/*.h
 	@echo ---------- Building rskt_server
@@ -104,16 +104,6 @@ rskt_wwwclient: rskt_wwwclient.cc $(COMMONDIR)/include/*.h
 	-I./inc -I../inc \
 	-DRDMA_LL=$(LOG_LEVEL) \
 	$(RSKTLIB_OBJECTS) rskt_wwwclient.cc \
-	$(LIB_DIRS) -lrskt -lrdma -lfmdd -ldd -llist -lcli -llog -lmport -lmemops_intf -lrsvdmem -ltime_utils -lrt -lpthread \
-	$(LIBS_RPATH) \
-	-o $@
-
-rskt_wwwclient1: rskt_wwwclient1.cc $(COMMONDIR)/include/*.h
-	@echo ---------- Building rskt_wwwclient
-	$(CXX) $(CXXFLAGS) -L$(COMMONLIB) \
-	-I./inc -I../inc \
-	-DRDMA_LL=$(LOG_LEVEL) \
-	$(RSKTLIB_OBJECTS) rskt_wwwclient1.cc \
 	$(LIB_DIRS) -lrskt -lrdma -lfmdd -ldd -llist -lcli -llog -lmport -lmemops_intf -lrsvdmem -ltime_utils -lrt -lpthread \
 	$(LIBS_RPATH) \
 	-o $@
