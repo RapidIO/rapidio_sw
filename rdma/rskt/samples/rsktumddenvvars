@@ -1,0 +1,4 @@
+export RSKT_MEMOPS=yes
+export RSKT_UMD_CHAN=5
+export UMDD_LIB=../../../umdd_tsi721/libUMDd_log.so.0.4
+
