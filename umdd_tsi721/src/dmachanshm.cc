@@ -410,8 +410,8 @@ bool DMAChannelSHM::queueDmaOpT12(enum dma_rtype rtype, DmaOptions_t& opt, RioMp
   WorkItem_t wk_end, wk_0;
   memset(&wk_end, 0, sizeof(wk_end));
   memset(&wk_0, 0, sizeof(wk_0));
-  WorkItem_t wk;
-  memset(&wk, 0, sizeof(wk));
+
+  WorkItem_t wk; memset(&wk, 0, sizeof(wk));
 
   abort_reason = 0;
 
@@ -454,6 +454,12 @@ bool DMAChannelSHM::queueDmaOpT12(enum dma_rtype rtype, DmaOptions_t& opt, RioMp
     return false;
 
   wk.mem = mem;
+
+  // Make sure we pinball-start BD0/DTYPE3
+  if (m_state->serial_number == 0) {
+    assert(m_state->dma_wr == 0);
+    m_state->dma_wr++;
+  }
 
   int bd_idx = m_state->dma_wr % m_state->bd_num;
   {{
@@ -616,7 +622,6 @@ bool DMAChannelSHM::alloc_dmatxdesc(const uint32_t bd_cnt)
   m_state->bl_busy_size = 0;
   memset(m_dmadesc.win_ptr, 0, m_dmadesc.win_size);
 
-
   struct hw_dma_desc* end_bd_p = (struct hw_dma_desc*)
     ((uint8_t*)m_dmadesc.win_ptr + ((m_state->bd_num-1) * DMA_BUFF_DESCR_SIZE));
 
@@ -631,7 +636,7 @@ bool DMAChannelSHM::alloc_dmatxdesc(const uint32_t bd_cnt)
   dmadesc_setdtype(T3_bd, DTYPE3);
   dmadesc_setT3_nextptr(T3_bd, (uint64_t)m_dmadesc.win_handle);
 
-  T3_bd.pack(end_bd_p); // XXX mask off lowest 5 bits
+  T3_bd.pack(end_bd_p);
 
   m_state->T3_bd_hw = m_state->bd_num-1;
 
@@ -645,10 +650,13 @@ bool DMAChannelSHM::alloc_dmatxdesc(const uint32_t bd_cnt)
 #endif
 
   dmadesc_setT3_nextptr(T3_bd, (uint64_t)m_dmadesc.win_handle + DMA_BUFF_DESCR_SIZE);
-  T3_bd.pack(bd0_p); // XXX mask off lowest 5 bits
+  T3_bd.pack(bd0_p);
 
   m_pending_work[0].valid = WI_SIG;
+  m_pending_work[0].opt.dtype = DTYPE3;
   m_state->bl_busy_size++;
+  //m_state->dma_wr = 1; // Note: We don't do it here as resetHw will clobber it.
+                         //       Rather we bodge it in queueDmaOpT12.
 
   memcpy(&m_state->BD0_T3_saved, (uint8_t*)m_dmadesc.win_ptr, DMA_BUFF_DESCR_SIZE);
 
@@ -900,9 +908,9 @@ void hexdump4byte(const char* msg, uint8_t* d, int len)
 
    uint32_t tmp = 0;
   for(int i = 0; i < len; i++) {
-  /* To make descriptor dump match Tsi721 manual,
- * must push byte 3 to most significant position, not least significant
- */
+    /* To make descriptor dump match Tsi721 manual,
+     * must push byte 3 to most significant position, not least significant
+     */
     tmp = tmp + ((uint32_t)(d[i]) << (8 * (i%4)));
     if(((i + 1) % 4) == 0) {
       XDBG("%08x\n", tmp);
@@ -976,8 +984,7 @@ int DMAChannelSHM::scanFIFO(WorkItem_t* completed_work, const int max_work, cons
 
     pthread_spin_lock(&m_state->pending_work_splock);
   
-    if (umdemo_must_die)
-      return 0;
+    if (umdemo_must_die) return 0;
 
     if(compl_hwbuf[ci].valid != COMPL_SIG) {
       pthread_spin_unlock(&m_state->pending_work_splock);
@@ -1164,7 +1171,6 @@ int DMAChannelSHM::scanFIFO(WorkItem_t* completed_work, const int max_work, cons
     }}
 unlock:
     pthread_spin_unlock(&m_state->bl_splock); 
-
   } // END for compl_size
 
   // Before advancing FIFO RP I must have a "barrier" so no "older" BDs exist.

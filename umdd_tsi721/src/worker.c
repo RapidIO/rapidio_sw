@@ -551,8 +551,7 @@ void umd_shm_goodput_demo(struct worker *info)
                         case DTYPE3:
                                 break;
                         default:
-                                ERR("\n\tUNKNOWN BD %d bd_wp=%u\n",
-                                        item.opt.dtype, item.bd_wp);
+                                ERR("\n\tUNKNOWN BD DTYPE%d bd_wp=%u\n", item.opt.dtype, item.bd_wp);
                                 break;
                         }
 
