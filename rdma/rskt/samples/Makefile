@@ -135,4 +135,4 @@ mport_shim.so: mport_shim.cc $(COMMONDIR)/include/*.h
 	-o $@
 
 clean:
-	rm -f *.o *.o *~ *.exe core rskt_server rskt_client rskt_tun rskt_wwwserver rskt_wwwclient* rskt_shim*.so mport_shim.so
+	rm -f *.o *.o *~ *.exe core rskt_server rskt_client rskt_tun rskt_wwwserver rskt_wwwclient rskt_shim*.so mport_shim.so
