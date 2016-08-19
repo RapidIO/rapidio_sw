@@ -36,100 +36,104 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include <stdint.h>
+#include <string.h>
 #include "rio_standard.h"
 #include "rio_ecosystem.h"
 #include "regrw_private.h"
+#include "idt.h"
 #include "CPS1616.h"
 #include "CPS1848.h"
-#include "Tsi578.h"
 #include "Tsi721.h"
+#include "tundra.h"
+#include "Tsi578.h"
 #include "Tsi575_SRSF.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+const char *unknown_vendor_name = (const char *)"VEND_UNKN";
+const char *unknown_device_type_name = (const char *)"DEV_T_UNKN";
+
 struct regrw_vendor {
         uint16_t vid;
         const char *vendor;
 };
 
-struct const_regs Tsi57x_const = {
-        (RIO_PE_FEAT_T)Tsi578_PE_FEAT_VAL,
-        Tsi578_SRC_OP_VAL,
-	0,
-        Tsi578_MC_FEAT_VAL,
-        Tsi578_RIO_LUT_SIZE_VAL,
-        Tsi578_SW_MC_INFO_VAL,
-        Tsi578_RIO_SW_MB_HEAD,
-        0, 
-        RIO_EFB_T_SP_NOEP_SAER,
-        Tsi578_RIO_ERR_RPT_BH,
-        0,
-        0,
-        0,
-        0
+struct regrw_cregs {
+	enum regrw_rlist rlist;
+	uint32_t value;
 };
 
-struct const_regs CPS1848_const = {
-        (RIO_PE_FEAT_T)CPS1848_PE_FEAT_VAL,
-        CPS1848_SRC_OP_VAL,
-	0,
-        CPS1848_MC_FEAT_VAL,
-        CPS1848_LUT_SIZE_VAL,
-        CPS1848_SW_MC_INFO_VAL,
-        CPS1848_PORT_MAINT_BLK_HEAD,
-        0, 
-        RIO_EFB_T_SP_NOEP_SAER,
-        CPS1848_ERR_MGT_EXTENSION_BLK_HEAD,
-        0,
-        0,
-        CPS1848_LANE_STATUS_BLK_HEAD,
-	0x0000000B,
-        0
+struct regrw_cregs Tsi57x_const[] = {
+        {pe_feat,	Tsi578_PE_FEAT_VAL},
+	{sw_port_info,	Tsi578_RIO_SW_PORT_VAL},
+        {src_ops,	Tsi578_SRC_OP_VAL},
+        {sw_mc_sup,	Tsi578_MC_FEAT_VAL},
+        {sw_rt_lim,	Tsi578_RIO_LUT_SIZE_VAL},
+        {sw_mc_inf,	Tsi578_SW_MC_INFO_VAL},
+        {sp_oset,	Tsi578_RIO_SW_MB_HEAD},
+        {sp_type,	RIO_EFB_T_SP_NOEP_SAER},
+        {emhs_oset,	Tsi578_RIO_ERR_RPT_BH},
+        {last_regrw_reg, 0}
 };
 
-struct const_regs CPS1432_const = {
-        (RIO_PE_FEAT_T)CPS1848_PE_FEAT_VAL,
-        CPS1848_SRC_OP_VAL,
-	0,
-        CPS1848_MC_FEAT_VAL,
-        CPS1848_LUT_SIZE_VAL,
-        CPS1848_SW_MC_INFO_VAL,
-        CPS1848_PORT_MAINT_BLK_HEAD,
-        0, 
-        RIO_EFB_T_SP_NOEP_SAER,
-        CPS1848_ERR_MGT_EXTENSION_BLK_HEAD,
-        0,
-        0,
-        CPS1848_LANE_STATUS_BLK_HEAD,
-	0x0000000B,
-        0
+struct regrw_cregs CPS1848_const[] = {
+        {pe_feat,	CPS1848_PE_FEAT_VAL},
+	{sw_port_info,	CPS1848_SWITCH_PORT_INF_CAR_VAL},
+        {src_ops,	CPS1848_SRC_OP_VAL},
+        {sw_mc_sup,	CPS1848_MC_FEAT_VAL},
+        {sw_rt_lim,	CPS1848_LUT_SIZE_VAL},
+        {sw_mc_inf,	CPS1848_SW_MC_INFO_VAL},
+        {sp_oset,	CPS1848_PORT_MAINT_BLK_HEAD},
+        {sp_type,	RIO_EFB_T_SP_NOEP_SAER},
+        {emhs_oset,	CPS1848_ERR_MGT_EXTENSION_BLK_HEAD},
+        {lane_oset,	CPS1848_LANE_STATUS_BLK_HEAD},
+        {lane_regs,	CPS1848_LANE_REGS_VAL},
+        {last_regrw_reg, 0}
 };
 
-struct const_regs Tsi721_const = {
-        (RIO_PE_FEAT_T)TSI721_PE_FEAT_VAL,
-        TSI721_SRC_OP_VAL,
-	721_DST_OP_VAL0,
-        0,
-        0,
-        0,
-        TSI721_RIO_SP_MB_HEAD,
-        0, 
-        RIO_EFB_T_SP_NOEP_SAER,
-        TSI721_RIO_ERR_RPT_BH,
-        0,
-        0,
-        TSI721_RIO_PER_LANE_BH,
-	0x00000008,
-        0
+struct regrw_cregs CPS1432_const[] = {
+        {pe_feat,	CPS1848_PE_FEAT_VAL},
+	{sw_port_info,	CPS1432_SWITCH_PORT_INF_CAR_VAL},
+        {src_ops,	CPS1848_SRC_OP_VAL},
+        {sw_mc_sup,	CPS1848_MC_FEAT_VAL},
+        {sw_rt_lim,	CPS1848_LUT_SIZE_VAL},
+        {sw_mc_inf,	CPS1848_SW_MC_INFO_VAL},
+        {sp_oset,	CPS1848_PORT_MAINT_BLK_HEAD},
+        {sp_type,	RIO_EFB_T_SP_NOEP_SAER},
+        {emhs_oset,	CPS1848_ERR_MGT_EXTENSION_BLK_HEAD},
+        {lane_oset,	CPS1848_LANE_STATUS_BLK_HEAD},
+        {lane_regs,	CPS1848_LANE_REGS_VAL},
+        {last_regrw_reg, 0}
 };
 
-struct regrw_dev_id {
-        uint16_t vid;
-        uint16_t did;
-        const char *name;
-	const struct const_regs *regs;
+struct regrw_cregs CPS1616_const[] = {
+        {pe_feat,	CPS1848_PE_FEAT_VAL},
+	{sw_port_info,	CPS1616_SWITCH_PORT_INF_CAR_VAL},
+        {src_ops,	CPS1848_SRC_OP_VAL},
+        {sw_mc_sup,	CPS1848_MC_FEAT_VAL},
+        {sw_rt_lim,	CPS1848_LUT_SIZE_VAL},
+        {sw_mc_inf,	CPS1848_SW_MC_INFO_VAL},
+        {sp_oset,	CPS1848_PORT_MAINT_BLK_HEAD},
+        {sp_type,	RIO_EFB_T_SP_NOEP_SAER},
+        {emhs_oset,	CPS1848_ERR_MGT_EXTENSION_BLK_HEAD},
+        {lane_oset,	CPS1848_LANE_STATUS_BLK_HEAD},
+        {lane_regs,	CPS1848_LANE_REGS_VAL},
+        {last_regrw_reg, 0}
+};
+
+struct regrw_cregs Tsi721_const[] = {
+        {pe_feat,	TSI721_PE_FEAT_VAL},
+	{sw_port_info,	CPS1616_SWITCH_PORT_INF_CAR_VAL},
+        {src_ops,	TSI721_SRC_OP_VAL},
+	{dst_ops,	TSI721_DST_OP_VAL},
+        {sp_oset,	TSI721_RIO_SP_MB_HEAD},
+        {sp_type,	RIO_EFB_T_SP_NOEP_SAER},
+        {emhs_oset,	TSI721_RIO_ERR_RPT_BH},
+        {lane_oset,	TSI721_RIO_PER_LANE_BH},
+        {lane_regs,	TSI721_LANE_REGS_VAL},
+        {last_regrw_reg, 0}
 };
 
 static const struct regrw_vendor regrw_vendors[] = {
@@ -184,58 +188,46 @@ static const struct regrw_vendor regrw_vendors[] = {
         {0x00a6,                "BAE Systems"},
         {0x00a8,                "Broadcom"},
         {0x00aa,                "Mobiveil, Inc."},
-        {0xffff,                "Reserved"},
+        {0xffff,                "Reserved"}
+};
+
+struct regrw_dev_id {
+        uint16_t vid;
+        uint16_t did;
+        const char *name;
+	const struct regrw_cregs *regs;
 };
 
 static const struct regrw_dev_id regrw_device_ids[] = {
-        {RIO_VEND_TUNDRA, RIO_DEVI_TSI572,        "Tsi572", &Tsi57x_const},
-        {RIO_VEND_TUNDRA, RIO_DEVI_TSI574,        "Tsi574", &Tsi57x_const},
-        {RIO_VEND_TUNDRA, RIO_DEVI_TSI577,        "Tsi577", &Tsi57x_const},
-        {RIO_VEND_TUNDRA, RIO_DEVI_TSI576,        "Tsi576", &Tsi57x_const},
-        {RIO_VEND_TUNDRA, RIO_DEVI_TSI578,        "Tsi578", &Tsi57x_const},
+        {RIO_VEND_TUNDRA, RIO_DEVI_TSI572,        "Tsi572", Tsi57x_const},
+        {RIO_VEND_TUNDRA, RIO_DEVI_TSI574,        "Tsi574", Tsi57x_const},
+        {RIO_VEND_TUNDRA, RIO_DEVI_TSI577,        "Tsi577", Tsi57x_const},
+        {RIO_VEND_TUNDRA, RIO_DEVI_TSI576,        "Tsi576", Tsi57x_const},
+        {RIO_VEND_TUNDRA, RIO_DEVI_TSI578,        "Tsi578", Tsi57x_const},
 
         /* IDT */
-        {RIO_VEND_IDT, RIO_DEVI_IDT_CPS1432,      "CPS1432", &CPS1432_const},
-        {RIO_VEND_IDT, RIO_DEVI_IDT_CPS1848,      "CPS1848", &CPS1848_const},
-        {RIO_VEND_IDT, RIO_DEVI_IDT_CPS1616,      "CPS1616", &CPS1616_const},
-        {RIO_VEND_IDT, RIO_DEVI_IDT_SPS1616,      "SPS1616", &CPS1616_const},
-        {RIO_VEND_IDT, RIO_DEVI_IDT_TSI721,       "Tsi721", &Tsi721_const},
+        {RIO_VEND_IDT, RIO_DEVI_IDT_CPS1432,      "CPS1432", CPS1432_const},
+        {RIO_VEND_IDT, RIO_DEVI_IDT_CPS1848,      "CPS1848", CPS1848_const},
+        {RIO_VEND_IDT, RIO_DEVI_IDT_CPS1616,      "CPS1616", CPS1616_const},
+        {RIO_VEND_IDT, RIO_DEVI_IDT_SPS1616,      "SPS1616", CPS1616_const},
+        {RIO_VEND_IDT, RIO_DEVI_IDT_TSI721,       "Tsi721", Tsi721_const},
 
         {RIO_VEND_IDT, RIO_DEVI_IDT_RXS2448,      "RXS2448", NULL},
         {RIO_VEND_IDT, RIO_DEVI_IDT_RXS1632,      "RXS1632", NULL},
 
 
         /* End of list */
-        {RIO_VEND_RESERVED, RIO_DEVI_RESERVED, "Unknown", NULL},
-};
-
-struct const_regs const_regs_offsets {
-        RIO_PROC_ELEM_FEAT;
-        RIO_SW_PORT_INF;
-        RIO_SRC_OPS;
-        RIO_DST_OPS;
-        RIO_SW_MC_SUP;
-        RIO_SW_RT_TBL_LIM;
-        RIO_SW_MC_INF;
-        RIO_BAD_OFFSET, 
-        RIO_BAD_OFFSET,
-        RIO_BAD_OFFSET,
-        RIO_BAD_OFFSET,
-        RIO_BAD_OFFSET,
-        RIO_BAD_OFFSET,
-        RIO_BAD_OFFSET,
-        RIO_BAD_OFFSET,
-        RIO_BAD_OFFSET
+        {RIO_VEND_RESERVED, RIO_DEVI_RESERVED, "Unknown", NULL}
 };
 
 int read_rt_regs(regrw_h hnd)
 {
-	rio_port_t port;
 	regrw_i *h = (regrw_i *)hnd;
-	uint32_t rtp = h->evb_rt;
+	uint32_t rtp = h->cregs.rt_oset;
+	rio_port_t port;
 
 	errno = 0;
-	if (!efb_p) {
+	if (!rtp) {
 		errno = EINVAL;
 		goto failed;
 	};
@@ -245,28 +237,48 @@ int read_rt_regs(regrw_h hnd)
 		errno = ENOMEM;
 		goto failed;
 	};
-	if (regrw_raw_rd(hnd, RIO_RT_BC_CTL(rtp), &h->rt->bc.ctl))
+	if (regrw_raw_rd(hnd, h->dest_id, h->hc, RIO_RT_BC_CTL(rtp),
+							&h->rt->bc.ctl)) {
 		goto failed;
-	if (regrw_raw_rd(hnd, RIO_RT_BC_MC(rtp), &h->rt->bc.mc_oset))
+	};
+	if (regrw_raw_rd(hnd, h->dest_id, h->hc, RIO_RT_BC_MC(rtp),
+							&h->rt->bc.mc_i)) {
 		goto failed;
-	if (regrw_raw_rd(hnd, RIO_RT_BC_LVL0(rtp), &h->rt->bc.lvl0_i))
+	};
+	if (regrw_raw_rd(hnd, h->dest_id, h->hc, RIO_RT_BC_LVL0(rtp),
+							&h->rt->bc.lvl0_i)) {
 		goto failed;
-	if (regrw_raw_rd(hnd, RIO_RT_BC_LVL1(rtp), &h->rt->bc.lvl1_i))
+	};
+	if (regrw_raw_rd(hnd, h->dest_id, h->hc, RIO_RT_BC_LVL1(rtp),
+							&h->rt->bc.lvl1_i)) {
 		goto failed;
-	if (regrw_raw_rd(hnd, RIO_RT_BC_LVL2(rtp), &h->rt->bc.lvl2_i))
+	};
+	if (regrw_raw_rd(hnd, h->dest_id, h->hc, RIO_RT_BC_LVL2(rtp),
+							&h->rt->bc.lvl2_i)) {
 		goto failed;
-	for (i = 0; i < PE_PORT_COUNT(h); i++) {
-		struct rt_regs *pt = &h->rt->pt[i];
-		if (regrw_raw_rd(hnd, RIO_RT_CTL(rtp), &pt->ctl))
-			oto failed;
-		if (regrw_raw_rd(hnd, RIO_RT_MC(rtp), &pt->mc_oset))
-			oto failed;
-		if (regrw_raw_rd(hnd, RIO_RT_LVL0(rtp), &pt->lvl0_i))
-			oto failed;
-		if (regrw_raw_rd(hnd, RIO_RT_LVL1(rtp), &pt->lvl1_i))
-			oto failed;
-		if (regrw_raw_rd(hnd, RIO_RT_LVL2(rtp), &pt->lvl2_i))
+	};
+	for (port = 0; port < PE_PORT_COUNT(h); port++) {
+		struct rt_regs *pt = &h->rt->pt[port];
+		if (regrw_raw_rd(hnd, h->dest_id, h->hc, RIO_RT_CTL(rtp, port),
+								&pt->ctl)) {
 			goto failed;
+		};
+		if (regrw_raw_rd(hnd, h->dest_id, h->hc, RIO_RT_MC(rtp, port),
+								&pt->mc_i)) {
+			goto failed;
+		};
+		if (regrw_raw_rd(hnd, h->dest_id, h->hc, RIO_RT_LVL0(rtp, port),
+								&pt->lvl0_i)) {
+			goto failed;
+		};
+		if (regrw_raw_rd(hnd, h->dest_id, h->hc, RIO_RT_LVL1(rtp, port),
+								&pt->lvl1_i)) {
+			goto failed;
+		};
+		if (regrw_raw_rd(hnd, h->dest_id, h->hc, RIO_RT_LVL2(rtp, port),
+								&pt->lvl2_i)) {
+			goto failed;
+		};
 	};
 
 	return 0;
@@ -274,150 +286,239 @@ failed:
 	return -1;
 };
 
-int read_efb_headers(regrw_h h)
+int read_efb_headers(regrw_h hnd)
 {
+	regrw_i *h = (regrw_i *)hnd;
         uint32_t efb;
         uint32_t efb_p = GET_EXT_FEAT_OSET(h);
 
 	while (efb_p) {
-		if (regrw_raw_rd(h, efb_p, &efb))
+		if (regrw_raw_rd(h, h->dest_id, h->hc, efb_p, &efb))
 			goto failed;
 
             	switch(RIO_EFB_GET_EFB_T(efb)) {
-                	case RIO_EFB_T_SP_EP:
-                	case RIO_EFB_T_SP_EP_SAER:
-                	case RIO_EFB_T_SP_NOEP:
-                	case RIO_EFB_T_SP_NOEP_SAER:
-	            		h->sp_oset = efb_p;
-                    		h->sp_type = RIO_EFB_GET_EFB_T(efb);
-                    		break;
-                	case RIO_EFB_T_SP_EP3:
-                	case RIO_EFB_T_SP_EP3_SAER:
-                	case RIO_EFB_T_SP_NOEP3:
-                	case RIO_EFB_T_SP_NOEP3_SAER:
-	            		h->sp_oset3 = prev_addr;
-                    		h->sp_type = RIO_EFB_GET_EFB_T(efb);
-                    		break;
-			case RIO_EFB_T_EMHS:
-				h->emhs_oset = efb_p;
-				if (regrw_raw_rd(h, RIO_EMHS_INFO(efb_p),
-								&h->em_info))
-					goto failed;
-				break;
-			case RIO_EFB_T_HS:
-				h->hs_oset = efb_p;
-				if (regrw_raw_rd(h, RIO_EMHS_INFO(efb_p),
-								&h->em_info))
-					goto failed;
-				break;
+                case RIO_EFB_T_SP_EP:
+                case RIO_EFB_T_SP_EP_SAER:
+                case RIO_EFB_T_SP_NOEP:
+                case RIO_EFB_T_SP_NOEP_SAER:
+			h->cregs.sp_oset = efb_p;
+			h->cregs.sp_type = RIO_EFB_GET_EFB_T(efb);
+			break;
+                case RIO_EFB_T_SP_EP3:
+                case RIO_EFB_T_SP_EP3_SAER:
+                case RIO_EFB_T_SP_NOEP3:
+                case RIO_EFB_T_SP_NOEP3_SAER:
+            		h->cregs.sp3_oset = efb_p;
+			h->cregs.sp_type = RIO_EFB_GET_EFB_T(efb);
+			break;
+		case RIO_EFB_T_EMHS:
+			h->cregs.emhs_oset = efb_p;
+			if (regrw_raw_rd(h, h->dest_id, h->hc,
+						RIO_EMHS_INFO(efb_p),
+						&h->cregs.em_info)) {
+				goto failed;
+			};
+			break;
+		case RIO_EFB_T_HS:
+			h->cregs.hs_oset = efb_p;
+			if (regrw_raw_rd(h, h->dest_id, h->hc,
+						RIO_EMHS_INFO(efb_p),
+						&h->cregs.em_info)) {
+				goto failed;
+			};
+			break;
+		case RIO_EFB_T_LANE:
+			h->cregs.lane_oset = efb_p;
+			if (regrw_raw_rd(h, h->dest_id, h->hc,
+						RIO_LNX_ST0(efb_p, 0),
+						&h->cregs.lane_regs)) {
+				goto failed;
+			};
+			h->cregs.lane_regs &=
+				RIO_LNX_ST0_STAT1 | RIO_LNX_ST0_STAT2_7;
+                    	break;
 
-			case RIO_EFB_T_LANE:
-				h->lane_oset = efb_p;
-				if (regrw_raw_rd(h, RIO_LNX_ST0(efb_p),
-								&h->lane_regs))
-					goto failed;
-				h->lane_regs &= RIO_LNX_ST0_STAT1 |
-					RIO_LNX_ST0_STAT2_7;
-                    		break;
-
-			case RIO_EFB_T_RT:
-                    		h->rt_oset = efb_p;
-				if (read_rt_regs(h))
-					goto failed;
-                    		break;
-			default: /* Don't care about other ext feat blocks */
+		case RIO_EFB_T_RT:
+                    	h->cregs.rt_oset = efb_p;
+			if (read_rt_regs(h)) {
+				goto failed;
+			};
+                    	break;
+		default: /* Don't care about other ext feat blocks */
+			break;
 		}
-		prev_addr = RIO_EFB_GET_NEXT(curr_ext_feat);
+		efb_p = RIO_EFB_GET_NEXT(efb);
         }
 	return 0;
 failed:
 	return -1;
 };
 
-void read_variable_regs(regrw_h h, bool read_const_regs)
+#define SPX_CTL1(h,p) RIO_SPX_CTL(h->cregs.sp_oset, h->cregs.sp_type, p)
+#define SPX_ERRSTAT(h,p) RIO_SPX_ERR_STAT(h->cregs.sp_oset, h->cregs.sp_type, p)
+
+struct regrw_cregs_info {
+	uint32_t offset;
+	bool vreg; /* True if this register occurs at a static location and
+			the value may vary between devices */
+	bool creg; /* True if this register occurs at a static location and
+			the value is constant between devices */
+};
+
+struct regrw_cregs_info reginfo[(int)last_regrw_reg] {
+        {pe_feat,	Tsi578_PE_FEAT_VAL},
+	{sw_port_info,	Tsi578_RIO_SW_PORT_VAL},
+        {src_ops,	Tsi578_SRC_OP_VAL},
+        {sw_mc_sup,	Tsi578_MC_FEAT_VAL},
+        {sw_rt_lim,	Tsi578_RIO_LUT_SIZE_VAL},
+        {sw_mc_inf,	Tsi578_SW_MC_INFO_VAL},
+        {sp_oset,	Tsi578_RIO_SW_MB_HEAD},
+        {sp_type,	RIO_EFB_T_SP_NOEP_SAER},
+        {emhs_oset,	Tsi578_RIO_ERR_RPT_BH},
+        {last_regrw_reg, 0}
+
+int read_variable_regs(regrw_h hnd, bool read_const_regs)
 {
-	struct regrw_i *hnd = (struct regrw_i *)h;
+	struct regrw_i *h = (struct regrw_i *)hnd;
+	rio_port_t port;
+
+	enum regrw_rlist list_i;
+
+	for (i = 0; i < last_regrw_reg; i++) {
+		if (
+		if (read_const_regs & 
+	};
 
 	if (read_const_regs) {
-    		if (regrw_raw_rd(h, RIO_PROC_ELEM_FEAT, &h->cregs.pe_feat))
+    		if (regrw_raw_rd(h, h->dest_id, h->hc, RIO_PE_FEAT,
+							&h->cregs.pe_feat)) {
         		goto failed;
-    		if (regrw_raw_rd(h, RIO_SW_PORT_INF, &h->cregs.sw_port_inf))
+		}
+    		if (regrw_raw_rd(h, h->dest_id, h->hc, RIO_SRC_OPS,
+							&h->cregs.src_ops)) {
         		goto failed;
-    		if (regrw_raw_rd(h, RIO_SRC_OPS, &h->cregs.src_ops))
+		};
+    		if (regrw_raw_rd(h, h->dest_id, h->hc, RIO_DST_OPS,
+							&h->cregs.dst_ops)) {
         		goto failed;
-    		if (regrw_raw_rd(h, RIO_DST_OPS, &h->cregs.dst_ops))
-        		goto failed;
+		};
 		if (PE_IS_SW(h)) {
-    			if (regrw_raw_rd(h, RIO_SW_MC_SUP, &h->cregs.sw_mc_sup))
+    			if (regrw_raw_rd(h, h->dest_id, h->hc, RIO_SW_MC_SUP,
+							&h->cregs.sw_mc_sup)) {
         			goto failed;
-    			if (regrw_raw_rd(h, RIO_SW_RT_TBL_LIM,
-						&h->cregs.sw_rt_tbl_lim))
+			};
+    			if (regrw_raw_rd(h, h->dest_id, h->hc,
+					RIO_SW_RT_TBL_LIM,
+					&h->cregs.sw_rt_lim)) {
         			goto failed;
-    			if (regrw_raw_rd(h, RIO_SW_MC_INF, &h->cregs.sw_mc_inf))
+			};
+    			if (regrw_raw_rd(h, h->dest_id, h->hc,
+					RIO_SW_MC_INF, &h->cregs.sw_mc_inf)) {
         			goto failed;
+			};
 		};
 	};
 
- 	if (regrw_raw_rd(h, RIO_DEV_INF, &h->dev_info))
+ 	if (regrw_raw_rd(h, h->dest_id, h->hc, RIO_DEV_INF, &h->dev_info)) {
 		goto failed;
- 	if (regrw_raw_rd(h, RIO_ASSY_ID, &h->assy_id))
+	};
+ 	if (regrw_raw_rd(h, h->dest_id, h->hc, RIO_ASSY_ID, &h->assy_id)) {
 		goto failed;
- 	if (regrw_raw_rd(h, RIO_ASSY_INF, &h->assy_info))
+	};
+ 	if (regrw_raw_rd(h, h->dest_id, h->hc, RIO_ASSY_INF,
+							&h->assy_info)) {
 		goto failed;
+	};
 	/* Make sure every device has at least one port. */
- 	if (regrw_raw_rd(h, RIO_SW_PORT_INF, &h->cregs.sw_port_info))
+ 	if (regrw_raw_rd(h, h->dest_id, h->hc, RIO_SW_PORT_INF,
+						&h->cregs.sw_port_info)) {
 		goto failed;
-	if (!h->sw_port_info)
-		h->sw_port_info = 0x00000100;
- 	if (regrw_raw_rd(h, RIO_PE_LL_CTL, &h->pe_ll_ctl))
+	};
+	if (!h->cregs.sw_port_info) {
+		h->cregs.sw_port_info = 0x00000100;
+	};
+ 	if (regrw_raw_rd(h, h->dest_id, h->hc, RIO_PE_LL_CTL, &h->pe_ll_ctl)) {
 		goto failed;
- 	if (regrw_raw_rd(h, RIO_LCS_ADDR0, &h->lcs_addr0))
+	};
+ 	if (regrw_raw_rd(h, h->dest_id, h->hc, RIO_LCS_ADDR0, &h->lcs_addr0)) {
 		goto failed;
- 	if (regrw_raw_rd(h, RIO_LCS_ADDR1, &h->lcs_addr1))
+	};
+ 	if (regrw_raw_rd(h, h->dest_id, h->hc, RIO_LCS_ADDR1, &h->lcs_addr1)) {
 		goto failed;
- 	if (regrw_raw_rd(h, RIO_DEVID, &h->did))
+	};
+ 	if (regrw_raw_rd(h, h->dest_id, h->hc, RIO_DEVID, &h->did)) {
 		goto failed;
- 	if (regrw_raw_rd(h, RIO_HOST_LOCK, &h->host_lock))
-		goto failed;
- 	if (regrw_raw_rd(h, RIO_COMPTAG, &h->comptag))
-		goto failed;
-	if (PE_IS_SW(h)) {
- 		if (regrw_raw_rd(h, RIO_DFLT_RTE, &h->dflt_rte))
+	};
+	if (h->cregs.pe_feat & RIO_PE_FEAT_DEV32) {
+ 		if (regrw_raw_rd(h, h->dest_id, h->hc, RIO_DEVID, &h->did32)) {
 			goto failed;
+		};
+	};
+ 	if (regrw_raw_rd(h, h->dest_id, h->hc, RIO_HOST_LOCK, &h->host_lock)) {
+		goto failed;
+	};
+ 	if (regrw_raw_rd(h, h->dest_id, h->hc, RIO_COMPTAG, &h->comptag)) {
+		goto failed;
+	};
+	if (PE_IS_SW(h)) {
+ 		if (regrw_raw_rd(h, h->dest_id, h->hc, RIO_DFLT_RTV,
+							&h->dflt_rtv)) {
+			goto failed;
+		};
 	};
 
-	if (!(h->pe_feat & RIO_PE_FEAT_EFB_VALID) || !read_const_regs)
-		return 0;
+	for (port = 0; port < PE_PORT_COUNT(h); port++) {
+ 		if (regrw_raw_rd(h, h->dest_id, h->hc, SPX_CTL1(h,port),
+							&h->ctl1[port])) {
+			goto failed;
+		};
+ 		if (regrw_raw_rd(h, h->dest_id, h->hc, SPX_ERRSTAT(h,port),
+							&h->errstat[port])) {
+			goto failed;
+		};
+	};
 
-	return read_efb_headers(h);
+	if ((h->cregs.pe_feat & RIO_PE_FEAT_EFB_VALID) && read_const_regs) {
+		if (read_efb_headers(h)) {
+			goto failed;
+		};
+	};
+
+	return 0;
+
 failed:
 	return -1;
 };
 
-#define SPX_CTL1(h,p) RIO_SPX_CTL(h->sp_oset, h->sp_type, p)
+int default_fill_in_handle(regrw_i *h) {
+	return 0;
+};
 
 int regrw_fill_in_handle(regrw_i *h, RIO_DEV_IDENT_T vend_devi)
 {
 	uint32_t vendor = vend_devi & RIO_DEV_IDENT_VEND;
-	uint32_t devi = (vend_devi & IO_DEV_IDENT_DEVID) >> 16;
+	uint32_t devi = (vend_devi & RIO_DEV_IDENT_DEVI) >> 16;
 	bool found = false;
 	int i;
 
 	errno = 0;
 
-	for (i = 0; RIO_VEND_RESERVED != regrw_vendors[i]; i++) {
+	for (i = 0; RIO_VEND_RESERVED != regrw_vendors[i].vid; i++) {
 		if (regrw_vendors[i].vid == vendor) {
 			found = true;
-			h->vend_name = regrw_vendors[i].vendor;
 			break;
 		};
 	};
 
-	if (!found)
-		goto fail;
+	if (found) {
+		h->vend_name = regrw_vendors[i].vendor;
+	} else {
+		h->vend_name = unknown_vendor_name;
+	};
+
 	found = false;
 
-	for (i = 0; RIO_VEND_RESERVED != regrw_device_ids[i]; i++) {
+	for (i = 0; RIO_VEND_RESERVED != regrw_device_ids[i].vid; i++) {
 		if ((regrw_device_ids[i].vid == vendor) &&
 				(regrw_device_ids[i].did == devi)) {
 			found = true;
@@ -425,43 +526,33 @@ int regrw_fill_in_handle(regrw_i *h, RIO_DEV_IDENT_T vend_devi)
 		};
 	};
 
-	if (!found)
-		goto fail;
-
-	h->dev_t_name = regrw_device_ids[i].name;
-	if (NULL != regrw_device_ids[i].regs) {
+	if (found) {
+		h->dev_t_name = regrw_device_ids[i].name;
 		memcpy(&h->cregs, &regrw_device_ids[i].regs, sizeof(h->cregs));
+	} else {
+		h->dev_t_name = unknown_device_type_name;
 	};
 
-	if (read_variable_regs((regrw_h)h, NULL == regrw_device_ids[i].regs))
+	if (read_variable_regs((regrw_h)h, NULL == regrw_device_ids[i].regs)) {
 		goto failed;
-
-	if (PE_IS_SW(h)) {
-		h->rt = (struct rt_regs_blk *)
-					calloc(sizeof(struct rt_regs_blk),1);
-		if (NULL == h->rt) {
-			errno = ENOMEM;
-			goto failed;
-		};
 	};
+
 
 	switch (GET_DEV_VENDOR(h)) {
-	case RIO_VEND_TUNDRA: tundra_fill_in_handle(h);
-		break;
-	case RIO_VEND_IDT: idt_fill_in_handle(h);
-		break;
-	default: goto fail;
+	case RIO_VEND_TUNDRA: if (tundra_fill_in_handle(h)) {
+					goto fail:
+				};
+				break;
+	case RIO_VEND_IDT: if (idt_fill_in_handle(h)) {
+					goto fail:
+				};
+				break;
+	default: if (default_fill_in_handle(h)) {
+			goto fail;
+		};
 		break;
 	};
 
-	if  (h->sp_oset) {
-		rio_pt_t pt;
-		for (pt = 0; pt < PE_PORT_COUNT(h); pt++) {
- 			if (regrw_raw_rd(h, SPX_CTL1(h,pt), &h->ctl1[pt])) {
-				goto failed;
-			};
-		};
-	};
 	return 0;
 fail:
 	errno = ENXIO;
@@ -469,31 +560,39 @@ failed:
 	return -1;
 };
 
-int regrw_update_h_info_on_write(regrw_i *h, uint32_t offset, uint32_t data)
-{
-	int rc = 0;
 
+int regrw_update_std_info(regrw_i *i, uint32_t offset, uint32_t data)
+{
+fail:
+	return -1;
+};
+int regrw_update_h_info(regrw_i *h, uint32_t offset, uint32_t data)
+{
+	if (regrw_update_std_info(h, offset,data)) {
+		goto fail;
+	};
 	switch (GET_DEV_VENDOR(h)) {
-	case RIO_VEND_TUNDRA: tundra_update_h_info_on_write(h, offseet, data);
+	case RIO_VEND_TUNDRA: tundra_update_h_info(h, offset, data);
 			break;
-	case RIO_VEND_IDT: idt_update_h_info_on_write(h, offseet, data);
+	case RIO_VEND_IDT: idt_update_h_info(h, offset, data);
 			break;
-	default: rc = -1;
-		errno = -RIO_VEND_IDT;
+	default: 
 		break;
 	};
-	return rc;
+	return 0;
+fail:
+	return -1;
 };
 
-int regrw_get_info_from_h_on_read(regrw_i *h, uint32_t offset, uint32_t *data)
+int regrw_get_info_from_h(regrw_i *h, uint32_t offset, uint32_t *data)
 {
 	int rc = 0;
 
 	switch (GET_DEV_VENDOR(h)) {
-	case RIO_VEND_TUNDRA: tundra_update_h_info_on_write(h, offseet, data);
-			break;
-	case RIO_VEND_IDT: idt_update_h_info_on_write(h, offseet, data);
-			break;
+	case RIO_VEND_TUNDRA: tundra_get_info_from_h(h, offset, data);
+		break;
+	case RIO_VEND_IDT: idt_get_info_from_h(h, offset, data);
+		break;
 	default: rc = -1;
 		errno = -RIO_VEND_IDT;
 		break;
@@ -502,16 +601,16 @@ int regrw_get_info_from_h_on_read(regrw_i *h, uint32_t offset, uint32_t *data)
 };
 
 /** \brief Device specific corrections to data read from device
- *  */
-int regrw_read_fixups(regrw_i *h, uint32_t offset, uint32_t *data)
+ */
+int regrw_fixup_from_read(regrw_i *h, uint32_t offset, uint32_t *data)
 {
 	int rc = 0;
 
 	switch (GET_DEV_VENDOR(h)) {
-	case RIO_VEND_TUNDRA: tundra_update_h_info_on_write(h, offseet, data);
-			break;
-	case RIO_VEND_IDT: idt_update_h_info_on_write(h, offseet, data);
-			break;
+	case RIO_VEND_TUNDRA: tundra_fixup_from_read(h, offset, data);
+		break;
+	case RIO_VEND_IDT: idt_fixup_from_read(h, offset, data);
+		break;
 	default: rc = -1;
 		errno = -RIO_VEND_IDT;
 		break;
@@ -521,14 +620,14 @@ int regrw_read_fixups(regrw_i *h, uint32_t offset, uint32_t *data)
 
 /** \brief Device specific corrections to data to be written to device
  *  */
-int regrw_write_fixups(regrw_i *h, uint32_t offset, uint32_t *data);
+int regrw_fixup_for_write(regrw_i *h, uint32_t offset, uint32_t *data)
 {
 	int rc = 0;
 
 	switch (GET_DEV_VENDOR(h)) {
-	case RIO_VEND_TUNDRA: tundra_update_h_info_on_write(h, offseet, data);
+	case RIO_VEND_TUNDRA: tundra_fixup_for_write(h, offset, data);
 			break;
-	case RIO_VEND_IDT: idt_update_h_info_on_write(h, offseet, data);
+	case RIO_VEND_IDT: idt_fixup_for_write(h, offset, data);
 			break;
 	default: rc = -1;
 		errno = -RIO_VEND_IDT;

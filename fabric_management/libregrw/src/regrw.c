@@ -37,54 +37,30 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdint.h>
 #include <errno.h>
 #include "regrw.h"
-#include "rio_car_csr.h"
+#include "regrw_private.h"
 #include "regrw_log.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-struct regrw_driver dflt_driver;
 #define MAX_DAR_SCRPAD_IDX 30
+
+struct regrw_driver regrw_dflt_drv;
 
 int regrw_get_handle(regrw_h *h)
 {
-	regrw_i *hnd;
+	struct regrw_i *hnd;
 	errno = 0;
-	hnd = (regrw_h)calloc(1, sizeof(struct regrw_i));
-	if (NULL == hnd) {
-		return -1;
-	*h = (void *)hnd;
-	memcpy((*h)->regrw, &dflt_driver, sizeof(struct regrw_driver));
-	return 0;
-};
 
-int regrw_destroy_handle(regrw_h *h)
-{
-	struct regrw_i *hndl;
-	errno = 0;
+	*h = calloc(1, sizeof(struct regrw_i));
+
 	if (NULL == h) {
-		errno = EINVAL;
 		return -1;
 	};
-
-	if (NULL == *h) {
-		return 0;
+	if (regrw_override_h_drvr(h, &regrw_dflt_drv)) {
+		return -1;
 	};
-	hndl = (struct regrw_i *)h;
-
-	if (NULL != h) {
-		if (NULL != hndl->sw_info) {
-			free(hndl->sw_info);
-			hndl->sw_info = NULL;
-		};
-		if (NULL != hndlh->scratchpad) {
-			free(hndl->scratchpad);
-			hndl->scratchpad = NULL;
-		};
-	};
-	free(*h);
-	*h = NULL;
 	return 0;
 };
 
@@ -92,7 +68,7 @@ int regrw_init_handle(regrw_h h, uint32_t did, rio_hc_t hc)
 {
 	uint32_t vend_devi;
 	int rc;
-	struct regrw_i *hnd = (regrw_i *)h;
+	struct regrw_i *hnd = H_TO_I(h);
 
 	errno = 0;
 	if (NULL == hnd) {
@@ -100,11 +76,13 @@ int regrw_init_handle(regrw_h h, uint32_t did, rio_hc_t hc)
 		goto fail;
 	}
 
-	if (regrw_raw_read(h, did, hc, RIO_DEV_IDENT, &vend_devi))
+	if (regrw_raw_read(h, did, hc, RIO_DEV_IDENT, &vend_devi)) {
 		goto fail;
+	}
 
-	if (regrw_set_path(h, did, hc))
+	if (regrw_set_path(h, did, hc)) {
 		goto fail;
+	}
 
 /* FIXME: Allocate switch information here */
 
@@ -120,17 +98,49 @@ fail:
 	return -1;
 };
 
+int regrw_destroy_handle(regrw_h *h)
+{
+	struct regrw_i *i;
+	errno = 0;
+
+	if (NULL == h) {
+		errno = EINVAL;
+		return -1;
+	};
+
+	i = H_TO_I(*h);
+
+	if (NULL == i) {
+		return 0;
+	};
+
+	i = H_TO_I(h);
+
+	if (NULL != i->sw_info) {
+		free(i->sw_info);
+		i->sw_info = NULL;
+	};
+	if (NULL != i->scratchpad) {
+		free(i->scratchpad);
+		i->scratchpad = NULL;
+	};
+	free(*h);
+	*h = NULL;
+	return 0;
+};
+
 int regrw_set_path(regrw_h h, uint32_t did, rio_hc_t hc);
 {
-	struct regrw_i *hnd = (regrw_i *)h;
+	struct regrw_i *i = H_TO_I(h);
 
 	errno = 0;
-	if ((NULL == hnd) || (hc > HC_LOCAL))
+	if ((NULL == h) || (hc > HC_LOCAL)) {
 		goto fail;
+	};
 
-	hnd->dest_id = did;
-	hnd->tt = tt_dev8;
-	hnd->hc = hc;
+	i->dest_id = did;
+	i->tt = tt_dev8;
+	i->hc = hc;
 
 	return 0;
 fail:
@@ -138,14 +148,15 @@ fail:
 	return -1;
 };
 
-int regrw_get_path(regrw_h h, uint32_t *did, rio_hc_t hc);
+int regrw_get_path(regrw_h h, uint32_t *did, rio_hc_t *hc);
 {
-	struct regrw_i *hnd = (regrw_i *)h;
+	struct regrw_i *i = H_TO_I(h);
 
 	errno = 0;
-	if ((NULL == hnd) || (hnd->tt == tt_uninit) || (hnd->tt >= tt_last) ||
-			(hnd->hc > HC_LOCAL))
+	if ((NULL == h) || (i->tt == tt_uninit) || (i->tt >= tt_last) ||
+			(i->hc > HC_LOCAL)) {
 		goto fail;
+	};
 
 	*did = hnd->dest_id;
 	*hc = hnd->hc;
@@ -156,113 +167,689 @@ fail:
 	return -1;
 };
 
+int regrw_rd(regrw_h h, uint32_t offset, uint32_t *val)
+{
+        struct regrw_i *i = H_TO_I(h);
 
+        uint32_t temp;
+        int rc = 0;
+
+	if ((NULL == h) || (NULL == val)) {
+		errno = EINVAL;
+		goto fail;
+	};
+
+        if (regrw_get_info_from_h(h, offset, val)) {
+		if (regrw_rare_rd(h, i->dest_id, i->hc, offset, val)) {
+			goto fail;
+		} else {
+			return regrw_update_h_info(h, offset, *val);
+		};
+        };
+	return 0;
+fail:
+        return -1;
+};
+
+int regrw_rare_rd(regrw_h h, uint32_t did, rio_hc_t hc,
+						uint32_t offset, uint32_t *val)
+{
+	if ((NULL == h) || (NULL == val)) {
+		errno = EINVAL;
+		goto fail;
+	};
+
+	if (regrw_raw_rd(h, did, hc, offset, val)) {
+		goto fail;
+	};
+
+	return regrw_fixup_from_read(h, offset, val);
+	
+fail:
+	return -1;
+};
+
+int regrw_raw_rd(regrw_h h, uint32_t did, rio_hc_t hc,
+						uint32_t offset, uint32_t *val)
+{
+        struct regrw_i *i = H_TO_I(h);
+
+	if ((NULL == h) || (NULL == val)) {
+		errno = EINVAL;
+		goto fail;
+	};
+
+	if (NULL == i->drv.rd) {
+		errno = EINVAL;
+		goto fail;
+	};
+
+	return i->drv.rd(h, did, hc, offset, val);
+fail:
+        return -1;
+};
+
+int regrw_wr(regrw_h h, uint32_t offset, uint32_t val)
+{
+	struct regrw_i *i = H_TO_I(h);
+
+	if (NULL == h) {
+		errno = EINVAL;
+		goto fail;
+	};
+
+	if (regrw_rare_wr(h, i->dest_id, i->hc, offset, fixed_val)) {
+		goto fail;
+	};
+
+	return regrw_update_h_info(h, offset, val);
+fail:
+	return -1;
+};
+
+int regrw_rare_wr(regrw_h h, uint32_t did, rio_hc_t hc,
+		uint32_t addr, uint32_t val)
+{
+	struct regrw_i *i = H_TO_I(h);
+	uint32_t fixed_val = val;
+
+	if (NULL == h) {
+		errno = EINVAL;
+		goto fail;
+	};
+
+	if (regrw_fixup_for_write(h, offset, &fixed_val)) {
+		goto fail;
+	};
+
+	return regrw_raw_wr(h, did, hc, addr, fixed_val);
+fail:
+	return -1;
+};
+
+int regrw_raw_wr(regrw_h h, uint32_t did, rio_hc_t hc,
+		uint32_t addr, uint32_t val)
+{
+	struct regrw_i *i = H_TO_I(h);
+	uint32_t fixed_val = val;
+
+	if ((NULL == h) || (NULL == i->drv.wr)) {
+		errno = EINVAL;
+		goto fail;
+	};
+
+	return i->drv.wr(h, did, hc, addr, val);
+fail:
+	return -1;
+};
+
+/* Device/Vendor name strings.
+ */
 int regrw_vend_name(regrw_h h, const char **name)
 {
-	struct regrw_i *hnd = (regrw_i *)h;
+	struct regrw_i *i = H_TO_I(h);
 
-	if (NULL == hnd) {
+	if (NULL == h) {
 		*name = NULL;
 		errno = EINVAL;
 		return -1;
 	};
 
-	*name = h->vend_name;
+	*name = i->vend_name;
 	return 0;
 };
 
 int regrw_dev_t_name(regrw_h h, const char **name)
 {
-	struct regrw_i *hnd = (regrw_i *)h;
+	struct regrw_i *i = H_TO_I(h);
 
-	if (NULL == hnd) {
+	if (NULL == h) {
 		*name = NULL;
 		errno = EINVAL;
 		return -1;
 	};
 
-	*name = h->dev_t_name;
+	*name = i->dev_t_name;
 	return 0;
 };
 
-int regrw_rd(struct rio_car_csr *rcc, uint32_t offset, uint32_t *val)
+/* Write and read destination ID register.
+ */
+
+int regrw_write_destid(regrw_h h, regrw_tt_t tt, uint32_t dest_id)
 {
-	if ((NULL == rcc) || (NULL == rcc->regrw.reg_rd)) {
-		ERR("Driver is NULL!");
-		return EINVAL;
+	struct regrw_i *i = H_TO_I(h);
+	uint32_t offset = RIO_DEVID;
+	uint32_t value = 0xFFFFFFFF;
+
+	if ((NULL == h) || (NULL == i->drv.wr)) {
+		errno = EINVAL;
+		goto fail;
 	};
 
-	rc = rcc->regrw.reg_rd(rcc, offset, val);
+	if (RIO_PE_FEAT_SW & i->pe_feat) {
+		errno = ENOSYS;
+		goto fail;
+	};
+	
+	switch (tt) {
+	case regrw_tt_dev8:
+		value = GET_CHG_DEV8(destid);
+		break;
+	case regrw_tt_dev16:
+		if (!(RIO_PE_FEAT_DEV16 & i->pe_feat)) {
+			errno = ENOSYS;
+			goto fail;
+		};
+		value = GET_CHG_DEV16(destid);
+		break;
+	case regrw_tt_dev32:
+		if (!(RIO_PE_FEAT_DEV32 & i->pe_feat)) {
+			errno = ENOSYS;
+			goto fail;
+		};
+		offset = RIO_DEV32;
+		value = destid;
+		break;
+	default: 
+		errno = EINVAL;
+		goto fail;
+	};
+
+	return i->drv.wr(h, offset, value);
+fail:
+	return -1;
+		
 };
 
-int regrw_wr(struct rio_car_csr *rcc, uint32_t offset, uint32_t val)
+int regrw_read_destids(regrw_h h)
 {
-	if ((NULL == rcc) || (NULL == rcc->regrw.reg_wr)) {
-		ERR("Driver is NULL!");
-		return EINVAL;
+	struct regrw_i *i = H_TO_I(h);
+	int rc;
+
+	if ((NULL == h) || (NULL == i->drv.raw_rd)) {
+		errno = EINVAL;
+		goto fail;
+	};
+	
+	if (RIO_PE_FEAT_SW & i->pe_feat) {
+		errno = ENOSYS;
+		goto fail;
+	};
+	
+	if (i->drv.raw_rd(h, RIO_DEVID, &i->devid)) {
+		goto fail;
 	};
 
-	return rcc->regrw.reg_wr(rcc, offset, val);
+	if (RIO_PE_FEAT_DEV32 & i->pe_feat) {
+		if (i->drv.raw_rd(h, RIO_DEV32, &i->dev32)) {
+			goto fail;
+		};
+	};
+	return 0;
+fail:
+	return -1;
 };
 
-int regrw_raw_rd(struct rio_car_csr *rcc, uint32_t did, rio_hc_t hc,
-		uint32_t addr, uint32_t *val)
+int regrw_write_comptag(regrw_h h, uint32_t ct)
 {
-	if ((NULL == rcc) || (NULL == rcc->regrw.raw_reg_rd)) {
-		ERR("Driver is NULL!");
-		return EINVAL;
+	struct regrw_i *i = H_TO_I(h);
+	int rc;
+
+	if ((NULL == h) || (NULL == i->drv.wr)) {
+		errno = EINVAL;
+		goto fail;
 	};
-	return rcc->regrw.raw_reg_rd(rcc, did, hc, addr, val);
+	
+	if (i->drv.wr(h, RIO_COMPTAG, ct)) {
+		goto fail;
+	};
+
+	return regrw_read_comptag(h);
+fail:
+	return -1;
 };
 
-int regrw_raw_wr(struct rio_car_csr *rcc, uint32_t did, rio_hc_t hc,
-		uint32_t addr, uint32_t val)
+int regrw_read_comptag(regrw_h h)
 {
-	if ((NULL == rcc) || (NULL == rcc->regrw.raw_reg_wr)) {
-		ERR("Driver is NULL!");
-		return EINVAL;
+	struct regrw_i *i = H_TO_I(h);
+	int rc;
+
+	errno = 0;
+	if ((NULL == h) || (NULL == i->drv.raw_rd)) {
+		errno = EINVAL;
+		goto fail;
+	};
+	
+	if (i->drv.raw_rd(h, RIO_COMPTAG, &i->comptag)) {
+		goto fail;
 	};
 
-	return rcc->regrw.raw_reg_wr(rcc, did, hc, addr, val);
+	return 0;
+fail:
+	return -1;
+};
+
+int regrw_lock(regrw_h h, uint32_t *lck_val);
+{
+	struct regrw_i *i = H_TO_I(h);
+	uint32_t mask = RIO_HOST_LOCK_DEVID;
+	uint32_t value = *lck_val;
+
+	errno = 0;
+
+	if ((NULL == h) || (RIO_HOST_LOCK_UNLOCKED == value)) {
+		errno = EINVAL;
+		goto fail;
+	};
+	
+	if ((NULL == i->drv.raw_wr) || (NULL == i->drv.raw_rd)) {
+		errno = EINVAL;
+		goto fail;
+	};
+
+	if (DEV32_SUPP(h)) {
+		mask = RIO_HOST_LOCK_DEVID32;
+	};
+	
+	value &= mask;
+
+	if (i->drv.raw_wr(h, RIO_HOST_LOCK, value)) {
+		goto fail;
+	};
+
+	if (i->drv.raw_rd(h, RIO_HOST_LOCK, &i->host_lock)) {
+		goto fail;
+	};
+
+	if (i->host_lock != value) {
+		*lck_val = i->host_lock;
+		errno = ENOLCK;
+		goto fail;
+	};
+	return 0;
+fail:
+	return -1;
+};
+
+int regrw_unlock(regrw_h h, uint32_t *unlck_val);
+{
+	rc = regrw_lock(h, unlock_val);
+
+	if (rc && (ENOLCK == errno) && (RIO_HOST_LOCK_UNLOCKED == *unlck_val)) {
+		errno = 0;
+		return 0;
+	};
+
+	return rc;
+};
+
+int regrw_set_addrsz(regrw_h h, RIO_PE_ADDR_T addrsz )
+{
+	struct regrw_i *i = H_TO_I(h);
+
+	errno = 0;
+
+	if ((NULL == h) (NULL == i->drv.wr)) {
+		errno = EINVAL;
+		goto fail;
+	};
+
+	addrsz &= RIO_PE_LL_CTL_ADDRSZ;
+	
+	if ((RIO_PE_LL_CTL_34BIT != addrsz) && (RIO_PE_LL_CTL_50BIT != addrsz)
+	&& (RIO_PE_LL_CTL_66BIT != addrsz)) {
+		errno = EINVAL;
+		goto fail;
+	};
+
+	if (!(i->pe_feat & addrsz)) {
+		errno = ENOSYS;
+		goto fail;
+	};
+
+	return i->drv.wr(h, RIO_PE_LL_CTL, addrsz);
+fail:
+	return -1;
+};
+
+int get_port_range(regrw_h h, rio_port_t p,
+					rio_port_t *st_pt, rio_port_t *end_pt)
+{
+	*st_pt = *end_pt = -1;
+
+	if (RIO_ALL_PORTS == p) {
+		st_pt = 0;
+		end_pt = PE_PORT_COUNT(h);
+	} else {
+		if (PE_PHYS_PORT(h,p)) {
+			*st_pt = *end_pt = p;
+		} else {
+			errno = EINVAL;
+			goto fail;
+		};
+	};
+	return 0;
+fail:
+	return -1;
+};
+
+
+int regrw_set_enumb(regrw_h h, rio_port_t p, bool enumb)
+{
+	struct regrw_i *i = H_TO_I(h);
+	uint32_t offset;
+	rio_port_t spx, st_pt, end_pt;
+
+	errno = 0;
+
+	if ((NULL == h) || (NULL == i->drv.wr)) {
+		errno = EINVAL;
+		goto fail;
+	};
+
+	if (get_port_range(h, p, &st_pt, &end_pt)) {
+		goto fail;
+	};
+
+	for (spx = st_pt; spx <= end_pt; spx++) {
+		offset = RIO_SPX_CTL(SPX_BASE(i), SPX_TYPE(i), spx);
+		if (RIO_BAD_OFFSET == offset) {
+			errno = EINVAL;
+			goto fail;
+		};
+
+		if (enumb) {
+			i->ctl1[spx] |= RIO_SPX_CTL_ENUMB;
+		} else {
+			i->ctl1[spx] &= ~RIO_SPX_CTL_ENUMB;
+		};
+
+		if (i->drv.raw_wr(h, offset, i->ctl1[spx])) {
+			goto fail;
+		};
+	};
+fail:
+	return -1;
+};
+
+int regrw_get_errstat(regrw_h h, rio_port_t p, RIO_SPX_ERR_STAT_T *e_stat)
+{
+	struct regrw_i *i = H_TO_I(h);
+	uint32_t offset;
+	uint32_t temp;
+
+	if ((NULL == h) || (NULL == i->drv.rd) || (NULL == e_stat)) {
+                errno = EINVAL;
+                goto fail;
+        };
+	
+	if (!PE_PHYS_PORT(h,p)) {
+		errno = EINVAL;
+		goto fail;
+	};
+
+	offset = RIO_SPX_ERR_STAT(SPX_BASE(i), SPX_TYPE(i), p);
+	if (RIO_BAD_OFFSET == offset) {
+		errno = EINVAL;
+		goto fail;
+	};
+
+	if (i->drv.rd(h, offset, &temp)) {
+		goto fail;
+	};
+	
+	*e_stat = temp;
+	return 0;
+fail:
+	return -1;
+};
+
+int regrw_lreq_n_resp(regrw_h h, rio_port_t p, RIO_SPX_LM_RESP_STAT_T *lresp)
+{
+	struct regrw_i *i = H_TO_I(h);
+        uint32_t req_offset, resp_offset;
+        uint32_t status;
+	uint64_t delay_usec = RIO_SP_TO_NSEC_LIM(RIO_SP_LTO_NSEC(i->lto))/1000;
+
+        if ((NULL == h) || (NULL == i->drv.rd) || (NULL == lresp)) {
+                errno = EINVAL;
+                goto fail;
+        };
+
+        if ((NULL == i->drv.rd) || (NULL == i->drv.wr) || (NULL == i->drv.dly))
+	{
+                errno = EINVAL;
+                goto fail;
+        };
+
+        if (!PE_PHYS_PORT(h,p)) {
+                errno = EINVAL;
+                goto fail;
+        };
+	
+	req_offset = RIO_SPX_LM_REQ(SPX_BASE(i), SPX_TYPE(i), p);
+	resp_offset = RIO_SPX_LM_RESP(SPX_BASE(i), SPX_TYPE(i), p);
+
+	if ((RIO_BAD_OFFSET == req_offset) || (RIO_BAD_OFFSET == req_offset)) {
+		errno = EINVAL;
+		goto fail;
+	};
+
+	if (i->drv.rd(h, resp_offset, &status)) {
+		goto fail;
+	};
+
+	/* If can't confirm that previously sent transaction is complete,
+	* wait until it must be complete before proceeding.
+	*/
+	if (!RIO_SPX_LM_RESP_IS_VALID(status)) {
+		i->drv.dly(delay_usec);
+	};
+
+	if (i->drv.wr(h, req_offset, RIO_SPX_LM_REQ_CMD_LR_PS)) {
+		goto fail;
+	};
+
+	i->drv.dly(delay_usec);
+
+	if (i->drv.rd(h, resp_offset, &status)) {
+		goto fail;
+	};
+	
+	*lresp = status;
+
+	return 0;
+fail:
+	return -1;
+};
+
+int regrw_port_enable(regrw_h h, rio_port_t p,
+		bool port_enable, bool port_lkout, bool in_out_en)
+{
+	struct regrw_i *i = H_TO_I(h);
+        uint32_t req_offset, resp_offset;
+        uint32_t ctl1;
+	uint64_t delay_usec = RIO_SP_TO_NSEC_LIM(RIO_SP_LTO_NSEC(i->lto))/1000;
+	rio_port_t spx, st_pt, end_pt;
+
+	errno = 0;
+
+	if ((NULL == h) || (NULL == i->drv.wr)) {
+		errno = EINVAL;
+		goto fail;
+	};
+
+	if (get_port_range(h, p, &st_pt, &end_pt)) {
+		goto fail;
+	};
+
+	for (spx = st_pt; spx <= end_pt; spx++) {
+		ctl1 = i->ctl1[pt];
+
+		if (port_enable) {
+			ctl1 &= ~RIO_SPX_CTL_PORT_DIS;
+		} else {
+			ctl1 |= RIO_SPX_CTL_PORT_DIS;
+		};
+	
+		if (port_lkout) {
+			ctl1 |=  RIO_SPX_CTL_LOCKOUT;
+		} else {
+			ctl1 &= ~RIO_SPX_CTL_LOCKOUT;
+		}
+
+		if (in_out_en) {
+			ctl1 |= RIO_SPX_CTL_INP_EN | RIO_SPX_CTL_OTP_EN ;
+		} else {
+			ctl1 &= ~(RIO_SPX_CTL_INP_EN | RIO_SPX_CTL_OTP_EN);
+		};
+
+		if (crtl1 == i->ctl1[pt]) {
+			continue;
+		};
+
+		offset = RIO_SPX_CTL(SPX_BASE(i), SPX_TYPE(i), spx);
+		if (RIO_BAD_OFFSET == offset) {
+			errno = EINVAL;
+			goto fail;
+		};
+
+		if (i->drv.wr(h, offset, ctrl1)) {
+			goto fail;
+		};
+	};
+	
+	return 0;
+fail:
+	return -1;
+};
+
+int regrw_emerg_lkout(regrw_h h, rio_port_t p)
+{
+	struct regrw_i *i = H_TO_I(h);
+        uint32_t offset;
+        uint32_t ctl1;
+
+	errno = 0;
+
+	if ((NULL == h) || (NULL == i->drv.wr)) {
+		errno = EINVAL;
+		goto fail;
+	};
+
+	if (!PE_PHYS_PORT(h, p,)) {
+		errno = EINVAL;
+		goto fail;
+	};
+
+	offset = RIO_SPX_CTL(SPX_BASE(i), SPX_TYPE(i), p);
+	if (RIO_BAD_OFFSET == offset) {
+		errno = EINVAL;
+		goto fail;
+	};
+
+	if (i->drv.wr(h, offset, i->ctl1[p] | RIO_SPX_CTL_LOCKOUT)) {
+		goto fail;
+	};
+
+	return 0;
+fail:
+	return -1;
+};
+
+int regrw_wr_rte(regrw_h h, rio_port_t p,
+                regrw_tt_t tt, uint32_t did, pe_rt_val rte)
+{
+	errno = ENOSYS;
+	return -1;
+};
+
+int regrw_rd_rte(regrw_h h, rio_port_t p, regrw_tt_t tt, uint32_t did,
+                                                                pe_rt_val *rte)
+{
+	errno = ENOSYS;
+	return -1;
+};
+
+int regrw_init_rte(regrw_h h, rio_port_t p, regrw_tt_t tt, pe_rt_val *rte)
+{
+	errno = ENOSYS;
+	return -1;
+};
+
+int regrw_wr_dflt_rte(regrw_h h, pe_rt_val *rte)
+{
+	errno = ENOSYS;
+	return -1;
 };
 
 /* To override functions above, pass in structure with new function.
  * If the existing function should be unchanged, pass in NULL.
  */
-struct regrw_driver regrw_dflt_drv;
-
-int init_rcc_driver(struct rio_car_csr *rcc)
+int regrw_override_h_drvr(regrw_h *h, struct regrw_driver *drv);
 {
-	if (NULL == rcc) {
+	struct regrw_i *i;
+
+	if ((NULL == h) || (NULL == drv)) {
 		ERR("Driver is NULL!");
 		return EINVAL;
 	};
 
-	memcpy(&rcc->regrw, &regrw_dflt_drv, sizeof(struct regrw_driver));
+	i = H_TO_I(h);
+	
+	if (drv->rd) {
+		i->drv.rd = drv->rd;
+	};
+
+	if (drv->wr) {
+		i->drv.wr = drv->wr;
+	};
+
+	if (drv->raw_rd) {
+		i->drv.raw_rd = drv->raw_rd;
+	};
+
+	if (drv->raw_wr) {
+		i->drv.raw_wr = drv->raw_wr;
+	};
+
+	if (drv->drv_data) {
+		i->drv.drv_data = drv->drv_data;
+	};
+
 	return 0;
 };
 	
-int override_rcc_drvr(struct rio_car_csr *rcc, struct regrw_driver *drv)
-{
-	if ((NULL == rcc) || (NULL == drv)) {
-		ERR("Driver is NULL!");
-		return EINVAL;
-	};
-
-	memcpy(&rcc->regrw, &drv, sizeof(struct regrw_driver));
-	return 0;
-};
-
-int override_regrw_drv(struct regrw_driver *drv)
+int regrw_override_regrw_drv(struct regrw_driver *drv);
 {
 	if (NULL == drv) {
-		ERR("Driver is NULL!");
 		return EINVAL;
 	};
 
-	memcpy(&regrw_dflt_drv, drv, sizeof(struct regrw_driver));
+	if (drv->rd) {
+		regrw_dflt_drv.rd = drv->rd;
+	};
+
+	if (drv->wr) {
+		regrw_dflt_drv.wr = drv->wr;
+	};
+
+	if (drv->raw_rd) {
+		regrw_dflt_drv.raw_rd = drv->raw_rd;
+	};
+
+	if (drv->raw_wr) {
+		regrw_dflt_drv.raw_wr = drv->raw_wr;
+	};
+
+	if (drv->drv_data) {
+		regrw_dflt_drv.drv_data = drv->drv_data;
+	};
+
 	return 0;
 };
+
 #ifdef __cplusplus
 }
 #endif

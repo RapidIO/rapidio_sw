@@ -48,8 +48,10 @@ extern "C" {
 
 typedef uint8_t rio_port_t;
 typedef uint8_t rio_lane_t;
+
 /** \brief Hopcount type for maintenance transactions */
 typedef uint16_t rio_hc_t;
+
 /** \brief Use HC_LOCAL to identify registers on the local RapidIO interface */
 #define HC_LOCAL (rio_hc_t)(0x100)
 

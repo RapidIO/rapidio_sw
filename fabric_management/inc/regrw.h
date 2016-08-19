@@ -69,12 +69,45 @@ int regrw_init_handle(regrw_h h, uint32_t did, rio_hc_t hc);
 int regrw_destroy_handle(regrw_h *h);
 
 int regrw_set_path(regrw_h h, uint32_t did, rio_hc_t hc);
-int regrw_get_path(regrw_h h, uint32_t *did, rio_hc_t hc);
+int regrw_get_path(regrw_h h, uint32_t *did, rio_hc_t *hc);
 
+/** \brief Get the current register value:
+ * - from stored value if possible
+ * - from * the device if not
+ * Correct the value to be compliant with standard register definitions;
+ */
 int regrw_rd(regrw_h h, uint32_t offset, uint32_t *val);
+/** \brief Write the register value to the device.
+ * Update the stored value if possible.
+ * Correct the value to match any device errata before writing.
+ */
 int regrw_wr(regrw_h h, uint32_t offset, uint32_t val);
+/** \brief Read the register value from the device.
+ * Do not update the stored value.
+ * Correct the value to be compliant with standard register definitions;
+ */
+int regrw_rare_rd(regrw_h h, uint32_t did, rio_hc_t hc,
+					uint32_t addr, uint32_t *val);
+/** \brief Write the register value to the device.
+ * Do not update the stored value.
+ * Correct the value to match any device errata before writing.
+ */
+int regrw_rare_wr(regrw_h h, uint32_t did, rio_hc_t hc,
+					uint32_t addr, uint32_t val);
+
+/** \brief Read the register value from the device.
+ * Do not update the stored value.
+ * Do not correct the value for any errata.
+ * Use the specified path instead of the default
+ */
 int regrw_raw_rd(regrw_h h, uint32_t did, rio_hc_t hc,
 		uint32_t addr, uint32_t *val);
+
+/** \brief Write the register value to the device.
+ * Do not update the stored value.
+ * Do not correct the value for any errata.
+ * Use the specified path instead of the default
+ */
 int regrw_raw_wr(regrw_h h, uint32_t did, rio_hc_t hc,
 		uint32_t addr, uint32_t val);
 
@@ -88,9 +121,6 @@ typedef enum {
 
 /** \brief Write the devices deviceID register.
  *
- * Note: use RIO_GET_DEV8, RIO_GET_DEV8 and RIO_GET_DEV16, RIO_GET_DEV16
- *       macros to retrieve and change the dest_ID for the device.
- *
  * @params[inout] h regrw handle
  * @params[in] dest_id Dev8, dev16, or dev32 destID to be updated on the device.
  * @params[in] tt Size of dest_id to be updated on the device.
@@ -103,6 +133,7 @@ typedef enum {
 int regrw_write_destid(regrw_h h, regrw_tt_t tt, uint32_t dest_id);
 
 /** \brief Read all the devices deviceID register(s), and store result in h
+ * Includes support for dev8, dev16, and dev32.
  *
  * @params[inout] h regrw handle
  *
@@ -145,14 +176,15 @@ int regrw_read_comptag(regrw_h h);
  * If the lock is unsuccessful, rcc is updated with the current lock value.
  *
  * @params[inout] h regrw handle
- * @params[in] lock_val Value to write to RIO_HOST_LOCK to lock the device.
+ * @params[inout] lck_val Value to write to RIO_HOST_LOCK to lock the device.
+ * 		Updated with current lock value on exit.
  *
  * returns standard error code indicating success or failure.
- * return 0 - success
- * return <0 - -errno
+ * return 0 - success - device is locked
+ * return <0 - -errno - device is not locked
  */
 
-int regrw_lock(regrw_h h, uint32_t lock_val);
+int regrw_lock(regrw_h h, uint32_t *lck_val);
 
 /** \brief Unlock the device, using the specified lock value.
  *
@@ -160,14 +192,15 @@ int regrw_lock(regrw_h h, uint32_t lock_val);
  * If the unlock is unsuccessful, rcc is updated with the current lock value.
  *
  * @params[inout] h regrw handle
- * @params[in] unlock_val Value to write to RIO_HOST_LOCK to unlock the device.
+ * @params[inout] unlck_val Value to write to RIO_HOST_LOCK to unlock 
+ * 		the device.  Updated with current lock value on exit.
  *
  * returns standard error code indicating success or failure.
- * return 0 - success
- * return <0 - -errno
+ * return 0 - success - device is unlocked
+ * return <0 - -errno - device may still be locked
  */
 
-int regrw_unlock(regrw_h h, uint32_t unlock_val);
+int regrw_unlock(regrw_h h, uint32_t *unlck_val);
 
 /** \brief Set the device RapidIO memory address size for read/write/atomic
  *         transactions.
@@ -287,7 +320,7 @@ int regrw_emerg_lkout(regrw_h h, rio_port_t p);
  */
 
 int regrw_wr_rte(regrw_h h, rio_port_t p,
-		regrw_tt_t tt, uint32_t did, pe_rt_val rte);
+		regrw_tt_t tt, uint32_t did, rio_rtv_t rte);
 
 /** \brief Get the routing value for a switch.
  *
@@ -305,7 +338,7 @@ int regrw_wr_rte(regrw_h h, rio_port_t p,
  */
 
 int regrw_rd_rte(regrw_h h, rio_port_t p, regrw_tt_t tt, uint32_t did,
-								pe_rt_val *rte);
+								rio_rtv_t *rte);
 
 /** \brief Initialize the routing value for a switch.
  *
@@ -321,7 +354,7 @@ int regrw_rd_rte(regrw_h h, rio_port_t p, regrw_tt_t tt, uint32_t did,
  * return <0 - -errno
  */
 
-int regrw_init_rte(regrw_h h, rio_port_t p, regrw_tt_t tt, pe_rt_val *rte);
+int regrw_init_rte(regrw_h h, rio_port_t p, regrw_tt_t tt, rio_rtv_t *rte);
 
 
 /** \brief Set the default routing value for a switch.
@@ -335,7 +368,7 @@ int regrw_init_rte(regrw_h h, rio_port_t p, regrw_tt_t tt, pe_rt_val *rte);
  * return <0 - -errno
  */
 
-int regrw_wr_dflt_rte(regrw_h h, pe_rt_val *rte);
+int regrw_wr_dflt_rte(regrw_h h, rio_rtv_t *rte);
 
 /** Routnes which retrieve information from the initialized handle.
  * No register accesses are performed.
@@ -350,6 +383,7 @@ uint32_t regrw_dev8(regrw_h h);
 uint32_t regrw_new_dev8(regrw_h h,uint8_t dev8);
 uint32_t regrw_dev16(regrw_h h);
 uint32_t regrw_new_dev16(regrw_h h, uint16_t dev16);
+uint32_t regrw_dev32(regrw_h h);
 uint32_t regrw_ct(regrw_h h);
 uint32_t regrw_scratch(regrw_h h);
 
@@ -370,7 +404,7 @@ bool regrw_addr66_now(regrw_h h);
 bool regrw_std_rte(regrw_h h);
 bool regrw_ext_rte(regrw_h h);
 
-uint32_t regrw_is_MP(regrw_h h);
+uint32_t regrw_is_MULTP(regrw_h h);
 uint32_t regrw_is_SW(regrw_h h);
 uint32_t regrw_is_PROC(regrw_h h);
 uint32_t regrw_is_MEM(regrw_h h);
@@ -383,27 +417,30 @@ int regrw_vend_name(regrw_h h, const char **name);
 int regrw_dev_t_name(regrw_h h, const char **name);
 
 struct regrw_driver {
-        int (* reg_rd)(regrw_h *h, uint32_t offset, uint32_t *val);
-        int (* reg_wr)(regrw_h *h, uint32_t offset, uint32_t val);
-	int (* reg_raw_rd)(regrw_h *h, uint32_t did, rio_hc_t hc,
+	int (* rd)(regrw_h *h, uint32_t did, rio_hc_t hc,
                         uint32_t offset, uint32_t *val);
-        int (* reg_raw_wr)(regrw_h *h, uint32_t did, rio_hc_t hc,
+        int (* wr)(regrw_h *h, uint32_t did, rio_hc_t hc,
                         uint32_t offset, uint32_t val);
+        int (* dly)(int dly_usecs);
 	void *drv_data;
 };
 
 /* \brief Override device/handle register read/write functions 
+ * Only non-null entries in drv are copied to *h.
  */
 int regrw_override_h_drvr(regrw_h *h, struct regrw_driver *drv);
 
 /* \brief Override default register read/write functions 
+ * Only non-null entries in drv are copied.
  */
 int regrw_override_regrw_drv(struct regrw_driver *drv);
 
-/* \brief Set regrw logging level */
+/* \brief Set regrw logging level for capture and display (dlevel) */
 int regrw_set_log_level(int level);
-/* \brief Get regrw logging level */
-int regrw_get_log_level();
+int regrw_set_log_dlevel(int level);
+/* \brief Get regrw logging level for capture and display (dlevel) */
+int regrw_get_log_level(void);
+int regrw_get_log_dlevel(void);
 
 /* \brief Bind regrw cli commands */
 void regrw_bind_cli_cmds(void);

@@ -64,12 +64,23 @@ enum regrw_log_level regrw_disp_level = (enum regrw_log_level)REGRW_LL;
 int regrw_set_log_level(int level)
 {
 	regrw_log_level = LOG_VALUE(level);
-	return level;
+	return regrw_log_level;
+};
+		
+int regrw_set_log_dlevel(int level)
+{
+	regrw_disp_level = LOG_VALUE(level);
+	return regrw_disp_level;
 };
 		
 int regrw_get_log_level(void)
 {
 	return regrw_log_level;
+};
+
+int regrw_get_log_dlevel(void)
+{
+	return regrw_disp_level;
 };
 
 int regrw_log(enum regrw_log_level level,

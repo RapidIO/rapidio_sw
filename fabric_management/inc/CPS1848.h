@@ -473,6 +473,9 @@ extern "C" {
 /* CPS1848_SWITCH_PORT_INF_CAR : Register Bits Masks Definitions */
 #define CPS1848_SWITCH_PORT_INF_CAR_PORT                           (0x000000ff)
 #define CPS1848_SWITCH_PORT_INF_CAR_TOTAL                          (0x0000ff00)
+#define CPS1848_SWITCH_PORT_INF_CAR_VAL                            (0x00001200)
+#define CPS1432_SWITCH_PORT_INF_CAR_VAL                            (0x00001000)
+#define CPS1616_SWITCH_PORT_INF_CAR_VAL                            (0x00001000)
 
 /* CPS1848_SRC_OPS_CAR : Register Bits Masks Definitions */
 #define CPS1848_SRC_OP_VAL 0x00000004
@@ -723,6 +726,7 @@ extern "C" {
 #define CPS1848_LANE_X_STATUS_0_CSR_TX_TYPE                        (0x00080000)
 #define CPS1848_LANE_X_STATUS_0_CSR_LANE                           (0x00f00000)
 #define CPS1848_LANE_X_STATUS_0_CSR_PORT                           (0xff000000)
+#define CPS1848_LANE_REGS_VAL					   (0x0000000B)
 
 /* CPS1848_LANE_X_STATUS_1_CSR : Register Bits Masks Definitions */
 #define CPS1848_LANE_X_STATUS_1_CSR_LP_SCRAM                       (0x00008000)

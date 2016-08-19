@@ -57,22 +57,23 @@ extern "C" {
 
 /** RapidIO control plane loglevels */
 enum regrw_log_level {
-        REGRW_LL_NONE  = 0,
-        REGRW_LL_CRIT  = 1,
-        REGRW_LL_ERROR = 2,
-        REGRW_LL_WARN  = 3,
-        REGRW_LL_HIGH  = 4,
-        REGRW_LL_INFO  = 5,
-        REGRW_LL_DEBUG = 6,
-        REGRW_LL_TRACE = 7
+	REGRW_LL_NONE  = 0,
+	REGRW_LL_CRIT  = 1,
+	REGRW_LL_ERROR = 2,
+	REGRW_LL_WARN  = 3,
+	REGRW_LL_HIGH  = 4,
+	REGRW_LL_INFO  = 5,
+	REGRW_LL_DEBUG = 6,
+	REGRW_LL_TRACE = 7,
+	REGRW_LL_LAST
 };
 
 extern enum regrw_log_level regrw_log_level;
 extern enum regrw_log_level regrw_disp_level;
 
 #define LOG_VALUE(x) ( \
-                (x < REGRW_LL_CRIT)?REGRW_LL_NONE: \
-                (x > REGRW_LL_TRACE)?REGRW_LL_TRACE:(enum regrw_log_level)x)
+		(x < REGRW_LL_CRIT)?REGRW_LL_NONE: \
+		(x > REGRW_LL_TRACE)?REGRW_LL_TRACE:(enum regrw_log_level)x)
 
 #if REGRW_LL >= REGRW_LL_TRACE
 #define TRACE(format, ...) \

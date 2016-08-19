@@ -33,10 +33,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifdef __cplusplus
 extern "C" {
 #endif
-
 #define SCRPAD_EOF_OFFSET 0xFFFFFFFF
 #define SCRPAD_FLAGS_IDX    0
-#define SCRPAD_FIRST_IDX    0
 #define SCRPAD_MASK_IDX     (SCRPAD_FIRST_IDX+Tsi578_MAX_MC_MASKS)
 
 #define ALL_BITS ((uint32_t)(0xFFFFFFFF))
@@ -60,7 +58,11 @@ extern "C" {
 			Tsi578_RIO_MC_DESTID_ASSOC_CMD | \
 			Tsi578_RIO_MC_DESTID_ASSOC_LARGE))
 
-const struct scrpad_info scratchpad_const[MAX_DAR_SCRPAD_IDX] = {
+#define SCRATCHPAD_ENTRIES (sizeof(scrpad_const) / \
+			 sizeof(struct scrpad_info))
+#define SCRATCHPAD_SIZE (SCRATCHPAD_ENTRIES * sizeof(uint32_t))
+
+const struct scrpad_info scrpad_const[] = {
 	{Tsi578_RIO_MC_IDX(0) , MC_IDX_MASK},  
 	{Tsi578_RIO_MC_IDX(1) , MC_IDX_MASK}, 
 	{Tsi578_RIO_MC_IDX(2) , MC_IDX_MASK},
@@ -94,82 +96,91 @@ const struct scrpad_info scratchpad_const[MAX_DAR_SCRPAD_IDX] = {
 
 const struct scrpad_info *get_scrpad_info( void ) 
 {
-	return scratchpad_const;
+	return scrpad_const;
 };
 
+struct tsi57x_data {
+	uint32_t scrpad[SCRATCHPAD_ENTRIES];
+};
 
-uint32_t regrw_update_h_info_on_write(
-	regrw_i *h, uint32_t  offset, uint32_t  data)
+int tundra_update_h_info(regrw_i *h, uint32_t os, uint32_t  data)
 {
 	uint8_t idx = 0;
+	struct tsi57x_data *dev_i = h->dev_i;
+	
 
-	scratchpad = 
-	for (idx = SCRPAD_FIRST_IDX; idx < MAX_DAR_SCRPAD_IDX; idx++) {
-		if (scratchpad_const[idx].offset == offset) {
-			writedata &= scratchpad_const[idx].rw_mask;
-			dev_info->scratchpad[idx] = writedata;
+	for (idx = 0; idx < SCRATCHPAD_ENTRIES; idx++) {
+		if (scrpad_const[idx].offset != offset) {
+			continue;
+		};
+		data &= scrpad_const[idx].rw_mask;
+		dev_i->scrpad[idx] = data;
 
-			switch (offset) {
-			case Tsi578_RIO_MC_MASK_CFG    : 
-			{
-				uint32_t mask = (writedata & Tsi578_RIO_MC_MASK_CFG_MC_MASK_NUM) >> 16;
-				uint8_t port = (writedata & RIO_MC_MSK_CFG_PT_NUM) >> 8;
-				uint32_t cmd  = (writedata & RIO_MC_MSK_CFG_CMD);
-				/* Write to Tsi578_RIO_MC_MASK_CFG can update mask registers.
-				* Emulate effect on mask registers, as we can't trust reading the
-				* global mask registers if Port 0 is powered down.
-				*/
+		switch (offset) {
+		case Tsi578_RIO_MC_MASK_CFG :  {
+			uint32_t mask =(data & Tsi578_MC_MSK_CFG_MSK_NO) >> 16;
+			uint8_t port = (data & Tsi578_MC_MSK_CFG_PORT_NO) >> 8;
+			uint32_t cmd  = (data & Tsi578_MC_MSK_CFG_CMD);
+			/* Write to Tsi578_RIO_MC_MASK_CFG can update mask
+			*  registers. Emulate effect on mask registers,
+			*  as we can't trust reading the global mask
+			*  registers if Port 0 is powered down.
+			*/
 
-				switch (cmd) {
-				case RIO_MC_MSK_CFG_CMD_ADD:
-					dev_info->scratchpad[mask+SCRPAD_MASK_IDX] |= ((uint32_t)(1) << (port + 16));
-					break;
-				case RIO_MC_MSK_CFG_CMD_DEL:
-					dev_info->scratchpad[mask+SCRPAD_MASK_IDX] &= ~((uint32_t)(1) << (port + 16));
-					break;
-				case RIO_MC_MSK_CFG_CMD_DEL_ALL:
-					dev_info->scratchpad[mask+SCRPAD_MASK_IDX] &= ~Tsi578_RIO_MC_MSKX_MC_MSK;
-					break;
-				case RIO_MC_MSK_CFG_CMD_ADD_ALL:
-					dev_info->scratchpad[mask+SCRPAD_MASK_IDX] |= Tsi578_RIO_MC_MSKX_MC_MSK;
-					break;
-				default:
-					break;
-				};
+			switch (cmd) {
+			case RIO_MC_MSK_CFG_CMD_ADD:
+				dev_i->scrpad[mask+SCRPAD_MASK_IDX] |=
+						((uint32_t)(1) << (port + 16));
 				break;
-			}
-
-				case Tsi578_RIO_MC_DESTID_ASSOC:
-				{
-					uint8_t mask = (dev_info->scratchpad[idx - 1] & RIO_MC_CON_SEL_MASK);
-					bool large = (dev_info->scratchpad[idx] & RIO_MC_CON_OP_DEV16M);
-					uint32_t destid = dev_info->scratchpad[idx - 1] & 
-						(RIO_MC_CON_SEL_DEV8 | RIO_MC_CON_SEL_DEV16);
-					uint32_t cmd = (dev_info->scratchpad[idx] & RIO_MC_CON_OP_CMD);
-					
-					/* Write to Tsi578_RIO_MC_DESTID_ASSOC can update destID registers.
-					 * Must emulate the effect, as it is not possible to trust the value
-					 * of the destID register selected when port 0 is powered down.
-					 */
-					switch (cmd) {
-					case RIO_MC_CON_OP_CMD_DEL:
-						dev_info->scratchpad[mask] = 0;
-						break;
-					case RIO_MC_CON_OP_CMD_ADD:
-						dev_info->scratchpad[mask] = (destid >> 16) |
-							Tsi578_RIO_MC_IDX_MC_EN | ((large)?(Tsi578_RIO_MC_IDX_LARGE_SYS):0);
-						break;
-					default:
-						break;
-					};
-					break;
-				};
-				default: break;
-				};
+			case RIO_MC_MSK_CFG_CMD_DEL:
+				dev_i->scrpad[mask+SCRPAD_MASK_IDX] &=
+						~((uint32_t)(1) << (port + 16));
+				break;
+			case RIO_MC_MSK_CFG_CMD_DEL_ALL:
+				dev_i->scrpad[mask+SCRPAD_MASK_IDX] &=
+						~Tsi578_RIO_MC_MSKX_MC_MSK;
+				break;
+			case RIO_MC_MSK_CFG_CMD_ADD_ALL:
+				dev_i->scrpad[mask+SCRPAD_MASK_IDX] |=
+						Tsi578_RIO_MC_MSKX_MC_MSK;
+				break;
+			default:
 				break;
 			};
+			break;
 		};
-	}
+
+		case Tsi578_RIO_MC_DESTID_ASSOC: {
+			uint8_t mask = (dev_i->scrpad[idx - 1] &
+							RIO_MC_CON_SEL_MASK);
+			bool large = (dev_i->scrpad[idx] &
+							RIO_MC_CON_OP_DEV16M);
+			uint32_t destid = dev_i->scrpad[idx - 1] & 
+				(RIO_MC_CON_SEL_DEV8 | RIO_MC_CON_SEL_DEV16);
+			uint32_t cmd = (dev_i->scrpad[idx] & RIO_MC_CON_OP_CMD);
+					
+			/* Write to Tsi578_RIO_MC_DESTID_ASSOC can update
+			* destID registers.  Must emulate the effect, as
+			* it is not possible to trust the value of the destID
+			* register selected when port 0 is powered down.
+			*/
+			switch (cmd) {
+			case RIO_MC_CON_OP_CMD_DEL:
+				dev_info->scratchpad[mask] = 0;
+				break;
+			case RIO_MC_CON_OP_CMD_ADD:
+				dev_info->scratchpad[mask] = (destid >> 16) |
+					Tsi578_RIO_MC_IDX_MC_EN |
+				((large)?(Tsi578_RIO_MC_IDX_LARGE_SYS):0);
+				break;
+			default:
+				break;
+			};
+			break;
+		};
+		default: break;
+		};
+	};
 	return rc;
 }
 
@@ -182,7 +193,7 @@ uint32_t IDT_tsi57xReadReg( DAR_DEV_INFO_t *dev_info,
 	uint8_t idx = 0;
 
 	for (idx = SCRPAD_FIRST_IDX; idx < MAX_DAR_SCRPAD_IDX; idx++) {
-		if (scratchpad_const[idx].offset == offset) {
+		if (scrpad_const[idx].offset == offset) {
 			switch (offset) {
 			case Tsi578_RIO_MC_DESTID_ASSOC:
 			case Tsi578_RIO_MC_MASK_CFG    : 
@@ -202,59 +213,62 @@ uint32_t IDT_tsi57xReadReg( DAR_DEV_INFO_t *dev_info,
 	return rc;
 }
 
-
-uint32_t init_scratchpad( DAR_DEV_INFO_t *DAR_info )
+uint32_t tundra_init_scratchpad(regrw_i *h) 
 {
 	uint32_t rc;
 	uint8_t idx;
+	uint32_t *scrpad;
 
-	for (idx = SCRPAD_FIRST_IDX; idx < MAX_DAR_SCRPAD_IDX; idx++) {
-		if (SCRPAD_EOF_OFFSET == scratchpad_const[idx].offset)
+	h->scratchpad = calloc(1, SCRATCHPAD_SIZE);
+	scrpad = (uint32_t *) h->scratchpad;
+
+	for (idx = SCRPAD_FIRST_IDX; idx < SCRATCHPAD_ENTRIES; idx++) {
+		if (SCRPAD_EOF_OFFSET == scrpad_const[idx].offset)
 			break;
 
-		rc = ReadReg( DAR_info, scratchpad_const[idx].offset, &DAR_info->scratchpad[idx]);
-		if (RIO_SUCCESS != rc)
-			break;
+		if (regrw_raw_rd(h, h->dest_id, h->hc, 
+				scrpad_const[idx].offset, &scrpad[idx])) {
+			goto fail;
+		};
 	};
-	return rc;
+
+	return 0;
+fail:
+	return -1;
 };
 
-uint32_t IDT_tsi57xDeviceSupported( DAR_DEV_INFO_t *DAR_info )
+int tundra_fill_in_handle(regrw_i *h)
 {
-    uint32_t rc = DAR_DB_NO_DRIVER;
+	h->dev_i = calloc(1, sizeof(struct tsi57x_data));
 
-    if ( IDT_TSI_VENDOR_ID ==  ( DAR_info->devID & RIO_DEV_IDENT_VEND ) )
-    {
-        if ( (IDT_TSI57x_DEV_ID >> 4) == ( (DAR_info->devID & RIO_DEV_IDENT_DEVI) >> 20) )
-        {
-            /* Now fill out the DAR_info structure... */
-            rc = DARDB_rioDeviceSupportedDefault( DAR_info );
+	if (tundra_init_scratchpad(h)) {
+		goto fail;
+	};
 
-            /* Index and information for DSF is the same as the DAR handle */
-            DAR_info->dsf_h = Tsi57x_driver_handle;
-		rc = init_scratchpad( DAR_info );
+	if (tundra_init_rt(h)) {
+		goto fail;
+	};
+fail:
+	return -1;
+};
 
-            if ( rc == RIO_SUCCESS ) {
-                num_Tsi57x_driver_instances++ ;
-                getTsiName( DAR_info );
-            };
-        }
-    }
-    return rc;
-}
-
-uint32_t bind_tsi57x_DAR_support( void )
+int tundra_update_h_info_on_write(regrw_i *h, uint32_t offseet, uint32_t data)
 {
-    DAR_DB_Driver_t DAR_info;
+};
 
-    DARDB_Init_Driver_Info( IDT_TSI_VENDOR_ID, &DAR_info );
+int tundra_get_info_from_h_on_read(regrw_i *h, uint32_t offset, uint32_t *data);
+{
+};
 
-	DAR_info.WriteReg = IDT_tsi57xWriteReg;
-	DAR_info.ReadReg = IDT_tsi57xReadReg;
-    DAR_info.rioDeviceSupported = IDT_tsi57xDeviceSupported;
+int tundra_fixup_data_on_read(regrw_i *h, uint32_t offseet, uint32_t *data);
+{
+};
 
-    DARDB_Bind_Driver( &DAR_info );
-    
-    return RIO_SUCCESS;
-}
+int tundra_fixup_data_on_write(regrw_i *h, uint32_t offseet, uint32_t *data);
+{
+};
 
+
+#ifdef __cplusplus
+};
+#endif

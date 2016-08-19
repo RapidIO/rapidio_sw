@@ -41,7 +41,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 extern "C" {
 #endif
 
-char *level_strings[(int)REGRW_LL_TRACE+1] = {
+char *level_strings[(int)REGRW_LL_LAST] = {
 	(char *)"NOLOG",
 	(char *)"CRIT",
 	(char *)"ERROR",
@@ -49,36 +49,31 @@ char *level_strings[(int)REGRW_LL_TRACE+1] = {
 	(char *)"HIGH",
 	(char *)"INFO",
 	(char *)"Debug",
-	(char *)"TRACE",
+	(char *)"TRACE"
 };
 
 #define LOG_STR(x) (level_strings[(int)LOG_VALUE(x)])
 
-int log_level_set(struct cli_env *env, int argc, char **argv,
-			char* label, enum regrw_log_level *level)
+int REGRWLogLevelCmd(struct cli_env *env, int argc, char **argv)
 {
-        uint8_t temp;
+        uint8_t level = regrw_get_log_level();
 
 	if (argc) {
-		temp = getHex(argv[0], 0);
-		*level = (enum regrw_log_level)LOG_VALUE(temp);
+		level = getHex(argv[0], 0);
+		level = (enum regrw_log_level)regrw_set_log_level(level);
 	};
 
-	sprintf(env->output, "\nCompiled log level %d: %s\n", REGRW_LL, 
-		LOG_STR(REGRW_LL));
+	sprintf(env->output, "\nCompiled log level %d: %s\n", 
+		REGRW_LL, LOG_STR(REGRW_LL));
 	logMsg(env);
-	sprintf(env->output, "Current %s level %d: %s\n", label,
-		*level, LOG_STR(*level));
+
+	sprintf(env->output, "Current  LOG level %d: %s\n", 
+		level, LOG_STR(level));
 	logMsg(env);
 
 	return 0;
 };
 
-int REGRWLogLevelCmd(struct cli_env *env, int argc, char **argv)
-{
-	return log_level_set(env, argc, argv, (char *)"log", &regrw_log_level);
-};
-	
 struct cli_cmd REGRWLogLevel = {
 "REGRWll",
 3,
@@ -103,10 +98,24 @@ ATTR_NONE
 /**
  * Sets the debug level for messages displayed on the screen.
  */
-int REGRWDispLevelCmd(struct cli_env *env, int argc, char **argv)
+int REGRWLogDLevelCmd(struct cli_env *env, int argc, char **argv)
 {
-	return log_level_set(env, argc, argv, (char *)"display",
-				&regrw_disp_level);
+        uint8_t level = regrw_get_log_dlevel();
+
+	if (argc) {
+		level = getHex(argv[0], 0);
+		level = (enum regrw_log_level)regrw_set_log_dlevel(level);
+	};
+
+	sprintf(env->output, "\nCompiled log level %d: %s\n", 
+		REGRW_LL, LOG_STR(REGRW_LL));
+	logMsg(env);
+
+	sprintf(env->output, "Current DISP level %d: %s\n", 
+		level, LOG_STR(level));
+	logMsg(env);
+
+	return 0;
 };
 
 struct cli_cmd REGRWDispLevel = {
@@ -125,7 +134,7 @@ struct cli_cmd REGRWDispLevel = {
         "   NOTE: Levels above \"Error\" impact performance significantly.\n"
         "   NOTE: Maximum level available is set through the \"LOG_LEVEL\"\n"
         "         Makefile compile option.",
-REGRWDispLevelCmd,
+REGRWLogDLevelCmd,
 ATTR_NONE
 };
 
