@@ -39,6 +39,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sys/stat.h>
 #include <sys/sem.h>
 #include <fcntl.h>
+#include <stdbool.h>
 
 #ifdef __WINDOWS__
 #include "stdafx.h"
@@ -80,165 +81,47 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 extern "C" {
 #endif
 
+void fmd_dd_incr_chg_idx(struct fmd_dd *dd, int dd_rw)
+{
+	if ((NULL != dd) && dd_rw) {
+		uint32_t next_idx = dd->chg_idx+1;
+		if (!next_idx)
+			next_idx = 1;
+		dd->chg_idx = next_idx;
+		clock_gettime(CLOCK_REALTIME, &dd->chg_time);
+	};
+};
+
 int fmd_dd_open_rw(char *dd_fn, int *dd_fd, struct fmd_dd **dd, 
 					struct fmd_dd_mtx *dd_mtx)
 {
-	int rc;
+	int rc, idx;
 
         *dd_fd = shm_open(dd_fn, O_RDWR | O_CREAT | O_EXCL, 
                         S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 
         if (-1 == *dd_fd) {
-		if (EEXIST == errno ) {
-        		*dd_fd = shm_open(dd_fn, O_RDWR, 
-                        		S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
-		}
+        	CRIT("rw shm_open failed: 0x%x %s", errno, strerror(errno));
+		goto fail;
 	};
-
-        if (-1 == *dd_fd) {
-        	CRIT("rw shm_open failed: 0x%x %s\n", errno, strerror(errno));
-                goto exit;
-	}
 
         rc = ftruncate(*dd_fd, sizeof(struct fmd_dd));
         if (-1 == rc) {
-        	CRIT("rw ftruncate failed: 0x%x %s\n", errno, strerror(errno));
+        	CRIT("rw ftruncate failed: 0x%x %s", errno, strerror(errno));
                 shm_unlink(dd_fn);
-                goto exit;
+                goto fail;
         };
 
-        *dd = (struct fmd_dd *)
-		mmap(NULL, sizeof(struct fmd_dd), PROT_READ|PROT_WRITE,
-                MAP_SHARED, *dd_fd, 0);
+        *dd = (struct fmd_dd *) mmap(NULL, sizeof(struct fmd_dd),
+		PROT_READ|PROT_WRITE, MAP_SHARED, *dd_fd, 0);
 
         if (MAP_FAILED == *dd) {
-        	CRIT("rw mmap failed:0x%x %s\n", errno, strerror(errno));
+        	CRIT("rw mmap failed:0x%x %s", errno, strerror(errno));
                 *dd = NULL;
                 shm_unlink(dd_fn);
-                goto exit;
-        };
-
-	if ((NULL != *dd) && (NULL != dd_mtx))
-		if ((*dd)->chg_idx && dd_mtx->dd_ref_cnt)
-			dd_mtx->dd_ref_cnt++;
-	return 0;
-exit:
-        return -1;
-};
-
-int fmd_dd_open_ro(char *dd_fn, int *dd_fd, struct fmd_dd **dd, 
-					struct fmd_dd_mtx *dd_mtx)
-{
-	*dd_fd = shm_open(dd_fn, O_RDONLY, 0);
-        if (-1 == *dd_fd) {
-        	CRIT("RO shm_open failed: 0x%x %s\n",
-            		errno, strerror( errno ) );
-                goto exit;
-	}
-
-        *dd = (struct fmd_dd *)mmap(NULL, sizeof(struct fmd_dd), PROT_READ,
-                MAP_SHARED, *dd_fd, 0);
-
-        if (MAP_FAILED == *dd) {
-        	CRIT("RO mmap failed:0x%x %s\n",
-            		errno, strerror(errno));
-                *dd = NULL;
-                goto exit;
-        };
-
-	if ((NULL != *dd) && (NULL != dd_mtx))
-		if ((*dd)->chg_idx && dd_mtx->dd_ref_cnt)
-			dd_mtx->dd_ref_cnt++;
-	return 0;
-exit:
-	return -1;
-};
-
-int fmd_dd_mtx_open(char *dd_mtx_fn, int *dd_mtx_fd, struct fmd_dd_mtx **dd_mtx)
-{
-        int rc, i;
-
-	if ((NULL == dd_mtx_fn) || (NULL == dd_mtx_fd) || (NULL == dd_mtx)) {
-		errno = -EINVAL;
-		goto fail;
-	};
-
-        *dd_mtx_fd = shm_open(dd_mtx_fn, O_RDWR | O_CREAT | O_EXCL, 
-                        S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
-
-        if (-1 == *dd_mtx_fd)
-		if (EEXIST == errno)
-        		*dd_mtx_fd = shm_open(dd_mtx_fn, O_RDWR, 
-                        		S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
-
-        if (-1 == *dd_mtx_fd) {
-        	CRIT("rw mutex shm_open failed: 0x%x %s\n",
-            		errno, strerror( errno ) );
-                goto fail;
-	}
-
-        rc = ftruncate(*dd_mtx_fd, sizeof(struct fmd_dd_mtx));
-        if (-1 == rc) {
-        	CRIT("rw mutex ftruncate failed: 0x%x %s\n",
-            		errno, strerror( errno ) );
                 goto fail;
         };
 
-        *dd_mtx = (struct fmd_dd_mtx *)mmap(NULL, sizeof(struct fmd_dd_mtx), 
-			PROT_READ|PROT_WRITE, MAP_SHARED, *dd_mtx_fd, 0);
-
-        if (MAP_FAILED == *dd_mtx) {
-        	CRIT("rw mutex mmap failed:0x%x %s\n", errno, strerror(errno));
-                *dd_mtx = NULL;
-                goto fail;
-        };
-
-	if (((*dd_mtx)->dd_ref_cnt == (*dd_mtx)->dd_ref_cnt) &&
-						(*dd_mtx)->init_done) {
-		(*dd_mtx)->mtx_ref_cnt++;
-		(*dd_mtx)->dd_ref_cnt++;	
-	} else {
-		sem_init(&(*dd_mtx)->sem, 1, 0);
-		(*dd_mtx)->mtx_ref_cnt = 1;
-		(*dd_mtx)->init_done = TRUE;
-		for (i = 0; i < FMD_MAX_APPS; i++) {
-			(*dd_mtx)->dd_ev[i].in_use = 0;
-			(*dd_mtx)->dd_ev[i].proc = 0;
-			(*dd_mtx)->dd_ev[i].waiting = 0;
-			sem_init(&(*dd_mtx)->dd_ev[i].dd_event, 1, 0);
-		};
-		sem_post(&(*dd_mtx)->sem);
-	};
-	return 0;
-fail:
-	return -1;
-};
-
-int fmd_dd_init(char *dd_mtx_fn, int *dd_mtx_fd, struct fmd_dd_mtx **dd_mtx,
-		char *dd_fn, int *dd_fd, struct fmd_dd **dd)
-{
-	int rc;
-	int idx;
-
-
-       	rc = fmd_dd_mtx_open(dd_mtx_fn, dd_mtx_fd, dd_mtx);
-	if (rc)
-		goto fail;
-	rc = fmd_dd_open_rw(dd_fn, dd_fd, dd, *dd_mtx);
-	if (rc)
-		goto fail;
-
-	/* Previously created dd, add reference, do not initialize */
-	if ((*dd)->chg_idx && (*dd_mtx)->dd_ref_cnt &&
-		((*dd_mtx)->mtx_ref_cnt == (*dd_mtx)->dd_ref_cnt)) {
-
-		(*dd_mtx)->dd_ref_cnt++;
-		(*dd_mtx)->mtx_ref_cnt++;
-		goto exit;
-	};
-
-	(*dd_mtx)->dd_ref_cnt = 1;
-	(*dd_mtx)->mtx_ref_cnt = 1;
 	(*dd)->chg_idx = 0;
 	(*dd)->md_ct = 0;
 	(*dd)->num_devs = 0;
@@ -253,7 +136,129 @@ int fmd_dd_init(char *dd_mtx_fn, int *dd_mtx_fd, struct fmd_dd_mtx **dd_mtx,
 		memset((*dd)->devs[idx].name, 0, FMD_MAX_NAME+1);
 	};
 	fmd_dd_incr_chg_idx(*dd, 1);
+	dd_mtx->dd_ref_cnt++;
+
+	return 0;
+fail:
+        return -1;
+};
+
+int fmd_dd_open(char *dd_fn, int *dd_fd, struct fmd_dd **dd, 
+					struct fmd_dd_mtx *dd_mtx)
+{
+	*dd_fd = shm_open(dd_fn, O_RDONLY, 0);
+        if (-1 == *dd_fd) {
+        	CRIT("RO shm_open failed: 0x%x %s",
+            		errno, strerror( errno ) );
+                goto exit;
+	}
+
+        *dd = (struct fmd_dd *)mmap(NULL, sizeof(struct fmd_dd), PROT_READ,
+                MAP_SHARED, *dd_fd, 0);
+
+        if (MAP_FAILED == *dd) {
+        	CRIT("RO mmap failed:0x%x %s",
+            		errno, strerror(errno));
+                *dd = NULL;
+                goto exit;
+        };
+
+	if ((NULL != *dd) && (NULL != dd_mtx)) {
+		dd_mtx->dd_ref_cnt++;
+	};
+
+	return 0;
 exit:
+	return -1;
+};
+
+int fmd_dd_mtx_open_priv(char *dd_mtx_fn, int *dd_mtx_fd,
+		struct fmd_dd_mtx **dd_mtx, bool open_by_fmd)
+{
+        int rc, i;
+	bool new_mtx = false;
+
+	if ((NULL == dd_mtx_fn) || (NULL == dd_mtx_fd) || (NULL == dd_mtx)) {
+		errno = -EINVAL;
+		goto fail;
+	};
+
+	if (open_by_fmd) {
+		// FMD owns the MTX file, so it should create the file.
+        	*dd_mtx_fd = shm_open(dd_mtx_fn, O_RDWR | O_CREAT | O_EXCL, 
+                        	S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+		if (EEXIST == errno) {
+			CRIT("DD_MTX file already exists, FMD failure");
+			goto fail;
+		};
+		new_mtx = true;
+	} else {
+
+        	*dd_mtx_fd = shm_open(dd_mtx_fn, O_RDWR, 
+                        		S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+	};
+
+        if (-1 == *dd_mtx_fd) {
+        	CRIT("rw mutex shm_open failed: 0x%x %s",
+            		errno, strerror( errno ) );
+                goto fail;
+	}
+
+        rc = ftruncate(*dd_mtx_fd, sizeof(struct fmd_dd_mtx));
+        if (-1 == rc) {
+        	CRIT("rw mutex ftruncate failed: 0x%x %s",
+            		errno, strerror( errno ) );
+                goto fail;
+        };
+
+        *dd_mtx = (struct fmd_dd_mtx *)mmap(NULL, sizeof(struct fmd_dd_mtx), 
+			PROT_READ|PROT_WRITE, MAP_SHARED, *dd_mtx_fd, 0);
+
+        if (MAP_FAILED == *dd_mtx) {
+        	CRIT("rw mutex mmap failed:0x%x %s", errno, strerror(errno));
+                *dd_mtx = NULL;
+                goto fail;
+        };
+
+	if (new_mtx) {
+		sem_init(&(*dd_mtx)->sem, 1, 0);
+		(*dd_mtx)->mtx_ref_cnt = 0;
+		(*dd_mtx)->init_done = TRUE;
+		for (i = 0; i < FMD_MAX_APPS; i++) {
+			(*dd_mtx)->dd_ev[i].in_use = 0;
+			(*dd_mtx)->dd_ev[i].proc = 0;
+			(*dd_mtx)->dd_ev[i].waiting = 0;
+			sem_init(&(*dd_mtx)->dd_ev[i].dd_event, 1, 0);
+		};
+		sem_post(&(*dd_mtx)->sem);
+	};
+	(*dd_mtx)->mtx_ref_cnt++;
+
+	return 0;
+fail:
+	return -1;
+};
+
+int fmd_dd_mtx_open(char *dd_mtx_fn, int *dd_mtx_fd,
+		struct fmd_dd_mtx **dd_mtx)
+{
+	return fmd_dd_mtx_open_priv(dd_mtx_fn, dd_mtx_fd, dd_mtx, false);
+};
+
+int fmd_dd_init(char *dd_mtx_fn, int *dd_mtx_fd, struct fmd_dd_mtx **dd_mtx,
+		char *dd_fn, int *dd_fd, struct fmd_dd **dd)
+{
+	int rc;
+
+       	rc = fmd_dd_mtx_open_priv(dd_mtx_fn, dd_mtx_fd, dd_mtx, true);
+	if (rc) {
+		goto fail;
+	};
+	rc = fmd_dd_open_rw(dd_fn, dd_fd, dd, *dd_mtx);
+	if (rc) {
+		goto fail;
+	};
+
 	return 0;
 fail:
 	return -1;
@@ -298,17 +303,6 @@ void fmd_dd_cleanup(char *dd_mtx_fn, int *dd_mtx_fd,
 	};
 };
 	
-void fmd_dd_incr_chg_idx(struct fmd_dd *dd, int dd_rw)
-{
-	if ((NULL != dd) && dd_rw) {
-		uint32_t next_idx = dd->chg_idx+1;
-		if (!next_idx)
-			next_idx = 1;
-		dd->chg_idx = next_idx;
-		clock_gettime(CLOCK_REALTIME, &dd->chg_time);
-	};
-};
-
 uint32_t fmd_dd_get_chg_idx(struct fmd_dd *dd)
 {
 	if (NULL != dd)

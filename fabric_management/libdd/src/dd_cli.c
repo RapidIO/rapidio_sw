@@ -39,6 +39,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sys/stat.h>
 #include <sys/sem.h>
 #include <fcntl.h>
+#include "fmd_dd_priv.h"
 
 
 // #ifdef __LINUX__
