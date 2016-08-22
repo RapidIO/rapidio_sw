@@ -1,6 +1,7 @@
+#include "rio_misc.h"
 #include "memops.h"
 
-int main(int argc, char* argv[])
+int main(int UNUSED(argc), char **UNUSED(argv))
 {
   const int mport_num = 0;
   RIOMemOpsIntf* memops = NULL;

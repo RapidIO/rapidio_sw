@@ -28,55 +28,59 @@
 #OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 #OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #--------------------------------------------------------------------------***
-#
+
 TOPDIR?=$(shell pwd)/../..
 include $(TOPDIR)/rules.mk
 
-debug?=NDEBUG
+TARGETS:=$(patsubst src/%.cpp,%,$(wildcard src/*.cpp))
+
 LIBMPORT_PATH=../libmport
 LIBTU_PATH=../libtime_utils
 LIBLOG_PATH=../liblog
 LIBCLI_PATH=../libcli
+CXXFLAGS+=-D$(DEBUG_CTL) -DRDMA_LL=$(LOG_LEVEL)
 
 CM_BUILD_STRING = $(CXX) $(CXXFLAGS) \
-	-L$(COMMONLIB) $(LIBS_RPATH) \
-	-DRDMA_LL=$(LOG_LEVEL) \
-	-o $@ $(RDMAD_CFLAGS) \
-	 src/$@.cpp -ltime_utils -lmport -llog -lcli -lrt
-
-UNIX_BUILD_STRING = $(CXX) $(CXXFLAGS) -L$(LIBLOG_PATH) -L$(LIBCLI_PATH) \
 	$(LIBS_RPATH) \
-	-DRDMA_LL=$(LOG_LEVEL) \
-	-I$(TOPDIR)/rdma/inc -I$(TOPDIR)/include -I$(COMMONINC) -o $@ $(RDMAD_CFLAGS) \
-	 src/$@.cpp -llog -lcli -lrt -pthread
+	-o $@ \
+	src/$@.cpp \
+	-ltime_utils -lmport -llog -lcli
 
-all: cm_sock_server cm_sock_client unix_sock_client unix_sock_server msg_q1 msg_q2
+UNIX_BUILD_STRING = $(CXX) $(CXXFLAGS) \
+	-I$(TOPDIR)/rdma/inc \
+	-L$(LIBLOG_PATH) -L$(LIBCLI_PATH) \
+	$(LIBS_RPATH) \
+	-o $@ \
+	src/$@.cpp \
+	-llog -lcli -lrt -pthread
+
+all: $(TARGETS)
 
 # Test apps for CM socket wrapper class
 cm_sock_server: src/cm_sock_server.cpp $(COMMONINC)/*.h
-	@echo ---------- Building cm_sock_server ...
+	@echo ---------- Building $@
 	$(CM_BUILD_STRING)
 
 cm_sock_client: $(LIBMPORT_PATH)/libmport.so $(LIBLOG_PATH)/liblog.so src/cm_sock_client.cpp $(COMMONINC)/*.h
-	@echo ---------- Building cm_sock_client ...
+	@echo ---------- Building $@
 	$(CM_BUILD_STRING)
 
 # Test apps for UNIX socket wrapper class
 unix_sock_server: src/unix_sock_server.cpp $(COMMONINC)/*.h
-	@echo ---------- Building unix_sock_server ...
+	@echo ---------- Building $@
 	$(UNIX_BUILD_STRING)
 
 unix_sock_client: src/unix_sock_client.cpp $(COMMONINC)/*.h
-	@echo ---------- Building uinx_sock_client ...
+	@echo ---------- Building $@
 	$(UNIX_BUILD_STRING)
 
 msg_q1:	src/msg_q1.cpp
-	@echo ---------- Building msg_q1 ...
+	@echo ---------- Building $@
 	$(UNIX_BUILD_STRING)
 
 msg_q2:	src/msg_q2.cpp
-	@echo ---------- Building msg_q2 ...
+	@echo ---------- Building $@
 	$(UNIX_BUILD_STRING)
 
 clean:
-	@rm -f cm_sock_server cm_sock_client unix_sock_server unix_sock_client msg_q1 msg_q2 *.o *~
+	rm -f $(TARGETS) *.o *~

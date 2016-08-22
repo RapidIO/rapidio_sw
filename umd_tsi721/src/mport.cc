@@ -171,7 +171,7 @@ bool RioMport::unmap_ibwin(DmaMem_t& ibwin)
   m_dmaibwin_reg.erase(it);
 
   /* Memory-unmap the inbound window's virtual pointer */
-  rc = riomp_dma_unmap_memory(mp_h, ibwin.win_size, ibwin.win_ptr);
+  rc = riomp_dma_unmap_memory(ibwin.win_size, ibwin.win_ptr);
   if (rc) {
     XCRIT("Failed to unmap inbound memory: @%p %d:%s\n",
          ibwin.win_ptr, ret, strerror(ret));
@@ -296,7 +296,7 @@ bool RioMport::unmap_dma_buf(DmaMem_t& mem)
 
   m_dmatxmem_reg.erase(it);
 
-  rc = riomp_dma_unmap_memory(mp_h, mymem.win_size, mymem.win_ptr);
+  rc = riomp_dma_unmap_memory(mymem.win_size, mymem.win_ptr);
   if (rc) {
         XCRIT("FAIL riomp_dma_unmap_memory: %d:%s\n", rc, strerror(rc));
     ret = false;

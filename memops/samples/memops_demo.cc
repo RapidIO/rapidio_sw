@@ -97,6 +97,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdio.h>
 #include <getopt.h>
 
+#include "rio_misc.h"
 #ifdef RDMA_LL
 	#include "liblog.h"
 #endif
@@ -108,10 +109,10 @@ extern "C" bool DMAChannelSHM_has_logging();
 
 int timeout = 1000; // miliseconds
 
-void usage_and_exit(const char* name)
+void usage_and_exit(const char *name)
 {
 	fprintf(stderr, " Usage:\n"
-	" ./memops_demo (sync) (driver) -d destid -t addr\n"
+	" %s (sync) (driver) -d destid -t addr\n"
 	" - sync is at least one of:\n"
 	"   -s sync transaction, wait forever until the transaction\n"
 	"      is complete\n"
@@ -128,7 +129,7 @@ void usage_and_exit(const char* name)
 	" - dest - the destination ID of the node with the target memory\n"
 	"          If this parameter is not entered, memops_demo fails.\n"
 	" - addr - RapidIO address of an inbound window on the target device\n"
-	"          default is 0x200000000\n");
+	"          default is 0x200000000\n", name);
 	exit(0);
 }
 
@@ -148,6 +149,7 @@ const char* met_str[] = {"mport", "UMDd/SHM", "UMD"};
 int main(int argc, char* argv[])
 {
 	const char* sync_str = "SYNC";
+	const int TR_SZ = 256;
 	enum riomp_dma_directio_transfer_sync sync = RIO_DIRECTIO_TRANSFER_SYNC;
 	uint16_t did = 0xFFFF;
 	uint64_t rio_addr = 0x200000000;
@@ -163,7 +165,6 @@ int main(int argc, char* argv[])
 		{ "UMD_Sh", no_argument, NULL, 'M' },
 		{ "UMD"   , no_argument, NULL, 'U' },
 		{ "help",   no_argument, NULL, 'h' },
-		{ }
 	};
 
 	if (argc < 4)
@@ -236,31 +237,43 @@ int main(int argc, char* argv[])
 	/** - Create memory operation object */
 	RIOMemOpsIntf* mops = RIOMemOps_classFactory(met[m], 0, chan);
 
+	/** - Create an inbound window, not otherwise used in the test */
+	DmaMem_t ibmem;
+	memset(&ibmem, 0, sizeof(ibmem));
+
+	/** - Write data to the target address on the selected destid */
+	MEMOPSRequest_t req;
+	memset(&req, 0, sizeof(req));
+	uint8_t* p = (uint8_t*)req.mem.win_ptr;
+
+
 	printf("HW access method=%s %s destid=%u rio_addr=0x%" PRIx64 " [chan=%d]\n",
 		met_str[m], sync_str, did, rio_addr, chan);
 
 	/** - Set up the hardware, and create hardware management thread */
 	if (met[m] == MEMOPS_UMD) {
 		RIOMemOpsUMD* mops_umd = dynamic_cast<RIOMemOpsUMD*>(mops);
-		bool r = mops_umd->setup_channel(0x100, 0x400);
-		assert(r);
-		r = mops_umd->start_fifo_thr(-1);
-		assert(r);
+
+		if (false == mops_umd->setup_channel(0x100, 0x400)) {
+			assert(0); // error
+			ret = 1;
+			goto done;
+		} else {
+			if (false == mops_umd->start_fifo_thr(-1)) {
+				assert(0); // error
+				ret = 1;
+				goto done;
+			}
+		}
 	}
 
 	/** - Create an inbound window, not otherwise used in the test */
-	DmaMem_t ibmem;
-	memset(&ibmem, 0, sizeof(ibmem));
-
 	ibmem.rio_address = RIO_ANY_ADDR;
 	mops->alloc_dmawin(ibmem, 40960);
 	printf("IBWin RIO addr @0x%lx size 0x%x\n",
 		ibmem.win_handle, ibmem.win_size);
 
-	const int TR_SZ = 256;
-
 	/** - Write data to the target address on the selected destid */
-	MEMOPSRequest_t req; memset(&req, 0, sizeof(req));
 	req.destid = did;
 	req.bcount = TR_SZ;
 	req.raddr.lsb64 = rio_addr;
@@ -269,8 +282,6 @@ int main(int argc, char* argv[])
 	req.mem.offset = TR_SZ;
 	req.sync = sync;
 	req.wr_mode = RIO_DIRECTIO_TYPE_NWRITE_R;
-
-	uint8_t* p = (uint8_t*)req.mem.win_ptr;
 	p[TR_SZ] = 0xdb;
 	p[TR_SZ+1] = 0xae;
 

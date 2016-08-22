@@ -32,62 +32,48 @@
 TOPDIR?=$(shell pwd)/../..
 include $(TOPDIR)/rules.mk
 
-LOG_LEVEL ?= 4
-PREFIX?=/usr
-LIBDIR=$(DESTDIR)$(PREFIX)/lib
-BINDIR=$(DESTDIR)$(PREFIX)/bin
-INCDIR=$(COMMONINC) $(RIODIR) $(KDIR)
-O?=.
+NAME:=mport
+TARGETS:=lib$(NAME).a lib$(NAME).so
+SAMPLE_TARGETS:=$(patsubst samples/%.c,%,$(wildcard samples/*.c))
 
-ifdef DEBUG
-CXXFLAGS +=-Wall -Wno-sign-compare -fPIC # -DMPORT_DEBUG
-else
-CXXFLAGS += -Wall -Wno-sign-compare -fPIC -DNDEBUG
-endif
+OBJECTS:=$(patsubst src/%.c,src/%.o,$(wildcard src/*.c))
+SAMPLE_OBJECTS:=$(patsubst samples/%.c,samples/%.o,$(wildcard samples/*.c))
 
-CXXFLAGS += -I$(FMDDIR)/librio_switch/inc
-CXXFLAGS += -I$(UMDINCDIR)
+0?=.
+CXXFLAGS+=-D$(DEBUG_CTL)
+LINK_FLAGS+= -rdynamic -shared -Wl,-soname,lib$(NAME).so.$(SOVER)
+LDFLAGS+=-L. -L$(COMMONLIB) $(LIBS_RPATH) -l$(NAME)
+INC=-I$(KDIR) -I$(RIODIR) -I$(FMDDIR)/librio_switch/inc -I$(UMDINCDIR)
 
-LIBS=rt	pthread dl
-LDFLAGS+= -L$(COMMONLIB) $(LIBS_RPATH)
-INCLUDES=$(INCDIR) $(RIODIR)
 
-LIBPATHS=$(LIBDIR) $(O) $(COMMONLIB)
+.PHONY: all clean samples
 
-SAMPLES_TARGETS=$(addprefix $(O)/, riodp_test_dma riodp_test_misc \
-		riodp_test_client riodp_test_server riodp_test_buf \
-		riodp_test_db riodp_test_pw riodp_test_obw riodp_test_devs)
-LIB_TARGETS=$(addprefix $(O)/, libmport.a libmport.so)
+all: $(TARGETS) $(SAMPLE_TARGETS)
 
-.PHONY: all clean libs samples
+samples: $(SAMPLE_TARGETS)
 
-all: $(LIB_TARGETS)
+%.a: $(OBJECTS)
+	@echo ---------- Building $@
+	$(AR) rcs $@ $^
 
-libs: $(LIB_TARGETS)
+%.so: $(OBJECTS)
+	@echo ---------- Building $@
+	$(CXX) $(CXXFLAGS) -o $@.$(SOVER) $(OBJECTS) $(LINK_FLAGS)
+	@ln -s $@.$(SOVER) $@ &>/dev/null
 
-samples: $(SAMPLES_TARGETS)
+src/%.o: src/%.c
+	@echo ---------- Building $@
+	$(CXX) -c $(CXXFLAGS) $(INC) $< -o $@
 
-libmport.so: src/riodp_mport_lib.o
-	$(CXX) -shared -ldl -L$(COMMONLIB) -ltime_utils $(LIBS_RPATH) -Wl,-soname,$@.$(SOVER) -o $@.$(SOVER) $^
-	@ln -s $@.$(SOVER) $@ &>/dev/null || true
+samples/%.o: samples/%.c
+	@echo ---------- Building $@
+	$(CXX) -c $(CXXFLAGS) $(INC) $< -o $@
 
-libmport.a: src/riodp_mport_lib.o
-	$(AR) -r $@ $^
-
-umdmporttest: src/riodp_mport_lib.c
-	$(CXX) -DTEST_UMDD \
-		$(addprefix -I, $(INCLUDES)) -I$(FMDDIR)/librio_switch/inc -I$(UMDINCDIR) \
-		-Wall -Wno-sign-compare \
-		-ldl -L$(COMMONLIBA) -ltime_utils -o $@ $^
-
-$(O)/%: $(O)/samples/%.o libmport.so libmport.a
-	$(CXX) $(LDFLAGS) -o $@ $(addprefix -L, $(LIBPATHS)) $< $(addprefix -l, $(LIBS)) $(LIBS_RPATH) -ltime_utils -lmport
-
-$(O)/%: $(O)/src/%.o
-	$(CXX) $(LDFLAGS) -o $@ $(addprefix -L, $(LIBPATHS)) $< $(addprefix -l, $(LIBS)) $(LIBS_RPATH) -ltime_utils -lmport
-
-$(O)/%.o: %.c
-	$(CXX) -c -o $@ $(addprefix -I, $(INCLUDES)) $(CXXFLAGS) $(LIBS_RPATH) $<
+$(0)/%: $(0)/samples/%.o
+	@echo ---------- Building $@
+	$(CXX) -o $@ $< $(LDFLAGS) \
+	-ltime_utils -lpthread
 
 clean:
-	rm -rf $(SAMPLES_TARGETS) $(LIB_TARGETS) $(O)/src/*.o $(O)/samples/*.o libmport.so* umdmporttest
+	rm -f $(TARGETS) lib$(NAME).so.$(SOVER) $(SAMPLE_TARGETS) $(OBJECTS) $(SAMPLE_OBJECTS) inc/*~ src/*~ *~
+

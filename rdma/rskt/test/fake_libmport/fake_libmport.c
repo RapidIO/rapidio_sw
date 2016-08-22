@@ -207,11 +207,10 @@ int riomp_dma_map_memory(riomp_mport_t mport_handle, size_t size, off_t paddr,
 };
 
 
-int riomp_dma_unmap_memory(riomp_mport_t mport_handle, size_t size, void *vaddr)
+int riomp_dma_unmap_memory(size_t size, void *vaddr)
 {
 	if (0) {
-		if ((NULL == mport_handle) || (NULL == vaddr))
-			return 0;
+		(void) (vaddr);
 	};
 
 	return 0 * size;

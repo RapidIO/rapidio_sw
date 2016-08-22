@@ -45,15 +45,12 @@ level=$(LOG_LEVEL)
 NAME:=rskt
 TEST_TARGET:=$(NAME)_test
 
-CXXFLAGS+=$(addprefix -W,all extra) -fPIC
-CLFAGS+=
-CXXFLAGS+=-D$(DEBUG)
-CXXFLAGS+=-I. -Iinc -Isrc
+CXXFLAGS+=-D$(DEBUG_CTL) -DRDMA_LL=$(level)
+CXXFLAGS+=-Isrc
 CXXFLAGS+=-I$(FMDDIR)/librio_switch/inc
 CXXFLAGS+=-I$(MPORT_SRC)
 CXXFLAGS+=-I$(FAKE_FMDD)
 CXXFLAGS+=-I../daemon/src -I../inc -I/../lib/src
-CXXFLAGS+=-DRDMA_LL=$(level)
 LDFLAGS+=-L. -l$(NAME)
 
 OBJECTS:=$(DAEMON_SRC)/librsktd_lib.o $(DAEMON_SRC)/librsktd_cli.o

@@ -57,11 +57,12 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <netinet/in.h>
 #include <netdb.h>
 
+#include "rio_misc.h"
 #include "libcli.h"
 
 extern struct cli_cmd CLIConnect;
 
-int CLIConnectCmd(struct cli_env *env, int argc, char **argv)
+int CLIConnectCmd(struct cli_env *UNUSED(env), int UNUSED(argc), char **argv)
 {
 	int sockfd, portno, n;
 	struct sockaddr_in serv_addr;
@@ -168,7 +169,7 @@ void set_prompt(struct cli_env *e)
         };
 };
 
-int main(int argc, char *argv[])
+int main(int UNUSED(argc), char **UNUSED(argv))
 {
 	
 	struct cli_env env;

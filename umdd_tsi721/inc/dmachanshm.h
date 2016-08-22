@@ -46,6 +46,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "IDT_Tsi721.h"
 
+#include "rio_misc.h"
 #include "mport.h"
 #include "pshm.h"
 #include "dmadesc.h"
@@ -67,10 +68,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   #define XCRIT   CRIT
   #define XERR    ERR
 #else
-  #define XDBG(format, ...) 
-  #define XINFO(format, ...) 
-  #define XCRIT(format, ...) 
-  #define XERR(format, ...) 
+  #define XDBG(format, ...) if (0) fprintf(stderr, format, ## __VA_ARGS__)
+  #define XINFO(format, ...) if (0) fprintf(stderr, format, ## __VA_ARGS__)
+  #define XCRIT(format, ...) if (0) fprintf(stderr, format, ## __VA_ARGS__)
+  #define XERR(format, ...) if (0) fprintf(stderr, format, ## __VA_ARGS__)
 #endif
 
 /* DMA Status FIFO */
@@ -80,8 +81,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #if defined(REGDEBUG)
   #define REGDBG(format, ...) XDBG(format, __VA_ARGS__)
 #else
-  #define REGDBG(format, ...) 
+  #define REGDBG(format, ...) if (0) fprintf(stderr, format, ## __VA_ARGS__)
 #endif
+
 
 void hexdump4byte(const char* msg, uint8_t* d, int len);
 
@@ -157,7 +159,7 @@ public:
   ~DMAChannelSHM();
 
   inline int getChannel() { return m_state->chan; }
-  inline void setCheckHwReg(bool b) { m_check_reg = true; }
+  inline void setCheckHwReg(bool UNUSED_PARM(b)) { m_check_reg = true; }
 
   void resetHw();
   void setInbound();

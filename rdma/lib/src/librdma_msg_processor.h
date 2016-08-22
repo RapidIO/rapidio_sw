@@ -57,7 +57,7 @@ public:
 
 		auto rc = 0;
 
-		DBG("Got message type: '%s',0x%X cat:'%s',0x%X\n",
+		DBG("Got message type: '%s',0x%" PRIX64 " cat:'%s',0x%" PRIX64 "\n",
 			type_name(msg->type), msg->type,
 			cat_name(msg->category), msg->category);
 

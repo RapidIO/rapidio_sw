@@ -11,7 +11,7 @@
 #include <sstream>
 
 #include "tun_ipv4.h"
-//#include "worker.h"
+#include "rio_misc.h"
 
 #define PEER_SIG_INIT       0x66666666L
 #define PEER_SIG_UP         0xbaaddeedL
@@ -444,7 +444,6 @@ error:
     assert(sig == PEER_SIG_UP);
 
     uint32_t k = m_pRP->RP;
-    assert(k >= 0);
     ASSERT_BUFC(k);
 
     m_stats.rio_isol_rx_pass++;
@@ -542,10 +541,6 @@ error:
         }
         CRIT("\n\tBUG: IBBD[RP]->RO==0 k=%d savRP=%u volRP=%u pending %d IB BDs: %s\n", k, saved_RP, m_pRP->RP, N_pending, buf);
         usleep(10 * 1000); fflush(NULL);
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Waddress"
-        assert("IB BD BUG" == "IT'S ALIVE");
-#pragma GCC diagnostic pop
       }
     }
 #endif // UDMA_TUN_DEBUG_IB
@@ -699,6 +694,7 @@ stop_req:
     if(m_copy) return;
     assert(m_pRP->sig == DMAPEER_SIG);
     assert(n < (m_info->umd_tx_buf_cnt-1));
+    UNUSED_DBG(n);
   }
 }; // END class DmaPeer
 

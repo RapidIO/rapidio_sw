@@ -34,6 +34,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef RDMA_LOGGER_H
 #define RDMA_LOGGER_H
 
+#include <stdio.h>
 #include "rrmap_config.h"
 
 #define NUM_LOG_LINES	100
@@ -58,7 +59,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 		__rdma_log(RDMA_LL_DBG, "DBG", format, ## __VA_ARGS__); \
 }
 #else
-#define DBG(format, ...)
+#define DBG(format, ...) if (0) fprintf(stderr, format, ## __VA_ARGS__)
 #endif
 
 #if RDMA_LL >= RDMA_LL_INFO
@@ -66,7 +67,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 		__rdma_log(RDMA_LL_INFO, "INFO", format, ## __VA_ARGS__); \
 }
 #else
-#define INFO(format, ...)
+#define INFO(format, ...) if (0) fprintf(stderr, format, ## __VA_ARGS__)
 #endif
 
 #if RDMA_LL >= RDMA_LL_HIGH
@@ -74,7 +75,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 		__rdma_log(RDMA_LL_HIGH, "HIGH", format, ## __VA_ARGS__); \
 }
 #else
-#define HIGH(format, ...)
+#define HIGH(format, ...) if (0) fprintf(stderr, format, ## __VA_ARGS__)
 #endif
 
 #if RDMA_LL >= RDMA_LL_WARN
@@ -82,7 +83,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 		__rdma_log(RDMA_LL_WARN, "WARN", format, ## __VA_ARGS__); \
 }
 #else
-#define WARN(format, ...)
+#define WARN(format, ...) if (0) fprintf(stderr, format, ## __VA_ARGS__)
 #endif
 
 #if RDMA_LL >= RDMA_LL_ERR
@@ -90,13 +91,15 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 		__rdma_log(RDMA_LL_ERR, "ERR", format, ## __VA_ARGS__); \
 }
 #else
-#define ERR(format, ...)
+#define ERR(format, ...) if (0) fprintf(stderr, format, ## __VA_ARGS__)
 #endif
 
 #if RDMA_LL >= RDMA_LL_CRITICAL
 #define CRIT(format, ...) if (RDMA_LL_CRIT <= g_level) { \
 		__rdma_log(RDMA_LL_CRIT, "CRIT", format, ## __VA_ARGS__); \
 }
+#else
+#define CRIT(format, ...) if (0) fprintf(stderr, format, ## __VA_ARGS__)
 #endif
 
 #ifdef __cplusplus

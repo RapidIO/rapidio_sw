@@ -77,7 +77,7 @@ public:
    * \param[in] instance Channel number
    * \return a pointer to LockFile, will throw std::runtime_error on error
    */
-  static inline LockChannel* TakeLock(const char* module, const uint32_t mport,  const uint32_t instance)
+  static inline LockChannel* TakeLock(const char* module, const int mport, const int instance)
   {
     if (module == NULL || module[0] == '\0' || mport < 0 || instance < 0)
       throw std::runtime_error("ChannelLock::TakeLock: Invalid parameter!");

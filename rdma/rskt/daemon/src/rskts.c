@@ -56,6 +56,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 
+#include "rio_misc.h"
 #include <rapidio_mport_mgmt.h>
 
 #include "libcli.h"
@@ -208,7 +209,7 @@ void set_prompt(struct cli_env *e)
 
 void rskt_server_shutdown(void);
 
-int RSKTShutdownCmd(struct cli_env *env, int argc, char **argv)
+int RSKTShutdownCmd(struct cli_env *env, int UNUSED(argc), char **UNUSED(argv))
 {
 	rskt_server_shutdown();
 	sprintf(env->output, "Shutdown initiated...\n"); 

@@ -325,7 +325,7 @@ public:
 			close_mailbox();
 			throw cm_exception("Failed to create listen socket");
 		}
-		DBG("listen_socket = 0x%X\n", listen_socket);
+		DBG("listen_socket = %p\n", listen_socket);
 
 		/* Bind listen socket, throw exception if failed */
 		rc = riomp_sock_bind(listen_socket, channel);
@@ -356,7 +356,7 @@ public:
 		cm_base(name, 0, 0, shutting_down),
 		listen_socket(0), accept_socket(accept_socket), accepted(false)
 	{
-		DBG("'%s': accept_socket = 0x%X\n", name, accept_socket);
+		DBG("'%s': accept_socket = %p\n", name, accept_socket);
 	}
 
 	~cm_server()
@@ -398,7 +398,7 @@ public:
 			ERR("Failed to create accept socket for '%s'\n", name);
 			return -1;
 		}
-		DBG("Created accept_socket = 0x%X\n", accept_socket);
+		DBG("Created accept_socket = %p\n", accept_socket);
 
 		/* Wait for connection request from a client */
 		int rc = 0;
@@ -489,7 +489,7 @@ public:
 			close_mailbox();
 			throw cm_exception("Failed to create client socket");
 		}
-		DBG("client_socket = 0x%X\n", client_socket);
+		DBG("client_socket = %p\n", client_socket);
 	} /* Constructor */
 
 	/* construct from client socket only */

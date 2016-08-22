@@ -57,11 +57,13 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <string.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <inttypes.h>
 #include <unistd.h>
 #include <stdarg.h>
 #include <signal.h>
 #include <errno.h>
 
+#include "rio_misc.h"
 #include "liblog.h"
 #include "mboxmgr_tsi721.h"
 
@@ -190,7 +192,7 @@ bool setup_mailbox(struct worker *info)
 	}
 
 	INFO("\n\t%s my_did=%u my_mbox=%d tgt_did=%u tgt_mbox=%d\n\t"
-		" msg_sz=%d #buf=%d #fifo=%d\n",
+		" msg_sz=%" PRIu64 " #buf=%d #fifo=%d\n",
 			CLIENT?"CLIENT":"SERVER",
 			 info->mch->getDestId(), info->mbox,
 			 info->tgt_did, info->tgt_mbox,
@@ -459,7 +461,7 @@ void mbox_client(struct worker *info)
 		if (check_server_resp(info))
 			goto exit;
 		if (!(cnt & 0xFFFFF)) {
-			INFO("Exchanged 0x%16llx messages\n", cnt);
+			INFO("Exchanged 0x%16" PRIx64 " messages\n", cnt);
 		}
 	}
 exit:
@@ -636,7 +638,7 @@ static void sig_handler_term(int signo)
  *
  */
 
-void sig_handler_usr1(int signo)
+void sig_handler_usr1(int UNUSED_PARM(signo))
 {
 	printf("RX_CNT %d TX_CNT %d\n", (int)info.rx_cnt, (int)info.tx_cnt);
 	fflush(stdout);

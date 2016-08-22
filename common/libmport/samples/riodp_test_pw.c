@@ -212,7 +212,6 @@ int main(int argc, char** argv)
 		{ "mport",  required_argument, NULL, 'M' },
 		{ "debug",  no_argument, NULL, 'd' },
 		{ "help",   no_argument, NULL, 'h' },
-		{ }
 	};
 	char *program = argv[0];
 	struct riomp_mgmt_mport_properties prop;

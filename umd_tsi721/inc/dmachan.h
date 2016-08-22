@@ -42,6 +42,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sstream>
 #include <algorithm> // std::sort
 
+#include "rio_misc.h"
 #include "IDT_Tsi721.h"
 
 #include "mhz.h"
@@ -50,6 +51,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rdtsc.h"
 #include "debug.h"
 #include "libtime_utils.h"
+
+#ifdef RDMA_LL
+ #include "liblog.h"
+#endif
 
 #ifdef DMACHAN_TICKETED
  #include "dmashmpdata.h"
@@ -62,10 +67,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define DMA_STATUS_FIFO_LENGTH (4096)
 #define DMA_RUNPOLL_US 10
 
-#if defined(REGDEBUG)
-  #define REGDBG(format, ...) DBG(stdout, format, __VA_ARGS__)
+#if defined(REGDEBUG) && defined(RDMA_LL)
+  #define REGDBG(format, ...) DBG(format, ## __VA_ARGS__)
 #else
-  #define REGDBG(format, ...) 
+  #define REGDBG(format, ...) if (0) fprintf(stderr, format, ## __VA_ARGS__)
 #endif
 
 void hexdump4byte(const char* msg, uint8_t* d, int len);
@@ -134,7 +139,7 @@ public:
 
   inline int getChannel() { return m_chan; }
 
-  inline void setCheckHwReg(bool b) { m_check_reg = true; }
+  inline void setCheckHwReg(bool UNUSED_PARM(b)) { m_check_reg = true; }
 
   void resetHw();
   void setInbound();

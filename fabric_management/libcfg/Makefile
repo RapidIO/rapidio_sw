@@ -32,10 +32,6 @@
 TOPDIR?=$(shell pwd)/../..
 include $(TOPDIR)/rules.mk
 
-DEBUG?=DEBUG
-
-level=$(LOG_LEVEL)
-
 NAME:=cfg
 TARGETS:=lib$(NAME).a
 TEST_TARGET:=$(NAME)_test
@@ -46,12 +42,11 @@ CROSS_COMPILE?=/usr/bin/
 CC:=$(CROSS_COMPILE)g++
 AR:=$(CROSS_COMPILE)ar
 
-CFLAGS+=$(addprefix -W,all extra) -fPIC
-CFLAGS+=-D$(DEBUG)
-CFLAGS+=-I. -Iinc -I../inc -Isrc
+CFLAGS=$(CXXFLAGS)
+CFLAGS+=-D$(DEBUG_CTL) -DRDMA_LL=$(LOG_LEVEL)
+CFLAGS+=-I../inc -Isrc
 CFLAGS+=-I../libriocp_pe/inc
 CFLAGS+=-I../librio_switch/inc
-CFLAGS+=-DRDMA_LL=$(level)
 LDFLAGS+=-L. -l$(NAME)
 
 OBJECTS:=$(patsubst src/%.c,src/%.o,$(wildcard src/*.c))

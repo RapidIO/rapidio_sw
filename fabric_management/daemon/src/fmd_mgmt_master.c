@@ -93,17 +93,17 @@ void send_m2s_flag_update(struct fmd_peer *peer, struct fmd_dd_dev_info *dev)
 
 	peer->m2s->fset.flag = htonl(flag);
 
-	INFO("TX M2S FLAG UPDATE to did %x for did %x flag %x\n",
+	INFO("TX M2S FLAG UPDATE to did 0x%x for did 0x%x flag 0x%x\n",
 		peer->p_did, dev->destID, flag);
 
 	peer->tx_buff_used = 1;
 	peer->tx_rc = riomp_sock_send(peer->cm_skt_h, 
 				peer->tx_buff, FMD_P_M2S_CM_SZ);
 	sem_post(&peer->tx_mtx);
-	INFO("Sent M2S update to %s for %s, flags 0x%2x, tx rc %x\n",
+	INFO("Sent M2S update to %s for %s, flags 0x%2x, tx rc 0x%x\n",
 		peer->peer_name, dev->name, flag, peer->tx_rc);
 	if (peer->tx_rc) {
-		ERR("Failed M2S update to %s for %s, flags 0x%2x, tx rc %x\n",
+		ERR("Failed M2S update to %s for %s, flags 0x%2x, tx rc 0x%x\n",
 			peer->peer_name, dev->name, flag, peer->tx_rc);
 	};
 };
@@ -148,8 +148,8 @@ void send_add_dev_msg(struct fmd_peer *peer, struct fmd_dd_dev_info *dev)
 			strncpy(peer->m2s->mod_rq.name, dev->name, MAX_P_NAME);
 		};
 	};
-	INFO("TX ADD DEV MSG to did %x Name %s Adding did %x ct %x\n",
-		peer->p_did, peer->m2s->mod_rq.name, dev->destID, dev->ct, 0);
+	INFO("TX ADD DEV MSG to did 0x%x Name %s Adding did 0x%x ct 0x%x\n",
+		peer->p_did, peer->m2s->mod_rq.name, dev->destID, dev->ct);
 
 	peer->m2s->mod_rq.flag = htonl(flag);
 	peer->tx_buff_used = 1;
@@ -173,8 +173,8 @@ void send_del_dev_msg(struct fmd_peer *peer, struct fmd_peer *del_peer)
 	peer->m2s->mod_rq.is_mp = 0;
 	memcpy(peer->m2s->mod_rq.name, del_peer->peer_name, MAX_P_NAME+1);
 
-	INFO("TX DEL DEV MSG to did %x Dropping did %x ct %x\n",
-		peer->p_did, del_peer->p_did, del_peer->p_ct, 0);
+	INFO("TX DEL DEV MSG to did 0x%x Dropping did 0x%x ct 0x%x\n",
+		peer->p_did, del_peer->p_did, del_peer->p_ct);
 
 	peer->m2s->mod_rq.flag = 0;
 	peer->tx_buff_used = 1;
@@ -198,9 +198,9 @@ void update_all_peer_dd_and_flags(uint32_t add_dev)
 		return;
 
 	for (src = 0; src < num_devs; src++) {
-		INFO("\nSRC DestID %d %s\n", devs[src].destID, devs[src].name);
+		INFO("\nSRC DestID 0x%x %s\n", devs[src].destID, devs[src].name);
 		for (tgt = 0; tgt < num_devs; tgt++) {
-			INFO("    TGT DestID %d %s\n",
+			INFO("    TGT DestID 0x%x %s\n",
 				devs[tgt].destID, devs[tgt].name);
 			if (src == tgt) {
 				// INFO("\n         Skip, SRC == TGT\n");
@@ -306,7 +306,7 @@ void master_process_hello_peer(struct fmd_peer *peer)
 		sem_post(&fmp.peers_mtx);
 		add_device_to_dd(peer->p_ct, peer->p_did, peer->p_did_sz,
 			peer->p_hc, 0, FMDD_FLAG_OK, (char *)peer_ep.name);
-		HIGH("New Peer %x: Updating all dd and flags\n", peer->p_ct);
+		HIGH("New Peer 0x%x: Updating all dd and flags\n", peer->p_ct);
 		update_all_peer_dd_and_flags(1);
 	};
 };
@@ -321,7 +321,7 @@ void master_process_flag_set(struct fmd_peer *peer)
 	if ((NULL == fmd->dd) || (NULL == fmd->dd_mtx))
 		return;
 
-	INFO("Peer(%x) RX FLAG Set 0x%x 0x%x 0x%x\n",
+	INFO("Peer(0x%x) RX FLAG Set 0x%x 0x%x 0x%x\n",
 		peer->p_ct, ntohl(peer->s2m->fset.did),
 		ntohl(peer->s2m->fset.ct),
 		ntohl(peer->s2m->fset.flag));
@@ -346,7 +346,7 @@ void master_process_flag_set(struct fmd_peer *peer)
 	sem_post(&fmd->dd_mtx->sem);
 
 	if (tell_peers) {
-		HIGH("Peer %x FLAG SET %x: Updating all dd and flags\n",
+		HIGH("Peer 0x%x FLAG SET 0x%x: Updating all dd and flags\n",
 			peer->p_ct, flag);
 
 		update_all_peer_dd_and_flags(0);
@@ -363,7 +363,7 @@ void peer_rx_req(struct fmd_peer *peer)
 	} while ((peer->rx_rc) && ((errno == EINTR) || (errno == ETIME)));
 
 	if (peer->rx_rc) {
-		ERR("PEER RX(%x): %d (%d:%s)\n",
+		ERR("PEER RX(0x%x): %d (%d:%s)\n",
 			peer->p_ct, peer->rx_rc, errno, strerror(errno));
 		peer->rx_must_die = 1;
 	};
@@ -423,7 +423,7 @@ void *peer_rx_loop(void *p_i)
 		case FMD_P_RESP_MOD:
 			/* Nothing to do for a modification response */
 			INFO(
-			"Peer(%x) RX MOD Resp 0x%x 0x%x 0x%x 0x%x 0x%x rc %d\n",
+			"Peer(0x%x) RX MOD Resp 0x%x 0x%x 0x%x 0x%x 0x%x rc %d\n",
 				peer->p_ct,
 				ntohl(peer->s2m->mod_rsp.did),
 				ntohl(peer->s2m->mod_rsp.did_sz),
@@ -436,7 +436,7 @@ void *peer_rx_loop(void *p_i)
 			master_process_flag_set(peer);
 			break;
 		default:
-			WARN("Peer(%x) RX Msg type %x\n", peer->p_ct,
+			WARN("Peer(0x%x) RX Msg type 0x%x\n", peer->p_ct,
 					ntohl(peer->s2m->msg_type));
 			break;
 		};
@@ -444,7 +444,7 @@ void *peer_rx_loop(void *p_i)
 
 	cleanup_peer(peer);
 
-	INFO("Peer(%x) EXITING\n", peer->p_ct);
+	INFO("Peer(0x%x) EXITING\n", peer->p_ct);
 	pthread_exit(NULL);
 };
 
@@ -580,7 +580,7 @@ void *mast_acc(void *unused)
 		};
 
 		if (start_new_peer(new_skt)) {
-			WARN("Could not start peer after accept\n", rc);
+			WARN("Could not start peer after accept\n");
 			free(new_skt);
 		};
 			

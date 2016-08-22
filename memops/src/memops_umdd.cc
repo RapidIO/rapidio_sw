@@ -293,7 +293,7 @@ bool RIOMemOpsUMDd::wait_async(MEMOPSRequest_t& dmaopt /*only if async flagged*/
 
 const char* RIOMemOpsUMDd::abortReasonToStr(int abort_reason)
 {
-  return strerror(m_errno);
+  return strerror(abort_reason);
 }
 
 int RIOMemOpsUMDd::getAbortReason() { return m_errno; }

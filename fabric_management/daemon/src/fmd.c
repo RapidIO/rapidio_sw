@@ -300,12 +300,11 @@ void spawn_threads(struct fmd_opt_vals *cfg)
 			CRIT("Error - cons_thread rc: %d\n",cli_ret);
 			exit(EXIT_FAILURE);
 		}
+		CRIT("pthread_create() for console returns: %d\n",
+			cons_ret);
 	};
 	INFO("pthread_create() for poll_loop returns: %d\n",poll_ret);
 	INFO("pthread_create() for cli_session_thread returns: %d\n",cli_ret);
-	if (cfg->run_cons) 
-		CRIT("pthread_create() for console returns: %d\n",
-			cons_ret);
  
 	ret = start_fmd_app_handler(cfg->app_port_num, 50, 0, 
 					cfg->dd_fn, cfg->dd_mtx_fn); 

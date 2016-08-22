@@ -11,6 +11,7 @@
 #include <sstream>
 #include <algorithm> // std::sort
 
+#include "rio_misc.h"
 #include "mboxchan.h"
 #include "Tsi721_fifo.h"
 
@@ -354,6 +355,7 @@ void MboxChannel::set_inb_mbox_hwregs(const uint32_t fq_wrptr)
   {{ \
     const hw_omsg_desc* bd_ptr = (hw_omsg_desc*)m_omsg_ring.omd.win_ptr; \
     assert(bd_ptr[m_num_ob_desc-1].type_id == (uint32_t)(DTYPE5 << 29)); \
+    UNUSED_DBG(bd_ptr); \
   }}
 
 int MboxChannel::open_outb_mbox(const uint32_t entries, const uint32_t sts_entries)
@@ -562,7 +564,7 @@ bool MboxChannel::send_message(MboxOptions_t& opt, const void* data, const size_
   bool ret = true;
   fail_reason = STOP_OK;
 
-  if (data == NULL || len < 0 || len > 4096) return false;
+  if (NULL == data || len > 4096) return false;
  
   opt.dtype = DTYPE4;
 
@@ -702,7 +704,7 @@ bool MboxChannel::send_message(MboxOptions_t& opt, const void* data, const size_
   regi = rd32mboxchan(TSI721_OBDMACXINT(m_mbox));
   regs = rd32mboxchan(TSI721_OBDMACXSTS(m_mbox));
 
-  DDBG("\n\tOBDMACXSTS = %08X\n\tOBDMACXINT_DONE = %08X\n", regs, regi)
+  DDBG("\n\tOBDMACXSTS = %08X\n\tOBDMACXINT_DONE = %08X\n", regs, regi);
   //XDBG("\n\tOBDMACXSTS abort ?= %08X\n\t", regs >> 20)
 
 /*
@@ -733,7 +735,7 @@ bool MboxChannel::send_message(MboxOptions_t& opt, const void* data, const size_
     reg_out_err_stop += 0; // silence g++ warnings
     reg_inp_err_stop += 0;
     DDBG("\n\tOBDMACXSTS = %08X\n\tOUTPUT_XERR_STOP = %08X\n\tINPUT_XERR_STOP  = %08X\n",
-        regs, reg_out_err_stop, reg_inp_err_stop)
+        regs, reg_out_err_stop, reg_inp_err_stop);
 
     if (sts_abort) {
       pthread_spin_unlock(&m_tx_splock); // unlock here to print the blurb lock-free
@@ -784,7 +786,7 @@ bool MboxChannel::inb_message_ready_REG(uint64_t& rx_ts)
 
 #if 0//def MBOXDEBUG
   rd_ptr = (int32_t)rd32mboxchan(TSI721_IBDMACXDQRP(ch));
-  wr_ptr = (int32_t)rd32mboxchan(TSI721_IBDMACXDQWR(ch));
+  wr_ptr = (int32_t)rd32mboxchan(TSI721_IBDMACXDQWP(ch));
 
   if (rd_ptr == wr_ptr) return false;
 #endif
@@ -905,7 +907,7 @@ void* MboxChannel::get_inb_message(MboxOptions_t& opt)
   DDBG("\n\tNow DQRP := %X -- HW DQRP = %X HW DQWR = %X\n",
       m_imsg_ring.desc_rdptr,
       rd32mboxchan(TSI721_IBDMACXDQRP(ch)),
-      rd32mboxchan(TSI721_IBDMACXDQWR(ch)));
+      rd32mboxchan(TSI721_IBDMACXDQWP(ch)));
 
   /* Return free buffer into the pointer list */
   uint64_t* free_ptr = (uint64_t *) m_imsg_ring.imfq.win_ptr;
@@ -1001,7 +1003,7 @@ int MboxChannel::scanFIFO(WorkItem_t* completed_work, const int max_work)
         if (hwptr >= HW_START && hwptr < HW_END) {
           const uint32_t bd_idx = (hwptr-HW_START)/MBOX_OB_BUFF_DESCR_SIZE;
 
-          if (bd_idx < 0 || bd_idx >= m_num_ob_desc) {
+          if (bd_idx >= m_num_ob_desc) {
             XCRIT("\n\tInvalid bd_idx = %d @ HW 0x%llx\n", bd_idx, hwptr);
             continue;
           }

@@ -37,6 +37,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define __STDC_FORMAT_MACROS
 #include <cinttypes>
+#include <inttypes.h>
 
 #include "rdma_types.h"
 #include "rapidio_mport_mgmt.h"
@@ -160,7 +161,7 @@ ibwin::ibwin(ms_owners &owners, riomp_mport_t mport_hnd,
 void ibwin::free()
 {
 	/* Delete all memory spaces */
-	INFO("Freeing %u mspaces in ibwin %u\n", mspaces.size(), win_num);
+	INFO("Freeing %zu mspaces in ibwin %u\n", mspaces.size(), win_num);
 	mspaces.clear();
 
 	/* Free inbound window */
@@ -221,7 +222,7 @@ int ibwin::get_free_mspaces_large_enough(uint64_t size, mspace_list& le_mspaces)
 			le_mspaces.push_back((*it).get());
 			it++;
 		} else { /* end(mspaces) */
-			DBG("Found %u mspaces that can hold %" PRIx64 "\n",
+			DBG("Found %zu mspaces that can hold %" PRIx64 "\n",
 						le_mspaces.size(), size);
 			break;
 		}

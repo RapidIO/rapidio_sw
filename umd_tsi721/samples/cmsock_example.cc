@@ -65,6 +65,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <string>
 
+#include "rio_misc.h"
 #include "mportcmsock.h"
 
 #define DATA_SZ	   32
@@ -77,7 +78,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define abs(x) ((x>=0)? (x): (-x))
 
 volatile int stop_req = 0;
-static void sig_term(int signo) { stop_req = 1; }
+static void sig_term(int UNUSED_PARM(signo)) { stop_req = 1; }
 
 void usage_and_exit(const char* name)
 {

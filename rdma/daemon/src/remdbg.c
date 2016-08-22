@@ -56,6 +56,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <netinet/in.h>
 #include <netdb.h>
 
+#include "rio_misc.h"
 #include "libcli.h"
 
 #ifdef __cplusplus
@@ -64,7 +65,7 @@ extern "C" {
 
 extern struct cli_cmd CLIConnect;
 
-int CLIConnectCmd(struct cli_env *env, int argc, char **argv)
+int CLIConnectCmd(struct cli_env *, int UNUSED(argc), char **argv)
 {
 	int sockfd, portno, n;
 	struct sockaddr_in serv_addr;
@@ -74,9 +75,6 @@ int CLIConnectCmd(struct cli_env *env, int argc, char **argv)
 	int one = 1;
 	int zero = 0;
 	uint8_t session_over = 0;
-
-	(void)env;
-	(void)argc;
 
 	server = gethostbyname(argv[0]);
 	if (server == NULL) {
@@ -173,15 +171,12 @@ void set_prompt(struct cli_env *e)
         if (e != NULL) {
         };
 };
-int main(int argc, char *argv[])
+int main(int UNUSED(argc), char **UNUSED(argv))
 {
 	
 	struct cli_env env;
 	struct cli_cmd *temp_ptr = &CLIConnect;
 	
-	(void)argc;
-	(void)argv;
-
 	cli_init_base(NULL);
 	add_commands_to_cmd_db(1, &temp_ptr);
 

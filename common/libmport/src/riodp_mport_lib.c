@@ -52,11 +52,11 @@
 #define CONFIG_RAPIDIO_DMA_ENGINE
 #include <linux/rio_mport_cdev.h>
 
+#include "rio_misc.h"
 #include <rapidio_mport_mgmt.h>
 #include <rapidio_mport_dma.h>
 #include <rapidio_mport_sock.h>
-
-#include "riodp_mport_lib.h"
+#include <riodp_mport_lib.h>
 
 #define RIO_MPORT_DEV_PATH "/dev/rio_mport"
 #define RIO_CMDEV_PATH "/dev/rio_cm"
@@ -569,7 +569,7 @@ int riomp_dma_map_memory(riomp_mport_t mport_handle, size_t size, off_t paddr, v
 {
 	struct rapidio_mport_handle *hnd = mport_handle;
 
-	if(hnd == NULL || !size || !vaddr)
+	if(NULL == hnd || !size || !vaddr)
 		return -EINVAL;
 
 	*vaddr = mmap(NULL, size, PROT_READ|PROT_WRITE, MAP_SHARED, hnd->fd, paddr);
@@ -584,8 +584,11 @@ int riomp_dma_map_memory(riomp_mport_t mport_handle, size_t size, off_t paddr, v
 /*
  * unmap phys address range to process virtual memory
  */
-int riomp_dma_unmap_memory(riomp_mport_t mport_handle, size_t size, void *vaddr)
+int riomp_dma_unmap_memory(size_t size, void *vaddr)
 {
+	if(!size || !vaddr)
+		return -EINVAL;
+
 	return munmap(vaddr, size);
 }
 
@@ -964,7 +967,7 @@ int riomp_mgmt_device_del(riomp_mport_t mport_handle, uint16_t destid, uint8_t h
 }
 
 /* Mailbox functions */
-int riomp_sock_mbox_create_handle(uint8_t mport_id, uint8_t mbox_id,
+int riomp_sock_mbox_create_handle(uint8_t mport_id, uint8_t UNUSED_PARM(mbox_id),
 			     riomp_mailbox_t *mailbox)
 {
 	int fd;
@@ -1041,7 +1044,7 @@ int riomp_sock_receive(riomp_sock_t socket_handle, void **buf,
 	return 0;
 }
 
-int riomp_sock_release_receive_buffer(riomp_sock_t socket_handle,
+int riomp_sock_release_receive_buffer(riomp_sock_t UNUSED_PARM(socket_handle),
 					void *buf) /* always 4k aligned buffers */
 {
 	free(buf);
@@ -1175,8 +1178,8 @@ int riomp_sock_connect(riomp_sock_t socket_handle, uint32_t remote_destid,
 	return 0;
 }
 
-int riomp_sock_request_send_buffer(riomp_sock_t socket_handle,
-				     void **buf) //always 4k aligned buffers
+int riomp_sock_request_send_buffer(riomp_sock_t UNUSED_PARM(socket_handle),
+					void **buf) //always 4k aligned buffers
 {
 	/* socket_handle won't be used for now */
 
@@ -1187,8 +1190,8 @@ int riomp_sock_request_send_buffer(riomp_sock_t socket_handle,
 	return 0;
 }
 
-int riomp_sock_release_send_buffer(riomp_sock_t socket_handle,
-				     void *buf) /* always 4k aligned buffers */
+int riomp_sock_release_send_buffer(riomp_sock_t UNUSED_PARM(socket_handle),
+					void *buf) /* always 4k aligned buffers */
 {
 	free(buf);
 	return 0;
