@@ -36,9 +36,6 @@ NAME:=fxfr
 TARGETS:=lib$(NAME).a
 HEADERS:=inc/lib$(NAME).h
 
-CFLAGS+=-fPIC -DNDEBUG -I./inc
-LDFLAGS+=-L. -l$(NAME)
-
 OBJECTS:=$(patsubst src/%.c,src/%.o,$(wildcard src/*.c))
 
 all: $(TARGETS)
