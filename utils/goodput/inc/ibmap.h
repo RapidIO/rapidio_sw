@@ -34,7 +34,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef __IBMAP_H__
 #define __IBMAP_H__
 
-#define __STDC_FORMAT_MACROS
+#define __STDC_FORMAT_MACROS 1
 #include <stdint.h>
 #include <inttypes.h>
 #include <string.h>
