@@ -317,10 +317,12 @@ struct worker {
 
 	void		(*umd_dma_fifo_callback)(struct worker* info);
 
-	// Used only for MBOX Tun
+	// Used only for MBOX Tun or L2 Tun. NOT used for L3 Tun
         int             umd_tun_fd;
         char            umd_tun_name[33];
+
         int             umd_tun_MTU;
+	int             umd_tun_L2; 
         int             umd_tun_thruput;
 
 	// Used only for DMA Tun
@@ -340,8 +342,8 @@ struct worker {
 
         std::map<uint16_t, DmaPeerCommsStats_t> umd_dma_did_enum_list; ///< This is just a list of destids we broadcast to -- populated by EpWatch
 
-	int             umd_dma_did_peer_list_high_wm; ///< High water mark of list below -- maintained by Main Battle Tank thread
-	DmaPeer*        umd_dma_did_peer_list[MAX_PEERS]; ///< List of currently up peers -- maintained by Main Battle Tank thread
+	int                     umd_dma_did_peer_list_high_wm; ///< High water mark of list below -- maintained by Main Battle Tank thread
+	DmaPeer* volatile       umd_dma_did_peer_list[MAX_PEERS]; ///< List of currently up peers -- maintained by Main Battle Tank thread
 	std::map<uint16_t, int> umd_dma_did_peer; ///< These are slot into \ref umd_dma_did_peer_list -- maintained by Main Battle Tank thread
 
 	IBwinMap*       umd_peer_ibmap;

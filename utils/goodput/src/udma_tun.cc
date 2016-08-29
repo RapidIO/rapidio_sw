@@ -58,6 +58,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sys/select.h>
 #include <sys/epoll.h>
 #include <sys/inotify.h>
+#include <linux/if_ether.h> // L2 Tun
 
 #include <sstream>
 
@@ -93,7 +94,8 @@ extern "C" {
 bool umd_dma_goodput_tun_has_ep(struct worker* info, const uint32_t destid);
 void umd_dma_goodput_tun_del_ep(struct worker* info, const uint32_t destid, bool signal);
 void umd_dma_goodput_tun_del_ep_signal(struct worker* info, const uint32_t destid);
-static bool inline umd_dma_tun_process_tun_RX(struct worker *info, DmaChannelInfo_t* dci, DmaPeer* peer, const uint16_t my_destid);
+static bool inline umd_dma_tun_process_tun_RX(struct worker *info, DmaChannelInfo_t* dci, epoll_data_t epdata, const uint16_t my_destid);
+static bool inline umd_dma_tun_TX_peer(struct worker *info, DmaChannelInfo_t* dci, DmaPeer* peer, const uint16_t my_destid, const uint16_t destid_dpi, const int nread);
 
 static inline uint64_t max_u64(const uint64_t a, const uint64_t b) { return a > b? a: b; }
 
@@ -110,6 +112,143 @@ static inline uint64_t htonll(uint64_t value)
 static inline int Q_THR(const int sz) { return (sz * 99) / 100; }
 
 const int DESTID_TRANSLATE = 1;
+
+// Wireshark OUI database lists A8:72:85 IDT, INC.
+static inline void
+makeTapMAC(uint8_t mac[ETH_ALEN], const uint16_t my_destid, const int DESTID_TRANSLATE)
+{
+  const uint16_t u16 = my_destid + DESTID_TRANSLATE;
+
+  mac[0] = 0xA8;
+  mac[1] = 0x72;
+  mac[2] = 0x85;
+  mac[3] = 0x42; // our special touch
+  mac[4] = u16 >> 8;
+  mac[5] = u16 & 0xFF;
+}
+
+int setup_L2_TUN(struct worker* info, const int DESTID_TRANSLATE)
+{
+  assert(info);
+
+  int tun_fd = -1;
+  char if_name[IFNAMSIZ] = {0};
+  char Tap_Ifconfig_Cmd[257] = {0};
+  int flags = IFF_TAP | IFF_NO_PI;
+
+  uint8_t mac[ETH_ALEN] = {0};
+  makeTapMAC(mac, info->my_destid, DESTID_TRANSLATE);
+
+  // Initialize tun/tap interface
+  if ((tun_fd = tun_alloc(if_name, flags)) < 0) {
+      CRIT("Error connecting to tun/tap interface %s!\n", if_name);
+      goto error;
+  }
+
+  {{
+    const int flags = fcntl(tun_fd, F_GETFL, 0);
+    fcntl(tun_fd, F_SETFL, flags | O_NONBLOCK);
+  }}
+
+  {{ // Setup Tap MTU, no multicast and MAC address using direct Linux/BSD calls
+    int tun_ctl_fd;
+    if((tun_ctl_fd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL)))==-1) {
+      CRIT("Error obtaining SOCK_RAW/ETH_P_ALL socket: %s\n", strerror(errno));
+      goto error;
+    }
+        
+    struct ifreq ifr_tap; memset(&ifr_tap, 0, sizeof(ifr_tap));
+    strncpy(ifr_tap.ifr_name, if_name, IFNAMSIZ);
+    if (ioctl(tun_ctl_fd, SIOCGIFFLAGS, &ifr_tap) < 0) { 
+      CRIT("Error in ioctl(SIOCGIFFLAGS): %s\n", strerror(errno));
+      close(tun_ctl_fd);
+      goto error;
+    }
+
+    ifr_tap.ifr_mtu = info->umd_tun_MTU;
+    if (ioctl(tun_ctl_fd, SIOCSIFMTU, (void*) &ifr_tap) < 0) {
+      CRIT("Error in ioctl(SIOCSIFMTU): %s\n", strerror(errno));
+      close(tun_ctl_fd);
+      goto error;
+    }
+
+    ifr_tap.ifr_flags &= ~IFF_MULTICAST;
+    if (ioctl(tun_ctl_fd, SIOCSIFFLAGS, (void*) &ifr_tap) < 0) {
+      CRIT("Error in ioctl(SIOCSIFFLAGS := ~IFF_MULTICAST): %s\n", strerror(errno));
+      close(tun_ctl_fd);
+      goto error;
+    }
+
+    #ifndef ARPHRD_ETHER
+    #define ARPHRD_ETHER 1
+    #endif
+    ifr_tap.ifr_hwaddr.sa_family = ARPHRD_ETHER;
+    memcpy(ifr_tap.ifr_hwaddr.sa_data, mac, ETH_ALEN);
+    if (ioctl(tun_ctl_fd, SIOCSIFHWADDR, &ifr_tap) == -1) {
+      CRIT("Error in ioctl(SIOCSIFHWADDR): %s\n", strerror(errno));
+      close(tun_ctl_fd);
+      goto error;
+    }
+        
+    close(tun_ctl_fd);
+  }} 
+
+  {{ // Disable IPv6
+    char disableV6_path[513] = {0};
+    snprintf(disableV6_path, 512, "/proc/sys/net/ipv6/conf/%s/disable_ipv6", if_name);
+
+    FILE* fp = fopen(disableV6_path, "w");
+    if (fp == NULL) {
+      CRIT("Cannot open %s for writing: %s\n", disableV6_path, strerror(errno));
+      goto error;
+    }
+    fputs("1\n", fp);
+    fclose(fp);
+  }} 
+
+  {{
+    const uint16_t my_destid_tun  = info->my_destid + DESTID_TRANSLATE;
+
+    snprintf(Tap_Ifconfig_Cmd, 256, "169.254.%d.%d" , (my_destid_tun >> 8) & 0xFF, my_destid_tun & 0xFF);
+
+    char ifconfig_cmd[513] = {0};
+    snprintf(ifconfig_cmd, 512, "/sbin/ifconfig %s %s up", if_name, Tap_Ifconfig_Cmd);
+    const int rr = system(ifconfig_cmd);
+    if(rr >> 8) {
+      CRIT("system() failed with error %d\n", rr);
+      // No need to remove from epoll set, close does that as it isn't dup(2)'ed
+      goto error;
+    }
+  }}
+
+  memcpy(info->umd_tun_name, if_name, sizeof(info->umd_tun_name)-1);
+
+  {{
+    struct epoll_event event; memset(&event, 0, sizeof(event));
+    event.data.fd = tun_fd;
+    event.events = EPOLLIN; // | EPOLLET;
+    if (epoll_ctl (info->umd_epollfd, EPOLL_CTL_ADD, tun_fd, &event) < 0) {
+      CRIT("\n\tFailed to add tun_fd %d to epoll set %d\n",
+           tun_fd, info->umd_epollfd);
+      goto error;
+    }
+  }}
+
+unlock:
+  if (tun_fd != -1) {
+    INFO("\n\t%s %s mtu %d on DMA Chan=%d,...,Chan_n=%d Chan2=%d my_destid=%u #buf=%d #fifo=%d\n",
+         if_name, Tap_Ifconfig_Cmd, info->umd_tun_MTU,
+         info->umd_chan, info->umd_chan_n, info->umd_chan2,
+         info->my_destid, 
+         info->umd_tx_buf_cnt, info->umd_sts_entries);
+  }
+
+  return tun_fd;
+
+error:
+  if (tun_fd != -1) close(tun_fd); 
+  goto unlock;
+}
 
 /** \brief Thread that services Tun TX, sends L3 frames to peer and does RIO TX throttling
  * Update RP via NREAD every 8 buffers; when local q is 2/3 full do it after each send
@@ -198,7 +337,7 @@ again:
       }
 
       for (int cnt = 0; cnt < 4; cnt++) { // Maximum per-Tun
-        if (umd_dma_tun_process_tun_RX(info, dci, (DmaPeer*)events[epi].data.ptr, my_destid)) tx_cnt++;
+        if (umd_dma_tun_process_tun_RX(info, dci, events[epi].data, my_destid)) tx_cnt++;
         else break; // Read all I could from Tun fd
       }
     } // END for epoll_cnt
@@ -225,83 +364,234 @@ no_post:
 
 /** \brief Process data from Tun and send it over DMA NWRITE
  */
-static bool inline umd_dma_tun_process_tun_RX(struct worker *info, DmaChannelInfo_t* dci, DmaPeer* peer, const uint16_t my_destid)
+static bool inline umd_dma_tun_process_tun_RX(struct worker *info, DmaChannelInfo_t* dci, epoll_data_t epdata, const uint16_t my_destid)
 {
-  if (info == NULL || dci == NULL || peer == NULL || my_destid == 0xffff) return false;
+  if (info == NULL || dci == NULL || my_destid == 0xffff) return false;
 
-  const int tun_fd = peer->get_tun_fd();
-  if (tun_fd < 0) return false; // peer is destroyed
+  static const uint8_t BCAST_MAC[ETH_ALEN] = { 0xff,0xff,0xff, 0xff,0xff,0xff };
 
-  bool ret = false;
-  int IPver = 0;
+  DmaPeer* peer = NULL; // if using L3 Tun
+  int tun_fd = -1; // if using L2 Tun
+
   int destid_dpi = -1;
   int is_bad_destid = 0;
-  bool first_message = false;
-  int force_nread = 0;
-  int outstanding = 0; // This is our guess of what's not consumed at other end, per-destid
-
-  //const bool q_fullish = dci->dch->queueSize() > Q_THR(info->umd_tx_buf_cnt-1);
-
-  DMAChannel::DmaOptions_t& dmaopt = dci->dmaopt[dci->oi];
 
   assert(dci->tx_buf_cnt);
+
+  const bool is_tun_L2 = !!info->umd_tun_L2;
 
   uint8_t* buffer = (uint8_t*)dci->dmamem[dci->oi].win_ptr;
   assert(buffer);
 
-  const int nread = read(peer->get_tun_fd(), buffer+DMA_L2_SIZE, info->umd_tun_MTU);
-  const uint64_t now = rdtsc();
+  if (is_tun_L2)
+    tun_fd = epdata.fd;
+  else {
+    peer = (DmaPeer*)epdata.ptr;
+    tun_fd = peer->get_tun_fd();
+  }
+
+  const int nread = read(tun_fd, buffer+DMA_L2_SIZE, info->umd_tun_MTU);
 
   if (nread < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) return false;
 
   assert(nread > 0);
 
-  DMA_L2_t* pL2 = (DMA_L2_t*)buffer;
-
-  {{
+// Tun is a L3 interface
+  if (! is_tun_L2) {
     uint8_t* pkt = (uint8_t*)(buffer+DMA_L2_SIZE);
-    IPver = pkt[0] >> 4;    
+    int IPver = pkt[0] >> 4;    
     if (4 != IPver) {
 #ifdef UDMA_TUN_DEBUG
       is_bad_destid++;
 #else
-      ret = true; goto unlock; // Silently drop IPv6
+      return true; // Silently drop IPv6
 #endif
     }
-  }}
 
-  {{
-  uint32_t* pkt = (uint32_t*)(buffer+DMA_L2_SIZE);
-  const uint32_t dest_ip_v4 = ntohl(pkt[4]); // IPv6 will not work correctly
+    {{
+    uint32_t* pkt = (uint32_t*)(buffer+DMA_L2_SIZE);
+    const uint32_t dest_ip_v4 = ntohl(pkt[4]); // IPv6 will not work correctly
 
-  destid_dpi = (dest_ip_v4 & 0xFFFF) - DESTID_TRANSLATE;
-  }}
+    destid_dpi = (dest_ip_v4 & 0xFFFF) - DESTID_TRANSLATE;
+    }}
+
 
 #ifdef UDMA_TUN_DEBUG
-  if (! umd_dma_goodput_tun_has_ep(info, destid_dpi)) is_bad_destid++;
+    if (! l2_bcast && ! umd_dma_goodput_tun_has_ep(info, destid_dpi)) is_bad_destid++;
+#endif
+
+    is_bad_destid += (destid_dpi == info->my_destid);
+
+    if (info->stop_req) return false;
+    if (peer->stop_req) return false;
+
+#ifdef UDMA_TUN_DEBUG
+    {{
+    const uint32_t crc = crc32(0, buffer+DMA_L2_SIZE, nread);
+    DBG("\n\tGot from tun? %d+%d bytes IPv%d (L7 CRC32 0x%x) to RIO destid %u%s\n",
+       nread, DMA_L2_SIZE, IPver,
+       crc, destid_dpi,
+       is_bad_destid? " BLACKLISTED": "");
+    }}
+#endif
+
+    if (is_bad_destid) {
+      ERR("\n\tBad destid %u -- score=%d\n", destid_dpi, is_bad_destid);
+      send_icmp_host_unreachable(tun_fd, buffer+DMA_L2_SIZE, nread);
+      return false;
+    }
+
+    umd_dma_tun_TX_peer(info, dci, peer, my_destid, destid_dpi, nread);
+  } // END L3 code
+
+// Tap is a L2 interface
+
+  bool l2_bcast = false;
+  bool l2_mcast = false;
+
+  do {
+    struct ethhdr* eth = (struct ethhdr*)(buffer+DMA_L2_SIZE);
+    
+    if ((eth->h_dest[0] & 0x1) == 0x1) { // broadcast or multicast
+#if 0
+      DBG("Dest MAC=%02x:%02x:%02x:%02x:%02x:%02x\n",
+          eth->h_dest[0],eth->h_dest[1],eth->h_dest[2],
+          eth->h_dest[3],eth->h_dest[4],eth->h_dest[5]);
+#endif
+
+      if (! memcmp(BCAST_MAC, eth->h_dest, ETH_ALEN)) { // broadcast but not multicast
+        l2_bcast = true;
+        break;
+      }
+
+      // multicast
+      l2_mcast = true;
+      is_bad_destid++;
+      break;
+    }
+    
+    destid_dpi = (eth->h_dest[4] << 8 | eth->h_dest[5]) - DESTID_TRANSLATE;
+  } while(0);
+
+#ifdef UDMA_TUN_DEBUG
+  if (! l2_bcast && ! umd_dma_goodput_tun_has_ep(info, destid_dpi)) is_bad_destid++;
 #endif
 
   is_bad_destid += (destid_dpi == info->my_destid);
 
-  if (info->stop_req || peer->stop_req) goto unlock;
+  if (info->stop_req) return false;
 
 #ifdef UDMA_TUN_DEBUG
   {{
   const uint32_t crc = crc32(0, buffer+DMA_L2_SIZE, nread);
   DBG("\n\tGot from tun? %d+%d bytes IPv%d (L7 CRC32 0x%x) to RIO destid %u%s\n",
-     nread, DMA_L2_SIZE, IPver,
-     crc, destid_dpi,
-     is_bad_destid? " BLACKLISTED": "");
+      nread, DMA_L2_SIZE, IPver, crc, destid_dpi,
+      is_bad_destid? " BLACKLISTED": "");
   }};
 #endif
 
-  peer->m_stats.tun_rx_cnt++;
-
   if (is_bad_destid) {
     ERR("\n\tBad destid %u -- score=%d\n", destid_dpi, is_bad_destid);
-    send_icmp_host_unreachable(peer->get_tun_fd(), buffer+DMA_L2_SIZE, nread);
-    goto error;
+    if (!l2_mcast && !l2_bcast) send_icmp_host_unreachable(tun_fd, buffer+DMA_L2_SIZE, nread);
+    return false;
   }
+
+// L2 Tun - unicast but no peer passed to us
+  if (! l2_bcast) {
+    DmaPeer* loc_peer = NULL;
+
+    pthread_mutex_lock(&info->umd_dma_did_peer_mutex);
+    {{
+      std::map<uint16_t, int>::iterator itp = info->umd_dma_did_peer.find(destid_dpi);
+      if (itp != info->umd_dma_did_peer.end())
+        loc_peer = info->umd_dma_did_peer_list[itp->second];
+    }}
+    pthread_mutex_unlock(&info->umd_dma_did_peer_mutex);
+
+#if 0
+    struct ethhdr* eth = (struct ethhdr*)(buffer+DMA_L2_SIZE);
+    INFO("Dest MAC=%02x:%02x:%02x:%02x:%02x:%02x to destid %u\n",
+          eth->h_dest[0],eth->h_dest[1],eth->h_dest[2],
+          eth->h_dest[3],eth->h_dest[4],eth->h_dest[5],
+          destid_dpi);
+#endif
+
+    return !loc_peer? false: umd_dma_tun_TX_peer(info, dci, loc_peer, my_destid, destid_dpi, nread);
+  }
+
+// L2 Tun - BCAST to all known peers sans myself
+
+  std::vector<uint16_t> peer_list;
+
+  pthread_mutex_lock(&info->umd_dma_did_peer_mutex); // Collect peers quickly
+  {{
+    std::map<uint16_t, DmaPeerCommsStats_t>::iterator itp = info->umd_dma_did_enum_list.begin();
+    for (; itp != info->umd_dma_did_enum_list.end(); itp++) {
+      if (itp->first == info->my_destid) continue;
+      peer_list.push_back(itp->first);
+    }
+  }}
+  pthread_mutex_unlock(&info->umd_dma_did_peer_mutex);
+
+  const int PLS = peer_list.size();
+  if (PLS == 0) return true; // no peers
+
+  int txok_cnt = 0;
+  for (int epli = 0; epli < PLS; epli++) {
+    const uint16_t peer_destid = peer_list[epli];
+
+    DmaPeer* loc_peer = NULL;
+
+    pthread_mutex_lock(&info->umd_dma_did_peer_mutex);
+    {{
+      std::map<uint16_t, int>::iterator itp = info->umd_dma_did_peer.find(peer_destid);
+      if (itp != info->umd_dma_did_peer.end())
+        loc_peer = info->umd_dma_did_peer_list[itp->second];
+    }}
+    pthread_mutex_unlock(&info->umd_dma_did_peer_mutex);
+
+    if (!loc_peer) continue;
+
+#if 0
+    struct ethhdr* eth = (struct ethhdr*)(buffer+DMA_L2_SIZE);
+    INFO("Dest MAC=%02x:%02x:%02x:%02x:%02x:%02x to destid %u\n",
+          eth->h_dest[0],eth->h_dest[1],eth->h_dest[2],
+          eth->h_dest[3],eth->h_dest[4],eth->h_dest[5],
+          loc_peer->get_destid());
+#endif
+
+    umd_dma_tun_TX_peer(info, dci, loc_peer, my_destid, loc_peer->get_destid(), nread) && txok_cnt++;
+  } // END for epli
+
+  return txok_cnt > 0; // Sent BCAST OK to at least one peer
+}
+
+static bool inline umd_dma_tun_TX_peer(struct worker *info, DmaChannelInfo_t* dci, DmaPeer* peer, const uint16_t my_destid, const uint16_t destid_dpi, const int nread)
+{
+  if (info == NULL || dci == NULL || peer == NULL || my_destid == 0xffff) return false;
+
+  bool ret = false;
+  bool first_message = false;
+  int force_nread = 0;
+  int outstanding = 0; // This is our guess of what's not consumed at other end, per-destid
+
+  const uint64_t now = rdtsc();
+
+  //const bool q_fullish = dci->dch->queueSize() > Q_THR(info->umd_tx_buf_cnt-1);
+
+  DMAChannel::DmaOptions_t& dmaopt = dci->dmaopt[dci->oi];
+
+  const int tun_fd = peer->get_tun_fd();
+  if (tun_fd < 0) return false; // peer is destroyed
+
+  // UNICAST CODE
+
+  uint8_t* buffer = (uint8_t*)dci->dmamem[dci->oi].win_ptr;
+  assert(buffer);
+ 
+  DMA_L2_t* pL2 = (DMA_L2_t*)buffer;
+
+  peer->m_stats.tun_rx_cnt++;
 
   first_message = peer->m_stats.tx_cnt == 0;
 
@@ -312,7 +602,10 @@ static bool inline umd_dma_tun_process_tun_RX(struct worker *info, DmaChannelInf
     outstanding = peer->get_WP() + dci->tx_buf_cnt-2 - peer->get_RP();
   }} while(0);
 
-  DBG("\n\tWP=%d guessed { RP=%d outstanding=%d } %s\n", peer->get_WP(), peer->get_RP(), outstanding, (outstanding==(dci->tx_buf_cnt-1))? "FULL": "");
+  DBG("\n\tDid %u WP=%d guessed { RP=%d outstanding=%d } %s\n",
+       peer->get_destid(),
+       peer->get_WP(), peer->get_RP(), 
+       outstanding, (outstanding==(dci->tx_buf_cnt-1))? "FULL": "");
 
   // We force reading RP from a "new" destid as a RIO ping as
   // NWRITE does not barf  on bad destids
@@ -448,7 +741,7 @@ first_message, force_nread, q_fullish, outstanding, Q_THR(info->umd_tx_buf_cnt-1
     } else { // queue really full
       DBG("\n\tQueue full #2 on Chan %d!\n", dci->chan);
     }
-    goto error; // Drop L3 frase
+    goto error; // Drop L3 frame
   }
 
   dci->oi++; if (dci->oi == (dci->tx_buf_cnt-1)) dci->oi = 0; // Account for T3
@@ -503,7 +796,7 @@ void umd_dma_goodput_tun_callback(struct worker *info)
     int ret = peer->scan_RO(); ret += 0;
 
 #ifdef UDMA_TUN_DEBUG_IB
-    DBG("\n\tFound %d ready buffers at iter %" PRIx64 "\n", ret, cbk_iter);
+    DBG("\n\tFound %d ready buffers at iter %" PRIu64 "\n", ret, cbk_iter);
 #endif
   } // END for each peer
 
@@ -767,7 +1060,7 @@ bool umd_dma_goodput_tun_setup_peer(struct worker* info, const uint16_t destid, 
 
   pthread_mutex_lock(&info->umd_dma_did_peer_mutex);
     for (int epi = 0; epi < info->umd_dma_did_peer_list_high_wm; epi++) {
-      if (info->umd_dma_did_peer_list[epi] != NULL) continue; // No a vacant slot?
+      if (info->umd_dma_did_peer_list[epi] != NULL) continue; // Not a vacant slot?
       slot = epi;
       break;
     }
@@ -789,7 +1082,11 @@ bool umd_dma_goodput_tun_setup_peer(struct worker* info, const uint16_t destid, 
     goto exit;
   }
 
-  if (! tmppeer->setup_TUN(info->my_destid, DESTID_TRANSLATE)) goto exit;
+  if (! info->umd_tun_L2) {
+    if (! tmppeer->setup_TUN(info->my_destid, DESTID_TRANSLATE)) goto exit;
+  } else {
+    tmppeer->set_tun_fd(info->umd_tun_fd);
+  }
 
   rc = pthread_create(&tun_TX_thr, NULL, umd_dma_tun_TX_proc_thr, (void *)tmppeer);
   if (rc) {
@@ -1233,6 +1530,8 @@ void umd_dma_goodput_tun_demo(struct worker *info)
 
   if (! umd_check_cpu_allocation(info)) return;
 
+  if (GetEnv((char*)"l2_tun") != NULL) info->umd_tun_L2++;
+
   int nlock = 0;
 
   info->umd_lock[nlock++] = ChannelLock::TakeLock("DMA", info->mp_num, info->umd_chan2);
@@ -1285,6 +1584,11 @@ void umd_dma_goodput_tun_demo(struct worker *info)
       goto exit;
     }
   }}
+
+  if (info->umd_tun_L2) {
+    info->umd_tun_fd = setup_L2_TUN(info, DESTID_TRANSLATE);
+    if (info->umd_tun_fd < 0) goto exit;
+  }
 
   init_seq_ts(&info->desc_ts, MAX_TIMESTAMPS);
   init_seq_ts(&info->fifo_ts, MAX_TIMESTAMPS);
@@ -2268,7 +2572,7 @@ void UMD_DD_SS(struct worker* info, std::stringstream& out)
       }
 
       char tmp[257] = {0};
-      snprintf(tmp, 256, "Did %u %s peer.rio_addr=0x%" PRIx64 " %" PRIx32 "tx.WP=%" PRId32 " tx.RP~%" PRId32 " tx.rpUC=%" PRId32 " tx.rpLS=%fmS\n\t\ttx.RIO=%" PRIx64 " rx.RIO=%" PRIx64 "\n\t\tTun.rx=%" PRIx64 " Tun.tx=%" PRIx64 " Tun.txerr=%" PRIx64 "\n\t\ttx.peer_full=%" PRIx64, 
+      snprintf(tmp, 256, "Did %u %s peer.rio_addr=0x%" PRIx64 " IBWsz=%" PRIx32 " tx.WP=%" PRIu32 " tx.RP~%" PRIu32 " tx.rpUC=%" PRIu32 " tx.rpLS=%fmS\n\t\ttx.RIO=%" PRIu64 " rx.RIO=%" PRIu64 "\n\t\tTun.rx=%" PRIu64 " Tun.tx=%" PRIu64 " Tun.txerr=%" PRIu64 "\n\t\ttx.peer_full=%" PRIu64, 
          peer.get_destid(), peer.get_tun_name(),
          peer.get_rio_addr(), peer.get_ibwin_size(),
          peer.get_WP(), peer.get_RP(), peer.get_RP_serial(), dT_RP,
@@ -2278,7 +2582,7 @@ void UMD_DD_SS(struct worker* info, std::stringstream& out)
         );
       ss << "\n\t" << tmp;
 
-      snprintf(tmp, 256, "\n\t\tpushRP=%" PRIx64 " pushForceRP=%" PRIx64,
+      snprintf(tmp, 256, "\n\t\tpushRP=%" PRIu64 " pushForceRP=%" PRIu64,
                          peer.m_stats.push_rp_cnt, peer.m_stats.push_rp_force_cnt);
       ss << tmp;
 
@@ -2286,7 +2590,7 @@ void UMD_DD_SS(struct worker* info, std::stringstream& out)
       assert(pRP);
 
       float TotalTimeSpentFull = (float)peer.m_stats.rio_rx_peer_full_ticks_total / MHz;
-      snprintf(tmp, 256, "\n\t\trx.RP=%u #IBBdRO=%d IBBdReady=%d #IsolIBPass=%" PRIx64 " #IsolIBPassAdd=%" PRIx64 " #IBPass=%" PRIx64 " IBBDFullTotal=%fuS",
+      snprintf(tmp, 256, "\n\t\trx.RP=%u #IBBdRO=%d IBBdReady=%d #IsolIBPass=%" PRIu64 " #IsolIBPassAdd=%" PRIu64 " #IBPass=%" PRIu64 " IBBDFullTotal=%fuS",
                          pRP->RP, rocnt, peer.get_rio_rx_bd_ready_size(),
                          peer.m_stats.rio_isol_rx_pass, 
                          peer.m_stats.rio_isol_rx_pass_add, 
@@ -2304,7 +2608,7 @@ void UMD_DD_SS(struct worker* info, std::stringstream& out)
       if (peer.m_stats.rio_isol_rx_pass_spl > 0) {
         float AvgTck = ((float)peer.m_stats.rio_isol_rx_pass_spl_ts / peer.m_stats.rio_isol_rx_pass_spl);
         char tmp[65] = {0};
-        snprintf(tmp, 64, "\n\t\tAvgTckSplock=%f (%fuS) MaxTckSplock=%" PRIx64 "", AvgTck, AvgTck/MHz,
+        snprintf(tmp, 64, "\n\t\tAvgTckSplock=%f (%fuS) MaxTckSplock=%" PRIu64 "", AvgTck, AvgTck/MHz,
                           peer.m_stats.rio_isol_rx_pass_spl_ts_max);
         ss << tmp;
       }

@@ -202,7 +202,7 @@ void init_worker_info(struct worker *info, int first_time)
 	info->umd_peer_ibmap = NULL;
 
 	info->umd_dma_did_peer_list_high_wm = 0;
-	memset(info->umd_dma_did_peer_list, 0, sizeof(info->umd_dma_did_peer_list));
+	memset((void*)info->umd_dma_did_peer_list, 0, sizeof(info->umd_dma_did_peer_list));
 
 	info->umd_dma_did_peer.clear();
 	info->umd_dma_did_enum_list.clear();

@@ -2683,6 +2683,7 @@ int UDMACmdTun(struct cli_env *env, int argc, char **argv)
 	int mtu;
 	int thruput = 0;
 	int dma_method = 0;
+	int l2_tun = 0;
 
         int n = 0; // this be a trick from X11 source tree ;)
 
@@ -2698,7 +2699,9 @@ int UDMACmdTun(struct cli_env *env, int argc, char **argv)
         dma_method = GetDecParm(argv[n++], 0);
 
 	if (n <= (argc-1))
-		thruput      = GetDecParm(argv[n++], 0);
+		thruput = GetDecParm(argv[n++], 0);
+	if (n <= (argc-1))
+		l2_tun  = GetDecParm(argv[n++], 0);
 
         if (check_idx(env, idx, 1))
                 goto exit;
@@ -2764,6 +2767,7 @@ int UDMACmdTun(struct cli_env *env, int argc, char **argv)
         wkr[idx].umd_chan_n  = chan_n;
         wkr[idx].umd_chan2   = chan2; // for NREAD
         wkr[idx].umd_tun_MTU = mtu;
+        wkr[idx].umd_tun_L2  = l2_tun;
         wkr[idx].umd_fifo_thr.cpu_req = cpu;
         wkr[idx].umd_fifo_thr.cpu_run = wkr[idx].wkr_thr.cpu_run;
         wkr[idx].umd_tx_buf_cnt = buff;
@@ -2788,7 +2792,7 @@ struct cli_cmd UDMAT = {
 5,
 7,
 "TUN/TAP (L3) over DMA with User-Mode demo driver -- pointopoint",
-"<idx> <cpu> <chan_1> <chan_n> <chan_nread> <buff> <sts> <mtu> <rdma> <thruput>\n"
+"<idx> <cpu> <chan_1> <chan_n> <chan_nread> <buff> <sts> <mtu> <rdma> <thruput> <l2>\n"
         "<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
         "<cpu> is a cpu number, or -1 to indicate no cpu affinity\n"
         "<chan_1> is a DMA channel number from 1 through 7\n"
@@ -2802,6 +2806,7 @@ struct cli_cmd UDMAT = {
         "       Must be between (576+4) and 128k; upper bound depends on kernel\n"
         "<rdma> 0=DMAChannel 1=libmport\n"
         "<thruput> [optional] optimise for 1=thruput 0=latency {default}\n"
+        "<l2>      [optional] set up Tun device as L2\n"
         "Note: tunX device will be configured as 169.254.x.y where x.y is our destid+1\n"
         "Note: IBAlloc size = (8+MTU)*buf+4 needed before running this command\n",
 UDMACmdTun,

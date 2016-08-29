@@ -66,6 +66,7 @@ private:
   void*              m_ib_ptr; ///< Pointer to some place in LOCAL IBwin
 
   int                m_tun_fd;
+  bool               m_tun_fd_mutable;
   char               m_tun_name[33];
   int                m_tun_MTU;
 
@@ -102,7 +103,7 @@ public:
     m_rio_addr(0),
     m_ibwin_size(0),
     m_ib_ptr(NULL),
-    m_tun_fd(-1), m_tun_MTU(0),
+    m_tun_fd(-1), m_tun_fd_mutable(false), m_tun_MTU(0),
     m_pRP(NULL),
     m_WP(0), m_rpeer_UC(0),
     m_rio_rx_bd_L2_ptr(NULL),
@@ -133,6 +134,7 @@ private:
     m_ibwin_size= other.m_ibwin_size;
     m_ib_ptr   = other.m_ib_ptr;
     m_tun_fd   = -1;
+    m_tun_fd_mutable = false;
     m_tun_MTU  = other.m_tun_MTU;
     strncpy(m_tun_name, other.m_tun_name, 32); m_tun_name[32] = '\0';
     m_WP       = other.m_WP;
@@ -161,7 +163,15 @@ public:
   inline uint16_t get_destid() { return m_destid; }
   inline void*    get_ib_ptr() { return m_ib_ptr; }
   inline int      get_rio_rx_bd_ready_size() { return m_rio_rx_bd_ready_size; }
+
   inline int      get_tun_fd() { return m_tun_fd; }
+  inline void     set_tun_fd(int tun_fd)
+  {
+    m_tun_fd_mutable = false;
+    m_tun_fd = tun_fd;
+    sig = PEER_SIG_UP;
+  }
+
   inline uint32_t get_WP() { ASSERT_BUFC(m_WP); return m_WP; }  
   inline uint32_t set_WP(const uint32_t wp) { ASSERT_BUFC(wp); return m_WP=wp; }  
   inline uint32_t inc_WP() { ++m_WP; ASSERT_BUFC(m_WP-1); return m_WP; }  
@@ -222,6 +232,7 @@ public:
     lock();
 
     m_tun_fd = -1;
+    m_tun_fd_mutable = false;
 
     // Set up array of pointers to IB L2 headers
 
@@ -287,7 +298,7 @@ public:
     lock();
     sig = PEER_SIG_DESTROYED;
 
-    if (m_tun_fd >= 0) { close(m_tun_fd); m_tun_fd = -1; }
+    if (m_tun_fd_mutable && m_tun_fd >= 0) { close(m_tun_fd); m_tun_fd = -1; }
     m_tun_name[0] = '\0';
 
     if (m_info == NULL) return; // ::init was not called?
@@ -369,10 +380,11 @@ public:
 	}
     }}
 
+    m_tun_fd_mutable = true;
     sig = PEER_SIG_UP;
 
     {{
-      struct epoll_event event;
+      struct epoll_event event; memset(&event, 0, sizeof(event));
       event.data.ptr = this;
       event.events = EPOLLIN; // | EPOLLET;
       if (epoll_ctl (m_info->umd_epollfd, EPOLL_CTL_ADD, m_tun_fd, &event) < 0) {
