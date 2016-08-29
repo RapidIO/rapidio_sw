@@ -31,6 +31,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 
+#define __STDC_FORMAT_MACROS
+#include <stdint.h>
+#include <inttypes.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -45,7 +48,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <signal.h>
 #include <time.h>
 
+#define __STDC_FORMAT_MACROS
 #include <stdint.h>
+#include <inttypes.h>
 #include <unistd.h>
 #include <dirent.h>
 #include <errno.h>
@@ -202,7 +207,7 @@ void init_worker_info(struct worker *info, int first_time)
 	info->umd_peer_ibmap = NULL;
 
 	info->umd_dma_did_peer_list_high_wm = 0;
-	memset((void*)info->umd_dma_did_peer_list, 0, sizeof(info->umd_dma_did_peer_list));
+	memset(info->umd_dma_did_peer_list, 0, sizeof(info->umd_dma_did_peer_list));
 
 	info->umd_dma_did_peer.clear();
 	info->umd_dma_did_enum_list.clear();
@@ -673,6 +678,7 @@ int alloc_dma_tx_buffer(struct worker *info)
 	int rc = 0;
 
 	if (info->use_kbuf) {
+		info->rdma_kbuff = RIO_ANY_ADDR;
 		rc = riomp_dma_dbuf_alloc(info->mp_h, info->rdma_buff_size,
 					&info->rdma_kbuff);
 		if (rc) {
@@ -853,7 +859,6 @@ void dma_goodput(struct worker *info)
 		if (dma_tx_lat == info->action) {
 			uint64_t dly = 1000000000;
 			uint64_t st_dlay = dly;
-			st_dlay += 0;
 			uint8_t iter_cnt_as_byte = info->perf_iter_cnt;
 
 			if (info->wr) {
@@ -1172,10 +1177,11 @@ void msg_rx_goodput(struct worker *info)
                         	break;
                 	};
 			info->perf_msg_cnt++;
-			if (message_rx_lat == info->action)
+			if ((message_rx_lat == info->action) ||
+			   		(message_rx_oh == info->action)) {
 				if (send_resp_msg(info))
 					break;
-
+			}
 			clock_gettime(CLOCK_MONOTONIC, &info->end_time);
 		};
 		msg_cleanup_con_skt(info);
@@ -1273,6 +1279,108 @@ void msg_tx_goodput(struct worker *info)
                 	};
 			finish_iter_stats(info);
 		};
+
+		info->perf_msg_cnt++;
+		info->perf_byte_cnt += info->msg_size;
+		clock_gettime(CLOCK_MONOTONIC, &info->end_time);
+	};
+exit:
+	msg_cleanup_con_skt(info);
+	msg_cleanup_mb(info);
+
+};
+
+
+void msg_tx_overhead(struct worker *info)
+{
+	int rc;
+
+	if (info->mb_valid || info->acc_skt_valid || info->con_skt_valid) {
+		ERR("FAILED: mailbox, access socket, or con socket in use.\n");
+		return;
+	};
+
+	if (!info->sock_num) {
+		ERR("FAILED: Socket number cannot be 0.\n");
+		return;
+	};
+
+	rc = riomp_sock_mbox_create_handle(mp_h_num, 0, &info->mb);
+	if (rc) {
+		ERR("FAILED: riomp_sock_mbox_create_handle rc %d:%s\n",
+			rc, strerror(errno));
+		return;
+	};
+
+	info->mb_valid = 1;
+
+	rc = alloc_msg_tx_rx_buffs(info);
+
+	zero_stats(info);
+	clock_gettime(CLOCK_MONOTONIC, &info->st_time);
+
+	while (!info->stop_req) {
+		rc = riomp_sock_socket(info->mb, &info->con_skt);
+		if (rc) {
+			ERR("FAILED: riomp_sock_socket rc %d:%s\n",
+				rc, strerror(errno));
+			return;
+		};
+		start_iter_stats(info);
+
+		info->con_skt_valid = 1;
+		rc = riomp_sock_connect(info->con_skt, info->did, info->sock_num);
+		if (rc) {
+			ERR("FAILED: riomp_sock_connect rc %d:%s\n",
+				rc, strerror(errno));
+			return;
+		};
+		info->con_skt_valid = 2;
+
+		rc = 1;
+		while (rc && !info->stop_req) {
+			rc = riomp_sock_send(info->con_skt,
+					info->sock_tx_buf, info->msg_size);
+
+			if (rc) {
+				if ((errno == ETIME) || (errno == EINTR))
+					continue;
+				if (errno == EBUSY) {
+					const struct timespec ten_usec = {0, 10 * 1000};
+					nanosleep(&ten_usec, NULL);
+					continue;
+				};
+				ERR("FAILED: riomp_sock_send rc %d:%s\n",
+					rc, strerror(errno));
+				goto exit;
+			};
+			break;
+		};
+
+		rc = 1;
+		while (rc && !info->stop_req) {
+			rc = riomp_sock_receive(info->con_skt,
+				&info->sock_rx_buf, FOUR_KB, 1000);
+
+			if (rc) {
+				if ((errno == ETIME) ||
+						(errno == EINTR)) {
+					continue;
+				};
+				ERR(
+				"FAILED: riomp_sock_receive rc %d:%s\n",
+					rc, strerror(errno));
+				goto exit;
+			};
+		};
+
+		rc = riomp_sock_close(&info->con_skt);
+		info->con_skt_valid = 0;
+		if (rc) {
+			ERR("riomp_sock_close rc con_skt %d:%s\n",
+					rc, strerror(errno));
+		};
+		finish_iter_stats(info);
 
 		info->perf_msg_cnt++;
 		info->perf_byte_cnt += info->msg_size;
@@ -1517,7 +1625,6 @@ again:
                                 dT = item.ts_end - item.ts_start;
                                 dTf = (float)dT / MHz;
                         }
-			dTf += 0;
                         switch (item.opt.dtype) {
                         case DTYPE4:
                                 info->perf_byte_cnt += info->acc_size;
@@ -1573,7 +1680,6 @@ void UMD_DDD(const struct worker* info)
 	if (info->umd_fifo_total_ticks_count > 0) {
 	       float avgTick_uS = ((float)info->umd_fifo_total_ticks / info->umd_fifo_total_ticks_count) / MHz;
 	       INFO("\n\tFIFO Avg TX %f uS cnt=%llu\n", avgTick_uS, info->umd_fifo_total_ticks_count);
-	       avgTick_uS += 0;
 	}
 #if 0
 	const int idx = info->idx;
@@ -1974,77 +2080,7 @@ void calibrate_sched_yield(struct worker *info)
 	CRIT("\nSCH_YLD: Max %10d %10d\n", ts_max.tv_sec, ts_max.tv_nsec);
 	ts_tot = time_div(ts_tot, max);
 	CRIT("\nSCH_YLD: Avg per call %10d %10d\n",
-		ts_tot.tv_sec, ts_tot.tv_nsec);
-};
-
-void calibrate_mutex(struct worker *info)
-{
-	int i, j, max = 10000;
-	struct timespec st_time; /* Start of the run, for throughput */
-	struct timespec end_time; /* End of the run, for throughput*/
-	struct timespec ts_min, ts_max, ts_tot;
-	pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
-
-	CRIT("\n\nCalibrating mutex for %d runs, %d acc\n",
-		info->umd_sts_entries, max);
-
-	for (i = 0; !info->stop_req && (i < info->umd_sts_entries); i++) {
-        	clock_gettime(CLOCK_MONOTONIC, &st_time);
-		for (j = 0; j < max; j++) {
-			pthread_mutex_lock(&lock);
-			st_time.tv_nsec++;
-			pthread_mutex_unlock(&lock);
-		};
-
-        	clock_gettime(CLOCK_MONOTONIC, &end_time);
-		end_time = time_add(end_time, {0, max});
-		time_track(i, st_time, end_time, &ts_tot, &ts_min, &ts_max);
-	};
-
-	CRIT("\nMUTEX: Min %10d %10d\n", ts_min.tv_sec, ts_min.tv_nsec);
-	CRIT("\nMUTEX: Tot %10d %10d\n", ts_tot.tv_sec, ts_tot.tv_nsec);
-	ts_tot = time_div(ts_tot, info->umd_sts_entries);
-	CRIT("\nMUTEX: Avg %10d %10d\n", ts_tot.tv_sec, ts_tot.tv_nsec);
-	CRIT("\nMUTEX: Max %10d %10d\n", ts_max.tv_sec, ts_max.tv_nsec);
-	ts_tot = time_div(ts_tot, max);
-	CRIT("\nMUTEX: Avg per call %10d %10d\n",
-		ts_tot.tv_sec, ts_tot.tv_nsec);
-};
-
-void calibrate_sem(struct worker *info, int shared)
-{
-	int i, j, max = 10000;
-	struct timespec st_time; /* Start of the run, for throughput */
-	struct timespec end_time; /* End of the run, for throughput*/
-	struct timespec ts_min, ts_max, ts_tot;
-	sem_t lock;
-
-	sem_init(&lock, shared, 1);
-
-	CRIT("\n\nCalibrating sema for %d runs, %d acc, shared %d\n",
-		info->umd_sts_entries, max, shared);
-
-	for (i = 0; !info->stop_req && (i < info->umd_sts_entries); i++) {
-        	clock_gettime(CLOCK_MONOTONIC, &st_time);
-		for (j = 0; j < max; j++) {
-			sem_wait(&lock);
-			st_time.tv_nsec++;
-			sem_post(&lock);
-		};
-
-        	clock_gettime(CLOCK_MONOTONIC, &end_time);
-		end_time = time_add(end_time, {0, max});
-		time_track(i, st_time, end_time, &ts_tot, &ts_min, &ts_max);
-	};
-
-	CRIT("\nMUTEX: Min %10d %10d\n", ts_min.tv_sec, ts_min.tv_nsec);
-	CRIT("\nMUTEX: Tot %10d %10d\n", ts_tot.tv_sec, ts_tot.tv_nsec);
-	ts_tot = time_div(ts_tot, info->umd_sts_entries);
-	CRIT("\nMUTEX: Avg %10d %10d\n", ts_tot.tv_sec, ts_tot.tv_nsec);
-	CRIT("\nMUTEX: Max %10d %10d\n", ts_max.tv_sec, ts_max.tv_nsec);
-	ts_tot = time_div(ts_tot, max);
-	CRIT("\nMUTEX: Avg per call %10d %10d\n",
-		ts_tot.tv_sec, ts_tot.tv_nsec);
+		ts_max.tv_sec, ts_max.tv_nsec);
 };
 
 void umd_dma_calibrate(struct worker *info)
@@ -2071,15 +2107,7 @@ void umd_dma_calibrate(struct worker *info)
 	if (info->stop_req)
 		goto exit;
 	calibrate_sched_yield(info);
-	if (info->stop_req)
-		goto exit;
-	calibrate_mutex(info);
-	if (info->stop_req)
-		goto exit;
-	calibrate_sem(info, 0);
-	if (info->stop_req)
-		goto exit;
-	calibrate_sem(info, 1);
+
 exit:
         info->umd_dch->cleanup();
         delete info->umd_dch;
@@ -3343,14 +3371,18 @@ void *worker_thread(void *parm)
         	case dma_rx_lat:	
 			dma_rx_latency(info);
 			break;
-        	case message_tx:
-        	case message_tx_lat:
-				msg_tx_goodput(info);
-				break;
-        	case message_rx:
-        	case message_rx_lat:
-				msg_rx_goodput(info);
-				break;
+		case message_tx:
+		case message_tx_lat:
+			msg_tx_goodput(info);
+			break;
+		case message_rx:
+		case message_rx_lat:
+		case message_rx_oh:
+			msg_rx_goodput(info);
+			break;
+		case message_tx_oh:
+			msg_tx_overhead(info);
+			break;
         	case alloc_ibwin:
 				dma_alloc_ibwin(info);
 				break;
@@ -3400,11 +3432,12 @@ void *worker_thread(void *parm)
 #endif // USER_MODE_DRIVER
 		
         	case shutdown_worker:
-				info->stat = 0;
-		default:
+			info->stat = 0;
+			break;
 		case no_action:
 		case last_action:
-				break;
+		default:
+			break;
 		};
 
 		if (info->stat) {

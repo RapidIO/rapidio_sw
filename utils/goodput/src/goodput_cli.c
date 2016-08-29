@@ -31,7 +31,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 
-#define __STDC_FORMAT_MACROS 1
+#define __STDC_FORMAT_MACROS
 #include <stdint.h>
 #include <inttypes.h>
 
@@ -43,11 +43,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "goodput_cli.h"
 #include "libtime_utils.h"
+#include "librsvdmem.h"
 #include "mhz.h"
 #include "liblog.h"
 #include "assert.h"
 #include "tsi721_dma.h"
-#include "librsvdmem.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -64,8 +64,10 @@ char *req_type_str[(int)last_action+1] = {
 	(char *)"dR_Lat",
 	(char *)"MSG_Tx",
 	(char *)"mT_Lat",
+	(char *)"mTx_Oh",
 	(char *)"MSG_Rx",
 	(char *)"mR_Lat",
+	(char *)"mRx_Oh",
 	(char *)" IBWIN",
 	(char *)"~IBWIN",
 	(char *)"SHTDWN",
@@ -381,32 +383,34 @@ ATTR_NONE
 int IBAllocCmd(struct cli_env *env, int argc, char **argv)
 {
 	int idx;
-	uint64_t ib_size = 0;
-        uint64_t ib_phys_addr= RIOMP_MAP_ANY_ADDR;
-	uint64_t ib_rio_addr = RIOMP_MAP_ANY_ADDR;
+	uint64_t ib_size;
+	uint64_t ib_rio_addr = RIO_ANY_ADDR;
+	uint64_t ib_phys_addr= RIO_ANY_ADDR;
 	bool check = true;
 
 	idx = GetDecParm(argv[0], 0);
 	ib_size = GetHex(argv[1], 0);
 
-        /* Note: RSVD overrides rio_addr... */
-        if (argc > 3) {
-                int rc;
-                rc = get_rsvd_phys_mem(argv[3], &ib_phys_addr, &ib_size);
-                if (rc) {
-                        sprintf(env->output, "\nNo reserved memory found for keyword %s", argv[3]);
-                        logMsg(env);
-                        goto exit;
-                };
-                check = false;
-        } else if (argc > 2) {
-                ib_rio_addr = GetHex(argv[2], 0);
-        }
+	/* Note: RSVD overrides rio_addr... */
+	if (argc > 3) {
+		int rc;
+		rc = get_rsvd_phys_mem(argv[3], &ib_phys_addr, &ib_size);
+		if (rc) {
+			sprintf(env->output,
+				"\nNo rerved memory found for keyword %s",
+				argv[3]);
+        		logMsg(env);
+			goto exit;
+		};
+		check = false;
+	} else if (argc > 2) {
+		ib_rio_addr = GetHex(argv[2], 0);
+	};
 
-        if (check_idx(env, idx, 1))
-                goto exit;
+	if (check_idx(env, idx, 1))
+		goto exit;
 
-        if (check && ((ib_size < FOUR_KB) || (ib_size > 4*SIXTEEN_MB))) {
+	if (check && ((ib_size < FOUR_KB) || (ib_size > 4*SIXTEEN_MB))) {
 		sprintf(env->output, "\nIbwin size range: 0x%x to 0x%x\n",
 			FOUR_KB, 4*SIXTEEN_MB);
         	logMsg(env);
@@ -417,7 +421,7 @@ int IBAllocCmd(struct cli_env *env, int argc, char **argv)
         	logMsg(env);
 		goto exit;
 	};
-	if ((ib_rio_addr != RIOMP_MAP_ANY_ADDR) && ((ib_size - 1) & ib_rio_addr)) {
+	if ((ib_rio_addr != RIO_ANY_ADDR) && ((ib_size - 1) & ib_rio_addr)) {
 		sprintf(env->output, "\nIbwin address not aligned with size\n");
         	logMsg(env);
 		goto exit;
@@ -440,7 +444,6 @@ struct cli_cmd IBAlloc = {
 2,
 "Allocate an inbound window",
 "IBAlloc <idx> <size> {<addr> {<RSVD>}}\n"
-	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
 	"<size> is a hexadecimal power of two from 0x1000 to 0x01000000\n"
 	"<addr> is the optional RapidIO address for the inbound window\n"
 	"       NOTE: <addr> must be aligned to <size>\n"
@@ -1273,7 +1276,7 @@ struct cli_cmd msgTxLat = {
 	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
 	"<did> target device ID\n"
 	"<sock_num> RapidIO Channelized Messaging channel number to connect\n"
-	"<size> bytes per message hex. Must be a multiple of 8."
+	"<size> bytes per message hex. Must be a multiple of 8.\n"
         "       Minimum 0x18, maximum 0x1000 (24 through 4096).\n"
 	"NOTE: mTxLat must be sending to a node running mRxLat!\n"
 	"NOTE: mRxLat must be run before mTxLat!\n",
@@ -1281,7 +1284,7 @@ msgTxLatCmd,
 ATTR_NONE
 };
 
-int msgRxLatCmd(struct cli_env *env, int argc, char **argv)
+int msgRxCmdExt(struct cli_env *env, int argc, char **argv, req_type action)
 {
 	int idx;
 	int sock_num;
@@ -1296,13 +1299,13 @@ int msgRxLatCmd(struct cli_env *env, int argc, char **argv)
 
 	if (!sock_num) {
 		sprintf(env->output, "\nSock_num must not be 0.\n");
-        	logMsg(env);
+		logMsg(env);
 		goto exit;
 	};
 
 	roundoff_message_size(&bytes);
 
-	wkr[idx].action = message_rx_lat;
+	wkr[idx].action = action;
 	wkr[idx].action_mode = kernel_action;
 	wkr[idx].did = 0;
 	wkr[idx].sock_num = sock_num;
@@ -1311,7 +1314,12 @@ int msgRxLatCmd(struct cli_env *env, int argc, char **argv)
 	wkr[idx].stop_req = 0;
 	sem_post(&wkr[idx].run);
 exit:
-        return 0;
+	return 0;
+};
+
+int msgRxLatCmd(struct cli_env *env, int argc, char **argv)
+{
+	return msgRxCmdExt(env, argc, argv, message_rx_lat);
 };
 
 struct cli_cmd msgRxLat = {
@@ -1322,7 +1330,7 @@ struct cli_cmd msgRxLat = {
 "mRxLat <idx> <sock_num> <size>\n"
 	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
 	"<sock_num> RapidIO Channelized Messaging channel number to accept\n"
-	"<size> bytes per message hex. Must be a multiple of 8."
+	"<size> bytes per message hex. Must be a multiple of 8.\n"
         "       Minimum 0x18, maximum 0x1000 (24 through 4096).\n"
 	"NOTE: All parameters are decimal numbers.\n"
 	"NOTE: mRxLat must be run before mTxLat!\n",
@@ -1343,7 +1351,7 @@ int msgRxCmd(struct cli_env *env, int argc, char **argv)
 
 	if (!sock_num) {
 		sprintf(env->output, "\nSock_num must not be 0.\n");
-        	logMsg(env);
+		logMsg(env);
 		goto exit;
 	};
 
@@ -1355,7 +1363,7 @@ int msgRxCmd(struct cli_env *env, int argc, char **argv)
 	wkr[idx].stop_req = 0;
 	sem_post(&wkr[idx].run);
 exit:
-        return 0;
+	return 0;
 };
 
 struct cli_cmd msgRx = {
@@ -1368,6 +1376,50 @@ struct cli_cmd msgRx = {
 	"<sock_num> Target socket number for connections from msgTx command\n"
 	"NOTE: msgRx must be running before msgTx!\n",
 msgRxCmd,
+ATTR_NONE
+};
+
+int msgTxOhCmd(struct cli_env *env, int argc, char **argv)
+{
+	msg_tx_cmd(env, argc, argv, message_tx_oh);
+	return 0;
+};
+
+struct cli_cmd msgTxOh = {
+"mTxOh",
+4,
+4,
+"Measures overhead of channelized messages",
+"mTxOh <idx> <did> <sock_num> <size>\n"
+	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
+	"<did> target device ID\n"
+	"<sock_num> RapidIO Channelized Messaging channel number to connect\n"
+	"<size> bytes per message hex. Must be a multiple of 8.\n"
+	"       Minimum 0x18, maximum 0x1000 (24 through 4096).\n"
+	"NOTE: mTxOh must be sending to a node running mRxOh!\n"
+	"NOTE: mRxOh must be run before mTxOh!\n",
+msgTxOhCmd,
+ATTR_NONE
+};
+
+int msgRxOhCmd(struct cli_env *env, int argc, char **argv)
+{
+	return msgRxCmdExt(env, argc, argv, message_rx_oh);
+};
+
+struct cli_cmd msgRxOh = {
+"mRxOh",
+4,
+3,
+"Loops back received messages to mTxOh sender",
+"mRxOh <idx> <sock_num> <size>\n"
+	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
+	"<sock_num> RapidIO Channelized Messaging channel number to accept\n"
+	"<size> bytes per message hex. Must be a multiple of 8.\n"
+	"       Minimum 0x18, maximum 0x1000 (24 through 4096).\n"
+	"NOTE: All parameters are decimal numbers.\n"
+	"NOTE: mRxOh must be run before mTxOh!\n",
+msgRxOhCmd,
 ATTR_NONE
 };
 
@@ -2683,7 +2735,6 @@ int UDMACmdTun(struct cli_env *env, int argc, char **argv)
 	int mtu;
 	int thruput = 0;
 	int dma_method = 0;
-	int l2_tun = 0;
 
         int n = 0; // this be a trick from X11 source tree ;)
 
@@ -2699,9 +2750,7 @@ int UDMACmdTun(struct cli_env *env, int argc, char **argv)
         dma_method = GetDecParm(argv[n++], 0);
 
 	if (n <= (argc-1))
-		thruput = GetDecParm(argv[n++], 0);
-	if (n <= (argc-1))
-		l2_tun  = GetDecParm(argv[n++], 0);
+		thruput      = GetDecParm(argv[n++], 0);
 
         if (check_idx(env, idx, 1))
                 goto exit;
@@ -2767,7 +2816,6 @@ int UDMACmdTun(struct cli_env *env, int argc, char **argv)
         wkr[idx].umd_chan_n  = chan_n;
         wkr[idx].umd_chan2   = chan2; // for NREAD
         wkr[idx].umd_tun_MTU = mtu;
-        wkr[idx].umd_tun_L2  = l2_tun;
         wkr[idx].umd_fifo_thr.cpu_req = cpu;
         wkr[idx].umd_fifo_thr.cpu_run = wkr[idx].wkr_thr.cpu_run;
         wkr[idx].umd_tx_buf_cnt = buff;
@@ -2792,7 +2840,7 @@ struct cli_cmd UDMAT = {
 5,
 7,
 "TUN/TAP (L3) over DMA with User-Mode demo driver -- pointopoint",
-"<idx> <cpu> <chan_1> <chan_n> <chan_nread> <buff> <sts> <mtu> <rdma> <thruput> <l2>\n"
+"<idx> <cpu> <chan_1> <chan_n> <chan_nread> <buff> <sts> <mtu> <rdma> <thruput>\n"
         "<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
         "<cpu> is a cpu number, or -1 to indicate no cpu affinity\n"
         "<chan_1> is a DMA channel number from 1 through 7\n"
@@ -2806,7 +2854,6 @@ struct cli_cmd UDMAT = {
         "       Must be between (576+4) and 128k; upper bound depends on kernel\n"
         "<rdma> 0=DMAChannel 1=libmport\n"
         "<thruput> [optional] optimise for 1=thruput 0=latency {default}\n"
-        "<l2>      [optional] set up Tun device as L2\n"
         "Note: tunX device will be configured as 169.254.x.y where x.y is our destid+1\n"
         "Note: IBAlloc size = (8+MTU)*buf+4 needed before running this command\n",
 UDMACmdTun,
@@ -3395,6 +3442,8 @@ struct cli_cmd *goodput_cmds[] = {
 	&msgRx,
 	&msgTxLat,
 	&msgRxLat,
+	&msgTxOh,
+	&msgRxOh,
 	&Goodput,
 	&Lat,
 	&Status,

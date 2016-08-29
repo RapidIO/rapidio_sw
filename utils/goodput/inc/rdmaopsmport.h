@@ -183,7 +183,7 @@ public:
     const int size = BD_PAYLOAD_SIZE(info);
     for (int i = 0; i < info->umd_tx_buf_cnt; i++) {
       RioMport::DmaMem_t& mem = dmamem[i];
-      mem.rio_address = RIOMP_MAP_ANY_ADDR;
+      mem.rio_address = RIO_ANY_ADDR;
       if(! m_mport->map_dma_buf(size, mem))
         throw std::runtime_error("DMAChannel: Cannot alloc HW mem for DMA transfers!");
 
