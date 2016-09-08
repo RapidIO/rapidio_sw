@@ -118,7 +118,7 @@ librdma.a: $(LIBMPORT) $(RDMALIB_SOURCES) $(MPORTLIB_INC)/$(MPORTLIB_HEADER) \
 	lib/src/*.h $(LIBLOG_PATH)/liblog.a
 	@echo ---------- Building librdma.a ----------
 	$(CXX) $(RDMALIB_STATIC_CFLAGS) $(RDMALIB_SOURCES)
-	ar rcs librdma.a $(RDMALIB_OBJS)
+	$(AR) rcs librdma.a $(RDMALIB_OBJS)
 	mkdir -p $(TOP_LEVEL)/include/libs_a
 	cp librdma.a $(TOP_LEVEL)/include/libs_a
 #Generate preprocessor output

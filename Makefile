@@ -41,6 +41,9 @@ export CC
 CXX = $(CROSS_COMPILE)g++
 export CXX
 
+AR = $(CROSS_COMPILE)ar
+export AR
+
 TOP_LEVEL = $(shell pwd)
 export TOP_LEVEL
 
