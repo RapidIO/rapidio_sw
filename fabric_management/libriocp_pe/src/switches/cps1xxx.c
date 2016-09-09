@@ -160,6 +160,7 @@ extern "C" {
 #define CPS1xxx_PORT_X_ERR_RPT_EN(x)			(0x031044 + 0x040*(x))
 #define CPS1xxx_PORT_X_STAT_CTRL(x)				(0xf400F0 + 0x100*(x))
 #define CPS1xxx_PORT_X_RETRY_CNTR(x)			(0xf400CC + 0x100*(x))
+#define CPS1xxx_PORT_X_LANE_SYNC(x)				(0xf40060 + 0x100*(x))
 
 #define CPS1xxx_PORT_X_TRACE_PW_CTL(x)			(0xf40058 + 0x100*(x))
 #define CPS1xxx_PORT_TRACE_PW_DIS				(0x00000001)
@@ -453,6 +454,7 @@ extern "C" {
 #define CPS1xxx_MCAST_MASK_FIRST		0x40
 #define CPS1xxx_MCAST_MASK_LAST			0x67
 #define CPS1xxx_QUAD_CFG            0xF20200
+#define CPS1xxx_VMIN_DEFAULT		4	/* 2^15-1 or 2^14-1 consecutive control symbols for link up required, reduces link flicker during startup */
 
 /* CPS1616 */
 //#define CPS1616_PW_TIMER			0x05000 /* 28 us */
@@ -1515,6 +1517,11 @@ static int cps1xxx_init_port(struct riocp_pe *sw, uint8_t port)
 		if (ret < 0)
 			return ret;
 	}
+
+	/* program default Vmin */
+	ret = riocp_pe_maint_write(sw, CPS1xxx_PORT_X_LANE_SYNC(port), CPS1xxx_VMIN_DEFAULT);
+	if (ret < 0)
+		return ret;
 
 	/* Read the errors again because they might be cleared already. */
 	ret = riocp_pe_maint_read(sw, CPS1xxx_PORT_X_ERR_STAT_CSR(port), &status);
