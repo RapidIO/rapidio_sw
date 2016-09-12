@@ -318,6 +318,7 @@ int RIOCP_WU riocp_pe_get_sw_counters(riocp_pe_handle sw, uint8_t port, counter_
 int RIOCP_WU riocp_pe_get_sw_trace_filter_caps(riocp_pe_handle sw, struct riocp_pe_trace_filter_caps *caps);
 int RIOCP_WU riocp_pe_set_sw_trace_filter(riocp_pe_handle sw, uint8_t port, uint8_t filter, uint32_t flags, uint32_t *match_val, uint32_t *match_mask);
 int RIOCP_WU riocp_pe_set_sw_trace_port(riocp_pe_handle sw, uint8_t port, uint32_t flags);
+int RIOCP_WU riocp_pe_set_sw_port_lockout(riocp_pe_handle sw, uint8_t port, bool state);
 
 /* Event management functions */
 int RIOCP_WU riocp_pe_get_event_mask(riocp_pe_handle pe, uint8_t port, riocp_pe_event_mask_t *mask);

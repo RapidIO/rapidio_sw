@@ -2464,6 +2464,27 @@ int RIOCP_SO_ATTR riocp_pe_port_link_state(riocp_pe_handle pe, uint8_t port, boo
     return (ret < 0)?(ret):(0);
 }
 
+/**
+ * Set the PORT_LOCKOUT bit of a switch port
+ * @param sw     Target switch
+ * @param port   Target port
+ * @param state  PORT_LOCKOUT bit state to be set
+ */
+int RIOCP_WU riocp_pe_set_sw_port_lockout(riocp_pe_handle sw, uint8_t port, bool state)
+{
+    if (riocp_pe_handle_check(sw))
+        return -EINVAL;
+    if (!RIOCP_PE_IS_HOST(sw))
+        return -EPERM;
+    if (!RIOCP_PE_IS_SWITCH(sw->cap))
+        return -ENOSYS;
+
+    if (state)
+	    return riocp_pe_switch_lock_port(sw, port);
+    else
+	    return riocp_pe_switch_unlock_port(sw, port);
+}
+
 #ifdef __cplusplus
 }
 #endif

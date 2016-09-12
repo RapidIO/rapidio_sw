@@ -3837,7 +3837,9 @@ struct riocp_pe_switch riocp_pe_switch_cps1848 = {
     cps1xxx_get_counters,
 	NULL,
 	NULL,
-	NULL
+	NULL,
+	cps1xxx_lock_port,
+	cps1xxx_unlock_port
 };
 
 struct riocp_pe_device_id cps1432_id_table[] = {
@@ -3871,7 +3873,9 @@ struct riocp_pe_switch riocp_pe_switch_cps1432 = {
     cps1xxx_get_counters,
 	cps1xxx_get_trace_filter_capabilities,
 	cps1xxx_set_trace_filter,
-	cps1xxx_set_trace_port
+	cps1xxx_set_trace_port,
+	cps1xxx_lock_port,
+	cps1xxx_unlock_port
 };
 
 struct riocp_pe_device_id cps1616_id_table[] = {
@@ -3905,7 +3909,9 @@ struct riocp_pe_switch riocp_pe_switch_cps1616 = {
     cps1xxx_get_counters,
 	NULL,
 	NULL,
-	NULL
+	NULL,
+	cps1xxx_lock_port,
+	cps1xxx_unlock_port
 };
 
 struct riocp_pe_device_id sps1616_id_table[] = {
@@ -3939,7 +3945,9 @@ struct riocp_pe_switch riocp_pe_switch_sps1616 = {
     cps1xxx_get_counters,
 	cps1xxx_get_trace_filter_capabilities,
 	cps1xxx_set_trace_filter,
-	cps1xxx_set_trace_port
+	cps1xxx_set_trace_port,
+	cps1xxx_lock_port,
+	cps1xxx_unlock_port
 };
 
 #ifdef __cplusplus

@@ -399,6 +399,22 @@ int riocp_pe_switch_set_trace_port(struct riocp_pe *sw, uint8_t port, uint32_t f
         return -ENOSYS;
 }
 
+int RIOCP_WU riocp_pe_switch_lock_port(struct riocp_pe *sw, uint8_t port)
+{
+	if (sw->sw->lock_port)
+		return sw->sw->lock_port(sw, port);
+	else
+		return -ENOSYS;
+}
+
+int RIOCP_WU riocp_pe_switch_unlock_port(struct riocp_pe *sw, uint8_t port)
+{
+	if (sw->sw->unlock_port)
+		return sw->sw->unlock_port(sw, port);
+	else
+		return -ENOSYS;
+}
+
 #ifdef __cplusplus
 }
 #endif

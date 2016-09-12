@@ -577,7 +577,9 @@ struct riocp_pe_switch riocp_pe_switch_tsi57x = {
 	NULL,
 	NULL,
 	NULL,
-	NULL
+	NULL,
+	tsi57x_lock_port,
+	tsi57x_unlock_port
 };
 
 #ifdef __cplusplus

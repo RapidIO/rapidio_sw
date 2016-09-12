@@ -59,6 +59,8 @@ int RIOCP_WU riocp_pe_switch_get_counters(struct riocp_pe *sw, uint8_t port, cou
 int RIOCP_WU riocp_pe_switch_get_trace_filter_caps(struct riocp_pe *sw, struct riocp_pe_trace_filter_caps *counter_caps);
 int RIOCP_WU riocp_pe_switch_set_trace_filter(struct riocp_pe *sw, uint8_t port, uint8_t filter, uint32_t flags, uint32_t *val, uint32_t *mask);
 int RIOCP_WU riocp_pe_switch_set_trace_port(struct riocp_pe *sw, uint8_t port, uint32_t flags);
+int RIOCP_WU riocp_pe_switch_lock_port(struct riocp_pe *sw, uint8_t port);
+int RIOCP_WU riocp_pe_switch_unlock_port(struct riocp_pe *sw, uint8_t port);
 
 #ifdef __cplusplus
 }

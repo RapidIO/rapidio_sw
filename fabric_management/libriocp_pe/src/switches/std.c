@@ -201,6 +201,8 @@ struct riocp_pe_switch riocp_pe_switch_std = {
 	NULL,
 	NULL,
 	NULL,
+	NULL,
+	NULL,
 	NULL
 };
 
