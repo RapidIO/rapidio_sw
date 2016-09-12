@@ -1912,69 +1912,74 @@ READ_CNTR(CPS1xxx_PORT_X_FIL_MATCH_1)
 READ_CNTR(CPS1xxx_PORT_X_FIL_MATCH_2)
 READ_CNTR(CPS1xxx_PORT_X_FIL_MATCH_3)
 
-static int cps1xxx_get_capabilities(struct riocp_pe *sw, uint8_t port, cap_if_t *caps)
+
+/* This function needs to know the switch's counter capabilities.
+ * Therefore it has to assure that all capabilities which are defined in the
+ * general riocp_pe API and that do not apply for this switch are set to NULL.
+ */
+static int cps1xxx_get_capabilities(struct riocp_pe *sw, uint8_t port,
+		counter_caps_t *counter_caps)
 {
     int ret, i;
     uint8_t width;
 
-    caps[PORT_X_VC0_PA_TX_CNTR].get_counter = cps1xxx_read_CPS1xxx_PORT_X_VC0_PA_TX_CNTR;
-    caps[PORT_X_VC0_NACK_TX_CNTR].get_counter = cps1xxx_read_CPS1xxx_PORT_X_VC0_NACK_TX_CNTR;
-    caps[PORT_X_VC0_RTRY_TX_CNTR].get_counter = cps1xxx_read_CPS1xxx_PORT_X_VC0_RTRY_TX_CNTR;
-    caps[PORT_X_VC0_PKT_TX_CNTR].get_counter = cps1xxx_read_CPS1xxx_PORT_X_VC0_PKT_TX_CNTR;
-    caps[PORT_X_VC0_PA_RX_CNTR].get_counter = cps1xxx_read_CPS1xxx_PORT_X_VC0_PA_RX_CNTR;
-    caps[PORT_X_VC0_NACK_RX_CNTR].get_counter = cps1xxx_read_CPS1xxx_PORT_X_VC0_NACK_RX_CNTR;
-    caps[PORT_X_VC0_RTRY_RX_CNTR].get_counter = cps1xxx_read_CPS1xxx_PORT_X_VC0_RTRY_RX_CNTR;
-    caps[PORT_X_VC0_PKT_RX_CNTR].get_counter = cps1xxx_read_CPS1xxx_PORT_X_VC0_PKT_RX_CNTR;
-    caps[PORT_X_VC0_CPB_TX_CNTR].get_counter = cps1xxx_read_CPS1xxx_PORT_X_VC0_CPB_TX_CNTR;
-    caps[PORT_X_VC0_PKT_DROP_RX_CNTR].get_counter = cps1xxx_read_CPS1xxx_PORT_X_VC0_PKT_DROP_RX_CNTR;
-    caps[PORT_X_VC0_PKT_DROP_TX_CNTR].get_counter = cps1xxx_read_CPS1xxx_PORT_X_VC0_PKT_DROP_TX_CNTR;
-    caps[PORT_X_VC0_TTL_DROP_CNTR].get_counter = cps1xxx_read_CPS1xxx_PORT_X_VC0_TTL_DROP_CNTR;
-    caps[PORT_X_VC0_CRC_LIMIT_DROP_CNTR].get_counter = cps1xxx_read_CPS1xxx_PORT_X_VC0_CRC_LIMIT_DROP_CNTR;
-    caps[PORT_X_TRC_MATCH_0].get_counter = cps1xxx_read_CPS1xxx_PORT_X_TRC_MATCH_0;
-    caps[PORT_X_TRC_MATCH_1].get_counter = cps1xxx_read_CPS1xxx_PORT_X_TRC_MATCH_1;
-    caps[PORT_X_TRC_MATCH_2].get_counter = cps1xxx_read_CPS1xxx_PORT_X_TRC_MATCH_2;
-    caps[PORT_X_TRC_MATCH_3].get_counter = cps1xxx_read_CPS1xxx_PORT_X_TRC_MATCH_3;
-    caps[PORT_X_FIL_MATCH_0].get_counter = cps1xxx_read_CPS1xxx_PORT_X_FIL_MATCH_0;
-    caps[PORT_X_FIL_MATCH_1].get_counter = cps1xxx_read_CPS1xxx_PORT_X_FIL_MATCH_1;
-    caps[PORT_X_FIL_MATCH_2].get_counter = cps1xxx_read_CPS1xxx_PORT_X_FIL_MATCH_2;
-    caps[PORT_X_FIL_MATCH_3].get_counter = cps1xxx_read_CPS1xxx_PORT_X_FIL_MATCH_3;
+    counter_caps->read_reg[PORT_X_VC0_PA_TX_CNTR] = cps1xxx_read_CPS1xxx_PORT_X_VC0_PA_TX_CNTR;
+    counter_caps->read_reg[PORT_X_VC0_NACK_TX_CNTR] = cps1xxx_read_CPS1xxx_PORT_X_VC0_NACK_TX_CNTR;
+    counter_caps->read_reg[PORT_X_VC0_RTRY_TX_CNTR] = cps1xxx_read_CPS1xxx_PORT_X_VC0_RTRY_TX_CNTR;
+    counter_caps->read_reg[PORT_X_VC0_PKT_TX_CNTR] = cps1xxx_read_CPS1xxx_PORT_X_VC0_PKT_TX_CNTR;
+    counter_caps->read_reg[PORT_X_VC0_PA_RX_CNTR] = cps1xxx_read_CPS1xxx_PORT_X_VC0_PA_RX_CNTR;
+    counter_caps->read_reg[PORT_X_VC0_NACK_RX_CNTR] = cps1xxx_read_CPS1xxx_PORT_X_VC0_NACK_RX_CNTR;
+    counter_caps->read_reg[PORT_X_VC0_RTRY_RX_CNTR] = cps1xxx_read_CPS1xxx_PORT_X_VC0_RTRY_RX_CNTR;
+    counter_caps->read_reg[PORT_X_VC0_PKT_RX_CNTR] = cps1xxx_read_CPS1xxx_PORT_X_VC0_PKT_RX_CNTR;
+    counter_caps->read_reg[PORT_X_VC0_CPB_TX_CNTR] = cps1xxx_read_CPS1xxx_PORT_X_VC0_CPB_TX_CNTR;
+    counter_caps->read_reg[PORT_X_VC0_PKT_DROP_RX_CNTR] = cps1xxx_read_CPS1xxx_PORT_X_VC0_PKT_DROP_RX_CNTR;
+    counter_caps->read_reg[PORT_X_VC0_PKT_DROP_TX_CNTR] = cps1xxx_read_CPS1xxx_PORT_X_VC0_PKT_DROP_TX_CNTR;
+    counter_caps->read_reg[PORT_X_VC0_TTL_DROP_CNTR] = cps1xxx_read_CPS1xxx_PORT_X_VC0_TTL_DROP_CNTR;
+    counter_caps->read_reg[PORT_X_VC0_CRC_LIMIT_DROP_CNTR] = cps1xxx_read_CPS1xxx_PORT_X_VC0_CRC_LIMIT_DROP_CNTR;
+    counter_caps->read_reg[PORT_X_TRC_MATCH_0] = cps1xxx_read_CPS1xxx_PORT_X_TRC_MATCH_0;
+    counter_caps->read_reg[PORT_X_TRC_MATCH_1] = cps1xxx_read_CPS1xxx_PORT_X_TRC_MATCH_1;
+    counter_caps->read_reg[PORT_X_TRC_MATCH_2] = cps1xxx_read_CPS1xxx_PORT_X_TRC_MATCH_2;
+    counter_caps->read_reg[PORT_X_TRC_MATCH_3] = cps1xxx_read_CPS1xxx_PORT_X_TRC_MATCH_3;
+    counter_caps->read_reg[PORT_X_FIL_MATCH_0] = cps1xxx_read_CPS1xxx_PORT_X_FIL_MATCH_0;
+    counter_caps->read_reg[PORT_X_FIL_MATCH_1] = cps1xxx_read_CPS1xxx_PORT_X_FIL_MATCH_1;
+    counter_caps->read_reg[PORT_X_FIL_MATCH_2] = cps1xxx_read_CPS1xxx_PORT_X_FIL_MATCH_2;
+    counter_caps->read_reg[PORT_X_FIL_MATCH_3] = cps1xxx_read_CPS1xxx_PORT_X_FIL_MATCH_3;
 
     // preinitialize with dedicated functions to read counters
-    caps[PORT_X_LANE_0_ERR_8B10B].get_counter = cps1xxx_get_port_err8b10b_lane_0;
-    caps[PORT_X_LANE_1_ERR_8B10B].get_counter = cps1xxx_get_port_err8b10b_lane_1;
-    caps[PORT_X_LANE_2_ERR_8B10B].get_counter = cps1xxx_get_port_err8b10b_lane_2;
-    caps[PORT_X_LANE_3_ERR_8B10B].get_counter = cps1xxx_get_port_err8b10b_lane_3;
+    counter_caps->read_reg[PORT_X_LANE_0_ERR_8B10B] = cps1xxx_get_port_err8b10b_lane_0;
+    counter_caps->read_reg[PORT_X_LANE_1_ERR_8B10B] = cps1xxx_get_port_err8b10b_lane_1;
+    counter_caps->read_reg[PORT_X_LANE_2_ERR_8B10B] = cps1xxx_get_port_err8b10b_lane_2;
+    counter_caps->read_reg[PORT_X_LANE_3_ERR_8B10B] = cps1xxx_get_port_err8b10b_lane_3;
 
     // clear function pointers for unassigned lanes
     ret = cps1xxx_get_lane_width(sw, port, &width);
     for (i=width; i<4; ++i) {
-        caps[PORT_X_LANE_0_ERR_8B10B+i].get_counter = NULL;
+        counter_caps->read_reg[PORT_X_LANE_0_ERR_8B10B+i] = NULL;
     }
 
     return ret;
 }
 
-int cps1xxx_get_counters(struct riocp_pe *sw, uint8_t port, uint32_t *counter_val,
-        uint32_t counter_val_size, cap_if_t *caps, uint32_t caps_cnt)
+int cps1xxx_get_counters(struct riocp_pe *sw, uint8_t port, counter_regs_t *counter_regs,
+		counter_caps_t *counter_caps)
 {
-    uint32_t cap_idx, ret = 0;
+    uint32_t cap, ret;
     uint32_t reg_val;
 
-    for (cap_idx=0; cap_idx<caps_cnt; ++cap_idx) {
-        if (caps[cap_idx].get_counter == NULL)
+    for (cap=0; cap<LAST_CAPABILITY; ++cap) {
+    	// check the counter capability: is there a read function for this counter register available?
+        if (counter_caps[cap].read_reg == NULL) {
+        	counter_regs->val[cap] = 0;
             continue;
-
-        if (cap_idx >= counter_val_size) {
-            RIOCP_ERROR("No space left in register result array (index %d vs %d)",
-                    cap_idx, counter_val_size);
-            return -ENOMEM;
         }
 
-        ret = caps[cap_idx].get_counter(sw, port, &reg_val);
-        counter_val[cap_idx] = reg_val;
+        // read the counter value from its register
+        if ((ret = counter_caps->read_reg[cap](sw, port, &reg_val)))
+        	return ret;
+        counter_regs->val[cap] = reg_val;
     }
 
-    return ret;
+    return 0;
 }
 
 int cps1xxx_set_multicast_mask(struct riocp_pe *sw, uint8_t lut, uint8_t maskid, uint16_t port_mask, bool clear)

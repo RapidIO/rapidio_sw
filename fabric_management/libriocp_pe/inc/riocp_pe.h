@@ -146,8 +146,9 @@ enum riocp_log_level {
 /* RapidIO control plane log callback function */
 typedef int (*riocp_log_output_func_t)(enum riocp_log_level, const char *);
 
-/* define the as well the content and the order of the switch capability
+/* define the content and the order of the switch port counter capability
  * structures (see below)
+ * e.g. used to create struct or enum elements
  */
 #define ALL_CAPABILITIES(CAPABILITY) \
     CAPABILITY(PORT_X_VC0_PA_TX_CNTR) \
@@ -184,14 +185,15 @@ typedef enum riocp_switch_capabilities {
     ALL_CAPABILITIES(CREATE_CAP_ENUM)
 } riocp_switch_capabilities_t;
 
-typedef struct cap_if
-{
-        riocp_switch_capabilities_t idx;
-        int (*get_counter)(struct riocp_pe *sw, uint8_t port, uint32_t *counter_val);
-} cap_if_t;
+typedef struct {
+	uint32_t val[LAST_CAPABILITY];
+} counter_regs_t;
 
-#define CREATE_CAP_STRUCT(CAP_STRUCT) \
-        {CAP_STRUCT, NULL}, \
+typedef int (*riocp_pe_sw_counter_read)(struct riocp_pe *sw, uint8_t port, uint32_t *counter_regs);
+
+typedef struct {
+	riocp_pe_sw_counter_read read_reg[LAST_CAPABILITY];
+} counter_caps_t;
 
 extern const char *riocp_switch_cap_desc[];
 
@@ -308,9 +310,9 @@ int RIOCP_WU riocp_sw_set_congestion_limit(riocp_pe_handle sw, uint8_t port, uin
 
 /* Counters */
 int RIOCP_WU riocp_pe_get_sw_counter_capabilites(riocp_pe_handle sw,
-        uint8_t port, cap_if_t *caps);
-int RIOCP_WU riocp_pe_get_sw_counters(riocp_pe_handle sw, uint8_t port, uint32_t *counter_val,
-        uint32_t counter_val_size, cap_if_t *caps, uint32_t caps_cnt);
+        uint8_t port, counter_caps_t *counter_caps);
+int RIOCP_WU riocp_pe_get_sw_counters(riocp_pe_handle sw, uint8_t port, counter_regs_t *counter_regs,
+		counter_caps_t *counter_caps);
 
 /* Trace and Filters */
 int RIOCP_WU riocp_pe_get_sw_trace_filter_caps(riocp_pe_handle sw, struct riocp_pe_trace_filter_caps *caps);

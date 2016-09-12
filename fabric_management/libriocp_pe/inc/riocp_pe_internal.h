@@ -122,9 +122,9 @@ struct riocp_pe_switch {
 	int (*set_multicast_mask)(struct riocp_pe *sw, uint8_t lut, uint8_t maskid, uint16_t port_mask, bool clear);
 	int (*set_self_mcast)(struct riocp_pe *sw, uint8_t port, bool state);
 	int (*set_congest_limit)(struct riocp_pe *sw, uint8_t port, uint16_t limit);
-	int (*get_register_capabilities)(struct riocp_pe *sw, uint8_t port, cap_if_t *caps);
-	int (*get_counters)(struct riocp_pe *sw, uint8_t port, uint32_t *counter_val,
-	        uint32_t counter_val_size, cap_if_t *caps, uint32_t caps_cnt);
+	int (*get_register_capabilities)(struct riocp_pe *sw, uint8_t port, counter_caps_t *counter_caps);
+	int (*get_counters)(struct riocp_pe *sw, uint8_t port, counter_regs_t *counter_regs,
+			counter_caps_t *counter_caps);
 	int (*get_trace_filter_capabilities)(struct riocp_pe *sw, struct riocp_pe_trace_filter_caps *caps);
 	int (*set_trace_filter)(struct riocp_pe *sw, uint8_t port, uint8_t filter, uint32_t flags, uint32_t *val, uint32_t *mask);
 	int (*set_trace_port)(struct riocp_pe *sw, uint8_t port, uint32_t flags);
