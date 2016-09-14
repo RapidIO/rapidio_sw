@@ -1975,7 +1975,7 @@ int cps1xxx_get_counters(struct riocp_pe *sw, uint8_t port, counter_regs_t *coun
 
     for (cap=0; cap<LAST_CAPABILITY; ++cap) {
     	// check the counter capability: is there a read function for this counter register available?
-        if (counter_caps[cap].read_reg == NULL) {
+        if (counter_caps.read_reg[cap] == NULL) {
         	counter_regs->val[cap] = 0;
             continue;
         }
