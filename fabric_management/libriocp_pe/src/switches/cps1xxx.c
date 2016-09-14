@@ -941,8 +941,10 @@ static int cps1xxx_get_switch_lane_8b10b(struct riocp_pe *sw, uint8_t lane, uint
     struct switch_priv_t *priv = (struct switch_priv_t *)sw->private_driver_data;
 
     ret = cps1xxx_read_lane_stat_0_csr(sw, lane, &reg_val);
-    if (ret < 0)
+    if (ret < 0) {
+		RIOCP_ERROR("Failed to read 8b10b error counter of lane %d\n", lane);
         return ret;
+	}
 
     // return cached value
     *value = priv->lanes[lane].err_8b10b;
@@ -965,7 +967,9 @@ static int cps1xxx_get_port_lane_8b10b(struct riocp_pe *sw, uint8_t port,
             port, ret, strerror(-ret));
         return ret;
     }
-    cps1xxx_get_switch_lane_8b10b(sw, first_lane+lane_in_port, lane_8b10b);
+    ret = cps1xxx_get_switch_lane_8b10b(sw, first_lane+lane_in_port, lane_8b10b);
+	if (ret < 0)
+		return ret;
 
     return 0;
 }
