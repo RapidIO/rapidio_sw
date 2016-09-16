@@ -1632,6 +1632,40 @@ int RIOCP_SO_ATTR riocp_pe_pw_event_to_pe(riocp_pe_handle mport, struct riocp_pe
 }
 
 /**
+ * Find event type for PE - look at raw data prior to reading register
+ * @param pe PE pointer with the PE related to pw data
+ * @param pw_ev pointer to port write data
+ * @param ev pointer to return event data
+ */
+int RIOCP_SO_ATTR riocp_pe_pw_event_type(riocp_pe_handle pe, struct riocp_pe_pw_data *pw_ev, struct riocp_pe_event *ev)
+{
+	int ret = 0;
+	struct riomp_mgmt_event revent;
+	struct riocp_pe_event _e;
+	struct riocp_pe *_pe = pe;
+
+	if (!pw_ev || !ev)
+		return -EINVAL;
+	if (riocp_pe_handle_check(pe))
+		return -EINVAL;
+
+	_e.port  = 0;
+	_e.event = 0;
+
+	memset(&revent, 0, sizeof(revent));
+	memcpy(revent.u.portwrite.payload, pw_ev->pw, sizeof(pw_ev->pw));
+
+        _e.port = RIOCP_PE_EVENT_PW_PORT_ID (revent.u.portwrite);
+
+	ret = riocp_pe_switch_pw_event_type (_pe, &_e, &revent);
+
+	ev->port  = _e.port;
+	ev->event = _e.event;
+
+	return ret;
+}
+
+/**
  * Handle and parse port write data
  * @param pw_ev pointer to port write data
  * @param pe PE pointer with the PE related to pw data

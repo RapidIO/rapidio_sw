@@ -408,6 +408,8 @@ extern "C" {
 /* Port-write */
 #define CPS1xxx_PW_GET_EVENT_CODE(revent) (((*(revent)).u.portwrite.payload[2] >> 8) & 0xFF)
 
+#define CPS1xxx_PW_MANY_RETRY			0xAA
+
 #define LOG_LT_ERR_FIRST			0x31
 #define LOG_LT_ERR_LAST				0x36
 #define LOG_PORT_ERR_FIRST			0x71
@@ -3175,6 +3177,55 @@ int cps1xxx_get_port_state(struct riocp_pe *sw, uint8_t port, riocp_pe_port_stat
 	return 0;
 }
 
+int cps1xxx_get_port_events(struct riocp_pe *sw, struct riocp_pe_event *event, struct riomp_mgmt_event *revent)
+{
+	int ret = 0;
+	uint32_t err_status;
+	uint32_t impl_err_det;
+	uint8_t port;
+	uint8_t event_code;
+
+	port = event->port;
+
+	event_code = CPS1xxx_PW_GET_EVENT_CODE (revent);
+
+	/* only go to read register if PW impl specific data is empy */
+	if (event_code == 0) {
+		ret = riocp_pe_maint_read(sw, CPS1xxx_PORT_X_ERR_STAT_CSR(port), &err_status);
+		if (ret < 0) {
+			RIOCP_ERROR("%s Error reading CPS1xxx_PORT_X_ERR_STAT_CSR port %d \n", __func__, port);
+			return -EIO;
+		}
+
+		ret = riocp_pe_maint_read(sw, CPS1xxx_PORT_X_IMPL_SPEC_ERR_DET(port), &impl_err_det);
+		if (ret < 0) {
+			RIOCP_ERROR("%s Error reading CPS1xxx_PORT_X_IMPL_SPEC_ERR_DET port %d RET=%d \n", __func__, port,ret);
+			return -EIO;
+		}
+
+		if (impl_err_det & CPS1xxx_IMPL_SPEC_ERR_DET_MANY_RETRY) {
+			event->event |= RIOCP_PE_EVENT_RETRY_LIMIT;
+		}
+
+		if ((impl_err_det & CPS1xxx_IMPL_SPEC_ERR_DET_PORT_INIT) &&
+			(err_status & CPS1xxx_ERR_STATUS_PORT_OK)) {
+
+			event->event |= RIOCP_PE_EVENT_LINK_UP;
+		}
+
+	} else {
+		if (event_code == CPS1xxx_PW_MANY_RETRY)
+			event->event = RIOCP_PE_EVENT_RETRY_LIMIT;
+		else
+			/* at some point may want to have lookup table to convert all PW IMPL data event to actual event*/
+			event->event = 0;
+
+	}
+
+	return ret;
+
+}
+
 static int cps1xxx_port_event_handler(struct riocp_pe *sw, struct riocp_pe_event *event)
 {
 	int ret;
@@ -3182,7 +3233,7 @@ static int cps1xxx_port_event_handler(struct riocp_pe *sw, struct riocp_pe_event
 	uint32_t ctl;
 	uint32_t err_status;
 	uint32_t err_det, err_det_after;
-	uint32_t impl_err_det, impl_err_det_after;
+	uint32_t impl_err_det, impl_err_det_after, port_stat_ctrl;
 	uint8_t port;
 	struct switch_priv_t *priv = (struct switch_priv_t *)sw->private_driver_data;
 
@@ -3322,6 +3373,24 @@ skip_port_errors:
 	}
 
 	if (impl_err_det & CPS1xxx_IMPL_SPEC_ERR_DET_MANY_RETRY) {
+		/* Clear RETRY Limit condition */
+		ret = riocp_pe_maint_read(sw, CPS1xxx_PORT_X_STAT_CTRL(port), &port_stat_ctrl);
+		if (ret < 0) {
+			RIOCP_ERROR("switch 0x%04x (0x%08x) Error reading port %d status and control register \n",
+				sw->destid, sw->comptag, port);
+			goto out;
+		}
+
+		port_stat_ctrl |= CPS1xxx_PORT_STAT_CTL_CLR_MANY_RETRY;
+
+		ret = riocp_pe_maint_write(sw, CPS1xxx_PORT_X_STAT_CTRL(port), port_stat_ctrl);
+		if (ret < 0) {
+			RIOCP_ERROR("switch 0x%04x (0x%08x) Port %d Write to PORT_STAT_CTRL - Clear MANY retry limit failed\n",
+				sw->destid, sw->comptag, port);
+
+			goto out;
+		}
+
 		RIOCP_DEBUG("switch 0x%04x (0x%08x) port %d retry limit (%u) triggered\n", sw->destid, sw->comptag, port, priv->ports[port].retry_lim);
 		event->event |= RIOCP_PE_EVENT_RETRY_LIMIT;
 	}
@@ -3843,7 +3912,8 @@ struct riocp_pe_switch riocp_pe_switch_cps1848 = {
 	NULL,
 	NULL,
 	cps1xxx_lock_port,
-	cps1xxx_unlock_port
+	cps1xxx_unlock_port,
+	NULL
 };
 
 struct riocp_pe_device_id cps1432_id_table[] = {
@@ -3879,7 +3949,8 @@ struct riocp_pe_switch riocp_pe_switch_cps1432 = {
 	cps1xxx_set_trace_filter,
 	cps1xxx_set_trace_port,
 	cps1xxx_lock_port,
-	cps1xxx_unlock_port
+	cps1xxx_unlock_port,
+	cps1xxx_get_port_events
 };
 
 struct riocp_pe_device_id cps1616_id_table[] = {
@@ -3915,7 +3986,8 @@ struct riocp_pe_switch riocp_pe_switch_cps1616 = {
 	NULL,
 	NULL,
 	cps1xxx_lock_port,
-	cps1xxx_unlock_port
+	cps1xxx_unlock_port,
+	NULL
 };
 
 struct riocp_pe_device_id sps1616_id_table[] = {
@@ -3951,7 +4023,8 @@ struct riocp_pe_switch riocp_pe_switch_sps1616 = {
 	cps1xxx_set_trace_filter,
 	cps1xxx_set_trace_port,
 	cps1xxx_lock_port,
-	cps1xxx_unlock_port
+	cps1xxx_unlock_port,
+	cps1xxx_get_port_events
 };
 
 #ifdef __cplusplus

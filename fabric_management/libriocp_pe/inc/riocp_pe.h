@@ -328,7 +328,9 @@ int RIOCP_WU riocp_pe_event_mport(riocp_pe_handle mport, riocp_pe_handle *pe,
 		struct riocp_pe_event *ev, int timeout);
 int RIOCP_WU riocp_pe_get_pw_event_mport(riocp_pe_handle mport, struct riocp_pe_pw_data *pw_ev, int timeout);
 int RIOCP_WU riocp_pe_pw_event_to_pe(riocp_pe_handle mport, struct riocp_pe_pw_data *pw_ev, riocp_pe_handle *pe);
+int RIOCP_WU riocp_pe_pw_event_type(riocp_pe_handle pe, struct riocp_pe_pw_data *pw_ev, struct riocp_pe_event *ev);
 int RIOCP_WU riocp_pe_handle_pw_event(struct riocp_pe_pw_data *pw_ev, riocp_pe_handle pe, struct riocp_pe_event *ev);
+
 
 /* Debug functions */
 int riocp_pe_maint_read(riocp_pe_handle pe, uint32_t offset, uint32_t *val);

@@ -61,6 +61,7 @@ int RIOCP_WU riocp_pe_switch_set_trace_filter(struct riocp_pe *sw, uint8_t port,
 int RIOCP_WU riocp_pe_switch_set_trace_port(struct riocp_pe *sw, uint8_t port, uint32_t flags);
 int RIOCP_WU riocp_pe_switch_lock_port(struct riocp_pe *sw, uint8_t port);
 int RIOCP_WU riocp_pe_switch_unlock_port(struct riocp_pe *sw, uint8_t port);
+int RIOCP_WU riocp_pe_switch_pw_event_type(struct riocp_pe *sw, struct riocp_pe_event *ev, struct riomp_mgmt_event *revent);
 
 #ifdef __cplusplus
 }

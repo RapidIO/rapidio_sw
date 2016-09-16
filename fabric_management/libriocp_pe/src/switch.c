@@ -243,6 +243,19 @@ int riocp_pe_switch_set_route_entry(struct riocp_pe *sw, uint8_t lut,
 }
 
 /**
+ * Get PW event type for port
+ * @param sw	Target switch PE
+ * @param ev	event storage
+ */
+int riocp_pe_switch_pw_event_type(struct riocp_pe *sw, struct riocp_pe_event *ev, struct riomp_mgmt_event *revent)
+{
+	if (sw->sw->pw_event_type)
+		return sw->sw->pw_event_type(sw, ev, revent);
+	else
+		return -ENOSYS;
+}
+
+/**
  * Get route for destid to port
  * @param sw     Target switch PE
  * @param lut    Route lookup table

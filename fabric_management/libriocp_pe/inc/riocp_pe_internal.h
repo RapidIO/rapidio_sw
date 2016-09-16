@@ -130,6 +130,8 @@ struct riocp_pe_switch {
 	int (*set_trace_port)(struct riocp_pe *sw, uint8_t port, uint32_t flags);
 	int (*lock_port)(struct riocp_pe *sw, uint8_t port);
 	int (*unlock_port)(struct riocp_pe *sw, uint8_t port);
+	int (*pw_event_type)(struct riocp_pe *sw, struct riocp_pe_event *ev, struct riomp_mgmt_event *revent);
+
 };
 
 /** RapidIO Processing element */
