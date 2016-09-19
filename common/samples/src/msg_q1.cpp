@@ -11,7 +11,7 @@ struct msg_t {
 int main(int argc, char *argv[])
 {
 	if (argc < 2) {
-		puts("msg_q2 <num_of_iterations>");
+		puts("msg_q1 <num_of_iterations>");
 		exit(1);
 	}
 

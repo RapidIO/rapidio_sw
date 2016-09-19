@@ -31,36 +31,36 @@
 TOPDIR?=$(shell pwd)/../..
 include $(TOPDIR)/rules.mk
 
-level?=$(LOG_LEVEL)
-DEBUG?=DEBUG
-debug?=$(DEBUG)
-
 NAME:=log
+TARGETS:=lib$(NAME).a lib$(NAME).so
 
-# Common link flags for all shared libraries
-SO_LIB_LKFLAGS = -rdynamic -shared -Wl,-soname,lib$(NAME).so.$(SOVER) -lnsl -fPIC
+OBJECTS:=$(patsubst src/%.cpp,src/%.o,$(wildcard src/*.cpp))
+OBJECTS:= $(OBJECTS) $(patsubst src/%.c,src/%.o,$(wildcard src/*.c))
 
-# LOG library flags, sources and objects
-LOGLIB_CFLAGS = $(CXXFLAGS) -Wall -Wextra -fPIC \
-		-D$(debug) -DRDMA_LL=$(level) -rdynamic -lnsl \
-		-I$(TOPDIR)/rdma/inc
+CXXFLAGS+=-D$(DEBUG_CTL) -DRDMA_LL=$(LOG_LEVEL)
+LINK_FLAGS+= -rdynamic -shared -Wl,-soname,lib$(NAME).so.$(SOVER)
 
-LOGLIB_SOURCES = src/liblog.cpp src/liblog_cli.c
 
-LOGLIB_OBJS = liblog.o liblog_cli.o
+.PHONY: all clean test
 
-all: liblog.so liblog.a
+all: $(TARGETS)
 
-# The logger library
-liblog.so: $(LOGLIB_SOURCES) $(COMMONINC)/liblog.h
-	@echo ---------- Building liblog.so...
-	$(CXX) -c $(LOGLIB_CFLAGS) $(LOGLIB_SOURCES)
-	$(CXX) -o $@.$(SOVER) $(LOGLIB_OBJS) $(SO_LIB_LKFLAGS)
+%.a: $(OBJECTS)
+	@echo ---------- Building $@
+	$(AR) rcs $@ $^
+
+%.so: $(OBJECTS)
+	@echo ---------- Building $@
+	$(CXX) $(CXXFLAGS) -o $@.$(SOVER) $(OBJECTS) $(LINK_FLAGS)
 	@ln -s $@.$(SOVER) $@ &>/dev/null
 
-%.a: liblog.so
-	@echo ---------- Building liblog.a...
-	$(AR) rcs $@ $(LOGLIB_OBJS)
+src/%.o:src/%.c
+	@echo ---------- Building $@
+	$(CXX) -c $(CXXFLAGS) $< -o $@
+
+src/%.o:src/%.cpp
+	@echo ---------- Building $@
+	$(CXX) -c $(CXXFLAGS) $< -o $@
 
 clean:
-	@rm -f *.o *~ *.so* *.a
+	rm -f $(TARGETS) lib$(NAME).so.$(SOVER) $(OBJECTS) inc/*~ src/*~ *~

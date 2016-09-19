@@ -75,6 +75,8 @@ public:
   virtual bool wait_async(MEMOPSRequest_t& dmaopt /*only if async flagged*/, int timeout /*0=blocking, milisec*/);
 
   virtual bool alloc_umem(DmaMem_t& mem /*out*/, const int size) {
+    (void) (mem); // not used in the default implementation
+    (void) (size);
     throw std::runtime_error("RIOMemOpsUMD::alloc_umem: Unsupported memory type!");
   }
 

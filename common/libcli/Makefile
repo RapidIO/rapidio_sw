@@ -29,37 +29,31 @@
 TOPDIR?=$(shell pwd)/../..
 include $(TOPDIR)/rules.mk
 
-level?=$(LOG_LEVEL)
-DEBUG?=NDEBUG
-debug?=$(DEBUG)
+NAME:=cli
+TARGETS:=lib$(NAME).a lib$(NAME).so
 
-NAME=cli
+OBJECTS:=$(patsubst src/%.c,src/%.o,$(wildcard src/*.c))
 
-# Common link flags for all shared libraries
-SO_LIB_LKFLAGS = -rdynamic -shared -lnsl -fPIC -Wl,-soname,lib$(NAME).so.$(SOVER)
+CXXFLAGS+=-D$(DEBUG_CTL) -DRDMA_LL=$(LOG_LEVEL)
+LINK_FLAGS+= -rdynamic -shared -Wl,-soname,lib$(NAME).so.$(SOVER)
 
-# CLI library flags, sources and objects
-CLILIB_CFLAGS = $(CXXFLAGS) -Wall -fPIC \
-		-Isrc/ -I$(TOPDIR)/rdma/daemon/inc \
-		-D$(debug) -DRDMA_LL=$(level) -rdynamic -lnsl
 
-CLILIB_SOURCES = src/cli_base_init.c src/cli_cmd_db.c src/cli_cmd_line.c\
-		src/cli_parse.c src/cli_console.c
+.PHONY: all clean test
 
-CLILIB_OBJS = cli_base_init.o cli_cmd_db.o cli_cmd_line.o\
-		cli_parse.o cli_console.o
+all: $(TARGETS)
 
-all: libcli.so libcli.a
+%.a: $(OBJECTS)
+	@echo ---------- Building $@
+	$(AR) rcs $@ $^
 
-# The CLI library
-libcli.so: $(CLILIB_SOURCES) src/*.h $(TOPDIR)/rdma/daemon/inc/*_console.h
-	@echo ---------- Building libcli.so...
-	$(CXX) $(CLILIB_CFLAGS) -c $(CLILIB_SOURCES)
-	$(CXX) -o $@.$(SOVER) $(CLILIB_OBJS) $(SO_LIB_LKFLAGS)
+%.so: $(OBJECTS)
+	@echo ---------- Building $@
+	$(CXX) $(CXXFLAGS) -o $@.$(SOVER) $(OBJECTS) $(LINK_FLAGS)
 	@ln -s $@.$(SOVER) $@ &>/dev/null
 
-%.a: libcli.so
-	$(AR) rcs $@ $(CLILIB_OBJS)
+src/%.o: src/%.c
+	@echo ---------- Building $@
+	$(CXX) -c $(CXXFLAGS) $< -o $@
 
 clean:
-	@rm -f *.o libcli.so* *~ libcli.a 
+	rm -f $(TARGETS) lib$(NAME).so.$(SOVER) $(OBJECTS) inc/*~ src/*~ *~

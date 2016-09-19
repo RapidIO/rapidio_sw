@@ -312,7 +312,7 @@ ms_h add_rem_ms(const char *name, uint32_t msid)
 		lock_guard<mutex> lock(rem_ms_mutex);
 		rem_ms_list.push_back(msp);
 
-		DBG("Added %s, msid(0x%X) to db, database size=%u\n",
+		DBG("Added %s, msid(0x%X) to db, database size=%zu\n",
 				name, msid, rem_ms_list.size());
 	}
 	catch(...) {
@@ -337,7 +337,7 @@ int remove_rem_ms(uint32_t msid)
 		/* Free the ms, and remove from list */
 		delete *it;		/* Free ms struct */
 		rem_ms_list.erase(it);	/* Remove pointer from list */
-		DBG("Now database has size = %d\n", rem_ms_list.size());
+		DBG("Now database has size = %zu\n", rem_ms_list.size());
 		rc = 0;
 	}
 
@@ -363,7 +363,7 @@ int remove_rem_ms(ms_h msh)
 			/* Free the ms, and remove from list */
 			delete *it;		/* Free ms struct */
 			rem_ms_list.erase(it);	/* Remove pointer from list */
-			DBG("Now database has size = %d\n", rem_ms_list.size());
+			DBG("Now database has size = %zu\n", rem_ms_list.size());
 			rc = 0;
 		}
 	}

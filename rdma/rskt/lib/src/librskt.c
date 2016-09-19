@@ -409,7 +409,7 @@ void *rsvp_loop(void *unused)
 		if (lib.all_must_die)
 			goto exit;
 
-		DBG("Received %d bytes max %d, %s Seq %d", rc, 
+		DBG("Received %d bytes max %zd, %s Seq %d", rc,
 			sizeof(struct librskt_rsktd_to_app_msg),
 			LIBRSKT_APP_MSG_TO_STR(htonl(rxd->msg_type)),
 			LIBRSKT_DMN_2_APP_MSG_SEQ_NO(rxd, htonl(rxd->msg_type)) );
@@ -486,7 +486,7 @@ void cleanup_skt(rskt_h skt_h, volatile struct rskt_socket_t *skt,
 			WARN("sn %d skt->msubh_valid is false", skt_h->sa.sn);
 		}
 		if (skt->msh_valid) {
-			DBG("sn %d skt->msh_valid is true. Closing skt->msh", skt_h->sa.sn, skt->msh);
+			DBG("sn %d skt->msh_valid is true. Closing skt->msh", skt_h->sa.sn);
 			rdma_close_ms_h(skt->msoh, skt->msh);
 			skt->msh_valid = 0;
 		} else {
@@ -1063,7 +1063,7 @@ int setup_skt_ptrs(struct rskt_socket_t *volatile skt)
       && ((skt->hdr->rem_tx_rd_flags & htonl(RSKT_BUF_HDR_FLAG_INIT)) == 0) \
       	       )
 
-	DBG("skt->hdr->rem_rx_wr_flags = 0x%08X, skt->hdr->rem_tx_rd_flags\n",
+	DBG("skt->hdr->rem_rx_wr_flags = 0x%08X, skt->hdr->rem_tx_rd_flags  = 0x%08X\n",
 			ntohl(skt->hdr->rem_rx_wr_flags), ntohl(skt->hdr->rem_tx_rd_flags));
 	DBG("Waiting for INIT_DONE and ZEROED or for ZEROED only\n");
 	while (!COND1 && !COND2) {
@@ -1272,7 +1272,7 @@ int rskt_accept(rskt_h l_skt_h, rskt_h skt_h,
 		goto unlock;
 	}
 
-	DBG("ACCEPT: MSOH %p MSH %p MSUBH %p PTR %p",
+	DBG("ACCEPT: MSOH %" PRIu64 " MSH %" PRIu64 " MSUBH %" PRIu64 " PTR %p",
 		skt->msoh, skt->msh, skt->msubh, skt->msub_p);
 	/* Zero the entire msub (we can do that because we'll initialize
 	 * all pointers below).
@@ -1386,7 +1386,7 @@ int rskt_connect(rskt_h skt_h, struct rskt_sockaddr *sock_addr )
 	DBG("mso = %s, ms = %s, msub_sz = %d\n",
 			rx->a_rsp.msg.conn.mso,
 			rx->a_rsp.msg.conn.ms,
-			rx->a_rsp.msg.conn.msub_sz)
+			rx->a_rsp.msg.conn.msub_sz);
 	skt_h->st = rskt_connecting;
 	skt->connector = skt_rdma_connector;
 	skt_h->sa.ct = ntohl(rx->a_rsp.msg.conn.new_ct);

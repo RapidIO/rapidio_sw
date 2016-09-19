@@ -32,6 +32,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 #include <stdint.h>
+#include <inttypes.h>
 #include <assert.h>
 #include <unistd.h>
 #include <sched.h>
@@ -49,8 +50,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "debug.h"
 #include "dmachan.h"
 #include "libtime_utils.h"
-
-#pragma GCC diagnostic ignored "-fpermissive"
 
 /* DMA Status FIFO */
 #define DMA_STATUS_FIFO_LENGTH (4096)
@@ -333,7 +332,6 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
     m_pending_tickets[bd_idx] = opt.ticket;
 
     if (m_pendingdata_tally != NULL) {
-      assert(m_pendingdata_tally->data[m_chan] >= 0);
       m_pendingdata_tally->data[m_chan] += opt.bcount;
     }
 #endif
@@ -803,7 +801,6 @@ int DMAChannel::scanFIFO(WorkItem_t* completed_work, const int max_work)
     {{
 
     if (m_pendingdata_tally != NULL) {
-      assert(m_pendingdata_tally->data[m_chan] >= 0);
       m_pendingdata_tally->data[m_chan] -= item.opt.bcount;
     }
 
@@ -830,7 +827,7 @@ int DMAChannel::scanFIFO(WorkItem_t* completed_work, const int max_work)
       if (k == P) break; // Upper bound
     }
 #ifdef DEBUG_BD
-    XDBG("\n\tDMA bd_idx=%d rtype=%d Ticket=%llu S/N=%llu Pending=%d pending_tickets_RP=%llu => k=%d\n",
+    XDBG("\n\tDMA bd_idx=%d rtype=%d Ticket=%" PRIu64 " S/N=%lu Pending=%d pending_tickets_RP=%lu => k=%d\n",
          item.bd_idx, item.opt.rtype, item.opt.ticket, m_serial_number, P, m_pending_tickets_RP, k);
 #endif
     if (k > 0) {

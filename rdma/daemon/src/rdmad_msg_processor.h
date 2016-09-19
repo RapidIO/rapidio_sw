@@ -34,6 +34,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define RDMAD_MSG_PROCESSOR_H
 
 #include <signal.h>
+#include <inttypes.h>
 
 #include "rdma_msg.h"
 #include "msg_processor.h"
@@ -56,7 +57,7 @@ public:
 		unix_tx_engine *tx_eng
 			= static_cast<unix_tx_engine *>(vtx_eng);
 
-		DBG("Got message type: '%s',0x%X cat:'%s',0x%X\n",
+		DBG("Got message type: '%s',0x%" PRIX64 " cat:'%s',0x%" PRIX64 "\n",
 			type_name(msg->type), msg->type,
 			cat_name(msg->category), msg->category);
 		switch(msg->type) {

@@ -57,12 +57,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h>
+
+#include "rio_misc.h"
 #include <rapidio_mport_dma.h>
 
 #include "libcli.h"
-
-//#include <rapidio_mport_mgmt.h>
-//#include <rapidio_mport_sock.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -70,7 +69,7 @@ extern "C" {
 
 extern struct cli_cmd CLIConnect;
 
-int CLIConnectCmd(struct cli_env *env, int argc, char **argv)
+int CLIConnectCmd(struct cli_env *UNUSED(env), int UNUSED(argc), char **argv)
 {
 	int sockfd, portno, n;
 	struct sockaddr_in serv_addr;
@@ -176,7 +175,7 @@ void set_prompt(struct cli_env *e)
         if (e != NULL) {
         };
 };
-int main(int argc, char *argv[])
+int main(int UNUSED(argc), char **UNUSED(argv))
 {
 	
 	struct cli_env env;

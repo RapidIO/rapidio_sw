@@ -69,7 +69,7 @@ int mpsw_drv_reg_rd(struct riocp_pe  *pe, uint32_t offset, uint32_t *val)
 	int ret;
 	struct mpsw_drv_private_data *priv_ptr;
 
-	DBG("ENTRY: offset 0x%x val_ptr 0x%lx\n", offset, val);
+	DBG("ENTRY: offset 0x%x val 0x%x\n", offset, *val);
 
 	ret = riocp_pe_handle_get_private(pe, (void **)&priv_ptr);
 	if (ret) {
@@ -430,7 +430,7 @@ int generic_device_init(struct riocp_pe *pe, uint32_t *ct)
 				};
 				rc = DARrioSetAddrMode(dev_h, addr_mode);
 				if (RIO_SUCCESS != rc) {
-					ERR("CT 0x%0x DARrioSetAddrMode rc %x\n",
+					ERR("CT 0x%0x DARrioSetAddrMode rc 0x%x\n",
 						*ct, rc);
 					goto exit;
 				};
@@ -782,7 +782,7 @@ int mpsw_drv_set_route_entry(struct riocp_pe  *pe,
 
 	ret = idt_rt_set_changed(&p_dat->dev_h, &set_in, &set_out);
 	if (ret) {
-		DBG("RT_SET %s port %d did %d rte %x ret 0x%x imp_rc 0x%x\n",
+		DBG("RT_SET %s port %d did %d rte 0x%x ret 0x%x imp_rc 0x%x\n",
 			pe->name?pe->name:"Unknown", port, did, rt_val, ret,
 			set_out.imp_rc);
 		goto fail;
@@ -860,8 +860,8 @@ int mpsw_drv_alloc_mcast_mask(struct riocp_pe *sw, pe_port_t port,
 
 	ret = idt_rt_set_changed(&p_dat->dev_h, &set_in, &set_out);
 	if (ret) {
-		DBG("RT_SET %s port %d rte %x ret 0x%x imp_rc 0x%x\n",
-			sw->name?sw->name:"Unknown", port, rt_val, ret,
+		DBG("RT_SET %s port %d rte 0x%x ret 0x%x imp_rc 0x%x\n",
+			sw->name?sw->name:"Unknown", port, *rt_val, ret,
 			set_out.imp_rc);
 		goto fail;
 	};
@@ -964,7 +964,7 @@ int mpsw_drv_change_mcast_mask(struct riocp_pe *sw, pe_port_t port,
 
 	ret = idt_rt_change_mc_mask(&p_dat->dev_h, &chg_in, &chg_out);
 	if (ret) {
-		DBG("CHG_MC %s port %d mask %x ret 0x%x imp_rc 0x%x\n",
+		DBG("CHG_MC %s port %d mask 0x%x ret 0x%x imp_rc 0x%x\n",
 			sw->name?sw->name:"Unknown", port, port_mask, ret,
 			chg_out.imp_rc);
 		goto fail;
@@ -975,7 +975,7 @@ int mpsw_drv_change_mcast_mask(struct riocp_pe *sw, pe_port_t port,
 
 	ret = idt_rt_set_changed(&p_dat->dev_h, &set_in, &set_out);
 	if (ret) {
-		DBG("CHG_MC %s port %d rte %x ret 0x%x imp_rc 0x%x\n",
+		DBG("CHG_MC %s port %d rte 0x%x ret 0x%x imp_rc 0x%x\n",
 			sw->name?sw->name:"Unknown", port, rt_val, ret,
 			set_out.imp_rc);
 		goto fail;

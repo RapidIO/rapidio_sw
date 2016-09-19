@@ -77,8 +77,9 @@
 #include <time.h>
 #include <signal.h>
 #include <pthread.h>
-#include <rapidio_mport_dma.h>
 
+#include "rio_misc.h"
+#include <rapidio_mport_dma.h>
 #include <rapidio_mport_mgmt.h>
 
 /// @cond
@@ -239,7 +240,6 @@ static void obwtest_buf_free(void *buf)
  * specified.
  * 
  *
- * \param[in] mport_id Local mport device ID (index)
  * \param[in] rio_base Base RapidIO address for inbound window
  * \param[in] ib_size Inbound window and buffer size in bytes
  * \param[in] verify Flag to enable/disable data verification on exit
@@ -249,8 +249,7 @@ static void obwtest_buf_free(void *buf)
  * Performs the following steps:
  *
  */
-int do_ibwin_test(uint32_t mport_id, uint64_t rio_base, uint32_t ib_size,
-			 int verify)
+int do_ibwin_test(uint64_t rio_base, uint32_t ib_size, int verify)
 {
 	int ret;
 	uint64_t ib_handle;
@@ -284,7 +283,7 @@ int do_ibwin_test(uint32_t mport_id, uint64_t rio_base, uint32_t ib_size,
 		dmatest_verify((U8P)ibmap, 0, ib_size, 0, PATTERN_SRC | PATTERN_COPY, 0);
 
 	/** - Unmap kernel-space data buffer */
-	ret = riomp_dma_unmap_memory(mport_hnd, ib_size, ibmap);
+	ret = riomp_dma_unmap_memory(ib_size, ibmap);
 	if (ret)
 		perror("munmap");
 out:
@@ -464,8 +463,8 @@ int do_obwin_test(int random, int verify, int loop_count)
 		printf("\t\tFull Cycle time: %4f s\n", totaltime);
 	} /// - Repeat if loop_count > 1
 
-	/** * Unmap outbound window fro process address space */
-	ret = riomp_dma_unmap_memory(mport_hnd, tbuf_size, obw_ptr);
+	/** * Unmap outbound window from process address space */
+	ret = riomp_dma_unmap_memory(tbuf_size, obw_ptr);
 	if (ret)
 		perror("munmap");
 out_unmap:
@@ -559,7 +558,6 @@ int main(int argc, char** argv)
 		{ "async",  no_argument, NULL, 'Y' },
 		{ "debug",  no_argument, NULL, 'd' },
 		{ "help",   no_argument, NULL, 'h' },
-		{ }
 	};
 	char *program = argv[0];
 	struct riomp_mgmt_mport_properties prop;
@@ -648,7 +646,7 @@ int main(int argc, char** argv)
 		printf("\tmport%d ib_size=0x%x PID:%d\n",
 			mport_id, ibwin_size, (int)getpid());
 
-		do_ibwin_test(mport_id, rio_base, ibwin_size, verify);
+		do_ibwin_test(rio_base, ibwin_size, verify);
 	} else {
 		printf("+++ RapidIO Outbound Window Mapping Test +++\n");
 		printf("\tmport%d destID=%d rio_addr=0x%llx repeat=%d PID:%d\n",

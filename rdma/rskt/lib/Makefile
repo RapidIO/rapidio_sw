@@ -32,22 +32,15 @@
 TOPDIR?=$(shell pwd)/../../..
 include $(TOPDIR)/rules.mk
 
-LOG_LEVEL?=7
-DEBUG?=DEBUG
-
 NAME:=rskt
 TARGETS:=lib$(NAME).a
 HEADERS:=inc/lib$(NAME).h inc/lib$(NAME)_private.h src/*.h
 
 INCDIR=$(LINUX_INCLUDE_DIR)
 
-XFLAGS+=$(addprefix -W,all extra) -fPIC
-XFLAGS+=-DDEBUG
+XFLAGS+=-D$(DEBUG_CTL) -DRDMA_LL=$(LOG_LEVEL)
 XFLAGS+=-I../inc
-XFLAGS+=-DRDMA_LL=$(LOG_LEVEL)
-XFLAGS+=$(addprefix -I,inc $(INCDIR))
-
-CXXFLAGS+=$(XFLAGS) --std=c++11
+CXXFLAGS+=$(XFLAGS)
 CFLAGS+=$(XFLAGS)
 
 LDFLAGS+=-L. -l$(NAME)

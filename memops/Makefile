@@ -40,7 +40,7 @@ SOURCES = src/memops_factory.cc src/memops_mport.cc src/dmachanshm_dl.c src/memo
 
 all: libmemops_intf.so libmemops_intf.a memops_demo memops_demo_log memops_test_cf
 
-LFLAGS = -std=gnu++0x -DDMACHAN_TICKETED $(COMMONFLAGS)
+LFLAGS = -std=gnu++0x -DDMACHAN_TICKETED $(STD_FLAGS)
 
 libmemops_intf.a: $(SOURCES)
 	$(CXX) $(LFLAGS) -c $(INCLUDES) -I$(UMDDINCDIR) $^ 
@@ -61,7 +61,7 @@ memops_demo: $(SOURCES) libmemops_intf.so samples/memops_demo.cc
 		-o $@ \
 		-lpthread -lrt -ldl \
 		-L$(COMMONLIB) $(LIBS_RPATH) -L. -Wl,-rpath=. \
-		-ltime_utils -lmport -lmemops_intf -lrt 
+		-ltime_utils -lmport -lmemops_intf -lrt -llog -lcli
 
 ## libmemops_intf.a is the version without logging and debugging.
 ## The .a library must be bound into memops_demo_log.
@@ -78,8 +78,9 @@ memops_test_cf: $(SOURCES) libmemops_intf.so src/memops_test_cf.cc
 	$(CXX) $(LFLAGS) src/memops_test_cf.cc $(INCLUDES) \
 		-o $@ \
 		-L$(COMMONLIBA) -lmemops_intf -L. -Wl,-rpath=. \
-		-L$(COMMONLIB) $(LIBS_RPATH) -ltime_utils -lmport  \
-		-lpthread -lrt -ldl 
+		-L$(COMMONLIB) $(LIBS_RPATH) \
+		-ltime_utils -lmport -llog -lcli  \
+		-lpthread -lrt -ldl
 
 clean:
 	rm -f *.[ao] *.so* a.out memops_demo*

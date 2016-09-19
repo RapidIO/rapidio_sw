@@ -1,7 +1,7 @@
 /*
 ****************************************************************************
-Copyright (c) 2015, Integrated Device Technology Inc.
-Copyright (c) 2015, RapidIO Trade Association
+Copyright (c) 2016, Integrated Device Technology Inc.
+Copyright (c) 2016, RapidIO Trade Association
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -31,29 +31,32 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 
-#ifndef __DEBUG_H__
-#define __DEBUG_H__
+#ifndef __RIO_MISC_H__
+#define __RIO_MISC_H__
 
-#ifdef RDMA_LL
- #include "liblog.h"
-#endif
-
-#ifdef DEBUG
-  #define Dprintf(format, ...) fprintf (stdout, format, ## __VA_ARGS__)
+/*
+ * Disable unused-parameter warnings when the parameter is
+ * expected not to be used, main() arguments for example
+ */
+#ifdef __GNUC__
+#  define UNUSED(x) UNUSED_ ## x __attribute__((__unused__))
 #else
-  #define Dprintf(format, ...) if (0) fprintf (stdout, format, ## __VA_ARGS__)
+#  define UNUSED(x) UNUSED_ ## x
 #endif
 
-#ifdef RDMA_LL
-  #define XDBG          DBG
-  #define XINFO         INFO
-  #define XCRIT         CRIT
-  #define XERR          ERR
+/*
+ * Track unused-parameter warnings requiring investigation
+ */
+#ifdef __GNUC__
+#  define UNUSED_PARM(x) UNUSED_ ## x __attribute__((__unused__))
 #else
-  #define XDBG(format, ...)   if (0) fprintf(stderr, format, ## __VA_ARGS__)
-  #define XINFO(format, ...)  if (0) fprintf(stderr, format, ## __VA_ARGS__)
-  #define XCRIT(format, ...)  if (0) fprintf(stderr, format, ## __VA_ARGS__)
-  #define XERR(format, ...)   if (0) fprintf(stderr, format, ## __VA_ARGS__)
+#  define UNUSED_PARM(x) UNUSED_ ## x
 #endif
 
-#endif // __DEBUG_H__
+/*
+ * Track unused-parameter warnings resulting from Debug compile
+ * implementations. For example only used a debug statement
+ */
+#define UNUSED_DBG(x) (void)(x)
+
+#endif /* __RIO_MISC_H__ */

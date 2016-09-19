@@ -32,11 +32,6 @@
 TOPDIR?=$(shell pwd)/..
 include $(TOPDIR)/rules.mk
 
-ifndef DEBUG
-DEBUG ?= DEBUG
-export DEBUG
-endif
-
 all: libcli liblist liblog libtime_utils libmport libunit_test librsvdmem samples
 
 libcli: FORCE liblog
@@ -82,12 +77,11 @@ librsvdmem: FORCE libcli
 	(cd librsvdmem; tar cf - librsvdmem.so*) | (cd libs_so; tar xvf -)
 		
 libmport: FORCE libtime_utils
-	$(MAKE) all LDFLAGS= -C libmport
+	$(MAKE) all -C libmport
 	mkdir -p libs_a
 	mkdir -p libs_so
 	cp libmport/libmport.a libs_a/
 	(cd libmport; tar cf - libmport.so*) | (cd libs_so; tar xvf -)
-	$(MAKE) LDFLAGS= -C libmport samples
 
 samples: FORCE liblog libcli
 	$(MAKE) -C samples

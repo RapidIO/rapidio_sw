@@ -33,22 +33,16 @@ TOPDIR?=$(shell pwd)/../..
 include $(TOPDIR)/rules.mk
 
 LOG_LEVEL?=4
-DEBUG?=DEBUG
-
-level=$(LOG_LEVEL)
 
 NAME:=dd
 TARGETS:=lib$(NAME).a
 HEADERS:=inc/lib$(NAME).h
 
-XFLAGS=$(addprefix -W,all extra ) -fPIC
-XFLAGS+=-D$(DEBUG)
-XFLAGS+=-I. -I../inc
+XFLAGS+=-D$(DEBUG_CTL) -DRDMA_LL=$(LOG_LEVEL)
+XFLAGS+=-I../inc
 XFLAGS+=-I../cli
 XFLAGS+=-I../libriocp_pe/inc
 XFLAGS+=-I../librio_switch/inc
-XFLAGS+=-I../../common/include
-XFLAGS+=-DRDMA_LL=$(level)
 
 CFLAGS += $(XFLAGS)
 CXXFLAGS += $(XFLAGS)

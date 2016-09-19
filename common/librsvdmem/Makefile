@@ -32,50 +32,49 @@
 TOPDIR?=$(shell pwd)/../..
 include $(TOPDIR)/rules.mk
 
-DEBUG?=DEBUG
-
-level=$(LOG_LEVEL)
-
 NAME:=rsvdmem
-
 TARGETS:=lib$(NAME).a lib$(NAME).so
 TEST_TARGET:=$(NAME)_test
-HEADERS:=inc/librsvdmem_private.h $(COMMONINC)/librsvdmem.h
-TEST_HEADERS:=
-
-CXXFLAGS+=$(addprefix -W,all extra) -fPIC
-CXXFLAGS+=-D$(DEBUG)
-CXXFLAGS+=-I. -Iinc -Isrc
-CXXFLAGS+=-DRDMA_LL=$(level)
-
-SO_LINK_FLAGS+= -rdynamic -shared -Wl,-soname,lib$(NAME).so.$(SOVER) -lnsl -fPIC -g -ggdb
 
 OBJECTS:=$(patsubst src/%.c,src/%.o,$(wildcard src/*.c))
-
 TEST_OBJECTS:=$(patsubst test/%.c,test/%.o,$(wildcard test/*.c))
 
+CXXFLAGS+=-D$(DEBUG_CTL) -DRDMA_LL=$(LOG_LEVEL)
+LINK_FLAGS+= -rdynamic -shared -Wl,-soname,lib$(NAME).so.$(SOVER)
+LDFLAGS+=-L. -L$(COMMONLIB) $(LIBS_RPATH) -l$(NAME)
+
+
+.PHONY: all clean test
+
+ifndef TEST
+all: $(TARGETS)
+else
 all: $(TARGETS) $(TEST_TARGET)
+endif
+
+test: $(TEST_TARGET) 
 
 %.a: $(OBJECTS)
+	@echo ---------- Building $@
 	$(AR) rcs $@ $^
 
 %.so: $(OBJECTS)
-	$(CXX) -o $@.$(SOVER) $(OBJECTS) $(SO_LINK_FLAGS)
+	@echo ---------- Building $@
+	$(CXX) $(CXXFLAGS) -o $@.$(SOVER) $(OBJECTS) $(LINK_FLAGS)
 	@ln -s $@.$(SOVER) $@ &>/dev/null
 
-src/%.o: src/%.c $(HEADERS)
+src/%.o: src/%.c
+	@echo ---------- Building $@
 	$(CXX) -c $(CXXFLAGS) $< -o $@
 
-test/%.o: test/%.c $(HEADERS)
+test/%.o: test/%.c
+	@echo ---------- Building $@
 	$(CXX) -c $(CXXFLAGS) $< -o $@
 
-$(TEST_TARGET) :  $(HEADERS) $(TEST_HEADERS) $(OBJECTS) $(TEST_OBJECTS)
-	$(CXX) $(OBJECTS) $(TEST_OBJECTS) -o $(TEST_TARGET) \
-	-L. -L$(COMMONLIBA) \
-	-pthread -lcli 
+$(TEST_TARGET): $(TEST_OBJECTS)
+	@echo ---------- Building $@
+	$(CXX) -o $@ $< $(LDFLAGS) \
+	-lcli -pthread
 
 clean:
-	rm -f $(TARGETS) $(TEST_TARGET) $(OBJECTS) $(TEST_OBJECTS) \
-	 inc/*~ src/*~ *~ *.a *.so*
-
-.PHONY: all clean
+	rm -f $(TARGETS) lib$(NAME).so.$(SOVER) $(TEST_TARGET) $(OBJECTS) $(TEST_OBJECTS) inc/*~ src/*~ *~

@@ -32,6 +32,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 #define __STDC_FORMAT_MACROS
 #include <cinttypes>
+#include <inttypes.h>
 
 #include <stdint.h>
 
@@ -62,7 +63,7 @@ void force_close_mso_disp(unix_msg_t *msg, unix_tx_engine *tx_eng)
 			WARN("Failed removing msoid(0x%X) msoh(0x%" PRIx64 ")\n",
 								msoid, msoh);
 		} else {
-			HIGH("msoid(0x%X) force-closed\n", msoid, msoh);
+			HIGH("msoid(0x%X) force-closed\n", msoid);
 		}
 	}
 } /* force_close_mso_disp() */

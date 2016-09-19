@@ -46,6 +46,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <time.h>
 
 #include <stdint.h>
+#include <inttypes.h>
 #include <unistd.h>
 #include <dirent.h>
 #include <errno.h>
@@ -62,6 +63,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <sched.h>
 
+#include "rio_misc.h"
 #include "libcli.h"
 #include "rapidio_mport_mgmt.h"
 #include "rapidio_mport_dma.h"
@@ -80,8 +82,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-uint32_t crc32(uint32_t crc, const void *buf, size_t size);
 
 void dma_free_ibwin(struct worker *info);
 
@@ -358,7 +358,7 @@ void dma_free_ibwin(struct worker *info)
 		return; 
 
 	if (info->ib_ptr && info->ib_valid) {
-		rc = riomp_dma_unmap_memory(info->mp_h, info->ib_byte_cnt, 
+		rc = riomp_dma_unmap_memory(info->ib_byte_cnt,
 								info->ib_ptr);
 		info->ib_ptr = NULL;
 		if (rc)
@@ -453,7 +453,7 @@ void UMD_DD(struct worker* info)
 	}
 }
 
-void UMD_Test(const struct worker* wkr)
+void UMD_Test(const struct worker* UNUSED_PARM(wkr))
 {
 }
 
@@ -601,7 +601,7 @@ void umd_shm_goodput_demo(struct worker *info)
 
         goto exit_nomsg;
 exit:
-        INFO("\n\tDMA %srunning after %d %dus polls\n",
+        INFO("\n\tDMA %srunning after %" PRIu64 " %dus polls\n",
                 info->umd_dch->dmaIsRunning()? "": "NOT ",
                         info->perf_msg_cnt, DMA_RUNPOLL_US);
 
@@ -670,7 +670,7 @@ void umd_dma_goodput_demo(struct worker *info)
 	};
 
         if (GetEnv((char *)"verb") != NULL) {
-	        INFO("\n\tUDMA my_destid=%u destid=%u rioaddr=0x%x bcount=%d #buf=%d #fifo=%d\n",
+	        INFO("\n\tUDMA my_destid=%u destid=%u rioaddr=0x%" PRIx64 " bcount=%" PRIu64 " #buf=%d #fifo=%d\n",
 			info->umd_dch->getDestId(),
 			info->did, info->rio_addr, info->acc_size,
 			info->umd_tx_buf_cnt, info->umd_sts_entries);
@@ -710,8 +710,7 @@ void umd_dma_goodput_demo(struct worker *info)
 				};
 			};
 			
-			if ((info->umd_dch->queueSize() > info->umd_tx_buf_cnt)
-			 || (info->umd_dch->queueSize() < 0))
+			if ((info->umd_dch->queueSize() > info->umd_tx_buf_cnt))
 				CRIT("\n\t Cnt=0x%lx Qsize=%d oi=%d\n", 
 					cnt, info->umd_dch->queueSize(), oi);
 
@@ -740,7 +739,7 @@ void umd_dma_goodput_demo(struct worker *info)
         } // END while NOT stop requested
 	goto exit_nomsg;
 exit:
-        INFO("\n\tDMA %srunning after %d %dus polls\n",
+        INFO("\n\tDMA %srunning after %" PRIu64 " %dus polls\n",
 		info->umd_dch->dmaIsRunning()? "": "NOT ", 
 			info->perf_msg_cnt, DMA_RUNPOLL_US);
 
@@ -981,7 +980,7 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 	zero_stats(info);
 
 	if (GetEnv((char *)"verb") != NULL) {
-		INFO("\n\tUDMA my_destid=%u destid=%u rioaddr=0x%lx bcount=%d #buf=%d #fifo=%d\n",
+		INFO("\n\tUDMA my_destid=%u destid=%u rioaddr=0x%" PRIx64 " bcount=%" PRIu64 " #buf=%d #fifo=%d\n",
 		     info->umd_dch->getDestId(),
 		     info->did, info->rio_addr, info->acc_size,
 		     info->umd_tx_buf_cnt, info->umd_sts_entries);
@@ -1059,7 +1058,7 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 						snprintf(tmp, 8, "%02x ", it->data[i]);
 						ss << tmp;
 					}
-					DBG("\n\tTicket %llu NREAD-in data: %s\n", it->ticket, ss.str().c_str());
+					DBG("\n\tTicket %" PRIu64 " NREAD-in data: %s\n", it->ticket, ss.str().c_str());
 				}
 			}
 
@@ -1072,7 +1071,7 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 			}
 			if (7 <= g_level && faults.size() > 0) {
 				std::vector<uint64_t>::iterator it = faults.begin();
-				for (; it != faults.end(); it++) INFO("Faulted ticket: %llu\n", *it);
+				for (; it != faults.end(); it++) INFO("Faulted ticket: %" PRIu64 "\n", *it);
 			}
 
 			}}
@@ -1140,7 +1139,7 @@ void umd_dma_goodput_testbed(struct worker* info)
 	};
 
 	if (GetEnv((char *)"verb") != NULL) {
-		INFO("\n\tUDMA my_destid=%u destid=%u rioaddr=0x%lx bcount=%d #buf=%d #fifo=%d\n",
+		INFO("\n\tUDMA my_destid=%u destid=%u rioaddr=0x%" PRIx64 " bcount=%" PRIu64 " #buf=%d #fifo=%d\n",
 		     info->umd_dch->getDestId(),
 		     info->did, info->rio_addr, info->acc_size,
 		     info->umd_tx_buf_cnt, info->umd_sts_entries);
@@ -1166,7 +1165,7 @@ void umd_dma_goodput_testbed(struct worker* info)
 			info->dmaopt[oi].bcount      = info->acc_size;
 			info->dmaopt[oi].raddr.lsb64 = info->rio_addr;
 
-			DBG("\n\tEnq rtype=%d did=%u acc_size=0x%x rio_addr=0x%llx\n",
+			DBG("\n\tEnq rtype=%d did=%u acc_size=0x%x rio_addr=0x%" PRIx64 "\n",
 			    info->umd_tx_rtype, info->dmaopt[oi].destid,
 			    info->dmaopt[oi].bcount, info->dmaopt[oi].raddr.lsb64);
 
@@ -1248,7 +1247,7 @@ void umd_dma_goodput_testbed(struct worker* info)
 					snprintf(tmp, 8, "%02x ", it->data[i]);
 					ss << tmp;
 				}
-				DBG("\n\tTicket %llu NREAD-in data: %s\n", it->ticket, ss.str().c_str());
+				DBG("\n\tTicket %" PRIu64 " NREAD-in data: %s\n", it->ticket, ss.str().c_str());
 			}
 		}
 
@@ -1261,7 +1260,7 @@ void umd_dma_goodput_testbed(struct worker* info)
 		}
 		if (7 <= g_level && faults.size() > 0) {
 			std::vector<uint64_t>::iterator it = faults.begin();
-			for (; it != faults.end(); it++) INFO("Faulted ticket: %llu\n", *it);
+			for (; it != faults.end(); it++) INFO("Faulted ticket: %" PRIu64 "\n", *it);
 		}
 
 		if (info->stop_req) goto exit;

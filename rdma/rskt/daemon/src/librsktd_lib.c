@@ -309,7 +309,7 @@ void *app_rx_loop(void *ip)
 	sem_post(&lib_st.new_app->up_and_running);	/* Added by SAK, Sherif */
 	int value;
 	if (sem_getvalue(&lib_st.new_app->up_and_running, &value)) {
-		WARN("Failed to obtain semaphore value!")
+		WARN("Failed to obtain semaphore value!");
 	} else {
 		DBG("Posted new_app->up_and_running(%p), now value = %d\n",
 					&lib_st.new_app->up_and_running, value);
@@ -508,7 +508,7 @@ void *lib_conn_loop( void *unused )
         	} else {
         		int value;
         		if (sem_getvalue(&lib_st.new_app->up_and_running, &value)) {
-        			WARN("Failed to obtain semaphore value!")
+        			WARN("Failed to obtain semaphore value!");
         		} else {
         			DBG("Waiting for new_app->up_and_running(%p) value = %d\n",
         					&lib_st.new_app->up_and_running, value);

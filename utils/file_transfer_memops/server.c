@@ -55,6 +55,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <netinet/tcp.h>
 #include <pthread.h>
 
+#include "rio_misc.h"
 #include "rapidio_mport_mgmt.h"
 #include "rapidio_mport_sock.h"
 #include "rapidio_mport_dma.h"
@@ -358,7 +359,7 @@ ATTR_RPT
 
 void fxfr_server_shutdown(void);
 
-int FXShutdownCmd(struct cli_env *env, int argc, char **argv)
+int FXShutdownCmd(struct cli_env *env, int UNUSED(argc), char **UNUSED(argv))
 {
 	fxfr_server_shutdown();
 	sprintf(env->output, "Shutdown initiated...\n"); 
@@ -735,7 +736,7 @@ exit:
 };
 
 int setup_mport(uint8_t mport_num, uint8_t num_win, uint32_t win_size, 
-		uint64_t ibwin_base, int xfer_skt_num)
+		uint64_t UNUSED_PARM(ibwin_base), int UNUSED_PARM(xfer_skt_num))
 {
 	int rc = -1;
 	uint8_t i;
@@ -1009,10 +1010,8 @@ void fxfr_server_shutdown(void) {
 	};
 };
 
-void fxfr_server_shutdown_cli(struct cli_env *env)
+void fxfr_server_shutdown_cli(struct cli_env *UNUSED(env))
 {
-	if (0)
-		env = NULL;
 	fxfr_server_shutdown();
 };
 

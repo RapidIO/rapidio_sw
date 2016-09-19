@@ -35,13 +35,14 @@ include $(TOPDIR)/rules.mk
 DEBUG?=DEBUG
 
 config?=NODEBUG
-LIBMPINCDIR=$(COMMONDIR)/libmport/src
+LIBMPINCDIR=$(COMMONDIR)/libmport/inc
 REGSDIR=$(FMDDIR)/librio_switch/inc
 
 # Kernel-mode flags
-CXXFLAGS += -I./inc  -I$(UMDDIR)/inc -D$(config) \
-	-Wall -Wno-sign-compare \
-	-pthread -DRDMA_LL=$(LOG_LEVEL) -I$(LIBMPINCDIR) -I$(REGSDIR)
+CXXFLAGS+=-Wno-sign-compare
+CXXFLAGS+=-D$(DEBUG_CTL) -DRDMA_LL=$(LOG_LEVEL)
+CXXFLAGS+=-I$(UMDDIR)/inc -I$(LIBMPINCDIR) -I$(REGSDIR)
+CXXFLAGS+=-pthread
 
 #CXXFLAGS+=-pg
 #CXXFLAGS+=-DDEBUG_BD
@@ -61,8 +62,7 @@ INCLUDES = inc/worker.h inc/goodput.h inc/goodput_cli.h
 SOURCES = src/goodput.c src/goodput_cli.c src/worker.c
 
 # User-mode only flags
-UMD_FLAGS = -I$(REGSDIR) -DUSER_MODE_DRIVER \
-	 -DRDMA_LL=$(LOG_LEVEL)
+UMD_FLAGS = -I$(REGSDIR) -DUSER_MODE_DRIVER
 
 UMD_SOURCES = src/udma_tun.cc src/tun_ipv4.c src/umbox_afu.cc src/rdmaopsumd.cc src/httpsrv.cc
 
