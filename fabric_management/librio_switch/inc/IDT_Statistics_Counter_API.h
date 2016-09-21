@@ -72,6 +72,13 @@ typedef enum idt_sc_ctr_t_TAG
     idt_sc_cpb,             // CPS Packets from CrossPoint Buffer count (!srio, RX)
     idt_sc_pkt_drop,        // CPS Packets dropped count (TX or RX)
     idt_sc_pkt_drop_ttl,    // CPS RX Packets dropped count due to TTL (TX only)
+
+    idt_sc_rio_pkt,         // Number of packets received/transmitted on the RapidIO interface
+    idt_sc_fab_pkt,         // Number of packets received/transmitted on the fabric
+    idt_sc_rio_pcntr,       // Count of packet payload received/transmitted on the RapidIO interface
+    idt_sc_fab_pcntr,       // Count of packet payload received/transmitted on the fabric
+    idt_sc_rio_ttl_pcntr,   // Count of the total number of code-groups/codewords transmitted on the RapidIO interface per lane
+
     idt_sc_last             // Last index for enumerated type
 } idt_sc_ctr_t;
 
@@ -188,6 +195,23 @@ typedef struct idt_sc_cfg_cps_trace_out_t_TAG
    uint32_t      imp_rc;     // Implementation specific return code information.
 } idt_sc_cfg_cps_trace_out_t;
 
+typedef struct idt_sc_cfg_rxs_ctr_in_t_TAG
+{
+	struct DAR_ptl         ptl;        // Port list
+	uint8_t                ctr_idx;    // Index of the RXS counter to be configured.  Range 0-7.
+	uint8_t                prio_mask;  // Priority of packets to be counted.  Not used for control symbol counters.
+							           // Uses IDT_SC_TSI57X_PRIO_MASK_x constant definitions.
+	bool				   ctr_en;     // Enable access to the performance counters.
+							           // 		// bool				   ctr_frz     // Freeze/Clear all debug counters in all RXS2448 ports.
+	bool                   tx;         // Determines direction for the counter.  !tx = rx.
+        idt_sc_ctr_t           ctr_type;   // Valid counter type, valid range from idt_sc_disabled to idt_sc_uc_4b_data
+        idt_sc_dev_ctrs_t     *dev_ctrs;   // Device counters data type, initialized by idt_sc_init_dev_ctrs
+} idt_sc_cfg_rxs_ctr_in_t;                 // RXS2448 or RXS1632
+
+typedef struct idt_sc_cfg_rxs_ctr_out_t_TAG
+{
+	uint32_t      imp_rc;     // Implementation specific return code information.
+} idt_sc_cfg_rxs_ctr_out_t;
 
 
 // Implementation specific return codes for Statistics Counter routines
@@ -197,6 +221,10 @@ typedef struct idt_sc_cfg_cps_trace_out_t_TAG
 #define SC_CFG_TSI57X_CTR_0   (DAR_FIRST_IMP_SPEC_ERROR+0x0300)
 #define SC_CFG_CPS_CTRS_0     (DAR_FIRST_IMP_SPEC_ERROR+0x0400)
 #define SC_CFG_CPS_TRACE_0    (DAR_FIRST_IMP_SPEC_ERROR+0x0500)
+
+#define SC_INIT_RXS_CTRS_0    (DAR_FIRST_IMP_SPEC_ERROR+0x0600)
+#define SC_READ_RXS_CTRS_0    (DAR_FIRST_IMP_SPEC_ERROR+0x0700)
+#define SC_CFG_RXS_CTR_0      (DAR_FIRST_IMP_SPEC_ERROR+0x0800)
 
 /* The following functions are implemented to support the above structures
    Refer to the above structures for the implementation detail 
@@ -243,6 +271,10 @@ extern uint32_t idt_sc_cfg_cps_ctrs(
     idt_sc_cfg_cps_ctrs_in_t  *in_parms,
     idt_sc_cfg_cps_ctrs_out_t *out_parms
 );
+
+#define SC_INIT_RXS_CTRS(x) (SC_INIT_RXS_CTRS_0+x)
+#define SC_READ_RXS_CTRS(x) (SC_READ_RXS_CTRS_0+x)
+#define SC_CFG_RXS_CTRS(x)  (SC_CFG_RXS_CTR_0+x)
 
 #ifdef __cplusplus
 }
