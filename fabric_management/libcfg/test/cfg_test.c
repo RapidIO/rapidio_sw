@@ -68,7 +68,7 @@ extern "C" {
 #define MASTER_SUCCESS (char *)("test/master_success.cfg")
 #define SLAVE_SUCCESS (char *)("test/slave_success.cfg")
 #define TOR_SUCCESS   (char *)("test/tor_success.cfg")
-#define FMD_CONFIG (char *)("test/fmd.conf")
+#define RXS_SUCCESS (char *)("test/rxs_success.cfg")
 
 int test_case_1(void)
 {
@@ -82,12 +82,6 @@ int test_case_1(void)
 	if (cfg_parse_file(MASTER_SUCCESS, &dd_mtx_fn, &dd_fn, &m_did,
 			&m_cm_port, &m_mode))
 		goto fail;
-
-	/*if (cfg_parse_file(FMD_CONFIG, &dd_mtx_fn, &dd_fn, &m_did,
-                        &m_cm_port, &m_mode)){
-		printf("\n parse");
-                goto fail;
-	}*/
 
 	if (strncmp(dd_mtx_fn, test_dd_mtx_fn, strlen(dd_mtx_fn)))
 		goto fail;
@@ -479,7 +473,6 @@ fail:
 
 int test_case_6(void)
 {
-	/*struct cfg_mport_info mp;*/
 	struct cfg_dev dev;
 	char *dd_mtx_fn = NULL, *dd_fn = NULL;
 	char *test_dd_mtx_fn = (char *)FMD_DFLT_DD_MTX_FN;
@@ -488,30 +481,24 @@ int test_case_6(void)
 	int conn_pt;
 	int x = 1;
 
-	if (cfg_parse_file(FMD_CONFIG, &dd_mtx_fn, &dd_fn, &m_did,
-		&m_cm_port, &m_mode)){
-		printf("\n parse file");	
-		goto fail;}
+	if (cfg_parse_file(RXS_SUCCESS, &dd_mtx_fn, &dd_fn, &m_did,
+		&m_cm_port, &m_mode))
+		goto fail;
 
-	if (strncmp(dd_mtx_fn, test_dd_mtx_fn, strlen(dd_mtx_fn))){
-		printf("\n ntx_fn");
-		goto fail;}
+	if (strncmp(dd_mtx_fn, test_dd_mtx_fn, strlen(dd_mtx_fn)))
+		goto fail;
 
-	if (strncmp(dd_fn, test_dd_fn, strlen(test_dd_fn))){
-		printf("\n dd_fn");
-		goto fail;}
+	if (strncmp(dd_fn, test_dd_fn, strlen(test_dd_fn)))
+		goto fail;
 
-	if (5 != m_did){
-		printf("\n m_did");
-		goto fail;}
+	if (5 != m_did)
+		goto fail;
 
-	if (FMD_DFLT_MAST_CM_PORT != m_cm_port){
-		printf("\n cm_port");
-		goto fail;}
+	if (FMD_DFLT_MAST_CM_PORT != m_cm_port)
+		goto fail;
 
-	if (cfg_find_dev_by_ct(0x10005, &dev)){
-		printf("\n 1005");
-		goto fail;}
+	if (cfg_find_dev_by_ct(0x10005, &dev))
+		goto fail;
 
 	if (dev.ep_pt.max_pw != idt_pc_pw_4x)
 		goto fail;
@@ -520,9 +507,8 @@ int test_case_6(void)
 	if (dev.ep_pt.ls != idt_pc_ls_5p0)
 		goto fail;
 
-	if (cfg_find_dev_by_ct(0x20006, &dev)){
-		printf("\n 20006");
-		goto fail;}
+	if (cfg_find_dev_by_ct(0x20006, &dev))
+		goto fail;
 
 	if (dev.ep_pt.max_pw != idt_pc_pw_2x)
 		goto fail;
@@ -531,9 +517,8 @@ int test_case_6(void)
 	if (dev.ep_pt.ls != idt_pc_ls_6p25)
 		goto fail;
 
-	if (cfg_find_dev_by_ct(0x30007, &dev)){
-		printf("\n 30007");
-		goto fail;}
+	if (cfg_find_dev_by_ct(0x30007, &dev))
+		goto fail;
 
 	if (dev.ep_pt.max_pw != idt_pc_pw_4x)
 		goto fail;
@@ -542,9 +527,8 @@ int test_case_6(void)
 	if (dev.ep_pt.ls != idt_pc_ls_1p25)
 		goto fail;
 
-	if (cfg_find_dev_by_ct(0x40008, &dev)){
-		printf("\n 40008");
-		goto fail;}
+	if (cfg_find_dev_by_ct(0x40008, &dev))
+		goto fail;
 
 	if (dev.ep_pt.max_pw != idt_pc_pw_4x)
 		goto fail;
@@ -553,9 +537,14 @@ int test_case_6(void)
 	if (dev.ep_pt.ls != idt_pc_ls_2p5)
 		goto fail;
 
-	if (cfg_get_conn_dev(0x70000, 0, &dev, &conn_pt)){
-		printf("\n conn:%d", conn_pt);
-		goto fail;}
+	if (cfg_find_dev_by_ct(0x70000, &dev)) 
+		goto fail;
+
+	if (memcmp("RXS2448", dev.dev_type, sizeof("RXS2448")))
+		goto fail;
+
+        if (cfg_get_conn_dev(0x70000, 0, &dev, &conn_pt))
+		goto fail;;
 
 	return 0;
 fail:

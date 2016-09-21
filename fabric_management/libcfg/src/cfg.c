@@ -61,6 +61,7 @@ extern "C" {
 
 struct int_cfg_parms *cfg = NULL;
 FILE *cfg_fd = NULL;
+const char *DEV_TYPE = "ENDPOINT";
 
 void init_rt(idt_rt_state_t *rt)
 { 
@@ -1367,6 +1368,7 @@ int fill_in_dev_from_ep(struct cfg_dev *dev, struct int_cfg_ep *ep)
 
 	memset(dev, 0, sizeof(struct cfg_dev));
 	dev->name = ep->name;
+	dev->dev_type = DEV_TYPE;
 	dev->port_cnt = ep->port_cnt;
 	dev->did_sz = CFG_DEV08;
 	dev->is_sw = 0;
@@ -1394,6 +1396,7 @@ int fill_in_dev_from_sw(struct cfg_dev *dev, struct int_cfg_sw *sw)
 	memset(dev, 0, sizeof(struct cfg_dev));
 
 	dev->name = sw->name;
+	dev->dev_type = sw->dev_type;
 	dev->port_cnt = CFG_MAX_SW_PORT;
 	dev->did_sz = CFG_MAX_SW_PORT;
 	dev->did = sw->did;

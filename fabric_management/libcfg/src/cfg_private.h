@@ -128,6 +128,7 @@ struct int_cfg_ep {
 	int valid;
 	riocp_pe_handle ep_h;
 	char *name;
+	char *dev_type;
 	int port_cnt;
 	struct int_cfg_ep_port ports[CFG_MAX_EP_PORT];
 };

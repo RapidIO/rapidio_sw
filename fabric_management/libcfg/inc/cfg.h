@@ -104,6 +104,7 @@ struct cfg_sw {
 
 struct cfg_dev {
 	const char *name; /* System name of device */
+	const char *dev_type; /* Device type */
 	int port_cnt; /* Number of ports on device */
 	uint32_t did_sz; /* CFG_DEVID_MAX if all are supported */
 	uint32_t did; /* Device ID used to access the device */
