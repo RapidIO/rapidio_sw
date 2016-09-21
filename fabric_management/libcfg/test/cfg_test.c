@@ -59,6 +59,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "cfg_private.h"
 #include "libcli.h"
 #include "liblog.h"
+#include "rrmap_config.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -67,12 +68,13 @@ extern "C" {
 #define MASTER_SUCCESS (char *)("test/master_success.cfg")
 #define SLAVE_SUCCESS (char *)("test/slave_success.cfg")
 #define TOR_SUCCESS   (char *)("test/tor_success.cfg")
+#define FMD_CONFIG (char *)("test/fmd.conf")
 
 int test_case_1(void)
 {
 	char *dd_mtx_fn = NULL, *dd_fn = NULL;
 	char *test_dd_mtx_fn = (char *)FMD_DFLT_DD_MTX_FN;
-	char *test_dd_fn  = (char *)CFG_DFLT_DD_FN;
+	char *test_dd_fn  = (char *)FMD_DFLT_DD_FN;
 	uint8_t mem_sz;
 
 	uint32_t m_did, m_cm_port, m_mode;
@@ -81,13 +83,19 @@ int test_case_1(void)
 			&m_cm_port, &m_mode))
 		goto fail;
 
+	/*if (cfg_parse_file(FMD_CONFIG, &dd_mtx_fn, &dd_fn, &m_did,
+                        &m_cm_port, &m_mode)){
+		printf("\n parse");
+                goto fail;
+	}*/
+
 	if (strncmp(dd_mtx_fn, test_dd_mtx_fn, strlen(dd_mtx_fn)))
 		goto fail;
 
 	if (strncmp(dd_fn, test_dd_fn, strlen(test_dd_fn)))
 		goto fail;
 
-	if (5 != m_did)
+	if (5 != m_did) 
 		goto fail;
 
 	if (FMD_DFLT_MAST_CM_PORT != m_cm_port)
@@ -283,7 +291,7 @@ int test_case_4(void)
 	struct cfg_dev dev;
 	char *dd_mtx_fn = NULL, *dd_fn = NULL;
 	char *test_dd_mtx_fn = (char *)FMD_DFLT_DD_MTX_FN;
-	char *test_dd_fn = (char *)CFG_DFLT_DD_FN;
+	char *test_dd_fn = (char *)FMD_DFLT_DD_FN;
 	uint32_t m_did, m_cm_port, m_mode;
 
 	if (cfg_parse_file(SLAVE_SUCCESS, &dd_mtx_fn, &dd_fn, &m_did,
@@ -328,7 +336,7 @@ int test_case_5(void)
 	struct cfg_dev dev;
 	char *dd_mtx_fn = NULL, *dd_fn = NULL;
 	char *test_dd_mtx_fn = (char *)FMD_DFLT_DD_MTX_FN;
-	char *test_dd_fn = (char *)CFG_DFLT_DD_FN;
+	char *test_dd_fn = (char *)FMD_DFLT_DD_FN;
 	uint32_t m_did, m_cm_port, m_mode;
 	int p_idx, idx;
 	int pnums[6] = {2, 3, 5, 6, 10, 11};
@@ -468,6 +476,91 @@ int test_case_5(void)
 fail:
 	return x;
 };
+
+int test_case_6(void)
+{
+	/*struct cfg_mport_info mp;*/
+	struct cfg_dev dev;
+	char *dd_mtx_fn = NULL, *dd_fn = NULL;
+	char *test_dd_mtx_fn = (char *)FMD_DFLT_DD_MTX_FN;
+	char *test_dd_fn = (char *)FMD_DFLT_DD_FN;
+	uint32_t m_did, m_cm_port, m_mode;
+	int conn_pt;
+	int x = 1;
+
+	if (cfg_parse_file(FMD_CONFIG, &dd_mtx_fn, &dd_fn, &m_did,
+		&m_cm_port, &m_mode)){
+		printf("\n parse file");	
+		goto fail;}
+
+	if (strncmp(dd_mtx_fn, test_dd_mtx_fn, strlen(dd_mtx_fn))){
+		printf("\n ntx_fn");
+		goto fail;}
+
+	if (strncmp(dd_fn, test_dd_fn, strlen(test_dd_fn))){
+		printf("\n dd_fn");
+		goto fail;}
+
+	if (5 != m_did){
+		printf("\n m_did");
+		goto fail;}
+
+	if (FMD_DFLT_MAST_CM_PORT != m_cm_port){
+		printf("\n cm_port");
+		goto fail;}
+
+	if (cfg_find_dev_by_ct(0x10005, &dev)){
+		printf("\n 1005");
+		goto fail;}
+
+	if (dev.ep_pt.max_pw != idt_pc_pw_4x)
+		goto fail;
+	if (dev.ep_pt.op_pw != idt_pc_pw_4x)
+		goto fail;
+	if (dev.ep_pt.ls != idt_pc_ls_5p0)
+		goto fail;
+
+	if (cfg_find_dev_by_ct(0x20006, &dev)){
+		printf("\n 20006");
+		goto fail;}
+
+	if (dev.ep_pt.max_pw != idt_pc_pw_2x)
+		goto fail;
+	if (dev.ep_pt.op_pw != idt_pc_pw_2x)
+		goto fail;
+	if (dev.ep_pt.ls != idt_pc_ls_6p25)
+		goto fail;
+
+	if (cfg_find_dev_by_ct(0x30007, &dev)){
+		printf("\n 30007");
+		goto fail;}
+
+	if (dev.ep_pt.max_pw != idt_pc_pw_4x)
+		goto fail;
+	if (dev.ep_pt.op_pw != idt_pc_pw_4x)
+		goto fail;
+	if (dev.ep_pt.ls != idt_pc_ls_1p25)
+		goto fail;
+
+	if (cfg_find_dev_by_ct(0x40008, &dev)){
+		printf("\n 40008");
+		goto fail;}
+
+	if (dev.ep_pt.max_pw != idt_pc_pw_4x)
+		goto fail;
+	if (dev.ep_pt.op_pw != idt_pc_pw_4x)
+		goto fail;
+	if (dev.ep_pt.ls != idt_pc_ls_2p5)
+		goto fail;
+
+	if (cfg_get_conn_dev(0x70000, 0, &dev, &conn_pt)){
+		printf("\n conn:%d", conn_pt);
+		goto fail;}
+
+	return 0;
+fail:
+	return x;
+}
 	
 int main(int argc, char *argv[])
 {
@@ -514,7 +607,14 @@ int main(int argc, char *argv[])
 	printf("\nTest_case_5 passed.");
 	free(cfg);
 
-	rc = EXIT_SUCCESS;
+	if (test_case_6()) {
+		printf("\nTest_case_6 FAILED.");
+		goto fail;
+        }
+	printf("\nTest_case_6 passed.");
+	free(cfg);
+
+        rc = EXIT_SUCCESS;
 fail:
 	printf("\n");
 	if (rc != EXIT_SUCCESS)
