@@ -53,17 +53,15 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 extern "C" {
 #endif
 
-	uint32_t idt_sc_init_xrs_ctrs(DAR_DEV_INFO_t      *dev_info,
-		idt_sc_cfg_rxs_ctr_in_t  *in_parms,
-		idt_sc_cfg_rxs_ctr_out_t *out_parms);
 
-	uint32_t idt_sc_read_rxs_ctrs(DAR_DEV_INFO_t      *dev_info,
-		idt_sc_read_ctrs_in_t    *in_parms,
-		idt_sc_read_ctrs_out_t   *out_parms);
+/* Routine to bind in all RXS2448 specific DAR support routines.
+ * */
+uint32_t bind_rxs2448_DAR_support( void );
 
-	uint32_t idt_sc_cfg_rxs_ctr(DAR_DEV_INFO_t        *dev_info,
-		idt_sc_cfg_rxs_ctr_in_t  *in_parms,
-		idt_sc_cfg_rxs_ctr_out_t *out_parms);
+/* Routine to bind in all RXS2448 and RXS1632 specific Device Specific Function routines.
+ * */
+uint32_t bind_rxs_DSF_support( void );
+
 
 #ifdef __cplusplus
 }

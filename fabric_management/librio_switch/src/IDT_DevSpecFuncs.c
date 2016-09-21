@@ -38,6 +38,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <IDT_DSF_DB_Private.h>
 #include <CPS1848_registers.h>
 #include <DAR_Utilities.h>
+#include "IDT_RXS_API.h"
 #include <string.h>
 
 #ifdef IDT_TSI721_SUPPORT
@@ -758,6 +759,11 @@ uint32_t IDT_DSF_bind_DAR_routines(
 #ifdef IDT_TSI721_DAR_WANTED
     bind_tsi721_DAR_support();
     bind_tsi721_DSF_support();
+#endif
+
+#ifdef IDT_RXS2448_DAR_WANTED
+    bind_rxs2448_DAR_support();
+    bind_rxs_DSF_support();
 #endif
 
     ReadReg  = ReadRegCall;
