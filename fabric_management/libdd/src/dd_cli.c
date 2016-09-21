@@ -160,7 +160,7 @@ struct cli_cmd CLIDDDump = {
 3,
 0,
 (char *)"Device Directory Dump, no parameters.",
-(char *)"Prints current state of the the device diretory and mutext.",
+(char *)"Prints current state of the the device directory and mutex.",
 CLIDDDumpCmd,
 ATTR_RPT
 };
