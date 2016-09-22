@@ -37,7 +37,7 @@ export DEBUG
 COMMON_DIR ?= $(COMMONDIR)
 export COMMON_DIR
 
-LOCAL_LIBRARY_DIR="libs_a"
+LOCAL_LIBRARY_DIR=libs_a
 
 level ?= $(LOG_LEVEL)
 
@@ -61,15 +61,11 @@ libdid: FORCE
 	$(MAKE) all -C libdid
 	mkdir -p $(LOCAL_LIBRARY_DIR)
 	cp libdid/libdid.a $(LOCAL_LIBRARY_DIR)
-	mkdir -p $(COMMONLIBA)
-	cp libdid/libdid.a $(COMMONLIBA)
 
 libct: FORCE
 	$(MAKE) all -C libct
 	mkdir -p $(LOCAL_LIBRARY_DIR)
 	cp libct/libct.a $(LOCAL_LIBRARY_DIR)
-	mkdir -p $(COMMONLIBA)
-	cp libct/libct.a $(COMMONLIBA)
 
 libriocp_pe: FORCE
 	$(MAKE) all -C libriocp_pe

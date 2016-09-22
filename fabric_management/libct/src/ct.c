@@ -33,6 +33,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <stdbool.h>
 #include <errno.h>
 
 #include "ct.h"
@@ -44,13 +45,8 @@ extern "C" {
 /* 1 - UINT16_MAX are available for use */
 #define NUMBER_OF_CTS (UINT16_MAX+1)
 
-struct dt_storage {
-	uint16_t inuse;
-	uint16_t nr;
-};
-
-struct dt_storage ids[NUMBER_OF_CTS];
-uint32_t idx = 0;
+bool ct_ids[NUMBER_OF_CTS];
+uint32_t ct_idx = 1;
 
 /**
  * Get the next available component tag
@@ -68,27 +64,18 @@ int get_ct(uint32_t *ct)
 		return -EINVAL;
 	}
 
-	// lazy initialization
-	if(0 == idx) {
-		for(i = 0; i < NUMBER_OF_CTS; i++) {
-			ids[i].inuse = 0;
-			ids[i].nr = i;
-		}
-		idx = 1;
-	}
-
 	// find the next available nr from the last used position
-	for(i = idx; i < NUMBER_OF_CTS; i++) {
-		if(0 == ids[i].inuse) {
-			idx = i;
+	for(i = ct_idx; i < NUMBER_OF_CTS; i++) {
+		if(false == ct_ids[i]) {
+			ct_idx = i;
 			goto found;
 		}
 	}
 
 	// look for a free nr from the beginning of the structure
-	for(i = 1; i < idx; i++) {
-		if(0 == ids[i].inuse) {
-			idx = i;
+	for(i = 1; i < ct_idx; i++) {
+		if(false == ct_ids[i]) {
+			ct_idx = i;
 			goto found;
 		}
 	}
@@ -100,9 +87,9 @@ int get_ct(uint32_t *ct)
 found:
 	if(0 == get_did(&did)) {
 		// return current, then incr to next available
-		ids[idx].inuse = 1;
-		*ct = ((idx << 16) & 0xffff0000) | (0x0000ffff & did);
-		idx++;
+		ct_ids[ct_idx] = true;
+		*ct = ((ct_idx << 16) & 0xffff0000) | (0x0000ffff & did);
+		ct_idx++;
 		return 0;
 	}
 
@@ -131,7 +118,7 @@ int set_ct(uint32_t *ct, uint16_t nr, uint16_t did)
 		return -EINVAL;
 	}
 
-	if(1 == ids[nr].inuse) {
+	if(ct_ids[nr]) {
 		*ct = COMPTAG_UNSET;
 		return -ENOTUNIQ;
 	}
@@ -141,8 +128,8 @@ int set_ct(uint32_t *ct, uint16_t nr, uint16_t did)
 		return -ENOTUNIQ;
 	}
 
-	// do not incr idx
-	ids[nr].inuse = 1;
+	// do not incr ct_idx
+	ct_ids[nr] = true;
 	*ct = ((nr << 16) & 0xffff0000) | (0x0000ffff & did);
 	return 0;
 }

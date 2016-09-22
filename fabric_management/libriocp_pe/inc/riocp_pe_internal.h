@@ -22,7 +22,6 @@ extern "C" {
 
 #define RIOCP_PE_HANDLE_REV 1
 
-#define ANY_ID 0xff /* @todo To be removed, any_id will be stored in mport handle after get/calculation of sys_size */
 #define RIOCP_PE_ANY_PORT 0xff
 
 #define RIOCP_PE_DEV_DIR  "/dev"

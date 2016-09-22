@@ -34,6 +34,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stddef.h>
 #include <stdint.h>
 #include <stdint.h>
+#include <stdbool.h>
 #include <errno.h>
 
 #include "did.h"
@@ -42,16 +43,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 extern "C" {
 #endif
 
-struct did_storage {
-	uint16_t inuse;
-	uint16_t did;
-};
-
 /* 255 is reserved, 1 - 254 are available for use */
 #define NUMBER_OF_IDS 256
 
-struct did_storage ids[NUMBER_OF_IDS];
-uint16_t idx = 0;
+bool did_ids[NUMBER_OF_IDS];
+uint16_t did_idx = 1;
 
 /**
  * Get the next available device Id
@@ -68,39 +64,30 @@ int get_did(uint16_t *did) {
 		return -EINVAL;
 	}
 
-	// lazy initialization
-	if (0 == idx) {
-		for (i = 0; i < NUMBER_OF_IDS; i++) {
-			ids[i].inuse = 0;
-			ids[i].did = i;
-		}
-		idx = 1;
-	}
-
 	// find the next available did from the last used position
-	for (i = idx; i < NUMBER_OF_IDS-1; i++) {
-		if (0 == ids[i].inuse) {
-			idx = i;
+	for (i = did_idx; i < NUMBER_OF_IDS-1; i++) {
+		if (false == did_ids[i]) {
+			did_idx = i;
 			goto found;
 		}
 	}
 
 	// look for a free did from the beginning of the structure
-	for (i = 1; i < idx; i++) {
-		if (0 == ids[i].inuse) {
-			idx = i;
+	for (i = 1; i < did_idx; i++) {
+		if (false == did_ids[i]) {
+			did_idx = i;
 			goto found;
 		}
 	}
 
-	// no available ids
+	// no available did_ids
 	*did = 0;
 	return -ENOBUFS;
 
 found:
 	// return current, then incr to next available
-	ids[idx].inuse = 1;
-	*did = idx++;
+	did_ids[did_idx] = true;
+	*did = did_idx++;
 	return 0;
 }
 
@@ -111,9 +98,9 @@ found:
  * @retval -ENOTUNIQ the specified device Id was already in use
  */
 int set_did(uint16_t did) {
-	if (0 == ids[did].inuse) {
+	if (false == did_ids[did]) {
 		// do not update the index
-		ids[did].inuse = 1;
+		did_ids[did] = true;
 		return 0;
 	}
 	return -ENOTUNIQ;
@@ -126,11 +113,11 @@ int set_did(uint16_t did) {
  * @retval -EKEYEXPIRED the provided device Id was not in use
  */
 int release_did(uint16_t did) {
-	if (0 == ids[did].inuse) {
+	if (false == did_ids[did]) {
 		return -EKEYEXPIRED;
 	}
 
-	ids[did].inuse = 0;
+	did_ids[did] = false;
 	return 0;
 }
 

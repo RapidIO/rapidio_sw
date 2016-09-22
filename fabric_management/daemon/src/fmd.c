@@ -72,6 +72,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "fmd_app_msg.h"
 #include "liblist.h"
 #include "liblog.h"
+#include "ct.h"
+#include "did.h"
 #include "cfg.h"
 #include "fmd_cfg_cli.h"
 #include "fmd_state.h"

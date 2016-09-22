@@ -44,6 +44,8 @@ extern "C" {
 
 #include <stdint.h>
 
+#define ANY_ID 0xff
+
 int get_did(uint16_t *did);
 int set_did(uint16_t did);
 int release_did(uint16_t did);

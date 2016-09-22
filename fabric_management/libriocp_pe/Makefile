@@ -18,7 +18,7 @@ CC=$(CXX) # XXX very UGGLY switcheroo
 
 CFLAGS+=$(addprefix -W,all extra) -fPIC
 CFLAGS+=-DNDEBUG
-CFLAGS+=-I. -I./inc
+CFLAGS+=-I. -I./inc -I./../libdid/inc
 CFLAGS+=-I./src
 CFLAGS+=-DRDMA_LL=$(level) -D__STDC_LIMIT_MACROS -D__STDC_FORMAT_MACROS
 LDFLAGS+=-L. -l$(NAME)

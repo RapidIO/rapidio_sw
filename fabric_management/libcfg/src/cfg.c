@@ -49,6 +49,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sys/types.h>
 #include <netinet/in.h>
 
+#include "ct.h"
+#include "did.h"
 #include "fmd_dd.h"
 #include "cfg.h"
 #include "cfg_private.h"
@@ -549,7 +551,7 @@ fail:
 	return 1;
 };
 
-int get_destid(struct int_cfg_parms *cfg, uint32_t *destid, uint32_t devid_sz)
+int cfg_get_destid(struct int_cfg_parms *cfg, uint32_t *destid, uint32_t devid_sz)
 {
 	int port = 0;
 	char *tok, *endptr;
@@ -579,7 +581,7 @@ int get_destid(struct int_cfg_parms *cfg, uint32_t *destid, uint32_t devid_sz)
 	*destid = ep->ports[port].devids[devid_sz].devid;
 	return 0;
 fail:
-	parse_err(cfg, (char *)"get_destid error.");
+	parse_err(cfg, (char *)"cfg_get_destid error.");
 	return 1;
 };
 
@@ -667,6 +669,8 @@ int parse_ep_devids(struct int_cfg_parms *cfg, struct dev_id *devids)
 				goto fail;
 		};
 	};
+
+
 	return 0;
 fail:
 	parse_err(cfg, (char *)"parse_ep_devids error.");
@@ -1117,7 +1121,7 @@ int parse_switch(struct int_cfg_parms *cfg)
 			rt->default_route = rtv;
 			break;
 		case 3: // DESTID
-			if (get_destid(cfg, &destid, rt_sz))
+			if (cfg_get_destid(cfg, &destid, rt_sz))
 				goto fail;
 			if (get_rt_v(cfg, &rtv))
 				goto fail;
@@ -1127,9 +1131,9 @@ int parse_switch(struct int_cfg_parms *cfg)
 			};
 			break;
 		case 4: // RANGE
-			if (get_destid(cfg, &destid, rt_sz))
+			if (cfg_get_destid(cfg, &destid, rt_sz))
 				goto fail;
-			if (get_destid(cfg, &destid1, rt_sz))
+			if (cfg_get_destid(cfg, &destid1, rt_sz))
 				goto fail;
 			if (get_rt_v(cfg, &rtv))
 				goto fail;
@@ -1151,6 +1155,7 @@ int parse_switch(struct int_cfg_parms *cfg)
 		};
 	};
 
+	cfg->sws[i].valid = 1;
 	cfg->sw_cnt++;
 	return 0;
 fail:
@@ -1251,6 +1256,9 @@ int cfg_parse_file(char *cfg_fn, char **dd_mtx_fn, char **dd_fn,
 		uint32_t *m_did, uint32_t *m_cm_port, uint32_t *m_mode)
 {
 
+	int j,k;
+	uint32_t i, ct;
+
 	if (init_cfg_ptr())
 		goto fail;
 
@@ -1282,7 +1290,40 @@ int cfg_parse_file(char *cfg_fn, char **dd_mtx_fn, char **dd_fn,
 		update_string(dd_fn, cfg->dd_fn,
 					strlen(cfg->dd_fn));
 
-	return cfg->init_err;
+	if (cfg->init_err) {
+		goto fail;
+	}
+
+	// mark the endpoint ct and devIds from the configuration as in use
+	for(i = 0; i < cfg->ep_cnt; i++) {
+		struct int_cfg_ep ep = cfg->eps[i];
+		if (ep.valid) {
+			for (j = 0; j < ep.port_cnt; j++) {
+				struct int_cfg_ep_port port = ep.ports[j];
+				if (port.valid) {
+					for (k = 0; k < CFG_DEVID_MAX; k++) {
+						uint32_t devid = port.devids[k].devid;
+						if (0 != devid) {
+							if (0 != set_ct(&ct, port.ct, devid)) {
+								goto fail;
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// mark the switch ct and devIds from the configuration as in use
+	for(i=0; i < cfg->sw_cnt; i++) {
+		struct int_cfg_sw sw = cfg->sws[i];
+		if (sw.valid) {
+			if (0 != set_ct(&ct, sw.ct, sw.did)) {
+				goto fail;
+			}
+		}
+	}
+	return 0;
 fail:
 	return 1;
 };
