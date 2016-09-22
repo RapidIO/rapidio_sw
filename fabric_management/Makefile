@@ -49,13 +49,27 @@ CCFLAGS= $(CXXFLAGS) -fPIC -Wall -I. \
 	-I./libriocp_pe/src \
 	-DRDMA_LL=$(level)
 
-LIB_DEPS= libriocp_pe libcli libswitch_api libdd libcfg libpe_mpdrv
+LIB_DEPS= libdid libct libriocp_pe libcli libswitch_api libdd libcfg libpe_mpdrv
 .PHONY: $(LIB_DEPS)
 
 all: daemon libfmdd
 
-%.o: %.c $(CLI_DEPS) $(DAEMON_DEPS) $(LIB_DEPS)
+%.o: %.c $(CLI_DEPS) $(LIB_DEPS)
 	$(CXX) -o $@ -c $< $(CCFLAGS)
+
+libdid: FORCE
+	$(MAKE) all -C libdid
+	mkdir -p $(LOCAL_LIBRARY_DIR)
+	cp libdid/libdid.a $(LOCAL_LIBRARY_DIR)
+	mkdir -p $(COMMONLIBA)
+	cp libdid/libdid.a $(COMMONLIBA)
+
+libct: FORCE
+	$(MAKE) all -C libct
+	mkdir -p $(LOCAL_LIBRARY_DIR)
+	cp libct/libct.a $(LOCAL_LIBRARY_DIR)
+	mkdir -p $(COMMONLIBA)
+	cp libct/libct.a $(COMMONLIBA)
 
 libriocp_pe: FORCE
 	$(MAKE) all -C libriocp_pe
