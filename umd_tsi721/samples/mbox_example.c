@@ -638,10 +638,14 @@ static void sig_handler_term(int signo)
  *
  */
 
-void sig_handler_usr1(int UNUSED_PARM(signo))
+void sig_handler_usr1(int signo)
 {
 	printf("RX_CNT %d TX_CNT %d\n", (int)info.rx_cnt, (int)info.tx_cnt);
 	fflush(stdout);
+
+	/* use the parameter to avoid compile error */
+	if(signo) {
+	}
 };
 
 /**

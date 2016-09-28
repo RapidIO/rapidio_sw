@@ -44,6 +44,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <fcntl.h>
 #include <signal.h>
 #include <time.h>
+#include <vector>
 
 #include <stdint.h>
 #include <inttypes.h>

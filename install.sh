@@ -86,7 +86,7 @@ make clean &>/dev/null;
 for host in  "${ALLNODES[@]}"; do
   [ "$host" = 'none' ] && continue;
   tar cf - * .git* | \
-  ssh -C root@"$host" "mkdir -p $SOURCE_PATH; pushd $SOURCE_PATH &>/dev/null; tar xf -; popd &>/dev/null; chown -R root.$GRP $SOURCE_PATH"
+  ssh -C root@"$host" "rm -rf $SOURCE_PATH;mkdir -p $SOURCE_PATH; pushd $SOURCE_PATH &>/dev/null; tar xf -; popd &>/dev/null; chown -R root.$GRP $SOURCE_PATH"
 done
 
 for host in  "${ALLNODES[@]}"; do

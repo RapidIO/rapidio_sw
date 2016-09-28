@@ -304,7 +304,9 @@ public:
 
 	virtual ~rx_engine()
 	{
-		if (this == NULL) return; // Avoid __run_exit_handlers/~unique_ptr problems
+		// FIXME: Commented out statement below to avoid compile issue.
+		// Might need a real fix in future.
+		// if (this == NULL) return; // Avoid __run_exit_handlers/~unique_ptr problems
 
 		/**
 		 * @brief There are two possiblities:
