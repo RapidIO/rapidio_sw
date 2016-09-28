@@ -93,16 +93,17 @@ uint32_t DARRegRead( DAR_DEV_INFO_t *dev_info, uint32_t offset, uint32_t *readda
 
 uint32_t DARRegWrite( DAR_DEV_INFO_t *dev_info, uint32_t offset, uint32_t writedata )
 {
-   uint32_t rc = DAR_DB_INVALID_HANDLE;
+	uint32_t rc = DAR_DB_INVALID_HANDLE;
 
-   if ( VALIDATE_DEV_INFO( dev_info ) )
-       rc = driver_db[DAR_DB_INDEX(dev_info)].WriteReg( dev_info,
-                                                        offset,
-                                                        writedata );
-       if (RIO_SUCCESS == rc) {
-          rc = update_dev_info_regvals( dev_info, offset, writedata );
-       };
-   return rc;
+	if ( VALIDATE_DEV_INFO( dev_info ) ) {
+		rc = driver_db[DAR_DB_INDEX(dev_info)].WriteReg( dev_info,
+								offset,
+								writedata );
+	};
+	if (RIO_SUCCESS == rc) {
+		rc = update_dev_info_regvals( dev_info, offset, writedata );
+	};
+	return rc;
 }
 
 

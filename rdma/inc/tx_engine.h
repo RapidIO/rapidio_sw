@@ -186,7 +186,9 @@ public:
 
 	virtual ~tx_engine()
 	{
-                if (this == NULL) return; // Avoid __run_exit_handlers/~unique_ptr problems
+		// FIXME: Commented out this line to avoid compile issue.
+		//        May need a real fix in future.
+                // if (this == NULL) return; // Avoid __run_exit_handlers/~unique_ptr problems
 
 		/* If worker_is_dead was true, then the thread has already
 		 * self-terminated and we can just delete the worker_thread object.

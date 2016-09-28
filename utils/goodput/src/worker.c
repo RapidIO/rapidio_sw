@@ -1493,10 +1493,12 @@ void *umd_dma_fifo_proc_thr(void *parm)
 	
 	migrate_thread_to_cpu(&info->umd_fifo_thr);
 
-	if (info->umd_fifo_thr.cpu_req != info->umd_fifo_thr.cpu_req) {
+	if (info->umd_fifo_thr.cpu_run != info->umd_fifo_thr.cpu_req) {
 		CRIT("\n\tRequested CPU %d does not match migrated cpu %d, bailing ou!\n",
-		     info->umd_fifo_thr.cpu_req, info->umd_fifo_thr.cpu_req);
-		goto exit;
+		     info->umd_fifo_thr.cpu_req, info->umd_fifo_thr.cpu_run);
+		// FIXME: Fixed compile error, not bailing out as the CPU
+		//        requested may not be available.
+		// goto exit;
 	}
 
 	wi_size = info->umd_sts_entries * 8 * sizeof(DMAChannel::WorkItem_t);
@@ -1567,10 +1569,12 @@ void* umd_mbox_fifo_proc_thr(void *parm)
 
         migrate_thread_to_cpu(&info->umd_fifo_thr);
 
-        if (info->umd_fifo_thr.cpu_req != info->umd_fifo_thr.cpu_req) {
+        if (info->umd_fifo_thr.cpu_req != info->umd_fifo_thr.cpu_run) {
 		CRIT("\n\tRequested CPU %d does not match migrated cpu %d, bailing ou!\n",
-		     info->umd_fifo_thr.cpu_req, info->umd_fifo_thr.cpu_req);
-		goto exit;
+		     info->umd_fifo_thr.cpu_req, info->umd_fifo_thr.cpu_run);
+		// FIXME: Fixed compile error, not bailing out as the CPU
+		//        requested may not be available.
+		// goto exit;
 	}
 
 	wi_size = info->umd_sts_entries * 8 * sizeof(MboxChannel::WorkItem_t);

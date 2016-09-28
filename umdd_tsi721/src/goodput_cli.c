@@ -308,13 +308,14 @@ int WaitCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 	while ((wkr[idx].stat != state) && limit--)
 		nanosleep(&ten_usec, NULL);
 
-	if (wkr[idx].stat == state)
+	if (wkr[idx].stat == state) {
 		sprintf(env->output, "\nPassed, Worker %d is now %s\n",
 			idx, THREAD_STR(wkr[idx].stat));
-	else
+	} else {
 		sprintf(env->output, "\nFAILED, Worker %d is now %s\n",
 			idx, THREAD_STR(wkr[idx].stat));
-		logMsg(env);
+	};
+	logMsg(env);
 
 exit:
 	return 0;
