@@ -339,9 +339,10 @@ uint32_t init_scratchpad( DAR_DEV_INFO_t *DAR_info )
 	uint8_t idx;
 
 	for (idx = SCRPAD_FIRST_IDX; idx < MAX_DAR_SCRPAD_IDX; idx++) {
-		if (SCRPAD_EOF_OFFSET == scratchpad_const[idx].offset)
+		if (SCRPAD_EOF_OFFSET == scratchpad_const[idx].offset) {
 			rc = RIO_ERR_REG_ACCESS_FAIL;
 			break;
+		};
 
 		rc = ReadReg( DAR_info, scratchpad_const[idx].offset, &DAR_info->scratchpad[idx]);
 		if (RIO_SUCCESS != rc)

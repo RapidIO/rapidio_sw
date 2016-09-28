@@ -79,7 +79,7 @@ RDMAD_SOURCES = daemon/src/rdmad_main.cpp \
 REMDBG_SOURCES	= daemon/src/remdbg.c
 
 # RDMA Library flags, sources and objects
-RDMALIB_STATIC_CFLAGS = -Wall -Wextra -std=c++11 -c $(OPTFLAGS) \
+RDMALIB_STATIC_CFLAGS = -Wall -Wextra -Werror -std=c++11 -c $(OPTFLAGS) \
 		-Idaemon/inc \
 		-Iinc -I$(TOPDIR)/include -I$(COMMONINC) \
 		-DRDMA_LL=$(level) $(OPTFLAGS) \
