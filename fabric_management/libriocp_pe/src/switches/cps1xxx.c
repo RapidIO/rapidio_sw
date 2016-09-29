@@ -2932,7 +2932,7 @@ int cps1xxx_set_lane_speed(struct riocp_pe *sw, uint8_t port, enum riocp_pe_spee
 			if (ret < 0) {
 				RIOCP_ERROR("[0x%08x:%s:hc %u] Error reading lane %d ctl\n",
 						sw->comptag, RIOCP_SW_DRV_NAME(sw), sw->hopcount, current_lane);
-				cps1xxx_enable_port(sw, port);
+				if(!port_disabled) cps1xxx_enable_port(sw, port);
 				cps1xxx_clear_port_error(sw, port);
 				return ret;
 			}
@@ -2944,7 +2944,7 @@ int cps1xxx_set_lane_speed(struct riocp_pe *sw, uint8_t port, enum riocp_pe_spee
 			if (ret < 0) {
 				RIOCP_ERROR("[0x%08x:%s:hc %u] Error writing lane %d ctl\n",
 						sw->comptag, RIOCP_SW_DRV_NAME(sw), sw->hopcount, current_lane);
-				cps1xxx_enable_port(sw, port);
+				if(!port_disabled) cps1xxx_enable_port(sw, port);
 				cps1xxx_clear_port_error(sw, port);
 				return ret;
 			}
@@ -3077,7 +3077,7 @@ int cps1xxx_set_lane_speed(struct riocp_pe *sw, uint8_t port, enum riocp_pe_spee
 			if (ret < 0) {
 				RIOCP_ERROR("[0x%08x:%s:hc %u] Error reading lane %d ctl\n",
 						sw->comptag, RIOCP_SW_DRV_NAME(sw), sw->hopcount, current_lane);
-				cps1xxx_enable_port(sw, port);
+				if(!port_disabled) cps1xxx_enable_port(sw, port);
 				cps1xxx_clear_port_error(sw, port);
 				return ret;
 			}
@@ -3089,7 +3089,7 @@ int cps1xxx_set_lane_speed(struct riocp_pe *sw, uint8_t port, enum riocp_pe_spee
 			if (ret < 0) {
 				RIOCP_ERROR("[0x%08x:%s:hc %u] Error writing lane %d ctl\n",
 						sw->comptag, RIOCP_SW_DRV_NAME(sw), sw->hopcount, current_lane);
-				cps1xxx_enable_port(sw, port);
+				if(!port_disabled) cps1xxx_enable_port(sw, port);
 				cps1xxx_clear_port_error(sw, port);
 				return ret;
 			}
