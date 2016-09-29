@@ -47,6 +47,8 @@ CFLAGS+=-D$(DEBUG_CTL) -DRDMA_LL=$(LOG_LEVEL)
 CFLAGS+=-I../inc -Isrc
 CFLAGS+=-I../libriocp_pe/inc
 CFLAGS+=-I../librio_switch/inc
+CFLAGS+=-I../libct/inc
+CFLAGS+=-I../libdid/inc
 LDFLAGS+=-L. -l$(NAME)
 
 OBJECTS:=$(patsubst src/%.c,src/%.o,$(wildcard src/*.c))

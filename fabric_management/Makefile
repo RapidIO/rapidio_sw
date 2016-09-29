@@ -37,7 +37,7 @@ export DEBUG
 COMMON_DIR ?= $(COMMONDIR)
 export COMMON_DIR
 
-LOCAL_LIBRARY_DIR="libs_a"
+LOCAL_LIBRARY_DIR=libs_a
 
 level ?= $(LOG_LEVEL)
 
@@ -61,15 +61,11 @@ libdid: FORCE
 	$(MAKE) all -C libdid
 	mkdir -p $(LOCAL_LIBRARY_DIR)
 	cp libdid/libdid.a $(LOCAL_LIBRARY_DIR)
-	mkdir -p $(COMMONLIBA)
-	cp libdid/libdid.a $(COMMONLIBA)
 
 libct: FORCE
 	$(MAKE) all -C libct
 	mkdir -p $(LOCAL_LIBRARY_DIR)
 	cp libct/libct.a $(LOCAL_LIBRARY_DIR)
-	mkdir -p $(COMMONLIBA)
-	cp libct/libct.a $(COMMONLIBA)
 
 libriocp_pe: FORCE
 	$(MAKE) all -C libriocp_pe
@@ -112,10 +108,12 @@ FORCE:
 clean:
 	rm -f fmd *.o *~ inc/*~ *.exe core $(LOCAL_LIBRARY_DIR)/*.so \
 		$(LOCAL_LIBRARY_DIR)/*.a
+	$(MAKE) clean -C daemon
+	$(MAKE) clean -C libcfg
+	$(MAKE) clean -C libct
+	$(MAKE) clean -C libdd
+	$(MAKE) clean -C libdid
+	$(MAKE) clean -C libfmdd
+	$(MAKE) clean -C libpe_mpdrv
 	$(MAKE) clean -C librio_switch
 	$(MAKE) clean -C libriocp_pe
-	$(MAKE) clean -C daemon
-	$(MAKE) clean -C libfmdd
-	$(MAKE) clean -C libdd
-	$(MAKE) clean -C libcfg
-	$(MAKE) clean -C libpe_mpdrv

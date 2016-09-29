@@ -39,7 +39,8 @@ OBJECTS:=$(patsubst src/%.cpp,src/%.o,$(wildcard src/*.cpp))
 OBJECTS:=$(OBJECTS) $(patsubst src/%.c,src/%.o,$(wildcard src/*.c))
 
 CXXFLAGS+=-D$(DEBUG_CTL) -DRDMA_LL=$(LOG_LEVEL)
-CXXFLAGS+=-I./../libdid/inc
+CXXFLAGS+=-I$(FMDDIR)/libdid/inc
+CXXFLAGS+=-I$(FMDDIR)/librio_switch/inc
 LDFLAGS+=-L. -l$(NAME)
 
 

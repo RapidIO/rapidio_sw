@@ -54,10 +54,12 @@ src/%.o: src/%.c
 	-I$(COMMONINC) \
 	-I$(TOPDIR)/include \
 	-I../ \
+	-I../libdid/inc \
+	-I../libct/inc \
 	-I../librio_switch/inc \
 	-I../libriocp_pe/inc \
-        -I../libpe_mpdrv/inc \
-        -I../libcfg/inc \
+	-I../libpe_mpdrv/inc \
+	-I../libcfg/inc \
 	-I../cli \
 	-DRDMA_LL=$(LOG_LEVEL) -D__STDC_LIMIT_MACROS -D__STDC_FORMAT_MACROS
 
@@ -75,7 +77,7 @@ fmd:  $(FMD_OBJECTS) $(FMD_SOURCES) src/*.h
 	@echo ---------- Building fmd...
 	$(CXX) -pthread \
 	-o $@ $(FMD_OBJECTS) $(LIB_DIRS) \
-	-lcfg -lpe_mpdrv -lswitch_api -lriocp_pe \
+	-lcfg -lct -ldid -lpe_mpdrv -lswitch_api -lriocp_pe \
 	-ldd -llist -ltime_utils -lcli -llog -lmport \
 	-lrt -ldl 
 

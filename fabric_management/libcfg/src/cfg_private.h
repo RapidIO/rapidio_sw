@@ -111,7 +111,7 @@ struct int_cfg_rapidio {
 	idt_pc_pw_t op_pw;
 	idt_pc_ls_t ls;
 	int idle2; /* 0 for idle1, 1 for idle2 */
-	int em; /* 0 for no error management, 1 to enable erro management */
+	int em; /* 0 for no error management, 1 to enable error management */
 };
 
 struct int_cfg_ep_port {

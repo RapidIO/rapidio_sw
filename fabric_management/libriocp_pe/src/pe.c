@@ -12,8 +12,7 @@
 #include <stdint.h>
 #include <string.h>
 
-#include "inc/riocp_pe_internal.h"
-
+#include "did.h"
 #include "pe.h"
 
 #include "maint.h"
