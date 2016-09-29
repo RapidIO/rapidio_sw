@@ -1255,9 +1255,19 @@ fail:
 int cfg_parse_file(char *cfg_fn, char **dd_mtx_fn, char **dd_fn,
 		uint32_t *m_did, uint32_t *m_cm_port, uint32_t *m_mode)
 {
-
 	int j,k;
-	uint32_t i, ct;
+	uint32_t i;
+
+	ct_t ct;
+	ct_nr_t nr;
+
+	did_t did;
+	did_val_t devid;
+	did_sz_t size;
+
+	struct int_cfg_ep ep;
+	struct int_cfg_ep_port port;
+	struct int_cfg_sw sw;
 
 	if (init_cfg_ptr())
 		goto fail;
@@ -1296,15 +1306,23 @@ int cfg_parse_file(char *cfg_fn, char **dd_mtx_fn, char **dd_fn,
 
 	// mark the endpoint ct and devIds from the configuration as in use
 	for(i = 0; i < cfg->ep_cnt; i++) {
-		struct int_cfg_ep ep = cfg->eps[i];
+		ep = cfg->eps[i];
 		if (ep.valid) {
 			for (j = 0; j < ep.port_cnt; j++) {
-				struct int_cfg_ep_port port = ep.ports[j];
+				port = ep.ports[j];
 				if (port.valid) {
+					if (ct_get_nr(&nr, (ct_t)port.ct)) {
+						goto fail;
+					}
+
 					for (k = 0; k < CFG_DEVID_MAX; k++) {
-						uint32_t devid = port.devids[k].devid;
-						if (0 != devid) {
-							if (0 != set_ct(&ct, port.ct, devid)) {
+						if (did_size_from_int(&size, k)) {
+							goto fail;
+						}
+
+						devid = (did_val_t)port.devids[k].devid;
+						if (devid) {
+							if (ct_create_from_data(&ct, &did, nr, devid, size)) {
 								goto fail;
 							}
 						}
@@ -1316,9 +1334,15 @@ int cfg_parse_file(char *cfg_fn, char **dd_mtx_fn, char **dd_fn,
 
 	// mark the switch ct and devIds from the configuration as in use
 	for(i=0; i < cfg->sw_cnt; i++) {
-		struct int_cfg_sw sw = cfg->sws[i];
+		sw = cfg->sws[i];
 		if (sw.valid) {
-			if (0 != set_ct(&ct, sw.ct, sw.did)) {
+			if (ct_get_nr(&nr, sw.ct)) {
+				goto fail;
+			}
+			if (did_size_from_int(&size, sw.did_sz)) {
+				goto fail;
+			}
+			if (ct_create_from_data(&ct, &did, nr, (did_val_t)sw.did, size)) {
 				goto fail;
 			}
 		}

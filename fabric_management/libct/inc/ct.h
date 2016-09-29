@@ -45,13 +45,18 @@ extern "C" {
 #include <stdint.h>
 #include "did.h"
 
+typedef uint32_t ct_t;
+typedef uint16_t ct_nr_t;
+
 #define COMPTAG_UNSET 0x00000000
 
-int get_ct(uint32_t *ct);
-int set_ct(uint32_t *ct, uint16_t nr, uint16_t did);
+int ct_create_all(ct_t *ct, did_t *did, did_sz_t size);
+int ct_create_from_data(ct_t *ct, did_t *did, ct_nr_t nr, did_val_t value, did_sz_t size);
+int ct_create_from_did(ct_t *ct, ct_nr_t nr, did_t did);
+int ct_release(ct_t *ct, did_t did);
 
-uint16_t get_destid(uint32_t ct);
-uint16_t get_nr(uint32_t ct);
+int ct_get_nr(ct_nr_t *nr, ct_t ct);
+int ct_get_destid(did_t *did, ct_t ct, did_sz_t size);
 
 #ifdef __cplusplus
 }

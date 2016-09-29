@@ -108,10 +108,12 @@ FORCE:
 clean:
 	rm -f fmd *.o *~ inc/*~ *.exe core $(LOCAL_LIBRARY_DIR)/*.so \
 		$(LOCAL_LIBRARY_DIR)/*.a
+	$(MAKE) clean -C daemon
+	$(MAKE) clean -C libcfg
+	$(MAKE) clean -C libct
+	$(MAKE) clean -C libdd
+	$(MAKE) clean -C libdid
+	$(MAKE) clean -C libfmdd
+	$(MAKE) clean -C libpe_mpdrv
 	$(MAKE) clean -C librio_switch
 	$(MAKE) clean -C libriocp_pe
-	$(MAKE) clean -C daemon
-	$(MAKE) clean -C libfmdd
-	$(MAKE) clean -C libdd
-	$(MAKE) clean -C libcfg
-	$(MAKE) clean -C libpe_mpdrv
