@@ -100,6 +100,7 @@ struct fmd_state *fmd = NULL;
 
 void custom_quit(cli_env *env)
 {
+	(void) env;
 	riocp_pe_destroy_handle(&mport_pe);
 	shutdown_mgmt();
 	halt_app_handler();
@@ -309,7 +310,7 @@ void spawn_threads(struct fmd_opt_vals *cfg)
 	INFO("pthread_create() for poll_loop returns: %d\n",poll_ret);
 	INFO("pthread_create() for cli_session_thread returns: %d\n",cli_ret);
  
-	ret = start_fmd_app_handler(cfg->app_port_num, 50, 0, 
+	ret = start_fmd_app_handler(cfg->app_port_num, 50,
 					cfg->dd_fn, cfg->dd_mtx_fn); 
 	if (ret) {
 		CRIT("Error - start_fmd_app_handler rc: %d\n", ret);
@@ -323,7 +324,7 @@ void spawn_threads(struct fmd_opt_vals *cfg)
 	}
 }
 
-int fmd_traverse_network(int mport_num, riocp_pe_handle mport_pe, struct cfg_dev *c_dev)
+int fmd_traverse_network(riocp_pe_handle mport_pe, struct cfg_dev *c_dev)
 {
 	struct l_head_t sw_list;
 
@@ -450,10 +451,10 @@ int setup_mport_master(int mport)
 		return 1;
 	};
 
-	return fmd_traverse_network(mport, mport_pe, &cfg_dev);
+	return fmd_traverse_network(mport_pe, &cfg_dev);
 };
 
-int setup_mport_slave(int mport, uint32_t m_did, uint32_t m_cm_port)
+int setup_mport_slave(int mport)
 {
 	int rc, ret;
 	uint32_t comptag;
@@ -541,8 +542,7 @@ void setup_mport(struct fmd_state *fmd)
 	if (fmd->opts->mast_mode)
 		rc = setup_mport_master(mport);
 	else
-		rc = setup_mport_slave(mport, fmd->opts->mast_devid,
-						fmd->opts->mast_cm_port);
+		rc = setup_mport_slave(mport);
 fail:
 	if (rc) {
 		CRIT("\nNetwork initialization failed...\n");

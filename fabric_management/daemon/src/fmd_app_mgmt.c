@@ -312,7 +312,7 @@ fail:
 	return unused;
 }
 
-int start_fmd_app_handler(uint32_t port, uint32_t backlog, int tst,
+int start_fmd_app_handler(uint32_t port, uint32_t backlog,
 		char *dd_fn, char *dd_mtx_fn)
 {
 	int ret;

@@ -53,11 +53,15 @@ extern "C" {
 int CLIConfigCmd(struct cli_env *env, int argc, char **argv)
 {
 	int rc, info_rc;
-        riocp_pe_handle pe_h = (riocp_pe_handle)(env->h);
+	riocp_pe_handle pe_h = (riocp_pe_handle)(env->h);
 	struct mpsw_drv_private_data *h;
 	int j;
 	struct riocp_pe_port pe_port_info[24];
-        struct cfg_dev cfg_dev;
+	struct cfg_dev cfg_dev;
+
+	if (0) {
+		argv[0][0] = argc;
+	}
 
 	if (NULL == pe_h) {
 		sprintf(env->output, "\nNo Device Selected...\n");

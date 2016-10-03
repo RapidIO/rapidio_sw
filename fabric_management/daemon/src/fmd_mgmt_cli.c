@@ -216,11 +216,12 @@ extern struct cli_cmd CLINotify;
 
 int CLINotifyCmd(struct cli_env *env, int argc, char **argv)
 {
-	if (0)
+	if (0) {
 		argv[0][0] = argc;
+		(void) env;
+	}
 
 	fmd_notify_apps();
-
 	return 0;
 };
 

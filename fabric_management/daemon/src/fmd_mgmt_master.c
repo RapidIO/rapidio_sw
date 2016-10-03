@@ -598,8 +598,7 @@ exit:
 	pthread_exit(unused);
 };
 
-int start_peer_mgmt_master(uint32_t mast_acc_skt_num, uint32_t mp_num, 
-		uint32_t mast_did)
+int start_peer_mgmt_master(uint32_t mast_acc_skt_num, uint32_t mp_num)
 {
 	uint32_t rc;
 
@@ -632,7 +631,7 @@ int start_peer_mgmt(uint32_t mast_acc_skt_num, uint32_t mp_num,
 	fmp.mode = master;
 
 	if (master)
-		rc = start_peer_mgmt_master(mast_acc_skt_num, mp_num, mast_did);
+		rc = start_peer_mgmt_master(mast_acc_skt_num, mp_num);
 	else
 		rc = start_peer_mgmt_slave(mast_acc_skt_num, mast_did, mp_num, 
 			&fmp.slv);

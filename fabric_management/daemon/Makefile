@@ -34,7 +34,6 @@ TOPDIR?=$(shell pwd)/../..
 include $(TOPDIR)/rules.mk
 
 LOG_LEVEL ?= 1
-DEBUG?=DEBUG
 
 # Common link flags for all shared libraries
 SO_LIB_LKFLAGS = -rdynamic -shared -lnsl -fPIC
@@ -49,7 +48,7 @@ LOCAL_LIBRARY_DIR ?= libs_a
 LIB_DIRS?= -L$(COMMONLIB) -L../$(LOCAL_LIBRARY_DIR) $(LIBS_RPATH)
 
 src/%.o: src/%.c
-	$(CXX) -o $@ $< -c -fPIC -Wall -Werror $(OPTFLAGS) \
+	$(CXX) -o $@ $< -c -fPIC -Wall -Wextra -Werror $(OPTFLAGS) \
 	-I./src -I./inc -I../inc \
 	-I$(COMMONINC) \
 	-I$(TOPDIR)/include \
@@ -60,8 +59,7 @@ src/%.o: src/%.c
 	-I../libriocp_pe/inc \
 	-I../libpe_mpdrv/inc \
 	-I../libcfg/inc \
-	-I../cli \
-	-DRDMA_LL=$(LOG_LEVEL) -D__STDC_LIMIT_MACROS -D__STDC_FORMAT_MACROS
+	-D$(DEBUG_CTL) -DRDMA_LL=$(LOG_LEVEL) -D__STDC_LIMIT_MACROS -D__STDC_FORMAT_MACROS
 
 FMD_SOURCES = src/fmd_app_mgmt.c src/fmd.c \
 	src/fmd_mgmt_master.c src/fmd_mgmt_slave.c src/fmd_mgmt_cli.c \
