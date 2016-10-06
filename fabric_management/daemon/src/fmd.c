@@ -65,7 +65,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "libcli.h"
 #include "riocp_pe.h"
-#include "riocp_pe.h"
 #include "DAR_DevDriver.h"
 #include "fmd_dd.h"
 #include "fmd_dd_priv.h"
@@ -83,6 +82,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "fmd_mgmt_master.h"
 #include "fmd_dev_rw_cli.h"
 #include "fmd_dev_conf_cli.h"
+#include "fmd_net.h"
 #include "fmd_opts.h"
 #include "libfmdd.h"
 #include "pe_mpdrv_private.h"
@@ -324,106 +324,6 @@ void spawn_threads(struct fmd_opt_vals *cfg)
 		exit(EXIT_FAILURE);
 	}
 }
-
-int fmd_traverse_network(riocp_pe_handle mport_pe, struct cfg_dev *c_dev)
-{
-	struct l_head_t sw_list;
-
-	riocp_pe_handle new_pe, curr_pe;
-	int port_cnt, conn_pt, rc;
-	rio_port_t pnum;
-	ct_t comptag;
-	struct cfg_dev curr_dev, conn_dev;
-
-	l_init(&sw_list);
-
-	/* Enumerated device connected to master port */
-	curr_pe = mport_pe;
-	curr_dev = *c_dev;
-
-	do {
-		port_cnt = RIOCP_PE_PORT_COUNT(curr_pe->cap);
-		for (pnum = 0; pnum < port_cnt; pnum++) {
-			new_pe = NULL;
-		
-			if (cfg_get_conn_dev(curr_pe->comptag, pnum, &conn_dev, &conn_pt)) {
-				HIGH("PE 0x%0x Port %d NO CONFIG\n", curr_pe->comptag, pnum);
-				continue;
-			};
-
-			rc = riocp_pe_probe(curr_pe, pnum, &new_pe, &conn_dev.ct,
-					(char *)conn_dev.name);
-
-			if (rc) {
-				if ((-ENODEV != rc) && (-EIO != rc)) {
-					CRIT("PE 0x%0x Port %d probe failed %d\n", 
-						curr_pe->comptag, pnum, rc);
-					goto fail;
-				};
-				HIGH("PE 0x%x Port %d NO DEVICE, expected %x\n",
-					curr_pe->comptag, pnum, conn_dev.ct);
-				continue;
-			};
-
-			if (NULL == new_pe) {
-				HIGH("PE 0x%x Port %d ALREADY CONNECTED\n",
-					curr_pe->comptag, pnum);
-				continue;
-			}
-
-			rc = riocp_pe_get_comptag(new_pe, &comptag);
-			if (rc) {
-				CRIT("Get new comptag failed, rc %d\n", rc);
-				goto fail;
-			};
-
-			if (comptag != conn_dev.ct) {
-				DBG("Probed ep ct 0x%x != 0x%x config ct port %d\n",
-					comptag, conn_dev.ct, pnum);
-				goto fail;
-			};
-
-			HIGH("PE 0x%x Port %d Connected: DEVICE %s CT 0x%x DID 0x%x\n",
-				curr_pe->comptag, pnum, 
-				new_pe->name, new_pe->comptag, new_pe->destid);
-
-			if (RIOCP_PE_IS_SWITCH(new_pe->cap)) {
-				void *pe;
-				l_item_t *li;
-				bool found = false;
-
-				pe = l_head(&sw_list, &li);
-				while (NULL != pe && !found) {
-					if (((struct riocp_pe *)pe)->comptag
-						== new_pe->comptag) {
-						found = true;	
-						continue;
-					}
-					pe = l_next(&li);
-				};
-				if (!found) {
-					HIGH("Adding PE 0x%08x to search\n",
-						new_pe->comptag);
-					l_push_tail(&sw_list, (void *)new_pe);
-				};
-			}
-		} 
-		curr_pe = (riocp_pe_handle)l_pop_head(&sw_list);
-		if (NULL != curr_pe) {
-			rc = cfg_find_dev_by_ct(curr_pe->comptag, &curr_dev);
-			if (rc) {
-				CRIT("cfg_find_dev_by_ct fail, ct 0x%xrc %d\n",
-					curr_pe->comptag, rc);
-				goto fail;
-			};
-			HIGH("Now probing PE CT 0x%08x\n", curr_pe->comptag);
-		}
-	} while (curr_pe != NULL);
-
-	return 0;
-fail:
-	return -1;
-};
 
 int setup_mport_master(int mport)
 {

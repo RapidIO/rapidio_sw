@@ -63,11 +63,15 @@ src/%.o: src/%.c
 
 FMD_SOURCES = src/fmd_app_mgmt.c src/fmd.c \
 	src/fmd_mgmt_master.c src/fmd_mgmt_slave.c src/fmd_mgmt_cli.c \
-	src/fmd_dev_rw_cli.c src/fmd_opts.c  src/fmd_dev_conf_cli.c
+	src/fmd_dev_rw_cli.c src/fmd_opts.c  src/fmd_dev_conf_cli.c \
+	src/fmd_net.c
+
 
 FMD_OBJECTS = src/fmd_app_mgmt.o src/fmd.o \
 	src/fmd_mgmt_master.o src/fmd_mgmt_slave.o src/fmd_mgmt_cli.o \
-	src/fmd_dev_rw_cli.o src/fmd_opts.o src/fmd_dev_conf_cli.o
+	src/fmd_dev_rw_cli.o src/fmd_opts.o src/fmd_dev_conf_cli.o \
+	src/fmd_net.o
+
 all: fmd
 
 # The Fabric Management Daemon
