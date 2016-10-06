@@ -41,6 +41,7 @@ LIBCLI_PATH=../libcli
 CXXFLAGS+=-D$(DEBUG_CTL) -DRDMA_LL=$(LOG_LEVEL)
 
 CM_BUILD_STRING = $(CXX) $(CXXFLAGS) \
+	-I$(FMDDIR)/libdid/inc -I$(FMDDIR)/libct/inc \
 	$(LIBS_RPATH) \
 	-o $@ \
 	src/$@.cpp \
@@ -48,6 +49,7 @@ CM_BUILD_STRING = $(CXX) $(CXXFLAGS) \
 
 UNIX_BUILD_STRING = $(CXX) $(CXXFLAGS) \
 	-I$(TOPDIR)/rdma/inc \
+	-I$(FMDDIR)/libdid/inc -I$(FMDDIR)/libct/inc \
 	-L$(LIBLOG_PATH) -L$(LIBCLI_PATH) \
 	$(LIBS_RPATH) \
 	-o $@ \

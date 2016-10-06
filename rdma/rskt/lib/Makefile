@@ -39,7 +39,7 @@ HEADERS:=inc/lib$(NAME).h inc/lib$(NAME)_private.h src/*.h
 INCDIR=$(LINUX_INCLUDE_DIR)
 
 XFLAGS+=-D$(DEBUG_CTL) -DRDMA_LL=$(LOG_LEVEL)
-XFLAGS+=-I../inc
+XFLAGS+=-I../inc -I$(FMDDIR)/libdid/inc -I$(FMDDIR)/libct/inc
 CXXFLAGS+=$(XFLAGS)
 CFLAGS+=$(XFLAGS)
 

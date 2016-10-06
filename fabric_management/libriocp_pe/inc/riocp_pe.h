@@ -11,6 +11,9 @@
 #include <stdlib.h>
 #include <stdbool.h>
 
+#include "did.h"
+#include "ct.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -177,7 +180,7 @@ int RIOCP_WU riocp_pe_create_agent_handle(riocp_pe_handle *handle, uint8_t mport
 int RIOCP_WU riocp_pe_discover(riocp_pe_handle pe, uint8_t port,
 				riocp_pe_handle *peer, char *name);
 int RIOCP_WU riocp_pe_probe(riocp_pe_handle pe, uint8_t port,
-				riocp_pe_handle *peer, uint32_t *comptag_in,
+				riocp_pe_handle *peer, ct_t *comptag_in,
 				char *name);
 int RIOCP_WU riocp_pe_verify(riocp_pe_handle pe);
 riocp_pe_handle riocp_pe_peek(riocp_pe_handle pe, uint8_t port);
@@ -192,8 +195,8 @@ int RIOCP_WU riocp_pe_lock(riocp_pe_handle pe, int flags);
 int RIOCP_WU riocp_pe_unlock(riocp_pe_handle pe);
 int RIOCP_WU riocp_pe_get_destid(riocp_pe_handle pe, uint32_t *destid);
 int RIOCP_WU riocp_pe_set_destid(riocp_pe_handle pe, uint32_t destid);
-int RIOCP_WU riocp_pe_get_comptag(riocp_pe_handle pe, uint32_t *comptag);
-int RIOCP_WU riocp_pe_update_comptag(riocp_pe_handle pe, uint32_t *comptag,
+int RIOCP_WU riocp_pe_get_comptag(riocp_pe_handle pe, ct_t *comptag);
+int RIOCP_WU riocp_pe_update_comptag(riocp_pe_handle pe, ct_t *comptag,
 					uint32_t did, uint32_t wr_did);
 
 int RIOCP_WU riocp_pe_clear_enumerated(struct riocp_pe *pe);

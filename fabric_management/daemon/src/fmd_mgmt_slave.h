@@ -83,10 +83,10 @@ extern int start_peer_mgmt_slave(uint32_t mast_acc_skt_num, uint32_t mast_did,
 
 extern void shutdown_slave_mgmt(void);
 
-int add_device_to_dd(uint32_t ct, uint32_t did, uint32_t did_sz, uint32_t hc,
+int add_device_to_dd(ct_t ct, uint32_t did, uint32_t did_sz, uint32_t hc,
                 uint32_t is_mast_pt, uint32_t flag, char *name);
 
-int del_device_from_dd(uint32_t ct, uint32_t did);
+int del_device_from_dd(ct_t ct, uint32_t did);
 
 void update_master_flags_from_peer(void);
 

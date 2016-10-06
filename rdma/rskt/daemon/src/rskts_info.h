@@ -70,7 +70,7 @@ extern "C" {
 #endif
 
 struct rsktd_peer {
-	uint32_t ct;
+	ct_t ct;
 	uint32_t cm_skt;
 	uint32_t cm_mp;
 };

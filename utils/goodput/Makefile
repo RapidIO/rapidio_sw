@@ -42,6 +42,7 @@ REGSDIR=$(FMDDIR)/librio_switch/inc
 CXXFLAGS+=-Wno-sign-compare
 CXXFLAGS+=-D$(DEBUG_CTL) -DRDMA_LL=$(LOG_LEVEL)
 CXXFLAGS+=-I$(UMDDIR)/inc -I$(LIBMPINCDIR) -I$(REGSDIR)
+CXXFLAGS+=-I$(FMDDIR)/libdid/inc -I$(FMDDIR)/libct/inc
 CXXFLAGS+=-pthread
 
 #CXXFLAGS+=-pg

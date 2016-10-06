@@ -44,6 +44,7 @@ SOURCES = src/crc32.c src/dmachan.cc src/mapfile.cc src/mboxchan.cc \
 
 CXXFLAGS+=-D$(DEBUG_CTL) -DRDMA_LL=$(LOG_LEVEL)
 CXXFLAGS+=-I$(REGSDIR) -pthread
+CXXFLAGS+=-I$(FMDDIR)/libdid/inc -I$(FMDDIR)/libct/inc
 
 LIBFLAGS = -shared -fPIC
 

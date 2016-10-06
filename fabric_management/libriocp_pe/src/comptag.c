@@ -93,10 +93,10 @@ static int riocp_pe_comptag_grow_pool_size(struct riocp_pe *pe, size_t new_size)
  * @retval 0 Saved PE handle address to comptag_pool slot at comptag_nr
  * @retval -ENOENT No free slot found in pool
  */
-static int riocp_pe_comptag_get_free_slot(struct riocp_pe *pe, uint32_t *comptag_nr)
+static int riocp_pe_comptag_get_free_slot(struct riocp_pe *pe, ct_nr_t *comptag_nr)
 {
 	unsigned int i;
-	uint32_t _comptag_nr;
+	ct_nr_t _comptag_nr;
 
 	if (pe->mport->minfo->comptag_pool_size == 0)
 		return -ENOENT;
@@ -125,7 +125,7 @@ found:
  * @retval 0 Saved PE handle address to comptag_pool slot at comptag_nr
  * @retval -ENOENT Slot already taken
  */
-int riocp_pe_comptag_set_slot(struct riocp_pe *pe, uint32_t comptag_nr)
+int riocp_pe_comptag_set_slot(struct riocp_pe *pe, ct_nr_t comptag_nr)
 {
 	int ret;
 
@@ -161,7 +161,7 @@ int riocp_pe_comptag_set_slot(struct riocp_pe *pe, uint32_t comptag_nr)
  * @retval 0 Saved PE handle address to comptag_pool slot at comptag_nr
  * @retval -ENOENT Slot already taken
  */
-int riocp_pe_comptag_get_slot(struct riocp_pe *mport, uint32_t comptag_nr, struct riocp_pe **pe)
+int riocp_pe_comptag_get_slot(struct riocp_pe *mport, ct_nr_t comptag_nr, struct riocp_pe **pe)
 {
 	struct riocp_pe *_pe;
 
@@ -185,7 +185,7 @@ int riocp_pe_comptag_get_slot(struct riocp_pe *mport, uint32_t comptag_nr, struc
  * @param comptag Component tag to write
  * @retval -EIO Could not write to the device
  */
-int riocp_pe_comptag_read(struct riocp_pe *pe, uint32_t *comptag)
+int riocp_pe_comptag_read(struct riocp_pe *pe, ct_t *comptag)
 {
 	int ret;
 
@@ -202,7 +202,7 @@ int riocp_pe_comptag_read(struct riocp_pe *pe, uint32_t *comptag)
  * @param comptag Component tag to write
  * @retval -EIO Could not write to the device
  */
-int riocp_pe_comptag_write(struct riocp_pe *pe, uint32_t comptag)
+int riocp_pe_comptag_write(struct riocp_pe *pe, ct_t comptag)
 {
 	int ret;
 
@@ -221,8 +221,8 @@ int riocp_pe_comptag_write(struct riocp_pe *pe, uint32_t comptag)
  */
 int riocp_pe_comptag_init(struct riocp_pe *pe)
 {
-	uint32_t comptag;
-	uint32_t _comptag_nr;
+	ct_t comptag;
+	ct_nr_t _comptag_nr;
 	int ret = 0;
 
 	RIOCP_TRACE("Initialise PE comptag\n");

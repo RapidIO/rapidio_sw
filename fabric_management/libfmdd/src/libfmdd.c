@@ -336,7 +336,7 @@ void fmdd_destroy_handle(fmdd_h *dd_h)
 	*dd_h = NULL;
 };
 
-uint8_t fmdd_check_ct(fmdd_h h, uint32_t ct, uint8_t flag)
+uint8_t fmdd_check_ct(fmdd_h h, ct_t ct, uint8_t flag)
 {
 	uint32_t i;
 

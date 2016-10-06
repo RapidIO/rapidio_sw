@@ -203,7 +203,7 @@ int free_rx(struct librskt_app_to_rsktd_msg *rx);
 struct librskt_rsktd_to_app_msg *alloc_tx(void);
 int free_tx(struct librskt_rsktd_to_app_msg *tx);
 
-struct rskt_dmn_wpeer **find_wpeer_by_ct(uint32_t ct);
+struct rskt_dmn_wpeer **find_wpeer_by_ct(ct_t);
 
 #ifdef __cplusplus
 }

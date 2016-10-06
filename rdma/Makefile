@@ -60,6 +60,7 @@ RDMAD_CFLAGS = $(CXXFLAGS) -Wall -Wextra \
 		-flto \
 		-DRDMA_LL=$(level) -DBE_STRICT \
 		-I$(COMMONDIR)/libcli/inc \
+		-I$(FMDDIR)/libdid/inc -I$(FMDDIR)/libct/inc \
 		-Idaemon/inc -Idaemon/src -I. -Isrc -Iinc
 
 RDMAD_SOURCES = daemon/src/rdmad_main.cpp \
@@ -82,6 +83,7 @@ REMDBG_SOURCES	= daemon/src/remdbg.c
 RDMALIB_STATIC_CFLAGS = -Wall -Wextra -Werror -std=c++11 -c $(OPTFLAGS) \
 		-Idaemon/inc \
 		-Iinc -I$(TOPDIR)/include -I$(COMMONINC) \
+		-I$(FMDDIR)/libdid/inc -I$(FMDDIR)/libct/inc \
 		-DRDMA_LL=$(level) $(OPTFLAGS) \
 		$(LIB_DIRS) \
 		-llog -lmport

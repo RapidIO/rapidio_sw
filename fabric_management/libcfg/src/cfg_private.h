@@ -54,6 +54,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <pthread.h>
+#include "ct.h"
 #include "IDT_Routing_Table_Config_API.h"
 #include "IDT_Port_Config_API.h"
 #include "riocp_pe.h"
@@ -78,7 +79,7 @@ struct int_cfg_ep;
 struct int_mport_info {
 	uint32_t num;
 	riocp_pe_handle mp_h;
-	uint32_t ct; /* Updated when MPORT is initialized */
+	ct_t ct; /* Updated when MPORT is initialized */
 	int op_mode;
 	uint8_t mem_sz;	/* Memory size to use for this network */
 	struct dev_id devids[CFG_DEVID_MAX];
@@ -117,7 +118,7 @@ struct int_cfg_rapidio {
 struct int_cfg_ep_port {
 	int valid;
 	uint32_t port;
-	uint32_t ct;
+	ct_t ct;
 	struct int_cfg_rapidio rio;
 	struct dev_id devids[CFG_DEVID_MAX];
 	struct int_cfg_conn *conn;
@@ -150,7 +151,7 @@ struct int_cfg_sw {
 	uint32_t did_sz;
 	uint32_t did;
 	uint32_t hc;
-	uint32_t ct;
+	ct_t ct;
 	uint32_t traversed;
 	struct int_cfg_sw_port ports[CFG_MAX_SW_PORT];
 	// One routing table for each devID size

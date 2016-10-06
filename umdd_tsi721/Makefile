@@ -32,10 +32,12 @@
 TOPDIR?=$(shell pwd)/..
 include $(TOPDIR)/rules.mk
 
-REGSDIR=$(FMDDIR)/librio_switch/inc
+FMDINC=-I$(FMDDIR)/librio_switch/inc
+FMDINC+=-I$(FMDDIR)/libdid/inc -I$(FMDDIR)/libct/inc
 
 CXXFLAGS+=-D$(DEBUG_CTL) -DRDMA_LL=$(LOG_LEVEL)
 CXXFLAGS+=-I$(UMDDIR)/inc
+CXXFLAGS+=-I$(FMDDIR)/libdid/inc -I$(FMDDIR)/libct/inc
 CXXFLAGS+=-DDEBUG_BD
 
 INCLUDES = inc/worker.h inc/goodput.h inc/goodput_cli.h
@@ -43,7 +45,7 @@ SOURCES = src/goodput.c src/goodput_cli.c src/worker.c
 
 # User-mode only flags
 # FIXME: Work to remove these as time permits
-UMD_FLAGS = -I$(REGSDIR) -DUSER_MODE_DRIVER -Wall -DRDMA_LL=$(LOG_LEVEL)
+UMD_FLAGS = $(FMDINC) -DUSER_MODE_DRIVER
 
 UMD_INCLUDES = inc/dmachanshm.h
 
@@ -61,7 +63,7 @@ umdd: $(SOURCES) $(INCLUDES) $(UMD_SOURCES) $(UMD_INCLUDES)
 
 umddlib: $(UMDDLIB_SOURCES) 
 	$(CXX) $(OPTFLAGS) -Wall -Wno-format -pthread -std=gnu++0x \
-		-I$(TOPDIR)/include -Iinc -I$(COMMONINC) -I$(UMDDIR)/inc -I$(REGSDIR) \
+		-I$(TOPDIR)/include -Iinc -I$(COMMONINC) -I$(UMDDIR)/inc $(FMDINC) \
 		-DNODEBUG -DUSER_MODE_DRIVER \
 		$(UMDDLIB_SOURCES) \
 		-lrt -lpthread \
@@ -70,7 +72,7 @@ umddlib: $(UMDDLIB_SOURCES)
 
 umddlib_log: $(UMDDLIB_SOURCES) 
 	$(CXX) $(OPTFLAGS) -Wall -Wno-format -pthread -std=gnu++0x \
-		-I$(TOPDIR)/include -Iinc -I$(COMMONINC) -I$(UMDDIR)/inc -I$(REGSDIR) \
+		-I$(TOPDIR)/include -Iinc -I$(COMMONINC) -I$(UMDDIR)/inc $(FMDINC) \
 		-DRDMA_LL=$(LOG_LEVEL) \
 		-DNODEBUG -DUSER_MODE_DRIVER \
 		-DDEBUG_BD \

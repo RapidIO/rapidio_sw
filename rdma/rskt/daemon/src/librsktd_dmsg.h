@@ -61,7 +61,7 @@ extern "C" {
 			(x==RSKTD_CLOSE_RESP)?"CLOSE_RSP":">ERROR<"
 
 struct librsktd_hello_req {
-	uint32_t ct; /* Peer component tag */
+	ct_t ct; /* Peer component tag */
 	uint32_t cm_skt; /* Peer cm socket number for connecting to */
 	uint32_t cm_mp; /* Peer cm MPORT number */
 };

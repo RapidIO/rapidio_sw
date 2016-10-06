@@ -41,7 +41,8 @@
 extern "C" {
 #endif
 
-#include <rapidio_mport_mgmt.h>
+#include "ct.h"
+#include "rapidio_mport_mgmt.h"
 
 /** @brief DirectIO transfer type */
 enum riomp_dma_directio_type {

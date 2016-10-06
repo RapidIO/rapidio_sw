@@ -469,7 +469,7 @@ int riomp_mgmt_send_event(riomp_mport_t mport_handle,
 };
 
 int riomp_mgmt_device_add(riomp_mport_t mport_handle, uint16_t destid,
-			uint8_t hc, uint32_t ctag, const char *name)
+			uint8_t hc, ct_t ctag, const char *name)
 {
 	if (0) {
 		if ((NULL == mport_handle) || (NULL == name))
@@ -480,7 +480,7 @@ int riomp_mgmt_device_add(riomp_mport_t mport_handle, uint16_t destid,
 };
 
 int riomp_mgmt_device_del(riomp_mport_t mport_handle, uint16_t destid,
-			uint8_t hc, uint32_t ctag, const char *name)
+			uint8_t hc, ct_t ctag, const char *name)
 {
 	if (0) {
 		if ((NULL == mport_handle) || (NULL == name))

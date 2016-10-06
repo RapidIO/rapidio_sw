@@ -52,11 +52,12 @@
 #define CONFIG_RAPIDIO_DMA_ENGINE
 #include <linux/rio_mport_cdev.h>
 
+#include "ct.h"
 #include "rio_misc.h"
-#include <rapidio_mport_mgmt.h>
-#include <rapidio_mport_dma.h>
-#include <rapidio_mport_sock.h>
-#include <riodp_mport_lib.h>
+#include "rapidio_mport_mgmt.h"
+#include "rapidio_mport_dma.h"
+#include "rapidio_mport_sock.h"
+#include "riodp_mport_lib.h"
 
 #define RIO_MPORT_DEV_PATH "/dev/rio_mport"
 #define RIO_CMDEV_PATH "/dev/rio_cm"
@@ -919,7 +920,7 @@ int riomp_mgmt_destid_set(riomp_mport_t mport_handle, uint16_t destid)
 /*
  * Create a new kernel device object
  */
-int riomp_mgmt_device_add(riomp_mport_t mport_handle, uint16_t destid, uint8_t hc, uint32_t ctag,
+int riomp_mgmt_device_add(riomp_mport_t mport_handle, uint16_t destid, uint8_t hc, ct_t ctag,
 		    const char *name)
 {
 	struct rio_rdev_info dev;
@@ -944,7 +945,7 @@ int riomp_mgmt_device_add(riomp_mport_t mport_handle, uint16_t destid, uint8_t h
 /*
  * Delete existing kernel device object
  */
-int riomp_mgmt_device_del(riomp_mport_t mport_handle, uint16_t destid, uint8_t hc, uint32_t ctag,
+int riomp_mgmt_device_del(riomp_mport_t mport_handle, uint16_t destid, uint8_t hc, ct_t ctag,
 			  const char *name)
 {
 	struct rio_rdev_info dev;

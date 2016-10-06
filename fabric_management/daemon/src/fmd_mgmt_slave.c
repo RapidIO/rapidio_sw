@@ -112,7 +112,7 @@ fail:
 	return 1;
 };
 
-int add_device_to_dd(uint32_t ct, uint32_t did, uint32_t did_sz, uint32_t hc,
+int add_device_to_dd(ct_t ct, uint32_t did, uint32_t did_sz, uint32_t hc,
 		uint32_t is_mast_pt, uint32_t flag, char *name)
 {
 	uint32_t idx, found_one = 0;
@@ -164,7 +164,7 @@ fail:
 	return 1;
 };
 	
-int del_device_from_dd(uint32_t ct, uint32_t did)
+int del_device_from_dd(ct_t ct, uint32_t did)
 {
 	uint32_t idx, found_idx = -1, found_one = 0;
 
@@ -515,7 +515,8 @@ void shutdown_slave_mgmt(void)
 
 void update_master_flags_from_peer(void)
 {
-	uint32_t did, did_sz, ct, flag, i;
+	uint32_t did, did_sz, flag, i;
+	ct_t ct;
 
 	if ((NULL == fmd->dd) || (NULL == fmd->dd_mtx) || (NULL == slv->s2m)) {
 		return;

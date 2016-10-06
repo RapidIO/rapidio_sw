@@ -313,7 +313,8 @@ void master_process_hello_peer(struct fmd_peer *peer)
 
 void master_process_flag_set(struct fmd_peer *peer)
 {
-	uint32_t did, ct;
+	uint32_t did;
+	ct_t ct;
 	uint8_t flag;
 	uint32_t i;
 	int tell_peers = 0;

@@ -202,7 +202,7 @@ struct librskt_globals {
         int mpnum;	/* RSKTD mport number to connect to */
         int init_ok;	/* Equal to portno when initialization is successful */
 
-	uint32_t ct;	/* Component Tag/destID of RSKTD */
+        ct_t ct;	/* Component Tag/destID of RSKTD */
         struct sockaddr_un addr; /* RSKTD Linux socket address */
         int addr_sz;	/* size of addr */
         int fd;		/* Connection to RSKTD */

@@ -34,7 +34,10 @@ include $(TOPDIR)/rules.mk
 
 .PHONY: all clean
 
-INCLUDES = -Iinc -I$(TOPDIR)/include -I$(COMMONINC) -I$(UMDINCDIR) -I$(UMDDINCDIR) -I$(FMDDIR)/librio_switch/inc
+INCLUDES=-Iinc -I$(TOPDIR)/include -I$(COMMONINC)
+INCLUDES+=-I$(UMDINCDIR) -I$(UMDDINCDIR) 
+INCLUDES+=-I$(FMDDIR)/libdid/inc -I$(FMDDIR)/libct/inc
+INCLUDES+=-I$(FMDDIR)/librio_switch/inc
 
 SOURCES = src/memops_factory.cc src/memops_mport.cc src/dmachanshm_dl.c src/memops_umdd.cc src/memops_umd.cc src/dmachanmgr.cc
 

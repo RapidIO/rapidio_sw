@@ -66,10 +66,11 @@
 #include <time.h>
 #include <signal.h>
 #include <pthread.h>
-#include <rapidio_mport_dma.h>
 
-#include <rapidio_mport_mgmt.h>
-#include <rapidio_mport_sock.h>
+#include "ct.h"
+#include "rapidio_mport_dma.h"
+#include "rapidio_mport_mgmt.h"
+#include "rapidio_mport_sock.h"
 
 /// Max device name size in characters.
 #define RIODP_MAX_DEV_NAME_SZ 20
@@ -77,7 +78,7 @@
 static riomp_mport_t mport_hnd;
 static uint16_t tgt_destid;
 static uint8_t tgt_hop;
-static uint32_t comptag = 0;
+static ct_t comptag = 0;
 
 static char dev_name[RIODP_MAX_DEV_NAME_SZ + 1];
 

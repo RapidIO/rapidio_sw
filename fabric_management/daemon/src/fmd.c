@@ -126,7 +126,7 @@ sem_t cons_owner;
 void set_prompt(struct cli_env *e)
 {
         riocp_pe_handle pe_h;
-        uint32_t comptag = 0;
+        ct_t comptag = 0;
         const char *name = NULL;
         uint16_t pe_did = 0;
 	struct cfg_dev cfg_dev;
@@ -143,8 +143,9 @@ void set_prompt(struct cli_env *e)
 
 	pe_h = (riocp_pe_handle)(e->h);
 
-	if (riocp_pe_get_comptag(pe_h, &comptag))
+	if (riocp_pe_get_comptag(pe_h, &comptag)) {
 		comptag = 0xFFFFFFFF;
+	}
 	pe_did = comptag & 0x0000FFFF;
 
 	if (cfg_find_dev_by_ct(comptag, &cfg_dev)) {
@@ -331,7 +332,7 @@ int fmd_traverse_network(riocp_pe_handle mport_pe, struct cfg_dev *c_dev)
 	riocp_pe_handle new_pe, curr_pe;
 	int port_cnt, conn_pt, rc;
 	rio_port_t pnum;
-	uint32_t comptag;
+	ct_t comptag;
 	struct cfg_dev curr_dev, conn_dev;
 
 	l_init(&sw_list);
@@ -427,7 +428,7 @@ fail:
 int setup_mport_master(int mport)
 {
 	/* FIXME: Change this to support other master ports etc... */
-	uint32_t comptag;
+	ct_t comptag;
 	struct cfg_mport_info mp;
 	struct cfg_dev cfg_dev;
 
@@ -457,7 +458,7 @@ int setup_mport_master(int mport)
 int setup_mport_slave(int mport)
 {
 	int rc, ret;
-	uint32_t comptag;
+	ct_t comptag;
 	struct cfg_mport_info mp;
 	struct cfg_dev cfg_dev;
 	char mast_dev_fn[FMD_MAX_DEV_FN] = {0};
@@ -553,8 +554,8 @@ fail:
 int fmd_dd_update(riocp_pe_handle mp_h, struct fmd_dd *dd,
 			struct fmd_dd_mtx *dd_mtx)
 {
-        int rc = 1;
-        uint32_t comptag;
+	int rc = 1;
+	ct_t comptag;
 	struct cfg_dev c_dev;
 
         if (NULL == mp_h) {

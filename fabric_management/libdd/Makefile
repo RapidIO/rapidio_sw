@@ -42,6 +42,8 @@ XFLAGS+=-D$(DEBUG_CTL) -DRDMA_LL=$(LOG_LEVEL)
 XFLAGS+=-I../inc
 XFLAGS+=-I../cli
 XFLAGS+=-I../libriocp_pe/inc
+XFLAGS+=-I../libdid/inc
+XFLAGS+=-I../libct/inc
 XFLAGS+=-I../librio_switch/inc
 
 CFLAGS += $(XFLAGS)

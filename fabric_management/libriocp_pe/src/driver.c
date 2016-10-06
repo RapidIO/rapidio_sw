@@ -13,6 +13,8 @@
 #include <stdlib.h>
 #include <stdbool.h>
 
+#include "did.h"
+#include "ct.h"
 #include "inc/riocp_pe.h"
 #include "inc/riocp_pe_internal.h"
 

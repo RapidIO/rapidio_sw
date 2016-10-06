@@ -279,7 +279,7 @@ static int riocp_pe_create_mport_handle(riocp_pe_handle *handle,
 	unsigned int rev,
 	bool is_host,
 	struct riocp_reg_rw_driver *drv,
-	uint32_t *comptag,
+	ct_t *comptag,
 	char *name)
 {
 	struct riocp_pe *pe = NULL;
@@ -314,7 +314,7 @@ int RIOCP_SO_ATTR riocp_pe_create_host_handle(riocp_pe_handle *handle,
 	uint8_t mport,
 	unsigned int rev,
 	struct riocp_reg_rw_driver *drv,
-	uint32_t *comptag,
+	ct_t *comptag,
 	char *name)
 {
 	return riocp_pe_create_mport_handle(handle, mport, rev, true, drv,
@@ -334,7 +334,7 @@ int RIOCP_SO_ATTR riocp_pe_create_agent_handle(riocp_pe_handle *handle,
 	uint8_t mport,
 	unsigned int rev,
 	struct riocp_reg_rw_driver *drv,
-	uint32_t *comptag,
+	ct_t *comptag,
 	char *name)
 {
 	return riocp_pe_create_mport_handle(handle, mport, rev, false, drv,
@@ -355,12 +355,12 @@ int RIOCP_SO_ATTR riocp_pe_discover(riocp_pe_handle pe,
 {
 	struct riocp_pe *p = NULL;
 	uint8_t hopcount = 0;
-	uint32_t comptag = 0;
+	ct_t comptag = 0;
 	uint32_t destid;
 	unsigned int i;
 	pe_rt_val _port = 0;
 	int ret;
-	uint32_t comptag_in = 0;
+	ct_t comptag_in = 0;
 
 	RIOCP_TRACE("Discover behind port %d on handle %p\n", port, pe);
 
@@ -512,13 +512,13 @@ err:
 int RIOCP_SO_ATTR riocp_pe_probe(riocp_pe_handle pe,
 	uint8_t port,
 	riocp_pe_handle *peer,
-	uint32_t *comptag_in,
+	ct_t *comptag_in,
 	char *name)
 {
 	uint32_t val;
 	struct riocp_pe *p = NULL;
 	uint8_t hopcount = 0;
-	uint32_t comptag = 0;
+	ct_t comptag = 0;
 	uint8_t sw_port = 0;
 	int ret;
 
@@ -795,7 +795,7 @@ int RIOCP_SO_ATTR riocp_pe_destroy_handle(riocp_pe_handle *pe)
  */
 int RIOCP_SO_ATTR riocp_pe_verify(riocp_pe_handle pe)
 {
-	uint32_t comptag;
+	ct_t comptag;
 
 	if (riocp_pe_handle_check(pe))
 		return -EINVAL;
@@ -1274,10 +1274,10 @@ out:
  * @retval -EBADF  Component tag in device doesn't match with handle
  */
 int RIOCP_SO_ATTR riocp_pe_update_comptag(riocp_pe_handle pe,
-        uint32_t *comptag, uint32_t did, uint32_t wr_did)
+        ct_t *comptag, uint32_t did, uint32_t wr_did)
 {
         int ret = 0;
-        uint32_t ct = 0, new_ct;
+        ct_t ct = 0, new_ct;
 
         if (riocp_pe_handle_check(pe))
                 return -EINVAL;
@@ -1335,10 +1335,10 @@ int RIOCP_SO_ATTR riocp_pe_update_comptag(riocp_pe_handle pe,
  * @retval -EBADF  Component tag in device doesn't match with handle
  */
 int RIOCP_SO_ATTR riocp_pe_get_comptag(riocp_pe_handle pe,
-        uint32_t *comptag)
+        ct_t *comptag)
 {
         int ret = 0;
-        uint32_t ct = 0;
+        ct_t ct = 0;
 
         if (comptag == NULL)
                 return -EINVAL;

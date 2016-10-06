@@ -1352,13 +1352,13 @@ fail:
 	return 1;
 };
 
-struct int_cfg_sw *find_cfg_sw_by_ct(uint32_t ct, struct int_cfg_parms *cfg)
+struct int_cfg_sw *find_cfg_sw_by_ct(ct_t ct, struct int_cfg_parms *cfg)
 {
 	struct int_cfg_sw *ret = NULL;
 	uint32_t i;
 
 	for (i = 0; i < cfg->sw_cnt; i++) {
-		if ((uint32_t)cfg->sws[i].ct == ct) {
+		if (cfg->sws[i].ct == ct) {
 			ret = &cfg->sws[i];
 			break;
 		};
@@ -1367,7 +1367,7 @@ struct int_cfg_sw *find_cfg_sw_by_ct(uint32_t ct, struct int_cfg_parms *cfg)
 	return ret;
 };
 
-struct int_cfg_ep *find_cfg_ep_by_ct(uint32_t ct, struct int_cfg_parms *cfg)
+struct int_cfg_ep *find_cfg_ep_by_ct(ct_t ct, struct int_cfg_parms *cfg)
 {
 	struct int_cfg_ep *ret = NULL;
 	uint32_t i, p;
@@ -1495,7 +1495,7 @@ int fill_in_dev_from_sw(struct cfg_dev *dev, struct int_cfg_sw *sw)
 	return 0;
 };
 
-int cfg_find_dev_by_ct(uint32_t ct, struct cfg_dev *dev)
+int cfg_find_dev_by_ct(ct_t ct, struct cfg_dev *dev)
 {
 	struct int_cfg_ep *ep = NULL;
 	struct int_cfg_sw *sw = NULL;
@@ -1513,7 +1513,7 @@ int cfg_find_dev_by_ct(uint32_t ct, struct cfg_dev *dev)
 	return 1;
 };
 
-extern int cfg_get_conn_dev(uint32_t ct, int pt,
+extern int cfg_get_conn_dev(ct_t ct, int pt,
 		struct cfg_dev *dev, int *conn_pt)
 {
 	struct int_cfg_conn *conn = NULL;

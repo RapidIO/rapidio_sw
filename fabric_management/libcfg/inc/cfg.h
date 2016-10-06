@@ -72,7 +72,7 @@ struct dev_id {
 
 struct cfg_mport_info {
 	uint32_t num; /* Kernel index of this mport */
-	uint32_t ct; /* Updated when MPORT is initialized */
+	ct_t ct; /* Updated when MPORT is initialized */
 	int op_mode; /* CFG_OP_MODE_SLAVE or CFG_OP_MODE_MASTER  */
 	struct dev_id devids[CFG_DEVID_MAX]; /* Device IDs for each size */
 };
@@ -80,7 +80,7 @@ struct cfg_mport_info {
 struct cfg_ep_port {
 	int valid;
 	uint32_t port;
-	uint32_t ct;
+	ct_t ct;
 	idt_pc_pw_t max_pw;
 	idt_pc_pw_t op_pw;
 	idt_pc_ls_t ls;
@@ -108,7 +108,7 @@ struct cfg_dev {
 	uint32_t did_sz; /* CFG_DEVID_MAX if all are supported */
 	uint32_t did; /* Device ID used to access the device */
 	uint32_t hc; /* Hopcount used to access the device */
-	uint32_t ct; /* Component tag value */
+	ct_t ct; /* Component tag value */
 	uint32_t is_sw; /* 0 - endpint, 1 - switch */
 	struct cfg_ep_port ep_pt;
 	struct cfg_sw sw_info;
@@ -119,9 +119,8 @@ extern int cfg_parse_file(char *cfg_fn, char **dd_mtx_fn, char **dd_fn,
 extern int cfg_find_sys_mast(uint32_t *m_did, uint32_t *m_cm_port);
 extern int cfg_find_mport(uint32_t mport, struct cfg_mport_info *mp);
 extern int cfg_get_mp_mem_sz(uint32_t mport, uint8_t *mem_sz );
-extern int cfg_find_dev_by_ct(uint32_t ct, struct cfg_dev *dev);
-extern int cfg_get_conn_dev(uint32_t ct, int pt,
-			struct cfg_dev *dev, int *conn_pt);
+extern int cfg_find_dev_by_ct(ct_t ct, struct cfg_dev *dev);
+extern int cfg_get_conn_dev(ct_t ct, int pt, struct cfg_dev *dev, int *conn_pt);
 
 #ifdef __cplusplus
 }

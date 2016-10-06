@@ -71,7 +71,7 @@ extern struct cli_cmd CLIDDLCheckCT;
 
 int CLIDDLCheckCTCmd(struct cli_env *env, int argc, char **argv)
 {
-	uint32_t ct;
+	ct_t ct;
 	uint8_t flag;
 	int rc;
 

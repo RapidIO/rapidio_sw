@@ -37,6 +37,7 @@
 #include <errno.h>
 
 #include "ct.h"
+#include "did.h"
 #include "rio_standard.h"
 
 #ifdef __cplusplus

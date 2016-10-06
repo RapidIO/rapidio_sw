@@ -43,7 +43,9 @@ SAMPLE_OBJECTS:=$(patsubst samples/%.c,samples/%.o,$(wildcard samples/*.c))
 CXXFLAGS+=-D$(DEBUG_CTL)
 LINK_FLAGS+= -rdynamic -shared -Wl,-soname,lib$(NAME).so.$(SOVER)
 LDFLAGS+=-L. -L$(COMMONLIB) $(LIBS_RPATH) -l$(NAME)
-INC=-I$(KDIR) -I$(RIODIR) -I$(FMDDIR)/librio_switch/inc -I$(UMDINCDIR)
+INC=-I$(KDIR) -I$(RIODIR)
+INC+=-I$(FMDDIR)/libdid/inc -I$(FMDDIR)/libct/inc -I$(FMDDIR)/librio_switch/inc
+INC+=-I$(UMDINCDIR)
 
 
 .PHONY: all clean samples

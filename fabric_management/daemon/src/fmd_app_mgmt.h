@@ -84,7 +84,7 @@ struct app_mgmt_globals {
         int loop_alive;
         sem_t loop_started;
         volatile int all_must_die;
-	uint32_t ct; /* Component tag of FMD mport */
+	ct_t ct; /* Component tag of FMD mport */
 
         int fd; /* File number library instance connect to */
         struct sockaddr_un addr;

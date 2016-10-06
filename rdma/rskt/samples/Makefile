@@ -45,9 +45,10 @@ INCLUDE_DIR?=$(TOPDIR)/include
 
 LIB_DIRS?=-L$(COMMONLIB) -L$(COMMONLIBA) -L$(FMDDIR)/libriocp_pe
 
+CXXFLAGS+=-D$(DEBUG_CTL) -DRDMA_LL=$(LOG_LEVEL)
+
 %.o: %.c
-	$(CXX) $(CXXFLAGS) -o $@ -c $< -Wall \
-	-DRDMA_LL=$(LOG_LEVEL)
+	$(CXX) $(CXXFLAGS) -o $@ -c $<
 
 
 RSKT_SERVER_SOURCE = rskt_server.c
@@ -66,7 +67,7 @@ rskt_server:  $(RSKT_SERVER_SOURCE) $(COMMONDIR)/include/*.h
 	@echo ---------- Building rskt_server
 	$(CXX) $(CXXFLAGS) -L$(COMMONLIB) \
 	-I./src -I./inc -I../inc \
-	-DRDMA_LL=$(LOG_LEVEL) \
+	-I$(FMDDIR)/libdid/inc -I$(FMDDIR)/libct/inc \
 	$(LIBS_RPATH) \
 	-o $@ $(RSKTLIB_OBJECTS) $(RSKT_SERVER_SOURCE) $(LIB_DIRS) $(LIBRARIES)
 
@@ -74,7 +75,7 @@ rskt_client:  $(RSKT_CLIENT_SOURCE) $(COMMONDIR)/include/*.h
 	@echo ---------- Building rskt_client
 	$(CXX) $(CXXFLAGS) -L$(COMMONLIB) \
 	-I./inc -I../inc \
-	-DRDMA_LL=$(LOG_LEVEL) \
+	-I$(FMDDIR)/libdid/inc -I$(FMDDIR)/libct/inc \
 	$(LIBS_RPATH) \
 	-o $@ $(RSKTLIB_OBJECTS) $(RSKT_CLIENT_SOURCE) $(LIB_DIRS) $(LIBRARIES)
 

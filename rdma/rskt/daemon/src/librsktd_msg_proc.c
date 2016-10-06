@@ -653,7 +653,7 @@ int rsktd_a2w_connect_req(struct librsktd_unified_msg *r)
 	struct librskt_resp *a_rsp = &r->tx->a_rsp;
 	struct  librsktd_connect_req *d_con = &r->dreq->msg.con;
 	uint32_t sn = ntohl(a_rq->sn);
-	uint32_t ct = ntohl(a_rq->ct);
+	ct_t ct = ntohl(a_rq->ct);
 	uint32_t new_sn = rsktd_sn_find_free();
 	int i, err = 0;
 	struct rskt_dmn_wpeer *w = NULL;

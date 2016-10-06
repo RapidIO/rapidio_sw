@@ -14,7 +14,9 @@
 #include <stdint.h>
 #include <stddef.h>
 
-#include <riocp_pe.h>
+#include "did.h"
+#include "ct.h"
+#include "riocp_pe.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -115,7 +117,7 @@ struct riocp_pe {
 	const char *name;			/**< Name of device */
 	uint8_t hopcount;			/**< RapidIO hopcount */
 	uint32_t destid;			/**< RapidIO destination ID */
-	uint32_t comptag;			/**< RapidIO component tag */
+	ct_t comptag;			/**< RapidIO component tag */
 	uint8_t *address;			/**< RapidIO address used to access this PE */
 	struct riocp_pe_capabilities cap;	/**< RapidIO Capabilities */
 	uint16_t efptr;				/**< RapidIO extended feature pointer */

@@ -292,10 +292,10 @@ static void riocp_pe_handle_destroy(struct riocp_pe **handle)
  * @param port       RapidIO port
  */
 int riocp_pe_handle_create_pe(struct riocp_pe *pe, struct riocp_pe **handle, uint8_t hopcount,
-	uint32_t destid, uint8_t port, uint32_t *comptag_in, char *name)
+	uint32_t destid, uint8_t port, ct_t *comptag_in, char *name)
 {
 	struct riocp_pe *h = NULL;
-	uint32_t comptag_nr = 0;
+	ct_nr_t comptag_nr = 0;
 	uint8_t peer_port = 0;
 	int ret = 0;
 
@@ -463,7 +463,7 @@ err:
  */
 int riocp_pe_handle_create_mport(uint8_t mport, bool is_host,
 	struct riocp_pe **handle, struct riocp_reg_rw_driver *drv,
-	uint32_t *comptag, char *name)
+	ct_t *comptag, char *name)
 {
 	int ret = 0;
 	struct riocp_pe *h = NULL;
@@ -603,7 +603,7 @@ void riocp_pe_handle_mport_put(struct riocp_pe **mport)
  * @retval 0 Handle not found
  * @retval -EIO Error in reading remote
  */
-int riocp_pe_handle_pe_exists(struct riocp_pe *mport, uint32_t comptag,
+int riocp_pe_handle_pe_exists(struct riocp_pe *mport, ct_t comptag,
 				struct riocp_pe **peer)
 {
 	int ret;

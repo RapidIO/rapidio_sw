@@ -70,10 +70,10 @@ TEST_OBJECTS+=$(patsubst $(FAKE_FMDD)/%.c,$(FAKE_FMDD)/%.o,$(wildcard $(FAKE_FMD
 all: $(TEST_TARGET)
 
 %.o: %.c $(HEADERS)
-	$(CXX) -c $(CXXFLAGS) --std=c++11 $< -o $@
+	$(CXX) -c $(CXXFLAGS) $< -o $@
 
 $(DAEMON_SRC)/%.o: $(DAEMON_SRC)/%.c $(HEADERS)
-	$(CXX) -c $(CXXFLAGS) --std=c++11 $< -o $@
+	$(CXX) -c $(CXXFLAGS) $< -o $@
 
 
 test: $(TEST_TARGET) 

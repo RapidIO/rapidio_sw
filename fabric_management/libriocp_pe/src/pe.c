@@ -13,6 +13,7 @@
 #include <string.h>
 
 #include "did.h"
+#include "ct.h"
 #include "pe.h"
 
 #include "maint.h"
@@ -410,8 +411,8 @@ int riocp_pe_probe_prepare(struct riocp_pe *pe, uint8_t port)
 int riocp_pe_probe_verify_found(struct riocp_pe *pe, uint8_t port, struct riocp_pe *peer)
 {
 	int ret;
-	uint32_t comptag_peer;
-	uint32_t comptag_alt;
+	ct_t comptag_peer;
+	ct_t comptag_alt;
 	uint8_t  hopcount_alt = pe->hopcount + 1;
 
 	RIOCP_TRACE("Probe verify pe: hc: %u, comptag: 0x%08x, port %u\n",

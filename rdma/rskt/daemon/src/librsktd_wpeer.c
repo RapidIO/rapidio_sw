@@ -78,7 +78,7 @@ extern "C" {
 
 #define RIO_MPORT_DEV_PATH "/dev/rio_mport"
 
-struct rskt_dmn_wpeer *alloc_wpeer(uint32_t ct, uint32_t cm_skt)
+struct rskt_dmn_wpeer *alloc_wpeer(ct_t ct, uint32_t cm_skt)
 { 
 	struct rskt_dmn_wpeer *w = NULL;
 	int i;
@@ -206,7 +206,7 @@ void *wpeer_rx_loop(void *p_i)
 	pthread_exit(NULL);
 };
 
-int init_wpeer(struct rskt_dmn_wpeer **wp, uint32_t ct, uint32_t cm_skt)
+int init_wpeer(struct rskt_dmn_wpeer **wp, ct_t ct, uint32_t cm_skt)
 {
 	int rc;
 	struct rskt_dmn_wpeer *w = NULL;

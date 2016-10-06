@@ -58,6 +58,8 @@ DAEMON_OBJS:=$(patsubst src/%.c,src/%.o,$(wildcard src/*.c))
 src/%.o: src/%.c
 	$(CXX) $(CXXFLAGS) -o $@ -c $< -Wall \
 	-I./src -I./inc -I../inc \
+	-I$(FMDDIR)/libdid/inc \
+	-I$(FMDDIR)/libct/inc \
 	-I$(COMMONDIR)/liblist/inc \
 	-I../../lib/src \
 	-I$(TOPDIR)/rdma/inc \

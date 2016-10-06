@@ -39,6 +39,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <vector>
 #include <set>
 
+#include "did.h"
+#include "ct.h"
 #include "liblog.h"
 #include "libfmdd.h"
 #include "rdmad_mspace.h"
