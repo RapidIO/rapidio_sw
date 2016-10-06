@@ -48,10 +48,14 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <fcntl.h>
 #include <signal.h>
 #include <time.h>
+
+#include "did.h"
+#include "ct.h"
+#include "fmd_dd.h"
 #include "fmd_app_msg.h"
 
-#ifndef __FMD_APP_MGMT_H__
-#define __FMD_APP_MGMT_H__
+#ifndef __FMD_APP_H__
+#define __FMD_APP_H__
 
 #ifdef __cplusplus
 extern "C" {
@@ -106,4 +110,4 @@ extern struct app_mgmt_globals app_st;
 }
 #endif
 
-#endif /* __FMD_APP_MGMT_H__ */
+#endif /* __FMD_APP_H__ */

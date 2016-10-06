@@ -36,12 +36,13 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <semaphore.h>
 #include <pthread.h>
 #include <stdint.h>
-#include "fmd_mgmt_slave.h"
+
+#include "fmd_slave.h"
 #include "liblist.h"
 #include "fmd_state.h"
 
-#ifndef __FMD_MGMT_MASTER_H__
-#define __FMD_MGMT_MASTER_H__
+#ifndef __FMD_MASTER_H__
+#define __FMD_MASTER_H__
 
 #ifdef __cplusplus
 extern "C" {
@@ -132,4 +133,4 @@ void update_peer_flags(void);
 }
 #endif
 
-#endif /* __FMD_MGMT_MASTER_H__ */
+#endif /* __FMD_MASTER_H__ */

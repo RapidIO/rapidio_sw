@@ -55,7 +55,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <netinet/tcp.h>
 #include <pthread.h>
 
-#include "compile_constants.h"
 #include "DAR_DevDriver.h"
 #include "rio_standard.h"
 #include "rio_ecosystem.h"
@@ -76,12 +75,12 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "cfg.h"
 #include "fmd_cfg_cli.h"
 #include "fmd_state.h"
-#include "fmd_app_mgmt.h"
 #include <rapidio_mport_mgmt.h>
-#include "fmd_mgmt_cli.h"
-#include "fmd_mgmt_master.h"
+#include "fmd_app.h"
+#include "fmd_cli.h"
 #include "fmd_dev_rw_cli.h"
 #include "fmd_dev_conf_cli.h"
+#include "fmd_master.h"
 #include "fmd_net.h"
 #include "fmd_opts.h"
 #include "libfmdd.h"

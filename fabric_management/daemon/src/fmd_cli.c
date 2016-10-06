@@ -54,17 +54,17 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "fmd_dd.h"
 #include "fmd_app_msg.h"
 #include "liblog.h"
-#include "fmd_app_mgmt.h"
 #include "cfg.h"
 #include "fmd_state.h"
 #include "fmd.h"
+#include "fmd_app.h"
+#include "fmd_app.h"
+#include "fmd_master.h"
+#include "fmd_slave.h"
 // #include "cli_cmd_line.h"
 // #include "cli_cmd_db.h"
 // #include "cli_parse.h"
 #include "libcli.h"
-#include "fmd_app_mgmt.h"
-#include "fmd_mgmt_master.h"
-#include "fmd_mgmt_slave.h"
 
 #ifdef __cplusplus
 extern "C" {

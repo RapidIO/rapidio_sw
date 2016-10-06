@@ -1,3 +1,4 @@
+/* Fabric Management Daemon Configuration display and section commands */
 /*
 ****************************************************************************
 Copyright (c) 2014, Integrated Device Technology Inc.
@@ -31,25 +32,17 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 
-/* This file contains definitions used elsewhere in the code */
+#ifndef _FMD_CFG_CLI_H_
+#define _FMD_CFG_CLI_H_
 
-#ifndef __COMPILE_CONSTANTS__
-#define __COMPILE_CONSTANTS__
-
-/* Revision information for the software */
-#ifndef VERSION_YR
-#define VERSION_YR "14"
-#endif
-#ifndef VERSION_MO
-#define VERSION_MO "05"
+#ifdef __cplusplus
+extern "C" {
 #endif
 
-/* Execution environment constants */
+void fmd_bind_dbg_cmds(void);
 
-#define __CLI_LINUX_SYSDEV__ "/sys/bus/rapidio/devices"
-#define __CLI_LINUX_DEFAULT__ "/00:s:0002"
-#define __CLI_LINUX_MPORT_MOD_DIR__ "/sys/module/rio_mport_cdev"
-#define __CLI_LINUX_MPORT_DEV__ "/dev/rio_mport"
+#ifdef __cplusplus
+}
+#endif
 
-
-#endif /* __COMPILE_CONSTANTS__ */
+#endif /* _FMD_CFG_CLI_H_ */

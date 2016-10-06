@@ -32,6 +32,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 
+#include "fmd_app.h"
+
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/socket.h>
@@ -39,12 +41,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <time.h>
 #include <string.h>
 #include "fmd_state.h"
-#include "fmd_app_mgmt.h"
 #include "fmd_dd.h"
 #include "fmd_app_msg.h"
+#include "fmd_master.h"
 #include "liblog.h"
 #include "libfmdd.h"
-#include "fmd_mgmt_master.h"
 
 #ifdef __cplusplus
 extern "C" {

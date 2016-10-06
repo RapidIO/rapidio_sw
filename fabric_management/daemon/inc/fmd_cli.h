@@ -59,8 +59,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "riocp_pe_internal.h"
 #include "fmd_dd.h"
 
-#ifndef _FMD_MGMT_CLI_H_
-#define _FMD_MGMT_CLI_H_
+#ifndef _FMD_CLI_H_
+#define _FMD_CLI_H_
 
 #ifdef __cplusplus
 extern "C" {
@@ -72,4 +72,4 @@ void fmd_bind_mgmt_dbg_cmds(void);
 }
 #endif
 
-#endif /* _FMD_MGMT_CLI_H_ */
+#endif /* _FMD_CLI_H_ */

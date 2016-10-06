@@ -32,6 +32,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 
+#include "fmd_slave.h"
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -61,13 +63,13 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <rapidio_mport_sock.h>
 
 #include "fmd.h"
+#include "cfg.h"
 #include "libcli.h"
 #include "liblog.h"
 #include "libfmdd.h"
-#include "fmd_mgmt_master.h"
-#include "fmd_mgmt_slave.h"
+#include "fmd_app.h"
+#include "fmd_master.h"
 #include "fmd_state.h"
-#include "fmd_app_mgmt.h"
 #include "pe_mpdrv_private.h"
 
 #ifdef __cplusplus

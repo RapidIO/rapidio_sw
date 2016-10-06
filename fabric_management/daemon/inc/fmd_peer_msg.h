@@ -34,6 +34,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 #include <stdint.h>
+#include "did.h"
+#include "ct.h"
 
 #ifndef __FMD_PEER_MSG_H__
 #define __FMD_PEER_MSG_H__
