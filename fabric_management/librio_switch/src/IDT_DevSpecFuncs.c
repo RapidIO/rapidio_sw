@@ -45,6 +45,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <IDT_Tsi721_API.h>
 #endif
 
+#include "IDT_RXS_API.h"
+
+
 #ifdef __cplusplus
 extern "C" {
 #endif

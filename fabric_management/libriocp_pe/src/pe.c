@@ -110,16 +110,58 @@ static int RIOCP_WU riocp_pe_get_efb(struct riocp_pe *pe, uint32_t from, uint32_
 	return ret;
 }
 
+/*static int riocp_pe_get_efptr_phys(struct riocp_pe *pe, uint32_t *efptr)
+{
+        int ret;
+        uint32_t _efptr;
+        uint32_t next_efptr;
+        uint32_t _efptr_hdr;
+
+        ret = riocp_pe_get_efb(pe, 0, &_efptr);
+        if (ret)
+                return ret;
+
+        while (_efptr) {
+                ret = riocp_pe_maint_read(pe, _efptr, &_efptr_hdr);
+                if (ret)
+                        return ret;
+
+                next_efptr = RIO_GET_BLOCK_PTR(_efptr_hdr);
+
+                _efptr_hdr = RIO_GET_BLOCK_ID(_efptr_hdr);
+                switch (_efptr_hdr) {
+                case RIO_EFB_SER_EP_ID_V13P:
+                case RIO_EFB_SER_EP_REC_ID_V13P:
+                case RIO_EFB_SER_EP_FREE_ID_V13P:
+                case RIO_EFB_SER_EP_ID:
+                case RIO_EFB_SER_EP_REC_ID:
+                case RIO_EFB_SER_EP_FREE_ID:
+                case RIO_EFB_SER_EP_FREC_ID:
+                        *efptr = _efptr;
+                        return 0;
+                default:
+                        break;
+                }
+                _efptr = next_efptr;
+        }
+
+        *efptr = 0;
+        return 0;
+}*/
+
 /**
  * Get RapidIO Physical extended feature pointer
  * @param pe Target PE
  * @param[out] efptr Extended feature pointer
  */
-static int riocp_pe_get_efptr_phys(struct riocp_pe *pe, uint32_t *efptr)
+static int riocp_pe_get_efptr_phys(struct riocp_pe *pe, uint32_t *efptr, uint32_t *value)
 {
 	int ret;
 	uint32_t _efptr;
+	uint32_t next_efptr;
 	uint32_t _efptr_hdr;
+
+	pe->efptr = pe->cap.asbly_info & RIO_EXT_FTR_PTR_MASK;
 
 	ret = riocp_pe_get_efb(pe, 0, &_efptr);
 	if (ret)
@@ -129,6 +171,8 @@ static int riocp_pe_get_efptr_phys(struct riocp_pe *pe, uint32_t *efptr)
 		ret = riocp_pe_maint_read(pe, _efptr, &_efptr_hdr);
 		if (ret)
 			return ret;
+
+		next_efptr = RIO_GET_BLOCK_PTR(_efptr_hdr);
 
 		_efptr_hdr = RIO_GET_BLOCK_ID(_efptr_hdr);
 		switch (_efptr_hdr) {
@@ -141,16 +185,19 @@ static int riocp_pe_get_efptr_phys(struct riocp_pe *pe, uint32_t *efptr)
 		case RIO_EFB_SER_EP_FREC_ID:
 			*efptr = _efptr;
 			return 0;
+		case RIO_EFB_ERR_MGMNT:
+			RIOCP_DEBUG("Feature[0x%08x] found with value 0x%08x\n",
+				_efptr_hdr, *value);
+			*value = _efptr;
+			return 0;
 		default:
 			break;
 		}
-
-		ret = riocp_pe_get_efb(pe, _efptr, &_efptr);
-		if (ret)
-			return ret;
+		_efptr = next_efptr;
 	}
 
-	return -EIO;
+	*efptr = 0;
+	return 0;
 }
 
 /**
@@ -162,7 +209,7 @@ static int riocp_pe_get_efptr_phys(struct riocp_pe *pe, uint32_t *efptr)
  * @retval -ENOENT Could not find feature
  * @retval -EIO Error in maintenance access
  */
-static int riocp_pe_get_ef(struct riocp_pe *pe, uint32_t feature, uint32_t *value)
+/*static int riocp_pe_get_ef(struct riocp_pe *pe, uint32_t feature, uint32_t *value)
 {
 	int ret;
 	uint32_t efptr = pe->efptr;
@@ -191,7 +238,7 @@ static int riocp_pe_get_ef(struct riocp_pe *pe, uint32_t feature, uint32_t *valu
 		feature, *value);
 
 	return -ENOENT;
-}
+}*/
 
 /**
  * Read and initialize handle extended feature pointers when available
@@ -205,15 +252,17 @@ int riocp_pe_read_features(struct riocp_pe *pe)
 
 	/* Get extended feature pointers when available */
 	if (pe->cap.pe_feat & RIO_PEF_EXT_FEATURES) {
-		pe->efptr      = pe->cap.asbly_info & RIO_EXT_FTR_PTR_MASK;
+		//pe->efptr      = pe->cap.asbly_info & RIO_EXT_FTR_PTR_MASK;
 
-		ret = riocp_pe_get_efptr_phys(pe, &pe->efptr_phys);
+		ret = riocp_pe_get_efptr_phys(pe, &pe->efptr_phys, &pe->efptr_em);
+		//ret = riocp_pe_get_efptr_phys(pe, &pe->efptr_phys);
 		if (ret)
 			return ret;
 
-		ret = riocp_pe_get_ef(pe, RIO_EFB_ERR_MGMNT, &pe->efptr_em);
+		/*ret = riocp_pe_get_ef(pe, RIO_EFB_ERR_MGMNT, &pe->efptr_em);
+		ret = 0;
 		if (ret)
-			return ret;
+			return ret;*/
 
 		RIOCP_TRACE("PE has extended features\n");
 		RIOCP_TRACE(" - p->efptr      = 0x%04x\n", pe->efptr);

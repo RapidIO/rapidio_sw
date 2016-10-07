@@ -774,7 +774,8 @@ uint32_t DARDB_rioDeviceSupportedDefault( DAR_DEV_INFO_t *dev_info )
 
     if (dev_info->features & RIO_PE_FEAT_MC)
     {
-        rc = ReadReg(dev_info, RIO_SW_RT_TBL_LIM_MAX_DESTID, &dev_info->swMcastInfo);
+        //rc = ReadReg(dev_info, RIO_SW_RT_TBL_LIM_MAX_DESTID, &dev_info->swMcastInfo);
+	rc = ReadReg(dev_info, RIO_SW_MC_INF, &dev_info->swMcastInfo);
         if ( RIO_SUCCESS != rc )
             return rc;
     }

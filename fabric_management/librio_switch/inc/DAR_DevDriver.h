@@ -66,7 +66,7 @@ typedef uint32_t DSF_Handle_t;    /* Device Specific Function Handle, not */
 *     accessed.
 */
 #define HOST_REGS_DEVID 0xFFFFFFFF
-#define MAX_DAR_PORTS   18
+#define MAX_DAR_PORTS   24 //18
 #define NAME_SIZE	15
 #define MAX_DAR_SCRPAD_IDX  30
 
@@ -305,7 +305,7 @@ uint32_t DARrioGetAssmblyInfo ( DAR_DEV_INFO_t *dev_info,
 	or have a trained link.
 */
 
-#define DAR_MAX_PORTS 18
+#define DAR_MAX_PORTS 24 //18
 
 struct DAR_ptl {
 	uint8_t	num_ports; /* Number of valid entries in port */

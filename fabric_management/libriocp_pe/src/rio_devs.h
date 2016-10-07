@@ -40,6 +40,8 @@ extern "C" {
  #define RIO_DID_IDT_SPS1616	0x0378
  #define RIO_DID_IDT_TSI721	0x80ab
 #define RIO_VID_PRODRIVE	0x00a4
+#define RIO_DID_IDT_RXS2448     0x80e6
+#define RIO_DID_IDT_RXS1632     0x80e5
 
 /* Prodrive custom */
 #define RIO_ASSY_IDENT_CAR_ASSY_PRIOCG2		0x70000
@@ -164,6 +166,9 @@ static const struct riocp_pe_dev_id riocp_pe_device_ids[] = {
 	{RIO_VID_IDT, RIO_DID_IDT_SPS1616,	"SPS1616"},
 	{RIO_VID_IDT, RIO_DID_IDT_VPS1616,	"VPS1616"},
 	{RIO_VID_IDT, RIO_DID_IDT_TSI721,	"Tsi721"},
+
+	{RIO_VID_IDT, RIO_DID_IDT_RXS2448,      "RXS2448"},
+        {RIO_VID_IDT, RIO_DID_IDT_RXS1632,      "RXS1632"},
 
 	/* Texas Instruments */
 	{RIO_VID_TI, 0x009e, "TMS320C6678"},

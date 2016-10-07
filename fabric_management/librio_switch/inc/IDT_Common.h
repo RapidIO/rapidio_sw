@@ -46,6 +46,7 @@ extern "C" {
 #define IDT_CPS_GEN1_DAR_WANTED
 #define IDT_RXS2448_DAR_WANTED
 
+
 #ifdef IDT_TSI721_SUPPORT
 #define IDT_TSI721_DAR_WANTED
 #endif
