@@ -77,22 +77,9 @@ uint32_t idt_sc_init_dev_rxs_ctrs( DAR_DEV_INFO_t          *dev_info,
 		goto idt_sc_init_rxs_ctr_exit;
 	};
 
-	if (((RIO_ALL_PORTS == in_parms->ptl.num_ports) && (in_parms->dev_ctrs->num_p_ctrs < NUM_PORTS(dev_info))) ||
-		((RIO_ALL_PORTS != in_parms->ptl.num_ports) && (in_parms->dev_ctrs->num_p_ctrs < in_parms->ptl.num_ports))) {
-		out_parms->imp_rc = SC_INIT_RXS_CTRS(0x04);
-		goto idt_sc_init_rxs_ctr_exit;
-	};
-
 	rc = DARrioGetPortList(dev_info, &in_parms->ptl, &good_ptl);
 	if (RIO_SUCCESS != rc) {
 		out_parms->imp_rc = SC_INIT_RXS_CTRS(0x10);
-		goto idt_sc_init_rxs_ctr_exit;
-	};
-
-	if ((in_parms->dev_ctrs->num_p_ctrs   < good_ptl.num_ports) ||
-		(in_parms->dev_ctrs->valid_p_ctrs < good_ptl.num_ports)) {
-		rc = RIO_ERR_INVALID_PARAMETER;
-		out_parms->imp_rc = SC_INIT_RXS_CTRS(0x05);
 		goto idt_sc_init_rxs_ctr_exit;
 	};
 
@@ -118,7 +105,7 @@ uint32_t idt_sc_read_rxs_ctrs(DAR_DEV_INFO_t         *dev_info,
                             idt_sc_read_ctrs_in_t    *in_parms,
                             idt_sc_read_ctrs_out_t   *out_parms)
 {
-	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+	uint32_t rc = RIO_ERR_INVALID_PARAMETER, ctl_reg;
 	uint8_t p_to_i[RXS2448_MAX_PORTS], srch_i, srch_p, port_num, cntr;
 	bool found;
 	struct DAR_ptl good_ptl;
@@ -148,7 +135,7 @@ uint32_t idt_sc_read_rxs_ctrs(DAR_DEV_INFO_t         *dev_info,
 		goto idt_sc_read_rxs_ctr_exit;
 	};
 
-	rc = DARRegWrite(dev_info, RXS_RIO_PCNTR_CTL, 1);
+	rc = DARRegWrite(dev_info, RXS_RIO_PCNTR_CTL, 0x80000000);
 	if (RIO_SUCCESS != rc) {
 		out_parms->imp_rc = SC_CFG_RXS_CTRS(0x07);
 		goto idt_sc_read_rxs_ctr_exit;
@@ -181,13 +168,57 @@ uint32_t idt_sc_read_rxs_ctrs(DAR_DEV_INFO_t         *dev_info,
 
 				for (cntr = 0; cntr < RXS_NUM_PERF_CTRS; cntr++) {
 					if (idt_sc_disabled != in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc) {
+
+						rc = DARRegRead(dev_info, RXS_RIO_SPX_PCNTR_CTL(port_num, cntr), &ctl_reg);
+                                                if (RIO_SUCCESS != rc) {
+                                                        rc = RIO_ERR_INVALID_PARAMETER;
+                                                        out_parms->imp_rc = SC_READ_RXS_CTRS(0x71 + cntr);
+                                                        goto idt_sc_read_rxs_ctr_exit;
+                                                };
+						if (0x00000001 & (ctl_reg >> 7))
+							in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].tx = true;
+						else
+							in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].tx = false;
+						switch (ctl_reg & 0x7f) {
+						case 0x00:
+							in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc = idt_sc_rio_pkt;
+						break;
+                                                case 0x01:
+                                                        in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc = idt_sc_fab_pkt;
+                                                break;
+                                                case 0x02:
+                                                        in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc = idt_sc_rio_pcntr;
+                                                break;
+                                                case 0x03:
+                                                        in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc = idt_sc_fab_pcntr;
+                                                break;
+                                                case 0x07:
+                                                        in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc = idt_sc_rio_ttl_pcntr;
+                                                break;
+                                                case 0x08:
+                                                        in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc = idt_sc_retries;
+                                                break;
+                                                case 0x09:
+                                                        in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc = idt_sc_pna;
+                                                break;
+                                                case 0x0a:
+                                                        in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc = idt_sc_pkt_drop;
+                                                break;
+						case 0xef:
+							in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc = idt_sc_disabled;
+						break;
+						default:
+                                                        in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc = idt_sc_last;
+						break;
+						}
+
 						rc = DARRegRead(dev_info, RXS_RIO_SPX_PCNTR_CNT(port_num, cntr), &in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].last_inc);
-						if (RIO_SUCCESS != rc) {
-							rc = RIO_ERR_INVALID_PARAMETER;
-							out_parms->imp_rc = SC_READ_RXS_CTRS(0x70 + cntr);
-							goto idt_sc_read_rxs_ctr_exit;
-						};
-						in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].total += in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].last_inc;
+                                                if (RIO_SUCCESS != rc) {
+                                                        rc = RIO_ERR_INVALID_PARAMETER;
+                                                        out_parms->imp_rc = SC_READ_RXS_CTRS(0x70 + cntr);
+                                                        goto idt_sc_read_rxs_ctr_exit;
+                                                };
+                                                in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].total += in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].last_inc; 
 					};
 				};
 			};
@@ -201,7 +232,7 @@ uint32_t idt_sc_read_rxs_ctrs(DAR_DEV_INFO_t         *dev_info,
 	rc = RIO_SUCCESS;
 
 idt_sc_read_rxs_ctr_exit:
-	rc = DARRegWrite(dev_info, RXS_RIO_PCNTR_CTL, 0);
+	rc = DARRegWrite(dev_info, RXS_RIO_PCNTR_CTL, 0x00);
 	if (RIO_SUCCESS != rc) {
 		out_parms->imp_rc = SC_CFG_RXS_CTRS(0x08);
 	};
@@ -225,7 +256,7 @@ uint32_t idt_sc_cfg_rxs_ctr(DAR_DEV_INFO_t       *dev_info,
                         idt_sc_cfg_rxs_ctr_out_t *out_parms)
 {
 	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
-	uint32_t new_ctl = 0, ctl_reg, new_ctl_reg;//, reg_mask;
+	uint32_t new_ctl = 0, ctl_reg, new_ctl_reg, reg_mask;
 	uint8_t p_to_i[RXS2448_MAX_PORTS], srch_i, srch_p, port_num;
 	bool found;
 	struct DAR_ptl good_ptl;
@@ -268,12 +299,13 @@ uint32_t idt_sc_cfg_rxs_ctr(DAR_DEV_INFO_t       *dev_info,
 		goto idt_sc_cfg_rxs_ctr_exit;
 	};
 
-	rc = DARRegWrite(dev_info, RXS_RIO_PCNTR_CTL, 1);
+	rc = DARRegWrite(dev_info, RXS_RIO_PCNTR_CTL, 0x80000000);
 	if (RIO_SUCCESS != rc) {
 		out_parms->imp_rc = SC_CFG_RXS_CTRS(0x07);
 		goto idt_sc_cfg_rxs_ctr_exit;
 	};
 
+	reg_mask = 0x0000FF00;
 	// Create SC_CTL
 	if (idt_sc_disabled != in_parms->ctr_type) {
 	new_ctl = ((uint32_t)(in_parms->prio_mask) << 8) & PRIO_MASK;
@@ -286,15 +318,15 @@ uint32_t idt_sc_cfg_rxs_ctr(DAR_DEV_INFO_t       *dev_info,
 		
 		new_ctl |= (in_parms->tx) ? RXS_RIO_SPX_PCNTR_CTL_TX : 0;
 		switch (in_parms->ctr_type) {
-		case idt_sc_rio_pkt       :break;
-		case idt_sc_fab_pkt       :  new_ctl |= 0x0100 /*| PRIO_MASK*/;  break;
-		case idt_sc_rio_pcntr     :  new_ctl |= 0x0200 /*| PRIO_MASK*/;  break;
-		case idt_sc_fab_pcntr     :  new_ctl |= 0x0300 /*| PRIO_MASK*/;  break;
-		case idt_sc_rio_ttl_pcntr :  new_ctl |= 0x0700 /*| PRIO_MASK*/;  break;
-		case idt_sc_retries       :  new_ctl |= 0x0800 /*| PRIO_MASK*/;  break;
-		case idt_sc_pna           :  new_ctl |= 0x0900 /*| PRIO_MASK*/;  break;
-		case idt_sc_pkt_drop      :  new_ctl |= 0x0a00 /*| PRIO_MASK*/;  break;
-		case idt_sc_disabled      :  new_ctl |= 0xef00 /*| PRIO_MASK*/;  break;
+		case idt_sc_rio_pkt       :                    break;
+		case idt_sc_fab_pkt       :  new_ctl |= 0x01;  break;
+		case idt_sc_rio_pcntr     :  new_ctl |= 0x02;  break;
+		case idt_sc_fab_pcntr     :  new_ctl |= 0x03;  break;
+		case idt_sc_rio_ttl_pcntr :  new_ctl |= 0x07;  break;
+		case idt_sc_retries       :  new_ctl |= 0x08;  break;
+		case idt_sc_pna           :  new_ctl |= 0x09;  break;
+		case idt_sc_pkt_drop      :  new_ctl |= 0x0a;  break;
+		case idt_sc_disabled      :  new_ctl |= 0xef;  break;
 		default: out_parms->imp_rc = SC_CFG_RXS_CTRS(0x30);
 			goto idt_sc_cfg_rxs_ctr_exit;
 		};
@@ -307,7 +339,7 @@ uint32_t idt_sc_cfg_rxs_ctr(DAR_DEV_INFO_t       *dev_info,
 		port_num = good_ptl.pnums[srch_p];
 		found = false;
 
-		if (in_parms->ctr_en) {
+		if (in_parms->ctr_en == 0x80000000) {
 			rc = DARRegWrite(dev_info, RXS_RIO_SPX_PCNTR_EN(port_num), in_parms->ctr_en);
 			if (RIO_SUCCESS != rc) {
 				out_parms->imp_rc = SC_CFG_RXS_CTRS(0x06);
@@ -325,7 +357,7 @@ uint32_t idt_sc_cfg_rxs_ctr(DAR_DEV_INFO_t       *dev_info,
 				found = true;
 				// If the port hasn't previously been programmed and the counter structure is
 				// correctly initialized, keep going...
-				if ((IDT_MAX_PORTS == p_to_i[port_num]) &&
+				if ((IDT_MAX_PORTS - 1  == p_to_i[port_num]) &&
 					(RXS_NUM_PERF_CTRS == in_parms->dev_ctrs->p_ctrs[srch_i].ctrs_cnt)) {
 					p_to_i[port_num] = srch_i;
 				}
@@ -343,15 +375,16 @@ uint32_t idt_sc_cfg_rxs_ctr(DAR_DEV_INFO_t       *dev_info,
 					out_parms->imp_rc = SC_CFG_RXS_CTRS(0x50);
 					goto idt_sc_cfg_rxs_ctr_exit;
 				};
-				new_ctl_reg = new_ctl | ctl_reg;
+				new_ctl_reg = ctl_reg & reg_mask;
+				new_ctl_reg |= new_ctl;
 
 				// Performing this count, Count of the total number of code-groups/codewords 
 				// transmitted on the RapidIO interface per lane, with TX = 0 is invalid.
-				if (in_parms->ctr_type == idt_sc_rio_ttl_pcntr && (0x00000001 & (new_ctl_reg >> 7))) {
+				if (in_parms->ctr_type == idt_sc_rio_ttl_pcntr && !in_parms->tx) {
 					out_parms->imp_rc = SC_CFG_RXS_CTRS(0x53);
 					goto idt_sc_cfg_rxs_ctr_exit;
 				}
-				
+	
 				rc = DARRegWrite(dev_info, RXS_RIO_SPX_PCNTR_CTL(port_num, in_parms->ctr_idx), new_ctl_reg);
 				if (RIO_SUCCESS != rc) {
 					out_parms->imp_rc = SC_CFG_RXS_CTRS(0x51);
@@ -386,12 +419,101 @@ uint32_t idt_sc_cfg_rxs_ctr(DAR_DEV_INFO_t       *dev_info,
 
 idt_sc_cfg_rxs_ctr_exit:
 
-	rc = DARRegWrite(dev_info, RXS_RIO_PCNTR_CTL, 0);
+	rc = DARRegWrite(dev_info, RXS_RIO_PCNTR_CTL, 0x00);
 	if (RIO_SUCCESS != rc) {
 		out_parms->imp_rc = SC_CFG_RXS_CTRS(0x08);
 	};
 
 	return rc;
+}
+
+uint32_t IDT_rxs2448_rioSetEnumBound( DAR_DEV_INFO_t *dev_info,
+                                           struct DAR_ptl *ptl,
+			                      int enum_bnd_val)
+{
+	if (NULL != dev_info || !ptl || enum_bnd_val)
+		return RIO_SUCCESS;
+
+	return RIO_SUCCESS;
+}
+
+uint32_t IDT_rxs2448_rioSetAddrMode( DAR_DEV_INFO_t *dev_info,
+                                      RIO_PE_ADDR_T addr_mode)
+{
+	if (NULL != dev_info || addr_mode)
+		return RIO_SUCCESS;
+
+	return RIO_SUCCESS;
+}
+
+uint32_t idt_rxs_pc_get_config(DAR_DEV_INFO_t           *dev_info,
+	                       idt_pc_get_config_in_t   *in_parms,
+	                       idt_pc_get_config_out_t  *out_parms)
+{
+	if (NULL != dev_info)
+		out_parms->imp_rc = in_parms->ptl.num_ports;
+
+	return RIO_SUCCESS;
+}
+
+uint32_t idt_rxs_pc_get_status(DAR_DEV_INFO_t         *dev_info,
+	                     idt_pc_get_status_in_t   *in_parms,
+	                     idt_pc_get_status_out_t  *out_parms)
+{
+	if (NULL != dev_info)
+		out_parms->imp_rc = in_parms->ptl.num_ports;
+
+	return RIO_SUCCESS;
+}
+
+uint32_t idt_rxs_pc_dev_reset_config(DAR_DEV_INFO_t                 *dev_info,
+	                             idt_pc_dev_reset_config_in_t   *in_parms,
+	                             idt_pc_dev_reset_config_out_t  *out_parms)
+{
+	if (NULL != dev_info)
+		out_parms->rst = in_parms->rst;
+
+	return RIO_SUCCESS;
+}
+
+uint32_t idt_rxs_em_cfg_pw(DAR_DEV_INFO_t       *dev_info,
+	                   idt_em_cfg_pw_in_t   *in_parms,
+	                   idt_em_cfg_pw_out_t  *out_parms)
+{
+	if (NULL != dev_info)
+		out_parms->imp_rc = in_parms->imp_rc;
+
+	return RIO_SUCCESS;
+}
+
+uint32_t idt_rxs_em_dev_rpt_ctl(DAR_DEV_INFO_t            *dev_info,
+	                        idt_em_dev_rpt_ctl_in_t   *in_parms,
+	                        idt_em_dev_rpt_ctl_out_t  *out_parms)
+{
+	if (NULL != dev_info)
+		out_parms->imp_rc = in_parms->ptl.num_ports;
+
+	return RIO_SUCCESS;
+}
+
+uint32_t idt_rxs_rt_probe_all(DAR_DEV_INFO_t           *dev_info, 
+                             idt_rt_probe_all_in_t     *in_parms, 
+                             idt_rt_probe_all_out_t    *out_parms )
+{
+	if (NULL != dev_info)
+		out_parms->imp_rc = in_parms->probe_on_port;
+
+    return RIO_SUCCESS;
+}
+
+uint32_t idt_rxs_rt_set_all(DAR_DEV_INFO_t            *dev_info, 
+                            idt_rt_set_all_in_t       *in_parms, 
+                            idt_rt_set_all_out_t      *out_parms )
+{
+	if (NULL != dev_info)
+		out_parms->imp_rc = in_parms->set_on_port;
+
+	return RIO_SUCCESS;
 }
 
 uint32_t IDT_rxs2448DeviceSupported(DAR_DEV_INFO_t *DAR_info)
@@ -424,6 +546,10 @@ uint32_t bind_rxs2448_DAR_support(void)
 	DARDB_Init_Driver_Info(IDT_TSI_VENDOR_ID, &DAR_info);
 
 	DAR_info.rioDeviceSupported = IDT_rxs2448DeviceSupported;
+
+	DAR_info.rioSetEnumBound = IDT_rxs2448_rioSetEnumBound;
+	DAR_info.rioSetAddrMode = IDT_rxs2448_rioSetAddrMode;
+
 	DARDB_Bind_Driver(&DAR_info);
 
 	return RIO_SUCCESS;
@@ -441,8 +567,18 @@ uint32_t bind_rxs_DSF_support(void)
 
 	idt_driver.dev_type = RXS_RIO_DEVICE_ID;
 
+	idt_driver.idt_pc_get_config = idt_rxs_pc_get_config;
+	idt_driver.idt_pc_get_status = idt_rxs_pc_get_status;
+	idt_driver.idt_pc_dev_reset_config = idt_rxs_pc_dev_reset_config;
+
+	idt_driver.idt_rt_probe_all = idt_rxs_rt_probe_all;
+	idt_driver.idt_rt_set_all = idt_rxs_rt_set_all;
+
         idt_driver.idt_sc_init_dev_ctrs = idt_sc_init_dev_rxs_ctrs;
 	idt_driver.idt_sc_read_ctrs = idt_sc_read_rxs_ctrs;
+
+	idt_driver.idt_em_dev_rpt_ctl = idt_rxs_em_dev_rpt_ctl;
+	idt_driver.idt_em_cfg_pw = idt_rxs_em_cfg_pw;
 
 	IDT_DSF_bind_driver(&idt_driver, &RXS_driver_handle);
 

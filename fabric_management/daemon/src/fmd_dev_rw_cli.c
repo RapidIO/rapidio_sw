@@ -844,6 +844,299 @@ CLIMRegWriteCmd,
 ATTR_RPT
 };
 
+int CLICountReadCmd(struct cli_env *env, int argc, char **argv)
+{
+	uint32_t rc;
+	uint32_t cntr;
+        uint8_t srch_i;
+	struct mpsw_drv_private_data *priv = NULL;
+	DAR_DEV_INFO_t *dev_h = NULL;
+	idt_sc_read_ctrs_in_t  sc_in;
+	idt_sc_read_ctrs_out_t sc_out;
+	riocp_pe_handle pe_h = (riocp_pe_handle)(env->h);
+
+	priv = (struct mpsw_drv_private_data *)(pe_h->private_data);
+	dev_h = &priv->dev_h;
+
+	if (NULL == pe_h) {
+		sprintf(env->output, "\nNo Device Selected...\n");
+		logMsg(env);
+		goto exit;
+	};
+
+	sc_in.ptl.num_ports = RIO_ALL_PORTS;
+	sc_in.dev_ctrs = &priv->st.sc_dev;
+	for (srch_i = 0; srch_i < sc_in.dev_ctrs->valid_p_ctrs; srch_i++) {
+                for (cntr = 0; cntr < 8; cntr++) {
+                        sc_in.dev_ctrs->p_ctrs[srch_i].ctrs[cntr].tx = true;
+                        switch (cntr) {
+                                case 0:
+                                        sc_in.dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc = idt_sc_rio_pkt;
+                                break;
+                                case 1:
+                                        sc_in.dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc = idt_sc_fab_pkt;
+                                break;
+                                case 2:
+                                        sc_in.dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc = idt_sc_rio_pcntr;
+                                break;
+                                case 3:
+                                        sc_in.dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc = idt_sc_fab_pcntr;
+                                break;
+                                case 4:
+                                        sc_in.dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc = idt_sc_rio_ttl_pcntr;
+                                break;
+                                case 5:
+                                        sc_in.dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc = idt_sc_retries;
+                                break;
+                                case 6:
+                                        sc_in.dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc = idt_sc_pna;
+                                break;
+                                case 7:
+                                        sc_in.dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc = idt_sc_pkt_drop;
+                                break;
+                        }
+                }
+        }
+	rc = idt_sc_read_ctrs(dev_h, &sc_in, &sc_out);
+	if (RIO_SUCCESS != rc)
+		goto exit;
+
+exit:
+	return 0;
+};
+
+struct cli_cmd CLICountRead = {
+(char *)"rcnt",
+1,
+0,
+(char *)"Read the count registers for a port",
+(char *)"rcnt \n",
+CLICountReadCmd,
+ATTR_NONE
+};
+
+#define RXS_NUM_CTRS        8
+
+int CLICountDisplayCmd(struct cli_env *env, int argc, char **argv)
+{
+        uint32_t rc;
+        struct mpsw_drv_private_data *priv = NULL;
+        DAR_DEV_INFO_t *dev_h = NULL;
+        idt_sc_read_ctrs_in_t  sc_in;
+        idt_sc_read_ctrs_out_t sc_out;
+        riocp_pe_handle pe_h = (riocp_pe_handle)(env->h);
+	uint32_t val_p, cntr;
+	uint8_t srch_i;
+	char padding[5];
+	int idx = 0, j = 0;
+        char temp[14], *type;
+	char *tx;
+        bool first = false;
+
+        priv = (struct mpsw_drv_private_data *)(pe_h->private_data);
+        dev_h = &priv->dev_h;
+
+        if (NULL == pe_h) {
+                sprintf(env->output, "\nNo Device Selected...\n");
+                logMsg(env);
+                goto exit;
+ 	};
+
+        sc_in.ptl.num_ports = RIO_ALL_PORTS;
+        sc_in.dev_ctrs = &priv->st.sc_dev;
+
+	for (srch_i = 0; srch_i < sc_in.dev_ctrs->valid_p_ctrs; srch_i++) {
+                for (cntr = 0; cntr < RXS_NUM_CTRS; cntr++) {
+			sc_in.dev_ctrs->p_ctrs[srch_i].ctrs[cntr].tx = true;
+			switch (cntr) {
+				case 0:
+					sc_in.dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc = idt_sc_rio_pkt;
+				break;
+				case 1:
+					sc_in.dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc = idt_sc_fab_pkt;
+                                break;
+				case 2:
+					sc_in.dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc = idt_sc_rio_pcntr;
+                                break;
+				case 3:
+					sc_in.dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc = idt_sc_fab_pcntr;
+                                break;
+				case 4:
+					sc_in.dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc = idt_sc_rio_ttl_pcntr;
+                                break;
+				case 5:
+					sc_in.dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc = idt_sc_retries;
+                                break;
+				case 6:
+					sc_in.dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc = idt_sc_pna;
+                                break;
+				case 7:
+					sc_in.dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc = idt_sc_pkt_drop;
+                                break;
+			}
+                }
+        }
+
+        rc = idt_sc_read_ctrs(dev_h, &sc_in, &sc_out);
+        if (RIO_SUCCESS != rc)
+                goto exit;
+
+	printf("\n  port  Counter        Type                     LastRead               Total   \n ");
+	for (val_p = 0; val_p < sc_in.dev_ctrs->valid_p_ctrs; ++val_p)
+	{
+		strcpy(padding, sc_in.dev_ctrs->p_ctrs[val_p].pnum < 10 ? "     " : "    ");
+		printf("\n  %d%s",sc_in.dev_ctrs->p_ctrs[val_p].pnum, padding);
+		for (cntr = 0; cntr < sc_in.dev_ctrs->p_ctrs[val_p].ctrs_cnt; ++cntr) {
+			strcpy(padding, cntr == 0 ? "   " : "           ");
+			type = SC_NAME(sc_in.dev_ctrs->p_ctrs[val_p].ctrs[cntr].sc);
+			tx = (sc_in.dev_ctrs->p_ctrs[val_p].ctrs[cntr].tx) ? (char *)"TX" : (char *)"RX";
+
+       			memset(temp, 0x20, sizeof(temp));
+		        while (type[idx]) {
+				if (type[idx] != 0x20) {
+                        		temp[j] = type[idx];
+                        		j++;
+                		}
+                		else if (!first) {
+                        		first = true;
+					temp[j++] = 0x20;
+                        		temp[j++] = tx[0];
+                        		temp[j++] = tx[1];
+                        		temp[j++] = 0x20;
+
+                		}
+                		idx++;
+        		}
+        		temp[13] = '\0';
+
+			printf("%s%d        %s            %8x             %8llx \n", padding, cntr, temp, 
+                                sc_in.dev_ctrs->p_ctrs[val_p].ctrs[cntr].last_inc,
+                                sc_in.dev_ctrs->p_ctrs[val_p].ctrs[cntr].total );
+			memset(temp, 0x20, sizeof(temp));
+			type = NULL;
+			tx = NULL;
+			idx = 0;
+			j = 0;
+			first = false;
+		}
+	}
+
+	printf("\n");
+
+exit:
+        return 0;
+};
+
+struct cli_cmd CLICountDisplay = {
+(char *)"cnt",
+1,
+0,
+(char *)"Display the count registers for a port",
+(char *)"cnt \n",
+CLICountDisplayCmd,
+ATTR_NONE
+};
+
+int CLICountCfgCmd(struct cli_env *env, int argc, char **argv)
+{
+	uint32_t rc;
+	uint32_t val_p, cntr;
+	bool tx = true ;
+	bool is_print = false;
+	char padding[5];
+        struct mpsw_drv_private_data *priv = NULL;
+        DAR_DEV_INFO_t *dev_h = NULL;
+	idt_sc_cfg_rxs_ctr_in_t  sc_in;
+        idt_sc_cfg_rxs_ctr_out_t sc_out;
+        riocp_pe_handle pe_h = (riocp_pe_handle)(env->h);
+
+	/*if (argc) {
+		if (argv[0] != NULL)
+			is_print = (bool)atoi(argv[0]);
+	}*/
+
+        priv = (struct mpsw_drv_private_data *)(pe_h->private_data);
+        dev_h = &priv->dev_h;
+
+        if (NULL == pe_h) {
+                sprintf(env->output, "\nNo Device Selected...\n");
+                logMsg(env);
+                goto exit;
+        };
+
+	for (sc_in.ctr_idx = 0; sc_in.ctr_idx < RXS_NUM_CTRS; ++sc_in.ctr_idx) {
+		sc_in.ptl.num_ports = RIO_ALL_PORTS;
+       		sc_in.dev_ctrs = &priv->st.sc_dev; 
+        	sc_in.tx = tx;
+        	sc_in.ctr_en = 0x80000000;
+        	sc_in.prio_mask = 0xff;
+
+		switch (sc_in.ctr_idx) {
+                        case 0:
+                                sc_in.ctr_type = idt_sc_rio_pkt;
+                        break;
+                        case 1:
+                                sc_in.ctr_type = idt_sc_rio_pkt;
+				sc_in.tx = !tx;
+                        break;
+                        case 2:
+                                sc_in.ctr_type = idt_sc_rio_pcntr;
+                        break;
+                        case 3:
+                                sc_in.ctr_type = idt_sc_rio_pcntr;
+				sc_in.tx = !tx;
+                        break;
+                        case 4:
+                                sc_in.ctr_type = idt_sc_retries;
+                        break;
+                        case 5:
+                                sc_in.ctr_type = idt_sc_retries;
+				sc_in.tx = !tx;
+                        break;
+                        case 6:
+                                sc_in.ctr_type = idt_sc_rio_ttl_pcntr;
+                        break;
+                        case 7:
+                                sc_in.ctr_type = idt_sc_pna;
+                        break;
+                 }
+
+		rc = idt_sc_cfg_rxs_ctr(dev_h, &sc_in, &sc_out);
+		if (RIO_SUCCESS != rc)
+                	goto exit;
+	}
+
+	if (!is_print)
+		goto exit;
+
+	printf("\n  port  Counter         Type            LastRead        Total   \n ");
+        for (val_p = 0; val_p < sc_in.dev_ctrs->valid_p_ctrs; ++val_p)
+        {
+                strcpy(padding, sc_in.dev_ctrs->p_ctrs[val_p].pnum < 10 ? "     " : "    ");
+                printf("\n  %d%s",sc_in.dev_ctrs->p_ctrs[val_p].pnum, padding);
+                for (cntr = 0; cntr < sc_in.dev_ctrs->p_ctrs[val_p].ctrs_cnt; ++cntr) {
+                        strcpy(padding, cntr == 0 ? "   " : "           ");
+                        printf("%s%d        %s %s           %d             %lld \n", padding, cntr, SC_NAME(sc_in.dev_ctrs->p_ctrs[val_p].ctrs[cntr].sc),
+                                (sc_in.dev_ctrs->p_ctrs[val_p].ctrs[cntr].tx) ? "TX" : "RX",
+                                sc_in.dev_ctrs->p_ctrs[val_p].ctrs[cntr].last_inc,
+                                sc_in.dev_ctrs->p_ctrs[val_p].ctrs[cntr].total );
+                }
+        }
+
+exit:
+        return 0;
+};
+
+struct cli_cmd CLICountCfg = {
+(char *)"cfgcnt",
+1,
+0,
+(char *)"Configure the count registers for a port",
+(char *)"cfgcnt \n",
+CLICountCfgCmd,
+ATTR_NONE
+};
+
 struct cli_cmd *reg_cmd_list[] = {
 &CLIRegRead,
 &CLIRegWrite,
@@ -854,7 +1147,10 @@ struct cli_cmd *reg_cmd_list[] = {
 &CLIRegDump,
 &CLIMRegRead,
 &CLIMRegWrite,
-&CLIDevSel 
+&CLIDevSel,
+&CLICountRead,
+&CLICountDisplay,
+&CLICountCfg
 };
 
 void fmd_bind_dev_rw_cmds(void)

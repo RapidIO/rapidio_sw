@@ -200,9 +200,9 @@ typedef struct idt_sc_cfg_rxs_ctr_in_t_TAG
 	struct DAR_ptl         ptl;        // Port list
 	uint8_t                ctr_idx;    // Index of the RXS counter to be configured.  Range 0-7.
 	uint8_t                prio_mask;  // Priority of packets to be counted.  Not used for control symbol counters.
-							           // Uses IDT_SC_TSI57X_PRIO_MASK_x constant definitions.
-	bool				   ctr_en;     // Enable access to the performance counters.
-							           // 		// bool				   ctr_frz     // Freeze/Clear all debug counters in all RXS2448 ports.
+                                           // Uses IDT_SC_TSI57X_PRIO_MASK_x constant definitions.
+        uint32_t               ctr_en;     // Enable access to the performance counters.
+        // bool	               ctr_frz     // Freeze/Clear all debug counters in all RXS2448 ports.
 	bool                   tx;         // Determines direction for the counter.  !tx = rx.
         idt_sc_ctr_t           ctr_type;   // Valid counter type, valid range from idt_sc_disabled to idt_sc_uc_4b_data
         idt_sc_dev_ctrs_t     *dev_ctrs;   // Device counters data type, initialized by idt_sc_init_dev_ctrs
@@ -270,6 +270,12 @@ extern uint32_t idt_sc_cfg_cps_ctrs(
     DAR_DEV_INFO_t            *dev_info,
     idt_sc_cfg_cps_ctrs_in_t  *in_parms,
     idt_sc_cfg_cps_ctrs_out_t *out_parms
+);
+
+extern uint32_t idt_sc_cfg_rxs_ctr(
+    DAR_DEV_INFO_t            *dev_info,
+    idt_sc_cfg_rxs_ctr_in_t  *in_parms,
+    idt_sc_cfg_rxs_ctr_out_t *out_parms
 );
 
 #define SC_INIT_RXS_CTRS(x) (SC_INIT_RXS_CTRS_0+x)

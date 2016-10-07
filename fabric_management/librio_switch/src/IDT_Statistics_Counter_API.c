@@ -54,6 +54,11 @@ char *sc_names[(uint8_t)(idt_sc_last)+2] = {
     (char *)"CPB    Pkt",
     (char *)"Drop   Pkt",
     (char *)"DropTTLPkt",
+    (char *)"RIO    PKT",
+    (char *)"FAB    PKT",
+    (char *)"RIO PKTCTR",
+    (char *)"FAB PKTCTR",
+    (char *)"RIO TTLPKT",
     (char *)"Last      ",
     (char *)"Invalid   "
 };
