@@ -1330,6 +1330,10 @@ static int cps1xxx_disable_port(struct riocp_pe *sw, uint8_t port)
 			return ret;
 	}
 
+	ret = cps1xxx_reset_port(sw, port);
+	if (ret < 0)
+		return ret;
+
 	/* disable port logic */
 	ret = riocp_pe_maint_read(sw, CPS1xxx_PORT_X_CTL_1_CSR(port), &val);
 	if (ret < 0)
@@ -1383,11 +1387,7 @@ static int cps1xxx_enable_port(struct riocp_pe *sw, uint8_t port)
 	/* enable port logic */
 	val &= ~CPS1xxx_CTL_PORT_DIS;
 
-	ret = riocp_pe_maint_write(sw, CPS1xxx_PORT_X_CTL_1_CSR(port), val);
-	if (ret < 0)
-		return ret;
-
-	return cps1xxx_reset_port(sw, port);
+	return riocp_pe_maint_write(sw, CPS1xxx_PORT_X_CTL_1_CSR(port), val);
 }
 
 /*
@@ -2861,7 +2861,7 @@ static char *serdes_val_2_str(char *str, size_t len, int val)
  */
 int cps1xxx_set_lane_speed(struct riocp_pe *sw, uint8_t port, enum riocp_pe_speed speed, struct riocp_pe_serdes *serdes)
 {
-	int ret, retr;
+	int ret;
 	uint32_t ctl, ctl_new, port_disabled;
 	enum riocp_pe_speed _speed = RIOCP_SPEED_UNKNOWN;
 	uint8_t lane = 0, width = 0, current_lane;
@@ -2988,11 +2988,6 @@ int cps1xxx_set_lane_speed(struct riocp_pe *sw, uint8_t port, enum riocp_pe_spee
 						sw->comptag, RIOCP_SW_DRV_NAME(sw), sw->hopcount, port);
 				return ret;
 			}
-			retr = 20;
-			do {
-				ret = cps1xxx_clear_port_error(sw, port);
-				retr--;
-			} while (ret > 0 && retr > 0);
 		}
 
 		break;
@@ -3136,11 +3131,6 @@ int cps1xxx_set_lane_speed(struct riocp_pe *sw, uint8_t port, enum riocp_pe_spee
 						sw->comptag, RIOCP_SW_DRV_NAME(sw), sw->hopcount, port);
 				return ret;
 			}
-			retr = 20;
-			do {
-				ret = cps1xxx_clear_port_error(sw, port);
-				retr--;
-			} while (ret > 0 && retr > 0);
 		}
 
 		break;
