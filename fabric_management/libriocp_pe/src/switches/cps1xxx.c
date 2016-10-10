@@ -3601,11 +3601,6 @@ int cps1xxx_event_handler(struct riocp_pe *sw, struct riomp_mgmt_event *revent, 
 
 	struct switch_priv_t *priv = (struct switch_priv_t *)sw->private_driver_data;
 
-	int i;
-	for (i=0;i<4;i++) {
-		RIOCP_INFO("PW[%d]: 0x%08x\n", i, revent->u.portwrite.payload[i]);
-	}
-
 	port = RIOCP_PE_EVENT_PW_PORT_ID((*revent).u.portwrite);
 	event_code = CPS1xxx_PW_GET_EVENT_CODE(revent);
 
