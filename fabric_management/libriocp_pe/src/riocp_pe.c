@@ -1648,6 +1648,8 @@ int RIOCP_SO_ATTR riocp_pe_pw_event_type(riocp_pe_handle pe, struct riocp_pe_pw_
 		return -EINVAL;
 	if (riocp_pe_handle_check(pe))
 		return -EINVAL;
+	if (!RIOCP_PE_IS_SWITCH(pe->cap))
+		return -ENOSYS;
 
 	_e.port  = 0;
 	_e.event = 0;
