@@ -427,7 +427,7 @@ idt_sc_cfg_rxs_ctr_exit:
 	return rc;
 }
 
-uint32_t IDT_rxs2448_rioSetEnumBound( DAR_DEV_INFO_t *dev_info,
+uint32_t IDT_rxs_rioSetEnumBound( DAR_DEV_INFO_t *dev_info,
                                            struct DAR_ptl *ptl,
 			                      int enum_bnd_val)
 {
@@ -437,7 +437,7 @@ uint32_t IDT_rxs2448_rioSetEnumBound( DAR_DEV_INFO_t *dev_info,
 	return RIO_SUCCESS;
 }
 
-uint32_t IDT_rxs2448_rioSetAddrMode( DAR_DEV_INFO_t *dev_info,
+uint32_t IDT_rxs_rioSetAddrMode( DAR_DEV_INFO_t *dev_info,
                                       RIO_PE_ADDR_T addr_mode)
 {
 	if (NULL != dev_info || addr_mode)
@@ -516,13 +516,13 @@ uint32_t idt_rxs_rt_set_all(DAR_DEV_INFO_t            *dev_info,
 	return RIO_SUCCESS;
 }
 
-uint32_t IDT_rxs2448DeviceSupported(DAR_DEV_INFO_t *DAR_info)
+uint32_t IDT_rxs_DeviceSupported(DAR_DEV_INFO_t *DAR_info)
 {
 	uint32_t rc = DAR_DB_NO_DRIVER;
 
 	if (RXS_RIO_DEVICE_VENDOR == (DAR_info->devID & RIO_DEV_IDENT_VEND))
 	{
-		if ((RXS_RIO_DEVICE_ID) == ((DAR_info->devID & RIO_DEV_IDENT_DEVI) >> 16))
+		if ((RXS2448_RIO_DEVICE_ID) == ((DAR_info->devID & RIO_DEV_IDENT_DEVI) >> 16))
 		{
 			/* Now fill out the DAR_info structure... */
 			rc = DARDB_rioDeviceSupportedDefault(DAR_info);
@@ -535,20 +535,33 @@ uint32_t IDT_rxs2448DeviceSupported(DAR_DEV_INFO_t *DAR_info)
 				strncpy(DAR_info->name, "RXS2448", sizeof(DAR_info->name));
 			}
 		}
+		else if ((RXS1632_RIO_DEVICE_ID) == ((DAR_info->devID & RIO_DEV_IDENT_DEVI) >> 16))
+                {
+                        /* Now fill out the DAR_info structure... */
+                        rc = DARDB_rioDeviceSupportedDefault(DAR_info);
+
+                        /* Index and information for DSF is the same as the DAR handle */
+                        DAR_info->dsf_h = RXS_driver_handle;
+
+                        if (rc == RIO_SUCCESS) {
+                                num_RXS_driver_instances++;
+                                strncpy(DAR_info->name, "RXS1632", sizeof(DAR_info->name));
+                        }
+                }
 	}
 	return rc;
 }
 
-uint32_t bind_rxs2448_DAR_support(void)
+uint32_t bind_rxs_DAR_support(void)
 {
 	DAR_DB_Driver_t DAR_info;
 
 	DARDB_Init_Driver_Info(IDT_TSI_VENDOR_ID, &DAR_info);
 
-	DAR_info.rioDeviceSupported = IDT_rxs2448DeviceSupported;
+	DAR_info.rioDeviceSupported = IDT_rxs_DeviceSupported;
 
-	DAR_info.rioSetEnumBound = IDT_rxs2448_rioSetEnumBound;
-	DAR_info.rioSetAddrMode = IDT_rxs2448_rioSetAddrMode;
+	DAR_info.rioSetEnumBound = IDT_rxs_rioSetEnumBound;
+	DAR_info.rioSetAddrMode = IDT_rxs_rioSetAddrMode;
 
 	DARDB_Bind_Driver(&DAR_info);
 
@@ -559,13 +572,13 @@ uint32_t bind_rxs2448_DAR_support(void)
  * Supports RXS2448
  * */
 
-uint32_t bind_rxs_DSF_support(void)
+uint32_t bind_rxs2448_DSF_support(void)
 {
 	IDT_DSF_DB_t idt_driver;
 
 	IDT_DSF_init_driver(&idt_driver);
 
-	idt_driver.dev_type = RXS_RIO_DEVICE_ID;
+	idt_driver.dev_type = RXS2448_RIO_DEVICE_ID;
 
 	idt_driver.idt_pc_get_config = idt_rxs_pc_get_config;
 	idt_driver.idt_pc_get_status = idt_rxs_pc_get_status;
@@ -583,6 +596,36 @@ uint32_t bind_rxs_DSF_support(void)
 	IDT_DSF_bind_driver(&idt_driver, &RXS_driver_handle);
 
 	return RIO_SUCCESS;
+}
+
+/* Routine to bind in all RXS specific Device Specific Function routines.
+ *  * Supports RXS1632
+ *   * */
+
+uint32_t bind_rxs1632_DSF_support(void)
+{
+        IDT_DSF_DB_t idt_driver;
+
+        IDT_DSF_init_driver(&idt_driver);
+
+        idt_driver.dev_type = RXS1632_RIO_DEVICE_ID;
+
+        idt_driver.idt_pc_get_config = idt_rxs_pc_get_config;
+        idt_driver.idt_pc_get_status = idt_rxs_pc_get_status;
+        idt_driver.idt_pc_dev_reset_config = idt_rxs_pc_dev_reset_config;
+
+        idt_driver.idt_rt_probe_all = idt_rxs_rt_probe_all;
+        idt_driver.idt_rt_set_all = idt_rxs_rt_set_all;
+
+        idt_driver.idt_sc_init_dev_ctrs = idt_sc_init_dev_rxs_ctrs;
+        idt_driver.idt_sc_read_ctrs = idt_sc_read_rxs_ctrs;
+
+        idt_driver.idt_em_dev_rpt_ctl = idt_rxs_em_dev_rpt_ctl;
+        idt_driver.idt_em_cfg_pw = idt_rxs_em_cfg_pw;
+
+        IDT_DSF_bind_driver(&idt_driver, &RXS_driver_handle);
+
+        return RIO_SUCCESS;
 }
 
 #ifdef __cplusplus

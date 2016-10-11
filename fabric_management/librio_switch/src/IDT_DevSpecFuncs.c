@@ -765,8 +765,13 @@ uint32_t IDT_DSF_bind_DAR_routines(
 #endif
 
 #ifdef IDT_RXS2448_DAR_WANTED
-    bind_rxs2448_DAR_support();
-    bind_rxs_DSF_support();
+    bind_rxs_DAR_support();
+    bind_rxs2448_DSF_support();
+#endif
+
+#ifdef IDT_RXS1632_DAR_WANTED
+    bind_rxs_DAR_support();
+    bind_rxs1632_DSF_support();
 #endif
 
     ReadReg  = ReadRegCall;

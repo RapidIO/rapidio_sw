@@ -56,12 +56,15 @@ extern "C" {
 
 /* Routine to bind in all RXS2448 specific DAR support routines.
  * */
-uint32_t bind_rxs2448_DAR_support( void );
+uint32_t bind_rxs_DAR_support( void );
 
-/* Routine to bind in all RXS2448 and RXS1632 specific Device Specific Function routines.
+/* Routine to bind in all RXS2448 specific Device Specific Function routines.
  * */
-uint32_t bind_rxs_DSF_support( void );
+uint32_t bind_rxs2448_DSF_support( void );
 
+/* Routine to bind in all RXS1632 specific Device Specific Function routines.
+ *  * */
+uint32_t bind_rxs1632_DSF_support( void );
 
 #ifdef __cplusplus
 }

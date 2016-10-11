@@ -40,7 +40,8 @@ extern "C" {
 
 #define RXS2448_MAX_PORTS                                     23
 #define RXS2448_MAX_LANES                                     47
-
+#define RXS2448_RIO_DEVICE_ID                                 (0x000080e6)
+#define RXS1632_RIO_DEVICE_ID                                 (0x000080e5)
 
 /* ************************************************ */
 /* RXS2448 : Register address offset definitions    */
@@ -69,7 +70,6 @@ extern "C" {
 #define RXS_RIO_DEV_IDENT_VEND                                (0x0000ffff)
 #define RXS_RIO_DEV_IDENT_DEVI                                (0xffff0000)
 #define RXS_RIO_DEVICE_VENDOR                                 (0x00000038)
-#define RXS_RIO_DEVICE_ID                                     (0x000080e6)
 
 /* RXS_RIO_SP0_LM_RESP : Register Bits Masks Definitions */
 #define RXS_RIO_SP0_LM_RESP_LINK_STAT                         (0x0000001f)
