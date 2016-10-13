@@ -656,7 +656,9 @@ static const int gen2_portmaps_len = (sizeof(gen2_portmaps)/sizeof(gen2_portmaps
 static int cps1xxx_port_get_first_lane(struct riocp_pe *sw,	uint8_t port, uint8_t *lane);
 int cps1xxx_get_lane_width(struct riocp_pe *sw, uint8_t port, uint8_t *width);
 static int cps1xxx_read_lane_stat_0_csr(struct riocp_pe *sw, uint8_t lane, uint32_t *value);
+#ifdef CONFIG_HAVE_PORT_RESET
 static int cps1xxx_reset_port(struct riocp_pe *sw, uint8_t port);
+#endif
 
 #ifdef CONFIG_ERROR_LOG_SUPPORT
 
@@ -1432,10 +1434,12 @@ static int cps1xxx_clear_port_error(struct riocp_pe *sw, uint8_t port)
 		return ret;
 }
 
+#ifdef CONFIG_HAVE_PORT_RESET
 static int cps1xxx_reset_port(struct riocp_pe *sw, uint8_t port)
 {
 	return riocp_pe_maint_write(sw, CPS1xxx_DEVICE_RESET_CTL, CPS1xxx_DEVICE_RESET_PORT(port) | CPS1xxx_DEVICE_RESET_DO);
 }
+#endif
 
 static int cps1xxx_reset_pll(struct riocp_pe *sw, uint8_t pll)
 {
