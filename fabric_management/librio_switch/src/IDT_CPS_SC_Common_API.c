@@ -119,7 +119,7 @@ uint32_t idt_cps_sc_init_dev_ctrs ( DAR_DEV_INFO_t             *dev_info,
       in_parms->dev_ctrs->p_ctrs[idx].pnum = good_ptl.pnums[idx];
       in_parms->dev_ctrs->p_ctrs[idx].ctrs_cnt = NUM_CPS_SC;
       for (cntr_i = 0; cntr_i < NUM_CPS_SC; cntr_i++) {
-         in_parms->dev_ctrs->p_ctrs[idx].ctrs[cntr_i] = cps_sc_info[idx].sc_info;
+         in_parms->dev_ctrs->p_ctrs[idx].ctrs[cntr_i] = cps_sc_info[cntr_i].sc_info;
       };
    };
    rc = RIO_SUCCESS;

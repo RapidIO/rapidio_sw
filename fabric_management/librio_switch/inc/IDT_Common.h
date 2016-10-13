@@ -69,6 +69,9 @@ extern "C" {
 
 #define IDT_TSI57x_DEV_ID                           0x0570
 
+#define RXS2448_RIO_DEVICE_ID                   0x000080e6
+#define RXS1632_RIO_DEVICE_ID                   0x000080e5
+
 #define IDT_TSI_ID_57x                          0x0570000D
 #define IDT_CPS_ID_8                            0x035C0038
 #define IDT_CPS_ID_12                           0x035D0038
