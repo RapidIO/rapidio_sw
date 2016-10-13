@@ -1332,10 +1332,6 @@ static int cps1xxx_disable_port(struct riocp_pe *sw, uint8_t port)
 			return ret;
 	}
 
-	ret = cps1xxx_reset_port(sw, port);
-	if (ret < 0)
-		return ret;
-
 	/* disable port logic */
 	ret = riocp_pe_maint_read(sw, CPS1xxx_PORT_X_CTL_1_CSR(port), &val);
 	if (ret < 0)
@@ -3448,11 +3444,16 @@ skip_port_errors:
 			err_det, impl_err_det, err_status, ctl);
 #endif
 
-	if (event->event | RIOCP_PE_EVENT_LINK_UP) {
+	if (event->event & RIOCP_PE_EVENT_LINK_UP) {
 		/* prepare port again for hot unplug */
 		ret = cps1xxx_arm_port(sw, port);
 		if (ret < 0)
 			goto out;
+//	} else if (event->event & RIOCP_PE_EVENT_LINK_DOWN) {
+		/* last handling on link down is port reset */
+//		ret = cps1xxx_reset_port(sw, port);
+//		if (ret < 0)
+//			return ret;
 	}
 out:
 	return ret;
