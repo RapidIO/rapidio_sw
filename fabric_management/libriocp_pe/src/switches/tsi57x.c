@@ -170,6 +170,9 @@ static int tsi57x_set_route_entry(struct riocp_pe *sw, uint8_t lut,
 	uint32_t val;
 	uint32_t cfg_destid;
 	uint32_t cfg_port;
+	int ret ,ret_lock = riocp_pe_lock(sw, 0);
+	if (ret_lock)
+		return -EAGAIN;
 
 	RIOCP_TRACE("Write LUT 0x%02x for switch 0x%08x, destid %u (0x%08x), port %04x\n",
 		lut, sw->comptag, destid, destid, value);
@@ -182,46 +185,73 @@ static int tsi57x_set_route_entry(struct riocp_pe *sw, uint8_t lut,
 		cfg_port   = TSI57X_SPP_ROUTE_CFG_PORT(lut & 0x0f);
 	} else {
 		RIOCP_ERROR("Invalid LUT: %u\n", lut);
-		return -EINVAL;
+		ret = -EINVAL;
+		goto unlock_ret;
 	}
 
-	if (riocp_pe_maint_write(sw, cfg_destid, destid))
-		return -EIO;
-	if (riocp_pe_maint_write(sw, cfg_port, value))
-		return -EIO;
+	if (riocp_pe_maint_write(sw, cfg_destid, destid)) {
+		ret = -EIO;
+		goto unlock_ret;
+	}
+	if (riocp_pe_maint_write(sw, cfg_port, value)) {
+		ret = -EIO;
+		goto unlock_ret;
+	}
 
 	/* Wait for entry to be committed */
-	if (riocp_pe_maint_read(sw, cfg_port, &val))
-		return -EIO;
+	if (riocp_pe_maint_read(sw, cfg_port, &val)) {
+		ret = -EIO;
+		goto unlock_ret;
+	}
 
 	RIOCP_TRACE("Write LUT successful\n");
 
-	return 0;
+unlock_ret:
+	ret_lock = riocp_pe_unlock(sw);
+	if (ret_lock)
+		return -EIO;
+	return ret;
 }
 
 static int tsi57x_get_route_entry(struct riocp_pe *sw, uint8_t lut,
 	uint32_t destid, uint16_t *value)
 {
 	uint32_t _port;
+	int ret ,ret_lock = riocp_pe_lock(sw, 0);
+	if (ret_lock)
+		return -EAGAIN;
 
 	if (lut == RIOCP_PE_ANY_PORT) {
-		if (riocp_pe_maint_write(sw, RIO_STD_RTE_CONF_DESTID_SEL_CSR, destid))
-			return -EIO;
-		if (riocp_pe_maint_read(sw, RIO_STD_RTE_CONF_PORT_SEL_CSR, &_port))
-			return -EIO;
+		if (riocp_pe_maint_write(sw, RIO_STD_RTE_CONF_DESTID_SEL_CSR, destid)) {
+			ret = -EIO;
+			goto unlock_ret;
+		}
+		if (riocp_pe_maint_read(sw, RIO_STD_RTE_CONF_PORT_SEL_CSR, &_port)) {
+			ret = -EIO;
+			goto unlock_ret;
+		}
 	} else if (lut < TSI57X_MAX_PORTS) {
-		if (riocp_pe_maint_write(sw, TSI57X_SPP_ROUTE_CFG_DESTID(lut), destid))
-			return -EIO;
-		if (riocp_pe_maint_read(sw, TSI57X_SPP_ROUTE_CFG_PORT(lut), &_port))
-				return -EIO;
+		if (riocp_pe_maint_write(sw, TSI57X_SPP_ROUTE_CFG_DESTID(lut), destid)) {
+			ret = -EIO;
+			goto unlock_ret;
+		}
+		if (riocp_pe_maint_read(sw, TSI57X_SPP_ROUTE_CFG_PORT(lut), &_port)) {
+			ret = -EIO;
+			goto unlock_ret;
+		}
 	} else {
 		RIOCP_ERROR("Invalid LUT: %u\n", lut);
-		return -EINVAL;
+		ret = -EINVAL;
+		goto unlock_ret;
 	}
 
 	*value = _port;
 
-	return 0;
+unlock_ret:
+	ret_lock = riocp_pe_unlock(sw);
+	if (ret_lock)
+		return -EIO;
+	return ret;
 }
 
 static int tsi57x_clear_lut(struct riocp_pe *sw, uint8_t lut)

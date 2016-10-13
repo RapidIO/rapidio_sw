@@ -1698,6 +1698,11 @@ int cps1xxx_set_route_entry(struct riocp_pe *sw, uint8_t lut, uint32_t destid, u
 			return ret;
 	}
 #else
+	{
+	int ret_lock = riocp_pe_lock(sw, 0);
+	if (ret_lock)
+		return -EAGAIN;
+
 	/* Select routing table to update */
 	if (lut == RIOCP_PE_ANY_PORT)
 		lut = 0;
@@ -1710,22 +1715,23 @@ int cps1xxx_set_route_entry(struct riocp_pe *sw, uint8_t lut, uint32_t destid, u
 
 		ret = riocp_pe_maint_write(sw, CPS1xxx_MCAST_RTE_SEL, lut);
 		if (ret < 0)
-			return ret;
+			goto unlock_ret;
 
 		/* Associate destid with the mcast mask index */
 		ret = riocp_pe_maint_write(sw, RIO_STD_MC_ASSOCIATE_SEL_CSR,
 				(destid << 16) | value);
 		if (ret < 0)
-			return ret;
+			goto unlock_ret;
 
 		/* Add association */
-		return riocp_pe_maint_write(sw, RIO_STD_MC_ASSOCIATE_OPS_CSR,
+		ret = riocp_pe_maint_write(sw, RIO_STD_MC_ASSOCIATE_OPS_CSR,
 				RIO_STD_MC_DESTID_ASSOC_CMD_ADD_ASSOC);
+		goto unlock_ret;
 	}
 
 	ret = riocp_pe_maint_write(sw, CPS1xxx_RTE_PORT_SEL, lut);
 	if (ret < 0)
-		return ret;
+		goto unlock_ret;
 
 	/*
 	 * Program destination port for the specified destID
@@ -1733,17 +1739,24 @@ int cps1xxx_set_route_entry(struct riocp_pe *sw, uint8_t lut, uint32_t destid, u
 	ret = riocp_pe_maint_write(sw, RIO_STD_RTE_CONF_DESTID_SEL_CSR,
 		destid);
 	if (ret < 0)
-		return ret;
+		goto unlock_ret;
 
 	ret = riocp_pe_maint_write(sw, RIO_STD_RTE_CONF_PORT_SEL_CSR, value);
 	if (ret < 0)
-		return ret;
+		goto unlock_ret;
 
 	/* Wait for entry to be commited, this is mandatory because otherwise
 		the host will enumerate the same device multiple times.
 		use a read to make sure entry is commited. */
 	ret = riocp_pe_maint_read(sw, RIO_STD_RTE_CONF_DESTID_SEL_CSR, &val);
 	if (ret < 0)
+		goto unlock_ret;
+unlock_ret:
+	ret_lock = riocp_pe_unlock(sw);
+	if (ret_lock)
+		return -EIO;
+	}
+	if(ret)
 		return ret;
 #endif
 	return ret;
@@ -1781,6 +1794,10 @@ int cps1xxx_get_route_entry(struct riocp_pe *sw, uint8_t lut, uint32_t destid, u
 	}
 
 #else
+	{
+	int ret_lock = riocp_pe_lock(sw, 0);
+	if (ret_lock)
+		return -EAGAIN;
 
 	/* Select routing table to read */
 	if (lut == RIOCP_PE_ANY_PORT)
@@ -1790,16 +1807,22 @@ int cps1xxx_get_route_entry(struct riocp_pe *sw, uint8_t lut, uint32_t destid, u
 
 	ret = riocp_pe_maint_write(sw, CPS1xxx_RTE_PORT_SEL, lut);
 	if (ret < 0)
-		return ret;
+		goto unlock_ret;
 
 	ret = riocp_pe_maint_write(sw, RIO_STD_RTE_CONF_DESTID_SEL_CSR, destid);
 	if (ret < 0)
-		return ret;
+		goto unlock_ret;
 
 	ret = riocp_pe_maint_read(sw, RIO_STD_RTE_CONF_PORT_SEL_CSR, &_port);
 	if (ret < 0)
+		goto unlock_ret;
+unlock_ret:
+	ret_lock = riocp_pe_unlock(sw);
+	if (ret_lock)
+		return -EIO;
+	}
+	if(ret)
 		return ret;
-
 #endif
 	_port &= CPS1xxx_RTE_PORT_CSR_PORT;
 

@@ -1365,18 +1365,9 @@ int RIOCP_SO_ATTR riocp_sw_get_route_entry(riocp_pe_handle sw,
 	if (!RIOCP_PE_IS_SWITCH(sw->cap))
 		return -ENOSYS;
 
-	/* Lock PE, because get route entry performs a write/read action */
-	ret = riocp_pe_lock(sw, 0);
-	if (ret)
-		return -EAGAIN;
-
 	ret = riocp_pe_switch_get_route_entry(sw, lut, destid, value);
 	if (ret)
 		err = -EIO;
-
-	ret = riocp_pe_unlock(sw);
-	if (ret)
-		return -EIO;
 
 	return err;
 }
