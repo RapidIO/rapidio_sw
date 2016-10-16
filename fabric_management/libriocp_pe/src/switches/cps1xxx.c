@@ -25,6 +25,8 @@ extern "C" {
 #define CONFIG_ERROR_LOG_SUPPORT 1
 #define CONFIG_ERROR_LOG_STOP_THRESHOLD 100
 #define CONFIG_SETUP_CACHE_ENABLE 1
+/*#define CONFIG_HAVE_PORT_RESET 1*/
+/*#define CONFIG_HAVE_EEPROM 1*/
 
 #define CPS1xxx_DEBUG_INT_STATUS 1
 
@@ -3645,6 +3647,7 @@ int cps1xxx_init(struct riocp_pe *sw)
 	uint32_t result;
 	struct switch_priv_t *switch_priv;
 
+#ifdef CONFIG_HAVE_EEPROM
 	/* Check if the switch read the EEPROM successfully */
 	ret = riocp_pe_maint_read(sw, CPS1xxx_I2C_MASTER_STAT_CTL, &result);
 	if (ret < 0)
@@ -3669,6 +3672,7 @@ int cps1xxx_init(struct riocp_pe *sw)
 	if (RIOCP_PE_DID(sw->cap) == RIO_DID_IDT_CPS10Q)
 		if (result & CPS1xxx_I2C_CPS10Q_BAD_IMG_VERSION)
 			RIOCP_WARN("switch %s: EEPROM: bad image version\n");
+#endif
 
 	switch_priv = (struct switch_priv_t *)calloc(1,	sizeof(struct switch_priv_t));
 	if (!switch_priv)
