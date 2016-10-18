@@ -79,6 +79,24 @@ typedef enum idt_sc_ctr_t_TAG
     idt_sc_fab_pcntr,       // Count of packet payload received/transmitted on the fabric
     idt_sc_rio_ttl_pcntr,   // Count of the total number of code-groups/codewords transmitted on the RapidIO interface per lane
 
+    idt_pcie_rv,            // Received Completion Count for Messaging Engine Register.
+    idt_pcie_st_tlp_mer,    // Sent TLP Count of Messaging Engine Register
+    idt_pcie_rv_dma,        // Received Completion Count for Block DMA Engine Register
+    idt_pcie_st_tlp_dma,    // Sent TLP Count of Block DMA Engine Register
+    idt_pcie_rv_tlp,        // Received Bridging TLP Count Register
+    idt_pcie_bd_tlp,        // Sent Bridging TLP Count Register
+    idt_pcie_nwrite_r,      // NWRITE_R Count Register
+    idt_rio_st_mer,         // Sent Packet Count of Messaging Engine Register
+    idt_rio_rv_mer,         // Received Packet Count for Messaging Engine Register
+    idt_rio_st_retries,     // Generated Message Segment Retry Count Register
+    idt_rio_rv_retries,     // Received Retry Message Response Count Register
+    idt_rio_st_dma,         // Sent Packet Count of Block DMA Engine Register
+    idt_rio_rv_dma,         // Received Response Count for Block DMA Engine Register
+    idt_rio_st_bd,          // Sent Bridging Packet Count Register
+    idt_rio_rv_bd,          // Received Bridging Packet Count Register
+    idt_rio_rv_bd_err,      // Received Bridging Packet Error Count Register
+    idt_rio_mint_write,     // Maintenance Write Count Register
+
     idt_sc_last             // Last index for enumerated type
 } idt_sc_ctr_t;
 

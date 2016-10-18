@@ -63,6 +63,9 @@ static uint32_t mstore_data;
 static uint32_t mstore_did;
 static uint32_t mstore_hc;
 
+static idt_sc_read_ctrs_in_t  sc_in;
+static idt_sc_read_ctrs_in_t  empty_sc_in;
+
 void aligningAddress(struct cli_env *env, uint32_t address)
 {
 	sprintf(env->output,
@@ -152,6 +155,7 @@ int CLIDevSelCmd(struct cli_env *env, int argc, char **argv)
 				goto exit;
 			}
 			if (comptag == pe_ct) {
+				sc_in = empty_sc_in;
 				env->h = pes[i];
 				set_prompt(env);
 				sprintf(env->output, 
@@ -851,7 +855,7 @@ int CLICountReadCmd(struct cli_env *env, int argc, char **argv)
         uint8_t srch_i;
 	struct mpsw_drv_private_data *priv = NULL;
 	DAR_DEV_INFO_t *dev_h = NULL;
-	idt_sc_read_ctrs_in_t  sc_in;
+
 	idt_sc_read_ctrs_out_t sc_out;
 	idt_sc_init_dev_ctrs_in_t sc_init_in;
         idt_sc_init_dev_ctrs_out_t sc_init_out;
@@ -869,8 +873,9 @@ int CLICountReadCmd(struct cli_env *env, int argc, char **argv)
 	sc_in.ptl.num_ports = RIO_ALL_PORTS;
 	sc_in.dev_ctrs = &priv->st.sc_dev;
 
-	if (RXS2448_RIO_DEVICE_ID == ((dev_h->devID & 0xffff0000) >> 16) ||
-                RXS1632_RIO_DEVICE_ID == ((dev_h->devID & 0xffff0000) >> 16))
+	if ((RXS2448_RIO_DEVICE_ID == ((dev_h->devID & 0xffff0000) >> 16) ||
+                RXS1632_RIO_DEVICE_ID == ((dev_h->devID & 0xffff0000) >> 16)) &&
+                NULL == sc_in.dev_ctrs)
         {
 		for (srch_i = 0; srch_i < sc_in.dev_ctrs->valid_p_ctrs; srch_i++) {
                 	for (cntr = 0; cntr < 8; cntr++) {
@@ -904,7 +909,30 @@ int CLICountReadCmd(struct cli_env *env, int argc, char **argv)
                 	}
         	}
 	}
-	else
+	else if ( (TSI721_RIO_DEVICE_ID) == ( (dev_h->devID & 0xffff0000) >> 16) && NULL == sc_in.dev_ctrs )
+        {
+                sc_init_in.ptl.num_ports = RIO_ALL_PORTS;
+                sc_init_in.dev_ctrs = &priv->st.sc_dev;
+                priv->st.sc_dev.num_p_ctrs   = IDT_MAX_PORTS;
+                priv->st.sc_dev.valid_p_ctrs = 0;
+                priv->st.sc_dev.p_ctrs       = priv->st.sc;
+                rc = idt_sc_init_dev_ctrs(dev_h, &sc_init_in, &sc_init_out);
+                if (RIO_SUCCESS != rc)
+                        goto exit;
+                sc_in.ptl.num_ports = sc_init_in.ptl.num_ports;
+                sc_in.dev_ctrs = &priv->st.sc_dev;
+                for (srch_i = 0; srch_i < sc_init_in.dev_ctrs->valid_p_ctrs; srch_i++) {
+                        for (cntr = 0; cntr < sc_init_in.dev_ctrs->p_ctrs[0].ctrs_cnt; cntr++) {
+                                sc_in.dev_ctrs->p_ctrs[srch_i].ctrs[cntr].tx = true;
+                                sc_in.dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc = (idt_sc_ctr_t)((uint8_t)(idt_pcie_rv)+(uint8_t)cntr);
+                                if ((cntr % 2 == 0 && sc_in.dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc != idt_pcie_nwrite_r &&
+                                        sc_in.dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc != idt_rio_mint_write) ||
+                                        sc_in.dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc == idt_rio_rv_bd_err)
+                                        sc_in.dev_ctrs->p_ctrs[srch_i].ctrs[cntr].tx = false;
+                        }
+                }
+        }
+	else if (NULL == sc_in.dev_ctrs)
         {
                 sc_init_in.ptl.num_ports = RIO_ALL_PORTS;
                 sc_init_in.dev_ctrs = &priv->st.sc_dev;
@@ -937,12 +965,13 @@ ATTR_NONE
 
 #define RXS_NUM_CTRS        8
 
+
 int CLICountDisplayCmd(struct cli_env *env, int argc, char **argv)
 {
         uint32_t rc;
         struct mpsw_drv_private_data *priv = NULL;
         DAR_DEV_INFO_t *dev_h = NULL;
-        idt_sc_read_ctrs_in_t  sc_in;
+
         idt_sc_read_ctrs_out_t sc_out;
 	idt_sc_init_dev_ctrs_in_t sc_init_in;
 	idt_sc_init_dev_ctrs_out_t sc_init_out;
@@ -964,12 +993,12 @@ int CLICountDisplayCmd(struct cli_env *env, int argc, char **argv)
                 goto exit;
  	};
 
-        sc_in.ptl.num_ports = RIO_ALL_PORTS;
-        sc_in.dev_ctrs = &priv->st.sc_dev;
-
-	if (RXS2448_RIO_DEVICE_ID == ((dev_h->devID & 0xffff0000) >> 16) || 
-		RXS1632_RIO_DEVICE_ID == ((dev_h->devID & 0xffff0000) >> 16))
+	if ((RXS2448_RIO_DEVICE_ID == ((dev_h->devID & 0xffff0000) >> 16) || 
+		RXS1632_RIO_DEVICE_ID == ((dev_h->devID & 0xffff0000) >> 16)) && 
+		NULL == sc_in.dev_ctrs)
 	{
+		sc_in.ptl.num_ports = RIO_ALL_PORTS;
+        	sc_in.dev_ctrs = &priv->st.sc_dev;
 		for (srch_i = 0; srch_i < sc_in.dev_ctrs->valid_p_ctrs; srch_i++) {
                 	for (cntr = 0; cntr < RXS_NUM_CTRS; cntr++) {
 				sc_in.dev_ctrs->p_ctrs[srch_i].ctrs[cntr].tx = true;
@@ -1002,7 +1031,30 @@ int CLICountDisplayCmd(struct cli_env *env, int argc, char **argv)
                 	}
         	}
 	}
-	else 
+	else if ( (TSI721_RIO_DEVICE_ID) == ( (dev_h->devID & 0xffff0000) >> 16) && NULL == sc_in.dev_ctrs )
+	{
+		sc_init_in.ptl.num_ports = RIO_ALL_PORTS;
+                sc_init_in.dev_ctrs = &priv->st.sc_dev;
+                priv->st.sc_dev.num_p_ctrs   = IDT_MAX_PORTS;
+                priv->st.sc_dev.valid_p_ctrs = 0;
+                priv->st.sc_dev.p_ctrs       = priv->st.sc;
+                rc = idt_sc_init_dev_ctrs(dev_h, &sc_init_in, &sc_init_out);
+                if (RIO_SUCCESS != rc)
+                        goto exit;
+                sc_in.ptl.num_ports = sc_init_in.ptl.num_ports;
+		sc_in.dev_ctrs = &priv->st.sc_dev;
+		for (srch_i = 0; srch_i < sc_init_in.dev_ctrs->valid_p_ctrs; srch_i++) {
+                        for (cntr = 0; cntr < sc_init_in.dev_ctrs->p_ctrs[0].ctrs_cnt; cntr++) {
+				sc_in.dev_ctrs->p_ctrs[srch_i].ctrs[cntr].tx = true;
+				sc_in.dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc = (idt_sc_ctr_t)((uint8_t)(idt_pcie_rv)+(uint8_t)cntr);
+				if ((cntr % 2 == 0 && sc_in.dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc != idt_pcie_nwrite_r && 
+					sc_in.dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc != idt_rio_mint_write) || 
+					sc_in.dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc == idt_rio_rv_bd_err)
+					sc_in.dev_ctrs->p_ctrs[srch_i].ctrs[cntr].tx = false;
+			}
+		}
+	}
+	else if (NULL == sc_in.dev_ctrs)
 	{
 		sc_init_in.ptl.num_ports = RIO_ALL_PORTS;
 	        sc_init_in.dev_ctrs = &priv->st.sc_dev;
@@ -1083,8 +1135,8 @@ int CLICountCfgCmd(struct cli_env *env, int argc, char **argv)
 	char padding[5];
         struct mpsw_drv_private_data *priv = NULL;
         DAR_DEV_INFO_t *dev_h = NULL;
-	idt_sc_cfg_rxs_ctr_in_t  sc_in;
-        idt_sc_cfg_rxs_ctr_out_t sc_out;
+	idt_sc_cfg_rxs_ctr_in_t  sc_rxs_in;
+        idt_sc_cfg_rxs_ctr_out_t sc_rxs_out;
 	idt_sc_cfg_cps_ctrs_in_t sc_cps_in;
 	idt_sc_cfg_cps_ctrs_out_t sc_cps_out;
 	idt_sc_init_dev_ctrs_in_t sc_init_in;
@@ -1108,49 +1160,49 @@ int CLICountCfgCmd(struct cli_env *env, int argc, char **argv)
 	if (RXS2448_RIO_DEVICE_ID == ((dev_h->devID & 0xffff0000) >> 16) ||
                 RXS1632_RIO_DEVICE_ID == ((dev_h->devID & 0xffff0000) >> 16))
         {
-		for (sc_in.ctr_idx = 0; sc_in.ctr_idx < RXS_NUM_CTRS; ++sc_in.ctr_idx) {
-			sc_in.ptl.num_ports = RIO_ALL_PORTS;
-       			sc_in.dev_ctrs = &priv->st.sc_dev; 
-        		sc_in.tx = tx;
-        		sc_in.ctr_en = 0x80000000;
-        		sc_in.prio_mask = 0xff;
+		for (sc_rxs_in.ctr_idx = 0; sc_rxs_in.ctr_idx < RXS_NUM_CTRS; ++sc_rxs_in.ctr_idx) {
+			sc_rxs_in.ptl.num_ports = RIO_ALL_PORTS;
+       			sc_rxs_in.dev_ctrs = &priv->st.sc_dev; 
+        		sc_rxs_in.tx = tx;
+        		sc_rxs_in.ctr_en = 0x80000000;
+        		sc_rxs_in.prio_mask = 0xff;
 
-			switch (sc_in.ctr_idx) {
+			switch (sc_rxs_in.ctr_idx) {
                         	case 0:
-                                	sc_in.ctr_type = idt_sc_rio_pkt;
+                                	sc_rxs_in.ctr_type = idt_sc_rio_pkt;
                         	break;
                         	case 1:
-                                	sc_in.ctr_type = idt_sc_rio_pkt;
-					sc_in.tx = !tx;
+                                	sc_rxs_in.ctr_type = idt_sc_rio_pkt;
+					sc_rxs_in.tx = !tx;
                         	break;
                         	case 2:
-                                	sc_in.ctr_type = idt_sc_rio_pcntr;
+                                	sc_rxs_in.ctr_type = idt_sc_rio_pcntr;
                         	break;
                         	case 3:
-                                	sc_in.ctr_type = idt_sc_rio_pcntr;
-					sc_in.tx = !tx;
+                                	sc_rxs_in.ctr_type = idt_sc_rio_pcntr;
+					sc_rxs_in.tx = !tx;
                         	break;
                         	case 4:
-                                	sc_in.ctr_type = idt_sc_retries;
+                                	sc_rxs_in.ctr_type = idt_sc_retries;
                         	break;
                         	case 5:
-                                	sc_in.ctr_type = idt_sc_retries;
-					sc_in.tx = !tx;
+                                	sc_rxs_in.ctr_type = idt_sc_retries;
+					sc_rxs_in.tx = !tx;
                         	break;
                         	case 6:
-                                	sc_in.ctr_type = idt_sc_rio_ttl_pcntr;
+                                	sc_rxs_in.ctr_type = idt_sc_rio_ttl_pcntr;
                         	break;
                         	case 7:
-                                	sc_in.ctr_type = idt_sc_pna;
+                                	sc_rxs_in.ctr_type = idt_sc_pna;
                         	break;
                  	}
 
-			rc = idt_sc_cfg_rxs_ctr(dev_h, &sc_in, &sc_out);
+			rc = idt_sc_cfg_rxs_ctr(dev_h, &sc_rxs_in, &sc_rxs_out);
 			if (RIO_SUCCESS != rc)
                 		goto exit;
 		}
 	}
-	else
+	else if ((TSI721_RIO_DEVICE_ID) != ( (dev_h->devID & 0xffff0000) >> 16))
 	{
 		sc_init_in.ptl.num_ports = RIO_ALL_PORTS;
         	sc_init_in.dev_ctrs = &priv->st.sc_dev;
@@ -1173,16 +1225,16 @@ int CLICountCfgCmd(struct cli_env *env, int argc, char **argv)
 		goto exit;
 
 	printf("\n  port  Counter         Type            LastRead        Total   \n ");
-        for (val_p = 0; val_p < sc_in.dev_ctrs->valid_p_ctrs; ++val_p)
+        for (val_p = 0; val_p < sc_rxs_in.dev_ctrs->valid_p_ctrs; ++val_p)
         {
-                strcpy(padding, sc_in.dev_ctrs->p_ctrs[val_p].pnum < 10 ? "     " : "    ");
-                printf("\n  %d%s",sc_in.dev_ctrs->p_ctrs[val_p].pnum, padding);
-                for (cntr = 0; cntr < sc_in.dev_ctrs->p_ctrs[val_p].ctrs_cnt; ++cntr) {
+                strcpy(padding, sc_rxs_in.dev_ctrs->p_ctrs[val_p].pnum < 10 ? "     " : "    ");
+                printf("\n  %d%s",sc_rxs_in.dev_ctrs->p_ctrs[val_p].pnum, padding);
+                for (cntr = 0; cntr < sc_rxs_in.dev_ctrs->p_ctrs[val_p].ctrs_cnt; ++cntr) {
                         strcpy(padding, cntr == 0 ? "   " : "           ");
-                        printf("%s%d        %s %s           %d             %lld \n", padding, cntr, SC_NAME(sc_in.dev_ctrs->p_ctrs[val_p].ctrs[cntr].sc),
-                                (sc_in.dev_ctrs->p_ctrs[val_p].ctrs[cntr].tx) ? "TX" : "RX",
-                                sc_in.dev_ctrs->p_ctrs[val_p].ctrs[cntr].last_inc,
-                                sc_in.dev_ctrs->p_ctrs[val_p].ctrs[cntr].total );
+                        printf("%s%d        %s %s           %d             %lld \n", padding, cntr, SC_NAME(sc_rxs_in.dev_ctrs->p_ctrs[val_p].ctrs[cntr].sc),
+                                (sc_rxs_in.dev_ctrs->p_ctrs[val_p].ctrs[cntr].tx) ? "TX" : "RX",
+                                sc_rxs_in.dev_ctrs->p_ctrs[val_p].ctrs[cntr].last_inc,
+                                sc_rxs_in.dev_ctrs->p_ctrs[val_p].ctrs[cntr].total );
                 }
         }
 
