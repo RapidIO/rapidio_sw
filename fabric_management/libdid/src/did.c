@@ -269,11 +269,12 @@ int did_get(did_t *did, did_val_t value, did_sz_t size)
 /**
  * Check if a device Id is in use
  * @param did the device Id
- * @retval true if the device Id is in use, false otherwise
+ * @retval 0 if the device Id is not in use
+ * @retval 1 if the device Id is in use
  * @retval -EINVAL the specified device Id is out of range
  * @retval -EPERM the operation is not supported
  */
-bool did_inuse(did_t did)
+int did_not_inuse(did_t did)
 {
 	switch(did.size) {
 	case dev08_sz:
@@ -290,7 +291,7 @@ bool did_inuse(did_t did)
 		// only 8 and 16 bit DIDs are supported
 		return -EPERM;
 	}
-	return (did.size == did_ids[did.value]);
+	return (did.size == did_ids[did.value] ? 1 : 0);
 }
 
 /**

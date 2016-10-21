@@ -48,6 +48,9 @@ extern "C" {
 typedef uint32_t ct_t;
 typedef uint16_t ct_nr_t;
 
+/**
+ * \brief A value of zero is an invalid component tag
+ */
 #define COMPTAG_UNSET 0x00000000
 
 int ct_create_all(ct_t *ct, did_t *did, did_sz_t size);
@@ -57,6 +60,7 @@ int ct_release(ct_t *ct, did_t did);
 
 int ct_get_nr(ct_nr_t *nr, ct_t ct);
 int ct_get_destid(did_t *did, ct_t ct, did_sz_t size);
+int ct_not_inuse(ct_t ct, did_sz_t size);
 
 #ifdef __cplusplus
 }

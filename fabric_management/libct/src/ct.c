@@ -216,6 +216,36 @@ int ct_get_destid(did_t *did, ct_t ct, did_sz_t size)
 	return did_get(did, (CT_DID_MASK & ct), size);
 }
 
+/**
+ * Determine if the specified component tag is in use.
+ * @param[in] ct the component tag
+ * @param[in] size the size of the device id associated with the component tag
+ * @retval 0 if the ct is not in use
+ * @retval 1 if the ct is in use
+ * @retval -EINVAL nr or did size is invalid
+ * @retval -EPERM the operation is not supported
+ *
+ * \note A component tag with an nr value of 0 is considered not in use
+ */
+int ct_not_inuse(ct_t ct, did_sz_t size)
+{
+	ct_nr_t nr;
+	did_t did;
+	int rc;
+	rc = ct_get_nr(&nr, ct);
+	if (rc) {
+		return rc;
+	}
+
+	if (ct_ids[nr]) {
+		did.value = ct & CT_DID_MASK;
+		did.size = size;
+		return did_not_inuse(did);
+	}
+	return 0;
+
+}
+
 #ifdef __cplusplus
 }
 #endif

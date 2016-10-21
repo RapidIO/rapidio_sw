@@ -63,7 +63,7 @@ int did_create(did_t *did, did_sz_t size);
 int did_create_from_data(did_t *did, did_val_t value, did_sz_t size);
 int did_get(did_t *did, did_val_t value, did_sz_t size);
 int did_release(did_t did);
-bool did_inuse(did_t did);
+int did_not_inuse(did_t did);
 
 did_val_t did_get_value(did_t did);
 did_sz_t did_get_size(did_t did);
