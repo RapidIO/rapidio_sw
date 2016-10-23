@@ -299,9 +299,8 @@ void master_process_hello_peer(struct fmd_peer *peer)
 	sem_post(&peer->tx_mtx);
 
 	if (!peer->tx_rc && add_to_list) {
-		peer->rx_alive = 1;
+		peer->rx_alive = 2;
 		peer->got_hello = 1;
-		sem_post(&peer->started);
 		sem_wait(&fmp.peers_mtx);
 		peer->li = l_add(&fmp.peers, peer->p_did, peer);
 		sem_post(&fmp.peers_mtx);
@@ -382,8 +381,9 @@ void cleanup_peer(struct fmd_peer *peer)
 		sem_post(&fmp.peers_mtx);
 	};
 
-	del_device_from_dd(peer->p_ct, peer->p_did);
-	send_peer_removal_messages(peer);
+	if (!del_device_from_dd(peer->p_ct, peer->p_did)) {
+		send_peer_removal_messages(peer);
+	};
 
 	if (peer->tx_buff_used) {
 		riomp_sock_release_send_buffer(peer->cm_skt_h,
@@ -399,11 +399,12 @@ void cleanup_peer(struct fmd_peer *peer)
 		peer->rx_buff_used = 0;
 	};
 
-	if (peer->skt_h_valid) {
+	if (peer->skt_h_valid && (NULL != peer->cm_skt_h)) {
 		int rc = riomp_sock_close(&peer->cm_skt_h);
 		if (rc) {
 			ERR("socket close rc %d: %s\n", rc, strerror(errno));
 		};
+		peer->cm_skt_h = NULL;
 		peer->skt_h_valid= 0;
 	};
 };
@@ -411,6 +412,9 @@ void cleanup_peer(struct fmd_peer *peer)
 void *peer_rx_loop(void *p_i)
 {
 	struct fmd_peer *peer = (struct fmd_peer *)p_i;
+
+	peer->rx_alive = 1;
+	sem_post(&peer->started);
 
 	while (!peer->rx_must_die && !peer->tx_rc && !peer->rx_rc) {
 		peer_rx_req(peer);
@@ -457,26 +461,11 @@ int start_new_peer(riomp_sock_t new_skt)
 
 	peer = (struct fmd_peer *) calloc(1, sizeof(struct fmd_peer));
 
-	peer->p_pid = 0;
-	peer->p_did = 0;
-	peer->p_did_sz = 0;
-	peer->p_ct = 0;
-	peer->p_hc = 0;
-	peer->cm_skt = 0;
 	peer->skt_h_valid= 1;
 	peer->cm_skt_h = new_skt;
-	sem_init(&peer->started, 0, 0);
-	peer->got_hello = 0;
 	sem_init(&peer->init_cplt_mtx, 0, 1);
-	peer->init_cplt = 0;
-	peer->rx_must_die = 0;
-	peer->tx_buff_used = 0;
-	peer->tx_rc = 0;
-	peer->rx_rc = 0;
 	sem_init(&peer->tx_mtx, 0, 1);
 	sem_init(&peer->started, 0, 0);
-	peer->rx_alive = 0;
-	peer->rx_buff_used = 0;
 	peer->rx_buff = calloc(1, 4096);
 
 	if (riomp_sock_request_send_buffer(new_skt, &peer->tx_buff)) {
@@ -485,11 +474,16 @@ int start_new_peer(riomp_sock_t new_skt)
 	};
 
         rc = pthread_create(&peer->rx_thr, NULL, peer_rx_loop, (void*)peer);
-	if (!rc)
-		sem_wait(&peer->started);
-
-	if (rc || !peer->rx_alive)
+	if (rc) {
+		cleanup_peer(peer);
 		goto fail;
+	};
+
+	sem_wait(&peer->started);
+
+	if (rc || !peer->rx_alive) {
+		goto fail;
+	};
 
 	return 0;
 fail:
@@ -567,6 +561,7 @@ void *mast_acc(void *unused)
 			};
 		};
 		do {
+			errno = 0;
 			rc = riomp_sock_accept(fmp.acc.cm_acc_h,
 				&new_skt, 3*60*1000);
 		} while (rc && ((errno == ETIME) || (errno == EINTR)));
@@ -583,7 +578,6 @@ void *mast_acc(void *unused)
 
 		if (start_new_peer(new_skt)) {
 			WARN("Could not start peer after accept\n");
-			free(new_skt);
 		};
 			
 		new_skt = NULL;
@@ -632,54 +626,15 @@ int start_peer_mgmt(uint32_t mast_acc_skt_num, uint32_t mp_num,
 	fmp.acc.mp_num = mp_num;
 	fmp.mode = master;
 
-	if (master)
+	if (master) {
 		rc = start_peer_mgmt_master(mast_acc_skt_num, mp_num);
-	else
+	} else {
 		rc = start_peer_mgmt_slave(mast_acc_skt_num, mast_did, mp_num, 
 			&fmp.slv);
-
-	if (rc)
-		shutdown_mgmt();
+	};
 	return rc;
 };
 		
-void shutdown_master_mgmt(void)
-{
-	struct fmd_peer *peer = NULL;
-	void *unused = NULL;
-
-	/* Shut down accept thread first... */
-	if (fmp.acc.acc_alive) {
-		fmp.acc.acc_must_die = 1;
-		pthread_kill(fmp.acc.acc, SIGHUP);
-		pthread_join(fmp.acc.acc, &unused);
-	};
-
-	/* Then kill every listening thread, if they're not dead already */
-
-	peer = (struct fmd_peer *)l_pop_head(&fmp.peers);
-	while (peer != NULL) {
-		peer->li = NULL;
-		cleanup_peer(peer);
-	
-		pthread_kill(peer->rx_thr, SIGHUP);
-		pthread_join(peer->rx_thr, &unused);
-		free(peer);
-		peer = (struct fmd_peer *)l_pop_head(&fmp.peers);
-	};
-	cleanup_acc_handler();
-};
-
-void shutdown_mgmt(void)
-{
-	if (fmp.mode)
-		shutdown_master_mgmt();
-	else
-		shutdown_slave_mgmt();
-};
-
-	
-
 void update_peer_flags(void)
 {
 	if (fmp.mode)

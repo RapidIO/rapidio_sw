@@ -101,8 +101,6 @@ struct int_mport_info {
 #define CFG_MAX_CONN (CFG_MAX_SW*CFG_MAX_CONN_PORT)
 #define CFG_MAX_DEVS (CFG_MAX_SW+CFG_MAX_CONN)
 
-#define CFG_MAX_DEV_FN 256
-
 #define OTHER_END(x) ((1 == x)?0:((0==x)?1:2))
 
 #define CFG_SLAVE -1
@@ -189,6 +187,7 @@ struct int_cfg_parms {
 	struct int_cfg_sw sws[CFG_MAX_SW];
 	uint32_t conn_cnt;
 	struct int_cfg_conn cons[CFG_MAX_CONN];
+	bool auto_config;
 };
 
 extern struct int_cfg_parms *cfg;

@@ -69,13 +69,6 @@ struct rapidio_mport_mailbox {
 	uint8_t mport_id;
 };
 
-struct rapidio_mport_handle {
-        int     fd;                         /**< posix api compatible fd to be used with poll/select */
-	uint8_t mport_id;
-	uint8_t umd_chan;
-        void* stats;                    /**< Pointer to statistics gathering back door for driver... */
-};
-
 void* riomp_mgmt_mport_get_stats(struct rapidio_mport_handle* hnd)
 {
 	if (hnd == NULL) return NULL;
@@ -128,12 +121,12 @@ int riomp_mgmt_mport_create_handle(uint32_t mport_id, int flags, riomp_mport_t *
 		return ret;
 	}
 
-	hnd->fd       = fd;
+	hnd->fd = fd;
 	hnd->mport_id = mport_id;
 
-        *mport_handle = hnd;
+	*mport_handle = hnd;
 
-        return 0;
+	return 0;
 }
 
 int riomp_mgmt_mport_destroy_handle(riomp_mport_t *mport_handle)
@@ -959,10 +952,11 @@ int riomp_mgmt_device_del(riomp_mport_t mport_handle, uint16_t destid, uint8_t h
 	dev.destid = destid;
 	dev.hopcount = hc;
 	dev.comptag = ctag;
-	if (name)
+	if (name) {
 		strncpy(dev.name, name, RIO_MAX_DEVNAME_SZ);
-	else
+	} else {
 		*dev.name = '\0';
+	}
 
 	if (ioctl(hnd->fd, RIO_DEV_DEL, &dev))
 		return errno;
@@ -1071,6 +1065,7 @@ int riomp_sock_close(riomp_sock_t *socket_handle)
 	}
 
 	free(handle);
+	*socket_handle = NULL;
 	return ret;
 }
 

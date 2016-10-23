@@ -59,6 +59,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "comptag.h"
 #include "IDT_Statistics_Counter_API.h"
 #include "cfg.h"
+#include "rapidio_mport_mgmt.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -76,17 +77,17 @@ int mpsw_drv_reg_rd(struct riocp_pe  *pe, uint32_t offset, uint32_t *val)
 		ERR("Could not get private data: rc %d:%s\n",
 							ret, strerror(ret));
 		return ret;
-	};
+	}
 
 	ret = DARRegRead(&priv_ptr->dev_h, offset, val);
 	if (ret) {
 		ERR("Read Failed: offset 0x%x rc 0x%x\n", offset, ret);
 		ret = EIO;
-	};
+	}
 
 	DBG("EXIT\n");
 	return ret;
-};
+}
 
 int mpsw_drv_reg_wr(struct riocp_pe  *pe, uint32_t offset, uint32_t val)
 {
@@ -100,7 +101,7 @@ int mpsw_drv_reg_wr(struct riocp_pe  *pe, uint32_t offset, uint32_t val)
 		ERR("Could not get private data: rc %d:%s\n",
 							-ret, strerror(-ret));
 		return -ret;
-	};
+	}
 
 	if (RIO_DEVID == offset) {
 		if (RIOCP_PE_IS_MPORT(pe)) {
@@ -109,18 +110,18 @@ int mpsw_drv_reg_wr(struct riocp_pe  *pe, uint32_t offset, uint32_t val)
 			p_acc = (struct mpsw_drv_pe_acc_info *)
 					priv_ptr->dev_h.accessInfo;
 			ret = riomp_mgmt_destid_set(p_acc->maint, dev8_did);
-		};
-	};
+		}
+	}
 
 	ret = DARRegWrite(&priv_ptr->dev_h, offset, val);
 	if (ret) {
 		ERR("Write Failed: offset 0x%x rc 0x%x\n", offset, ret);
 		ret = EIO;
-	};
+	}
 
 	DBG("EXIT\n");
 	return 0;
-};
+}
 
 int mpsw_drv_raw_reg_wr(struct riocp_pe *pe, uint32_t did, uint8_t hc,
 				uint32_t addr, uint32_t val)
@@ -142,7 +143,7 @@ int mpsw_drv_raw_reg_wr(struct riocp_pe *pe, uint32_t did, uint8_t hc,
 	else
 		rc = riomp_mgmt_rcfg_write(p_acc->maint, did, hc, addr, 4, val);
 	return rc;
-};
+}
 
 int mpsw_drv_raw_reg_rd(struct riocp_pe *pe, uint32_t did, uint8_t hc,
 				uint32_t addr, uint32_t *val)
@@ -162,7 +163,7 @@ int mpsw_drv_raw_reg_rd(struct riocp_pe *pe, uint32_t did, uint8_t hc,
 	else
 		rc = riomp_mgmt_rcfg_read(p_acc->maint, did, hc, addr, 4, val);
 	return rc;
-};
+}
 
 #define MPSW_MAX_DEV_FN 255
 #define MPSW_DFLT_DEV_DIR "/sys/bus/rapidio/devices/"
@@ -173,6 +174,9 @@ int mpsw_mport_dev_add(struct riocp_pe *pe, char *name)
 	struct mpsw_drv_pe_acc_info *p_acc = NULL;
 	struct mpsw_drv_private_data *p_dat = NULL;
 	char dev_fn[MPSW_MAX_DEV_FN] = {0};
+
+	memset(pe->sysfs_name, 0, sizeof(pe->sysfs_name));
+	strncpy(pe->sysfs_name, name, sizeof(pe->sysfs_name) - 1);
 
 	if (RIOCP_PE_IS_MPORT(pe))
 		return 0;
@@ -188,8 +192,6 @@ int mpsw_mport_dev_add(struct riocp_pe *pe, char *name)
 	if ((!p_acc->maint_valid) || (NULL == name))
 		return -EINVAL;
 
-	pe->name = (const char *)name;
-
 	memset(dev_fn, 0, MPSW_MAX_DEV_FN);
 	snprintf(dev_fn, MPSW_MAX_DEV_FN-1, "%s%s", MPSW_DFLT_DEV_DIR, name);
 
@@ -197,15 +199,15 @@ int mpsw_mport_dev_add(struct riocp_pe *pe, char *name)
 		INFO("\nFMD: device \"%s\" exists...\n", name);
 	} else {
 		rc = riomp_mgmt_device_add(p_acc->maint, pe->destid,
-			pe->hopcount, pe->comptag, pe->name);
+			pe->hopcount, pe->comptag, pe->sysfs_name);
 		if (rc) {
 			CRIT("riomp_mgmt_device_add, rc %d errno %d\n",
 				rc, errno);
-		};
-	};
+		}
+	}
 
 	return rc;
-};
+}
 
 int mpsw_destroy_priv_data(struct riocp_pe *pe);
 
@@ -222,7 +224,7 @@ int mpsw_alloc_priv_data(struct riocp_pe *pe, void **p_dat,
 		CRIT("Unable to allocate mpsw_drv_private_data\n");
 		ret = -ENOMEM;
 		goto err;
-	};
+	}
 
 	pe->private_data = *p_dat;
 	priv_ptr = (struct mpsw_drv_private_data *)*p_dat;
@@ -241,7 +243,7 @@ int mpsw_alloc_priv_data(struct riocp_pe *pe, void **p_dat,
 			CRIT("Unable to allocate mpsw_drv_pe_acc_info\n");
 			ret = ENOMEM;
 			goto err;
-		};
+		}
 	
 		acc_p = (struct mpsw_drv_pe_acc_info *)priv_ptr->dev_h.accessInfo;
 		acc_p->local = 1;
@@ -252,7 +254,7 @@ int mpsw_alloc_priv_data(struct riocp_pe *pe, void **p_dat,
 			CRIT("Unable to open mport %d %d:%s\n", pe->minfo->id,
 				errno, strerror(errno));
 			goto exit;
-		};
+		}
 		acc_p->maint_valid = 1;
 		DBG("Successfully openned mport did %d ct %x\n",
 			pe->destid, pe->comptag);
@@ -262,11 +264,11 @@ int mpsw_alloc_priv_data(struct riocp_pe *pe, void **p_dat,
 			CRIT("Unable to query mport %d properties %d:%s\n",
 				 pe->mport, errno, strerror(errno));
 			goto err;
-		};
+		}
 		pe->mport->minfo->private_data = (void *)acc_p;
 		ret = 0;
 		goto exit;
-	};
+	}
 
 	if (NULL == peer)
 		goto err;
@@ -280,7 +282,7 @@ err:
 exit:
 	DBG("EXIT\n");
 	return ret;
-};
+}
 
 int mpsw_destroy_priv_data(struct riocp_pe *pe)
 {
@@ -299,13 +301,13 @@ int mpsw_destroy_priv_data(struct riocp_pe *pe)
 			if (riomp_mgmt_mport_destroy_handle(&acc_p->maint)) 
 				CRIT("Unable to close mport %d %d:%s\n",
 					pe->mport, errno, strerror(errno));
-		};
+		}
 		free(priv_ptr->dev_h.accessInfo);
-	};
+	}
 	free(pe->private_data);
 
 	return 0;
-};
+}
 
 int mpdrv_init_rt(uint32_t ct, DAR_DEV_INFO_t *dh)
 {
@@ -315,11 +317,13 @@ int mpdrv_init_rt(uint32_t ct, DAR_DEV_INFO_t *dh)
         pe_port_t port;
         int rc;
 
-        if (cfg_find_dev_by_ct(ct, &sw)) {
-                if (!sw.is_sw)
-                        WARN("libriocp_pe libcfg conflict: is CT 0x%x"
-                                " a switch?", ct);
-        };
+        rc = cfg_find_dev_by_ct(ct, &sw);
+        if (rc) {
+                /* device not found in config file
+                 * continue with other initialization
+                 */
+                return 0;
+        }
 
         if (NULL != sw.sw_info.rt[CFG_DEV08]) {
                 set_in.set_on_port = RIO_ALL_PORTS;
@@ -330,7 +334,7 @@ int mpdrv_init_rt(uint32_t ct, DAR_DEV_INFO_t *dh)
                         ERR("Error programming global rt on ct 0x%x rc %d\n",
                                 sw.ct, rc);
                         goto fail;
-                };
+                }
         }
 
         for (port = 0; port < NUM_PORTS(dh); port++) {
@@ -345,12 +349,20 @@ int mpdrv_init_rt(uint32_t ct, DAR_DEV_INFO_t *dh)
                         ERR("Error programming port %d rt on ct 0x%x rc %d\n",
                                 port, ct, rc);
                         goto fail;
-                };
+                }
         }
         return 0;
 fail:
         return 1;
-};
+}
+
+int mpsw_drv_get_mport_regs(int mp_num, struct mport_regs *regs);
+
+// NOTE: generic_device_init is called when the
+// pe->cap structure has not yet been filled in.
+//
+// Only librio_switch macros for checking register/capability
+// values work at this point.
 
 int generic_device_init(struct riocp_pe *pe, uint32_t *ct)
 {
@@ -359,7 +371,7 @@ int generic_device_init(struct riocp_pe *pe, uint32_t *ct)
 	DAR_DEV_INFO_t *dev_h = NULL;
 	struct DAR_ptl ptl;
 	idt_pc_set_config_in_t set_pc_in;
-	idt_pc_dev_reset_config_in_t    rst_in = {idt_pc_rst_port};
+	idt_pc_dev_reset_config_in_t rst_in = {idt_pc_rst_port};
 	idt_pc_dev_reset_config_out_t   rst_out;
 	idt_pc_get_status_in_t	  ps_in;
 	idt_pc_get_config_in_t	  pc_in;
@@ -376,67 +388,80 @@ int generic_device_init(struct riocp_pe *pe, uint32_t *ct)
 	if (NULL == priv) {
 		ERR("Private Data is NULL, exiting\n");
 		goto exit;
-	};
+	}
 
-	pe->name = (const char *)priv->dev_h.name;
+	pe->dev_name = (const char *)priv->dev_h.name;
 	dev_h = &priv->dev_h;
 
-	if (RIOCP_PE_IS_HOST(pe) || RIOCP_PE_IS_MPORT(pe)) {
-		/* ensure destID/comptag/addrmode is configured correctly */
-		/* FIXME: Assumes comptag and destID is passed in, not
- 		* administered by riocp_pe.
- 		*/
-		uint32_t did = RIOCP_PE_COMPTAG_DESTID(*ct);
-		rc = riocp_pe_update_comptag(pe, ct, did, 1);
-		if (rc) {
-			ERR("Could not update comptag\n");
-			goto exit;
-		};
+	// ensure destID/comptag/addrmode is configured correctly
+	rc = riocp_pe_update_comptag(pe, ct, RIOCP_PE_COMPTAG_DESTID(*ct), 1);
+	if (rc) {
+		ERR("Could not update comptag\n");
+		goto exit;
+	}
 
-		ptl.num_ports = RIO_ALL_PORTS;
+	if (!RIOCP_PE_IS_HOST(pe)) {
+		rc = 0;
+		goto exit;
+	}
+
+	// Enable all ports on switches to allow continued exploration.
+	// Disable ports on all other devices, until enumeration is complete.
+
+	ptl.num_ports = RIO_ALL_PORTS;
+	if (SWITCH(dev_h) || RIOCP_PE_IS_MPORT(pe)) {
 		rc = DARrioPortEnable(dev_h, &ptl, true, false, true);
-		if (RIO_SUCCESS != rc)
-			goto exit;
-		rc = DARrioSetEnumBound(dev_h, &ptl, 0);
-		if (rc) {
-			ERR("Could not clear enumeration indication\n");
-			goto exit;
-		};
+	} else {
+		rc = DARrioPortEnable(dev_h, &ptl, true, false, false);
+	}
+
+	if (RIO_SUCCESS != rc) {
+		goto exit;
+	}
+
+	rc = DARrioSetEnumBound(dev_h, &ptl, 0);
+	if (rc) {
+		ERR("Could not clear enumeration indication\n");
+		goto exit;
+	}
+	if (MEMORY(dev_h)) {
+		struct mport_regs regs;
+		uint8_t memsz;
+		uint32_t reg_val = RIO_PE_LL_CTL_34BIT;;
+
 		if (RIOCP_PE_IS_MPORT(pe)) {
-			uint8_t mem_sz;
-			RIO_PE_ADDR_T addr_mode;
-			if (!cfg_get_mp_mem_sz(pe->minfo->id, &mem_sz)) {
-				switch (mem_sz) {
-				case CFG_MEM_SZ_34: 
-					addr_mode = RIO_PE_FEAT_EXT_ADDR34;
+			if (cfg_get_mp_mem_sz(pe->minfo->id, &memsz)) {
+				rc = -1;
+				ERR("Could not get mport.");
+				goto exit;
+			}
+			switch (memsz) {
+			case CFG_MEM_SZ_34: reg_val = RIO_PE_LL_CTL_34BIT;
 					break;
-				case CFG_MEM_SZ_50:
-					addr_mode = RIO_PE_FEAT_EXT_ADDR50;
+			case CFG_MEM_SZ_50: reg_val = RIO_PE_LL_CTL_50BIT;
 					break;
-				case CFG_MEM_SZ_66:
-					addr_mode = RIO_PE_FEAT_EXT_ADDR66;
+			case CFG_MEM_SZ_66: reg_val = RIO_PE_LL_CTL_66BIT;
 					break;
-				default:
-					rc = -1;
-					ERR("CT 0x%0x Unknown mem_sz 0x%x\n",
-						*ct, mem_sz);
-					goto exit;
-				};
-				if (!(addr_mode & dev_h->features)) {
-					rc = -1;
-					ERR("CT 0x%0x Addr mode 0x%x Failed\n",
-						addr_mode);
-					goto exit;
-				};
-				rc = DARrioSetAddrMode(dev_h, addr_mode);
-				if (RIO_SUCCESS != rc) {
-					ERR("CT 0x%0x DARrioSetAddrMode rc 0x%x\n",
-						*ct, rc);
-					goto exit;
-				};
-			};
-		};
-	};
+			default:
+				rc = -1;
+				ERR("Could not get mport.");
+				goto exit;
+			}
+		} else {
+			rc = mpsw_drv_get_mport_regs(pe->mport->minfo->id,
+									&regs);
+			if (rc) {
+				ERR("Could not read mport registers.");
+				goto exit;
+			}
+			reg_val = regs.memaddr_sz;
+		}
+		rc = DARrioSetAddrMode(dev_h, reg_val);
+		if (RIO_SUCCESS != rc) {
+			ERR("CT 0x%0x DARrioSetAddrMode rc 0x%x\n", *ct, rc);
+			goto exit;
+		}
+	}
 
 	/* Query port configuration and status */
 	pc_in.ptl.num_ports = RIO_ALL_PORTS;
@@ -452,27 +477,22 @@ int generic_device_init(struct riocp_pe *pe, uint32_t *ct)
 
 	for (int i = 0; i < priv->st.pc.num_ports; i++) {
 		set_pc_in.pc[i].fc = idt_pc_fc_rx;
-	};
+	}
 
 	rc = mpsw_drv_raw_reg_rd(pe, pe->destid, pe->hopcount, RIO_SW_PORT_INF,
 				&port_info);
 	if (rc) {
 		CRIT("Unable to get port info %d:%s\n", rc, strerror(rc));
 		goto exit;
-	};
+	}
 	set_pc_in.reg_acc_port = RIO_ACCESS_PORT(port_info);
 	
-/*
-	rc = idt_pc_set_config(dev_h, &set_pc_in, &priv->st.pc);
-	if (RIO_SUCCESS != rc)
-		goto exit;
-*/
-
 	ps_in.ptl.num_ports = RIO_ALL_PORTS;
 	rc = idt_pc_get_status(dev_h, &ps_in, &priv->st.ps);
 	if (RIO_SUCCESS != rc)
 		goto exit;
-	if (SWITCH((&priv->dev_h))) {
+
+	if (SWITCH(dev_h)) {
 		pe_port_t port;
 		rt_in.probe_on_port = RIO_ALL_PORTS;
 		rt_in.rt	    = &priv->st.g_rt;
@@ -485,10 +505,10 @@ int generic_device_init(struct riocp_pe *pe, uint32_t *ct)
 			rc = idt_rt_probe_all(dev_h, &rt_in, &rt_out);
 			if (RIO_SUCCESS != rc)
 				goto exit;
-		};
-	};
+		}
+	}
 
-	if (SWITCH((&priv->dev_h))) {
+	if (SWITCH((dev_h))) {
 		pe_port_t port;
 		rc = mpdrv_init_rt(*ct, dev_h);
 		if (rc)
@@ -505,8 +525,8 @@ int generic_device_init(struct riocp_pe *pe, uint32_t *ct)
 			rc = idt_rt_probe_all(dev_h, &rt_in, &rt_out);
 			if (RIO_SUCCESS != rc)
 				goto exit;
-		};
-	};
+		}
+	}
 
 	/* Initialize performance counter structure */
 	sc_in.ptl.num_ports = RIO_ALL_PORTS;
@@ -519,24 +539,44 @@ int generic_device_init(struct riocp_pe *pe, uint32_t *ct)
 	if (RIO_SUCCESS != rc)
 		goto exit;
 
-	if (!RIOCP_PE_IS_HOST(pe))
-		goto exit;
-
-	/* Set device reset handling to "per port" if possible */
+	if (RIOCP_PE_IS_MPORT(pe)) {
+		rst_in.rst = idt_pc_rst_ignore;
+	} else {
+		/* Set device reset handling to "per port" if possible */
+		rst_in.rst = idt_pc_rst_port;
+	}
 	rc = idt_pc_dev_reset_config(dev_h, &rst_in, &rst_out);
-	if (RIO_SUCCESS != rc)
-		goto exit;
-
-	rc = idt_em_cfg_pw(dev_h, &priv->st.em_pw_cfg, &priv->st.em_pw_cfg);
 	if (RIO_SUCCESS != rc)
 		goto exit;
 
 	rpt_in.ptl.num_ports = RIO_ALL_PORTS;
 	rpt_in.notfn = idt_em_notfn_none;
 	rc = idt_em_dev_rpt_ctl(dev_h, &rpt_in, &priv->st.em_notfn);
+
+	if (RIOCP_PE_IS_MPORT(pe)) {
+		return 0;
+	}
+
+	// Set up port-write reporting.
+	// Note that this tells the endpoints the destination ID of the
+	// system Host.
+
+	priv->st.em_pw_cfg.deviceID_tt = tt_dev8;
+	priv->st.em_pw_cfg.port_write_destID = pe->mport->destid;
+	priv->st.em_pw_cfg.srcID_valid = true;
+	priv->st.em_pw_cfg.port_write_srcID = pe->destid;
+	priv->st.em_pw_cfg.priority = 3;
+	priv->st.em_pw_cfg.CRF = true;
+	priv->st.em_pw_cfg.port_write_re_tx = 0;
+
+	rc = idt_em_cfg_pw(dev_h, &priv->st.em_pw_cfg, &priv->st.em_pw_cfg);
+	if (rc) {
+		goto exit;
+	}
+	return 0;
 exit:
 	return rc;
-};
+}
 	
 int mpsw_drv_reg_rd(struct riocp_pe  *pe, uint32_t offset, uint32_t *val);
 
@@ -546,7 +586,6 @@ int RIOCP_WU mpsw_drv_init_pe(struct riocp_pe *pe, uint32_t *ct,
 	struct mpsw_drv_private_data *p_dat = NULL;
 	int ret = 1;
 	uint32_t temp_devid;
-	uint32_t gen_ctl;
 
 	DBG("ENTRY\n");
 
@@ -556,13 +595,13 @@ int RIOCP_WU mpsw_drv_init_pe(struct riocp_pe *pe, uint32_t *ct,
 	if (NULL != p_dat) {
 		DBG("Private Data exists!\n");
 		goto exit;
-	};
+	}
 
 	ret = mpsw_alloc_priv_data(pe, (void **)&p_dat, peer);
 	if (ret) {
 		CRIT("Unable to allocate private data.\n");
 		goto exit;
-	};
+	}
 
 	/* Select a driver for the device */
 	ret = mpsw_drv_raw_reg_rd(pe, pe->destid, pe->hopcount, RIO_DEV_IDENT,
@@ -570,7 +609,7 @@ int RIOCP_WU mpsw_drv_init_pe(struct riocp_pe *pe, uint32_t *ct,
 	if (ret) {
 		CRIT("Unable to read device ID %d:%s\n", ret, strerror(ret));
 		goto error;
-	};
+	}
 	
 	p_dat->dev_h.devID = temp_devid;
 	ret = DAR_Find_Driver_for_Device(1, &p_dat->dev_h);
@@ -579,39 +618,20 @@ int RIOCP_WU mpsw_drv_init_pe(struct riocp_pe *pe, uint32_t *ct,
 			ret, p_dat->dev_h.devID);
 		ret = errno = EOPNOTSUPP;
 		goto error;
-	};
+	}
 	p_dat->dev_h_valid = 1;
 
 	ret = generic_device_init(pe, ct);
 	if (ret) {
 		CRIT("Generic device init failed: %d (0x%x)\n", ret, ret);
 		goto error;
-	};
+	}
 
 	ret = mpsw_mport_dev_add(pe, name);
 	if (ret) {
 		CRIT("Adding device to mport failed: %d (0x%x)\n", ret, ret);
 		goto error;
-	};
-
-	if (!p_dat->dev_h.extFPtrForPort)
-		goto exit;
-
-	ret = mpsw_drv_reg_rd(pe, 
-		RIO_SP_GEN_CTL(p_dat->dev_h.extFPtrForPort), &gen_ctl);
-	if (ret) {
-		CRIT("Adding device to mport failed: %d (0x%x)\n", ret, ret);
-		goto error;
-	};
-
-	gen_ctl |= RIO_SP_GEN_CTL_MAST_EN | RIO_SP_GEN_CTL_DISC;
-
-	ret = mpsw_drv_reg_wr(pe, 
-		RIO_SP_GEN_CTL(p_dat->dev_h.extFPtrForPort), gen_ctl);
-	if (ret) {
-		CRIT("Adding device to mport failed: %d (0x%x)\n", ret, ret);
-		goto error;
-	};
+	}
 
 	goto exit;
 error: 
@@ -619,7 +639,7 @@ error:
 exit:
 	DBG("EXIT\n");
 	return ret;
-};
+}
 
 int RIOCP_WU mpsw_drv_init_pe_em(struct riocp_pe *pe, bool en_em)
 {
@@ -635,7 +655,7 @@ int RIOCP_WU mpsw_drv_init_pe_em(struct riocp_pe *pe, bool en_em)
 	if (NULL == priv) {
 		ERR("Private Data is NULL, exiting\n");
 		return -1;
-	};
+	}
 
 	dev_h = &priv->dev_h;
 
@@ -646,7 +666,7 @@ int RIOCP_WU mpsw_drv_init_pe_em(struct riocp_pe *pe, bool en_em)
 
 	rpt_in.ptl.num_ports = RIO_ALL_PORTS;
 	return idt_em_dev_rpt_ctl(dev_h, &rpt_in, &priv->st.em_notfn);
-};
+}
 
 int RIOCP_WU mpsw_drv_destroy_pe(struct riocp_pe *pe)
 {
@@ -654,7 +674,7 @@ int RIOCP_WU mpsw_drv_destroy_pe(struct riocp_pe *pe)
 	mpsw_destroy_priv_data(pe);
 	DBG("EXIT\n");
 	return 0;
-};
+}
 
 int RIOCP_WU mpsw_drv_recover_port(struct riocp_pe *pe, pe_port_t port,
 				pe_port_t lp_port)
@@ -669,12 +689,12 @@ int RIOCP_WU mpsw_drv_recover_port(struct riocp_pe *pe, pe_port_t port,
 	if (riocp_pe_handle_get_private(pe, (void **)&p_dat)) {
 		DBG("Private Data does not exist EXITING!\n");
 		goto fail;
-	};
+	}
 
 	if (!p_dat->dev_h_valid) {
 		DBG("Device handle not valid EXITING!\n");
 		goto fail;
-	};
+	}
 
 	clr_errs_in.port_num = port;
 	clr_errs_in.clr_lp_port_err = 1;
@@ -685,17 +705,16 @@ int RIOCP_WU mpsw_drv_recover_port(struct riocp_pe *pe, pe_port_t port,
 	ret = idt_pc_clr_errs(&p_dat->dev_h, &clr_errs_in, &clr_errs_out);
 	if (ret) {
 		DBG("Failed clearing %s Port %d ret 0x%x imp_rc 0x%x\n",
-			pe->name?pe->name:"Unknown", port, ret,
-			clr_errs_out.imp_rc);
+			pe->sysfs_name, port, ret, clr_errs_out.imp_rc);
 		goto fail;
-	};
+	}
 
 	DBG("EXIT\n");
 	return 0;
 fail:
 	DBG("FAIL\n");
 	return 1;
-};
+}
 
 
 int mpsw_drv_get_route_entry(struct riocp_pe  *pe, pe_port_t port,
@@ -711,12 +730,12 @@ int mpsw_drv_get_route_entry(struct riocp_pe  *pe, pe_port_t port,
 	if (riocp_pe_handle_get_private(pe, (void **)&p_dat)) {
 		DBG("Private Data does not exist EXITING!\n");
 		goto fail;
-	};
+	}
 
 	if (!p_dat->dev_h_valid) {
 		DBG("Device handle not valid EXITING!\n");
 		goto fail;
-	};
+	}
 
 	probe_in.probe_on_port = port;
 	probe_in.tt = tt_dev8;
@@ -726,10 +745,9 @@ int mpsw_drv_get_route_entry(struct riocp_pe  *pe, pe_port_t port,
 	ret = idt_rt_probe(&p_dat->dev_h, &probe_in, &probe_out);
 	if (ret) {
 		DBG("Failed probing %s port %d did %d ret 0x%x imp_rc 0x%x\n",
-			pe->name?pe->name:"Unknown", port, did, ret,
-			probe_out.imp_rc);
+			pe->sysfs_name, port, did, ret, probe_out.imp_rc);
 		goto fail;
-	};
+	}
 	
 	*rt_val = probe_out.routing_table_value;
 
@@ -738,7 +756,7 @@ int mpsw_drv_get_route_entry(struct riocp_pe  *pe, pe_port_t port,
 fail:
 	DBG("FAIL\n");
 	return 1;
-};
+}
 
 int mpsw_drv_set_route_entry(struct riocp_pe  *pe,
 		       pe_port_t port, uint32_t did, pe_rt_val rt_val)
@@ -754,12 +772,12 @@ int mpsw_drv_set_route_entry(struct riocp_pe  *pe,
 	if (riocp_pe_handle_get_private(pe, (void **)&p_dat)) {
 		DBG("Private Data does not exist EXITING!\n");
 		goto fail;
-	};
+	}
 
 	if (!p_dat->dev_h_valid) {
 		DBG("Device handle not valid EXITING!\n");
 		goto fail;
-	};
+	}
 
 	chg_in.dom_entry = 0;
 	chg_in.idx       = did;
@@ -772,10 +790,9 @@ int mpsw_drv_set_route_entry(struct riocp_pe  *pe,
 	ret = idt_rt_change_rte(&p_dat->dev_h, &chg_in, &chg_out);
 	if (ret) {
 		DBG("RT_CHG %s port %d did %d rte %x ret 0x%x imp_rc 0x%x\n",
-			pe->name?pe->name:"Unknown", port, did, rt_val, ret,
-			chg_out.imp_rc);
+			pe->sysfs_name, port, did, rt_val, ret, chg_out.imp_rc);
 		goto fail;
-	};
+	}
 
 	set_in.set_on_port = port;
 	set_in.rt = chg_in.rt;
@@ -783,17 +800,16 @@ int mpsw_drv_set_route_entry(struct riocp_pe  *pe,
 	ret = idt_rt_set_changed(&p_dat->dev_h, &set_in, &set_out);
 	if (ret) {
 		DBG("RT_SET %s port %d did %d rte 0x%x ret 0x%x imp_rc 0x%x\n",
-			pe->name?pe->name:"Unknown", port, did, rt_val, ret,
-			set_out.imp_rc);
+			pe->sysfs_name, port, did, rt_val, ret, set_out.imp_rc);
 		goto fail;
-	};
+	}
 	
 	DBG("EXIT\n");
 	return 0;
 fail:
 	DBG("FAIL\n");
 	return 1;
-};
+}
 
 int mpsw_drv_alloc_mcast_mask(struct riocp_pe *sw, pe_port_t port,
 			pe_rt_val *rt_val, int32_t port_mask)
@@ -836,8 +852,7 @@ int mpsw_drv_alloc_mcast_mask(struct riocp_pe *sw, pe_port_t port,
 	ret = idt_rt_alloc_mc_mask(&p_dat->dev_h, &alloc_in, &alloc_out);
 	if (ret) {
 		DBG("ALLOC_MC %s port %d ret 0x%x imp_rc 0x%x\n",
-			sw->name?sw->name:"Unknown", port, ret,
-			alloc_out.imp_rc);
+			sw->sysfs_name,  port, ret, alloc_out.imp_rc);
 		goto fail;
 	};
 
@@ -850,8 +865,7 @@ int mpsw_drv_alloc_mcast_mask(struct riocp_pe *sw, pe_port_t port,
 	ret = idt_rt_change_mc_mask(&p_dat->dev_h, &chg_in, &chg_out);
 	if (ret) {
 		DBG("CHG_MC %s port %d mask %x ret 0x%x imp_rc 0x%x\n",
-			sw->name?sw->name:"Unknown", port, port_mask, ret,
-			alloc_out.imp_rc);
+			sw->sysfs_name, port, port_mask, ret, alloc_out.imp_rc);
 		goto fail;
 	};
 
@@ -861,8 +875,7 @@ int mpsw_drv_alloc_mcast_mask(struct riocp_pe *sw, pe_port_t port,
 	ret = idt_rt_set_changed(&p_dat->dev_h, &set_in, &set_out);
 	if (ret) {
 		DBG("RT_SET %s port %d rte 0x%x ret 0x%x imp_rc 0x%x\n",
-			sw->name?sw->name:"Unknown", port, *rt_val, ret,
-			set_out.imp_rc);
+			sw->sysfs_name, port, *rt_val, ret, set_out.imp_rc);
 		goto fail;
 	};
 	
@@ -911,8 +924,7 @@ int mpsw_drv_free_mcast_mask(struct riocp_pe *sw, pe_port_t port,
 	ret = idt_rt_dealloc_mc_mask(&p_dat->dev_h, &free_in, &free_out);
 	if (ret) {
 		DBG("FREE_MC %s port %d ret 0x%x imp_rc 0x%x\n",
-			sw->name?sw->name:"Unknown", port, ret,
-			free_out.imp_rc);
+			sw->sysfs_name, port, ret, free_out.imp_rc);
 		goto fail;
 	};
 
@@ -965,8 +977,7 @@ int mpsw_drv_change_mcast_mask(struct riocp_pe *sw, pe_port_t port,
 	ret = idt_rt_change_mc_mask(&p_dat->dev_h, &chg_in, &chg_out);
 	if (ret) {
 		DBG("CHG_MC %s port %d mask 0x%x ret 0x%x imp_rc 0x%x\n",
-			sw->name?sw->name:"Unknown", port, port_mask, ret,
-			chg_out.imp_rc);
+			sw->sysfs_name, port, port_mask, ret, chg_out.imp_rc);
 		goto fail;
 	};
 
@@ -976,8 +987,7 @@ int mpsw_drv_change_mcast_mask(struct riocp_pe *sw, pe_port_t port,
 	ret = idt_rt_set_changed(&p_dat->dev_h, &set_in, &set_out);
 	if (ret) {
 		DBG("CHG_MC %s port %d rte 0x%x ret 0x%x imp_rc 0x%x\n",
-			sw->name?sw->name:"Unknown", port, rt_val, ret,
-			set_out.imp_rc);
+			sw->sysfs_name, port, rt_val, ret, set_out.imp_rc);
 		goto fail;
 	};
 	
@@ -1029,8 +1039,7 @@ int mpsw_drv_port_start(struct riocp_pe  *pe, pe_port_t port)
 	ret = idt_pc_set_config(&p_dat->dev_h, &cfg_in, &p_dat->st.pc);
 	if (ret) {
 		DBG("PC_SetConfig %s port %d ret 0x%x imp_rc 0x%x\n",
-			pe->name?pe->name:"Unknown", port, ret,
-			p_dat->st.pc.imp_rc);
+			pe->sysfs_name, port, ret, p_dat->st.pc.imp_rc);
 		goto fail;
 	};
 	
@@ -1040,8 +1049,7 @@ int mpsw_drv_port_start(struct riocp_pe  *pe, pe_port_t port)
 
 	if (ret) {
 		DBG("PC_Probes %s port %d ret 0x%x imp_rc 0x%x\n",
-			pe->name?pe->name:"Unknown", port, ret,
-			probe_out.imp_rc);
+			pe->sysfs_name, port, ret, probe_out.imp_rc);
 		goto fail;
 	};
 
@@ -1057,13 +1065,13 @@ int mpsw_drv_port_start(struct riocp_pe  *pe, pe_port_t port)
 		recover_ret = mpsw_drv_recover_port(pe, port, 0);
 		if (recover_ret) {
 			DBG("Recover Port %s port %d failed.\n",
-				pe->name?pe->name:"Unknown", port);
+				pe->sysfs_name, port);
 		};
 		break;
 
 	default: 
 		DBG("PC_Probes %s port %d Unknown status 0x%x\n", 
-			pe->name?pe->name:"Unknown", port, probe_out.status);
+			pe->sysfs_name, port, probe_out.status);
 		recover_ret = 1;
 	}
 	
@@ -1072,8 +1080,7 @@ int mpsw_drv_port_start(struct riocp_pe  *pe, pe_port_t port)
 	ret = idt_pc_get_status(&p_dat->dev_h, &st_in, &p_dat->st.ps);
 	if (ret) {
 		DBG("PC_Status %s port %d ret 0x%x imp_rc 0x%x\n",
-			pe->name?pe->name:"Unknown", port, ret,
-			p_dat->st.ps.imp_rc);
+			pe->sysfs_name, port, ret, p_dat->st.ps.imp_rc);
 		goto fail;
 	};
 	
@@ -1117,8 +1124,7 @@ int mpsw_drv_port_stop(struct riocp_pe  *pe, pe_port_t port)
 	ret = idt_pc_set_config(&p_dat->dev_h, &cfg_in, &p_dat->st.pc);
 	if (ret) {
 		DBG("PC_SetConfig %s port %d ret 0x%x imp_rc 0x%x\n",
-			pe->name?pe->name:"Unknown", port, ret,
-			p_dat->st.pc.imp_rc);
+			pe->sysfs_name, port, ret, p_dat->st.pc.imp_rc);
 		goto fail;
 	};
 
@@ -1161,8 +1167,7 @@ int mpsw_drv_reset_port(struct riocp_pe  *pe, pe_port_t port, bool reset_lp)
 	ret = idt_pc_reset_port(&p_dat->dev_h, &reset_in, &reset_out);
 	if (ret) {
 		DBG("PC_reset_port %s port %d ret 0x%x imp_rc 0x%x\n",
-			pe->name?pe->name:"Unknown", port, ret,
-			reset_out.imp_rc);
+			pe->sysfs_name, port, ret, reset_out.imp_rc);
 		goto fail;
 	};
 
@@ -1205,8 +1210,7 @@ int mpsw_drv_get_port_state(struct riocp_pe  *pe, pe_port_t port,
 	ret = idt_pc_get_status(&p_dat->dev_h, &st_in, &p_dat->st.ps);
 	if (ret) {
 		DBG("PC_Status %s port %d ret 0x%x imp_rc 0x%x\n",
-			pe->name?pe->name:"Unknown", port, ret,
-			p_dat->st.ps.imp_rc);
+			pe->sysfs_name, port, ret, p_dat->st.ps.imp_rc);
 		goto fail;
 	};
 	
@@ -1257,17 +1261,17 @@ int mpsw_drv_set_port_speed(struct riocp_pe  *pe, pe_port_t port,
 	if (riocp_pe_handle_get_private(pe, (void **)&p_dat)) {
 		DBG("Private Data does not exist EXITING!\n");
 		return ret;
-	};
+	}
 
 	if (!p_dat->dev_h_valid) {
 		DBG("Device handle not valid EXITING!\n");
 		return ret;
-	};
+	}
 
 	if (port >= NUM_PORTS(&p_dat->dev_h)) {
 		DBG("State or port illegal, EXITING!\n");
 		return ret;
-	};
+	}
 
 	pc_in.lrto = p_dat->st.pc.lrto;
 	pc_in.oob_reg_acc = 0;
@@ -1292,10 +1296,126 @@ int mpsw_drv_set_port_speed(struct riocp_pe  *pe, pe_port_t port,
 		break;
 	default :
 		pc_in.pc[port].ls = idt_pc_ls_last;
-	};
+	}
 
 	return idt_pc_set_config(&p_dat->dev_h, &pc_in, &p_dat->st.pc);
+}
+
+int mpsw_drv_get_mport_regs(int mp_num, struct mport_regs *regs)
+{
+	riomp_mport_t mp_h;
+	int rc = -1;
+
+	if (riomp_mgmt_mport_create_handle(mp_num, 0, &mp_h)) {
+		goto fail;
+	}
+
+	if (riomp_mgmt_lcfg_read(mp_h, RIO_PE_LL_CTL, 4, &regs->memaddr_sz)) {
+		goto close;
+	}
+
+	if (riomp_mgmt_lcfg_read(mp_h, RIO_DEVID, 4, &regs->my_destID)) {
+		goto close;
+	}
+
+	if (riomp_mgmt_lcfg_read(mp_h, RIO_COMPTAG, 4, &regs->comptag)) {
+		goto close;
+	}
+
+	// TODO: Hard coded address below needs to be relative to
+	// Error Management Extensions register block header.
+	//
+	// For now, works with Tsi721.
+
+	if (riomp_mgmt_lcfg_read(mp_h, 0x1028, 4, &regs->host_destID)) {
+		goto close;
+	}
+
+	// TODO: Hard coded address below needs to be relative to
+	// Per Port Software Assisted Error Recover Registers
+	// register block header.
+	//
+	// For now, works with Tsi721.
+
+	if (riomp_mgmt_lcfg_read(mp_h, 0x13C, 4, &regs->disc)) {
+		goto close;
+	}
+	if (riomp_mgmt_lcfg_read(mp_h, 0x158, 4, &regs->p_err_stat)) {
+		goto close;
+	}
+	if (riomp_mgmt_lcfg_read(mp_h, 0x15C, 4, &regs->p_ctl1)) {
+		goto close;
+	}
+
+	rc = 0;
+close:
+	riomp_mgmt_mport_destroy_handle(&mp_h);
+fail:
+	return rc;
 };
+
+int mpsw_drv_enable_pe(struct riocp_pe *pe, pe_port_t port)
+{
+	// Enabling a PE requires two things:
+	//
+	// - Set the DISC and MAST_EN bits in the RIO_SP_GEN_CTL
+	// - Set the INP_EN and OTP_EN bits in the RIO_SPX_CTL for each port
+
+	struct mpsw_drv_private_data *priv;
+	uint32_t oset;
+	uint32_t reg_val;
+	int st_port = port, end_port = port;
+
+	DBG("ENTRY\n");
+	priv = (struct mpsw_drv_private_data *)(pe->private_data);
+
+	if (NULL == priv) {
+		ERR("Private Data is NULL, exiting\n");
+		goto fail;
+	}
+	if (!priv->dev_h.extFPtrForPort) {
+		ERR("extFPtrForPort is 0");
+		goto fail;
+	}
+
+	oset = RIO_SP_GEN_CTL(priv->dev_h.extFPtrForPort);
+
+	if (riocp_pe_maint_read(pe, oset, &reg_val)) {
+		ERR("PE %s failed to read @ 0x%x.", pe->sysfs_name, oset);
+		goto fail;
+	}
+	reg_val |= RIO_SP_GEN_CTL_MAST_EN | RIO_SP_GEN_CTL_DISC;
+	if (riocp_pe_maint_write(pe, oset, reg_val)) {
+		ERR("PE %s failed to write @ 0x%x.", pe->sysfs_name, oset);
+		goto fail;
+	}
+
+	if (RIOCP_PE_ANY_PORT == port) {
+		st_port = 0;
+		end_port = RIOCP_PE_PORT_COUNT(pe->cap) - 1;
+	}
+
+	for (port = st_port; port <= end_port; port++) {
+		oset = RIO_SPX_CTL(priv->dev_h.extFPtrForPort,
+					priv->dev_h.extFPtrPortType,
+					port);
+		if (riocp_pe_maint_read(pe, oset, &reg_val)) {
+			ERR("PE %s failed to read port %d @ 0x%x",
+						pe->sysfs_name, port, oset);
+			goto fail;
+		}
+		reg_val |= RIO_SPX_CTL_INP_EN | RIO_SPX_CTL_OTP_EN;
+		if (riocp_pe_maint_write(pe, oset, reg_val)) {
+			ERR("PE %s failed to write port %d @ 0x%x",
+						pe->sysfs_name, port, oset);
+			goto fail;
+		}
+	}
+
+	return 0;
+fail:
+	return -1;
+}
 
 
 struct riocp_pe_driver pe_mpsw_driver = {
@@ -1312,7 +1432,9 @@ struct riocp_pe_driver pe_mpsw_driver = {
 	mpsw_drv_get_route_entry,
 	mpsw_drv_alloc_mcast_mask,
 	mpsw_drv_free_mcast_mask,
-	mpsw_drv_change_mcast_mask
+	mpsw_drv_change_mcast_mask,
+	mpsw_drv_get_mport_regs,
+	mpsw_drv_enable_pe
 };
 	
 struct riocp_reg_rw_driver pe_mpsw_rw_driver = {

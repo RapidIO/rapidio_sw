@@ -507,7 +507,10 @@ err:
  *                Null if no value was configured.
  * @note Keep in mind this function always initialises found switches (clearing LUTs etc) even
  *  when they are previously found and no handle exists yet!
+ * @retval -EINVAL invalid parameters
  * @retval -EPERM Handle has no host capabilities
+ * @retval -EIO Error in maintenance access
+ * @retval -ENODEV Supplied port is inactive
  */
 int RIOCP_SO_ATTR riocp_pe_probe(riocp_pe_handle pe,
 	uint8_t port,
@@ -601,6 +604,11 @@ int RIOCP_SO_ATTR riocp_pe_probe(riocp_pe_handle pe,
 			pe->mport->minfo->id, comptag);
 
 create_pe:
+		/* Add self to the routing tables */
+		did_t did;
+		ct_get_destid(&did, comptag, dev08_sz);
+		ret = riocp_pe_maint_set_route(pe, did, port);
+
 		/* Create peer handle */
 		free(p);
 		ret = riocp_pe_handle_create_pe(pe, &p, hopcount, ANY_ID, port,
@@ -933,7 +941,7 @@ int RIOCP_SO_ATTR riocp_pe_get_ports(riocp_pe_handle pe, struct riocp_pe_port po
 
 			} else {
 				RIOCP_DEBUG("[0x%08x:%s:hc %u] Port %u is inactive\n",
-					sw->comptag, pe->name,  sw->hopcount, pe->peers[i].remote_port);
+					sw->comptag, pe->sysfs_name,  sw->hopcount, pe->peers[i].remote_port);
 
 			}
 
@@ -1219,27 +1227,32 @@ int RIOCP_SO_ATTR riocp_sw_set_route_entry(riocp_pe_handle sw,
 }
 
 /**
+ * Get RapidIO sysfs name string
+ * @param pe Target PE
+ */
+const char *bad_sysfs_name = "INVALID";
+
+const char RIOCP_SO_ATTR *riocp_pe_get_sysfs_name(riocp_pe_handle pe)
+{
+	if (riocp_pe_handle_check(pe)) {
+		return bad_sysfs_name;
+	};
+
+	return pe->sysfs_name;
+};
+/**
  * Get RapidIO device name string based on device id (did)
  * @param pe Target PE
  */
+const char *bad_device_name = "NoDevName";
+
 const char RIOCP_SO_ATTR *riocp_pe_get_device_name(riocp_pe_handle pe)
 {
-	unsigned int i;
-	uint16_t vid;
-	uint16_t did;
+	if (riocp_pe_handle_check(pe)) {
+		return bad_device_name;
+	};
 
-	if (riocp_pe_handle_check(pe))
-		goto out;
-
-	vid = RIOCP_PE_VID(pe->cap);
-	did = RIOCP_PE_DID(pe->cap);
-
-	for (i = 0; i < (sizeof(riocp_pe_device_ids)/sizeof(struct riocp_pe_device_id)); i++)
-		if (riocp_pe_device_ids[i].vid == vid && riocp_pe_device_ids[i].did == did)
-			return riocp_pe_device_ids[i].name;
-
-out:
-	return "unknown device";
+	return pe->dev_name;
 }
 
 /**

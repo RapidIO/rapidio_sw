@@ -123,7 +123,7 @@ int CLIStatusCmd(struct cli_env *env, int argc, char **argv)
 	display_apps_dd(env);
 
 	if (!fmp.mode) {
-		sprintf(env->output, "PeerMgmt Alive: %1d Exit: %1d SLAVE %5d %s\n", 
+		sprintf(env->output, "\nPeerMgmt Alive: %1d Exit: %1d SLAVE %5d %s\n", 
 			fmp.slv.slave_alive, fmp.slv.slave_must_die,
 			fmp.slv.mast_skt_num,
 			fmp.slv.m_h_resp_valid?"OK":"No Hello Rsp");
@@ -132,7 +132,7 @@ int CLIStatusCmd(struct cli_env *env, int argc, char **argv)
 	};
 
 	sprintf(env->output,
-		"PeerMgmt Alive %1d Exit %1d PeerCnt %4d MASTER %5d\n",
+		"\nPeerMgmt Alive %1d Exit %1d PeerCnt %4d MASTER %5d\n",
 		fmp.acc.acc_alive, fmp.acc.acc_must_die, 
 		l_size(&fmp.peers), fmp.acc.cm_skt_num);
 	logMsg(env);
@@ -143,7 +143,7 @@ int CLIStatusCmd(struct cli_env *env, int argc, char **argv)
 		goto exit;
 	};
 
-	sprintf(env->output, "         ---CT--- ---DID-- HC A D I R\n");
+	sprintf(env->output, "\n         ---CT--- ---DID-- HC A D I R\n");
 	logMsg(env);
 
 	peer = (struct fmd_peer *)l_head(&fmp.peers, &li);

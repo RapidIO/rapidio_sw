@@ -158,6 +158,7 @@ typedef struct DAR_DEV_INFO_t_TAG
 #define VEND_CODE(x)    ((uint16_t)(((x)->devID      ) & RIO_DEV_IDENT_VEND))
 #define DEV_CODE(x)     ((uint16_t)((((x)->devID      ) & RIO_DEV_IDENT_DEVI             ) >> 16))
 #define SWITCH(x)	((bool)(((x)->features & RIO_PE_FEAT_SW)?true:false))
+#define MEMORY(x)	((bool)(((x)->features & RIO_PE_FEAT_MEM)?true:false))
 
 /* DAR_Find_Driver_for_Device
 * 

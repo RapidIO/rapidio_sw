@@ -50,11 +50,13 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <errno.h>
 #include <sys/ioctl.h>
 #include <sys/types.h>
+#include <regex.h>
 
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <pthread.h>
 
+#include <linux/rio_mport_cdev.h>
 #include "DAR_DevDriver.h"
 #include "rio_standard.h"
 #include "rio_ecosystem.h"
@@ -97,15 +99,14 @@ DAR_DEV_INFO_t *dev_h = NULL;
 struct fmd_opt_vals *opts = NULL;
 struct fmd_state *fmd = NULL;
 
-void custom_quit(cli_env *env)
+void custom_quit(struct cli_env *env)
 {
+	// Avoid compile error for unused parms...
 	(void) env;
-	riocp_pe_destroy_handle(&mport_pe);
-	shutdown_mgmt();
-	halt_app_handler();
-	cleanup_app_handler();
+
 	fmd_dd_cleanup(fmd->dd_mtx_fn, &fmd->dd_mtx_fd, &fmd->dd_mtx,
 			fmd->dd_fn, &fmd->dd_fd, &fmd->dd, fmd->fmd_rw);
+	exit(EXIT_SUCCESS);
 };
 
 void sig_handler(int signo)
@@ -256,7 +257,6 @@ fail:
 }
 
 void spawn_threads(struct fmd_opt_vals *cfg)
-//int poll_interval, int sock_num, int run_cons)
 {
 	int  poll_ret, cli_ret, cons_ret;
 	int *pass_sock_num = NULL, *pass_poll_interval = NULL;
@@ -322,6 +322,157 @@ void spawn_threads(struct fmd_opt_vals *cfg)
 		CRIT("Error - start_fmd_app_handler rc: %d\n", ret);
 		exit(EXIT_FAILURE);
 	}
+
+	// Only enable all endpoints after we've got the peer management
+	// threads going...
+	//
+	// Note that it is possible for nodes to fail between enumeration and
+	// enabling.  Don't fail the fabric management daemon if this occurs,
+	// keep trying and recover the nodes...
+
+	ret = fmd_enable_all_endpoints(mport_pe);
+	if (ret) {
+		WARN("fmd_enable_all_endpoints rc: %d\n", ret);
+	};
+}
+
+// cloned from riodp_mport_lib.c#riomp_mgmt_device_del
+// remove reference to riocp_pe_handle and pass in fd directly.
+int delete_device(int fd, const char *name)
+{
+	struct rio_rdev_info dev;
+
+	dev.destid = 0;
+	dev.hopcount = 0;
+	dev.comptag = 0;
+	if (name) {
+		strncpy(dev.name, name, RIO_MAX_DEVNAME_SZ);
+	} else {
+		*dev.name = '\0';
+	}
+
+	if (ioctl(fd, RIO_DEV_DEL, &dev))
+		return errno;
+
+	return 0;
+}
+
+// cleanup the /sys/bus/rapidio/devices directory
+int delete_sysfs_devices(riocp_pe_handle mport_pe, bool auto_config)
+{
+	DIR *dir;
+	struct dirent *entry;
+	struct stat st;
+
+	struct l_head_t names_list;
+	char *sysfs_name;
+	regex_t regex;
+
+	int rc = 0;
+	int tmp;
+	struct mpsw_drv_pe_acc_info *p_acc;
+	struct mpsw_drv_private_data *p_dat;
+	struct rapidio_mport_handle *hnd;
+	// int fd;
+
+	p_dat = (struct mpsw_drv_private_data *)mport_pe->private_data;
+	if(NULL == p_dat) {
+		WARN("Could not access private data\n");
+		return 1;
+	}
+
+	p_acc = (struct mpsw_drv_pe_acc_info *)p_dat->dev_h.accessInfo;
+	if(NULL == p_acc) {
+		WARN("Could not access device data\n");
+		return 2;
+	}
+
+	hnd = (struct rapidio_mport_handle *)p_acc->maint;
+	// fd = hnd->fd;
+
+	dir = opendir(FMD_DFLT_DEV_DIR);
+	if (NULL == dir) {
+		WARN("Could not access %s\n", FMD_DFLT_DEV_DIR);
+		return 3;
+	}
+
+	// wanted a more complex expression, but couldn't get it to work, so
+	// back to basics
+	rc = regcomp(&regex, "^[0-9][0-9]:[a-z]:[0-9][0-9][0-9][0-9]$", 0);
+	if(rc) {
+		return rc;
+	}
+
+	l_init(&names_list);
+	while(NULL != (entry = readdir(dir))) {
+		if ((DT_DIR == entry->d_type) || (DT_LNK == entry->d_type)) {
+			if ((0 == strcmp(".", entry->d_name))
+					|| (0 == strcmp("..", entry->d_name))) {
+				continue;
+			}
+
+			if (fstatat(dirfd(dir), entry->d_name, &st, 0)) {
+				continue;
+			}
+
+			if(S_ISDIR(st.st_mode)) {
+				// always delete kernel names (dd:a:dddd)
+				if(!regexec(&regex, entry->d_name, 0, NULL, 0)) {
+					sysfs_name =(char *)malloc(
+							strlen(entry->d_name));
+					strcpy(sysfs_name, entry->d_name);
+					l_push_tail(&names_list,
+							(void *)sysfs_name);
+					continue;
+				}
+
+				// auto: delete all names
+				if(auto_config) {
+					sysfs_name = (char *)malloc(
+							strlen(entry->d_name));
+					strcpy(sysfs_name, entry->d_name);
+					l_push_tail(&names_list,
+							(void *)sysfs_name);
+					continue;
+				}
+
+				// regular: only delete auto generated names
+				if (!strncmp(entry->d_name, AUTO_NAME_PREFIX,
+						strlen(AUTO_NAME_PREFIX))) {
+					sysfs_name = (char *)malloc(
+							strlen(entry->d_name));
+					strcpy(sysfs_name, entry->d_name);
+					l_push_tail(&names_list,
+							(void *)sysfs_name);
+					continue;
+				}
+			}
+		}
+	}
+
+	// Free memory allocated to the regex
+	regfree(&regex);
+
+	if (0 == l_size(&names_list)) {
+		goto exit;
+	}
+
+	while ((sysfs_name = (char *) l_pop_head(&names_list))) {
+		tmp = riomp_mgmt_device_del(hnd, 0, 0, 0,
+						(const char *)sysfs_name);
+		// tmp = delete_device(fd, sysfs_name);
+		if(tmp) {
+			rc = tmp;
+			WARN("Failed to delete device %s, err=%d\n",
+					sysfs_name, rc);
+			// try and delete as many as possible
+		}
+		free(sysfs_name);
+	}
+
+exit:
+	closedir(dir);
+	return rc;
 }
 
 int setup_mport_master(int mport)
@@ -351,36 +502,68 @@ int setup_mport_master(int mport)
 		return 1;
 	};
 
+	delete_sysfs_devices(mport_pe, cfg_dev.auto_config);
+
 	return fmd_traverse_network(mport_pe, &cfg_dev);
+};
+
+int slave_get_ct_and_name(int mport, uint32_t *comptag, char *dev_name)
+{
+	uint32_t mp_num = 0;
+	struct cfg_mport_info mp;
+	struct cfg_dev cfg_dev;
+	struct mport_regs regs;
+
+	if (!cfg_find_mport(mport, &mp)) {
+		mp_num = mp.num;
+		*comptag = mp.ct;
+		if (!cfg_find_dev_by_ct(*comptag, &cfg_dev)) {
+			memset(dev_name, 0, FMD_MAX_DEV_FN);
+			strncpy(dev_name, cfg_dev.name, FMD_MAX_DEV_FN-1);
+			return 0;
+		};
+	};
+
+	while (!riocp_get_mport_regs(mp_num, &regs)) {
+		if (!(regs.disc & RIO_SP_GEN_CTL_DISC) ||
+				!(regs.disc & RIO_SP_GEN_CTL_MAST_EN) ||
+				!(regs.p_err_stat & RIO_SPX_ERR_STAT_OK) ||
+				!(regs.p_ctl1 & RIO_SPX_CTL_INP_EN) ||
+				!(regs.p_ctl1 & RIO_SPX_CTL_OTP_EN)) {
+			usleep(1000);
+			continue;
+		};
+		*comptag = regs.comptag;
+		memset(dev_name, 0, FMD_MAX_DEV_FN);
+		snprintf(dev_name, FMD_MAX_DEV_FN, "LOCAL_MP%d", mp_num);
+		return 0;
+	};
+
+	return 1;
 };
 
 int setup_mport_slave(int mport)
 {
 	int rc, ret;
 	ct_t comptag;
-	struct cfg_mport_info mp;
 	struct cfg_dev cfg_dev;
 	char mast_dev_fn[FMD_MAX_DEV_FN] = {0};
 	struct mpsw_drv_private_data *p_dat = NULL;
 	struct mpsw_drv_pe_acc_info *acc_p = NULL;
+	char dev_name[FMD_MAX_DEV_FN];
 
-	if (cfg_find_mport(mport, &mp)) {
-		CRIT("\nCannot find configured mport, exiting...\n");
-		return 1;
-	};
-
-	comptag = mp.ct;
-
-	if (cfg_find_dev_by_ct(comptag, &cfg_dev)) {
-		CRIT("\nCannot find configured mport device, exiting...\n");
+	if (slave_get_ct_and_name(mport, &comptag, dev_name)) {
+		CRIT("\nCannot get component tag or dev_name, exiting...\n");
 		return 1;
 	};
 
 	if (riocp_pe_create_agent_handle(&mport_pe, mport, 0,
-			&pe_mpsw_rw_driver, &comptag, (char *)cfg_dev.name)) {
+			&pe_mpsw_rw_driver, &comptag, dev_name)) {
 		CRIT("\nCannot create agent handle, exiting...\n");
 		return 1;
 	};
+
+	delete_sysfs_devices(mport_pe, cfg_dev.auto_config);
 
 	ret = riocp_pe_handle_get_private(mport_pe, (void **)&p_dat);
 	if (ret) {
@@ -388,7 +571,7 @@ int setup_mport_slave(int mport)
 		return 1;
 	};
 
-	acc_p = (mpsw_drv_pe_acc_info *)p_dat->dev_h.accessInfo;
+	acc_p = (struct mpsw_drv_pe_acc_info *)p_dat->dev_h.accessInfo;
 	if ((NULL == acc_p) || !acc_p->maint_valid) {
 		CRIT("\nMport access info is NULL, exiting...\n");
 		return 1;
@@ -453,26 +636,14 @@ fail:
 int fmd_dd_update(riocp_pe_handle mp_h, struct fmd_dd *dd,
 			struct fmd_dd_mtx *dd_mtx)
 {
-	int rc = 1;
-	ct_t comptag;
-	struct cfg_dev c_dev;
-
         if (NULL == mp_h) {
                 WARN("\nMaster port is NULL, device directory not updated\n");
                 goto fail;
         };
 
-	rc = riocp_pe_get_comptag(mp_h, &comptag);
-	if (rc) {
-		WARN("Cannot get mport comptag rc %d...\n", rc);
-		comptag = 0xFFFFFFFF;
-	};
-
-	if (cfg_find_dev_by_ct(comptag, &c_dev))
-		goto fail;
-
-	add_device_to_dd(c_dev.ct, c_dev.did, FMD_DEV08, c_dev.hc, 1,
-			FMDD_FLAG_OK_MP, (char *)c_dev.name); 
+	add_device_to_dd(mp_h->comptag, mp_h->destid, FMD_DEV08,
+			mp_h->hopcount, 1, FMDD_FLAG_OK_MP,
+			(char *)mp_h->sysfs_name);
 
         fmd_dd_incr_chg_idx(dd, 1);
         sem_post(&dd_mtx->sem);
@@ -494,7 +665,7 @@ int main(int argc, char *argv[])
 	g_level = opts->log_level;
 	if ((opts->init_and_quit) && (opts->print_help))
 		goto fail;
-        fmd = (fmd_state *)calloc(1, sizeof(struct fmd_state));
+        fmd = (struct fmd_state *)calloc(1, sizeof(struct fmd_state));
         fmd->opts = opts;
         fmd->fmd_rw = 1;
 
@@ -511,7 +682,7 @@ int main(int argc, char *argv[])
 
 	if (!fmd->opts->simple_init)
 		if (fmd_dd_update(*fmd->mp_h, fmd->dd, fmd->dd_mtx))
-			goto fail;
+			goto dd_cleanup;
 
 	if (!fmd->opts->init_and_quit) {
 		spawn_threads(fmd->opts);
@@ -520,7 +691,6 @@ int main(int argc, char *argv[])
 		if (fmd->opts->run_cons)
 			pthread_join(console_thread, NULL);
 	};
-	shutdown_mgmt();
 	halt_app_handler();
 	cleanup_app_handler();
 

@@ -108,6 +108,49 @@ err:
 	return ret;
 }
 
+int RIOCP_WU riocp_pe_maint_set_route(struct riocp_pe *pe, did_t did, pe_port_t pnum)
+{
+	int32_t i;
+	int ret = 0;
+	struct riocp_pe *ith_pe = pe->mport->peers[0].peer;
+
+	if (!RIOCP_PE_IS_HOST(pe)) {
+		return 0;
+	}
+
+	if (RIOCP_PE_IS_MPORT(pe)) {
+		return 0;
+	}
+
+	/* Write did.value route */
+	for (i = 0; i < pe->hopcount; i++) {
+		ret = riocp_drv_set_route_entry(ith_pe, ALL_PE_PORTS, did.value,
+			pe->address[i]);
+		if (ret) {
+			goto err;
+		}
+
+		RIOCP_TRACE("switch[hop: %d] %d -> port %d programmed\n",
+			i, did.value, pe->address[i]);
+		if (i + 1 < pe->hopcount) {
+			ith_pe = ith_pe->peers[pe->address[i]].peer;
+		}
+	}
+
+	ret = riocp_drv_set_route_entry(pe, ALL_PE_PORTS, did.value, pnum);
+	if (ret) {
+		goto err;
+	}
+
+	RIOCP_TRACE("Programming did 0x%08x route to PE 0x%08x successfull\n", did.value, pe->comptag);
+
+	return ret;
+
+err:
+	RIOCP_TRACE("Error in programming did 0x%08x route\n", did.value);
+	return ret;
+}
+
 /**
  * Clear the ANY_ID route locks from pe->hopcount - 1 to 0
  * @note Keep in mind that this function will clear the locks of the path in reverse order!
@@ -206,12 +249,12 @@ int RIOCP_SO_ATTR riocp_pe_maint_read(struct riocp_pe *pe, uint32_t offset, uint
 		ret = riocp_drv_reg_rd(pe, offset, val);
 		if (ret) {
 			RIOCP_ERROR("Read remote error device %s err %d\n",
-				(pe->name)?pe->name:(char *)"Unknown", ret);
+				pe->sysfs_name, ret);
 			return -EIO;
 		}
 
 		RIOCP_TRACE("Read remote ok %s o: %x\n",
-			(pe->name)?pe->name:(char *)"Unknown", offset);
+			pe->sysfs_name, offset);
 
 		/* Unlock ANY_ID route */
 		ret = riocp_pe_maint_unset_anyid_route(pe);
@@ -262,13 +305,12 @@ int RIOCP_SO_ATTR riocp_pe_maint_write(struct riocp_pe *pe, uint32_t offset, uin
 		}
 
 		RIOCP_TRACE("Write %s o: 0x%08x, v: 0x%08x\n",
-			(pe->name)?pe->name:(char *)"Unknown", offset, val);
+			pe->sysfs_name, offset, val);
 
 		ret = riocp_drv_reg_wr(pe, offset, val);
 		if (ret) {
 			RIOCP_ERROR("Write returned error: %s %s\n",
-				(pe->name)?pe->name:(char *)"Unknown",
-				strerror(-ret));
+				pe->sysfs_name, strerror(-ret));
 			return -EIO;
 		}
 

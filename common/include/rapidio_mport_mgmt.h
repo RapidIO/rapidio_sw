@@ -131,6 +131,14 @@ struct riomp_mgmt_event {
 };
 
 /** @brief RapidIO mport handle */
+struct rapidio_mport_handle {
+	int fd;			/**< posix api compatible fd to be used with poll/select */
+	uint8_t mport_id;
+	uint8_t umd_chan;
+	void* stats;		/**< Pointer to statistics gathering back door for driver... */
+};
+
+/** @brief RapidIO mport handle */
 typedef struct rapidio_mport_handle *riomp_mport_t;
 
 /**

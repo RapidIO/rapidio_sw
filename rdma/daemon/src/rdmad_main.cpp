@@ -359,7 +359,6 @@ int main (int argc, char **argv)
 	int c;
 	int rc;
 	int cons_ret;
-	constexpr auto LOGGER_FAILURE = 1;
 	constexpr auto CONSOLE_FAILURE = 2;
 	constexpr auto OUT_KILL_CONSOLE_THREAD = 4;
 	constexpr auto OUT_CLOSE_PORT = 5;
@@ -407,7 +406,6 @@ int main (int argc, char **argv)
 		/* Initialize logger */
 		if (rdma_log_init("rdmad.log", 1)) {
 			puts("Failed to initialize logging system");
-			throw LOGGER_FAILURE;
 		}
 
 		/* Prepare and start console thread, if applicable */
@@ -554,10 +552,6 @@ int main (int argc, char **argv)
 
 		case CONSOLE_FAILURE:
 			rdma_log_close();
-			/* No break */
-
-		case LOGGER_FAILURE:
-			fprintf(stderr, "Exiting due to logger failure\n");
 			/* No break */
 
 		default:

@@ -114,7 +114,15 @@ typedef uint8_t pe_port_t;
 #define RIOCP_PE_GET_MULTICAST_MASK(n)   (RIOCP_PE_IS_MULTICAST_MASK(n)?(((n) - 0x100) & 0xff):RT_VAL_BAD)
 #define RIOCP_PE_GET_NEXT_LEVEL_GROUP(n) (RIOCP_PE_IS_NEXT_LEVEL_GROUP(n)?(((n) - 0x200) & 0xff):RT_VAL_BAD)
 
-
+struct mport_regs {
+	uint32_t memaddr_sz;
+	uint32_t host_destID;
+	uint32_t my_destID;
+	uint32_t comptag;
+	uint32_t disc;
+	uint32_t p_err_stat;
+	uint32_t p_ctl1;
+};
 
 struct riocp_pe_driver {
 	int RIOCP_WU (* init_pe)(struct riocp_pe *pe, uint32_t *ct,
@@ -144,6 +152,9 @@ struct riocp_pe_driver {
 			pe_rt_val rt_val);
 	int RIOCP_WU (* change_mcast_mask)(struct riocp_pe *sw, pe_port_t port,
 			pe_rt_val rt_val, uint32_t port_mask);
+
+	int RIOCP_WU (* get_mport_regs)(int mp_num, struct mport_regs *regs);
+	int RIOCP_WU (* enable_pe)(struct riocp_pe *pe, pe_port_t port);
 };
 
 struct riocp_reg_rw_driver {
@@ -209,6 +220,8 @@ int RIOCP_WU riocp_sw_get_route_entry(riocp_pe_handle sw, pe_port_t port,
 		uint32_t destid, pe_rt_val *rt_val);
 int RIOCP_WU riocp_sw_set_route_entry(riocp_pe_handle sw, pe_port_t port,
 		uint32_t destid, pe_rt_val rt_val);
+int RIOCP_WU riocp_pe_maint_set_route(struct riocp_pe *pe, did_t did,
+		pe_port_t pnum);
 int RIOCP_WU riocp_sw_alloc_mcast_mask(riocp_pe_handle sw, pe_port_t port,
 		pe_rt_val *rt_val, uint32_t port_mask);
 int RIOCP_WU riocp_sw_free_mcast_mask(riocp_pe_handle sw, pe_port_t port,
@@ -216,9 +229,13 @@ int RIOCP_WU riocp_sw_free_mcast_mask(riocp_pe_handle sw, pe_port_t port,
 int RIOCP_WU riocp_sw_change_mcast_mask(riocp_pe_handle sw, pe_port_t port,
 		pe_rt_val rt_val, uint32_t port_mask);
 
+int RIOCP_WU riocp_get_mport_regs(int mp_num, struct mport_regs *regs);
+int RIOCP_WU riocp_enable_pe(struct riocp_pe *pe, pe_port_t port);
+
 /* Debug functions */
 int riocp_pe_maint_read(riocp_pe_handle pe, uint32_t offset, uint32_t *val);
 int riocp_pe_maint_write(riocp_pe_handle pe, uint32_t offset, uint32_t val);
+const char *riocp_pe_get_sysfs_name(riocp_pe_handle pe);
 const char *riocp_pe_get_device_name(riocp_pe_handle pe);
 const char *riocp_pe_get_vendor_name(riocp_pe_handle pe);
 

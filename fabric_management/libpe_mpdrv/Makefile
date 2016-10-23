@@ -41,7 +41,7 @@ HEADERS:=inc/lib$(NAME).h
 
 CFLAGS=$(CXXFLAGS)
 CFLAGS+=-D$(DEBUG_CTL) -DRDMA_LL=$(LOG_LEVEL)
-CFLAGS+=-Isrc
+CFLAGS+=-I../inc
 CFLAGS+=-I../libdid/inc
 CFLAGS+=-I../libct/inc
 CFLAGS+=-I../libriocp_pe/inc -I../libriocp_pe/src

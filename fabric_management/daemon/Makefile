@@ -42,6 +42,7 @@ LIB_DIRS?= -L$(COMMONLIB) -L../$(LOCAL_LIBRARY_DIR) $(LIBS_RPATH)
 
 OBJECTS:=$(patsubst src/%.c,src/%.o,$(wildcard src/*.c))
 
+CXXFLAGS+=-I$(KDIR) -I$(RIODIR)
 CXXFLAGS+=-I$(FMDDIR)/inc
 
 src/%.o: src/%.c

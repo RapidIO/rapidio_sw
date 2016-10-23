@@ -113,9 +113,7 @@ int CLIDevSelCmd(struct cli_env *env, int argc, char **argv)
 	size_t pes_count, i;
 	int rc;
 	struct riocp_pe_capabilities caps;
-	const char *dev_name, *vend_name;
-	struct cfg_dev cfg_dev;
-	const char *no_name = "NO_NAME";
+	const char *dev_name, *vend_name, *sysfs_name;
 
 	rc = riocp_mport_get_pe_list(mport_pe, &pes_count, &pes);
 	if (rc) {
@@ -125,12 +123,10 @@ int CLIDevSelCmd(struct cli_env *env, int argc, char **argv)
 	}
 
 	if (argc) {
+		// selecting a device - set the prompt
 		for (i = 0; i < pes_count; i++) {
-			if (cfg_find_dev_by_ct(pes[i]->comptag, &cfg_dev)) {
-				continue;
-			};
-			if (!strcmp(cfg_dev.name, argv[0]) &&
-				(strlen(cfg_dev.name) == strlen(argv[0]))) {
+			if (!strcmp(pes[i]->sysfs_name, argv[0]) &&
+				(strlen(pes[i]->sysfs_name) == strlen(argv[0]))) {
 				env->h = pes[i];
 				set_prompt(env);
 				sprintf(env->output, 
@@ -196,14 +192,13 @@ int CLIDevSelCmd(struct cli_env *env, int argc, char **argv)
 			goto exit;
 		}
 
-		if (cfg_find_dev_by_ct(pe_ct, &cfg_dev))
-			cfg_dev.name = no_name;
+		sysfs_name = riocp_pe_get_sysfs_name(pes[i]);
 		dev_name = riocp_pe_get_device_name(pes[i]);
 		vend_name = riocp_pe_get_vendor_name(pes[i]);
 
 		sprintf(env->output, "%s%08x %16s %42s %10s\n",
 			(pe_ct == comptag)?"*":" ",
-			pe_ct, cfg_dev.name, vend_name, dev_name);
+			pe_ct, sysfs_name, vend_name, dev_name);
 		logMsg(env);
 	}
 exit:

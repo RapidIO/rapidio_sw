@@ -382,7 +382,7 @@ int riocp_pe_probe_prepare(struct riocp_pe *pe, uint8_t port)
 			return -EIO;
 		}
 		ret = riocp_drv_get_port_state(pe, port, &state);
-		if (ret < 0) {
+		if (ret) {
 			RIOCP_ERROR("Unable to read port state\n");
 			return -EIO;
 		}

@@ -12,8 +12,8 @@ if [ "$#" -lt 7 ]; then
 elif [ $5 != 'mem34' -a $5 != 'mem50' -a $5 != 'mem66' ] ; then
 	echo $'\nmemsz parameter must be mem34, mem50, or mem66.\n'
 	PRINTHELP=1
-elif [ $6 != 'PD_tor' -a $6 != 'SB_re' -a $6 != '5G' -a $6 != '5G-PWR' ] ; then
-	echo $'\nsw parameter must be PD_tor or SB_re or 5G\n'
+elif [ $6 != 'PD_tor' -a $6 != 'SB_re' -a $6 != '5G' -a $6 != '5G-PWR' -a $6 != 'AUTO' ] ; then
+	echo $'\nsw parameter must be PD_tor or SB_re or 5G or 5G-PWR or AUTO\n'
 	PRINTHELP=1
 fi
 
@@ -26,11 +26,12 @@ if [ $PRINTHELP = 1 ] ; then
     echo "If any of <NODE2> <NODE3> <NODE4> is \"none\", the node is ignored."
     echo "<memsz> RapidIO memory size, one of mem34, mem50, mem66"
     echo "        If any node has more than 8 GB of memory, MUST use mem50"
-    echo "<sw>    Type of switch the four nodes are connecte to."
+    echo "<sw>    Type of switch the four nodes are connected to."
     echo "        PD_tor - Prodrive Technologies Top of Rack Switch"
     echo "        SB_re  - StarBridge Inc RapidExpress Switch"
     echo "        5G     - 5G lab configuration"
     echo "        5G-PWR - 5G lab configuration for Power-8 nodes"
+    echo "        AUTO   - configuration determined at runtime"
     echo "<group> Unix file ownership group which should have access to"
     echo "        the RapidIO software"
     echo "<rel> is the software release/version to install."
@@ -96,20 +97,23 @@ done
 
 echo "Installing configuration files..."
 
+if [ "$SW_TYPE" = 'AUTO' ]; then
+	MASTER_CONFIG_FILE=install/auto-master.conf
+fi
 if [ "$SW_TYPE" = 'SB_re' ]; then
-	MASTER_CONFIG_FILE=install/node-master.conf;
+	MASTER_CONFIG_FILE=install/node-master.conf
 fi
 
 if [ "$SW_TYPE" = 'PD_tor' ]; then
-	MASTER_CONFIG_FILE=install/tor-master.conf;
+	MASTER_CONFIG_FILE=install/tor-master.conf
 fi
 
 if [ "$SW_TYPE" = '5G' ]; then
-	MASTER_CONFIG_FILE=install/5g-master.conf;
+	MASTER_CONFIG_FILE=install/5g-master.conf
 fi
 
 if [ "$SW_TYPE" = '5G-PWR' ]; then
-	MASTER_CONFIG_FILE=install/5g-pwr-master.conf;
+	MASTER_CONFIG_FILE=install/5g-pwr-master.conf
 fi
 
 destids=($(grep ENDPOINT $MASTER_CONFIG_FILE | grep PORT | awk '{print $12}'))
@@ -125,10 +129,16 @@ for c in $(seq 1 3); do
   COMPTAG=${comptags[c]};
   [ "$host" = 'none' ] && continue;
   [ -z "$host" ] && continue;
+if [ "$SW_TYPE" = 'AUTO' ]; then
   sed s/NODE_VAR/$host/g install/node-slave.conf | \
     sed s/MEMSZ/$MEMSZ/g | sed s/DID/${DID}/g | sed s/MASTDEST/${MASTDEST}/g | \
     sed s/COMPTAG/$COMPTAG/g | \
     ssh root@"$host" "mkdir -p $CONFIG_PATH; cd $CONFIG_PATH; cat > $FILENAME";
+else
+  sed s/NODE_VAR/$host/g install/auto-slave.conf | \
+    sed s/MEMSZ/$MEMSZ/g | sed s/MASTDEST/${MASTDEST}/g | sed s/AUTO/' '/g | \
+    ssh root@"$host" "mkdir -p $CONFIG_PATH; cd $CONFIG_PATH; cat > $FILENAME";
+fi
 done
 
 HOSTL='';
@@ -170,7 +180,7 @@ FILES=( rio_start.sh stop_rio.sh all_start.sh stop_all.sh check_all.sh
 for f in "${FILES[@]}"
 do
 	FILENAME=$SOURCE_PATH/$f
-	sudo cp $SCRIPTS_PATH/$f $FILENAME
+	ssh root@"$MASTER" "cp $SCRIPTS_PATH/$f $FILENAME"
 done
 
 echo "Installing node list..."

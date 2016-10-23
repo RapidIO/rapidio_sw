@@ -127,6 +127,8 @@ NULL,
 NULL,
 NULL,
 NULL,
+NULL,
+NULL,
 NULL
 };
 
@@ -353,6 +355,29 @@ int RIOCP_WU riocp_drv_change_mcast_mask(struct riocp_pe *sw, pe_port_t port,
 {
 	if (drvr.change_mcast_mask && drvr_ok)
 		return drvr.change_mcast_mask(sw, port, rt_val, port_mask);
+	else
+		return -ENOSYS;
+}
+
+/**
+* @brief Get registers from and MPORT required to open a host/agent handle
+*
+* @param[in] mp_num Master port number to be openned.
+* @param[inout] regs Registers structure containing return value.
+*
+*/
+int RIOCP_WU riocp_get_mport_regs(int mp_num, struct mport_regs *regs)
+{
+	if (drvr.get_mport_regs && drvr_ok)
+		return drvr.get_mport_regs(mp_num, regs);
+	else
+		return -ENOSYS;
+}
+
+int RIOCP_WU riocp_enable_pe(struct riocp_pe *pe, pe_port_t port)
+{
+	if (drvr.enable_pe && drvr_ok)
+		return drvr.enable_pe(pe, port);
 	else
 		return -ENOSYS;
 }

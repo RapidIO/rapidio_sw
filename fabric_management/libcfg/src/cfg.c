@@ -140,6 +140,8 @@ int init_cfg_ptr(void)
 		};
 	};
 
+	cfg->auto_config = false;
+
 	return 0;
 }
 
@@ -897,7 +899,7 @@ int parse_endpoint(struct int_cfg_parms *cfg)
 		int pt_i;
 		switch (get_parm_idx(cfg, (char *)"PORT PEND")) {
 		case 0: // "PORT"
-	       		pt_i = cfg->eps[i].port_cnt;
+			pt_i = cfg->eps[i].port_cnt;
 			if (cfg->eps[i].port_cnt >= CFG_MAX_EP_PORT) {
 				parse_err(cfg, (char *)"Too many ports!");
 				goto fail;
@@ -1191,7 +1193,7 @@ int fmd_parse_cfg(struct int_cfg_parms *cfg)
 
 	while ((NULL != tok) && !cfg->init_err) {
 		switch (parm_idx(tok, (char *)
-	"// DEV_DIR DEV_DIR_MTX MPORT MASTER_INFO ENDPOINT SWITCH CONNECT EOF")) {
+	"// DEV_DIR DEV_DIR_MTX MPORT MASTER_INFO ENDPOINT SWITCH CONNECT AUTO EOF")) {
 		case 0: // "//"
 			flush_comment(tok);
 			break;
@@ -1222,7 +1224,10 @@ int fmd_parse_cfg(struct int_cfg_parms *cfg)
 		case 7: // "CONNECT"
 			parse_connect(cfg);
 			break;
-		case 8: // "EOF"
+		case 8: // "AUTO"
+			cfg->auto_config = true;
+			break;
+		case 9: // "EOF"
 			DBG((char *)"\n");
 			goto exit;
 			break;
@@ -1403,6 +1408,7 @@ int cfg_find_mport(uint32_t mport, struct cfg_mport_info *mp)
 
 		mp->num = cfg->mport_info[i].num;
 		mp->ct = cfg->mport_info[i].ct;
+		mp->mem_sz = cfg->mport_info[i].mem_sz;
 		mp->op_mode = cfg->mport_info[i].op_mode;
 		memcpy(mp->devids, cfg->mport_info[i].devids,
 			sizeof(mp->devids));
@@ -1446,6 +1452,7 @@ int fill_in_dev_from_ep(struct cfg_dev *dev, struct int_cfg_ep *ep)
 	dev->ep_pt.ct = dev->ct;
 	memcpy(dev->ep_pt.devids, ep->ports[0].devids,
 		sizeof(dev->ep_pt.devids));
+	dev->auto_config = cfg->auto_config;
 
 	return 0;
 fail:
@@ -1501,12 +1508,10 @@ int cfg_find_dev_by_ct(ct_t ct, struct cfg_dev *dev)
 	struct int_cfg_sw *sw = NULL;
 
 	ep = find_cfg_ep_by_ct(ct, cfg);
-
 	if (NULL != ep)
 		return fill_in_dev_from_ep(dev, ep);
 
 	sw = find_cfg_sw_by_ct(ct, cfg);
-
 	if (NULL != sw)
 		return fill_in_dev_from_sw(dev, sw);
 

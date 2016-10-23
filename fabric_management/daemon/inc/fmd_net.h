@@ -42,8 +42,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 extern "C" {
 #endif
 
+#define AUTO_NAME_PREFIX "rio_dev_"
+
 int fmd_traverse_network(riocp_pe_handle mport_pe, struct cfg_dev *c_dev);
 int fmd_traverse_network_from_pe_port(riocp_pe_handle pe, rio_port_t port_num, struct cfg_dev *c_dev);
+int fmd_enable_all_endpoints(riocp_pe_handle mport_pe);
 
 #ifdef __cplusplus
 }

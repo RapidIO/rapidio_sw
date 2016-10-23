@@ -44,7 +44,7 @@ ifdef KLOKWORK
 KDIR=$(TOPDIR)/include/test
 RIODIR=$(TOPDIR)/include/test
 else
-KDIR?=/usr/src/linux
+KDIR?=/usr/src/rapidio
 RIODIR?=/usr/src/rapidio
 endif
 
@@ -59,8 +59,8 @@ ifeq ($(ARCH), i686)
  OPTFLAGS += -march=native -mfpmath=sse -ffast-math
 endif
 
-## by default, error logging is enabled
-LOG_LEVEL?=3
+## by default, debug logging is enabled
+LOG_LEVEL?=7
 
 ## by default, debug is disabled 
 ## [export DEBUG_CTL="DEBUG=3" | export DEBUG_CTL=DEBUG]

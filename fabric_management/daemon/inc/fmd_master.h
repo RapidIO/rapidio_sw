@@ -59,7 +59,7 @@ struct fmd_peer {
 	uint32_t p_did_sz;
 	uint32_t p_ct;
 	uint32_t p_hc;
-	l_item_t *li; /* Position of this peer in the fmp.peers list */
+	struct l_item_t *li; /* Position of this peer in the fmp.peers list */
 
 	pthread_t rx_thr; /* Thread listening for responses */
 	sem_t started; /* Wait in ths sema to ensure thread starts */
@@ -117,15 +117,13 @@ struct fmd_mgmt {
 	struct fmd_pw_mgmt pw_mgr;
 	struct fmd_mast_acc acc; /* acc thread adds items to peers */
 	sem_t peers_mtx;
-	l_head_t peers; /* List of fmd_peer, ordered by did */
+	struct l_head_t peers; /* List of fmd_peer, ordered by did */
 };
 
 extern struct fmd_mgmt fmp;
 
 int start_peer_mgmt(uint32_t mast_acc_skt_num, uint32_t mp_num,
 	uint32_t mast_did, uint32_t master);
-
-void shutdown_mgmt(void);
 
 void update_peer_flags(void);
 
