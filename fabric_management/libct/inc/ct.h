@@ -55,7 +55,8 @@ typedef uint16_t ct_nr_t;
 
 int ct_create_all(ct_t *ct, did_t *did, did_sz_t size);
 int ct_create_from_data(ct_t *ct, did_t *did, ct_nr_t nr, did_val_t value, did_sz_t size);
-int ct_create_from_did(ct_t *ct, ct_nr_t nr, did_t did);
+int ct_create_from_nr_and_did(ct_t *ct, ct_nr_t nr, did_t did);
+int ct_create_from_did(ct_t *ct, did_t did);
 int ct_release(ct_t *ct, did_t did);
 
 int ct_get_nr(ct_nr_t *nr, ct_t ct);
