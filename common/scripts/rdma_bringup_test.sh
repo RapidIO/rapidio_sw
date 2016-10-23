@@ -16,6 +16,7 @@ for node in $NODES; do
 	NODES_REV="$node $NODES_REV";
 done
 
+j=NUM_ITERATIONS
 for (( i=0; i<NUM_ITERATIONS; i++ ))
 do
 	echo -n "Iteration " $i
@@ -168,6 +169,7 @@ do
 	then
 		echo "	Something failed. Ending test. Check logs on failed node!"
 		echo ""
+		j=$i
 		i=NUM_ITERATIONS
 	else
 		echo "	Everything worked. Retrying, but cleaning up first"
@@ -238,7 +240,7 @@ do
 	fi # 	if [ $OK -eq 0 ]
 done #for (( i=0; i<NUM_ITERATIONS; i++ ))
 
-echo -n "Iterations done: " $i
+echo -n "Iterations done: " $j
 echo ""
 echo "Goodbye"
 echo ""
