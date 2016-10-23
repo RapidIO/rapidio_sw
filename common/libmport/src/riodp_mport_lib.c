@@ -83,7 +83,7 @@ void* riomp_mgmt_mport_get_stats(struct rapidio_mport_handle* hnd)
 }
 void riomp_mgmt_mport_set_stats(struct rapidio_mport_handle* hnd, void* stats)
 {
-	if (hnd == NULL) return;
+	if ((hnd == NULL) || (stats == NULL)) return;
 	hnd->stats = stats;
 }
 
@@ -107,7 +107,9 @@ int riomp_mgmt_mport_create_handle(uint32_t mport_id, int flags, riomp_mport_t *
 	int fd, ret;
 	struct rapidio_mport_handle *hnd = NULL;
 
-	if (mport_id >= MAX_MPORT) return -(errno = EINVAL);
+	if ((mport_id >= MAX_MPORT) || (NULL == mport_handle)) {
+		return -(errno = EINVAL);
+	}
 
 	// XXX O_SYNC    = 0x101000 will break this scheme
 

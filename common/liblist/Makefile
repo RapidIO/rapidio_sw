@@ -1,3 +1,6 @@
+#----------------------------------------------------------------------------*
+#Copyright (c) 2016, Integrated Device Technology Inc.
+#Copyright (c) 2016, RapidIO Trade Association
 #All rights reserved.
 #
 ###Redistribution and use in source and binary forms, with or without modification,
@@ -40,13 +43,12 @@ CXXFLAGS+=-D$(DEBUG_CTL) -DRDMA_LL=$(LOG_LEVEL)
 LINK_FLAGS+= -rdynamic -shared -Wl,-soname,lib$(NAME).so.$(SOVER)
 LDFLAGS+=-L. -L$(COMMONLIB) $(LIBS_RPATH) -l$(NAME)
 
-
 .PHONY: all clean test
 
-ifndef TEST
-all: $(TARGETS)
-else
+ifdef TEST
 all: $(TARGETS) $(TEST_TARGETS)
+else
+all: $(TARGETS)
 endif
 
 test: $(TEST_TARGETS) 
@@ -62,17 +64,18 @@ test: $(TEST_TARGETS)
 
 src/%.o: src/%.c
 	@echo ---------- Building $@
-	$(CXX) -c $(CXXFLAGS) $< -o $@
+	$(CXX) -c $(CXXFLAGS) $< -o $@ \
+	$(TST_INCS)
 
 test/%.o: test/%.c
 	@echo ---------- Building $@
-	$(CXX) -c $(CXXFLAGS) $< -o $@
+	$(CXX) -c $(CXXFLAGS) $< -o $@ \
+	$(TST_INCS)
 
 $(TEST_TARGETS): $(TEST_OBJECTS)
-	@echo ----------  1 Building $@
+	@echo ---------- Building $@
 	$(CXX) -o $@ $< $(LDFLAGS) \
-	-llog -lcli
+	$(TST_LIBS)
 
 clean:
-	@echo $(TEST_TARGETS)
 	rm -f $(TARGETS) lib$(NAME).so.$(SOVER) $(TEST_TARGETS) $(OBJECTS) $(TEST_OBJECTS) inc/*~ src/*~ *~

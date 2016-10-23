@@ -124,7 +124,7 @@ rdmad: $(MPORTLIB_PATH)/$(MPORTLIB) $(RDMAD_SOURCES) daemon/inc/*.h $(COMMONDIR)
 	$(CXX) $(LIB_DIRS) $(LIBS_RPATH) \
 	-o $@ $(RDMAD_CFLAGS) $(RDMAD_SOURCES) -llist -ldl -lrt \
 	-ltime_utils -lmport -lcli -llog -lfmdd -ldd -lriocp_pe -pthread \
-	-lrsvdmem
+	-lrsvdmem $(TST_LIBS)
 
 # Remote debug
 rrdma:  $(REMDBG_SOURCES)

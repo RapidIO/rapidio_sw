@@ -59,11 +59,11 @@ COMMON_BUILD_STRING = $(CXX) -L$(LIBRDMA_PATH) -L$(COMMONLIB) \
 
 # For C apps
 BUILD_STRING_C = $(COMMON_BUILD_STRING) \
-	src/$@.c $(LIBRARIES)
+	src/$@.c $(LIBRARIES) $(TST_LIBS)
 
 # For C++ apps
 BUILD_STRING_CPP = $(COMMON_BUILD_STRING) \
-	src/$@.cpp $(LIBRARIES)
+	src/$@.cpp $(LIBRARIES) $(TST_LIBS)
 
 all: rdma_server rdma_client rdma_user multi_ms_server multi_ms_client create_and_die
 

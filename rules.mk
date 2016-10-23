@@ -92,8 +92,16 @@ UMDDINCDIR=$(UMDDDIR)/inc
 STD_FLAGS=$(OPTFLAGS) -pthread -Wall -Wextra -Werror -fPIC
 STD_FLAGS+=-I$(TOPDIR)/include -I$(COMMONINC) -I. -I./inc
 STD_FLAGS+=-L$(COMMONLIB)
+ifdef TEST
+STD_FLAGS+=-DUNIT_TESTING
+endif
 
 CFLAGS+=$(STD_FLAGS)
 CXXFLAGS+=$(STD_FLAGS) -std=c++11
+
+ifdef TEST
+TST_LIBS=-lcmocka
+TST_INCS=-I$(COMMONDIR)/libcmocka/inc
+endif
 
 LIBS_RPATH?=-Wl,-rpath=$(COMMONDIR)/libs_so

@@ -43,7 +43,7 @@ DEBUG?=DEBUG
 RSKT_DIR=../lib
 INCLUDE_DIR?=$(TOPDIR)/include
 
-LIB_DIRS?=-L$(COMMONLIB) -L$(COMMONLIBA) -L$(FMDDIR)/libriocp_pe
+LIB_DIRS?=-L$(COMMONLIBA) -L$(FMDDIR)/libriocp_pe
 
 CXXFLAGS+=-D$(DEBUG_CTL) -DRDMA_LL=$(LOG_LEVEL)
 
@@ -65,19 +65,21 @@ all: rskt_client rskt_server
 
 rskt_server:  $(RSKT_SERVER_SOURCE) $(COMMONDIR)/include/*.h
 	@echo ---------- Building rskt_server
-	$(CXX) $(CXXFLAGS) -L$(COMMONLIB) \
-	-I./src -I./inc -I../inc \
+	$(CXX) $(CXXFLAGS) \
+	-I./src -I../inc \
 	-I$(FMDDIR)/libdid/inc -I$(FMDDIR)/libct/inc \
 	$(LIBS_RPATH) \
-	-o $@ $(RSKTLIB_OBJECTS) $(RSKT_SERVER_SOURCE) $(LIB_DIRS) $(LIBRARIES)
+	-o $@ $(RSKTLIB_OBJECTS) $(RSKT_SERVER_SOURCE) \
+	$(LIB_DIRS) $(LIBRARIES) $(TST_LIBS)
 
 rskt_client:  $(RSKT_CLIENT_SOURCE) $(COMMONDIR)/include/*.h
 	@echo ---------- Building rskt_client
-	$(CXX) $(CXXFLAGS) -L$(COMMONLIB) \
-	-I./inc -I../inc \
+	$(CXX) $(CXXFLAGS) \
+	-I../inc \
 	-I$(FMDDIR)/libdid/inc -I$(FMDDIR)/libct/inc \
 	$(LIBS_RPATH) \
-	-o $@ $(RSKTLIB_OBJECTS) $(RSKT_CLIENT_SOURCE) $(LIB_DIRS) $(LIBRARIES)
+	-o $@ $(RSKTLIB_OBJECTS) $(RSKT_CLIENT_SOURCE) \
+	$(LIB_DIRS) $(LIBRARIES) $(TST_LIBS)
 
 clean:
 	rm -f *.o *.o *~ *.exe core rskt_server rskt_client 

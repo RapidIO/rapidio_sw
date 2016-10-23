@@ -46,10 +46,10 @@ LDFLAGS+=-L. -L$(COMMONLIB) $(LIBS_RPATH) -l$(NAME)
 
 .PHONY: all clean test
 
-ifndef TEST
-all: $(TARGETS)
-else
+ifdef TEST
 all: $(TARGETS) $(TEST_TARGET)
+else
+all: $(TARGETS)
 endif
 
 test: $(TEST_TARGET)
@@ -65,16 +65,18 @@ test: $(TEST_TARGET)
 
 src/%.o: src/%.c
 	@echo ---------- Building $@
-	$(CXX) -c $(CXXFLAGS) $< -o $@
+	$(CXX) -c $(CXXFLAGS) $< -o $@ \
+	$(TST_INCS)
 
 test/%.o: test/%.c
 	@echo ---------- Building $@
-	$(CXX) -c $(CXXFLAGS) $< -o $@
+	$(CXX) -c $(CXXFLAGS) $< -o $@ \
+	$(TST_INCS)
 	
 $(TEST_TARGET): $(TEST_OBJECTS)
 	@echo ---------- Building $@
 	$(CXX) -o $@ $< $(LDFLAGS) \
-	-llog -lcli -pthread
+	$(TST_LIBS)
 
 clean:
 	rm -f $(TARGETS) lib$(NAME).so.$(SOVER) $(TEST_TARGET) $(OBJECTS) $(TEST_OBJECTS) inc/*~ src/*~ *~
