@@ -43,10 +43,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define __STDC_FORMAT_MACROS
 #include <cinttypes>
 
+#include "libcli.h"
 #include "liblog.h"
-#include "rapidio_mport_mgmt.h"
-#include "librskt_private.h"
-#include "librsktd_private.h"
 #include "librskt.h"
 #include "librdma.h"
 #include "liblog.h"
@@ -116,6 +114,7 @@ void usage()
 struct slave_thread_params {
 	pthread_t slave_thread; /** Thread structure */
 	rskt_h	accept_socket;  /** Accepted socket connection */
+	struct rskt_sockaddr sa; /** Address of accept_socket */
 };
 /** Number of threads operating in parallell */
 static unsigned num_threads = 0; 
@@ -153,7 +152,7 @@ void *slave_thread_f(void *arg)
 	slave_thread  = slave_params->slave_thread;
 
 	/** Set thread name based on unique socket number */
-        snprintf(my_name, 15, "ACC_L%5d", accept_socket->sa.sn);
+        snprintf(my_name, 15, "ACC_L%5d", slave_params->sa.sn);
         pthread_setname_np(slave_params->slave_thread, my_name);
 
 	/** Detach the thread to allow a clean process finish */
@@ -421,24 +420,22 @@ int main(int argc, char *argv[])
 	while (1) {
 		struct slave_thread_params *slave_params;
 
-		/** - Create a new accept socket for the next connection */
-		accept_socket = NULL;
+		/** -  Create a thread for handling transmit/receive on 
+		*      new socket
+ 		*/
+		slave_params = (struct slave_thread_params *)
+				calloc(1, sizeof(struct slave_thread_params));
 
 		/** - Await connect requests from RSKT clients */
 		INFO("%u threads active, accepting connections\n", num_threads);
-		rc = rskt_accept(listen_socket, &accept_socket, &sock_addr);
+		rc = rskt_accept(listen_socket, &slave_params->accept_socket, 
+						&slave_params->sa);
 		if (rc) {
 			CRIT("Failed in rskt_accept, rc = 0x%X, errno=%d: %s\n",
 					rc, errno, strerror(errno));
 			goto destroy_accept_socket;
 		}
 
-		/** -  Create a thread for handling transmit/receive on 
-		*      new socket
- 		*/
-		slave_params = (struct slave_thread_params *)
-				calloc(1, sizeof(struct slave_thread_params));
-		slave_params->accept_socket = accept_socket;
 		rc = pthread_create(&slave_params->slave_thread,
 				    NULL,
 				    slave_thread_f,

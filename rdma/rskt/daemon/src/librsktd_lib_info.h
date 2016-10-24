@@ -61,7 +61,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //#include <rapidio_mport_rdma.h>
 
 #include "libcli.h"
-#include "librskt_private.h"
+#include "librskt_states.h"
 #include "librsktd.h"
 #include "librdma.h"
 #include "liblist.h"

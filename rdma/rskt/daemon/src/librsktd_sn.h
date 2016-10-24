@@ -36,6 +36,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <stdint.h>
 #include <unistd.h>
+#include "librskt_states.h"
 
 #ifdef __cplusplus
 extern "C" {

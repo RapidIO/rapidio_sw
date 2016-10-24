@@ -66,15 +66,17 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <linux/if_tun.h>
 #include <arpa/inet.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #ifdef RDMA_LL
   #include "liblog.h"
 #endif
 
-#include "rapidio_mport_mgmt.h"
-#include "librskt_private.h"
-#include "librsktd_private.h"
 #include "librskt.h"
 #include "librdma.h"
+#include "rapidio_mport_mgmt.h"
 
 #include "tun_ipv4.h"
 
@@ -279,7 +281,6 @@ void* tun_read_thr(void* arg)
       g_stats.tun_rx_pkt_bytes += nread;
 
       assert(g_comm_sock);
-      assert(g_comm_sock->skt);
 
       uint32_t* pL2Hdr = (uint32_t*)send_buf;
       *pL2Hdr = htonl((uint32_t)nread);
@@ -379,7 +380,7 @@ int setup_rskt_srv(uint16_t* destid)
   /** Loop untill interrupted, doing the following */
   while (1) {
     /** - Create a new accept socket for the next connection */
-    rskt_h accept_socket = NULL;
+    rskt_h accept_socket = LIBRSKT_H_INVALID;
 
     /** - Await connect requests from RSKT clients */
     rc = rskt_accept(g_listen_sock, &accept_socket, &sock_addr);
@@ -418,7 +419,6 @@ void* rskt_read_thr(void* arg)
 
     do {
       assert(g_comm_sock);
-      assert(g_comm_sock->skt);
       errno = 0;
       rc = rskt_read(g_comm_sock, (void *)&temp, sizeof(uint32_t));
     } while (rc == -ETIMEDOUT);
@@ -437,7 +437,6 @@ void* rskt_read_thr(void* arg)
 
     do {
       assert(g_comm_sock);
-      assert(g_comm_sock->skt);
       errno = 0;
       rc = rskt_read(g_comm_sock, recv_buf, l2Len);
     } while (rc == -ETIMEDOUT);
@@ -621,7 +620,7 @@ int main(int argc, char *argv[])
 
 done:
   if (server) rskt_close(g_listen_sock);
-  if (g_comm_sock != NULL) rskt_close(g_comm_sock);
+  if (g_comm_sock != LIBRSKT_H_INVALID) rskt_close(g_comm_sock);
   close(g_tun_fd);   g_tun_fd = -1;
   close(g_epoll_fd); g_epoll_fd = -1;
 
@@ -633,3 +632,7 @@ done:
 
   _exit(rc);
 } 
+
+#ifdef __cplusplus
+}
+#endif

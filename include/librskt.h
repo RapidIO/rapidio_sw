@@ -33,6 +33,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <sys/socket.h>
 #include <time.h>
+#include <stdint.h>
 
 #ifndef __LIBRSKT_H__
 #define __LIBRSKT_H__
@@ -42,9 +43,9 @@ extern "C" {
 #endif
 
 /** @brief Value used to test an rskt_h for validity */
-#define LIBRSKT_H_INVALID NULL
+#define LIBRSKT_H_INVALID 0
 /** @brief RDMA Socket Handle */
-typedef struct rskt_handle_t *rskt_h;
+typedef uint64_t rskt_h;
 
 /** @brief Default rapidio_mport_sock.h socket number for connect requests */
 #define DFLT_LIBRSKTD_PORT 2222
@@ -64,6 +65,11 @@ typedef struct rskt_handle_t *rskt_h;
  * Typical use: librskt_init(DFLT_LIBRSKTD_PORT, DFLT_LIBRSKTD_MPNUM)
  */
 int librskt_init(int rsktd_port, int rsktd_mpnum);
+/** @brief Applications that use libcli can bind in commands to debug librskt
+ *
+ * @return none
+ */
+void librskt_bind_cli_cmds(void);
 
 /** @brief Cleanup RDMA sockets library when done using it
  *

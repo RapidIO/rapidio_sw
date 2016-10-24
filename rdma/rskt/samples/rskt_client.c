@@ -45,7 +45,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "liblog.h"
 #include "rapidio_mport_mgmt.h"
-#include "librskt_private.h"
 #include "librsktd_private.h"
 #include "librskt.h"
 #include "librdma.h"

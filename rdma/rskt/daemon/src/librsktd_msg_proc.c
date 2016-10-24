@@ -1041,7 +1041,10 @@ uint32_t terminate_connected_socket(struct librsktd_unified_msg *msg,
 	};
 
 	if (RSKTD_PROC_S2A == msg->proc_type) {
-		if ((NULL != con->loc_ms) && (con->loc_ms->rem_sn == sn)) {
+		INFO("RSKTD_PROC_S2A");
+		if ((NULL != con->loc_ms) && (con->loc_ms->loc_sn == sn)) {
+			INFO("SN %d ST %s loc_ms will be closed!",
+				sn, RSKTD_MS_STATE_TO_STR(con->loc_ms->state));
 			switch (con->loc_ms->state) {
 			case rsktd_ms_used:
 				if (msg->dreq->msg.clos.dma_flushed) {
@@ -1080,7 +1083,9 @@ uint32_t terminate_connected_socket(struct librsktd_unified_msg *msg,
 					con->loc_ms->state);
 				break;
 			};
-		}
+		} else {
+			INFO("SN %d loc_ms left alone...!", sn);
+		};
 		/* Request application close the local socket */
 		msg->tx->msg_type = htonl(LIBRSKT_CLOSE_CMD);
 		msg->rx->msg_type = msg->tx->msg_type | htonl(LIBRSKTD_RESP);
@@ -1090,6 +1095,7 @@ uint32_t terminate_connected_socket(struct librsktd_unified_msg *msg,
 		msg->proc_stage = RSKTD_S2A_SEQ_AREQ;
 		msg->app = con->app;
 	} else {
+		INFO("NOT RSKTD_PROC_S2A");
 		msg->dreq->msg_type = htonl(RSKTD_CLOSE_REQ);
 		msg->dresp->msg_type = msg->dreq->msg_type | 
 					htonl(RSKTD_RESP_FLAG);
@@ -1455,7 +1461,7 @@ uint32_t rsktd_s2a_close_req(struct librsktd_unified_msg *r)
 	struct rsktd_resp_msg *dresp = r->dresp;
 	uint32_t sn = ntohl(dreq->msg.clos.loc_sn);
 
-	INFO("Msg %s 0x%x Type 0x%x %s Proc %s Stage %s SN %d ST %d %s",
+	INFO("Msg %s 0x%x Type 0x%x %s Proc %s Stg %s SN %d ST %d %s F %d",
 		UMSG_W_OR_S(r),
 		UMSG_CT(r),
 		r->msg_type,
@@ -1464,7 +1470,8 @@ uint32_t rsktd_s2a_close_req(struct librsktd_unified_msg *r)
 		UMSG_STAGE_TO_STR(r),
 		sn,
 		rsktd_sn_get(sn),
-		SKT_STATE_STR(rsktd_sn_get(sn)));
+		SKT_STATE_STR(rsktd_sn_get(sn)),
+		dreq->msg.clos.dma_flushed);
 
 	dresp->err = 0;
 	dresp->msg.clos.dma_flushed = -1;
@@ -1553,9 +1560,12 @@ void rsktd_s2a_close_resp(struct librsktd_unified_msg *r)
 			RSKTD_MS_STATE_TO_STR(
 					r->closing_skt->loc_ms->state));
 	default:
-		ERR("SN %d MS %s Illegal State %d?",
+		ERR("SN %d MS %s Illegal State %d? loc_ms.loc_sn %d rem_sn %d rem_ct %d",
 			sn, r->closing_skt->loc_ms->ms_name,
-			r->closing_skt->loc_ms->state);
+			r->closing_skt->loc_ms->state,
+			r->closing_skt->loc_ms->loc_sn,
+			r->closing_skt->loc_ms->rem_sn,
+			r->closing_skt->loc_ms->rem_ct);
 		break;
 	};
 

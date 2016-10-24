@@ -62,7 +62,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <rapidio_mport_sock.h>
 
 #include "libcli.h"
-#include "librskt_private.h"
+#include "librskt_states.h"
+#include "librsktd.h"
 #include "librdma.h"
 
 #ifdef __cplusplus
@@ -100,7 +101,7 @@ struct rskt_ms_info {
 	char	ms_name[MAX_MS_NAME+1];
 	ms_h	ms;
 	int	ms_size;
-	struct rskt_socket_t msub;
+	msub_h  msub;
 };
 
 struct rskt_info {

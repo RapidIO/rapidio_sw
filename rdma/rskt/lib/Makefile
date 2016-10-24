@@ -39,6 +39,7 @@ CC := $(CXX)
 
 NAME:=rskt
 TARGETS:=lib$(NAME).a
+TEST_TARGETS:=librskt_list_test
 HEADERS:=inc/lib$(NAME).h inc/lib$(NAME)_private.h src/*.h
 
 INCDIR=$(LINUX_INCLUDE_DIR)
@@ -46,9 +47,11 @@ INCDIR=$(LINUX_INCLUDE_DIR)
 XFLAGS+=$(addprefix -W,all extra) -fPIC
 XFLAGS+=-DDEBUG
 XFLAGS+=-I../inc
+XFLAGS+=-Isrc
 XFLAGS+=-DRDMA_LL=$(LOG_LEVEL)
 XFLAGS+=$(addprefix -I,inc $(INCDIR))
 XFLAGS+=-I$(TOPDIR)/memops/inc
+XFLAGS+=-I$(TOPDIR)/include
 XFLAGS+=-I$(UMDDIR)/inc
 XFLAGS+=-I$(FMDDIR)/librio_switch/inc
 XFLAGS+=-Wno-unused-parameter -Wno-type-limits
@@ -56,11 +59,19 @@ XFLAGS+=-Wno-unused-parameter -Wno-type-limits
 CXXFLAGS+=$(XFLAGS) --std=c++11
 CFLAGS+=$(XFLAGS)
 
-LDFLAGS+=-L. -l$(NAME)
+LDFLAGS+=-L$(COMMONLIBA) -L. -l$(NAME)
+
+.PHONY: all clean test
 
 OBJECTS:=$(patsubst src/%.c,src/%.o,$(wildcard src/*.c))
 
+TEST_OBJECTS:=$(patsubst test/%.c,test/%.o,$(wildcard test/*.c))
+
+ifndef TEST
 all: $(TARGETS)
+else
+all: $(TARGETS) $(TEST_TARGETS)
+endif
 
 %.a: $(OBJECTS)
 	$(AR) rcs $@ $^
@@ -69,7 +80,21 @@ src/%.o: src/%.c $(HEADERS)
 	echo BUUUU
 	$(CXX) -c $(CXXFLAGS) $< -o $@
 
-clean:
-	rm -f $(TARGETS) $(OBJECTS) inc/*~ src/*~ *~ *.a
+test/%.o: src/%.c $(HEADERS)
+	echo BUUUU
+	$(CXX) -c $(CXXFLAGS) $< -o $@
 
-.PHONY: all clean
+librskt_list_test: $(TEST_OBJECTS)
+	@echo ---------- Building $@
+	$(CXX) -o $@ $< $(LDFLAGS) \
+	-lmemops_intf -lumd_tsi721 -lrsvdmem -ltime_utils -lmport -lrdma \
+	-llist -llog -lcli -lrt -ldl -pthread
+
+librskt_test: test/librskt_test.o 
+	@echo ---------- Building $@
+	$(CXX) -o $@ test/librskt_test.o \
+	-L$(COMMONLIBA) -ltime_utils -llist -llog -lcli -lrt -ldl -pthread
+
+clean:
+	rm -f $(TARGETS) $(OBJECTS) inc/*~ src/*~ *~ *.a test/*.o
+

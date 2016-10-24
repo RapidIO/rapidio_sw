@@ -80,7 +80,7 @@ rskt_client:  $(RSKT_CLIENT_SOURCE) $(COMMONDIR)/include/*.h
 rskt_tun: rskt_tun.c $(COMMONDIR)/include/*.h
 	@echo ---------- Building rskt_tun
 	$(CXX) $(CXXFLAGS) -L$(COMMONLIB) \
-	-I./inc -I../inc \
+	-I./inc -I../inc -I../lib/inc \
 	-I$(TOPDIR)/utils/goodput/inc \
 	-DRDMA_LL=$(LOG_LEVEL) \
 	$(RSKTLIB_OBJECTS) rskt_tun.c $(TOPDIR)/utils/goodput/src/tun_ipv4.c \
@@ -91,7 +91,7 @@ rskt_tun: rskt_tun.c $(COMMONDIR)/include/*.h
 rskt_wwwserver: rskt_wwwserver.cc $(COMMONDIR)/include/*.h
 	@echo ---------- Building rskt_wwwserver
 	$(CXX) $(CXXFLAGS) -L$(COMMONLIB) \
-	-I./inc -I../inc \
+	-I./inc -I../inc -I../lib/inc \
 	-DRDMA_LL=$(LOG_LEVEL) \
 	$(RSKTLIB_OBJECTS) rskt_wwwserver.cc \
 	$(LIB_DIRS) -lrskt -lrdma -lfmdd -ldd -llist -lcli -llog -lmport -lmemops_intf -lrsvdmem -ltime_utils -lrt -lpthread \
@@ -101,7 +101,7 @@ rskt_wwwserver: rskt_wwwserver.cc $(COMMONDIR)/include/*.h
 rskt_wwwclient: rskt_wwwclient.cc $(COMMONDIR)/include/*.h
 	@echo ---------- Building rskt_wwwclient
 	$(CXX) $(CXXFLAGS) -L$(COMMONLIB) \
-	-I./inc -I../inc \
+	-I./inc -I../inc -I../lib/inc \
 	-DRDMA_LL=$(LOG_LEVEL) \
 	$(RSKTLIB_OBJECTS) rskt_wwwclient.cc \
 	$(LIB_DIRS) -lrskt -lrdma -lfmdd -ldd -llist -lcli -llog -lmport -lmemops_intf -lrsvdmem -ltime_utils -lrt -lpthread \
@@ -114,7 +114,7 @@ rskt_shim.so: rskt_shim.cc mport_shim.so rskt_shim2.so
 rskt_shim2.so: rskt_shim2.cc $(COMMONDIR)/include/*.h
 	@echo ---------- Building rskt_shim2
 	$(CXX) $(CXXFLAGS) -L$(COMMONLIB) \
-	-I./inc -I../inc \
+	-I./inc -I../inc -I../lib/inc \
 	-DRDMA_LL=$(LOG_LEVEL) \
 	$(RSKTLIB_OBJECTS) rskt_shim2.cc \
 	$(LIB_DIRS) -lrskt -lrdma -lfmdd -ldd -llist -lcli -llog -lmport -lmemops_intf -ltime_utils -lrt -lpthread \
@@ -126,7 +126,7 @@ rskt_shim2.so: rskt_shim2.cc $(COMMONDIR)/include/*.h
 mport_shim.so: mport_shim.cc $(COMMONDIR)/include/*.h
 	@echo ---------- Building mport_shim.so
 	$(CXX) $(CXXFLAGS) -L$(COMMONLIB) \
-	-I./inc -I../inc \
+	-I./inc -I../inc -I../lib/inc \
 	-DRDMA_LL=$(LOG_LEVEL) \
 	$(RSKTLIB_OBJECTS) mport_shim.cc \
 	$(LIB_DIRS) -lmport -ltime_utils -lrt -lpthread \

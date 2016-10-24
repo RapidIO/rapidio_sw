@@ -53,8 +53,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #endif
 
 #include "rapidio_mport_mgmt.h"
-#include "librskt_private.h"
-#include "librsktd_private.h"
 #include "librskt.h"
 #include "librdma.h"
 
@@ -218,7 +216,7 @@ int main(int argc, char *argv[])
   }}
 
 done:
-  if (g_comm_sock != NULL) {
+  if (g_comm_sock != LIBRSKT_H_INVALID) {
     if (g_wait) sleep(1);
     printf("Close RSKT\n");
     rskt_close(g_comm_sock);

@@ -470,13 +470,13 @@ __attribute__((constructor)) int lib_init(void)
 	/* Initialize the logger */
 	if (rdma_log_init("librdma.log", 0)) {
 		CRIT("Failed to initialize the logger.Exiting");
-		exit(1);
+		init = 0;
 	}
 
 	/* Library initialization */
 	if (initialize()) {
 		CRIT("Failed to initialize library. Exiting.");
-		exit(2);
+		init = 0;
 	}
 
 	return 0;

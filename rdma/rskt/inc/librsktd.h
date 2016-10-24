@@ -32,16 +32,17 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 
-#include <stdint.h>
-#include "librskt.h"
-#include "librskt_private.h"
 
 #ifndef __LIBRSKTD_H__
 #define __LIBRSKTD_H__
 
+#include <stdint.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+#include "librskt.h"
 
 #define LIBRSKTD_RESP 0x80000000
 #define LIBRSKTD_FAIL 0x40000000
@@ -66,6 +67,7 @@ extern "C" {
 #define LIBRSKT_CLOSE_CMD_RESP (LIBRSKT_CLOSE_CMD|LIBRSKTD_RESP)
 
 #define MAX_APP_NAME 48
+#define MAX_MS_NAME 40
 
 #define LIBRSKT_APP_MSG_TO_STR(x) ( \
         (LIBRSKTD_BIND == x)?           "BIND   ": \

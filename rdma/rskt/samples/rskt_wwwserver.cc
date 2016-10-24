@@ -51,8 +51,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #endif
 
 #include "rapidio_mport_mgmt.h"
-#include "librskt_private.h"
-#include "librsktd_private.h"
 #include "librskt.h"
 #include "librdma.h"
 
@@ -84,7 +82,7 @@ void usage()
   printf("-h         : Display this help message and exit.\n");
 } /* usage() */
 
-void* www_read_thr(void* arg);
+void* www_read_thr(void *arg);
 
 int rskt_main_loop()
 {
@@ -117,19 +115,21 @@ int rskt_main_loop()
   /** Loop untill interrupted, doing the following */
   while (1) {
     /** - Create a new accept socket for the next connection */
-    rskt_h accept_socket = NULL;
+    rskt_h *accept_socket = (rskt_h *)calloc(1, sizeof(rskt_h));
+    *accept_socket = LIBRSKT_H_INVALID;
 
     /** - Await connect requests from RSKT clients */
-    rc = rskt_accept(listen_sock, &accept_socket, &sock_addr);
+    rc = rskt_accept(listen_sock, accept_socket, &sock_addr);
     if (rc) {
       fprintf(stderr, "Failed in rskt_accept, rc = 0x%X, errno=%d: %s\n", rc, errno, strerror(errno));
-      rskt_close(accept_socket);
+      rskt_close(*accept_socket);
       rskt_close(listen_sock);
       return 0;
     }
 
     pthread_t pt_wkr;
-    if (pthread_create(&pt_wkr, NULL, www_read_thr, accept_socket) < 0) {
+    if (pthread_create(&pt_wkr, NULL, www_read_thr, (void *)accept_socket) < 0)
+    {
       fprintf(stderr, "pthread_create failed: %s\n", strerror(errno));
       return 0;
     }
@@ -144,7 +144,7 @@ int rskt_main_loop()
 void* www_read_thr(void* arg)
 {
   assert(arg);
-  rskt_h comm_sock = (rskt_h)arg;
+  rskt_h comm_sock = *(rskt_h *)arg;
 
   char recv_buf[RX_SIZE + 0x10] = {0};
 

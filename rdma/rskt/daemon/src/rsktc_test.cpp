@@ -4,7 +4,7 @@
 
 #include "rapidio_mport_mgmt.h"
 
-#include "librskt_private.h"
+#include "librskt_states.h"
 #include "librsktd_private.h"
 #include "librskt.h"
 #include "librdma.h"

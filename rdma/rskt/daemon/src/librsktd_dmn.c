@@ -61,10 +61,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <rapidio_mport_dma.h>
 
 #include "libcli.h"
-#include "librskt_private.h"
 #include "librdma.h"
 #include "librsktd_sn.h"
-#include "librsktd.h"
+#include "librskt_states.h"
 #include "librsktd_dmn_info.h"
 #include "librsktd_lib_info.h"
 #include "librsktd_lib.h"
@@ -152,9 +151,9 @@ int d_rdma_drop_msub_h(struct ms_info *msi)
         if (!msi->valid)
                 return 0;
 
-        rc = rdma_destroy_msub_h(msi->ms, msi->skt.msubh);
+        rc = rdma_destroy_msub_h(msi->ms, msi->msubh);
+	msi->msub_sz = 0;
 
-        rskt_clear_skt(&msi->skt);
         return rc;
 }
 
@@ -163,20 +162,20 @@ int d_rdma_get_msub_h(struct ms_info *msi, int size,
 {
         int rc;
 
-	if (msi->skt.msub_sz) {
+	if (msi->msub_sz) {
         	d_rdma_drop_msub_h(msi);
-		msi->skt.msub_sz = 0;
+		msi->msub_sz = 0;
 	};
 
         rc = rdma_create_msub_h(msi->ms, 0, size, flags, 
-				&msi->skt.msubh);
+				&msi->msubh);
 
         if (rc) {
 		CRIT("Could not get msub for MS %s.\n", msi->ms_name);
 		CRIT("Bailing out...\n");
-                rskt_clear_skt(&msi->skt);
+		msi->msub_sz = 0;
         } else {
-                msi->skt.msub_sz = size;
+                msi->msub_sz = size;
 	}
 
         return rc;
@@ -286,7 +285,7 @@ int init_mport_and_mso_ms(void)
 		dmn.mso.ms[i].state = rsktd_ms_free;
 		memset(dmn.mso.ms[i].ms_name, 0, MAX_MS_NAME+1);
 		dmn.mso.ms[i].ms_size = 0;
-		rskt_clear_skt(&dmn.mso.ms[i].skt); 
+		dmn.mso.ms[i].msub_sz = 0; 
 	};
 		
 	if (dmn.skip_ms) {

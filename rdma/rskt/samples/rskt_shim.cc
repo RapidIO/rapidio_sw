@@ -1,3 +1,36 @@
+/*
+****************************************************************************
+Copyright (c) 2015, Integrated Device Technology Inc.
+Copyright (c) 2015, RapidIO Trade Association
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without modification,
+are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this
+list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice,
+this list of conditions and the following disclaimer in the documentation
+and/or other materials provided with the distribution.
+
+3. Neither the name of the copyright holder nor the names of its contributors
+may be used to endorse or promote products derived from this software without
+specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*************************************************************************
+*/
+
 #include <pthread.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -38,7 +71,7 @@ static uint16_t g_my_destid = 0xFFFF;
 typedef struct {
   uint16_t r_destid;
   uint16_t r_port;
-  void*    rsock;
+  uint64_t rsock;
   int      rskt_errno;
 } Accepted_t;
 
@@ -53,7 +86,7 @@ typedef struct {
   volatile int       stop_req;
   struct sockaddr_in laddr;
   struct sockaddr_in raddr;
-  void*              rsock;
+  uint64_t           rsock;
   pthread_mutex_t         acc_mutex;
   std::vector<Accepted_t> acc_list; // rskt_accept'ed sockets for nonblocking listening sockets
   std::vector<pthread_t>  acc_thr_list; // rskt_accept minder threads
@@ -136,20 +169,20 @@ static inline void errx(const char* msg)
 
 
 RSKT_DECLARE(shim_rskt_init, void, (void));
-RSKT_DECLARE(shim_rskt_socket, void*, (void));
+RSKT_DECLARE(shim_rskt_socket, uint64_t, (void));
 
-RSKT_DECLARE(shim_rskt_connect, int, (void*, uint16_t, uint16_t));
+RSKT_DECLARE(shim_rskt_connect, int, (uint64_t, uint16_t, uint16_t));
 
-RSKT_DECLARE(shim_rskt_listen, int, (void*, int));
-RSKT_DECLARE(shim_rskt_bind, int, (void*, uint16_t, uint16_t));
-RSKT_DECLARE(shim_rskt_accept, int, (void*, void*, uint16_t*, uint16_t*));
+RSKT_DECLARE(shim_rskt_listen, int, (uint64_t, int));
+RSKT_DECLARE(shim_rskt_bind, int, (uint64_t, uint16_t, uint16_t));
+RSKT_DECLARE(shim_rskt_accept, int, (uint64_t, uint64_t*, uint16_t*, uint16_t*));
 
-RSKT_DECLARE(shim_rskt_close, int, (void*));
+RSKT_DECLARE(shim_rskt_close, int, (uint64_t));
 
-RSKT_DECLARE(shim_rskt_read, int, (void*, void*, int));
-RSKT_DECLARE(shim_rskt_get_avail_bytes, int, (void*));
+RSKT_DECLARE(shim_rskt_read, int, (uint64_t, void*, int));
+RSKT_DECLARE(shim_rskt_get_avail_bytes, int, (uint64_t));
 
-RSKT_DECLARE(shim_rskt_write, int, (void*, void*, int));
+RSKT_DECLARE(shim_rskt_write, int, (uint64_t, void*, int));
 
 #define MPORT_DECLARE(name, ret, args) static ret (*MPORT_##name) args
 
@@ -192,19 +225,19 @@ static void rskt_shim_init_RSKT()
 	errx("RSKT Shim: Failed to open shim2");
 
   RSKT_DLSYMCAST(shim_rskt_init, void, (void));
-  RSKT_DLSYMCAST(shim_rskt_socket, void*, (void));
+  RSKT_DLSYMCAST(shim_rskt_socket, uint64_t, (void));
 
-  RSKT_DLSYMCAST(shim_rskt_connect, int, (void*, uint16_t, uint16_t));
+  RSKT_DLSYMCAST(shim_rskt_connect, int, (uint64_t, uint16_t, uint16_t));
 
-  RSKT_DLSYMCAST(shim_rskt_listen, int, (void*, int));
-  RSKT_DLSYMCAST(shim_rskt_bind, int, (void*, uint16_t, uint16_t));
-  RSKT_DLSYMCAST(shim_rskt_accept, int, (void*, void*, uint16_t*, uint16_t*));
+  RSKT_DLSYMCAST(shim_rskt_listen, int, (uint64_t, int));
+  RSKT_DLSYMCAST(shim_rskt_bind, int, (uint64_t, uint16_t, uint16_t));
+  RSKT_DLSYMCAST(shim_rskt_accept, int, (uint64_t, uint64_t*, uint16_t*, uint16_t*));
 
-  RSKT_DLSYMCAST(shim_rskt_close, int, (void*));
+  RSKT_DLSYMCAST(shim_rskt_close, int, (uint64_t));
 
-  RSKT_DLSYMCAST(shim_rskt_read, int, (void*, void*, int));
-  RSKT_DLSYMCAST(shim_rskt_get_avail_bytes, int, (void*));
-  RSKT_DLSYMCAST(shim_rskt_write, int, (void*, void*, int));
+  RSKT_DLSYMCAST(shim_rskt_read, int, (uint64_t, void*, int));
+  RSKT_DLSYMCAST(shim_rskt_get_avail_bytes, int, (uint64_t));
+  RSKT_DLSYMCAST(shim_rskt_write, int, (uint64_t, void*, int));
 
   RSKT_shim_rskt_init();
 
@@ -217,7 +250,7 @@ void rskt_shim_onload()
 {
   void* dh = NULL;
 
-  pthread_mutex_unlock(&g_onload_mutex);
+  pthread_mutex_lock(&g_onload_mutex);
 
   if (g_onload_initialised == 0xf00ff00d) {
     pthread_mutex_unlock(&g_onload_mutex);
@@ -365,14 +398,14 @@ int close(int fd)
         pthread_kill(sock_tr.acc_thr_list[i], SIGUSR1);
     pthread_mutex_unlock(&sock_tr.acc_mutex);
 
-    const void* rsock = sock_tr.rsock;
+    const uint64_t rsock = sock_tr.rsock;
 
     g_sock_map.erase(it);
 
     pthread_mutex_unlock(&g_map_mutex);
 
     // rskt_close BUGs and locks up. Better call it in unlocked context.
-    if (rsock != NULL) RSKT_shim_rskt_close((void*)rsock);
+    if (rsock) RSKT_shim_rskt_close(rsock);
 
     return 0;
   }
@@ -541,7 +574,7 @@ int connect(int sockfd, const struct sockaddr* addr, socklen_t addrlen)
 
     int rc = RSKT_shim_rskt_connect(it->second.rsock, destid, ntohs(addr_v4->sin_port));
     if (rc) {
-      //RSKT_shim_rskt_close(it->second.rsock); it->second.rsock = NULL;
+      //RSKT_shim_rskt_close(it->second.rsock); it->second.rsock = 0;
       pthread_mutex_unlock(&g_map_mutex);
       errno = ECONNREFUSED;
       return -1;
@@ -968,15 +1001,14 @@ static void* accept_thr(void* arg)
   Accepted_t res; memset(&res, 0, sizeof(res));
 
   while (!sock_tr->stop_req) {
-    void* arsock = NULL;
-    assert (arsock);
+    uint64_t arsock = 0;
 
     uint16_t remote_destid = 0xFFFF;
     uint16_t remote_port = 0;
     const int rc = RSKT_shim_rskt_accept(sock_tr->rsock, &arsock, &remote_destid, &remote_port);
     if (rc) {
       res.rskt_errno = errno ?: EINVAL;
-      RSKT_shim_rskt_close(*(void **)arsock);
+      RSKT_shim_rskt_close(arsock);
 
       int sockp1 = -1;
       pthread_mutex_lock(&g_map_mutex);
@@ -995,9 +1027,10 @@ static void* accept_thr(void* arg)
       break;
     } 
 
+    assert (arsock);
     assert(remote_destid != 0xFFFF);
 
-    res.rsock    = *(void **)(arsock);
+    res.rsock    = arsock;
     res.r_destid = remote_destid;
     res.r_port   = remote_port;
 
@@ -1146,16 +1179,16 @@ _accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen, bool nonblocking 
   uint16_t remote_destid = 0;
   uint16_t remote_port   = 0;
 
-  void* arsock = RSKT_shim_rskt_socket();
-  assert(arsock);
+  uint64_t arsock = 0;
 
-  int rc = RSKT_shim_rskt_accept(it->second.rsock, arsock, &remote_destid, &remote_port); // BLOCKING!!
+  int rc = RSKT_shim_rskt_accept(it->second.rsock, &arsock, &remote_destid, &remote_port); // BLOCKING!!
   if (rc) {
     RSKT_shim_rskt_close(arsock);
     errno = EINVAL;
     return -1;
   }
 
+  assert(arsock);
   assert(remote_destid != 0xFFFF);
 
   // OK, we have a connection....

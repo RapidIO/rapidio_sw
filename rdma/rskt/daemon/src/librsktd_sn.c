@@ -38,7 +38,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdarg.h>
 
 #include "librskt.h"
-#include "librskt_private.h"
+#include "librskt_states.h"
 #include "librsktd_sn.h"
 #include "libcli.h"
 

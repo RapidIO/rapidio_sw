@@ -12,8 +12,8 @@ if [ "$#" -lt 7 ]; then
 elif [ $5 != 'mem34' -a $5 != 'mem50' -a $5 != 'mem66' ] ; then
 	echo $'\nmemsz parameter must be mem34, mem50, or mem66.\n'
 	PRINTHELP=1
-elif [ $6 != 'PD_tor' -a $6 != 'SB_re' -a $6 != 'NO_SW' ] ; then
-	echo $'\nsw parameter must be PD_tor, SB_re, or NO_SW\n'
+elif [ $6 != 'PD_tor' -a $6 != 'SB_re' -a $6 != '5G' -a $6 != '5G-PWR' ] ; then
+	echo $'\nsw parameter must be PD_tor or SB_re or 5G\n'
 	PRINTHELP=1
 fi
 
@@ -29,7 +29,8 @@ if [ $PRINTHELP = 1 ] ; then
     echo "<sw>    Type of switch the four nodes are connecte to."
     echo "        PD_tor - Prodrive Technologies Top of Rack Switch"
     echo "        SB_re  - StarBridge Inc RapidExpress Switch"
-    echo "        NO_SW  - Two endpoints are directly connected"
+    echo "        5G     - 5G lab configuration"
+    echo "        5G-PWR - 5G lab configuration for Power-8 nodes"
     echo "<group> Unix file ownership group which should have access to"
     echo "        the RapidIO software"
     echo "<rel> is the software release/version to install."
@@ -85,7 +86,7 @@ make clean &>/dev/null;
 for host in  "${ALLNODES[@]}"; do
   [ "$host" = 'none' ] && continue;
   tar cf - * .git* | \
-  ssh -C root@"$host" "mkdir -p $SOURCE_PATH; pushd $SOURCE_PATH &>/dev/null; tar xf -; popd &>/dev/null; chown -R root.$GRP $SOURCE_PATH"
+  ssh -C root@"$host" "rm -rf $SOURCE_PATH;mkdir -p $SOURCE_PATH; pushd $SOURCE_PATH &>/dev/null; tar xf -; popd &>/dev/null; chown -R root.$GRP $SOURCE_PATH"
 done
 
 for host in  "${ALLNODES[@]}"; do
@@ -103,8 +104,12 @@ if [ "$SW_TYPE" = 'PD_tor' ]; then
 	MASTER_CONFIG_FILE=install/tor-master.conf;
 fi
 
-if [ "$SW_TYPE" = 'NO_SW' ]; then
-	MASTER_CONFIG_FILE=install/no_sw-master.conf;
+if [ "$SW_TYPE" = '5G' ]; then
+	MASTER_CONFIG_FILE=install/5g-master.conf;
+fi
+
+if [ "$SW_TYPE" = '5G-PWR' ]; then
+	MASTER_CONFIG_FILE=install/5g-pwr-master.conf;
 fi
 
 destids=($(grep ENDPOINT $MASTER_CONFIG_FILE | grep PORT | awk '{print $12}'))
@@ -148,6 +153,7 @@ awk -vM=$MEMSZ $HOSTL '
 	{print}' $MASTER_CONFIG_FILE | \
     ssh root@"$MASTER" "mkdir -p $CONFIG_PATH; cd $CONFIG_PATH; cat > $FILENAME";
 
+
 UMDD_CONF=$CONFIG_PATH/umdd.conf
 RSRV_CONF=$CONFIG_PATH/rsvd_phys_mem.conf
 for host in  "${ALLNODES[@]}"; do
@@ -158,6 +164,7 @@ done
 echo "Installation of configuration files COMPLETED..."
 
 FILES=( rio_start.sh stop_rio.sh all_start.sh stop_all.sh check_all.sh 
+	rsock0_start.sh rsock0_stop.sh
 	all_down.sh )
 
 for f in "${FILES[@]}"

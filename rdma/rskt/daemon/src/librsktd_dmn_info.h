@@ -63,6 +63,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "librsktd_dmn.h"
 #include "librsktd_private.h"
+#include "librskt_states.h"
 #include "liblist.h"
 #include "librsktd_speer.h"
 #include "librsktd_wpeer.h"
@@ -98,7 +99,9 @@ struct ms_info {
 	uint64_t phy_addr;
 	uint64_t rio_addr;
 	int	ms_size;
-	struct rskt_socket_t skt;
+	// struct rskt_socket_t skt;
+	msub_h msubh;
+	uint64_t msub_sz;
 	int	loc_sn;
 	int	rem_sn;
 	int	rem_ct;

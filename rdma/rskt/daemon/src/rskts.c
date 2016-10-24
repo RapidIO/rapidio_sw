@@ -59,7 +59,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <rapidio_mport_mgmt.h>
 
 #include "libcli.h"
-#include "librskt_private.h"
+#include "librskt_states.h"
+// #include "librskt_info.h"
 #include "librsktd_private.h"
 #include "librdma.h"
 #include "liblog.h"
@@ -80,7 +81,6 @@ extern "C" {
 #define RSKT_SVR_DFLT_DEBUG   0
 
 struct server_controls {
-	int test;
 	int rsktlib_mp;
 	int rsktlib_portno;
 	int remcli_portno;
@@ -107,7 +107,6 @@ void print_server_help(void)
         printf("-d       : Disables display of debug messages. This is the \n");
         printf("           default operating mode for the server.\n");
         printf("-D       : Displays debug/trace/error messages\n");
-        printf("-t       : Run the library in test mode - no connections\n");
 	printf("-u <u_num>: AF_LOCAL <u_skt> socket for rskt library calls\n");
         printf("           The default value is %d.\n", DFLT_DMN_LSKT_SKT);
         printf("           The u_skt and Umport value must be correct for\n");
@@ -131,7 +130,6 @@ int parse_options(int argc, char *argv[], struct server_controls *ctrls)
 {
 	int idx;
 
-	ctrls->test = 0;
 	ctrls->rsktlib_mp = DFLT_DMN_LSKT_MPORT;
 	ctrls->rsktlib_portno = DFLT_DMN_LSKT_SKT;
 	ctrls->remcli_portno = DFLT_SVR_E_CLI_SKT;
@@ -149,8 +147,6 @@ int parse_options(int argc, char *argv[], struct server_controls *ctrls)
                         case 'H': ctrls->print_help = 1;
 				break;
 			case 'd': rskts.debug = 0;
-				break;
-			case 't': ctrls->test = 1;
 				break;
 			case 'D': rskts.debug = 1;
 				break;
@@ -555,7 +551,6 @@ void spawn_threads()
                 fprintf(stderr, "Error - cli_session_thread rc: %d\n",cli_ret);
                 exit(EXIT_FAILURE);
         }
-        librskt_test_init(rskts.ctrls.test);
         rc = librskt_init(rskts.ctrls.rsktlib_portno, rskts.ctrls.rsktlib_mp);
 	if (rc) {
         	fprintf(stderr, "Error - libskt_init rc = %d, errno = %d:%s\n",
