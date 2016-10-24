@@ -101,7 +101,6 @@ struct fmd_state *fmd = NULL;
 
 void custom_quit(struct cli_env *env)
 {
-	// Avoid compile error for unused parms...
 	(void) env;
 
 	fmd_dd_cleanup(fmd->dd_mtx_fn, &fmd->dd_mtx_fd, &fmd->dd_mtx,
@@ -336,27 +335,6 @@ void spawn_threads(struct fmd_opt_vals *cfg)
 	};
 }
 
-// cloned from riodp_mport_lib.c#riomp_mgmt_device_del
-// remove reference to riocp_pe_handle and pass in fd directly.
-int delete_device(int fd, const char *name)
-{
-	struct rio_rdev_info dev;
-
-	dev.destid = 0;
-	dev.hopcount = 0;
-	dev.comptag = 0;
-	if (name) {
-		strncpy(dev.name, name, RIO_MAX_DEVNAME_SZ);
-	} else {
-		*dev.name = '\0';
-	}
-
-	if (ioctl(fd, RIO_DEV_DEL, &dev))
-		return errno;
-
-	return 0;
-}
-
 // cleanup the /sys/bus/rapidio/devices directory
 int delete_sysfs_devices(riocp_pe_handle mport_pe, bool auto_config)
 {
@@ -460,7 +438,6 @@ int delete_sysfs_devices(riocp_pe_handle mport_pe, bool auto_config)
 	while ((sysfs_name = (char *) l_pop_head(&names_list))) {
 		tmp = riomp_mgmt_device_del(hnd, 0, 0, 0,
 						(const char *)sysfs_name);
-		// tmp = delete_device(fd, sysfs_name);
 		if(tmp) {
 			rc = tmp;
 			WARN("Failed to delete device %s, err=%d\n",
@@ -477,10 +454,12 @@ exit:
 
 int setup_mport_master(int mport)
 {
-	/* FIXME: Change this to support other master ports etc... */
+	/* TODO: Change this to support other master ports etc... */
 	ct_t comptag;
 	struct cfg_mport_info mp;
 	struct cfg_dev cfg_dev;
+	did_t did;
+	char *name;
 
 	if (cfg_find_mport(mport, &mp)) {
 		CRIT("\nCannot find configured mport, exiting...\n");
@@ -489,20 +468,36 @@ int setup_mport_master(int mport)
 
 	comptag = mp.ct;
 
-	if (cfg_find_dev_by_ct(comptag, &cfg_dev)) {
+	if (cfg_find_dev_by_ct(comptag, &cfg_dev) && !cfg_auto()) {
 		CRIT("\nCannot find configured mport device, exiting...\n");
 		return 1;
 	};
 
+	name = (char *)cfg_dev.name;
+
+	if ((COMPTAG_UNSET == comptag) && cfg_auto()) {
+		if (did_create_from_data(&did, mp.devids[CFG_DEV08].devid,
+							dev08_sz)) {
+			CRIT("\nCannot create dev08 did 0x%d, exiting...\n");
+			return 1;
+		}
+		if (ct_create_from_did(&comptag, did)) {
+			CRIT("\nCannot create ct for did 0x%d, exiting...\n");
+			return 1;
+		}
+		name = (char *)calloc(1,40);
+		snprintf(name, 39, "MPORT%d", mport);
+	}
+
 	if (riocp_pe_create_host_handle(&mport_pe, mport, 0, &pe_mpsw_rw_driver,
-			&comptag, (char *)cfg_dev.name)) {
+			&comptag, name)) {
 		CRIT("\nCannot create host handle mport %d, exiting...",
 			mport);
 		riocp_pe_destroy_handle(&mport_pe);
 		return 1;
 	};
 
-	delete_sysfs_devices(mport_pe, cfg_dev.auto_config);
+	delete_sysfs_devices(mport_pe, cfg_auto());
 
 	return fmd_traverse_network(mport_pe, &cfg_dev);
 };
@@ -552,6 +547,9 @@ int setup_mport_slave(int mport)
 	struct mpsw_drv_pe_acc_info *acc_p = NULL;
 	char dev_name[FMD_MAX_DEV_FN];
 
+	// TODO: Ideally, the devname used here is updated based on the
+	//       hello response.  The devname for the MPORT is only used
+	//       in the dd and libriocp_pe, it is not used by sysfs.
 	if (slave_get_ct_and_name(mport, &comptag, dev_name)) {
 		CRIT("\nCannot get component tag or dev_name, exiting...\n");
 		return 1;
@@ -665,14 +663,17 @@ int main(int argc, char *argv[])
 	g_level = opts->log_level;
 	if ((opts->init_and_quit) && (opts->print_help))
 		goto fail;
-        fmd = (struct fmd_state *)calloc(1, sizeof(struct fmd_state));
-        fmd->opts = opts;
-        fmd->fmd_rw = 1;
+	fmd = (fmd_state *)calloc(1, sizeof(struct fmd_state));
+	fmd->opts = opts;
+	fmd->fmd_rw = 1;
+	fmd->dd_mtx_fn = fmd->opts->dd_mtx_fn;
+	fmd->dd_fn = fmd->opts->dd_fn;
 
-	if (cfg_parse_file(opts->fmd_cfg, &fmd->dd_mtx_fn, &fmd->dd_fn, 
+	// Parse the configuration file, continue no matter what
+	// errors are found.
+	cfg_parse_file(opts->fmd_cfg, &fmd->dd_mtx_fn, &fmd->dd_fn,
 			&fmd->opts->mast_devid, &fmd->opts->mast_cm_port,
-			&fmd->opts->mast_mode))
-		goto fail;
+			&fmd->opts->mast_mode);
 
 	if (fmd_dd_init(opts->dd_mtx_fn, &fmd->dd_mtx_fd, &fmd->dd_mtx,
 			opts->dd_fn, &fmd->dd_fd, &fmd->dd))

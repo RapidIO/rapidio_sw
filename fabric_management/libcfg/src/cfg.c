@@ -80,7 +80,7 @@ void init_rt(idt_rt_state_t *rt)
 	};
 };
 
-int init_cfg_ptr(void)
+int init_cfg_ptr(char *dd_mtx_fn, char *dd_fn)
 {
 	int i, j;
 
@@ -90,6 +90,8 @@ int init_cfg_ptr(void)
 		return 1;
 	
 	cfg->mast_idx = CFG_SLAVE;
+	cfg->dd_mtx_fn = dd_mtx_fn;
+	cfg->dd_fn = dd_fn;
 
 	for (i = 0; i < CFG_MAX_MPORTS; i++) {
 		cfg->mport_info[i].num = -1;
@@ -1274,7 +1276,7 @@ int cfg_parse_file(char *cfg_fn, char **dd_mtx_fn, char **dd_fn,
 	struct int_cfg_ep_port port;
 	struct int_cfg_sw sw;
 
-	if (init_cfg_ptr())
+	if (init_cfg_ptr(*dd_mtx_fn, *dd_fn))
 		goto fail;
 
 	INFO("\nCFG: Opening configuration file \"%s\"...\n", cfg_fn);
@@ -1298,10 +1300,10 @@ int cfg_parse_file(char *cfg_fn, char **dd_mtx_fn, char **dd_fn,
 	*m_did = cfg->mast_devid;
 	*m_cm_port = cfg->mast_cm_port;
 	*m_mode = !(CFG_SLAVE == cfg->mast_idx);
-	if (cfg->dd_mtx_fn) 
+	if (cfg->dd_mtx_fn && strlen(cfg->dd_mtx_fn))
 		update_string(dd_mtx_fn, cfg->dd_mtx_fn,
 					strlen(cfg->dd_mtx_fn));
-	if (cfg->dd_fn) 
+	if (cfg->dd_fn && strlen(cfg->dd_fn))
 		update_string(dd_fn, cfg->dd_fn,
 					strlen(cfg->dd_fn));
 
@@ -1570,6 +1572,11 @@ fail:
 	return 1;
 	
 };
+
+extern bool cfg_auto(void)
+{
+	return cfg->auto_config;
+}
 
 #ifdef __cplusplus
 }

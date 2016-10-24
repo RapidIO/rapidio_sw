@@ -246,7 +246,7 @@ void send_peer_removal_messages(struct fmd_peer *del_peer)
 
 void master_process_hello_peer(struct fmd_peer *peer)
 {
-	struct cfg_dev peer_ep;
+	riocp_pe_handle peer_pe;
 	int add_to_list = 0;
 	int peer_not_found;
 
@@ -265,10 +265,11 @@ void master_process_hello_peer(struct fmd_peer *peer)
 	peer->p_hc = ntohl(peer->s2m->hello_rq.hc);
 	memcpy(peer->peer_name, peer->s2m->hello_rq.peer_name, MAX_P_NAME+1);
 
-	peer_not_found = cfg_find_dev_by_ct(peer->p_ct, &peer_ep);
+	peer_not_found = riocp_pe_find_comptag(*fmd->mp_h, peer->p_ct, &peer_pe);
 
-	if (peer_not_found)
+	if (peer_not_found) {
 		DBG("Could not find configured peer ct 0x%x\n", peer->p_ct);
+	}
 
 	sem_wait(&peer->tx_mtx);
 
@@ -283,15 +284,15 @@ void master_process_hello_peer(struct fmd_peer *peer)
 		peer->m2s->hello_rsp.ct = htonl(0);
 		peer->m2s->hello_rsp.hc = htonl(0);
 	} else {
-		strncpy(peer->m2s->hello_rsp.peer_name, peer_ep.name, 
+		strncpy(peer->m2s->hello_rsp.peer_name, peer_pe->sysfs_name,
 			MAX_P_NAME);
 		peer->m2s->hello_rsp.pid = htonl(getpid());
 		peer->m2s->hello_rsp.did = htonl(fmd->opts->mast_devid);
 		peer->m2s->hello_rsp.did_sz = htonl(fmd->opts->mast_devid_sz);
-		peer->m2s->hello_rsp.ct = htonl(peer_ep.ct);
+		peer->m2s->hello_rsp.ct = htonl(peer_pe->comptag);
 		peer->m2s->hello_rsp.hc = htonl(0);
 		add_to_list = 1;
-		peer->p_hc = peer_ep.hc;
+		peer->p_hc = 0xFF;
 	};
 	peer->tx_buff_used = 1;
 	peer->tx_rc = riomp_sock_send(peer->cm_skt_h, peer->tx_buff,
@@ -305,7 +306,8 @@ void master_process_hello_peer(struct fmd_peer *peer)
 		peer->li = l_add(&fmp.peers, peer->p_did, peer);
 		sem_post(&fmp.peers_mtx);
 		add_device_to_dd(peer->p_ct, peer->p_did, peer->p_did_sz,
-			peer->p_hc, 0, FMDD_FLAG_OK, (char *)peer_ep.name);
+			peer->p_hc, 0, FMDD_FLAG_OK,
+			(char *)peer_pe->sysfs_name);
 		HIGH("New Peer 0x%x: Updating all dd and flags\n", peer->p_ct);
 		update_all_peer_dd_and_flags(1);
 	};

@@ -181,7 +181,7 @@ int fmd_traverse_network_from_pe_port(riocp_pe_handle pe, rio_port_t port_num, s
 	} while (NULL != curr_pe);
 
 	/* enumerate devices not in the configuration */
-	if (curr_dev.auto_config && l_size(&no_cfg_list)) {
+	if (cfg_auto() && l_size(&no_cfg_list)) {
 		int dev_number = 1;
 		ct_t ct = COMPTAG_UNSET;
 		did_t did;

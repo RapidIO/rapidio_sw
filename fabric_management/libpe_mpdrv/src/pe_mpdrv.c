@@ -309,7 +309,52 @@ int mpsw_destroy_priv_data(struct riocp_pe *pe)
 	return 0;
 }
 
-int mpdrv_init_rt(uint32_t ct, DAR_DEV_INFO_t *dh)
+int mpdrv_auto_init_rt(struct riocp_pe *pe, DAR_DEV_INFO_t *dh,
+			struct mpsw_drv_private_data *priv, pe_port_t acc_port)
+{
+	idt_rt_set_all_in_t set_in;
+	idt_rt_set_all_out_t set_out;
+	idt_rt_initialize_in_t init_in;
+	idt_rt_initialize_out_t init_out;
+	idt_rt_change_rte_in_t rte_in;
+	idt_rt_change_rte_out_t rte_out;
+	uint32_t rc;
+
+	init_in.set_on_port = RIO_ALL_PORTS;
+	init_in.default_route = IDT_DSF_RT_NO_ROUTE;
+	init_in.default_route_table_port = IDT_DSF_RT_NO_ROUTE;
+	init_in.update_hw = false;
+	init_in.rt = &priv->st.g_rt;
+
+	rc = idt_rt_initialize(dh, &init_in, &init_out);
+	if (rc) {
+		goto fail;
+	}
+
+	rte_in.dom_entry = false;
+	rte_in.idx = pe->mport->destid;
+	rte_in.rte_value = acc_port;
+	rte_in.rt = &priv->st.g_rt;
+
+	rc = idt_rt_change_rte(dh, &rte_in, &rte_out);
+	if (rc) {
+		goto fail;
+	}
+
+	set_in.set_on_port = RIO_ALL_PORTS;
+	set_in.rt = &priv->st.g_rt;
+
+	rc = idt_rt_set_all(dh, &set_in, &set_out);
+	if (rc) {
+		goto fail;
+	}
+	return 0;
+fail:
+	return 1;
+}
+
+int mpdrv_init_rt(struct riocp_pe *pe, uint32_t ct, DAR_DEV_INFO_t *dh,
+		struct mpsw_drv_private_data *priv, pe_port_t acc_port)
 {
         struct cfg_dev sw;
         idt_rt_set_all_in_t set_in;
@@ -322,6 +367,9 @@ int mpdrv_init_rt(uint32_t ct, DAR_DEV_INFO_t *dh)
                 /* device not found in config file
                  * continue with other initialization
                  */
+		if (cfg_auto()) {
+			return mpdrv_auto_init_rt(pe, dh, priv, acc_port);
+		}
                 return 0;
         }
 
@@ -371,7 +419,7 @@ int generic_device_init(struct riocp_pe *pe, uint32_t *ct)
 	DAR_DEV_INFO_t *dev_h = NULL;
 	struct DAR_ptl ptl;
 	idt_pc_set_config_in_t set_pc_in;
-	idt_pc_dev_reset_config_in_t rst_in = {idt_pc_rst_port};
+	idt_pc_dev_reset_config_in_t    rst_in = {idt_pc_rst_port};
 	idt_pc_dev_reset_config_out_t   rst_out;
 	idt_pc_get_status_in_t	  ps_in;
 	idt_pc_get_config_in_t	  pc_in;
@@ -510,7 +558,8 @@ int generic_device_init(struct riocp_pe *pe, uint32_t *ct)
 
 	if (SWITCH((dev_h))) {
 		pe_port_t port;
-		rc = mpdrv_init_rt(*ct, dev_h);
+		rc = mpdrv_init_rt(pe, *ct, dev_h, priv,
+						RIO_ACCESS_PORT(port_info));
 		if (rc)
 			goto exit;
 

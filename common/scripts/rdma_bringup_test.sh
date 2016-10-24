@@ -227,16 +227,6 @@ do
 			fi
 		done # END for node in $NODES_REV
 
-		# Unload all drivers from all nodes
-		for node in $NODES_REV
-		do
-			# Unload drivers
-			echo "Unloading drivers on $node "
-			ssh root@"$node" "modprobe -r rio_mport_cdev"
-			sleep 1
-			ssh root@"$node" "modprobe -r rio_cm"
-			sleep 1
-		done # END for node in $NODES_REV
 	fi # 	if [ $OK -eq 0 ]
 done #for (( i=0; i<NUM_ITERATIONS; i++ ))
 

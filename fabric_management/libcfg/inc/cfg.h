@@ -123,6 +123,7 @@ extern int cfg_find_mport(uint32_t mport, struct cfg_mport_info *mp);
 extern int cfg_get_mp_mem_sz(uint32_t mport, uint8_t *mem_sz );
 extern int cfg_find_dev_by_ct(ct_t ct, struct cfg_dev *dev);
 extern int cfg_get_conn_dev(ct_t ct, int pt, struct cfg_dev *dev, int *conn_pt);
+extern bool cfg_auto(void);
 
 #ifdef __cplusplus
 }
