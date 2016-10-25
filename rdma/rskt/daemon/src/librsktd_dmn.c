@@ -90,7 +90,7 @@ int d_rdma_drop_mso_h(void) {
         int rc = 0;
 
 	if (dmn.mso.valid) {
-        	memset(dmn.mso.msoh_name, 0, MAX_MS_NAME+1);
+        	memset(dmn.mso.msoh_name, 0, sizeof(dmn.mso.msoh_name));
 
         	rc = rdma_destroy_mso_h(dmn.mso.rskt_mso);
         	dmn.mso.rskt_mso = 0;
@@ -108,7 +108,7 @@ int d_rdma_drop_ms_h(struct ms_info *msi)
         	rc = rdma_destroy_ms_h(dmn.mso.rskt_mso, msi->ms);
 
         	msi->valid = 0;
-        	memset(msi->ms_name, 0, MAX_MS_NAME+1);
+        	memset(msi->ms_name, 0, sizeof(msi->ms_name));
         	msi->ms = 0;
         	msi->ms_size = 0;
 	};
@@ -243,11 +243,11 @@ int init_mport_and_mso_ms(void)
 	dmn.mso.valid = 0;
 	dmn.mso.num_ms = 0;
 	dmn.mso.next_ms = 0;
-	memset(dmn.mso.msoh_name, 0, MAX_MS_NAME+1);
+	memset(dmn.mso.msoh_name, 0, sizeof(dmn.mso.msoh_name));
 	for (i = 0; i < MAX_DMN_NUM_MS; i++) {
 		dmn.mso.ms[i].valid = 0;
 		dmn.mso.ms[i].state = rsktd_ms_free;
-		memset(dmn.mso.ms[i].ms_name, 0, MAX_MS_NAME+1);
+		memset(dmn.mso.ms[i].ms_name, 0, sizeof(dmn.mso.ms[i].ms_name));
 		dmn.mso.ms[i].ms_size = 0;
 		rskt_clear_skt(&dmn.mso.ms[i].skt); 
 	};
@@ -257,7 +257,7 @@ int init_mport_and_mso_ms(void)
 		goto exit;
 	};
 
-	snprintf(dmn.mso.msoh_name, MAX_MS_NAME, "RSKT_DAEMON%d", getpid());
+	snprintf(dmn.mso.msoh_name, sizeof(dmn.mso.msoh_name)-1, "RSKT_DAEMON%d", getpid());
         if (d_rdma_get_mso_h(dmn.mso.msoh_name, &dmn.mso.rskt_mso)) {
 		CRIT("Could not get mso_h for '%s'. Bailing out...\n",
 				dmn.mso.msoh_name);
@@ -267,7 +267,7 @@ int init_mport_and_mso_ms(void)
         for (i = 0; i < dmn.num_ms; i++) {
                 dmn.mso.ms[i].ms_size = dmn.ms_size;
 
-                snprintf(dmn.mso.ms[i].ms_name, MAX_MS_NAME,
+                snprintf(dmn.mso.ms[i].ms_name, sizeof(dmn.mso.ms[i].ms_name)-1,
                         "RSKT_DAEMON%05d.%03d", getpid(), i);
 
                 if (d_rdma_get_ms_h(&dmn.mso.ms[i], dmn.mso.ms[i].ms_name,

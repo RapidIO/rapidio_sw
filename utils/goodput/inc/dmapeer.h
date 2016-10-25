@@ -10,6 +10,7 @@
 
 #include <sstream>
 
+#include "string_util.h"
 #include "tun_ipv4.h"
 #include "rio_misc.h"
 
@@ -134,7 +135,7 @@ private:
     m_ib_ptr   = other.m_ib_ptr;
     m_tun_fd   = -1;
     m_tun_MTU  = other.m_tun_MTU;
-    strncpy(m_tun_name, other.m_tun_name, 32); m_tun_name[32] = '\0';
+    SAFE_STRNCPY(m_tun_name, other.m_tun_name, sizeof(m_tun_name));
     m_WP       = other.m_WP;
     m_rpeer_UC = other.m_rpeer_UC;
     m_rio_rx_bd_ready = NULL;
@@ -330,7 +331,7 @@ public:
         CRIT("Error connecting to tun/tap interface %s!\n", if_name);
         goto error;
     }
-    strncpy(m_tun_name, if_name, sizeof(m_tun_name)-1);
+    SAFE_STRNCPY(m_tun_name, if_name, sizeof(m_tun_name));
 
     {{
       const int flags = fcntl(m_tun_fd, F_GETFL, 0);

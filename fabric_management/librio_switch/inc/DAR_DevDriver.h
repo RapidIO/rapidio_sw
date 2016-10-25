@@ -59,7 +59,7 @@ typedef uint32_t DAR_DB_Handle_t; /* DARDB Device Driver Handle */
 typedef uint32_t DSF_Handle_t;    /* Device Specific Function Handle, not */
                                 /*     defined by the DAR. */
 
-/* Structure whiche defines the location of the device being accessed.
+/* Structure which defines the location of the device being accessed.
 *  Also defines a reference to the device driver bound into the DAR DB,
 *     and the pointer to the private data structure for the DAR.
 *  A destid value of HOST_REGS will cause the local hosts registers to be 

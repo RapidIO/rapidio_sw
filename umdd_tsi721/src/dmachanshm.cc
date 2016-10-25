@@ -39,9 +39,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sys/syscall.h>   /* For SYS_xxx definitions */
 
 #include <stdexcept>
-#include <string>
 #include <sstream>
 
+#include "string_util.h"
 #include "IDT_Tsi721.h"
 
 #include "rio_misc.h"
@@ -98,7 +98,7 @@ bool DMAChannelSHM::has_state(const uint32_t mport_id, const uint32_t chan)
 {
   char path[129] = {0};
 
-  strncpy(path, "/dev/shm/", 128);
+  SAFE_STRNCPY(path, "/dev/shm/", sizeof(path));
   const int N = strlen(path);
   snprintf(path+N, 128-N, DMA_SHM_STATE_NAME, mport_id, chan);
 

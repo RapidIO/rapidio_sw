@@ -34,7 +34,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 // #include <cinttypes>
 
-#include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdarg.h>
@@ -53,6 +52,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sys/types.h>
 #include <netinet/in.h>
 
+#include "string_util.h"
 #include "liblog.h"
 #include "pe_mpdrv_private.h"
 #include "riocp_pe_internal.h"
@@ -173,10 +173,9 @@ int mpsw_mport_dev_add(struct riocp_pe *pe, char *name)
 	int rc = 0;
 	struct mpsw_drv_pe_acc_info *p_acc = NULL;
 	struct mpsw_drv_private_data *p_dat = NULL;
-	char dev_fn[MPSW_MAX_DEV_FN] = {0};
+	char dev_fn[MPSW_MAX_DEV_FN+1] = {0};
 
-	memset(pe->sysfs_name, 0, sizeof(pe->sysfs_name));
-	strncpy(pe->sysfs_name, name, sizeof(pe->sysfs_name) - 1);
+	SAFE_STRNCPY(pe->sysfs_name, name, sizeof(pe->sysfs_name));
 
 	if (RIOCP_PE_IS_MPORT(pe))
 		return 0;
@@ -192,8 +191,8 @@ int mpsw_mport_dev_add(struct riocp_pe *pe, char *name)
 	if ((!p_acc->maint_valid) || (NULL == name))
 		return -EINVAL;
 
-	memset(dev_fn, 0, MPSW_MAX_DEV_FN);
-	snprintf(dev_fn, MPSW_MAX_DEV_FN-1, "%s%s", MPSW_DFLT_DEV_DIR, name);
+	memset(dev_fn, 0, sizeof(dev_fn));
+	snprintf(dev_fn, sizeof(dev_fn)-1, "%s%s", MPSW_DFLT_DEV_DIR, name);
 
 	if (access(dev_fn, F_OK) != -1) {
 		INFO("\nFMD: device \"%s\" exists...\n", name);

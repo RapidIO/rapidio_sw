@@ -32,10 +32,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 #include <map>
-#include <string>
 #include <iostream>
 #include <sstream>
 #include <vector>
+
+#include "string_util.h"
 #include "libunit_test.h"
 #include "libunit_test_priv.h"
 #include "libtime_utils.h"
@@ -428,7 +429,7 @@ void cpu_occ_parse_proc_line(char *file_line,
 	int tok_cnt = 0;
 	char fl_cpy[CPUOCC_BUFF_SIZE];
 	
-	strncpy(fl_cpy, file_line, CPUOCC_BUFF_SIZE-1);
+	SAFE_STRNCPY(fl_cpy, file_line, sizeof(fl_cpy));
 	tok = strtok_r(file_line, delim, &saveptr);
 	while ((NULL != tok) && (tok_cnt < 13)) {
 		tok = strtok_r(NULL, delim, &saveptr);
@@ -463,7 +464,7 @@ void cpu_occ_parse_stat_line(char *file_line,
 	char *delim = (char *)" ";
 	char fl_cpy[CPUOCC_BUFF_SIZE];
 	
-	strncpy(fl_cpy, file_line, CPUOCC_BUFF_SIZE-1);
+	SAFE_STRNCPY(fl_cpy, file_line, sizeof(fl_cpy));
 	
 	/* Throw the first token away. */
 	tok = strtok_r(file_line, delim, &saveptr);
@@ -551,8 +552,8 @@ int cpu_occ_set(uint64_t *tot_jifis,
 		goto exit;
 	};
 
-	memset(file_line, 0, 1024);
-	if (NULL == fgets(file_line, 1024,  stat_fp)) {
+	memset(file_line, 0, sizeof(file_line));
+	if (NULL == fgets(file_line, sizeof(file_line), stat_fp)) {
 		ERR("FAILED: reading line 1 returned NULL, errno %d: %s",
 			errno, strerror(errno));
 		goto exit;
@@ -561,8 +562,8 @@ int cpu_occ_set(uint64_t *tot_jifis,
 	cpu_occ_parse_proc_line(file_line, proc_user_jifis, proc_kern_jifis);
 
 		
-	memset(file_line, 0, 1024);
-	if (NULL == fgets(file_line, 1024,  cpu_stat_fp)) {
+	memset(file_line, 0, sizeof(file_line));
+	if (NULL == fgets(file_line, sizeof(file_line), cpu_stat_fp)) {
 		ERR("FAILED: reading line 2 returned NULL, errno %d: %s",
 			errno, strerror(errno));
 		goto exit;

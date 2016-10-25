@@ -32,6 +32,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 #include <unistd.h>
+#include "string_util.h"
 #include "libcli.h"
 #include "liblog.h"
 #include "librsktd_lib.h"
@@ -986,8 +987,10 @@ int test_speer_wpeer_driver(struct worker *info)
         		s_t->req.msg.con.dst_sn = htonl(sn);
         		s_t->req.msg.con.dst_ct = htonl(wp_idx); /* Yes, wp_idx */
         		s_t->req.msg.con.src_sn = htonl(speer_sn);
-        		strncpy(s_t->req.msg.con.src_mso, "SRC_MSO", MAX_MS_NAME);
-        		strncpy(s_t->req.msg.con.src_ms, "SRC_MS", MAX_MS_NAME);
+        		SAFE_STRNCPY(s_t->req.msg.con.src_mso, "SRC_MSO",
+        				sizeof(s_t->req.msg.con.src_mso));
+        		SAFE_STRNCPY(s_t->req.msg.con.src_ms, "SRC_MS",
+        				sizeof(s_t->req.msg.con.src_ms));
         		s_t->req.msg.con.src_msub_o = 0;
         		s_t->req.msg.con.src_msub_s = 64*1024;
 	
@@ -999,7 +1002,8 @@ int test_speer_wpeer_driver(struct worker *info)
         		s_t->resp.msg.con.dst_sn = htonl(sn);
         		s_t->resp.msg.con.dst_ct = htonl(6);
         		s_t->resp.msg.con.dst_dmn_cm_skt = htonl(speer_cm_skt_num);
-			snprintf(s_t->resp.msg.con.dst_ms, MAX_MS_NAME, 
+			snprintf(s_t->resp.msg.con.dst_ms,
+				sizeof(s_t->resp.msg.con.dst_ms) - 1,
 				"RSKT_DAEMON%05d.%03d", getpid(), 0);
         		s_t->resp.msg.con.msub_sz = htonl(64*1024);
 	
@@ -1067,8 +1071,10 @@ int test_speer_wpeer_driver(struct worker *info)
         		s_t->req.msg.con.dst_sn = htonl(sn); /* Yes, wp_idx */
         		s_t->req.msg.con.dst_ct = htonl(wp_idx);
         		s_t->req.msg.con.src_sn = htonl(speer_sn);
-        		strncpy(s_t->req.msg.con.src_mso, "SRC_MSO", MAX_MS_NAME);
-        		strncpy(s_t->req.msg.con.src_ms, "SRC_MS", MAX_MS_NAME);
+        		SAFE_STRNCPY(s_t->req.msg.con.src_mso, "SRC_MSO",
+        				sizeof(s_t->req.msg.con.src_mso));
+        		SAFE_STRNCPY(s_t->req.msg.con.src_ms, "SRC_MS",
+        				sizeof(s_t->req.msg.con.src_ms));
         		s_t->req.msg.con.src_msub_o = 0;
         		s_t->req.msg.con.src_msub_s = 64*1024;
 	
@@ -1081,7 +1087,8 @@ int test_speer_wpeer_driver(struct worker *info)
         		s_t->resp.msg.con.dst_ct = htonl(wp_idx);
         		s_t->resp.msg.con.dst_dmn_cm_skt =
 						htonl(speer_cm_skt_num);
-			snprintf(s_t->resp.msg.con.dst_ms, MAX_MS_NAME, 
+			snprintf(s_t->resp.msg.con.dst_ms,
+				sizeof(s_t->resp.msg.con.dst_ms) - 1,
 				"RSKT_DAEMON%05d.%03d", getpid(), 0);
         		s_t->resp.msg.con.msub_sz = htonl(64*1024);
 	
@@ -2147,8 +2154,10 @@ int test_case_7(void)
         s_t->req.msg.con.dst_sn = htonl(sn); /* Yes, wp_idx */
         s_t->req.msg.con.dst_ct = htonl(wp_idx);
         s_t->req.msg.con.src_sn = htonl(speer_sn);
-        strncpy(s_t->req.msg.con.src_mso, "SRC_MSO", MAX_MS_NAME);
-        strncpy(s_t->req.msg.con.src_ms, "SRC_MS", MAX_MS_NAME);
+        SAFE_STRNCPY(s_t->req.msg.con.src_mso, "SRC_MSO",
+        		sizeof(s_t->req.msg.con.src_mso));
+        SAFE_STRNCPY(s_t->req.msg.con.src_ms, "SRC_MS",
+        		sizeof(s_t->req.msg.con.src_ms));
         s_t->req.msg.con.src_msub_o = 0;
         s_t->req.msg.con.src_msub_s = 64*1024;
 
@@ -2160,7 +2169,8 @@ int test_case_7(void)
         s_t->resp.msg.con.dst_sn = htonl(sn);
         s_t->resp.msg.con.dst_ct = htonl(6);
         s_t->resp.msg.con.dst_dmn_cm_skt = htonl(speer_cm_skt_num);
-	snprintf(s_t->resp.msg.con.dst_ms, MAX_MS_NAME, 
+	snprintf(s_t->resp.msg.con.dst_ms,
+		sizeof(s_t->resp.msg.con.dst_ms) - 1,
 		"RSKT_DAEMON%05d.%03d", getpid(), 0);
         s_t->resp.msg.con.msub_sz = htonl(64*1024);
 
@@ -2220,8 +2230,10 @@ int test_case_7(void)
         s_t->req.msg.con.dst_sn = htonl(sn); /* Yes, wp_idx */
         s_t->req.msg.con.dst_ct = htonl(wp_idx);
         s_t->req.msg.con.src_sn = htonl(speer_sn);
-        strncpy(s_t->req.msg.con.src_mso, "SRC_MSO", MAX_MS_NAME);
-        strncpy(s_t->req.msg.con.src_ms, "SRC_MS", MAX_MS_NAME);
+        SAFE_STRNCPY(s_t->req.msg.con.src_mso, "SRC_MSO",
+        		sizeof(s_t->req.msg.con.src_mso));
+        SAFE_STRNCPY(s_t->req.msg.con.src_ms, "SRC_MS",
+        		sizeof(s_t->req.msg.con.src_ms));
         s_t->req.msg.con.src_msub_o = 0;
         s_t->req.msg.con.src_msub_s = 64*1024;
 
@@ -2233,7 +2245,8 @@ int test_case_7(void)
         s_t->resp.msg.con.dst_sn = htonl(sn);
         s_t->resp.msg.con.dst_ct = htonl(6);
         s_t->resp.msg.con.dst_dmn_cm_skt = htonl(speer_cm_skt_num);
-	snprintf(s_t->resp.msg.con.dst_ms, MAX_MS_NAME, 
+	snprintf(s_t->resp.msg.con.dst_ms,
+		sizeof(s_t->resp.msg.con.dst_ms) - 1,
 		"RSKT_DAEMON%05d.%03d", getpid(), 0);
         s_t->resp.msg.con.msub_sz = htonl(64*1024);
 

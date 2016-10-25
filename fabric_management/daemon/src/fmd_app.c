@@ -39,7 +39,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sys/socket.h>
 #include <errno.h>
 #include <time.h>
-#include <string.h>
+
+#include "string_util.h"
 #include "fmd_state.h"
 #include "fmd_dd.h"
 #include "fmd_app_msg.h"
@@ -108,12 +109,13 @@ int handle_app_msg(struct fmd_app_mgmt_state *app)
 
 	app->proc_num = ntohl(app->req.hello_req.app_pid);
 	app->flag = ntohl(app->req.hello_req.flag);
-	strncpy(app->app_name, app->req.hello_req.app_name, MAX_APP_NAME);
-
+	SAFE_STRNCPY(app->app_name, app->req.hello_req.app_name,
+			sizeof(app->app_name));
 	app->resp.hello_resp.sm_dd_mtx_idx = htonl(app->index);
-	strncpy(app->resp.hello_resp.dd_fn, app_st.dd_fn, MAX_DD_FN_SZ);
-	strncpy(app->resp.hello_resp.dd_mtx_fn, app_st.dd_mtx_fn, 
-		MAX_DD_MTX_FN_SZ);
+	SAFE_STRNCPY(app->resp.hello_resp.dd_fn, app_st.dd_fn,
+			sizeof(app->resp.hello_resp.dd_fn));
+	SAFE_STRNCPY(app->resp.hello_resp.dd_mtx_fn, app_st.dd_mtx_fn,
+			sizeof(app->resp.hello_resp.dd_mtx_fn));
 	INFO("APP %s Connected!\n", app->app_name);
 	return 1;
 };

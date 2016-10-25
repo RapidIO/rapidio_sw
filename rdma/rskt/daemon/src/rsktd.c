@@ -32,7 +32,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 #include <stdio.h>
-#include <string.h>
 #include <stdlib.h>
 #include <stdarg.h>
 #include <semaphore.h>
@@ -57,6 +56,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <pthread.h>
 #include <arpa/inet.h>
 
+#include "string_util.h"
 #include "rio_misc.h"
 #include "libcli.h"
 #include "librdma.h"
@@ -343,7 +343,7 @@ exit:
 void set_prompt(struct cli_env *e)
 {
         if (e != NULL) {
-                strncpy(e->prompt, "RSKTDaemon> ", PROMPTLEN);
+               SAFE_STRNCPY(e->prompt, "RSKTDaemon> ", sizeof(e->prompt));
         };
 };
 

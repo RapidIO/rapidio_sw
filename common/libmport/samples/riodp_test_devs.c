@@ -53,7 +53,6 @@
  */
 
 #include <stdio.h>
-#include <string.h>
 #include <errno.h>
 #include <stdlib.h>
 #include <time.h>
@@ -67,6 +66,7 @@
 #include <signal.h>
 #include <pthread.h>
 
+#include "string_util.h"
 #include "ct.h"
 #include "rapidio_mport_dma.h"
 #include "rapidio_mport_mgmt.h"
@@ -199,7 +199,7 @@ int main(int argc, char** argv)
 			comptag = strtol(optarg, NULL, 0);
 			break;
 		case 'N':
-			strncpy(dev_name, optarg, RIODP_MAX_DEV_NAME_SZ);
+			SAFE_STRNCPY(dev_name, optarg, sizeof(dev_name));
 			break;
 		case 'c':
 			do_create = 1;

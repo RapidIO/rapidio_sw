@@ -35,7 +35,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "fmd_master.h"
 
 #include <stdio.h>
-#include <string.h>
 #include <stdlib.h>
 #include <stdarg.h>
 #include <semaphore.h>
@@ -62,6 +61,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <rapidio_mport_mgmt.h>
 #include <rapidio_mport_sock.h>
 
+#include "string_util.h"
 #include "libcli.h"
 #include "fmd.h"
 #include "cfg.h"
@@ -126,12 +126,12 @@ void send_add_dev_msg(struct fmd_peer *peer, struct fmd_dd_dev_info *dev)
 	peer->m2s->mod_rq.is_mp = 0;
 
 	if (dev->is_mast_pt) {
-		strncpy(peer->m2s->mod_rq.name, FMD_SLAVE_MASTER_NAME, 
-			MAX_P_NAME);
+		SAFE_STRNCPY(peer->m2s->mod_rq.name, FMD_SLAVE_MASTER_NAME, 
+			sizeof(peer->m2s->mod_rq.name));
 	} else {
 		if (dev->destID == peer->p_did) {
-			strncpy(peer->m2s->mod_rq.name, FMD_SLAVE_MPORT_NAME,
-				MAX_P_NAME);
+			SAFE_STRNCPY(peer->m2s->mod_rq.name, FMD_SLAVE_MPORT_NAME,
+				sizeof(peer->m2s->mod_rq.name));
 			peer->m2s->mod_rq.is_mp = htonl(1);
 			flag |= FMDD_FLAG_OK_MP;
 		} else {
@@ -146,7 +146,8 @@ void send_add_dev_msg(struct fmd_peer *peer, struct fmd_dd_dev_info *dev)
 			/* Only tell peers about other connected peers */
 			if (NULL == t_peer)
 				goto exit;
-			strncpy(peer->m2s->mod_rq.name, dev->name, MAX_P_NAME);
+			SAFE_STRNCPY(peer->m2s->mod_rq.name, dev->name, 
+				sizeof(peer->m2s->mod_rq.name));
 		};
 	};
 	INFO("TX ADD DEV MSG to did 0x%x Name %s Adding did 0x%x ct 0x%x\n",
@@ -284,8 +285,8 @@ void master_process_hello_peer(struct fmd_peer *peer)
 		peer->m2s->hello_rsp.ct = htonl(0);
 		peer->m2s->hello_rsp.hc = htonl(0);
 	} else {
-		strncpy(peer->m2s->hello_rsp.peer_name, peer_pe->sysfs_name,
-			MAX_P_NAME);
+		SAFE_STRNCPY(peer->m2s->hello_rsp.peer_name, peer_pe->sysfs_name,
+			sizeof(peer->m2s->hello_rsp.peer_name));
 		peer->m2s->hello_rsp.pid = htonl(getpid());
 		peer->m2s->hello_rsp.did = htonl(fmd->opts->mast_devid);
 		peer->m2s->hello_rsp.did_sz = htonl(fmd->opts->mast_devid_sz);

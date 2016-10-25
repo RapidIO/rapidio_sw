@@ -32,7 +32,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 #include <stdio.h>
-#include <string.h>
 #include <stdlib.h>
 #include <stdarg.h>
 #include <semaphore.h>
@@ -55,6 +54,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <netinet/tcp.h>
 #include <pthread.h>
 
+#include "string_util.h"
 #include "rio_misc.h"
 #include "rapidio_mport_mgmt.h"
 #include "rapidio_mport_sock.h"
@@ -226,7 +226,7 @@ sem_t cons_owner;
 void set_prompt(struct cli_env *e)
 {
 	if (e != NULL) {
-		strncpy(e->prompt, "FXServer> ", PROMPTLEN);
+		SAFE_STRNCPY(e->prompt, "FXServer> ", sizeof(e->prompt));
 	};
 };
 

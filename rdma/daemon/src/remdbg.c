@@ -41,7 +41,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <netinet/tcp.h>
 
 #include <stdio.h>
-#include <string.h>
 #include <stdlib.h>
 
 #include <sys/types.h>
@@ -56,6 +55,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <netinet/in.h>
 #include <netdb.h>
 
+#include "string_util.h"
 #include "rio_misc.h"
 #include "libcli.h"
 
@@ -188,8 +188,7 @@ int main(int UNUSED(argc), char **UNUSED(argv))
         env.progressState = 0;
         env.sess_socket = -1;
         env.cmd_prev = NULL;
-        bzero(env.prompt, PROMPTLEN+1);
-	strncpy(env.prompt, "Rem_RDMAD> ", PROMPTLEN);
+	SAFE_STRNCPY(env.prompt, "Rem_RDMAD> ", sizeof(env.prompt));
 
 	splashScreen((char *)"Remote Debug Session Client for RDMA Daemon");
 	cli_terminal(&env);

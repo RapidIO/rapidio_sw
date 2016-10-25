@@ -35,7 +35,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdint.h>
 #include <inttypes.h>
 #include <stdio.h>
-#include <string.h>
 #include <stdlib.h>
 #include <stdarg.h>
 #include <semaphore.h>
@@ -63,7 +62,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <sched.h>
 
-
+#include "string_util.h"
 #include "libcli.h"
 #include "rapidio_mport_mgmt.h"
 #include "rapidio_mport_sock.h"
@@ -2840,7 +2839,7 @@ void umd_mbox_goodput_latency_demo(struct worker *info)
 	if(info->wr == 0) {
 		char msg_buf[PAGE_4K+1] = {0};
 #ifndef MBOXDEBUG
-		strncpy(msg_buf, "Generic pingback - Mary had a little lamb", PAGE_4K);
+		SAFE_STRNCPY(msg_buf, "Generic pingback - Mary had a little lamb", sizeof(msg_buf));
 #endif
 
 		MboxChannel::MboxOptions_t opt; memset(&opt, 0, sizeof(opt));
@@ -3126,7 +3125,7 @@ void umd_mbox_goodput_tun_demo(struct worker *info)
 		return;
 	}
 
-	strncpy(info->umd_tun_name, if_name, sizeof(info->umd_tun_name)-1);
+	SAFE_STRNCPY(info->umd_tun_name, if_name, sizeof(info->umd_tun_name));
 
         info->umd_mch = new MboxChannel(info->mp_num, info->umd_chan, info->mp_h);
 

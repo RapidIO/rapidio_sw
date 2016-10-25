@@ -35,7 +35,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "fmd_slave.h"
 
 #include <stdio.h>
-#include <string.h>
 #include <stdlib.h>
 #include <stdarg.h>
 #include <semaphore.h>
@@ -62,6 +61,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <rapidio_mport_mgmt.h>
 #include <rapidio_mport_sock.h>
 
+#include "string_util.h"
 #include "fmd.h"
 #include "cfg.h"
 #include "libcli.h"
@@ -91,8 +91,8 @@ int send_slave_hello_message(void)
 	sem_wait(&slv->tx_mtx);
 	slv->s2m->msg_type = htonl(FMD_P_REQ_HELLO);
 	slv->s2m->src_did = htonl(regs.host_destID);
-	memset(slv->s2m->hello_rq.peer_name, 0, MAX_P_NAME+1);
-	strncpy(slv->s2m->hello_rq.peer_name, (*fmd->mp_h)->sysfs_name, MAX_P_NAME);
+	SAFE_STRNCPY(slv->s2m->hello_rq.peer_name, (*fmd->mp_h)->sysfs_name,
+			sizeof(slv->s2m->hello_rq.peer_name));
 	slv->s2m->hello_rq.pid = htonl(getpid());
 	slv->s2m->hello_rq.did = htonl((regs.my_destID & RIO_DEVID_DEV8) >> 16);
 	slv->s2m->hello_rq.did_sz = htonl(FMD_DEV08);
@@ -121,21 +121,24 @@ int add_device_to_dd(ct_t ct, uint32_t did, uint32_t did_sz, uint32_t hc,
 
 	sem_wait(&fmd->dd_mtx->sem);
 	for (idx = 0; (idx < fmd->dd->num_devs) && !found_one; idx++) {
-		if ((fmd->dd->devs[idx].ct == ct) && 
-				(fmd->dd->devs[idx].destID == did)) {
+		if ((fmd->dd->devs[idx].ct == ct)
+				&& (fmd->dd->devs[idx].destID == did)) {
 			fmd->dd->devs[idx].destID_sz = did_sz;
 			fmd->dd->devs[idx].hc = hc;
 			fmd->dd->devs[idx].is_mast_pt = is_mast_pt;
 			fmd->dd->devs[idx].flag |= flag;
-			if (is_mast_pt)
+			if (is_mast_pt) {
 				fmd->dd->loc_mp_idx = idx;
-			strncpy(fmd->dd->devs[idx].name, name, FMD_MAX_NAME);
+			}
+			SAFE_STRNCPY(fmd->dd->devs[idx].name, name,
+					sizeof(fmd->dd->devs[idx].name));
 			found_one = 1;
 		}
 	}
 
-	if (found_one)
+	if (found_one) {
 		goto exit;
+	}
 
 	if (fmd->dd->num_devs >= FMD_MAX_DEVS) {
 		CRIT("More than 0x%x devices, increase FMD_MAX_DEVS.");
@@ -150,9 +153,11 @@ int add_device_to_dd(ct_t ct, uint32_t did, uint32_t did_sz, uint32_t hc,
 	fmd->dd->devs[idx].hc = hc;
 	fmd->dd->devs[idx].is_mast_pt = is_mast_pt;
 	fmd->dd->devs[idx].flag = flag;
-	strncpy(fmd->dd->devs[idx].name, name, FMD_MAX_NAME);
-	if (is_mast_pt)
+	SAFE_STRNCPY(fmd->dd->devs[idx].name, name,
+			sizeof(fmd->dd->devs[idx].name));
+	if (is_mast_pt) {
 		fmd->dd->loc_mp_idx = idx;
+	}
 	fmd->dd->num_devs++;
 		
 exit:

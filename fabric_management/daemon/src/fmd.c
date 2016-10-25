@@ -32,7 +32,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 #include <stdio.h>
-#include <string.h>
 #include <stdlib.h>
 #include <stdarg.h>
 #include <semaphore.h>
@@ -64,6 +63,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "IDT_DSF_DB_Private.h"
 #include "DAR_Utilities.h"
 
+#include "string_util.h"
 #include "libcli.h"
 #include "riocp_pe.h"
 #include "DAR_DevDriver.h"
@@ -124,21 +124,21 @@ sem_t cons_owner;
 
 void set_prompt(struct cli_env *e)
 {
-        riocp_pe_handle pe_h;
-        ct_t comptag = 0;
-        const char *name = NULL;
-        uint16_t pe_did = 0;
+	riocp_pe_handle pe_h;
+	ct_t comptag = 0;
+	const char *name = NULL;
+	uint16_t pe_did = 0;
 	struct cfg_dev cfg_dev;
 
-        if (NULL == e) {
-                strncpy(e->prompt, "UNINIT> ", PROMPTLEN);
-                return;
-        };
+	if (NULL == e) {
+		SAFE_STRNCPY(e->prompt, "UNINIT> ", sizeof(e->prompt));
+		return;
+	}
 
-        if (NULL == e->h) {
-                strncpy(e->prompt, "HUNINIT> ", PROMPTLEN);
-                return;
-        };
+	if (NULL == e->h) {
+		SAFE_STRNCPY(e->prompt, "HUNINIT> ", sizeof(e->prompt));
+		return;
+	}
 
 	pe_h = (riocp_pe_handle)(e->h);
 
@@ -151,10 +151,10 @@ void set_prompt(struct cli_env *e)
 		name = riocp_pe_handle_get_device_str(pe_h);
 	} else {
 		name = (char *)cfg_dev.name;
-	};
+	}
 
 	snprintf(e->prompt, PROMPTLEN,  "%s.%03x >", name, pe_did);
-};
+}
 
 void *poll_loop( void *poll_interval ) 
 {
@@ -513,8 +513,7 @@ int slave_get_ct_and_name(int mport, uint32_t *comptag, char *dev_name)
 		mp_num = mp.num;
 		*comptag = mp.ct;
 		if (!cfg_find_dev_by_ct(*comptag, &cfg_dev)) {
-			memset(dev_name, 0, FMD_MAX_DEV_FN);
-			strncpy(dev_name, cfg_dev.name, FMD_MAX_DEV_FN-1);
+			SAFE_STRNCPY(dev_name, cfg_dev.name, FMD_MAX_DEV_FN);
 			return 0;
 		};
 	};
@@ -661,8 +660,9 @@ int main(int argc, char *argv[])
 	rdma_log_init("fmd.log", 1);
 	opts = fmd_parse_options(argc, argv);
 	g_level = opts->log_level;
-	if ((opts->init_and_quit) && (opts->print_help))
+	if ((opts->init_and_quit) && (opts->print_help)) {
 		goto fail;
+	}
 	fmd = (fmd_state *)calloc(1, sizeof(struct fmd_state));
 	fmd->opts = opts;
 	fmd->fmd_rw = 1;
@@ -676,14 +676,17 @@ int main(int argc, char *argv[])
 			&fmd->opts->mast_mode);
 
 	if (fmd_dd_init(opts->dd_mtx_fn, &fmd->dd_mtx_fd, &fmd->dd_mtx,
-			opts->dd_fn, &fmd->dd_fd, &fmd->dd))
+			opts->dd_fn, &fmd->dd_fd, &fmd->dd)) {
 		goto dd_cleanup;
+	}
 
 	setup_mport(fmd);
 
-	if (!fmd->opts->simple_init)
-		if (fmd_dd_update(*fmd->mp_h, fmd->dd, fmd->dd_mtx))
+	if (!fmd->opts->simple_init) {
+		if (fmd_dd_update(*fmd->mp_h, fmd->dd, fmd->dd_mtx)) {
 			goto dd_cleanup;
+		}
+	}
 
 	if (!fmd->opts->init_and_quit) {
 		spawn_threads(fmd->opts);

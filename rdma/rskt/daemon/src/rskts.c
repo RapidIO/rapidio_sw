@@ -36,7 +36,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
-#include <string.h>
 
 #include <semaphore.h>
 #include <pthread.h>
@@ -56,6 +55,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 
+#include "string_util.h"
 #include "rio_misc.h"
 #include <rapidio_mport_mgmt.h>
 
@@ -203,7 +203,7 @@ exit:
 void set_prompt(struct cli_env *e)
 {
         if (e != NULL) {
-                strncpy(e->prompt, "RSKTSvr> ", PROMPTLEN);
+                SAFE_STRNCPY(e->prompt, "RSKTSvr> ", sizeof(e->prompt));
         };
 };
 
