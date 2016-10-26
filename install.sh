@@ -12,7 +12,7 @@ if [ "$#" -lt 7 ]; then
 elif [ $5 != 'mem34' -a $5 != 'mem50' -a $5 != 'mem66' ] ; then
 	echo $'\nmemsz parameter must be mem34, mem50, or mem66.\n'
 	PRINTHELP=1
-elif [ $6 != 'PD_tor' -a $6 != 'SB_re' -a $6 != '5G' -a $6 != '5G-PWR' -a $6 != 'AUTO' ] ; then
+elif [ $6 != 'PD_tor' -a $6 != 'SB_re' -a $6 != '5G' -a $6 != '5G-PWR' -a $6 != 'AUTO' -a $6 != 'RXS' ] ; then
 	echo $'\nsw parameter must be PD_tor or SB_re or 5G or 5G-PWR or AUTO\n'
 	PRINTHELP=1
 fi
@@ -32,6 +32,7 @@ if [ $PRINTHELP = 1 ] ; then
     echo "        5G     - 5G lab configuration"
     echo "        5G-PWR - 5G lab configuration for Power-8 nodes"
     echo "        AUTO   - configuration determined at runtime"
+    echo "        RXS    - RXS configuration"
     echo "<group> Unix file ownership group which should have access to"
     echo "        the RapidIO software"
     echo "<rel> is the software release/version to install."
@@ -114,6 +115,10 @@ fi
 
 if [ "$SW_TYPE" = '5G-PWR' ]; then
 	MASTER_CONFIG_FILE=install/5g-pwr-master.conf
+fi
+
+if [ "$SW_TYPE" = 'RXS' ]; then
+        MASTER_CONFIG_FILE=install/rxs-master.conf
 fi
 
 destids=($(grep ENDPOINT $MASTER_CONFIG_FILE | grep PORT | awk '{print $12}'))
