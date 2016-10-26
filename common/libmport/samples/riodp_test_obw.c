@@ -78,6 +78,10 @@
 #include <signal.h>
 #include <pthread.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "rio_misc.h"
 #include <rapidio_mport_dma.h>
 #include <rapidio_mport_mgmt.h>
@@ -660,3 +664,7 @@ out:
 	riomp_mgmt_mport_destroy_handle(&mport_hnd);
 	exit(rc);
 }
+
+#ifdef __cplusplus
+}
+#endif

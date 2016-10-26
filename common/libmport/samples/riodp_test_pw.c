@@ -69,6 +69,10 @@
 #include <time.h>
 #include <signal.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <rapidio_mport_mgmt.h>
 #include <rapidio_mport_sock.h>
 
@@ -305,3 +309,7 @@ out:
 	riomp_mgmt_mport_destroy_handle(&mport_hnd);
 	exit(rc);
 }
+
+#ifdef __cplusplus
+}
+#endif

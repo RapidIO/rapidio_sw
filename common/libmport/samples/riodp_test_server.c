@@ -62,6 +62,10 @@
 #include <fcntl.h>
 #include <sys/ioctl.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <rapidio_mport_mgmt.h>
 #include <rapidio_mport_sock.h>
 
@@ -355,3 +359,7 @@ out_h:
 out:
 	return ret;
 }
+
+#ifdef __cplusplus
+}
+#endif
