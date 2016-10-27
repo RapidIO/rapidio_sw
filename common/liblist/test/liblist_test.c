@@ -49,7 +49,7 @@ extern "C" {
 void free_list_items(struct l_head_t *list)
 {
 	struct l_item_t *current = list->head;
-	while(NULL != current->next) {
+	while (NULL != current->next) {
 		struct l_item_t *tmp = current->next;
 		free(current);
 		list->cnt--;
@@ -197,7 +197,7 @@ void l_push_tail_test(void **state)
 	assert_null(list.head);
 	assert_null(list.tail);
 
-	for(i = 0; i < max_items; i++) {
+	for (i = 0; i < max_items; i++) {
 		items[i] = i;
 	}
 
@@ -214,7 +214,7 @@ void l_push_tail_test(void **state)
 	addr[0] = list.tail;
 
 	// add all items
-	for(i = 1; i < max_items; i++) {
+	for (i = 1; i < max_items; i++) {
 		l_push_tail(&list, &items[i]);
 		assert_int_equal(i + 1, list.cnt);
 		addr[i] = list.tail;
@@ -225,7 +225,7 @@ void l_push_tail_test(void **state)
 
 	// walk the structure
 	struct l_item_t *current = list.head->next;
-	for(i = 1; i < max_items - 1; i++) {
+	for (i = 1; i < max_items - 1; i++) {
 		assert_ptr_equal(addr[i + 1], current->next);
 		assert_ptr_equal(addr[i - 1], current->prev);
 		assert_ptr_equal(&items[i], current->item);
@@ -277,7 +277,7 @@ void l_pop_head_test(void **state)
 
 	// remove item from empty list, should be null
 	struct l_item_t *current = addr[0];
-	current = (struct l_item_t*) l_pop_head(&list);
+	current = (struct l_item_t*)l_pop_head(&list);
 	assert_null(current);
 
 	// ensure list is still null
@@ -285,7 +285,7 @@ void l_pop_head_test(void **state)
 	assert_null(list.head);
 	assert_null(list.tail);
 
-	for(i = 0; i < max_items; i++) {
+	for (i = 0; i < max_items; i++) {
 		items[i] = i;
 	}
 
@@ -297,7 +297,7 @@ void l_pop_head_test(void **state)
 
 	// pop it off
 	current = NULL;
-	current = (struct l_item_t*) l_pop_head(&list);
+	current = (struct l_item_t*)l_pop_head(&list);
 	assert_non_null(current);
 
 	// list empty
@@ -306,7 +306,7 @@ void l_pop_head_test(void **state)
 	assert_null(list.tail);
 
 	// push all items
-	for(i = 0; i < max_items; i++) {
+	for (i = 0; i < max_items; i++) {
 		l_push_tail(&list, &items[i]);
 		assert_int_equal(i + 1, list.cnt);
 		addr[i] = list.tail;
@@ -317,8 +317,8 @@ void l_pop_head_test(void **state)
 
 	// pop them off - frees list item
 	current = NULL;
-	for(i = 0; i < max_items - 1; i++) {
-		current = (struct l_item_t*) l_pop_head(&list);
+	for (i = 0; i < max_items - 1; i++) {
+		current = (struct l_item_t*)l_pop_head(&list);
 		assert_int_equal(max_items - (i + 1), list.cnt);
 		assert_ptr_equal(addr[i + 1], list.head);
 		assert_ptr_equal(addr[max_items - 1], list.tail);
@@ -326,7 +326,7 @@ void l_pop_head_test(void **state)
 	assert_int_equal(1, list.cnt);
 	assert_ptr_equal(addr[max_items - 1], list.head);
 
-	current = (struct l_item_t*) l_pop_head(&list);
+	current = (struct l_item_t*)l_pop_head(&list);
 	assert_int_equal(0, list.cnt);
 	assert_null(list.head);
 	assert_null(list.tail);
@@ -367,7 +367,7 @@ void l_add_equal_test(void **state)
 	assert_null(list.head);
 	assert_null(list.tail);
 
-	for(i = 0; i < max_items; i++) {
+	for (i = 0; i < max_items; i++) {
 		items[i] = i;
 	}
 
@@ -384,7 +384,7 @@ void l_add_equal_test(void **state)
 	addr[0] = list.tail;
 
 	// add all items
-	for(i = 1; i < max_items; i++) {
+	for (i = 1; i < max_items; i++) {
 		l_add(&list, 0, &items[i]);
 		addr[i] = list.tail;
 	}
@@ -394,7 +394,7 @@ void l_add_equal_test(void **state)
 
 	// walk the structure
 	struct l_item_t *current = list.head->next;
-	for(i = 1; i < max_items - 1; i++) {
+	for (i = 1; i < max_items - 1; i++) {
 		assert_ptr_equal(addr[i - 1], current->prev);
 		assert_ptr_equal(addr[i], current);
 		assert_ptr_equal(addr[i + 1], current->next);
@@ -442,7 +442,7 @@ void l_add_greater_test(void **state)
 	assert_null(list.head);
 	assert_null(list.tail);
 
-	for(i = 0; i < max_items; i++) {
+	for (i = 0; i < max_items; i++) {
 		items[i] = i;
 	}
 
@@ -459,7 +459,7 @@ void l_add_greater_test(void **state)
 	addr[0] = list.tail;
 
 	// add all items
-	for(i = 1; i < max_items; i++) {
+	for (i = 1; i < max_items; i++) {
 		l_add(&list, i, &items[i]);
 		addr[i] = list.tail;
 	}
@@ -469,7 +469,7 @@ void l_add_greater_test(void **state)
 
 	// walk the structure
 	struct l_item_t *current = list.head->next;
-	for(i = 1; i < max_items - 1; i++) {
+	for (i = 1; i < max_items - 1; i++) {
 		assert_ptr_equal(addr[i - 1], current->prev);
 		assert_ptr_equal(addr[i], current);
 		assert_ptr_equal(addr[i + 1], current->next);
@@ -517,7 +517,7 @@ void l_add_lessthan_test(void **state)
 	assert_null(list.head);
 	assert_null(list.tail);
 
-	for(i = max_items - 1; i >= 0; i--) {
+	for (i = max_items - 1; i >= 0; i--) {
 		items[i] = i;
 	}
 
@@ -534,7 +534,7 @@ void l_add_lessthan_test(void **state)
 	addr[max_items - 1] = list.head;
 
 	// add all items
-	for(i = 1; i < max_items; i++) {
+	for (i = 1; i < max_items; i++) {
 		l_add(&list, 100 - i, &items[i]);
 		addr[max_items - 1 - i] = list.head;
 	}
@@ -545,7 +545,7 @@ void l_add_lessthan_test(void **state)
 	// walk the structure
 	struct l_item_t *current = list.head->next;
 	int key_value = 100 - max_items + 2;
-	for(i = 1; i < max_items - 1; i++) {
+	for (i = 1; i < max_items - 1; i++) {
 		assert_ptr_equal(addr[i - 1], current->prev);
 		assert_ptr_equal(addr[i], current);
 		assert_ptr_equal(addr[i + 1], current->next);
@@ -594,7 +594,7 @@ void l_add_test(void **state)
 	assert_null(list.tail);
 
 	// add items as per order[]
-	for(i = 0; i < max_items; i++) {
+	for (i = 0; i < max_items; i++) {
 		l_add(&list, items[order[i]], &items[order[i]]);
 	}
 
@@ -606,7 +606,7 @@ void l_add_test(void **state)
 
 	// walk the structure
 	struct l_item_t *current = list.head;
-	for(i = 0; i < max_items; i++) {
+	for (i = 0; i < max_items; i++) {
 		assert_ptr_equal(&items[i], current->item);
 		assert_int_equal(items[i], current->key);
 		assert_int_equal(items[i], *(int * )current->item);
@@ -627,7 +627,7 @@ void l_remove_null_parm_test(void **state)
 	int *value;
 
 	value = (int *)malloc(sizeof(int));
-	item = (l_item_t *)malloc(sizeof(struct l_item_t));
+	item = (struct l_item_t *)malloc(sizeof(struct l_item_t));
 	delMe = item;
 	*value = 0xdead;
 
@@ -688,14 +688,14 @@ void l_remove_test(void **state)
 	struct l_head_t *removed;
 	int i, count;
 
-	for(i = 0; i < max_items; i++) {
+	for (i = 0; i < max_items; i++) {
 		items[i] = (struct l_head_t *)malloc(sizeof(struct l_head_t));
 		items[i]->cnt = i;
 	}
 
 	// add all items
 	l_init(&list);
-	for(i = 0; i < max_items; i++) {
+	for (i = 0; i < max_items; i++) {
 		l_push_tail(&list, items[i]);
 		assert_int_equal(i + 1, list.cnt);
 		addr[i] = list.tail;
@@ -703,7 +703,7 @@ void l_remove_test(void **state)
 
 	// walk the structure
 	current = list.head;
-	for(i = 0; i < max_items; i++) {
+	for (i = 0; i < max_items; i++) {
 		assert_ptr_equal(items[i], current->item);
 		assert_int_equal(i, items[i]->cnt);
 		assert_int_equal(0, current->key);
@@ -717,7 +717,7 @@ void l_remove_test(void **state)
 	assert_int_equal(--count, list.cnt);
 
 	current = list.head;
-	for(i = 1; i < max_items; i++) {
+	for (i = 1; i < max_items; i++) {
 		assert_ptr_not_equal(removed, current->item);
 		assert_ptr_equal(items[i], current->item);
 		assert_int_equal(i, items[i]->cnt);
@@ -732,7 +732,7 @@ void l_remove_test(void **state)
 	assert_int_equal(--count, list.cnt);
 
 	current = list.head;
-	for(i = 1; i < max_items - 1; i++) {
+	for (i = 1; i < max_items - 1; i++) {
 		assert_ptr_not_equal(removed, current->item);
 		assert_ptr_equal(items[i], current->item);
 		assert_int_equal(i, items[i]->cnt);
@@ -748,7 +748,7 @@ void l_remove_test(void **state)
 	assert_null(list.tail->next);
 
 	current = list.head;
-	for(i = 1; i < max_items - 1; i += 2) {
+	for (i = 1; i < max_items - 1; i += 2) {
 		assert_ptr_not_equal(removed, current->item);
 		assert_ptr_equal(items[i], current->item);
 		assert_int_equal(i, items[i]->cnt);
@@ -760,7 +760,7 @@ void l_remove_test(void **state)
 	// free allocated memory
 	free_list_items(&list);
 	items[0] = items[2] = items[4] = NULL;
-	for(i = 0; i < max_items; i++) {
+	for (i = 0; i < max_items; i++) {
 		free(items[i]);
 	}
 
@@ -775,7 +775,7 @@ void l_lremove_null_parm_test(void **state)
 	int *value;
 
 	value = (int *)malloc(sizeof(int));
-	item = (l_item_t *)malloc(sizeof(struct l_item_t));
+	item = (struct l_item_t *)malloc(sizeof(struct l_item_t));
 	delMe = item;
 	*value = 0xdead;
 
@@ -835,14 +835,14 @@ void l_lremove_test(void **state)
 	struct l_item_t *addr[max_items];
 	int i;
 
-	for(i = 0; i < max_items; i++) {
+	for (i = 0; i < max_items; i++) {
 		items[i] = (struct l_head_t *)malloc(sizeof(struct l_head_t));
 		items[i]->cnt = i;
 	}
 
 	// add all items
 	l_init(&list);
-	for(i = 0; i < max_items; i++) {
+	for (i = 0; i < max_items; i++) {
 		l_push_tail(&list, items[i]);
 		assert_int_equal(i + 1, list.cnt);
 		addr[i] = list.tail;
@@ -850,7 +850,7 @@ void l_lremove_test(void **state)
 
 	// walk the structure
 	struct l_item_t *current = list.head;
-	for(i = 0; i < max_items; i++) {
+	for (i = 0; i < max_items; i++) {
 		assert_ptr_equal(items[i], current->item);
 		assert_int_equal(i, items[i]->cnt);
 		assert_int_equal(0, current->key);
@@ -863,7 +863,7 @@ void l_lremove_test(void **state)
 	assert_int_equal(--count, list.cnt);
 
 	current = list.head;
-	for(i = 1; i < max_items; i++) {
+	for (i = 1; i < max_items; i++) {
 		assert_ptr_equal(items[i], current->item);
 		assert_int_equal(i, items[i]->cnt);
 		assert_int_equal(0, current->key);
@@ -876,7 +876,7 @@ void l_lremove_test(void **state)
 	assert_int_equal(--count, list.cnt);
 
 	current = list.head;
-	for(i = 1; i < max_items - 1; i++) {
+	for (i = 1; i < max_items - 1; i++) {
 		assert_ptr_equal(items[i], current->item);
 		assert_int_equal(i, items[i]->cnt);
 		assert_int_equal(0, current->key);
@@ -890,7 +890,7 @@ void l_lremove_test(void **state)
 	assert_null(list.tail->next);
 
 	current = list.head;
-	for(i = 1; i < max_items - 1; i += 2) {
+	for (i = 1; i < max_items - 1; i += 2) {
 		assert_ptr_equal(items[i], current->item);
 		assert_int_equal(i, items[i]->cnt);
 		assert_int_equal(0, current->key);
@@ -900,7 +900,7 @@ void l_lremove_test(void **state)
 
 	// free allocated memory
 	free_list_items(&list);
-	for(i = 0; i < max_items; i++) {
+	for (i = 0; i < max_items; i++) {
 		free(items[i]);
 	}
 
@@ -946,7 +946,7 @@ void l_find_default_test(void **state)
 	int *found;
 	int i;
 
-	for(i = 0; i < max_items; i++) {
+	for (i = 0; i < max_items; i++) {
 		items[i] = i;
 	}
 
@@ -963,7 +963,7 @@ void l_find_default_test(void **state)
 	assert_null(found);
 
 	// add all items
-	for(i = 0; i < max_items; i++) {
+	for (i = 0; i < max_items; i++) {
 		l_push_tail(&list, &items[i]);
 		assert_int_equal(i + 1, list.cnt);
 	}
@@ -972,7 +972,7 @@ void l_find_default_test(void **state)
 	// find an item - will be same one over and over again
 	item = NULL;
 	found = NULL;
-	for(i = 0; i < max_items; i++) {
+	for (i = 0; i < max_items; i++) {
 		found = (int *)l_find(&list, 0, &item);
 
 		assert_non_null(found);
@@ -1008,7 +1008,7 @@ void l_find_duplicates_test(void **state)
 	int *found;
 	int i;
 
-	for(i = 0; i < max_items; i++) {
+	for (i = 0; i < max_items; i++) {
 		items[i] = i;
 	}
 
@@ -1019,11 +1019,11 @@ void l_find_duplicates_test(void **state)
 	assert_null(list.tail);
 
 	// add all items
-	for(i = 0; i < number_keys; i++) {
+	for (i = 0; i < number_keys; i++) {
 		l_add(&list, keys[i], &items[i]);
 		assert_int_equal(i + 1, list.cnt);
 	}
-	for(i = 0; i < number_keys; i++) {
+	for (i = 0; i < number_keys; i++) {
 		l_add(&list, keys[i], &items[number_keys + i]);
 		assert_int_equal(number_keys + i + 1, list.cnt);
 	}
@@ -1032,7 +1032,7 @@ void l_find_duplicates_test(void **state)
 	// find an item - will be first one
 	item = NULL;
 	found = NULL;
-	for(i = 0; i < number_keys; i++) {
+	for (i = 0; i < number_keys; i++) {
 		found = (int *)l_find(&list, keys[i], &item);
 
 		assert_non_null(found);
@@ -1066,7 +1066,7 @@ void l_find_unique_test(void **state)
 	int *found;
 	int i;
 
-	for(i = 0; i < max_items; i++) {
+	for (i = 0; i < max_items; i++) {
 		items[i] = i;
 	}
 
@@ -1077,7 +1077,7 @@ void l_find_unique_test(void **state)
 	assert_null(list.tail);
 
 	// add all items
-	for(i = 0; i < max_items; i++) {
+	for (i = 0; i < max_items; i++) {
 		l_add(&list, i, &items[i]);
 		assert_int_equal(i + 1, list.cnt);
 	}
@@ -1086,7 +1086,7 @@ void l_find_unique_test(void **state)
 	// find an item - will be same one over and over again
 	item = NULL;
 	found = NULL;
-	for(i = 0; i < max_items; i++) {
+	for (i = 0; i < max_items; i++) {
 		found = (int *)l_find(&list, 0, &item);
 
 		assert_non_null(found);
@@ -1131,7 +1131,7 @@ void l_size_test(void **state)
 	assert_int_equal(0, l_size(list));
 
 	// push items
-	for(i = 0; i < max_items; i++) {
+	for (i = 0; i < max_items; i++) {
 		l_push_tail(list, &items[i]);
 		assert_int_equal(i + 1, list->cnt);
 	}
@@ -1198,13 +1198,13 @@ void l_head_test(void **state)
 	struct l_item_t *addr[max_items];
 	int i;
 
-	for(i = 0; i < max_items; i++) {
+	for (i = 0; i < max_items; i++) {
 		items[i] = i;
 	}
 
 	// push all items
 	l_init(&list);
-	for(i = 0; i < max_items; i++) {
+	for (i = 0; i < max_items; i++) {
 		l_push_tail(&list, &items[i]);
 		assert_int_equal(i + 1, list.cnt);
 		addr[i] = list.tail;
@@ -1288,15 +1288,15 @@ void l_next_test(void **state)
 	found = (int *)l_next(&item);
 	assert_null(found);
 
-	for(i = 0; i < max_items; i++) {
+	for (i = 0; i < max_items; i++) {
 		items[i] = i;
 	}
 
 	// push all items
 	l_init(&list);
-	for(i = 0; i < max_items; i++) {
+	for (i = 0; i < max_items; i++) {
 		l_push_tail(&list, &items[i]);
-		assert_int_equal(i+1, list.cnt);
+		assert_int_equal(i + 1, list.cnt);
 		addr[i] = list.tail;
 	}
 	assert_int_equal(max_items, list.cnt);
