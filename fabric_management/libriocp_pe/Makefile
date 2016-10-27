@@ -9,19 +9,14 @@ NAME:=riocp_pe
 TARGETS:=lib$(NAME).a
 HEADERS:=inc/lib$(NAME).h
 
-LOG_LEVEL?=4
-DEBUG?=DEBUG
-
-level?=$(LOG_LEVEL)
-
 CC=$(CXX) # XXX very UGGLY switcheroo
 
 CFLAGS+=$(addprefix -W,all extra) -fPIC
-CFLAGS+=-DNDEBUG
+CFLAGS+=-D$(DEBUG_CTL) -DRDMA_LL=$(LOG_LEVEL)
 CFLAGS+=-I../inc
 CFLAGS+=-I./inc -I./src
 CFLAGS+=-I../libct/inc -I../libdid/inc
-CFLAGS+=-DRDMA_LL=$(level) -D__STDC_LIMIT_MACROS -D__STDC_FORMAT_MACROS
+
 LDFLAGS+=-L. -l$(NAME)
 
 OBJECTS:=$(patsubst src/%.c,src/%.o,$(wildcard src/*.c)) 

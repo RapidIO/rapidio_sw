@@ -53,8 +53,7 @@ RDMAAPP_CFLAGS = --std=c++11 -Wall -Werror -Wextra -g -ggdb -DRDMA_LL=$(level) \
 		-I$(TOP_LEVEL)/rdma/lib/src \
 		-I$(TOP_LEVEL)/rdma/inc \
 		-I$(TOP_LEVEL)/fabric_management/libdid/inc \
-		-I$(TOP_LEVEL)/fabric_management/libct/inc \
-		-D__STDC_LIMIT_MACROS -D__STDC_FORMAT_MACROS
+		-I$(TOP_LEVEL)/fabric_management/libct/inc
 
 BAT_DEPS = $(COMMON_LIBS_PATH)/libmport.a $(COMMON_LIBS_PATH)/librdma.a \
 	../inc/* ../daemon/src/* ../daemon/inc/*
