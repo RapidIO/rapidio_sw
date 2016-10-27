@@ -31,8 +31,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 
-#define __STDC_FORMAT_MACROS
 #include <stdint.h>
+#ifndef __STDC_FORMAT_MACROS
+#define __STDC_FORMAT_MACROS
+#endif
 #include <inttypes.h>
 #include <stdio.h>
 #include <string.h>
@@ -49,9 +51,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <sched.h>
 
-#define __STDC_FORMAT_MACROS
-#include <stdint.h>
-#include <inttypes.h>
 #include <unistd.h>
 #include <errno.h>
 #include <sys/ioctl.h>

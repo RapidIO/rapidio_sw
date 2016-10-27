@@ -40,8 +40,7 @@ RDMAAPP_CFLAGS = $(CXXFLAGS) -Wall -Wextra -Werror \
 	-DRDMA_LL=$(LOG_LEVEL) \
 	-D$(DEBUG_CTL) \
 	-I$(KINC) -I. \
-	-I$(FMDDIR)/libdid/inc -I$(FMDDIR)/libct/inc \
-	-D__STDC_LIMIT_MACROS -D__STDC_FORMAT_MACROS
+	-I$(FMDDIR)/libdid/inc -I$(FMDDIR)/libct/inc
 
 # Common dependencies
 RDMA_APP_DEPS= $(LIBRDMA_PATH)/librdma.a \

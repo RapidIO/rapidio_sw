@@ -54,7 +54,7 @@ src/%.o: src/%.c
 	-I../libpe_mpdrv/inc \
 	-I../libcfg/inc \
 	-I../libmport/inc \
-	-D$(DEBUG_CTL) -DRDMA_LL=$(LOG_LEVEL) -D__STDC_LIMIT_MACROS -D__STDC_FORMAT_MACROS
+	-D$(DEBUG_CTL) -DRDMA_LL=$(LOG_LEVEL)
 
 all: fmd
 

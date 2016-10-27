@@ -9,8 +9,16 @@
  */
 #define _XOPEN_SOURCE 500
 
+#ifndef __STDC_LIMIT_MACROS
+#define __STDC_LIMIT_MACROS
+#endif
+
 #include <stdlib.h>
 #include <stdint.h>
+#ifndef __STDC_FORMAT_MACROS
+#define __STDC_FORMAT_MACROS
+#endif
+#include <inttypes.h>
 
 #include "inc/riocp_pe_internal.h"
 
