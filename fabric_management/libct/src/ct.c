@@ -33,12 +33,18 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <string.h>
 #include <stdbool.h>
 #include <errno.h>
 
-#include "ct.h"
-#include "did.h"
+#include "ct_test.h"
 #include "rio_standard.h"
+
+#ifdef UNIT_TESTING
+#include <stdarg.h>
+#include <setjmp.h>
+#include "cmocka.h"
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -49,15 +55,30 @@ extern "C" {
 #define CT_NR_MASK (0xffff0000)
 #define CT_DID_MASK (0x0000ffff)
 
-bool ct_ids[NUMBER_OF_CTS];
-uint32_t ct_idx = 1;
+/**
+ * The nr value may have multiple DIDs associated with it. Once the last DID associated
+ * with the nr value is released the nr is not available for re-use.
+ *
+ * a value of -1 indicates the nr is not available for use, they are not recycled
+ * a value 0f 0 indicates the nr is available for use
+ * a value of 1 or greater indicates the nr is in use, and may have other dids associated with it
+ */
+int ct_ids[NUMBER_OF_CTS];
+uint32_t ct_idx = 0;
 
 #define CT_FROM_NR_DID(n,d) (((n << 16) & 0xffff0000) | (0x0000ffff & d))
+
+void initialize()
+{
+	ct_ids[0] = -1;
+	ct_idx = 1;
+}
 
 /**
  * Find the next free number.  Note that this routine does not reserve the
  * number - it is up to the calling routine to reserve the number and update
  * ct_idx, as necessary.
+ *
  * @returns The next valid component tag number.
  * @retval 0 Invalid component tag number, failure
  * @retval -ENOBUFS There were no component tags available
@@ -68,27 +89,29 @@ int ct_next_nr(ct_nr_t *nr)
 
 	// find the next available nr from the last used position
 	for (i = ct_idx; i < NUMBER_OF_CTS; i++) {
-		if (false == ct_ids[i]) {
+		if (0 == ct_ids[i]) {
 			*nr = (ct_nr_t)i;
 			goto found;
 		}
 	}
 
 	// look for a free nr from the beginning of the structure
-	for(i = 1; i < ct_idx; i++) {
-		if (false == ct_ids[i]) {
+	for (i = 1; i < ct_idx; i++) {
+		if (0 == ct_ids[i]) {
 			*nr = (ct_nr_t)i;
 			goto found;
 		}
 	}
 
 	return -ENOBUFS;
+
 found:
 	return 0;
 }
 
 /**
  * Create a component tag and device Id for the specified device Id size.
+ *
  * @param[out] ct the component tag
  * @param[out] did the device Id associated with the component tag
  * @param[in] size the size of the device Id
@@ -99,105 +122,22 @@ found:
  */
 int ct_create_all(ct_t *ct, did_t *did, did_sz_t size)
 {
-	ct_nr_t tmp_idx;
-
-	int rc;
-
-	if((NULL == ct) || (NULL == did)) {
-		return -EINVAL;
-	}
-
-	rc = ct_next_nr(&tmp_idx);
-	if (rc) {
-		*ct = COMPTAG_UNSET;
-		return rc;
-	};
-	rc = did_create(did, size);
-	if(rc) {
-		// no available dids
-		*ct = COMPTAG_UNSET;
-		return rc;
-	}
-
-	// return current, increment to next available
-	*ct = CT_FROM_NR_DID(tmp_idx, did_get_value(*did));
-	ct_ids[tmp_idx] = true;
-	ct_idx = ++tmp_idx;
-	return 0;
-}
-
-/**
- * Create a component tag and device Id from the specified nr and did values
- * @param[out] ct the component tag
- * @param[out] did the device Id associated with the component tag
- * @param[in] nr the index value of the component tag
- * @param[in] did_value the device Id value of the component tag
- * @param[in] did_size the size of the device Id
- * @retval 0 the component tag is valid
- * @retval -EINVAL invalid parameter values
- * @retval -ENOTUNIQ the specified component tag was already in use
- */
-int ct_create_from_data(ct_t *ct, did_t *did, ct_nr_t nr,
-		did_val_t did_value, did_sz_t did_size)
-{
-	int rc = did_create_from_data(did, did_value, did_size);
-	if(rc) {
-		return rc;
-	}
-	return ct_create_from_nr_and_did(ct, nr, *did);
-}
-
-/**
- * Create a component tag from the specified nr and previously created did
- * @param[out] ct the component tag
- * @param[in] nr the index value of the component tag
- * @param[in] did the device Id of the component tag
- * @retval 0 the component tag is valid
- * @retval -EINVAL invalid parameter values
- * @retval -ENOTUNIQ the specified component tag was already in use
- */
-int ct_create_from_nr_and_did(ct_t *ct, ct_nr_t nr, did_t did)
-{
-	if(NULL == ct) {
-		return -EINVAL;
-	}
-
-	if(0 == nr) {
-		*ct = COMPTAG_UNSET;
-		return -EINVAL;
-	}
-
-	if(ct_ids[nr]) {
-		*ct = COMPTAG_UNSET;
-		return -ENOTUNIQ;
-	}
-
-	// do not incr ct_idx
-	ct_ids[nr] = true;
-	*ct = ((nr << 16) & 0xffff0000)
-			| (0x0000ffff & did_get_value(did));
-	return 0;
-}
-
-/**
- * Create a component tag for the previously created did
- * @param[out] ct the component tag
- * @param[in] did the device Id for the component tag
- * @retval 0 the component tag is valid
- * @retval -EINVAL invalid parameter values
- * @retval -ENOBUFS No more CTs available
- */
-int ct_create_from_did(ct_t *ct, did_t did)
-{
 	ct_nr_t nr;
 	int rc;
 
-	if(NULL == ct) {
-		return -EINVAL;
+	// lazy initialization
+	if (0 == ct_idx) {
+		// yes this will initialize whenever the nr value loops - no harm done
+		initialize();
 	}
 
-	if (!did_not_inuse(did)) {
-		*ct = COMPTAG_UNSET;
+	if ((NULL == ct) || (NULL == did)) {
+		if (NULL != ct) {
+			*ct = COMPTAG_UNSET;
+		}
+		if (NULL != did) {
+			*did = DID_INVALID_ID;
+		}
 		return -EINVAL;
 	}
 
@@ -207,38 +147,196 @@ int ct_create_from_did(ct_t *ct, did_t did)
 		return rc;
 	}
 
-	ct_ids[nr] = true;
+	// did created last so you don't need to release it if the nr call failed
+	rc = did_create(did, size);
+	if (rc) {
+		// no available dids
+		*ct = COMPTAG_UNSET;
+		return rc;
+	}
+
+	// return current, increment to next available
+	*ct = CT_FROM_NR_DID(nr, did_get_value(*did));
+	ct_ids[nr]++;
+	ct_idx = ++nr;
+	return 0;
+}
+
+/**
+ * Create a component tag and device Id from the specified nr and did values
+ *
+ * @param[out] ct the component tag
+ * @param[out] did the device Id associated with the component tag
+ * @param[in] nr the index value of the component tag
+ * @param[in] did_value the device Id value of the component tag
+ * @param[in] did_size the size of the device Id
+ * @retval 0 the component tag is valid
+ * @retval -EINVAL invalid parameter values
+ * @retval -ENOTUNIQ the specified component tag was already in use
+ */
+int ct_create_from_data(ct_t *ct, did_t *did, ct_nr_t nr, did_val_t did_value,
+		did_sz_t did_size)
+{
+	int rc;
+
+	// lazy initialization
+	if (0 == ct_idx) {
+		// yes this will initialize whenever the nr value loops - no harm done
+		initialize();
+	}
+
+	if ((NULL == ct) || (NULL == did)) {
+		if (NULL != ct) {
+			*ct = COMPTAG_UNSET;
+		}
+		if (NULL != did) {
+			*did = DID_INVALID_ID;
+		}
+		return -EINVAL;
+	}
+
+	rc = did_create_from_data(did, did_value, did_size);
+	if (rc) {
+		*ct = COMPTAG_UNSET;
+		return rc;
+	}
+
+	rc = ct_create_from_nr_and_did(ct, nr, *did);
+	if (rc) {
+		*ct = COMPTAG_UNSET;
+		did_release(*did);
+		*did = DID_INVALID_ID;
+	}
+	return rc;
+
+}
+
+/**
+ * Create a component tag from the specified nr and previously created did
+ *
+ * @param[out] ct the component tag
+ * @param[in] nr the index value of the component tag
+ * @param[in] did the device Id of the component tag
+ * @retval 0 the component tag is valid
+ * @retval -EINVAL invalid parameter values
+ * @retval -ENOTUNIQ the specified component tag was already in use
+ * @retval -EKEYEXPIRED the nr component may not be re-used
+ */
+int ct_create_from_nr_and_did(ct_t *ct, ct_nr_t nr, did_t did)
+{
+	int rc;
+	did_t cached_did;
+
+	// lazy initialization
+	if (0 == ct_idx) {
+		// yes this will initialize whenever the nr value loops - no harm done
+		initialize();
+	}
+
+	if (NULL == ct) {
+		return -EINVAL;
+	}
+
+	if (-1 == ct_ids[nr]) {
+		*ct = COMPTAG_UNSET;
+		return -EKEYEXPIRED;
+	}
+
+	rc = did_get(&cached_did, did_get_value(did), did_get_size(did));
+	if (rc) {
+		*ct = COMPTAG_UNSET;
+		return rc;
+	}
+
+	// do not incr ct_idx
 	*ct = CT_FROM_NR_DID(nr, did_get_value(did));
+	ct_ids[nr]++;
+	return 0;
+}
+
+/**
+ * Create a component tag for the previously created did
+ *
+ * @param[out] ct the component tag
+ * @param[in] did the device Id for the component tag
+ * @retval 0 the component tag is valid
+ * @retval -EINVAL invalid parameter values
+ * @retval -ENOBUFS No more CTs available
+ */
+int ct_create_from_did(ct_t *ct, did_t did)
+{
+	ct_nr_t nr;
+	did_t cached_did;
+	int rc;
+
+	// lazy initialization
+	if (0 == ct_idx) {
+		// yes this will initialize whenever the nr value loops - no harm done
+		initialize();
+	}
+
+	if (NULL == ct) {
+		return -EINVAL;
+	}
+
+	rc = ct_next_nr(&nr);
+	if (rc) {
+		*ct = COMPTAG_UNSET;
+		return rc;
+	}
+
+	// verify the did is valid
+	rc = did_get(&cached_did, did_get_value(did), did_get_size(did));
+	if (rc) {
+		*ct = COMPTAG_UNSET;
+		return rc;
+	}
+
+	*ct = CT_FROM_NR_DID(nr, did_get_value(did));
+	ct_ids[nr]++;
 	ct_idx = ++nr;
 	return 0;
 }
 
 /**
  * Release the provided component tag and the associated device Id
+ *
  * @param[out] ct the component tag to be released
  * @param[in] did the device Id associated with the ct
  * @retval 0 the component tag is valid
  * @retval -EINVAL invalid parameter values
  */
-int ct_release(ct_t *ct, did_t did)
+int ct_release(ct_t ct, did_t did)
 {
 	int rc;
+	ct_nr_t nr;
 
-	if(NULL == ct) {
+	rc = ct_get_nr(&nr, ct);
+	if (rc) {
+		return rc;
+	}
+
+	if (ct_ids[nr] < 1) {
 		return -EINVAL;
 	}
 
 	rc = did_release(did);
-	if(rc) {
+	if (rc) {
 		return rc;
 	}
 
-	*ct &= CT_NR_MASK;
+	// when the last did is released, do not recycle the nr
+	if (1 == ct_ids[nr]) {
+		ct_ids[nr] = -1;
+	} else {
+		ct_ids[nr]--;
+	}
 	return 0;
 }
 
 /**
  * Return the nr of the component tag
+ *
  * @param[out] nr the nr
  * @param[in] ct the component tag
  * @retval 0 the nr is valid
@@ -246,7 +344,7 @@ int ct_release(ct_t *ct, did_t did)
  */
 int ct_get_nr(ct_nr_t *nr, ct_t ct)
 {
-	if(NULL == nr) {
+	if (NULL == nr) {
 		return -EINVAL;
 	}
 
@@ -283,12 +381,13 @@ int ct_not_inuse(ct_t ct, did_sz_t size)
 	ct_nr_t nr;
 	did_t did;
 	int rc;
+
 	rc = ct_get_nr(&nr, ct);
 	if (rc) {
 		return rc;
 	}
 
-	if (ct_ids[nr]) {
+	if (ct_ids[nr] > 0) {
 		did.value = ct & CT_DID_MASK;
 		did.size = size;
 		return did_not_inuse(did);
@@ -296,6 +395,14 @@ int ct_not_inuse(ct_t ct, did_sz_t size)
 	return 0;
 
 }
+
+#ifdef UNIT_TESTING
+void ct_reset()
+{
+	memset(ct_ids, 0, sizeof(ct_ids));
+	initialize();
+}
+#endif
 
 #ifdef __cplusplus
 }

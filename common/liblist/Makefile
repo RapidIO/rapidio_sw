@@ -43,6 +43,7 @@ CXXFLAGS+=-D$(DEBUG_CTL) -DRDMA_LL=$(LOG_LEVEL)
 LINK_FLAGS+= -rdynamic -shared -Wl,-soname,lib$(NAME).so.$(SOVER)
 LDFLAGS+=-L. -L$(COMMONLIB) $(LIBS_RPATH) -l$(NAME)
 
+
 .PHONY: all clean test
 
 ifdef TEST
@@ -78,4 +79,7 @@ $(TEST_TARGETS): $(TEST_OBJECTS)
 	$(TST_LIBS)
 
 clean:
-	rm -f $(TARGETS) lib$(NAME).so.$(SOVER) $(TEST_TARGETS) $(OBJECTS) $(TEST_OBJECTS) inc/*~ src/*~ *~
+	rm -f $(TARGETS) lib$(NAME).so.$(SOVER) $(OBJECTS) \
+	$(TEST_TARGETS) $(TEST_OBJECTS) \
+	inc/*~ src/*~ test/*~ *~
+

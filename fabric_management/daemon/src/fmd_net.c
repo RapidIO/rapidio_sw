@@ -195,7 +195,8 @@ int fmd_traverse_network_from_pe_port(riocp_pe_handle pe, rio_port_t port_num, s
 			no_cfg = (struct fmd_no_cfg *)l_pop_head(&no_cfg_list);
 			if (NULL == no_cfg) {
 				if (COMPTAG_UNSET != ct) {
-					ct_release(&ct, did);
+					ct_release(ct, did);
+					ct = COMPTAG_UNSET;
 				}
 				break;
 			}
@@ -218,7 +219,8 @@ int fmd_traverse_network_from_pe_port(riocp_pe_handle pe, rio_port_t port_num, s
 				if ((-ENODEV != rc) && (-EIO != rc)) {
 					CRIT("PE 0x%0x Port %d probe failed %d\n",
 						curr_pe->comptag, pnum, rc);
-					ct_release(&ct, did);
+					ct_release(ct, did);
+					ct = COMPTAG_UNSET;
 					goto fail;
 				}
 				HIGH("PE 0x%x Port %d NO DEVICE, expected %x\n",
@@ -237,7 +239,8 @@ int fmd_traverse_network_from_pe_port(riocp_pe_handle pe, rio_port_t port_num, s
 			rc = riocp_pe_get_comptag(new_pe, &comptag);
 			if (rc) {
 				CRIT("Get new comptag failed, rc %d\n", rc);
-				ct_release(&ct, did);
+				ct_release(ct, did);
+				ct = COMPTAG_UNSET;
 				goto fail;
 			}
 
@@ -271,7 +274,8 @@ int fmd_traverse_network_from_pe_port(riocp_pe_handle pe, rio_port_t port_num, s
 			}
 		}
 		if (COMPTAG_UNSET != ct) {
-			ct_release(&ct, did);
+			ct_release(ct, did);
+			ct = COMPTAG_UNSET;
 		}
 	}
 

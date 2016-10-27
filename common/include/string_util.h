@@ -49,13 +49,13 @@ extern "C" {
  *
  * @param[out] dest the buffer to be written
  * @param[in] src the string to be copied
- * @param[in] the maximum number of bytes to copy, must be less than or equal
+ * @param[in] n the maximum number of bytes to copy, must be less than or equal
  * to the size of dest
  * @return none
  */
-#define SAFE_STRNCPY(d,s,n) \
-	strncpy(d, s, n); \
-	d[n-1] = '\0';
+#define SAFE_STRNCPY(dest,src,n) \
+	strncpy(dest, src, n); \
+	dest[n-1] = '\0';
 
 #ifdef __cplusplus
 }

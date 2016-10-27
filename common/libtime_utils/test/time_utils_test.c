@@ -43,7 +43,6 @@ extern "C" {
 #define RETURNED_SUCCESS 0
 #define RETURNED_FAILURE 1
 
-
 // initialize the seq_ts structure with a known pattern
 void set_seq_ts(struct seq_ts *ts)
 {
@@ -76,7 +75,8 @@ void assumptions(void **state)
 
 /** @brief Test handling of null parameters for init_seq_ts
  */
-void init_seq_ts_null_parm_test(void **state) {
+void init_seq_ts_null_parm_test(void **state)
+{
 
 	// null ts
 	assert_int_equal(RETURNED_FAILURE, init_seq_ts(NULL, 1));
@@ -145,7 +145,8 @@ void init_seq_ts_test(void **state)
 
 /** @brief Test handling of null parameters for ts_now
  */
-void ts_now_null_parm_test(void **state) {
+void ts_now_null_parm_test(void **state)
+{
 	// just make sure it doesn't blow chunks, no rc
 	ts_now(NULL);
 
@@ -203,7 +204,8 @@ void ts_now_test(void **state)
 
 /** @brief Test handling of null parameters for ts_now_mark
  */
-void ts_now_mark_null_parm_test(void **state) {
+void ts_now_mark_null_parm_test(void **state)
+{
 	// just make sure it doesn't blow chunks, no rc
 	ts_now_mark(NULL, 0xdead);
 
@@ -256,7 +258,7 @@ void ts_now_mark_test(void **state)
 	assert_int_equal(0xbeef, ts.ts_mkr[1]);
 	assert_int_equal(0xcafe, ts.ts_mkr[2]);
 	assert_int_equal(0xbabe, ts.ts_mkr[3]);
-	
+
 	ts_now_mark(&ts, 0xcaca);
 	assert_int_equal(4, ts.ts_idx);
 	assert_int_equal(0xdead, ts.ts_mkr[0]);
@@ -280,7 +282,6 @@ void time_difference_test(void **state)
 	result_ts = time_difference(start_ts, end_ts);
 	assert_int_equal(1, result_ts.tv_sec);
 	assert_int_equal(1, result_ts.tv_nsec);
-
 
 	start_ts.tv_sec = 1000;
 	start_ts.tv_nsec = 500000000;
@@ -370,7 +371,6 @@ void time_div_test(void **state)
 	assert_int_equal(1, result_ts.tv_sec);
 	assert_int_equal(1, result_ts.tv_nsec);
 
-
 	start_ts.tv_sec = 10000;
 	start_ts.tv_nsec = 500000000;
 	result_ts = time_div(start_ts, 5000);
@@ -382,7 +382,6 @@ void time_div_test(void **state)
 	result_ts = time_div(start_ts, 5000);
 	assert_int_equal(0, result_ts.tv_sec);
 	assert_int_equal(200100000, result_ts.tv_nsec);
-
 
 	start_ts.tv_sec = 1000;
 	start_ts.tv_nsec = 499999999;
@@ -405,7 +404,7 @@ void time_track_test(void **state)
 
 	end_ts = start_offset;
 
-	for(i = start_idx; i < max_idx; i++) {
+	for (i = start_idx; i < max_idx; i++) {
 		start_ts = end_ts;
 		end_ts.tv_sec += i * i;
 		end_ts.tv_nsec += i * i;
@@ -429,7 +428,7 @@ void time_track_test(void **state)
 	assert_int_equal(test_mintime.tv_nsec, mintime.tv_nsec);
 	assert_int_equal(test_maxtime.tv_sec, maxtime.tv_sec);
 	assert_int_equal(test_maxtime.tv_nsec, maxtime.tv_nsec);
-	
+
 	(void)state; // not used
 }
 
@@ -457,7 +456,6 @@ void time_track_lim_test(void **state)
 	assert_int_equal(0xFFFFFFFF, test_mintime.tv_nsec);
 	assert_int_equal(0, test_maxtime.tv_sec);
 	assert_int_equal(0, test_maxtime.tv_nsec);
-
 
 	// Test start condition, delta > limit condition 1
 	end_ts = (struct timespec){1, 0};

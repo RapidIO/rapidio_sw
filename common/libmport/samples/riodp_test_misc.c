@@ -69,8 +69,12 @@
 #include <stdint.h> /* For size_t */
 #include <unistd.h>
 #include <getopt.h>
-#include <rapidio_mport_dma.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#include <rapidio_mport_dma.h>
 #include <rapidio_mport_mgmt.h>
 #include <rapidio_mport_sock.h>
 
@@ -254,3 +258,7 @@ out:
 	riomp_mgmt_mport_destroy_handle(&mport_hnd);
 	exit(rc);
 }
+
+#ifdef __cplusplus
+}
+#endif

@@ -34,7 +34,7 @@ include $(TOPDIR)/rules.mk
 
 NAME:=time_utils
 TARGETS:=lib$(NAME).a lib$(NAME).so
-TEST_TARGET:=$(NAME)_test
+TEST_TARGETS:=$(NAME)_test
 
 OBJECTS:=$(patsubst src/%.c,src/%.o,$(wildcard src/*.c))
 TEST_OBJECTS:=$(patsubst test/%.c,test/%.o,$(wildcard test/*.c))
@@ -47,12 +47,12 @@ LDFLAGS+=-L. -L$(COMMONLIB) $(LIBS_RPATH) -l$(NAME)
 .PHONY: all clean test
 
 ifdef TEST
-all: $(TARGETS) $(TEST_TARGET)
+all: $(TARGETS) $(TEST_TARGETS)
 else
 all: $(TARGETS)
 endif
 
-test: $(TEST_TARGET)
+test: $(TEST_TARGETS)
  
 %.a: $(OBJECTS)
 	@echo ---------- Building $@
@@ -73,10 +73,13 @@ test/%.o: test/%.c
 	$(CXX) -c $(CXXFLAGS) $< -o $@ \
 	$(TST_INCS)
 	
-$(TEST_TARGET): $(TEST_OBJECTS)
+$(TEST_TARGETS): $(TEST_OBJECTS)
 	@echo ---------- Building $@
 	$(CXX) -o $@ $< $(LDFLAGS) \
 	$(TST_LIBS)
 
 clean:
-	rm -f $(TARGETS) lib$(NAME).so.$(SOVER) $(TEST_TARGET) $(OBJECTS) $(TEST_OBJECTS) inc/*~ src/*~ *~
+	rm -f $(TARGETS) lib$(NAME).so.$(SOVER) $(OBJECTS) \
+	$(TEST_TARGETS) $(TEST_OBJECTS) \
+	inc/*~ src/*~ test/*~ *~
+

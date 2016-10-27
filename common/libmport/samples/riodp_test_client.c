@@ -62,6 +62,10 @@
 #include <rapidio_mport_dma.h>
 #include <sys/ioctl.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <rapidio_mport_mgmt.h>
 #include <rapidio_mport_sock.h>
 
@@ -334,3 +338,7 @@ out:
 		printf("riodp_mbox_shutdown error: %d\n", ret);
 	return ret;
 }
+
+#ifdef __cplusplus
+}
+#endif

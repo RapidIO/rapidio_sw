@@ -137,8 +137,9 @@ for c in $(seq 1 3); do
 if [ "$SW_TYPE" = 'AUTO' ]; then
   ssh root@"$host" "rm -f $FILENAME";
 else
-  sed s/NODE_VAR/$host/g install/auto-slave.conf | \
+  sed s/NODE_VAR/$host/g install/node-slave.conf | \
     sed s/MEMSZ/$MEMSZ/g | sed s/MASTDEST/${MASTDEST}/g | sed s/AUTO/' '/g | \
+    sed s/DID/${DID}/g | sed s/COMPTAG/${COMPTAG}/g | \
     ssh root@"$host" "mkdir -p $CONFIG_PATH; cd $CONFIG_PATH; cat > $FILENAME";
 fi
 done

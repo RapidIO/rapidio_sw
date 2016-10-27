@@ -32,18 +32,17 @@
  */
 
 /**
- * @file did.h
  * Device id management
  */
 #ifndef DID_DID_H__
 #define DID_DID_H__
 
+#include <stdint.h>
+#include <stdbool.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include <stdint.h>
-#include <stdbool.h>
 
 typedef uint32_t did_val_t;
 
@@ -57,6 +56,9 @@ typedef struct {
 } did_t;
 
 #define ANY_ID 0xff
+#define DID_ANY_DEV8_ID ((did_t) {RIO_LAST_DEV8, dev08_sz})
+#define DID_ANY_DEV16_ID ((did_t) {RIO_LAST_DEV16, dev16_sz})
+#define DID_INVALID_ID ((did_t) {0, invld_sz})
 
 int did_size_from_int(did_sz_t *size, uint32_t asInt);
 int did_create(did_t *did, did_sz_t size);
