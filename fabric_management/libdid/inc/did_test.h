@@ -32,39 +32,28 @@
  */
 
 /**
- * Component tag management
+ * Device id management
  */
-#ifndef CT_CT_H__
-#define CT_CT_H__
+#ifndef DID_DID_TEST_H__
+#define DID_DID_TEST_H__
 
 #include <stdint.h>
+#include <stdbool.h>
+
 #include "did.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-typedef uint32_t ct_t;
-typedef uint16_t ct_nr_t;
-
-/**
- * \brief A value of zero is an invalid component tag
- */
-#define COMPTAG_UNSET 0x00000000
-
-int ct_create_all(ct_t *ct, did_t *did, did_sz_t size);
-int ct_create_from_data(ct_t *ct, did_t *did, ct_nr_t nr,
-		did_val_t value, did_sz_t size);
-int ct_create_from_nr_and_did(ct_t *ct, ct_nr_t nr, did_t did);
-int ct_create_from_did(ct_t *ct, did_t did);
-int ct_release(ct_t ct, did_t did);
-
-int ct_get_nr(ct_nr_t *nr, ct_t ct);
-int ct_get_destid(did_t *did, ct_t ct, did_sz_t size);
-int ct_not_inuse(ct_t ct, did_sz_t size);
+#ifdef UNIT_TESTING
+void did_reset();
+int did_equal(did_t did, did_val_t value, did_sz_t size);
+int did_invalid(did_t did);
+#endif
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* CT_CT_H__ */
+#endif /* DID_DID_TEST_H__ */

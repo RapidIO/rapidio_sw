@@ -33,12 +33,18 @@
 
 #include <stddef.h>
 #include <stdint.h>
-#include <stdint.h>
+#include <string.h>
 #include <stdbool.h>
 #include <errno.h>
 
-#include "did.h"
+#include "did_test.h"
 #include "rio_standard.h"
+
+#ifdef UNIT_TESTING
+#include <stdarg.h>
+#include <setjmp.h>
+#include "cmocka.h"
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -57,11 +63,11 @@ uint32_t did_idx = 0;
  */
 int did_size_from_int(did_sz_t *size, uint32_t asInt)
 {
-	if(NULL == size) {
+	if (NULL == size) {
 		return -EINVAL;
 	}
 
-	switch(asInt) {
+	switch (asInt) {
 	case 0:
 		*size = dev08_sz;
 		return 0;
@@ -70,7 +76,7 @@ int did_size_from_int(did_sz_t *size, uint32_t asInt)
 		return 0;
 	case 2:
 		*size = dev32_sz;
-		return 0;
+		return -EINVAL;
 	default:
 		*size = invld_sz;
 		return -EINVAL;
@@ -91,47 +97,48 @@ int did_create(did_t *did, did_sz_t size)
 	uint32_t i;
 	uint32_t upb;
 
-	if(NULL == did) {
+	// lazy initialization
+	if (0 == did_idx) {
+		did_ids[0] = dev08_sz;
+		did_ids[255] = dev08_sz;
+		did_idx = 1;
+	}
+
+	if (NULL == did) {
 		return -EINVAL;
 	}
 
-	switch(size) {
+	switch (size) {
 	case dev08_sz:
-		upb = RIO_LAST_DEV8 - 1;
+		upb = RIO_LAST_DEV8;
 		break;
 	case dev16_sz:
-		upb = RIO_LAST_DEV16 - 1;
+		upb = RIO_LAST_DEV16;
 		break;
 	default:
 		// only 8 and 16 bit DIDs are supported
+		*did = DID_INVALID_ID;
 		return -EPERM;
 	}
 
-	// lazy initialization
-	if(0 == did_idx) {
-		did_ids[0] = dev08_sz;
-		did_ids[255] = dev08_sz;
-	}
-
 	// find the next available did from the last used position
-	for(i = did_idx; i < upb; i++) {
-		if(invld_sz == did_ids[i]) {
+	for (i = did_idx; i < upb; i++) {
+		if (invld_sz == did_ids[i]) {
 			did_idx = i;
 			goto found;
 		}
 	}
 
 	// look for a free did from the beginning of the structure
-	for(i = 1; i < did_idx; i++) {
-		if(invld_sz == did_ids[i]) {
+	for (i = 1; i < did_idx; i++) {
+		if (invld_sz == did_ids[i]) {
 			did_idx = i;
 			goto found;
 		}
 	}
 
 	// no available did_ids
-	did->value = 0;
-	did->size = invld_sz;
+	*did = DID_INVALID_ID;
 	return -ENOBUFS;
 
 found:
@@ -155,31 +162,50 @@ found:
  */
 int did_create_from_data(did_t *did, did_val_t value, did_sz_t size)
 {
-	if(NULL == did) {
+	// lazy initialization
+	if (0 == did_idx) {
+		did_ids[0] = dev08_sz;
+		did_ids[255] = dev08_sz;
+		did_idx = 1;
+	}
+
+	if (NULL == did) {
 		return -EINVAL;
 	}
 
-	if((0 == value) || (255 == value)) {
+	if ((0 == value) || (255 == value)) {
+		*did = DID_INVALID_ID;
 		return -EINVAL;
 	}
 
-	switch(size) {
+	switch (size) {
 	case dev08_sz:
+		if (value > RIO_LAST_DEV8 - 1) {
+			*did = DID_INVALID_ID;
+			return -EINVAL;
+		}
 		break;
 	case dev16_sz:
+		if (value > RIO_LAST_DEV16 - 1) {
+			*did = DID_INVALID_ID;
+			return -EINVAL;
+		}
 		break;
 	default:
 		// only 8 and 16 bit DIDs are supported
+		*did = DID_INVALID_ID;
 		return -EPERM;
 	}
 
-	if(invld_sz == did_ids[value]) {
+	if (invld_sz == did_ids[value]) {
 		// do not update the index
 		did_ids[value] = size;
 		did->value = value;
 		did->size = size;
 		return 0;
 	}
+
+	*did = DID_INVALID_ID;
 	return -ENOTUNIQ;
 }
 
@@ -194,18 +220,18 @@ int did_create_from_data(did_t *did, did_val_t value, did_sz_t size)
 int did_release(did_t did)
 {
 	did_val_t idx = did.value;
-	if((0 == idx) || (255 == idx)) {
+	if ((0 == idx) || (255 == idx)) {
 		return -EINVAL;
 	}
 
-	switch(did.size) {
+	switch (did.size) {
 	case dev08_sz:
-		if(idx > (RIO_LAST_DEV8 - 1)) {
+		if (idx > (RIO_LAST_DEV8 - 1)) {
 			return -EINVAL;
 		}
 		break;
 	case dev16_sz:
-		if(idx > (RIO_LAST_DEV16 - 1)) {
+		if (idx > (RIO_LAST_DEV16 - 1)) {
 			return -EINVAL;
 		}
 		break;
@@ -214,11 +240,11 @@ int did_release(did_t did)
 		return -EPERM;
 	}
 
-	if(invld_sz == did_ids[idx]) {
+	if (invld_sz == did_ids[idx]) {
 		return -EKEYEXPIRED;
 	}
 
-	if(did.size != did_ids[idx]) {
+	if (did.size != did_ids[idx]) {
 		return -EINVAL;
 	}
 
@@ -238,31 +264,41 @@ int did_release(did_t did)
  */
 int did_get(did_t *did, did_val_t value, did_sz_t size)
 {
-	if(NULL == did) {
+	if (NULL == did) {
 		return -EINVAL;
 	}
 
-	switch(size) {
+	if ((0 == value) || (RIO_LAST_DEV8 == value)) {
+		*did = DID_INVALID_ID;
+		return -EINVAL;
+	}
+
+	switch (size) {
 	case dev08_sz:
-		if(value > (RIO_LAST_DEV8 - 1)) {
+		if (value > (RIO_LAST_DEV8 - 1)) {
+			*did = DID_INVALID_ID;
 			return -EINVAL;
 		}
 		break;
 	case dev16_sz:
-		if(value > (RIO_LAST_DEV16 - 1)) {
+		if (value > (RIO_LAST_DEV16 - 1)) {
+			*did = DID_INVALID_ID;
 			return -EINVAL;
 		}
 		break;
 	default:
 		// only 8 and 16 bit DIDs are supported
+		*did = DID_INVALID_ID;
 		return -EPERM;
 	}
 
-	if(size == did_ids[value]) {
+	if (size == did_ids[value]) {
 		did->value = value;
 		did->size = size;
 		return 0;
 	}
+
+	*did = DID_INVALID_ID;
 	return -EKEYEXPIRED;
 }
 
@@ -276,14 +312,18 @@ int did_get(did_t *did, did_val_t value, did_sz_t size)
  */
 int did_not_inuse(did_t did)
 {
-	switch(did.size) {
+	if ((0 == did.value) || (RIO_LAST_DEV8 == did.value)) {
+		return -EINVAL;
+	}
+
+	switch (did.size) {
 	case dev08_sz:
-		if(did.value > (RIO_LAST_DEV8 - 1)) {
+		if (did.value > (RIO_LAST_DEV8 - 1)) {
 			return -EINVAL;
 		}
 		break;
 	case dev16_sz:
-		if(did.value > (RIO_LAST_DEV16 - 1)) {
+		if (did.value > (RIO_LAST_DEV16 - 1)) {
 			return -EINVAL;
 		}
 		break;
@@ -313,6 +353,51 @@ did_sz_t did_get_size(did_t did)
 {
 	return did.size;
 }
+
+#ifdef UNIT_TESTING
+void did_reset()
+{
+	memset(did_ids, 0, sizeof(did_ids));
+	did_idx = 0;
+}
+
+/**
+ * Determine if the provided did is as expected
+ *
+ * @param[in] did the did to be tested
+ * @param[in] value the expected value
+ * @param[in] size the expected size
+ *
+ * @retval 0 the did is as expected
+ * @retval 1 the value is not as expected
+ * @retval 2 the size is not as expected
+ */
+
+int did_equal(did_t did, did_val_t value, did_sz_t size)
+{
+	if (value != did.value) {
+		return 1;
+	}
+	if (size != did.size) {
+		return 2;
+	}
+	return 0;
+}
+
+/**
+ * Determine if the provided did is invalid
+ *
+ * @param[in] did the did to be tested
+ *
+ * @retval 0 the did is invalid
+ * @retval 1 the value is not equal
+ * @retval 2 the size is not equal
+ */
+int did_invalid(did_t did)
+{
+	return did_equal(did, 0, invld_sz);
+}
+#endif
 
 #ifdef __cplusplus
 }

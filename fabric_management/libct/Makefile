@@ -34,19 +34,26 @@ include $(TOPDIR)/rules.mk
 
 NAME:=ct
 TARGETS:=lib$(NAME).a
+TEST_TARGETS:=$(NAME)_test
 
-OBJECTS:=$(patsubst src/%.cpp,src/%.o,$(wildcard src/*.cpp))
-OBJECTS:=$(OBJECTS) $(patsubst src/%.c,src/%.o,$(wildcard src/*.c))
+OBJECTS:=$(patsubst src/%.c,src/%.o,$(wildcard src/*.c))
+TEST_OBJECTS:=$(patsubst test/%.c,test/%.o,$(wildcard test/*.c))
 
 CXXFLAGS+=-D$(DEBUG_CTL) -DRDMA_LL=$(LOG_LEVEL)
 CXXFLAGS+=-I$(FMDDIR)/libdid/inc
 CXXFLAGS+=-I$(FMDDIR)/librio_switch/inc
-LDFLAGS+=-L. -l$(NAME)
+LDFLAGS+=-L. -L$(COMMONLIB) -L$(FMDDIR)/libs_a $(LIBS_RPATH) -l$(NAME)
 
 
 .PHONY: all clean test
 
+ifdef TEST
+all: $(TARGETS) $(TEST_TARGETS)
+else
 all: $(TARGETS)
+endif
+
+test: $(TEST_TARGETS)
 
 %.a: $(OBJECTS)
 	@echo ---------- Building $@
@@ -54,11 +61,20 @@ all: $(TARGETS)
 
 src/%.o:src/%.c
 	@echo ---------- Building $@
-	$(CXX) -c $(CXXFLAGS) $< -o $@
+	$(CXX) -c $(CXXFLAGS) $< -o $@ \
+	$(TST_INCS)
 
-src/%.o:src/%.cpp
+test/%.o: test/%.c
 	@echo ---------- Building $@
-	$(CXX) -c $(CXXFLAGS) $< -o $@
+	$(CXX) -c $(CXXFLAGS) $< -o $@ \
+	$(TST_INCS)
+
+$(TEST_TARGETS): $(TEST_OBJECTS)
+	@echo ---------- Building $@
+	$(CXX) -o $@ $< $(LDFLAGS) \
+	$(TST_LIBS) -ldid
 
 clean:
-	rm -f $(TARGETS) lib$(NAME).so.$(SOVER) $(OBJECTS) inc/*~ src/*~ *~
+	rm -f $(TARGETS) $(OBJECTS) \
+	$(TEST_TARGETS) $(TEST_OBJECTS) \
+	inc/*~ src/*~ test/*~ *~
