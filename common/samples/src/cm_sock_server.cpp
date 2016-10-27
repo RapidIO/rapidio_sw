@@ -28,7 +28,7 @@ void sig_handler(int sig)
 
 int main(int argc, char *argv[])
 {
-	char c;
+	int c;
 
 	signal(SIGQUIT, sig_handler);
 	signal(SIGINT, sig_handler);
