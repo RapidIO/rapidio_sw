@@ -264,7 +264,8 @@ void master_process_hello_peer(struct fmd_peer *peer)
 	peer->p_did_sz = ntohl(peer->s2m->hello_rq.did_sz);
 	peer->p_ct = ntohl(peer->s2m->hello_rq.ct);
 	peer->p_hc = ntohl(peer->s2m->hello_rq.hc);
-	memcpy(peer->peer_name, peer->s2m->hello_rq.peer_name, MAX_P_NAME+1);
+	SAFE_STRNCPY(peer->peer_name, peer->s2m->hello_rq.peer_name,
+		sizeof(peer->peer_name));
 
 	peer_not_found = riocp_pe_find_comptag(*fmd->mp_h, peer->p_ct, &peer_pe);
 

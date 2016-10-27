@@ -865,7 +865,7 @@ int RIOCP_WU riocp_pe_find_comptag(riocp_pe_handle mport, ct_t comptag,
 							riocp_pe_handle *pe)
 {
 	size_t count;
-	riocp_pe_handle *pes;
+	riocp_pe_handle *pes = NULL;
 	size_t i;
 
 	*pe = NULL;
