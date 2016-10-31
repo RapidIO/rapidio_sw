@@ -71,6 +71,7 @@ REL=$8
 
 for i in "${ALLNODES[@]}"
 do
+	[ "$host" = 'none' ] && continue;
 	ping -c 1 $i > /dev/null
 	if [ $? -ne 0 ]; then
 		echo $i " Not accessible, aborting..."
