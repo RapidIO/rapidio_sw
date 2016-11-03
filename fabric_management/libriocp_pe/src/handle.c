@@ -294,7 +294,6 @@ riocp_pe_handle_destroy(struct riocp_pe **handle){
     }
     riocp_pe_llist_free(mp->handles.next);
 
-    free(mp->comptag_pool);
     free(mp->private_data);
     free(mp);
     pe->minfo = NULL;
@@ -312,9 +311,7 @@ riocp_pe_handle_destroy(struct riocp_pe **handle){
         if(riocp_pe_remove_peer(pe, port))
           RIOCP_WARN("Failed to remove PE from peer ports\n");
     }
-    /* Disconnect PE from Mport's comptag pool and from PE-handles list */
-    if(riocp_pe_comptag_clear(pe))
-      RIOCP_WARN("Failed to clear PE in mport's comptag pool\n");
+    /* Disconnect PE from Mport's PE-handles list */
     if(level == 1 && riocp_pe_llist_del(&(mp->handles), pe))
       RIOCP_WARN("Failed to remove PE from mport's handle list\n");
     /* Cleanup the PE structure */
@@ -374,13 +371,13 @@ int riocp_pe_handle_open_mport(struct riocp_pe *pe)
  * @param hopcount   RapidIO hopcount to new PE
  * @param destid     RapidIO destination id for new PE
  * @param port       RapidIO port
+ * @param comptag    Component tag
  */
 int riocp_pe_handle_create_pe(struct riocp_pe *pe, struct riocp_pe **handle, uint8_t hopcount,
-  uint32_t destid, uint8_t port)
+  uint32_t destid, uint8_t port, uint32_t comptag)
 {
   bool initialize = false;
   struct riocp_pe *h = NULL;
-  uint32_t comptag_nr = 0;
   uint8_t peer_port = 0;
   int ret = 0;
 
@@ -450,7 +447,7 @@ int riocp_pe_handle_create_pe(struct riocp_pe *pe, struct riocp_pe **handle, uin
     goto err;
   }
 #else
-  h->comptag = 0;
+  h->comptag = RIOCP_PE_COMPTAG_UNSET;
   RIOCP_WARN("%s(): Reset comptag for destid 0x%x to force device reinit.\n", __func__, destid);
   ret = riocp_pe_comptag_write(h, h->comptag);
   if (ret) {
@@ -461,17 +458,14 @@ int riocp_pe_handle_create_pe(struct riocp_pe *pe, struct riocp_pe **handle, uin
 
   /* Decide if the host needs to initialize comptag/destid the PE based
     on comptag unique number */
-  comptag_nr = RIOCP_PE_COMPTAG_GET_NR(h->comptag);
-
-  RIOCP_DEBUG("h->comptag: 0x%08x (comptag_nr: %u, 0x%08x)\n", h->comptag,
-    comptag_nr, comptag_nr);
+  RIOCP_DEBUG("h->comptag: 0x%08x\n", h->comptag);
 
   /* Comptag unique number not set */
-  if (comptag_nr == 0 && RIOCP_PE_IS_HOST(h) == true) {
+  if (h->comptag == RIOCP_PE_COMPTAG_UNSET && RIOCP_PE_IS_HOST(h) == true) {
 
-    RIOCP_DEBUG("Initializing empty comptag/reset destid for h 0x%08x\n", h->comptag);
+    RIOCP_DEBUG("Initializing empty comptag/reset destid for h 0x%08x\n", comptag);
 
-    ret = riocp_pe_comptag_init(h);
+    ret = riocp_pe_comptag_set(h, comptag);
     if (ret) {
       RIOCP_ERROR("Could not initialize component tag\n");
       goto err;
@@ -487,17 +481,6 @@ int riocp_pe_handle_create_pe(struct riocp_pe *pe, struct riocp_pe **handle, uin
     }
 
     initialize = true;
-  } else {
-    /* Add h to comptag_pool at comptag_nr */
-    ret = riocp_pe_comptag_set_slot(h, comptag_nr);
-    if (ret) {
-      RIOCP_ERROR("Error adding handle at comptag pool slot %u\n",
-        comptag_nr);
-      goto err;
-    }
-
-    RIOCP_DEBUG("Added PE: ct 0x%08x at comptag_pool slot %u\n",
-      h->comptag, comptag_nr);
   }
 
   /* Initialize switch port event mask and attach switch driver */
@@ -562,12 +545,13 @@ err:
 /**
  * Create mport handle with minfo field and initialized maintainance access
  * @param mport   Mport device number
- * @param is_host Create host or agent mport handle
+ * @param comptag Component tag for the new mport (for host) or 0 (for agent)
+ * @param ct_mask Component tag mask (used for port write filtering and component tag matching)
  * @param handle  Handle created for mport
  * @retval -ENOMEM Cannot allocate memory
  * @retval -EIO Unable to initialize or read rapidio maintenance
  */
-int riocp_pe_handle_create_mport(uint8_t mport, bool is_host, struct riocp_pe **handle)
+int riocp_pe_handle_create_mport(uint8_t mport, uint32_t comptag, uint32_t ct_mask, struct riocp_pe **handle)
 {
   int ret = 0;
   struct riocp_pe *h = NULL;
@@ -609,7 +593,8 @@ int riocp_pe_handle_create_mport(uint8_t mport, bool is_host, struct riocp_pe **
   h->mport          = h;
   h->minfo->ref     = 1; /* Initialize reference count */
   h->minfo->id      = mport;
-  h->minfo->is_host = is_host;
+  h->minfo->is_host = comptag != RIOCP_PE_COMPTAG_UNSET;
+  h->minfo->ct_mask = ct_mask;
 
   /* Add new handle to mport handles list BEFORE any maintenace access
     (which depends on checking for valid handle in list) */
@@ -634,7 +619,7 @@ int riocp_pe_handle_create_mport(uint8_t mport, bool is_host, struct riocp_pe **
 #endif
 
   if (RIOCP_PE_IS_HOST(h)) {
-    ret = riocp_pe_comptag_init(h);
+    ret = riocp_pe_comptag_set(h, comptag);
     if (ret) {
       RIOCP_ERROR("Unable to initialize component tag");
       goto err;
@@ -677,7 +662,7 @@ int riocp_pe_handle_create_mport(uint8_t mport, bool is_host, struct riocp_pe **
   }
 
   RIOCP_TRACE("Mport: set port write filter\n");
-  ret = riomp_mgmt_pwrange_enable(h->mp_hnd, RIOCP_PE_COMPTAG_MASK, 0, 0x00ffffff);
+  ret = riomp_mgmt_pwrange_enable(h->mp_hnd, ct_mask, 0, ct_mask);
   if (ret < 0) {
     RIOCP_ERROR("Could not enable port write range with ioctl (err: %s)\n",
     strerror(errno));
@@ -767,7 +752,7 @@ int riocp_pe_handle_pe_exists(struct riocp_pe *mport, uint32_t comptag, struct r
         goto found;
   }
 
-  ret = riocp_pe_comptag_get_slot(mport, RIOCP_PE_COMPTAG_GET_NR(comptag), &p);
+  ret = riocp_pe_comptag_get_pe(mport, comptag, &p);
   if (ret)
     goto notfound;
 

@@ -54,7 +54,7 @@ CCFLAGS= -c -g -ggdb -fPIC -Wall -Werror -O2 -I. \
 LIB_DEPS= libriocp_pe libcli libswitch_api libdd
 .PHONY: $(LIB_DEPS)
 
-all: daemon libfmdd
+all: libriocp_pe
 
 %.o: %.c $(CLI_DEPS) $(DAEMON_DEPS) $(LIB_DEPS)
 	$(CXX) -o $@ $< $(CCFLAGS)

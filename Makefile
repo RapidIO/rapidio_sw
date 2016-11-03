@@ -47,7 +47,7 @@ export AR
 TOP_LEVEL = $(shell pwd)
 export TOP_LEVEL
 
-TARGETS = common fabric_management rdma 
+TARGETS = common fabric_management
 
 all: $(TARGETS)
 

@@ -54,7 +54,7 @@ int riocp_pe_event_init(struct riocp_pe *pe)
 		goto err;
 	}
 
-	ret = riomp_mgmt_pwrange_enable(pe->mp_hnd, RIOCP_PE_COMPTAG_MASK, pe->comptag, pe->comptag);
+	ret = riomp_mgmt_pwrange_enable(pe->mp_hnd, pe->mport->minfo->ct_mask, pe->comptag, pe->comptag);
 	if (ret < 0) {
 		RIOCP_ERROR("Could not enable port write range with ioctl (err: %s)\n",
 			strerror(errno));

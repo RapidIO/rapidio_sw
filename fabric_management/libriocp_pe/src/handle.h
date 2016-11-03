@@ -29,8 +29,9 @@ int RIOCP_WU riocp_pe_handle_addr_aton(char *addr, uint8_t **address, size_t *ad
 const char RIOCP_WU * riocp_pe_handle_addr_ntoa(uint8_t *address, size_t address_len);
 int RIOCP_WU riocp_pe_handle_open_mport(struct riocp_pe *pe);
 int RIOCP_WU riocp_pe_handle_create_pe(struct riocp_pe *pe, struct riocp_pe **handle,
-	uint8_t hopcount, uint32_t destid, uint8_t port);
-int RIOCP_WU riocp_pe_handle_create_mport(uint8_t mport, bool is_host, struct riocp_pe **handle);
+	uint8_t hopcount, uint32_t destid, uint8_t port, uint32_t comptag);
+int RIOCP_WU riocp_pe_handle_create_mport(uint8_t mport, uint32_t comptag, uint32_t ct_mask,
+  struct riocp_pe **handle);
 void riocp_pe_handle_mport_get(struct riocp_pe *mport);
 void riocp_pe_handle_mport_put(struct riocp_pe **mport);
 int RIOCP_WU riocp_pe_handle_pe_exists(struct riocp_pe *mport, uint32_t comptag,

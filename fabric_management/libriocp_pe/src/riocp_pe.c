@@ -293,15 +293,17 @@ int RIOCP_SO_ATTR riocp_mport_free_pe_list(riocp_pe_handle *pes[])
  * @param handle  Pointer to riocp_pe_handle
  * @param mport   Master port
  * @param rev     Version number of this library (RIOCP_PE_LIB_REV)
- * @param is_host Create host or agent handle
+ * @param comptag Comptag for the new mport (for host) or 0 (for agent)
+ * @param ct_mask Component tag mask (used for port write filtering and component tag matching)
  * @retval -EINVAL  handle is NULL
  * @retval -ENOTSUP invalid library version
  * @retval -ENOMEM  error in allocating mport handle
  */
 static int riocp_pe_create_mport_handle(riocp_pe_handle *handle,
 	uint8_t mport,
-	unsigned int rev,
-	bool is_host)
+	uint32_t comptag,
+	uint32_t ct_mask,
+	unsigned int rev)
 {
 	struct riocp_pe *pe;
 
@@ -311,9 +313,9 @@ static int riocp_pe_create_mport_handle(riocp_pe_handle *handle,
 		return -ENOTSUP;
 	if (!riocp_pe_mport_available(mport))
 		return -ENODEV;
-	if (riocp_pe_handle_mport_exists(mport, is_host, handle) == 0)
+	if (riocp_pe_handle_mport_exists(mport, comptag != RIOCP_PE_COMPTAG_UNSET, handle) == 0)
 		return 0;
-	if (riocp_pe_handle_create_mport(mport, is_host, &pe))
+	if (riocp_pe_handle_create_mport(mport, comptag, ct_mask, &pe))
 		return -ENOMEM;
 
 	*handle = pe;
@@ -327,6 +329,8 @@ static int riocp_pe_create_mport_handle(riocp_pe_handle *handle,
  *  same handle.
  * @param handle Pointer to riocp_pe_handle
  * @param mport  Master port
+ * @param comptag Comptag for the new mport
+ * @param ct_mask Component tag mask (used for port write filtering and component tag matching)
  * @param rev    Version number of this library (RIOCP_PE_LIB_REV)
  * @retval -EINVAL  handle is NULL
  * @retval -ENOTSUP invalid library version
@@ -334,9 +338,14 @@ static int riocp_pe_create_mport_handle(riocp_pe_handle *handle,
  */
 int RIOCP_SO_ATTR riocp_pe_create_host_handle(riocp_pe_handle *handle,
 	uint8_t mport,
+	uint32_t comptag,
+	uint32_t ct_mask,
 	unsigned int rev)
 {
-	return riocp_pe_create_mport_handle(handle, mport, rev, true);
+	if (comptag == RIOCP_PE_COMPTAG_UNSET)
+		return -EINVAL;
+
+	return riocp_pe_create_mport_handle(handle, mport, comptag, ct_mask, rev);
 }
 
 /**
@@ -345,13 +354,15 @@ int RIOCP_SO_ATTR riocp_pe_create_host_handle(riocp_pe_handle *handle,
  *  same handle.
  * @param handle Pointer to riocp_pe_handle
  * @param mport  Master port
+ * @param ct_mask Component tag mask (used for port write filtering and component tag matching)
  * @param rev    Version number of this library (RIOCP_PE_LIB_REV)
  */
 int RIOCP_SO_ATTR riocp_pe_create_agent_handle(riocp_pe_handle *handle,
 	uint8_t mport,
+	uint32_t ct_mask,
 	unsigned int rev)
 {
-	return riocp_pe_create_mport_handle(handle, mport, rev, false);
+	return riocp_pe_create_mport_handle(handle, mport, RIOCP_PE_COMPTAG_UNSET, ct_mask, rev);
 }
 
 /**
@@ -479,7 +490,7 @@ found:
 	ret = riocp_pe_handle_pe_exists(pe->mport, comptag, &p);
 	if (ret == 0) {
 		/* Create new handle */
-		ret = riocp_pe_handle_create_pe(pe, &p, hopcount, destid, port);
+		ret = riocp_pe_handle_create_pe(pe, &p, hopcount, destid, port, comptag);
 		if (ret) {
 			RIOCP_ERROR("Could not create handle on port %d of ct 0x%08x:%s\n",
 				port, pe->comptag, strerror(-ret));
@@ -516,6 +527,7 @@ err:
  * Probe for next peer
  * @param pe   Point from where to probe
  * @param port Port to probe
+ * @param comptag Component tag to assign to the new PE
  * @param peer New probed peer
  * @note Keep in mind this function always initialises found switches (clearing LUTs etc) even
  *  when they are previously found and no handle exists yet!
@@ -523,12 +535,12 @@ err:
  */
 int RIOCP_SO_ATTR riocp_pe_probe(riocp_pe_handle pe,
 	uint8_t port,
-	riocp_pe_handle *peer)
+	uint32_t comptag, riocp_pe_handle *peer)
 {
 	uint32_t val;
 	struct riocp_pe *p;
 	uint8_t hopcount = 0;
-	uint32_t comptag = 0;
+	uint32_t _ct = 0;
 	uint32_t any_id;
 	uint8_t sw_port = 0;
 	int ret;
@@ -555,26 +567,26 @@ int RIOCP_SO_ATTR riocp_pe_probe(riocp_pe_handle pe,
 		return -EIO;
 
 	/* Read component tag on peer */
-	ret = riocp_pe_comptag_read_remote(pe->mport, any_id, hopcount, &comptag);
+	ret = riocp_pe_comptag_read_remote(pe->mport, any_id, hopcount, &_ct);
 	if (ret) {
 		/* TODO try second time when failed, the ANY_ID route seems to be programmed correctly
 			at this point but the route was not working previous read */
-		ret = riocp_pe_comptag_read_remote(pe->mport, any_id, hopcount, &comptag);
+		ret = riocp_pe_comptag_read_remote(pe->mport, any_id, hopcount, &_ct);
 		if (ret) {
 			RIOCP_ERROR("Retry read comptag failed on h: %u\n", hopcount);
 			goto err_clear_any_id_route;
 		}
-		RIOCP_WARN("Retry read successfull: 0x%08x\n", comptag);
+		RIOCP_WARN("Retry read successfull: 0x%08x\n", _ct);
 	}
 
 	RIOCP_DEBUG("Probe peer(hc: %u, address: %s,%u) comptag 0x%08x\n",
-		hopcount, riocp_pe_handle_addr_ntoa(pe->address, pe->hopcount), port, comptag);
+		hopcount, riocp_pe_handle_addr_ntoa(pe->address, pe->hopcount), port, _ct);
 
 	/* Read/test existing handle, based on component tag */
-	ret = riocp_pe_handle_pe_exists(pe->mport, comptag, &p);
+	ret = riocp_pe_handle_pe_exists(pe->mport, _ct, &p);
 	if (ret == 0) {
 		RIOCP_DEBUG("Peer not found on mport %u with comptag 0x%08x\n",
-			pe->mport->minfo->id, comptag);
+			pe->mport->minfo->id, _ct);
 
 		ret = riocp_pe_lock_set(pe->mport, any_id, hopcount);
 		if (ret) {
@@ -585,7 +597,7 @@ int RIOCP_SO_ATTR riocp_pe_probe(riocp_pe_handle pe,
 
 create_pe:
 		/* Create peer handle */
-		ret = riocp_pe_handle_create_pe(pe, &p, hopcount, any_id, port);
+		ret = riocp_pe_handle_create_pe(pe, &p, hopcount, any_id, port, comptag);
 		if (ret) {
 			RIOCP_ERROR("Could not create handle for peer on port %d of ct 0x%08x: %s\n",
 				port, pe->comptag, strerror(-ret));
@@ -1493,7 +1505,7 @@ int RIOCP_SO_ATTR riocp_pe_event_mport(riocp_pe_handle mport, riocp_pe_handle *p
 	int ret, lock;
 	struct riocp_pe_event _e;
 	struct riomp_mgmt_event revent;
-	uint32_t comptag_nr;
+	uint32_t comptag;
 	struct riocp_pe *_pe;
 
 	if (!pe || !ev)
@@ -1525,10 +1537,10 @@ int RIOCP_SO_ATTR riocp_pe_event_mport(riocp_pe_handle mport, riocp_pe_handle *p
 		return -EBUSY;
 	}
 
-	comptag_nr = RIOCP_PE_COMPTAG_GET_NR(revent.u.portwrite.payload[0]);
-	ret = riocp_pe_comptag_get_slot(mport, comptag_nr, &_pe);
+	comptag = revent.u.portwrite.payload[0] & mport->minfo->ct_mask;
+	ret = riocp_pe_comptag_get_pe(mport, comptag, &_pe);
 	if (ret) {
-		RIOCP_ERROR("Failed to retrieve pe for comptag %d\n", comptag_nr);
+		RIOCP_ERROR("Failed to retrieve pe for comptag 0x%08x\n", comptag);
 		goto out;
 	}
 
@@ -1601,7 +1613,7 @@ int RIOCP_SO_ATTR riocp_pe_get_pw_event_mport(riocp_pe_handle mport, struct rioc
 int RIOCP_SO_ATTR riocp_pe_pw_event_to_pe(riocp_pe_handle mport, struct riocp_pe_pw_data *pw_ev, riocp_pe_handle *pe)
 {
 	int ret;
-	uint32_t comptag_nr;
+	uint32_t comptag;
 	struct riocp_pe *_pe;
 
 	if (!pw_ev || !pe)
@@ -1611,10 +1623,10 @@ int RIOCP_SO_ATTR riocp_pe_pw_event_to_pe(riocp_pe_handle mport, struct riocp_pe
 	if (!RIOCP_PE_IS_MPORT(mport))
 		return -EINVAL;
 
-	comptag_nr = RIOCP_PE_COMPTAG_GET_NR(pw_ev->pw[0]);
-	ret = riocp_pe_comptag_get_slot(mport, comptag_nr, &_pe);
+	comptag = pw_ev->pw[0] & mport->minfo->ct_mask;
+	ret = riocp_pe_comptag_get_pe(mport, comptag, &_pe);
 	if (ret) {
-		RIOCP_ERROR("Failed to retrieve pe for comptag %d\n", comptag_nr);
+		RIOCP_ERROR("Failed to retrieve pe for comptag 0x%08x\n", comptag);
 		return ret;
 	}
 	*pe = _pe;
@@ -1779,56 +1791,19 @@ out:
  * @retval -EINVAL Invalid argument
  * @retval -EBADF  Component tag in device doesn't match with handle
  */
-int RIOCP_SO_ATTR riocp_pe_update_comptag(riocp_pe_handle pe,
-        uint32_t *comptag, uint32_t did, uint32_t wr_did)
+int RIOCP_SO_ATTR riocp_pe_update_comptag(riocp_pe_handle pe, uint32_t comptag)
 {
         int ret = 0;
-        uint32_t ct = 0, new_ct;
 
         if (riocp_pe_handle_check(pe))
                 return -EINVAL;
 
-	if (pe->comptag != *comptag)
-                return -EINVAL;
+	RIOCP_TRACE("Updating PE handle %p CompTag 0x%08x to 0x%08x\n",
+		pe, pe->comptag, comptag);
 
-	RIOCP_TRACE("Updating PE handle %p CompTag %x *ct %x\n",
-		pe, pe->comptag, *comptag);
-	ret = riocp_pe_comptag_read(pe, &ct);
-	if (ret) {
-		RIOCP_ERROR("Unable to read PE %p component tag", pe);
-		return ret;
-	}
+	ret = riocp_pe_comptag_set(pe, comptag);
 
-	if (pe->comptag != ct) {
-		RIOCP_ERROR("pe->comptag(0x%08x) != ct(0x%08x)\n", 
-			pe->comptag, ct);
-		*comptag = ct;
-		return -EBADF;
-	}
-
-	new_ct = RIOCP_PE_COMPTAG_DESTID(did) |
-		(RIOCP_PE_COMPTAG_NR(RIOCP_PE_COMPTAG_GET_NR((*comptag))));
-
-	RIOCP_TRACE("Changing ct %x to %x\n", pe->comptag, new_ct);
-	
-	ret = riocp_pe_comptag_write(pe, new_ct);
-	if (ret) {
-		RIOCP_ERROR("Unable to write PE %p component tag\n", pe);
-		return ret;
-	}
-
-	pe->comptag = new_ct;
-	*comptag = new_ct;
-
-	RIOCP_TRACE("Changed pe ct to %x\n", pe->comptag);
-
-	if (wr_did) {
-		RIOCP_TRACE("Writing device ID to  %x\n", pe->destid);
-		ret = riocp_pe_set_destid(pe, did);
-		if (ret) 
-			RIOCP_ERROR("Unable to update device ID\n");
-	};
-	pe->destid = did;
+	RIOCP_TRACE("Changed pe ct to 0x%08x\n", pe->comptag);
 
         return ret;
 }
@@ -2072,18 +2047,19 @@ int RIOCP_WU riocp_pe_revoke(riocp_pe_handle pe)
  * @param port Port to probe
  * @param peer New probed peer
  * @param peer_port input port of the peer
+ * @param comptag Component tag to assign to the new PE
  * @note Keep in mind this function always initialises found switches (clearing LUTs etc) even
  *  when they are previously found and no handle exists yet!
  * @retval -EPERM Handle has no host capabilities
  */
 int RIOCP_SO_ATTR riocp_pe_probe_sync(riocp_pe_handle pe,
 	uint8_t port, uint8_t peer_port,
-	riocp_pe_handle *peer)
+	uint32_t comptag, riocp_pe_handle *peer)
 {
 	uint32_t val;
 	struct riocp_pe *p;
 	uint8_t hopcount = 0;
-	uint32_t comptag = 0;
+	uint32_t _ct = 0;
 	uint32_t any_id;
 	uint8_t sw_port = 0;
 	int ret;
@@ -2110,7 +2086,7 @@ int RIOCP_SO_ATTR riocp_pe_probe_sync(riocp_pe_handle pe,
 		return -EIO;
 
 	/* Read component tag on peer */
-	ret = riocp_pe_comptag_test_read_remote(pe->mport, any_id, hopcount, &comptag);
+	ret = riocp_pe_comptag_test_read_remote(pe->mport, any_id, hopcount, &_ct);
 	if (ret) {
 		/* TODO try second time when failed, the ANY_ID route seems to be programmed correctly
 			at this point but the route was not working previous read */
@@ -2119,22 +2095,22 @@ int RIOCP_SO_ATTR riocp_pe_probe_sync(riocp_pe_handle pe,
 		if (ret) {
 			RIOCP_ERROR("Link sync failed on h: %u\n", hopcount);
 		}
-		ret = riocp_pe_comptag_read_remote(pe->mport, any_id, hopcount, &comptag);
+		ret = riocp_pe_comptag_read_remote(pe->mport, any_id, hopcount, &_ct);
 		if (ret) {
 			RIOCP_ERROR("Retry read comptag failed on h: %u\n", hopcount);
 			goto err_clear_any_id_route;
 		}
-		RIOCP_INFO("Retry read successfull: 0x%08x\n", comptag);
+		RIOCP_INFO("Retry read successfull: 0x%08x\n", _ct);
 	}
 
 	RIOCP_DEBUG("Probe peer(hc: %u, address: %s,%u) comptag 0x%08x\n",
-		hopcount, riocp_pe_handle_addr_ntoa(pe->address, pe->hopcount), port, comptag);
+		hopcount, riocp_pe_handle_addr_ntoa(pe->address, pe->hopcount), port, _ct);
 
 	/* Read/test existing handle, based on component tag */
-	ret = riocp_pe_handle_pe_exists(pe->mport, comptag, &p);
+	ret = riocp_pe_handle_pe_exists(pe->mport, _ct, &p);
 	if (ret == 0) {
 		RIOCP_DEBUG("Peer not found on mport %u with comptag 0x%08x\n",
-			pe->mport->minfo->id, comptag);
+			pe->mport->minfo->id, _ct);
 
 		ret = riocp_pe_lock_set(pe->mport, any_id, hopcount);
 		if (ret) {
@@ -2145,7 +2121,7 @@ int RIOCP_SO_ATTR riocp_pe_probe_sync(riocp_pe_handle pe,
 
 create_pe:
 		/* Create peer handle */
-		ret = riocp_pe_handle_create_pe(pe, &p, hopcount, any_id, port);
+		ret = riocp_pe_handle_create_pe(pe, &p, hopcount, any_id, port, comptag);
 		if (ret) {
 			RIOCP_ERROR("Could not create handle for peer on port %d of ct 0x%08x: %s\n",
 				port, pe->comptag, strerror(-ret));

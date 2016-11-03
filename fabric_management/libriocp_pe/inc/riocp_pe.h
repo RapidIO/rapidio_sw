@@ -266,11 +266,15 @@ int RIOCP_WU riocp_mport_free_port_list(uint8_t **ports);
 int RIOCP_WU riocp_mport_get_pe_list(riocp_pe_handle mport, size_t *count, riocp_pe_handle *pes[]);
 int RIOCP_WU riocp_mport_free_pe_list(riocp_pe_handle *pes[]);
 
-int RIOCP_WU riocp_pe_create_host_handle(riocp_pe_handle *handle, uint8_t mport, unsigned int rev);
-int RIOCP_WU riocp_pe_create_agent_handle(riocp_pe_handle *handle, uint8_t mport, unsigned int rev);
+int RIOCP_WU riocp_pe_create_host_handle(riocp_pe_handle *handle, uint8_t mport,
+	uint32_t comptag, uint32_t ct_mask, unsigned int rev);
+int RIOCP_WU riocp_pe_create_agent_handle(riocp_pe_handle *handle, uint8_t mport,
+	uint32_t ct_mask, unsigned int rev);
 int RIOCP_WU riocp_pe_discover(riocp_pe_handle pe, uint8_t port, riocp_pe_handle *peer);
-int RIOCP_WU riocp_pe_probe(riocp_pe_handle pe, uint8_t port, riocp_pe_handle *peer);
-int RIOCP_WU riocp_pe_probe_sync(riocp_pe_handle pe, uint8_t port, uint8_t peer_port, riocp_pe_handle *peer);
+int RIOCP_WU riocp_pe_probe(riocp_pe_handle pe, uint8_t port, uint32_t comptag,
+	riocp_pe_handle *peer);
+int RIOCP_WU riocp_pe_probe_sync(riocp_pe_handle pe, uint8_t port, uint8_t peer_port,
+	uint32_t comptag, riocp_pe_handle *peer);
 int RIOCP_WU riocp_pe_verify(riocp_pe_handle pe);
 riocp_pe_handle riocp_pe_peek(riocp_pe_handle pe, uint8_t port);
 int RIOCP_WU riocp_pe_restore(riocp_pe_handle pe);
@@ -287,7 +291,7 @@ int RIOCP_WU riocp_pe_get_destid(riocp_pe_handle pe, uint32_t *destid);
 int RIOCP_WU riocp_pe_set_destid(riocp_pe_handle pe, uint32_t destid);
 int RIOCP_WU riocp_pe_get_comptag(riocp_pe_handle pe, uint32_t *comptag);
 int RIOCP_WU riocp_pe_get_hopcount(riocp_pe_handle pe, uint8_t *hopcount);
-int RIOCP_WU riocp_pe_update_comptag(riocp_pe_handle pe, uint32_t *comptag, uint32_t did, uint32_t wr_did);
+int RIOCP_WU riocp_pe_update_comptag(riocp_pe_handle pe, uint32_t comptag);
 int RIOCP_WU riocp_pe_get_peer_pe(riocp_pe_handle pe, uint8_t port, riocp_pe_handle *peer);
 int RIOCP_WU riocp_pe_port_link_state(riocp_pe_handle pe, uint8_t port, bool *state);
 

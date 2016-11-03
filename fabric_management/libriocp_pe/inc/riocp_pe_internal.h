@@ -93,8 +93,7 @@ struct riocp_pe_mport {
 	bool is_host;				/**< Is mport host/agent */
 	struct riocp_pe *any_id_target;		/**< Current programmed ANY_ID route to this PE*/
 	struct riocp_pe_llist_item handles;	/**< Handles of PEs behind this mport */
-	struct riocp_pe **comptag_pool;		/**< Pool of assigned component tags */
-	size_t comptag_pool_size;		/**< Pool size of assigned component tags */
+	uint32_t ct_mask;			/**< comptag mask used for event filtering */
 	void *private_data;			/**< Mport private data */
 };
 
