@@ -36,6 +36,12 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <string.h>
 #include "libtime_utils.h"
 
+#ifdef UNIT_TESTING
+#include <stdarg.h>
+#include <setjmp.h>
+#include "cmocka.h"
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -43,14 +49,15 @@ extern "C" {
 /**
  * @brief Initializes timestamp sequence index and array
  *
- * @param[in] ts  Time stamp tracking structure
+ * @param[in] ts Time stamp tracking structure
  * @return 0 for success, 1 for failure
  * @retval 1 max_ts was > MAX_TIMESTAMPS, or max_ts was < 0
  */
 int init_seq_ts(struct seq_ts *ts, int max_ts)
 {
-	if ((max_ts > MAX_TIMESTAMPS) || (max_ts < 0))
+	if ((NULL == ts) || (max_ts > MAX_TIMESTAMPS) || (max_ts < 0)) {
 		return 1;
+	}
 
 	ts->max_idx = max_ts;
 	ts->ts_idx = 0;
@@ -58,48 +65,55 @@ int init_seq_ts(struct seq_ts *ts, int max_ts)
 	memset(&ts->ts_mkr, 0, sizeof(ts->ts_mkr));
 
 	return 0;
-};
+}
 
 /**
  * @brief If a free entry exists, get another timestamp.
  *
- * @param[in] ts  Time stamp tracking structure
- * @return None
+ * @param[in] ts Time stamp tracking structure
+ * @retval None
  */
 
 void ts_now(struct seq_ts *ts)
 {
-	if (ts->ts_idx < ts->max_idx)
+	if (NULL == ts) {
+		return;
+	}
+
+	if (ts->ts_idx < ts->max_idx) {
 		clock_gettime(CLOCK_MONOTONIC, &ts->ts_val[ts->ts_idx++]);
-};
+	}
+}
 
 /**
  * @brief If a free entry exists, get another timestamp and set marker value
  *
- * @param[in] ts  Time stamp tracking structure
- * @param[in] marker  Time stamp entry tracking structure
+ * @param[in] ts Time stamp tracking structure
+ * @param[in] marker Time stamp entry tracking structure
  * @return None
  */
 
 void ts_now_mark(struct seq_ts *ts, int marker)
 {
+	if (NULL == ts) {
+		return;
+	}
+
 	if (ts->ts_idx < ts->max_idx) {
 		ts->ts_mkr[ts->ts_idx] = marker;
 		clock_gettime(CLOCK_MONOTONIC, &ts->ts_val[ts->ts_idx++]);
-	};
-};
+	}
+}
 
 /**
  * @brief Given two timespec structs, subtract them and return a timespec 
  * containing the difference
  *
- * @param[in] start  start time
+ * @param[in] start start time
  * @param[in] end end time
  * @return timespec difference between start and end.
- *
- * @returns         difference
  */
-struct timespec time_difference( struct timespec start, struct timespec end )
+struct timespec time_difference(struct timespec start, struct timespec end)
 {
 	struct timespec temp;
 
@@ -111,13 +125,13 @@ struct timespec time_difference( struct timespec start, struct timespec end )
 		temp.tv_nsec = end.tv_nsec-start.tv_nsec;
 	}
 	return temp;
-} /* time_difference() */
+}
 
 /**
  * @brief Given two timespec structs, add them together and return 
  * a timespec containing the sum.
  *
- * @param[in] start  start time
+ * @param[in] start start time
  * @param[in] end end time
  * @return timespec sum of start and end timespecs.
  */
@@ -137,7 +151,7 @@ struct timespec time_add(struct timespec start, struct timespec end)
  * @brief Divides the time in a timespec by a divisor, and returns 
  * a timespec containing the quotient.
  *
- * @param[in] time  total time
+ * @param[in] time total time
  * @param[in] divisor factor to divide by
  * @return timespec time divided by divisor
  */
@@ -159,7 +173,7 @@ struct timespec time_div(struct timespec time, uint32_t divisor)
  * @brief Given a start time and end time, track minimum, maximum and total time
  *        Limit the maximum time difference to lim.
  *
- * @param[in] i  0 - initialize totaltime/mintime/maxtime, 1 - don't init
+ * @param[in] i 0 - initialize totaltime/mintime/maxtime, 1 - don't init
  * @param[in] limit - Maximum legal time difference expected. 
  * @param[in] starttime - starting time for time interval to track
  * @param[in] endtime - end time for time interval to track
@@ -181,14 +195,16 @@ void time_track_lim(int i, const struct timespec *lim,
 		totaltime->tv_nsec = totaltime->tv_sec = 0;
 		mintime->tv_nsec = mintime->tv_sec = 0xFFFFFFFF;
 		maxtime->tv_nsec = maxtime->tv_sec = 0;
-	};
+	}
 
-	if ((dta.tv_sec < 0) || (dta.tv_nsec < 0))
+	if ((dta.tv_sec < 0) || (dta.tv_nsec < 0)) {
 		return;
+	}
 
 	if ((dta.tv_sec > lim->tv_sec) ||
-		((dta.tv_sec == lim->tv_sec) && (dta.tv_nsec > lim->tv_nsec)))
+		((dta.tv_sec == lim->tv_sec) && (dta.tv_nsec > lim->tv_nsec))) {
 		return;
+	}
 
 	if (i) {
 		*totaltime = time_add(*totaltime, dta);
@@ -197,17 +213,17 @@ void time_track_lim(int i, const struct timespec *lim,
 		   ((mintime->tv_sec == dta.tv_sec) && 
 		    (mintime->tv_nsec > dta.tv_nsec))) {
 		   *mintime = dta;
-		};
+		}
 
 		if ((maxtime->tv_sec < dta.tv_sec) ||
 		   ((maxtime->tv_sec == dta.tv_sec) && 
 		    (maxtime->tv_nsec < dta.tv_nsec))) {
 		   *maxtime = dta;
-		};
+		}
 	} else {
 		*totaltime = *mintime = *maxtime = dta;
-	};
-};
+	}
+}
 
 /**
  * @brief Given a start time and end time, track minimum, maximum and total time
@@ -227,7 +243,7 @@ void time_track(int i, struct timespec starttime, struct timespec endtime,
 {
 	time_track_lim(i, &no_lim, &starttime, &endtime,
 			totaltime, mintime, maxtime);
-};
+}
 
 #ifdef __cplusplus
 }

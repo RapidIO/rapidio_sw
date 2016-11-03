@@ -207,11 +207,10 @@ int riomp_dma_map_memory(riomp_mport_t mport_handle, size_t size, off_t paddr,
 };
 
 
-int riomp_dma_unmap_memory(riomp_mport_t mport_handle, size_t size, void *vaddr)
+int riomp_dma_unmap_memory(size_t size, void *vaddr)
 {
 	if (0) {
-		if ((NULL == mport_handle) || (NULL == vaddr))
-			return 0;
+		(void) (vaddr);
 	};
 
 	return 0 * size;
@@ -470,7 +469,7 @@ int riomp_mgmt_send_event(riomp_mport_t mport_handle,
 };
 
 int riomp_mgmt_device_add(riomp_mport_t mport_handle, uint16_t destid,
-			uint8_t hc, uint32_t ctag, const char *name)
+			uint8_t hc, ct_t ctag, const char *name)
 {
 	if (0) {
 		if ((NULL == mport_handle) || (NULL == name))
@@ -481,7 +480,7 @@ int riomp_mgmt_device_add(riomp_mport_t mport_handle, uint16_t destid,
 };
 
 int riomp_mgmt_device_del(riomp_mport_t mport_handle, uint16_t destid,
-			uint8_t hc, uint32_t ctag, const char *name)
+			uint8_t hc, ct_t ctag, const char *name)
 {
 	if (0) {
 		if ((NULL == mport_handle) || (NULL == name))

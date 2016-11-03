@@ -40,7 +40,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <errno.h>
 #include <pthread.h>
 
+#ifndef __STDC_FORMAT_MACROS
 #define __STDC_FORMAT_MACROS
+#endif
 #include <cinttypes>
 
 #include "liblog.h"
@@ -212,7 +214,7 @@ slave_thread_f_exit:
 	/** Do accounting for thread exit */
 	num_threads--;	/* For tracking state upon crash */
 
-	INFO("Exiting %s, thread id=0x%X, socket=0x%X, %u threads active\n",
+	INFO("Exiting %s, thread id=0x%lX, socket=%p, %u threads active\n",
 			__func__, slave_thread, accept_socket, num_threads);
 
 	/** Free send/receive buffers and parameters structure */

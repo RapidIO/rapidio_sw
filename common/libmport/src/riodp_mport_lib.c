@@ -35,7 +35,6 @@
  */
 
 #include <stdio.h>
-#include <string.h>
 #include <errno.h>
 #include <stdlib.h>
 #include <time.h>
@@ -52,10 +51,12 @@
 #define CONFIG_RAPIDIO_DMA_ENGINE
 #include <linux/rio_mport_cdev.h>
 
-#include <rapidio_mport_mgmt.h>
-#include <rapidio_mport_dma.h>
-#include <rapidio_mport_sock.h>
-
+#include "string_util.h"
+#include "ct.h"
+#include "rio_misc.h"
+#include "rapidio_mport_mgmt.h"
+#include "rapidio_mport_dma.h"
+#include "rapidio_mport_sock.h"
 #include "riodp_mport_lib.h"
 
 #define RIO_MPORT_DEV_PATH "/dev/rio_mport"
@@ -68,13 +69,6 @@ struct rapidio_mport_mailbox {
 	uint8_t mport_id;
 };
 
-struct rapidio_mport_handle {
-        int     fd;                         /**< posix api compatible fd to be used with poll/select */
-	uint8_t mport_id;
-	uint8_t umd_chan;
-        void* stats;                    /**< Pointer to statistics gathering back door for driver... */
-};
-
 void* riomp_mgmt_mport_get_stats(struct rapidio_mport_handle* hnd)
 {
 	if (hnd == NULL) return NULL;
@@ -82,7 +76,7 @@ void* riomp_mgmt_mport_get_stats(struct rapidio_mport_handle* hnd)
 }
 void riomp_mgmt_mport_set_stats(struct rapidio_mport_handle* hnd, void* stats)
 {
-	if (hnd == NULL) return;
+	if ((hnd == NULL) || (stats == NULL)) return;
 	hnd->stats = stats;
 }
 
@@ -106,7 +100,9 @@ int riomp_mgmt_mport_create_handle(uint32_t mport_id, int flags, riomp_mport_t *
 	int fd, ret;
 	struct rapidio_mport_handle *hnd = NULL;
 
-	if (mport_id >= MAX_MPORT) return -(errno = EINVAL);
+	if ((mport_id >= MAX_MPORT) || (NULL == mport_handle)) {
+		return -(errno = EINVAL);
+	}
 
 	// XXX O_SYNC    = 0x101000 will break this scheme
 
@@ -119,25 +115,25 @@ int riomp_mgmt_mport_create_handle(uint32_t mport_id, int flags, riomp_mport_t *
 		return -errno;
 
 	hnd = (struct rapidio_mport_handle *)calloc(1, sizeof(struct rapidio_mport_handle));
-	if(!(hnd)) {
+	if (!(hnd)) {
 		ret = -errno;
 		close(fd);
 		return ret;
 	}
 
-	hnd->fd       = fd;
+	hnd->fd = fd;
 	hnd->mport_id = mport_id;
 
-        *mport_handle = hnd;
+	*mport_handle = hnd;
 
-        return 0;
+	return 0;
 }
 
 int riomp_mgmt_mport_destroy_handle(riomp_mport_t *mport_handle)
 {
 	struct rapidio_mport_handle *hnd = *mport_handle;
 
-	if(hnd == NULL)
+	if (hnd == NULL)
 		return -EINVAL;
 
 	close(hnd->fd);
@@ -150,7 +146,7 @@ int riomp_mgmt_get_handle_id(riomp_mport_t mport_handle, int *id)
 {
 	struct rapidio_mport_handle *hnd = mport_handle;
 
-	if(hnd == NULL)
+	if (hnd == NULL)
 		return -EINVAL;
 
 	/*
@@ -213,7 +209,7 @@ int riomp_mgmt_free_mport_list(uint32_t **dev_ids)
 	 */
 	uint32_t *list;
 
-	if(dev_ids == NULL)
+	if (dev_ids == NULL)
 		return -1;
 	list = (*dev_ids) - 1;
 	free(list);
@@ -275,7 +271,7 @@ int riomp_mgmt_free_ep_list(uint32_t **destids)
 	 */
 	uint32_t *list;
 
-	if(destids == NULL)
+	if (destids == NULL)
 		return -1;
 	list = (*destids) - 2;
 	free(list);
@@ -316,7 +312,7 @@ int riomp_dma_write(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_ad
 	int ret;
 	struct rapidio_mport_handle *hnd = mport_handle;
 
-	if(hnd == NULL)
+	if (hnd == NULL)
 		return -EINVAL;
 
 	xfer.rioid = destid;
@@ -350,7 +346,7 @@ int riomp_dma_write_d(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_
 	int ret;
 	struct rapidio_mport_handle *hnd = mport_handle;
 
-	if(hnd == NULL)
+	if (hnd == NULL)
 		return -EINVAL;
 
 	xfer.rioid = destid;
@@ -384,7 +380,7 @@ int riomp_dma_read(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_add
 	int ret;
 	struct rapidio_mport_handle *hnd = mport_handle;
 
-	if(hnd == NULL)
+	if (hnd == NULL)
 		return -EINVAL;
 
 	xfer.rioid = destid;
@@ -416,7 +412,7 @@ int riomp_dma_read_d(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_a
 	int ret;
 	struct rapidio_mport_handle *hnd = mport_handle;
 
-	if(hnd == NULL)
+	if (hnd == NULL)
 		return -EINVAL;
 
 	xfer.rioid = destid;
@@ -445,7 +441,7 @@ int riomp_dma_wait_async(riomp_mport_t mport_handle, uint32_t cookie, uint32_t t
 	struct rio_async_tx_wait wparam;
 	struct rapidio_mport_handle *hnd = mport_handle;
 
-	if(hnd == NULL)
+	if (hnd == NULL)
 		return -EINVAL;
 
 	wparam.token = cookie;
@@ -466,7 +462,7 @@ int riomp_dma_ibwin_map(riomp_mport_t mport_handle, uint64_t *rio_base, uint32_t
 	struct rio_mmap ib;
 	struct rapidio_mport_handle *hnd = mport_handle;
 
-	if(hnd == NULL || rio_base == NULL || handle == NULL)
+	if (hnd == NULL || rio_base == NULL || handle == NULL)
 		return -EINVAL;
 
 	ib.rio_addr = (*rio_base == RIOMP_MAP_ANY_ADDR) ? RIO_MAP_ANY_ADDR : *rio_base;
@@ -487,7 +483,7 @@ int riomp_dma_ibwin_free(riomp_mport_t mport_handle, uint64_t *handle)
 {
 	struct rapidio_mport_handle *hnd = mport_handle;
 
-	if(hnd == NULL)
+	if (hnd == NULL)
 		return -EINVAL;
 
 	if (ioctl(hnd->fd, RIO_UNMAP_INBOUND, handle))
@@ -501,7 +497,7 @@ int riomp_dma_obwin_map(riomp_mport_t mport_handle, uint16_t destid, uint64_t ri
 	struct rio_mmap ob;
 	struct rapidio_mport_handle *hnd = mport_handle;
 
-	if(hnd == NULL)
+	if (hnd == NULL)
 		return -EINVAL;
 
 	ob.rioid = destid;
@@ -518,7 +514,7 @@ int riomp_dma_obwin_free(riomp_mport_t mport_handle, uint64_t *handle)
 {
 	struct rapidio_mport_handle *hnd = mport_handle;
 
-	if(hnd == NULL)
+	if (hnd == NULL)
 		return -EINVAL;
 
 	if (ioctl(hnd->fd, RIO_UNMAP_OUTBOUND, handle))
@@ -534,7 +530,7 @@ int riomp_dma_dbuf_alloc(riomp_mport_t mport_handle, uint32_t size, uint64_t *ha
 	struct rio_dma_mem db;
 	struct rapidio_mport_handle *hnd = mport_handle;
 
-	if(hnd == NULL || handle == NULL)
+	if (hnd == NULL || handle == NULL)
 		return -EINVAL;
 
 	db.length = size;
@@ -553,7 +549,7 @@ int riomp_dma_dbuf_free(riomp_mport_t mport_handle, uint64_t *handle)
 {
 	struct rapidio_mport_handle *hnd = mport_handle;
 
-	if(hnd == NULL)
+	if (hnd == NULL)
 		return -EINVAL;
 
 	if (ioctl(hnd->fd, RIO_FREE_DMA, handle))
@@ -569,7 +565,7 @@ int riomp_dma_map_memory(riomp_mport_t mport_handle, size_t size, off_t paddr, v
 {
 	struct rapidio_mport_handle *hnd = mport_handle;
 
-	if(hnd == NULL || !size || !vaddr)
+	if (NULL == hnd || !size || !vaddr)
 		return -EINVAL;
 
 	*vaddr = mmap(NULL, size, PROT_READ|PROT_WRITE, MAP_SHARED, hnd->fd, paddr);
@@ -584,8 +580,11 @@ int riomp_dma_map_memory(riomp_mport_t mport_handle, size_t size, off_t paddr, v
 /*
  * unmap phys address range to process virtual memory
  */
-int riomp_dma_unmap_memory(riomp_mport_t mport_handle, size_t size, void *vaddr)
+int riomp_dma_unmap_memory(size_t size, void *vaddr)
 {
+	if (!size || !vaddr)
+		return -EINVAL;
+
 	return munmap(vaddr, size);
 }
 
@@ -720,7 +719,7 @@ int riomp_mgmt_dbrange_enable(riomp_mport_t mport_handle, uint32_t rioid, uint16
 	struct rio_doorbell_filter dbf;
 	struct rapidio_mport_handle *hnd = mport_handle;
 
-	if(hnd == NULL)
+	if (hnd == NULL)
 		return -EINVAL;
 
 	dbf.rioid = rioid;
@@ -740,7 +739,7 @@ int riomp_mgmt_dbrange_disable(riomp_mport_t mport_handle, uint32_t rioid, uint1
 	struct rio_doorbell_filter dbf;
 	struct rapidio_mport_handle *hnd = mport_handle;
 
-	if(hnd == NULL)
+	if (hnd == NULL)
 		return -EINVAL;
 
 	dbf.rioid = rioid;
@@ -760,7 +759,7 @@ int riomp_mgmt_pwrange_enable(riomp_mport_t mport_handle, uint32_t mask, uint32_
 	struct rio_pw_filter pwf;
 	struct rapidio_mport_handle *hnd = mport_handle;
 
-	if(hnd == NULL)
+	if (hnd == NULL)
 		return -EINVAL;
 
 	pwf.mask = mask;
@@ -780,7 +779,7 @@ int riomp_mgmt_pwrange_disable(riomp_mport_t mport_handle, uint32_t mask, uint32
 	struct rio_pw_filter pwf;
 	struct rapidio_mport_handle *hnd = mport_handle;
 
-	if(hnd == NULL)
+	if (hnd == NULL)
 		return -EINVAL;
 
 	pwf.mask = mask;
@@ -800,7 +799,7 @@ int riomp_mgmt_set_event_mask(riomp_mport_t mport_handle, unsigned int mask)
 	unsigned int evt_mask = 0;
 	struct rapidio_mport_handle *hnd = mport_handle;
 
-	if(hnd == NULL)
+	if (hnd == NULL)
 		return -EINVAL;
 
 	if (mask & RIO_EVENT_DOORBELL) evt_mask |= RIO_DOORBELL;
@@ -818,7 +817,7 @@ int riomp_mgmt_get_event_mask(riomp_mport_t mport_handle, unsigned int *mask)
 	int evt_mask = 0;
 	struct rapidio_mport_handle *hnd = mport_handle;
 
-	if(hnd == NULL)
+	if (hnd == NULL)
 		return -EINVAL;
 
 	if (!mask) return -EINVAL;
@@ -839,7 +838,7 @@ int riomp_mgmt_get_event(riomp_mport_t mport_handle, struct riomp_mgmt_event *ev
 	ssize_t bytes = 0;
 	struct rapidio_mport_handle *hnd = mport_handle;
 
-	if(hnd == NULL)
+	if (hnd == NULL)
 		return -EINVAL;
 
 	if (!evt) return -EINVAL;
@@ -875,7 +874,7 @@ int riomp_mgmt_send_event(riomp_mport_t mport_handle, struct riomp_mgmt_event *e
 	ssize_t ret;
 	unsigned int len=0;
 
-	if(hnd == NULL)
+	if (hnd == NULL)
 		return -EINVAL;
 
 	if (!evt) return -EINVAL;
@@ -905,7 +904,7 @@ int riomp_mgmt_destid_set(riomp_mport_t mport_handle, uint16_t destid)
 {
 	struct rapidio_mport_handle *hnd = mport_handle;
 
-	if(hnd == NULL)
+	if (hnd == NULL)
 		return -EINVAL;
 
 	if (ioctl(hnd->fd, RIO_MPORT_MAINT_HDID_SET, &destid))
@@ -916,55 +915,61 @@ int riomp_mgmt_destid_set(riomp_mport_t mport_handle, uint16_t destid)
 /*
  * Create a new kernel device object
  */
-int riomp_mgmt_device_add(riomp_mport_t mport_handle, uint16_t destid, uint8_t hc, uint32_t ctag,
+int riomp_mgmt_device_add(riomp_mport_t mport_handle, uint16_t destid, uint8_t hc, ct_t ctag,
 		    const char *name)
 {
 	struct rio_rdev_info dev;
 	struct rapidio_mport_handle *hnd = mport_handle;
 
-	if(hnd == NULL)
+	if (hnd == NULL) {
 		return -EINVAL;
+	}
 
 	dev.destid = destid;
 	dev.hopcount = hc;
 	dev.comptag = ctag;
-	if (name)
-		strncpy(dev.name, name, RIO_MAX_DEVNAME_SZ);
-	else
+	if (name) {
+		SAFE_STRNCPY(dev.name, name, sizeof(dev.name));
+	} else {
 		*dev.name = '\0';
+	}
 
-	if (ioctl(hnd->fd, RIO_DEV_ADD, &dev))
+	if (ioctl(hnd->fd, RIO_DEV_ADD, &dev)) {
 		return errno;
+	}
 	return 0;
 }
 
 /*
  * Delete existing kernel device object
  */
-int riomp_mgmt_device_del(riomp_mport_t mport_handle, uint16_t destid, uint8_t hc, uint32_t ctag,
+int riomp_mgmt_device_del(riomp_mport_t mport_handle, uint16_t destid, uint8_t hc, ct_t ctag,
 			  const char *name)
 {
 	struct rio_rdev_info dev;
 	struct rapidio_mport_handle *hnd = mport_handle;
 
-	if(hnd == NULL)
+	if (hnd == NULL) {
 		return -EINVAL;
+	}
 
 	dev.destid = destid;
 	dev.hopcount = hc;
 	dev.comptag = ctag;
-	if (name)
-		strncpy(dev.name, name, RIO_MAX_DEVNAME_SZ);
-	else
+	if (name) {
+		SAFE_STRNCPY(dev.name, name, sizeof(dev.name));
+	} else {
 		*dev.name = '\0';
+	}
 
-	if (ioctl(hnd->fd, RIO_DEV_DEL, &dev))
+	if (ioctl(hnd->fd, RIO_DEV_DEL, &dev)) {
 		return errno;
+	}
 	return 0;
 }
 
 /* Mailbox functions */
-int riomp_sock_mbox_create_handle(uint8_t mport_id, uint8_t mbox_id,
+int riomp_sock_mbox_create_handle(uint8_t mport_id, uint8_t UNUSED_PARM(mbox_id),
 			     riomp_mailbox_t *mailbox)
 {
 	int fd;
@@ -979,7 +984,7 @@ int riomp_sock_mbox_create_handle(uint8_t mport_id, uint8_t mbox_id,
 
 	/* Create handle */
 	lhandle = (struct rapidio_mport_mailbox *)malloc(sizeof(struct rapidio_mport_mailbox));
-	if(!(lhandle)) {
+	if (!(lhandle)) {
 		close(fd);
 		return -2;
 	}
@@ -996,7 +1001,7 @@ int riomp_sock_socket(riomp_mailbox_t mailbox, riomp_sock_t *socket_handle)
 
 	/* Create handle */
 	handle = (struct rapidio_mport_socket *)calloc(1, sizeof(struct rapidio_mport_socket));
-	if(!handle) {
+	if (!handle) {
 		fprintf(stderr, "error in calloc\n");
 		return -1;
 	}
@@ -1041,7 +1046,7 @@ int riomp_sock_receive(riomp_sock_t socket_handle, void **buf,
 	return 0;
 }
 
-int riomp_sock_release_receive_buffer(riomp_sock_t socket_handle,
+int riomp_sock_release_receive_buffer(riomp_sock_t UNUSED_PARM(socket_handle),
 					void *buf) /* always 4k aligned buffers */
 {
 	free(buf);
@@ -1054,7 +1059,7 @@ int riomp_sock_close(riomp_sock_t *socket_handle)
 	struct rapidio_mport_socket *handle = *socket_handle;
 	uint16_t ch_num;
 
-	if(!handle)
+	if (!handle)
 		return -1;
 
 	ch_num = handle->ch.id;
@@ -1065,6 +1070,7 @@ int riomp_sock_close(riomp_sock_t *socket_handle)
 	}
 
 	free(handle);
+	*socket_handle = NULL;
 	return ret;
 }
 
@@ -1072,7 +1078,7 @@ int riomp_sock_mbox_destroy_handle(riomp_mailbox_t *mailbox)
 {
 	struct rapidio_mport_mailbox *mbox = *mailbox;
 
-	if(mbox != NULL) {
+	if (mbox != NULL) {
 		close(mbox->fd);
 		free(mbox);
 		return 0;
@@ -1129,7 +1135,7 @@ int riomp_sock_accept(riomp_sock_t socket_handle, riomp_sock_t *conn,
 	struct rio_cm_accept param;
 	int ret;
 
-	if(!handle || !conn)
+	if (!handle || !conn)
 		return -1;
 
 	param.ch_num = handle->ch.id;
@@ -1175,8 +1181,8 @@ int riomp_sock_connect(riomp_sock_t socket_handle, uint32_t remote_destid,
 	return 0;
 }
 
-int riomp_sock_request_send_buffer(riomp_sock_t socket_handle,
-				     void **buf) //always 4k aligned buffers
+int riomp_sock_request_send_buffer(riomp_sock_t UNUSED_PARM(socket_handle),
+					void **buf) //always 4k aligned buffers
 {
 	/* socket_handle won't be used for now */
 
@@ -1187,8 +1193,8 @@ int riomp_sock_request_send_buffer(riomp_sock_t socket_handle,
 	return 0;
 }
 
-int riomp_sock_release_send_buffer(riomp_sock_t socket_handle,
-				     void *buf) /* always 4k aligned buffers */
+int riomp_sock_release_send_buffer(riomp_sock_t UNUSED_PARM(socket_handle),
+					void *buf) /* always 4k aligned buffers */
 {
 	free(buf);
 	return 0;

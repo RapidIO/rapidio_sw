@@ -43,7 +43,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <unistd.h>
 #include <errno.h>
 
-//#include "libcli.h"
+#include "rio_misc.h"
 #include "liblog.h"
 
 #include "libtime_utils.h"
@@ -169,7 +169,7 @@ public:
 
 // This is implementation-specific, not in base class (interface)
   inline void setup_chan2(struct worker* info) { m_mp_h = info->mp_h; m_mp_h_mine = false; }
-  inline bool setup_chanN(struct worker* info, int chan, RioMport::DmaMem_t* dmamem)
+  inline bool setup_chanN(struct worker* info, int UNUSED_PARM(chan), RioMport::DmaMem_t* dmamem)
   {
     assert(info);
     if (dmamem == NULL) return false;

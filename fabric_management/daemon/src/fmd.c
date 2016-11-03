@@ -32,7 +32,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 #include <stdio.h>
-#include <string.h>
 #include <stdlib.h>
 #include <stdarg.h>
 #include <semaphore.h>
@@ -50,12 +49,13 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <errno.h>
 #include <sys/ioctl.h>
 #include <sys/types.h>
+#include <regex.h>
 
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <pthread.h>
 
-#include "compile_constants.h"
+#include <linux/rio_mport_cdev.h>
 #include "DAR_DevDriver.h"
 #include "rio_standard.h"
 #include "rio_ecosystem.h"
@@ -63,23 +63,27 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "IDT_DSF_DB_Private.h"
 #include "DAR_Utilities.h"
 
+#include "string_util.h"
 #include "libcli.h"
 #include "riocp_pe.h"
-#include "riocp_pe.h"
 #include "DAR_DevDriver.h"
+#include "fmd_dd.h"
 #include "fmd_dd_priv.h"
 #include "fmd_app_msg.h"
 #include "liblist.h"
 #include "liblog.h"
+#include "ct.h"
+#include "did.h"
 #include "cfg.h"
 #include "fmd_cfg_cli.h"
 #include "fmd_state.h"
-#include "fmd_app_mgmt.h"
 #include <rapidio_mport_mgmt.h>
-#include "fmd_mgmt_cli.h"
-#include "fmd_mgmt_master.h"
+#include "fmd_app.h"
+#include "fmd_cli.h"
 #include "fmd_dev_rw_cli.h"
 #include "fmd_dev_conf_cli.h"
+#include "fmd_master.h"
+#include "fmd_net.h"
 #include "fmd_opts.h"
 #include "libfmdd.h"
 #include "pe_mpdrv_private.h"
@@ -95,14 +99,13 @@ DAR_DEV_INFO_t *dev_h = NULL;
 struct fmd_opt_vals *opts = NULL;
 struct fmd_state *fmd = NULL;
 
-void custom_quit(cli_env *env)
+void custom_quit(struct cli_env *env)
 {
-	riocp_pe_destroy_handle(&mport_pe);
-	shutdown_mgmt();
-	halt_app_handler();
-	cleanup_app_handler();
+	(void) env;
+
 	fmd_dd_cleanup(fmd->dd_mtx_fn, &fmd->dd_mtx_fd, &fmd->dd_mtx,
 			fmd->dd_fn, &fmd->dd_fd, &fmd->dd, fmd->fmd_rw);
+	exit(EXIT_SUCCESS);
 };
 
 void sig_handler(int signo)
@@ -121,36 +124,37 @@ sem_t cons_owner;
 
 void set_prompt(struct cli_env *e)
 {
-        riocp_pe_handle pe_h;
-        uint32_t comptag = 0;
-        const char *name = NULL;
-        uint16_t pe_did = 0;
+	riocp_pe_handle pe_h;
+	ct_t comptag = 0;
+	const char *name = NULL;
+	uint16_t pe_did = 0;
 	struct cfg_dev cfg_dev;
 
-        if (NULL == e) {
-                strncpy(e->prompt, "UNINIT> ", PROMPTLEN);
-                return;
-        };
+	if (NULL == e) {
+		SAFE_STRNCPY(e->prompt, "UNINIT> ", sizeof(e->prompt));
+		return;
+	}
 
-        if (NULL == e->h) {
-                strncpy(e->prompt, "HUNINIT> ", PROMPTLEN);
-                return;
-        };
+	if (NULL == e->h) {
+		SAFE_STRNCPY(e->prompt, "HUNINIT> ", sizeof(e->prompt));
+		return;
+	}
 
 	pe_h = (riocp_pe_handle)(e->h);
 
-	if (riocp_pe_get_comptag(pe_h, &comptag))
+	if (riocp_pe_get_comptag(pe_h, &comptag)) {
 		comptag = 0xFFFFFFFF;
+	}
 	pe_did = comptag & 0x0000FFFF;
 
 	if (cfg_find_dev_by_ct(comptag, &cfg_dev)) {
 		name = riocp_pe_handle_get_device_str(pe_h);
 	} else {
 		name = (char *)cfg_dev.name;
-	};
+	}
 
 	snprintf(e->prompt, PROMPTLEN,  "%s.%03x >", name, pe_did);
-};
+}
 
 void *poll_loop( void *poll_interval ) 
 {
@@ -252,7 +256,6 @@ fail:
 }
 
 void spawn_threads(struct fmd_opt_vals *cfg)
-//int poll_interval, int sock_num, int run_cons)
 {
 	int  poll_ret, cli_ret, cons_ret;
 	int *pass_sock_num = NULL, *pass_poll_interval = NULL;
@@ -300,14 +303,13 @@ void spawn_threads(struct fmd_opt_vals *cfg)
 			CRIT("Error - cons_thread rc: %d\n",cli_ret);
 			exit(EXIT_FAILURE);
 		}
+		CRIT("pthread_create() for console returns: %d\n",
+			cons_ret);
 	};
 	INFO("pthread_create() for poll_loop returns: %d\n",poll_ret);
 	INFO("pthread_create() for cli_session_thread returns: %d\n",cli_ret);
-	if (cfg->run_cons) 
-		CRIT("pthread_create() for console returns: %d\n",
-			cons_ret);
  
-	ret = start_fmd_app_handler(cfg->app_port_num, 50, 0, 
+	ret = start_fmd_app_handler(cfg->app_port_num, 50,
 					cfg->dd_fn, cfg->dd_mtx_fn); 
 	if (ret) {
 		CRIT("Error - start_fmd_app_handler rc: %d\n", ret);
@@ -319,114 +321,145 @@ void spawn_threads(struct fmd_opt_vals *cfg)
 		CRIT("Error - start_fmd_app_handler rc: %d\n", ret);
 		exit(EXIT_FAILURE);
 	}
+
+	// Only enable all endpoints after we've got the peer management
+	// threads going...
+	//
+	// Note that it is possible for nodes to fail between enumeration and
+	// enabling.  Don't fail the fabric management daemon if this occurs,
+	// keep trying and recover the nodes...
+
+	ret = fmd_enable_all_endpoints(mport_pe);
+	if (ret) {
+		WARN("fmd_enable_all_endpoints rc: %d\n", ret);
+	};
 }
 
-int fmd_traverse_network(int mport_num, riocp_pe_handle mport_pe, struct cfg_dev *c_dev)
+// cleanup the /sys/bus/rapidio/devices directory
+int delete_sysfs_devices(riocp_pe_handle mport_pe, bool auto_config)
 {
-	struct l_head_t sw_list;
+	DIR *dir;
+	struct dirent *entry;
+	struct stat st;
 
-	riocp_pe_handle new_pe, curr_pe;
-	int port_cnt, conn_pt, rc;
-	rio_port_t pnum;
-	uint32_t comptag;
-	struct cfg_dev curr_dev, conn_dev;
+	struct l_head_t names_list;
+	char *sysfs_name;
+	regex_t regex;
 
-	l_init(&sw_list);
+	int rc = 0;
+	int tmp;
+	struct mpsw_drv_pe_acc_info *p_acc;
+	struct mpsw_drv_private_data *p_dat;
+	struct rapidio_mport_handle *hnd;
+	// int fd;
 
-	/* Enumerated device connected to master port */
-	curr_pe = mport_pe;
-	curr_dev = *c_dev;
+	p_dat = (struct mpsw_drv_private_data *)mport_pe->private_data;
+	if(NULL == p_dat) {
+		WARN("Could not access private data\n");
+		return 1;
+	}
 
-	do {
-		port_cnt = RIOCP_PE_PORT_COUNT(curr_pe->cap);
-		for (pnum = 0; pnum < port_cnt; pnum++) {
-			new_pe = NULL;
-		
-			if (cfg_get_conn_dev(curr_pe->comptag, pnum, &conn_dev, &conn_pt)) {
-				HIGH("PE 0x%0x Port %d NO CONFIG\n", curr_pe->comptag, pnum);
-				continue;
-			};
+	p_acc = (struct mpsw_drv_pe_acc_info *)p_dat->dev_h.accessInfo;
+	if(NULL == p_acc) {
+		WARN("Could not access device data\n");
+		return 2;
+	}
 
-			rc = riocp_pe_probe(curr_pe, pnum, &new_pe, &conn_dev.ct,
-					(char *)conn_dev.name);
+	hnd = (struct rapidio_mport_handle *)p_acc->maint;
+	// fd = hnd->fd;
 
-			if (rc) {
-				if ((-ENODEV != rc) && (-EIO != rc)) {
-					CRIT("PE 0x%0x Port %d probe failed %d\n", 
-						curr_pe->comptag, pnum, rc);
-					goto fail;
-				};
-				HIGH("PE 0x%x Port %d NO DEVICE, expected %x\n",
-					curr_pe->comptag, pnum, conn_dev.ct);
-				continue;
-			};
+	dir = opendir(FMD_DFLT_DEV_DIR);
+	if (NULL == dir) {
+		WARN("Could not access %s\n", FMD_DFLT_DEV_DIR);
+		return 3;
+	}
 
-			if (NULL == new_pe) {
-				HIGH("PE 0x%x Port %d ALREADY CONNECTED\n",
-					curr_pe->comptag, pnum);
+	// wanted a more complex expression, but couldn't get it to work, so
+	// back to basics
+	rc = regcomp(&regex, "^[0-9][0-9]:[a-z]:[0-9][0-9][0-9][0-9]$", 0);
+	if(rc) {
+		return rc;
+	}
+
+	l_init(&names_list);
+	while(NULL != (entry = readdir(dir))) {
+		if ((DT_DIR == entry->d_type) || (DT_LNK == entry->d_type)) {
+			if ((0 == strcmp(".", entry->d_name))
+					|| (0 == strcmp("..", entry->d_name))) {
 				continue;
 			}
 
-			rc = riocp_pe_get_comptag(new_pe, &comptag);
-			if (rc) {
-				CRIT("Get new comptag failed, rc %d\n", rc);
-				goto fail;
-			};
-
-			if (comptag != conn_dev.ct) {
-				DBG("Probed ep ct 0x%x != 0x%x config ct port %d\n",
-					comptag, conn_dev.ct, pnum);
-				goto fail;
-			};
-
-			HIGH("PE 0x%x Port %d Connected: DEVICE %s CT 0x%x DID 0x%x\n",
-				curr_pe->comptag, pnum, 
-				new_pe->name, new_pe->comptag, new_pe->destid);
-
-			if (RIOCP_PE_IS_SWITCH(new_pe->cap)) {
-				void *pe;
-				l_item_t *li;
-				bool found = false;
-
-				pe = l_head(&sw_list, &li);
-				while (NULL != pe && !found) {
-					if (((struct riocp_pe *)pe)->comptag
-						== new_pe->comptag) {
-						found = true;	
-						continue;
-					}
-					pe = l_next(&li);
-				};
-				if (!found) {
-					HIGH("Adding PE 0x%08x to search\n",
-						new_pe->comptag);
-					l_push_tail(&sw_list, (void *)new_pe);
-				};
+			if (fstatat(dirfd(dir), entry->d_name, &st, 0)) {
+				continue;
 			}
-		} 
-		curr_pe = (riocp_pe_handle)l_pop_head(&sw_list);
-		if (NULL != curr_pe) {
-			rc = cfg_find_dev_by_ct(curr_pe->comptag, &curr_dev);
-			if (rc) {
-				CRIT("cfg_find_dev_by_ct fail, ct 0x%xrc %d\n",
-					curr_pe->comptag, rc);
-				goto fail;
-			};
-			HIGH("Now probing PE CT 0x%08x\n", curr_pe->comptag);
+
+			if(S_ISDIR(st.st_mode)) {
+				// always delete kernel names (dd:a:dddd)
+				if(!regexec(&regex, entry->d_name, 0, NULL, 0)) {
+					sysfs_name =(char *)malloc(
+							strlen(entry->d_name));
+					strcpy(sysfs_name, entry->d_name);
+					l_push_tail(&names_list,
+							(void *)sysfs_name);
+					continue;
+				}
+
+				// auto: delete all names
+				if(auto_config) {
+					sysfs_name = (char *)malloc(
+							strlen(entry->d_name));
+					strcpy(sysfs_name, entry->d_name);
+					l_push_tail(&names_list,
+							(void *)sysfs_name);
+					continue;
+				}
+
+				// regular: only delete auto generated names
+				if (!strncmp(entry->d_name, AUTO_NAME_PREFIX,
+						strlen(AUTO_NAME_PREFIX))) {
+					sysfs_name = (char *)malloc(
+							strlen(entry->d_name));
+					strcpy(sysfs_name, entry->d_name);
+					l_push_tail(&names_list,
+							(void *)sysfs_name);
+					continue;
+				}
+			}
 		}
-	} while (curr_pe != NULL);
+	}
 
-	return 0;
-fail:
-	return -1;
-};
+	// Free memory allocated to the regex
+	regfree(&regex);
+
+	if (0 == l_size(&names_list)) {
+		goto exit;
+	}
+
+	while ((sysfs_name = (char *) l_pop_head(&names_list))) {
+		tmp = riomp_mgmt_device_del(hnd, 0, 0, 0,
+						(const char *)sysfs_name);
+		if(tmp) {
+			rc = tmp;
+			WARN("Failed to delete device %s, err=%d\n",
+					sysfs_name, rc);
+			// try and delete as many as possible
+		}
+		free(sysfs_name);
+	}
+
+exit:
+	closedir(dir);
+	return rc;
+}
 
 int setup_mport_master(int mport)
 {
-	/* FIXME: Change this to support other master ports etc... */
-	uint32_t comptag;
+	/* TODO: Change this to support other master ports etc... */
+	ct_t comptag;
 	struct cfg_mport_info mp;
 	struct cfg_dev cfg_dev;
+	did_t did;
+	char *name;
 
 	if (cfg_find_mport(mport, &mp)) {
 		CRIT("\nCannot find configured mport, exiting...\n");
@@ -435,49 +468,99 @@ int setup_mport_master(int mport)
 
 	comptag = mp.ct;
 
-	if (cfg_find_dev_by_ct(comptag, &cfg_dev)) {
+	if (cfg_find_dev_by_ct(comptag, &cfg_dev) && !cfg_auto()) {
 		CRIT("\nCannot find configured mport device, exiting...\n");
 		return 1;
 	};
 
+	name = (char *)cfg_dev.name;
+
+	if ((COMPTAG_UNSET == comptag) && cfg_auto()) {
+		if (did_create_from_data(&did, mp.devids[CFG_DEV08].devid,
+							dev08_sz)) {
+			CRIT("\nCannot create dev08 did 0x%d, exiting...\n");
+			return 1;
+		}
+		if (ct_create_from_did(&comptag, did)) {
+			CRIT("\nCannot create ct for did 0x%d, exiting...\n");
+			return 1;
+		}
+		name = (char *)calloc(1,40);
+		snprintf(name, 39, "MPORT%d", mport);
+	}
+
 	if (riocp_pe_create_host_handle(&mport_pe, mport, 0, &pe_mpsw_rw_driver,
-			&comptag, (char *)cfg_dev.name)) {
+			&comptag, name)) {
 		CRIT("\nCannot create host handle mport %d, exiting...",
 			mport);
 		riocp_pe_destroy_handle(&mport_pe);
 		return 1;
 	};
 
-	return fmd_traverse_network(mport, mport_pe, &cfg_dev);
+	delete_sysfs_devices(mport_pe, cfg_auto());
+
+	return fmd_traverse_network(mport_pe, &cfg_dev);
 };
 
-int setup_mport_slave(int mport, uint32_t m_did, uint32_t m_cm_port)
+int slave_get_ct_and_name(int mport, uint32_t *comptag, char *dev_name)
+{
+	uint32_t mp_num = 0;
+	struct cfg_mport_info mp;
+	struct cfg_dev cfg_dev;
+	struct mport_regs regs;
+
+	if (!cfg_find_mport(mport, &mp)) {
+		mp_num = mp.num;
+		*comptag = mp.ct;
+		if (!cfg_find_dev_by_ct(*comptag, &cfg_dev)) {
+			SAFE_STRNCPY(dev_name, cfg_dev.name, FMD_MAX_DEV_FN);
+			return 0;
+		};
+	};
+
+	while (!riocp_get_mport_regs(mp_num, &regs)) {
+		if (!(regs.disc & RIO_SP_GEN_CTL_DISC) ||
+				!(regs.disc & RIO_SP_GEN_CTL_MAST_EN) ||
+				!(regs.p_err_stat & RIO_SPX_ERR_STAT_OK) ||
+				!(regs.p_ctl1 & RIO_SPX_CTL_INP_EN) ||
+				!(regs.p_ctl1 & RIO_SPX_CTL_OTP_EN)) {
+			usleep(1000);
+			continue;
+		};
+		*comptag = regs.comptag;
+		memset(dev_name, 0, FMD_MAX_DEV_FN);
+		snprintf(dev_name, FMD_MAX_DEV_FN, "LOCAL_MP%d", mp_num);
+		return 0;
+	};
+
+	return 1;
+};
+
+int setup_mport_slave(int mport)
 {
 	int rc, ret;
-	uint32_t comptag;
-	struct cfg_mport_info mp;
+	ct_t comptag;
 	struct cfg_dev cfg_dev;
 	char mast_dev_fn[FMD_MAX_DEV_FN] = {0};
 	struct mpsw_drv_private_data *p_dat = NULL;
 	struct mpsw_drv_pe_acc_info *acc_p = NULL;
+	char dev_name[FMD_MAX_DEV_FN];
 
-	if (cfg_find_mport(mport, &mp)) {
-		CRIT("\nCannot find configured mport, exiting...\n");
-		return 1;
-	};
-
-	comptag = mp.ct;
-
-	if (cfg_find_dev_by_ct(comptag, &cfg_dev)) {
-		CRIT("\nCannot find configured mport device, exiting...\n");
+	// TODO: Ideally, the devname used here is updated based on the
+	//       hello response.  The devname for the MPORT is only used
+	//       in the dd and libriocp_pe, it is not used by sysfs.
+	if (slave_get_ct_and_name(mport, &comptag, dev_name)) {
+		CRIT("\nCannot get component tag or dev_name, exiting...\n");
 		return 1;
 	};
 
 	if (riocp_pe_create_agent_handle(&mport_pe, mport, 0,
-			&pe_mpsw_rw_driver, &comptag, (char *)cfg_dev.name)) {
+			&pe_mpsw_rw_driver, &comptag, dev_name)) {
 		CRIT("\nCannot create agent handle, exiting...\n");
 		return 1;
 	};
+
+	delete_sysfs_devices(mport_pe, cfg_dev.auto_config);
 
 	ret = riocp_pe_handle_get_private(mport_pe, (void **)&p_dat);
 	if (ret) {
@@ -485,7 +568,7 @@ int setup_mport_slave(int mport, uint32_t m_did, uint32_t m_cm_port)
 		return 1;
 	};
 
-	acc_p = (mpsw_drv_pe_acc_info *)p_dat->dev_h.accessInfo;
+	acc_p = (struct mpsw_drv_pe_acc_info *)p_dat->dev_h.accessInfo;
 	if ((NULL == acc_p) || !acc_p->maint_valid) {
 		CRIT("\nMport access info is NULL, exiting...\n");
 		return 1;
@@ -539,8 +622,7 @@ void setup_mport(struct fmd_state *fmd)
 	if (fmd->opts->mast_mode)
 		rc = setup_mport_master(mport);
 	else
-		rc = setup_mport_slave(mport, fmd->opts->mast_devid,
-						fmd->opts->mast_cm_port);
+		rc = setup_mport_slave(mport);
 fail:
 	if (rc) {
 		CRIT("\nNetwork initialization failed...\n");
@@ -551,26 +633,14 @@ fail:
 int fmd_dd_update(riocp_pe_handle mp_h, struct fmd_dd *dd,
 			struct fmd_dd_mtx *dd_mtx)
 {
-        int rc = 1;
-        uint32_t comptag;
-	struct cfg_dev c_dev;
-
         if (NULL == mp_h) {
                 WARN("\nMaster port is NULL, device directory not updated\n");
                 goto fail;
         };
 
-	rc = riocp_pe_get_comptag(mp_h, &comptag);
-	if (rc) {
-		WARN("Cannot get mport comptag rc %d...\n", rc);
-		comptag = 0xFFFFFFFF;
-	};
-
-	if (cfg_find_dev_by_ct(comptag, &c_dev))
-		goto fail;
-
-	add_device_to_dd(c_dev.ct, c_dev.did, FMD_DEV08, c_dev.hc, 1,
-			FMDD_FLAG_OK_MP, (char *)c_dev.name); 
+	add_device_to_dd(mp_h->comptag, mp_h->destid, FMD_DEV08,
+			mp_h->hopcount, 1, FMDD_FLAG_OK_MP,
+			(char *)mp_h->sysfs_name);
 
         fmd_dd_incr_chg_idx(dd, 1);
         sem_post(&dd_mtx->sem);
@@ -590,26 +660,33 @@ int main(int argc, char *argv[])
 	rdma_log_init("fmd.log", 1);
 	opts = fmd_parse_options(argc, argv);
 	g_level = opts->log_level;
-	if ((opts->init_and_quit) && (opts->print_help))
+	if ((opts->init_and_quit) && (opts->print_help)) {
 		goto fail;
-        fmd = (fmd_state *)calloc(1, sizeof(struct fmd_state));
-        fmd->opts = opts;
-        fmd->fmd_rw = 1;
+	}
+	fmd = (fmd_state *)calloc(1, sizeof(struct fmd_state));
+	fmd->opts = opts;
+	fmd->fmd_rw = 1;
+	fmd->dd_mtx_fn = fmd->opts->dd_mtx_fn;
+	fmd->dd_fn = fmd->opts->dd_fn;
 
-	if (cfg_parse_file(opts->fmd_cfg, &fmd->dd_mtx_fn, &fmd->dd_fn, 
+	// Parse the configuration file, continue no matter what
+	// errors are found.
+	cfg_parse_file(opts->fmd_cfg, &fmd->dd_mtx_fn, &fmd->dd_fn,
 			&fmd->opts->mast_devid, &fmd->opts->mast_cm_port,
-			&fmd->opts->mast_mode))
-		goto fail;
+			&fmd->opts->mast_mode);
 
 	if (fmd_dd_init(opts->dd_mtx_fn, &fmd->dd_mtx_fd, &fmd->dd_mtx,
-			opts->dd_fn, &fmd->dd_fd, &fmd->dd))
+			opts->dd_fn, &fmd->dd_fd, &fmd->dd)) {
 		goto dd_cleanup;
+	}
 
 	setup_mport(fmd);
 
-	if (!fmd->opts->simple_init)
-		if (fmd_dd_update(*fmd->mp_h, fmd->dd, fmd->dd_mtx))
+	if (!fmd->opts->simple_init) {
+		if (fmd_dd_update(*fmd->mp_h, fmd->dd, fmd->dd_mtx)) {
 			goto dd_cleanup;
+		}
+	}
 
 	if (!fmd->opts->init_and_quit) {
 		spawn_threads(fmd->opts);
@@ -618,7 +695,6 @@ int main(int argc, char *argv[])
 		if (fmd->opts->run_cons)
 			pthread_join(console_thread, NULL);
 	};
-	shutdown_mgmt();
 	halt_app_handler();
 	cleanup_app_handler();
 

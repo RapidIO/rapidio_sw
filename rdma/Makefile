@@ -60,6 +60,7 @@ RDMAD_CFLAGS = $(CXXFLAGS) -Wall -Wextra \
 		-flto \
 		-DRDMA_LL=$(level) -DBE_STRICT \
 		-I$(COMMONDIR)/libcli/inc \
+		-I$(FMDDIR)/libdid/inc -I$(FMDDIR)/libct/inc \
 		-Idaemon/inc -Idaemon/src -I. -Isrc -Iinc
 
 RDMAD_SOURCES = daemon/src/rdmad_main.cpp \
@@ -79,9 +80,10 @@ RDMAD_SOURCES = daemon/src/rdmad_main.cpp \
 REMDBG_SOURCES	= daemon/src/remdbg.c
 
 # RDMA Library flags, sources and objects
-RDMALIB_STATIC_CFLAGS = -Wall -Wextra -std=c++11 -c $(OPTFLAGS) \
+RDMALIB_STATIC_CFLAGS = -Wall -Wextra -Werror -std=c++11 -c $(OPTFLAGS) \
 		-Idaemon/inc \
 		-Iinc -I$(TOPDIR)/include -I$(COMMONINC) \
+		-I$(FMDDIR)/libdid/inc -I$(FMDDIR)/libct/inc \
 		-DRDMA_LL=$(level) $(OPTFLAGS) \
 		$(LIB_DIRS) \
 		-llog -lmport
@@ -122,7 +124,7 @@ rdmad: $(MPORTLIB_PATH)/$(MPORTLIB) $(RDMAD_SOURCES) daemon/inc/*.h $(COMMONDIR)
 	$(CXX) $(LIB_DIRS) $(LIBS_RPATH) \
 	-o $@ $(RDMAD_CFLAGS) $(RDMAD_SOURCES) -llist -ldl -lrt \
 	-ltime_utils -lmport -lcli -llog -lfmdd -ldd -lriocp_pe -pthread \
-	-lrsvdmem
+	-lrsvdmem $(TST_LIBS)
 
 # Remote debug
 rrdma:  $(REMDBG_SOURCES)

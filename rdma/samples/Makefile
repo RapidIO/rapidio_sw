@@ -33,17 +33,14 @@
 TOPDIR?=$(shell pwd)/../..
 include $(TOPDIR)/rules.mk
 
-LOG_LEVEL?=0
-DEBUG?=DEBUG
-
 LIBRDMA_PATH=..
 
-level?=$(LOG_LEVEL)
-
 # Build flags and include paths
-RDMAAPP_CFLAGS = $(CXXFLAGS) -Wall -Wextra -DRDMA_LL=$(level) \
+RDMAAPP_CFLAGS = $(CXXFLAGS) -Wall -Wextra -Werror \
+	-DRDMA_LL=$(LOG_LEVEL) \
+	-D$(DEBUG_CTL) \
 	-I$(KINC) -I. \
-	-D__STDC_LIMIT_MACROS -D__STDC_FORMAT_MACROS
+	-I$(FMDDIR)/libdid/inc -I$(FMDDIR)/libct/inc
 
 # Common dependencies
 RDMA_APP_DEPS= $(LIBRDMA_PATH)/librdma.a \
@@ -52,23 +49,20 @@ RDMA_APP_DEPS= $(LIBRDMA_PATH)/librdma.a \
 LIBRARIES=-lrdma -lriocp_pe -lfmdd -ldd -lmport -llist -llog -lcli -pthread -lrt
 
 # Common build strings
-# For C apps
-BUILD_STRING_C = $(CXX) $(CXXFLAGS) -L$(LIBRDMA_PATH) -L$(COMMONLIB) \
+COMMON_BUILD_STRING = $(CXX) -L$(LIBRDMA_PATH) -L$(COMMONLIB) \
 	-L$(FMDDIR)/libfmdd \
 	-L$(FMDDIR)/libriocp_pe \
 	-L$(FMDDIR)/libdd \
 	$(LIBS_RPATH) \
-	-o $@ $(RDMAAPP_CFLAGS) \
-	src/$@.c $(LIBRARIES)
+	-o $@ $(RDMAAPP_CFLAGS)
+
+# For C apps
+BUILD_STRING_C = $(COMMON_BUILD_STRING) \
+	src/$@.c $(LIBRARIES) $(TST_LIBS)
 
 # For C++ apps
-BUILD_STRING_CPP = $(CXX) -L$(LIBRDMA_PATH) -L$(COMMONLIB) \
-	-L$(FMDDIR)/libfmdd \
-	-L$(FMDDIR)/libriocp_pe \
-	-L$(FMDDIR)/libdd \
-	$(LIBS_RPATH) \
-	-o $@ $(RDMAAPP_CFLAGS) \
-	src/$@.cpp $(LIBRARIES)
+BUILD_STRING_CPP = $(COMMON_BUILD_STRING) \
+	src/$@.cpp $(LIBRARIES) $(TST_LIBS)
 
 all: rdma_server rdma_client rdma_user multi_ms_server multi_ms_client create_and_die
 

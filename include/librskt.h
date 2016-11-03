@@ -31,11 +31,14 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 
+#ifndef __LIBRSKT_H__
+#define __LIBRSKT_H__
+
 #include <sys/socket.h>
 #include <time.h>
 
-#ifndef __LIBRSKT_H__
-#define __LIBRSKT_H__
+#include "did.h"
+#include "ct.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -89,7 +92,7 @@ void rskt_destroy_socket(rskt_h *sock);
  * but for now the implementation assumes a device ID.
  */
 struct rskt_sockaddr {
-        uint32_t ct; /* Component tag for target device */
+	ct_t ct; /* Component tag for target device */
         uint32_t sn; /* Socket number */
 };
 

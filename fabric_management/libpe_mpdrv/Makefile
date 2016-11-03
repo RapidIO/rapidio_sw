@@ -34,23 +34,19 @@ include $(TOPDIR)/rules.mk
 
 CC=$(CXX) # XXX very UGGLY switcheroo
 
-LOG_LEVEL?=7
-DEBUG?=DEBUG
-
-level=$(LOG_LEVEL)
-
 NAME:=pe_mpdrv
 TARGETS:=lib$(NAME).a
 TEST_TARGET:=$(NAME)_test
 HEADERS:=inc/lib$(NAME).h
 
-CFLAGS+=$(addprefix -W,all extra) -fPIC
-CFLAGS+=-D$(DEBUG)
-CFLAGS+=-I. -Iinc -I../inc -Isrc
+CFLAGS=$(CXXFLAGS)
+CFLAGS+=-D$(DEBUG_CTL) -DRDMA_LL=$(LOG_LEVEL)
+CFLAGS+=-I../inc
+CFLAGS+=-I../libdid/inc
+CFLAGS+=-I../libct/inc
 CFLAGS+=-I../libriocp_pe/inc -I../libriocp_pe/src
 CFLAGS+=-I../librio_switch/inc
 CFLAGS+=-I../libcfg/inc
-CFLAGS+=-DRDMA_LL=$(level)
 
 LDFLAGS+=-L. -l$(NAME)
 

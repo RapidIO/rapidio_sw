@@ -53,7 +53,6 @@
  */
 
 #include <stdio.h>
-#include <string.h>
 #include <errno.h>
 #include <stdlib.h>
 #include <time.h>
@@ -66,10 +65,16 @@
 #include <time.h>
 #include <signal.h>
 #include <pthread.h>
-#include <rapidio_mport_dma.h>
 
-#include <rapidio_mport_mgmt.h>
-#include <rapidio_mport_sock.h>
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#include "string_util.h"
+#include "ct.h"
+#include "rapidio_mport_dma.h"
+#include "rapidio_mport_mgmt.h"
+#include "rapidio_mport_sock.h"
 
 /// Max device name size in characters.
 #define RIODP_MAX_DEV_NAME_SZ 20
@@ -77,7 +82,7 @@
 static riomp_mport_t mport_hnd;
 static uint16_t tgt_destid;
 static uint8_t tgt_hop;
-static uint32_t comptag = 0;
+static ct_t comptag = 0;
 
 static char dev_name[RIODP_MAX_DEV_NAME_SZ + 1];
 
@@ -171,7 +176,6 @@ int main(int argc, char** argv)
 		{ "name",   required_argument, NULL, 'N' },
 		{ "debug",  no_argument, NULL, 'd' },
 		{ "help",   no_argument, NULL, 'h' },
-		{ }
 	};
 	char *program = argv[0];
 	struct riomp_mgmt_mport_properties prop;
@@ -199,7 +203,7 @@ int main(int argc, char** argv)
 			comptag = strtol(optarg, NULL, 0);
 			break;
 		case 'N':
-			strncpy(dev_name, optarg, RIODP_MAX_DEV_NAME_SZ);
+			SAFE_STRNCPY(dev_name, optarg, sizeof(dev_name));
 			break;
 		case 'c':
 			do_create = 1;
@@ -220,7 +224,7 @@ int main(int argc, char** argv)
 		exit(EXIT_FAILURE);
 	}
 
-	/** - Open mport devide and query RapidIO link status.
+	/** - Open mport device and query RapidIO link status.
           Exit if link is not active */
 	err = riomp_mgmt_mport_create_handle(mport_id, 0, &mport_hnd);
 	if (err < 0) {
@@ -295,3 +299,7 @@ out:
 	riomp_mgmt_mport_destroy_handle(&mport_hnd);
 	exit(rc);
 }
+
+#ifdef __cplusplus
+}
+#endif

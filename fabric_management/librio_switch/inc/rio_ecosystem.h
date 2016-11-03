@@ -59,7 +59,7 @@ typedef uint32_t rio_mc_mask_t; /* Biggest mask available */
 
 #define RIO_BAD_PORT_NUM(x) (x >= RIO_SW_PORT_INF_PORT_MAX)
 
-// #define RIO_ALL_PORTS       ((rio_port_t)(0xFF))
+#define RIO_ANY_PORT        ((rio_port_t)(0xff))
 #define RIO_MAX_DEV_PORT    ((rio_port_t)(RIO_SW_PORT_INF_PORT_MAX))
 #define RIO_MAX_PORT_LANES  ((rio_lane_t)(4))
 #define RIO_MAX_DEV_LANES   ((rio_lane_t)(RIO_SW_PORT_INF_LANE_MAX))

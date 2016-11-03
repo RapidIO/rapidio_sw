@@ -33,51 +33,39 @@
 TOPDIR?=$(shell pwd)/../..
 include $(TOPDIR)/rules.mk
 
+
 LOG_LEVEL ?= 1
-DEBUG?=DEBUG
-
-# Common link flags for all shared libraries
-SO_LIB_LKFLAGS = -rdynamic -shared -lnsl -fPIC
-A_LIB_LKFLAGS = -lnsl -fPIC
-
-MPORT_DIR=$(COMMONDIR)/libmport
-TU_DIR=$(COMMONDIR)/libtime_utils
-DAEMON=./
 
 LOCAL_LIBRARY_DIR ?= libs_a
 
 LIB_DIRS?= -L$(COMMONLIB) -L../$(LOCAL_LIBRARY_DIR) $(LIBS_RPATH)
 
+OBJECTS:=$(patsubst src/%.c,src/%.o,$(wildcard src/*.c))
+
+CXXFLAGS+=-I$(KDIR) -I$(RIODIR)
+CXXFLAGS+=-I$(FMDDIR)/inc
+
 src/%.o: src/%.c
-	$(CXX) -o $@ $< -c -fPIC -Wall -Werror $(OPTFLAGS) \
-	-I./src -I./inc -I../inc \
-	-I$(COMMONINC) \
-	-I$(TOPDIR)/include \
-	-I../ \
+	$(CXX) $(CXXFLAGS) -o $@ $< -c \
+	-I../libdid/inc \
+	-I../libct/inc \
 	-I../librio_switch/inc \
 	-I../libriocp_pe/inc \
-        -I../libpe_mpdrv/inc \
-        -I../libcfg/inc \
-	-I../cli \
-	-DRDMA_LL=$(LOG_LEVEL) -D__STDC_LIMIT_MACROS -D__STDC_FORMAT_MACROS
+	-I../libpe_mpdrv/inc \
+	-I../libcfg/inc \
+	-I../libmport/inc \
+	-D$(DEBUG_CTL) -DRDMA_LL=$(LOG_LEVEL)
 
-FMD_SOURCES = src/fmd_app_mgmt.c src/fmd.c \
-	src/fmd_mgmt_master.c src/fmd_mgmt_slave.c src/fmd_mgmt_cli.c \
-	src/fmd_dev_rw_cli.c src/fmd_opts.c  src/fmd_dev_conf_cli.c
-
-FMD_OBJECTS = src/fmd_app_mgmt.o src/fmd.o \
-	src/fmd_mgmt_master.o src/fmd_mgmt_slave.o src/fmd_mgmt_cli.o \
-	src/fmd_dev_rw_cli.o src/fmd_opts.o src/fmd_dev_conf_cli.o
 all: fmd
 
 # The Fabric Management Daemon
-fmd:  $(FMD_OBJECTS) $(FMD_SOURCES) src/*.h 
+fmd:  $(OBJECTS) 
 	@echo ---------- Building fmd...
 	$(CXX) -pthread \
-	-o $@ $(FMD_OBJECTS) $(LIB_DIRS) \
-	-lcfg -lpe_mpdrv -lswitch_api -lriocp_pe \
+	-o $@ $(OBJECTS) $(LIB_DIRS) \
+	-lcfg -lct -ldid -lpe_mpdrv -lswitch_api -lriocp_pe \
 	-ldd -llist -ltime_utils -lcli -llog -lmport \
-	-lrt -ldl 
+	-lrt -ldl $(TST_LIBS)
 
 clean:
-	rm -f *.o src/*.o *~ *.exe core fmd
+	rm -f $(OBJECTS) inc/*~ src/*~ *~ fmd

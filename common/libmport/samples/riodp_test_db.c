@@ -72,6 +72,11 @@
 #include <time.h>
 #include <signal.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#include "rio_misc.h"
 #include <rapidio_mport_mgmt.h>
 
 static int debug = 0;
@@ -213,7 +218,7 @@ static void display_help(char *program)
 	printf("\n");
 }
 
-static void test_sigaction(int sig, siginfo_t *siginfo, void *context)
+static void test_sigaction(int UNUSED(sig), siginfo_t *siginfo, void *UNUSED(context))
 {
 	printf ("SIGIO info PID: %ld, UID: %ld CODE: 0x%x BAND: 0x%lx FD: %d\n",
 			(long)siginfo->si_pid, (long)siginfo->si_uid, siginfo->si_code,
@@ -249,7 +254,6 @@ int main(int argc, char** argv)
 		{ "mport",  required_argument, NULL, 'M' },
 		{ "debug",  no_argument, NULL, 'd' },
 		{ "help",   no_argument, NULL, 'h' },
-		{ }
 	};
 	char *program = argv[0];
 	struct riomp_mgmt_mport_properties prop;
@@ -349,3 +353,7 @@ out:
 	riomp_mgmt_mport_destroy_handle(&mport_hnd);
 	exit(rc);
 }
+
+#ifdef __cplusplus
+}
+#endif

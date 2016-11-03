@@ -32,7 +32,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 #include <stdio.h>
-#include <string.h>
 #include <stdlib.h>
 #include <stdarg.h>
 #include <semaphore.h>
@@ -55,6 +54,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <netinet/tcp.h>
 #include <pthread.h>
 
+#include "string_util.h"
+#include "rio_misc.h"
 #include "rapidio_mport_mgmt.h"
 #include "rapidio_mport_sock.h"
 #include "rapidio_mport_dma.h"
@@ -225,7 +226,7 @@ sem_t cons_owner;
 void set_prompt(struct cli_env *e)
 {
 	if (e != NULL) {
-		strncpy(e->prompt, "FXServer> ", PROMPTLEN);
+		SAFE_STRNCPY(e->prompt, "FXServer> ", sizeof(e->prompt));
 	};
 };
 
@@ -341,7 +342,7 @@ ATTR_RPT
 
 void fxfr_server_shutdown(void);
 
-int FXShutdownCmd(struct cli_env *env, int argc, char **argv)
+int FXShutdownCmd(struct cli_env *env, int UNUSED(argc), char **UNUSED(argv))
 {
 	fxfr_server_shutdown();
 	sprintf(env->output, "Shutdown initiated...\n"); 
@@ -831,7 +832,7 @@ close_ibwin:
         for (i = 0; i < buff_cnt; i++) {
                 if (rx_bufs[i].length) {
                         if (rx_bufs[i].ib_mem != MAP_FAILED) {
-                                riomp_dma_unmap_memory(mp_h, rx_bufs[i].length,
+                                riomp_dma_unmap_memory(rx_bufs[i].length,
                                         rx_bufs[i].ib_mem);
                                 rx_bufs[i].ib_mem = (char *)MAP_FAILED;
                         };
@@ -1158,10 +1159,8 @@ void fxfr_server_shutdown(void) {
 	};
 };
 
-void fxfr_server_shutdown_cli(struct cli_env *env)
+void fxfr_server_shutdown_cli(struct cli_env *UNUSED_PARM(env))
 {
-	if (0)
-		env = NULL;
 	fxfr_server_shutdown();
 };
 

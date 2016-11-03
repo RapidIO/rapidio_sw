@@ -36,28 +36,17 @@ endif
 CC    =$(CROSS_COMPILE)gcc
 CXX   =$(CROSS_COMPILE)g++
 AR    =$(CROSS_COMPILE)ar
-RANLIB=$(CROSS_COMPILE)ranlib
-STRIP =$(CROSS_COMPILE)strip
 
 export CC
 export CXX
 
-KERNEL_VERSION := $(shell uname -r)
-KERNELDIR = /lib/modules/$(KERNEL_VERSION)/build
-
 ifdef KLOKWORK
 KDIR=$(TOPDIR)/include/test
-else
-KDIR?=/usr/src/linux
-endif
-
-ifdef KLOKWORK
 RIODIR=$(TOPDIR)/include/test
 else
+KDIR?=/usr/src/rapidio
 RIODIR?=/usr/src/rapidio
 endif
-
-DRV_INCLUDE_DIR ?= $(KERNELDIR)/include $(RIODIR) $(KDIR)/include
 
 ARCH := $(shell arch)
 
@@ -70,8 +59,15 @@ ifeq ($(ARCH), i686)
  OPTFLAGS += -march=native -mfpmath=sse -ffast-math
 endif
 
-ifeq ($(DEBUG), y)
- OPTFLAGS = -ggdb -O0
+## by default, debug logging is enabled
+LOG_LEVEL?=7
+
+## by default, debug is disabled 
+## [export DEBUG_CTL="DEBUG=3" | export DEBUG_CTL=DEBUG]
+DEBUG_CTL?=NDEBUG
+
+ifneq ($(DEBUG_CTL), NDEBUG)
+ OPTFLAGS = -ggdb -Og
 endif
 
 SOVER?=0.5
@@ -79,9 +75,6 @@ SOVER?=0.5
 HERE := $(shell pwd)
 
 $(info Building $(HERE) on $(ARCH) release $(SOVER) with optimisations $(OPTFLAGS))
-
-LOG_LEVEL?=7
-export LOG_LEVEL
 
 COMMONDIR=$(TOPDIR)/common
 COMMONINC=$(COMMONDIR)/include
@@ -96,9 +89,19 @@ UMDINCDIR=$(UMDDIR)/inc
 UMDDDIR?=$(TOPDIR)/umdd_tsi721
 UMDDINCDIR=$(UMDDDIR)/inc
 
-COMMONFLAGS=$(OPTFLAGS) -pthread -Wall -Werror -I$(TOPDIR)/include -I$(COMMONINC) -L$(COMMONLIB)
+STD_FLAGS=$(OPTFLAGS) -pthread -Wall -Wextra -Werror -fPIC
+STD_FLAGS+=-I$(TOPDIR)/include -I$(COMMONINC) -I. -I./inc
+STD_FLAGS+=-L$(COMMONLIB)
+ifdef TEST
+STD_FLAGS+=-DUNIT_TESTING
+endif
 
-CFLAGS+=$(COMMONFLAGS)
-CXXFLAGS+=$(COMMONFLAGS) -std=c++11
+CFLAGS+=$(STD_FLAGS)
+CXXFLAGS+=$(STD_FLAGS) -std=c++11
+
+ifdef TEST
+TST_LIBS=-lcmocka
+TST_INCS=-I$(COMMONDIR)/libcmocka/inc
+endif
 
 LIBS_RPATH?=-Wl,-rpath=$(COMMONDIR)/libs_so

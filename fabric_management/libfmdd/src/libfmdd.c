@@ -39,12 +39,12 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sys/un.h>
 #include <errno.h>
 #include <time.h>
-#include <string.h>
 #include <semaphore.h>
 #include <pthread.h>
 #include <netinet/in.h>
 #include <assert.h>
 
+#include "string_util.h"
 #include "liblist.h"
 #include "libcli.h"
 #include "fmd_app_msg.h"
@@ -89,8 +89,8 @@ int get_dd_names_from_fmd(void)
 	fml.req.msg_type = htonl(FMD_REQ_HELLO);
 	fml.req.hello_req.flag = htonl(fml.flag);
 	fml.req.hello_req.app_pid = htonl(getpid());
-	memset(fml.req.hello_req.app_name, 0, MAX_APP_NAME+1);
-	strncpy(fml.req.hello_req.app_name, fml.app_name, MAX_APP_NAME);
+	SAFE_STRNCPY(fml.req.hello_req.app_name, fml.app_name,
+			sizeof(fml.req.hello_req.app_name));
 
 	if (send(fml.fd, (void *)&(fml.req), sizeof(fml.req), MSG_EOR) < 0) {
 		ERR("Failed to send(): %s\n", strerror(errno));
@@ -119,11 +119,9 @@ fail:
 
 int open_dd(void)
 {
-	memset(fml.dd_fn, 0, MAX_DD_FN_SZ+1);
-	memset(fml.dd_mtx_fn, 0, MAX_DD_MTX_FN_SZ+1);
-
-	strncpy(fml.dd_fn, fml.resp.hello_resp.dd_fn, MAX_DD_FN_SZ);
-	strncpy(fml.dd_mtx_fn, fml.resp.hello_resp.dd_mtx_fn, MAX_DD_MTX_FN_SZ);
+	SAFE_STRNCPY(fml.dd_fn, fml.resp.hello_resp.dd_fn, sizeof(fml.dd_fn));
+	SAFE_STRNCPY(fml.dd_mtx_fn, fml.resp.hello_resp.dd_mtx_fn,
+			sizeof(fml.dd_mtx_fn));
 
 	if (fmd_dd_mtx_open((char *)&fml.dd_mtx_fn, &fml.dd_mtx_fd, &fml.dd_mtx)) {
 		ERR("fmd_dd_mtx_open failed\n");
@@ -286,7 +284,7 @@ fmdd_h fmdd_get_handle(char *my_name, uint8_t flag)
 		INFO("No portno specified, using default of %d\n",
 							FMD_DFLT_APP_PORT_NUM);
 		fml.portno = FMD_DFLT_APP_PORT_NUM;
-		strncpy(fml.app_name, my_name, MAX_APP_NAME+1);
+		SAFE_STRNCPY(fml.app_name, my_name, sizeof(fml.app_name));
 	} else {
 		INFO("fml.portno = %d\n", fml.portno);
 	}
@@ -336,7 +334,7 @@ void fmdd_destroy_handle(fmdd_h *dd_h)
 	*dd_h = NULL;
 };
 
-uint8_t fmdd_check_ct(fmdd_h h, uint32_t ct, uint8_t flag)
+uint8_t fmdd_check_ct(fmdd_h h, ct_t ct, uint8_t flag)
 {
 	uint32_t i;
 

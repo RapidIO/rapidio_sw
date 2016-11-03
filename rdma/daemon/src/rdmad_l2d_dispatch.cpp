@@ -30,6 +30,12 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
+
+#ifndef __STDC_FORMAT_MACROS
+#define __STDC_FORMAT_MACROS
+#endif
+#include <inttypes.h>
+
 #include "cm_sock.h"
 #include "liblog.h"
 
@@ -47,7 +53,7 @@ int rdmad_is_alive_disp(const unix_msg_t *in_msg,
 {
 	auto out_msg = make_unique<unix_msg_t>();
 
-	DBG("ENTER, seq_no = 0x%X\n", in_msg->seq_no);
+	DBG("ENTER, seq_no = 0x%" PRIX64 "\n", in_msg->seq_no);
 
 	out_msg->type 	 = RDMAD_IS_ALIVE_ACK;
 	out_msg->category = RDMA_CALL;
@@ -68,7 +74,7 @@ int get_mport_id_disp(const unix_msg_t *in_msg,
 {
 	auto out_msg = make_unique<unix_msg_t>();
 
-	DBG("ENTER, seq_no = 0x%X\n", in_msg->seq_no);
+	DBG("ENTER, seq_no = 0x%" PRIX64 "\n", in_msg->seq_no);
 
 	out_msg->type 	 = GET_MPORT_ID_ACK;
 	out_msg->category = RDMA_CALL;
@@ -86,7 +92,7 @@ int create_mso_disp(const unix_msg_t *in_msg,
 {
 	auto out_msg = make_unique<unix_msg_t>();
 
-	DBG("ENTER, seq_no = 0x%X\n", in_msg->seq_no);
+	DBG("ENTER, seq_no = 0x%" PRIX64 "\n", in_msg->seq_no);
 
 	out_msg->type 	 = CREATE_MSO_ACK;
 	out_msg->category = RDMA_CALL;
@@ -109,7 +115,7 @@ int open_mso_disp(const unix_msg_t *in_msg,
 {
 	auto out_msg = make_unique<unix_msg_t>();
 
-	DBG("ENTER, seq_no = 0x%X\n", in_msg->seq_no);
+	DBG("ENTER, seq_no = 0x%" PRIX64 "\n", in_msg->seq_no);
 
 	out_msg->type 	 = OPEN_MSO_ACK;
 	out_msg->category = RDMA_CALL;
@@ -133,7 +139,7 @@ int close_mso_disp(const unix_msg_t *in_msg,
 {
 	auto out_msg = make_unique<unix_msg_t>();
 
-	DBG("ENTER, seq_no = 0x%X\n", in_msg->seq_no);
+	DBG("ENTER, seq_no = 0x%" PRIX64 "\n", in_msg->seq_no);
 
 	out_msg->type 	 = CLOSE_MSO_ACK;
 	out_msg->category = RDMA_CALL;
@@ -156,7 +162,7 @@ int destroy_mso_disp(const unix_msg_t *in_msg,
 {
 	auto out_msg = make_unique<unix_msg_t>();
 
-	DBG("ENTER, seq_no = 0x%X\n", in_msg->seq_no);
+	DBG("ENTER, seq_no = 0x%" PRIX64 "\n", in_msg->seq_no);
 
 	out_msg->type	 = DESTROY_MSO_ACK;
 	out_msg->category = RDMA_CALL;
@@ -179,7 +185,7 @@ int create_ms_disp(const unix_msg_t *in_msg,
 {
 	auto out_msg = make_unique<unix_msg_t>();
 
-	DBG("ENTER, seq_no = 0x%X\n", in_msg->seq_no);
+	DBG("ENTER, seq_no = 0x%" PRIX64 "\n", in_msg->seq_no);
 
 	out_msg->type	 = CREATE_MS_ACK;
 	out_msg->category = RDMA_CALL;
@@ -209,7 +215,7 @@ int open_ms_disp(const unix_msg_t *in_msg,
 {
 	auto out_msg = make_unique<unix_msg_t>();
 
-	DBG("ENTER, seq_no = 0x%X\n", in_msg->seq_no);
+	DBG("ENTER, seq_no = 0x%" PRIX64 "\n", in_msg->seq_no);
 
 	out_msg->type	 = OPEN_MS_ACK;
 	out_msg->category = RDMA_CALL;
@@ -237,7 +243,7 @@ int close_ms_disp(const unix_msg_t *in_msg,
 {
 	auto out_msg = make_unique<unix_msg_t>();
 
-	DBG("ENTER, seq_no = 0x%X\n", in_msg->seq_no);
+	DBG("ENTER, seq_no = 0x%" PRIX64 "\n", in_msg->seq_no);
 
 	out_msg->type	 = CLOSE_MS_ACK;
 	out_msg->category = RDMA_CALL;
@@ -261,7 +267,7 @@ int destroy_ms_disp(const unix_msg_t *in_msg,
 {
 	auto out_msg = make_unique<unix_msg_t>();
 
-	DBG("ENTER, seq_no = 0x%X\n", in_msg->seq_no);
+	DBG("ENTER, seq_no = 0x%" PRIX64 "\n", in_msg->seq_no);
 
 	out_msg->type	 = DESTROY_MS_ACK;
 	out_msg->category = RDMA_CALL;
@@ -284,7 +290,7 @@ int create_msub_disp(const unix_msg_t *in_msg,
 {
 	auto out_msg = make_unique<unix_msg_t>();
 
-	DBG("ENTER, seq_no = 0x%X\n", in_msg->seq_no);
+	DBG("ENTER, seq_no = 0x%" PRIX64 "\n", in_msg->seq_no);
 
 	out_msg->type	 = CREATE_MSUB_ACK;
 	out_msg->category = RDMA_CALL;
@@ -313,7 +319,7 @@ int destroy_msub_disp(const unix_msg_t *in_msg,
 {
 	auto out_msg = make_unique<unix_msg_t>();
 
-	DBG("ENTER, seq_no = 0x%X\n", in_msg->seq_no);
+	DBG("ENTER, seq_no = 0x%" PRIX64 "\n", in_msg->seq_no);
 
 	out_msg->type	 = DESTROY_MSUB_ACK;
 	out_msg->category = RDMA_CALL;
@@ -337,7 +343,7 @@ int get_ibwin_properties_disp(const unix_msg_t *in_msg, tx_engine<unix_server,
 {
 	auto out_msg = make_unique<unix_msg_t>();
 
-	DBG("ENTER, seq_no = 0x%X\n", in_msg->seq_no);
+	DBG("ENTER, seq_no = 0x%" PRIX64 "\n", in_msg->seq_no);
 
 	out_msg->type	 = GET_IBWIN_PROPERTIES_ACK;
 	out_msg->category = RDMA_CALL;
@@ -360,7 +366,7 @@ int accept_disp(const unix_msg_t *in_msg,
 {
 	auto out_msg = make_unique<unix_msg_t>();
 
-	DBG("ENTER, seq_no = 0x%X\n", in_msg->seq_no);
+	DBG("ENTER, seq_no = 0x%" PRIX64 "\n", in_msg->seq_no);
 
 	out_msg->type	 = ACCEPT_MS_ACK;
 	out_msg->category = RDMA_CALL;
@@ -383,7 +389,7 @@ int undo_accept_disp(const unix_msg_t *in_msg,
 {
 	auto out_msg = make_unique<unix_msg_t>();
 
-	DBG("ENTER, seq_no = 0x%X\n", in_msg->seq_no);
+	DBG("ENTER, seq_no = 0x%" PRIX64 "\n", in_msg->seq_no);
 
 	out_msg->type	 = UNDO_ACCEPT_ACK;
 	out_msg->category = RDMA_CALL;
@@ -460,9 +466,9 @@ int connect_ms_resp_disp(const unix_msg_t *in_msg,
 		cmam->client_to_lib_tx_eng_h =
 				htobe64(conn_resp->client_to_lib_tx_eng_h);
 
-		DBG("cm_accept_msg has server_destid = 0x%X\n",
+		DBG("cm_accept_msg has server_destid = 0x%" PRIX64 "\n",
 					be64toh(cmam->server_destid));
-		DBG("cm_accept_msg has server_destid_len = 0x%X\n",
+		DBG("cm_accept_msg has server_destid_len = 0x%" PRIX64 "\n",
 					be64toh(cmam->server_destid_len));
 
 		/* Send the CM_ACCEPT_MS message to remote (client) daemon */
@@ -489,7 +495,7 @@ int send_connect_disp(const unix_msg_t *in_msg,
 {
 	auto out_msg = make_unique<unix_msg_t>();
 
-	DBG("ENTER, seq_no = 0x%X\n", in_msg->seq_no);
+	DBG("ENTER, seq_no = 0x%" PRIX64 "\n", in_msg->seq_no);
 
 	out_msg->type	  = SEND_CONNECT_ACK;
 	out_msg->category = RDMA_CALL;
@@ -523,7 +529,7 @@ int undo_connect_disp(const unix_msg_t *in_msg,
 {
 	auto out_msg = make_unique<unix_msg_t>();
 
-	DBG("ENTER, seq_no = 0x%X\n", in_msg->seq_no);
+	DBG("ENTER, seq_no = 0x%" PRIX64 "\n", in_msg->seq_no);
 
 	out_msg->type	 = UNDO_CONNECT_ACK;
 	out_msg->category = RDMA_CALL;
@@ -546,7 +552,7 @@ int send_disconnect_disp(const unix_msg_t *in_msg,
 {
 	auto out_msg = make_unique<unix_msg_t>();
 
-	DBG("ENTER, seq_no = 0x%X\n", in_msg->seq_no);
+	DBG("ENTER, seq_no = 0x%" PRIX64 "\n", in_msg->seq_no);
 
 	out_msg->type	  = SEND_DISCONNECT_ACK;
 	out_msg->category = RDMA_CALL;

@@ -32,7 +32,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 #include <stdio.h>
-#include <string.h>
 #include <stdlib.h>
 #include <stdarg.h>
 #include <semaphore.h>
@@ -56,6 +55,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <netinet/tcp.h>
 #include <pthread.h>
 
+#include "string_util.h"
 #include "rapidio_mport_mgmt.h"
 #include "rapidio_mport_sock.h"
 #include "rapidio_mport_dma.h"
@@ -247,7 +247,8 @@ void send_transfer_msg(struct fxfr_tx_state *info, int idx)
 	info->tx_msg->tot_bytes_tx = htobe64(info->tot_bytes_txed);
 	info->tx_msg->end_of_file = htobe64(info->end_of_file);
 	info->tx_msg->fail_abort = htobe64(info->fail_abort);
-	strncpy(info->tx_msg->rx_file_name, info->dest_name, MAX_FILE_NAME);
+	SAFE_STRNCPY(info->tx_msg->rx_file_name, info->dest_name,
+			sizeof(info->tx_msg->rx_file_name));
 
 	if (info->debug) {
 		printf("	Client: TX to Server\n");
@@ -352,8 +353,8 @@ int init_info_vals(struct fxfr_tx_state *info)
 
 int init_file_info(struct fxfr_tx_state *info, char *src_name, char *dst_name)
 {
-	strncpy(info->dest_name, dst_name, MAX_FILE_NAME);
-	strncpy(info->src_name, src_name, MAX_FILE_NAME);
+	SAFE_STRNCPY(info->dest_name, dst_name, sizeof(info->dest_name));
+	SAFE_STRNCPY(info->src_name, src_name, sizeof(info->src_name));
 
 	info->src_fd = open(info->src_name, O_RDONLY);
 	if (info->src_fd == -1) {

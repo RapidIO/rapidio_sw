@@ -39,9 +39,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #endif
 
 #ifdef DEBUG
-  #define Dprintf(format, ...) fprintf (stdout, format, __VA_ARGS__)
+  #define Dprintf(format, ...) fprintf (stdout, format, ## __VA_ARGS__)
 #else
-  #define Dprintf(format, ...) 
+  #define Dprintf(format, ...) if (0) fprintf (stdout, format, ## __VA_ARGS__)
 #endif
 
 #ifdef RDMA_LL
@@ -50,10 +50,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   #define XCRIT         CRIT
   #define XERR          ERR
 #else
-  #define XDBG(format, ...)
-  #define XINFO(format, ...)
-  #define XCRIT(format, ...)
-  #define XERR(format, ...)
+  #define XDBG(format, ...)   if (0) fprintf(stderr, format, ## __VA_ARGS__)
+  #define XINFO(format, ...)  if (0) fprintf(stderr, format, ## __VA_ARGS__)
+  #define XCRIT(format, ...)  if (0) fprintf(stderr, format, ## __VA_ARGS__)
+  #define XERR(format, ...)   if (0) fprintf(stderr, format, ## __VA_ARGS__)
 #endif
 
 #endif // __DEBUG_H__

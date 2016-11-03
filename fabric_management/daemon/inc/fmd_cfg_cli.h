@@ -32,8 +32,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 
-#ifndef _FMD_H_
-#define _FMD_H_
+#ifndef _FMD_CFG_CLI_H_
+#define _FMD_CFG_CLI_H_
 
 #ifdef __cplusplus
 extern "C" {
@@ -45,4 +45,4 @@ void fmd_bind_dbg_cmds(void);
 }
 #endif
 
-#endif /* _FMD_H_ */
+#endif /* _FMD_CFG_CLI_H_ */

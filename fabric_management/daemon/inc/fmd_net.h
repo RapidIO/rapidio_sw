@@ -1,7 +1,7 @@
 /*
 ****************************************************************************
-Copyright (c) 2014, Integrated Device Technology Inc.
-Copyright (c) 2014, RapidIO Trade Association
+Copyright (c) 2016, Integrated Device Technology Inc.
+Copyright (c) 2016, RapidIO Trade Association
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -31,25 +31,25 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 
-/* This file contains definitions used elsewhere in the code */
+#include "rio_ecosystem.h"
+#include "riocp_pe.h"
+#include "cfg.h"
 
-#ifndef __COMPILE_CONSTANTS__
-#define __COMPILE_CONSTANTS__
+#ifndef _FMD_NET_H_
+#define _FMD_NET_H_
 
-/* Revision information for the software */
-#ifndef VERSION_YR
-#define VERSION_YR "14"
-#endif
-#ifndef VERSION_MO
-#define VERSION_MO "05"
+#ifdef __cplusplus
+extern "C" {
 #endif
 
-/* Execution environment constants */
+#define AUTO_NAME_PREFIX "rio_dev_"
 
-#define __CLI_LINUX_SYSDEV__ "/sys/bus/rapidio/devices"
-#define __CLI_LINUX_DEFAULT__ "/00:s:0002"
-#define __CLI_LINUX_MPORT_MOD_DIR__ "/sys/module/rio_mport_cdev"
-#define __CLI_LINUX_MPORT_DEV__ "/dev/rio_mport"
+int fmd_traverse_network(riocp_pe_handle mport_pe, struct cfg_dev *c_dev);
+int fmd_traverse_network_from_pe_port(riocp_pe_handle pe, rio_port_t port_num, struct cfg_dev *c_dev);
+int fmd_enable_all_endpoints(riocp_pe_handle mport_pe);
 
+#ifdef __cplusplus
+}
+#endif
 
-#endif /* __COMPILE_CONSTANTS__ */
+#endif /* _FMD_NET_H_ */

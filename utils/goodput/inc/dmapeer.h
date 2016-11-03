@@ -10,8 +10,9 @@
 
 #include <sstream>
 
+#include "string_util.h"
 #include "tun_ipv4.h"
-//#include "worker.h"
+#include "rio_misc.h"
 
 #define PEER_SIG_INIT       0x66666666L
 #define PEER_SIG_UP         0xbaaddeedL
@@ -134,7 +135,7 @@ private:
     m_ib_ptr   = other.m_ib_ptr;
     m_tun_fd   = -1;
     m_tun_MTU  = other.m_tun_MTU;
-    strncpy(m_tun_name, other.m_tun_name, 32); m_tun_name[32] = '\0';
+    SAFE_STRNCPY(m_tun_name, other.m_tun_name, sizeof(m_tun_name));
     m_WP       = other.m_WP;
     m_rpeer_UC = other.m_rpeer_UC;
     m_rio_rx_bd_ready = NULL;
@@ -330,7 +331,7 @@ public:
         CRIT("Error connecting to tun/tap interface %s!\n", if_name);
         goto error;
     }
-    strncpy(m_tun_name, if_name, sizeof(m_tun_name)-1);
+    SAFE_STRNCPY(m_tun_name, if_name, sizeof(m_tun_name));
 
     {{
       const int flags = fcntl(m_tun_fd, F_GETFL, 0);
@@ -444,7 +445,6 @@ error:
     assert(sig == PEER_SIG_UP);
 
     uint32_t k = m_pRP->RP;
-    assert(k >= 0);
     ASSERT_BUFC(k);
 
     m_stats.rio_isol_rx_pass++;
@@ -542,10 +542,6 @@ error:
         }
         CRIT("\n\tBUG: IBBD[RP]->RO==0 k=%d savRP=%u volRP=%u pending %d IB BDs: %s\n", k, saved_RP, m_pRP->RP, N_pending, buf);
         usleep(10 * 1000); fflush(NULL);
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Waddress"
-        assert("IB BD BUG" == "IT'S ALIVE");
-#pragma GCC diagnostic pop
       }
     }
 #endif // UDMA_TUN_DEBUG_IB
@@ -699,6 +695,7 @@ stop_req:
     if(m_copy) return;
     assert(m_pRP->sig == DMAPEER_SIG);
     assert(n < (m_info->umd_tx_buf_cnt-1));
+    UNUSED_DBG(n);
   }
 }; // END class DmaPeer
 

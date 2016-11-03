@@ -38,8 +38,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <pthread.h>
 #include <signal.h>
 
+#ifndef __STDC_FORMAT_MACROS
 #define __STDC_FORMAT_MACROS
+#endif
 #include <cinttypes>
+#include <inttypes.h>
 
 #include <string>
 #include <list>
@@ -169,12 +172,12 @@ void *rx_worker_thread_f(void *arg)
 			assert(!"received_len < 0");
 		} else { /* received_len > 0. All is good */
 #ifdef EXTRA_DEBUG
-			DBG("msg[0] = 0x%" PRIx64 "\n", *(uint64_t *)msg);
-			DBG("msg[1] = 0x%" PRIx64 "\n", *(uint64_t *)((uint8_t *)msg + 8));
-			DBG("msg[2] = 0x%" PRIx64 "\n", *(uint64_t *)((uint8_t *)msg + 16));
-			DBG("msg[3] = 0x%" PRIx64 "\n", *(uint64_t *)((uint8_t *)msg + 24));
+			DBG("msg[0] = 0x%" PRIX64 "\n", *(uint64_t *)msg);
+			DBG("msg[1] = 0x%" PRIX64 "\n", *(uint64_t *)((uint8_t *)msg + 8));
+			DBG("msg[2] = 0x%" PRIX64 "\n", *(uint64_t *)((uint8_t *)msg + 16));
+			DBG("msg[3] = 0x%" PRIX64 "\n", *(uint64_t *)((uint8_t *)msg + 24));
 #endif
-			DBG("'%s': Got category=0x%" PRIx64 ",'%s'\n",
+			DBG("'%s': Got category=0x%" PRIX64 ",'%s'\n",
 							name.c_str(),
 							msg->category,
 							cat_name(msg->category));
@@ -197,7 +200,7 @@ void *rx_worker_thread_f(void *arg)
 							     nullptr));
 				if (it != end(*notify_list)) {
 					/* Found! Queue copy of message & post semaphore */
-					DBG("'%s': Found message of type '%s',0x%X, seq_no=0x%X\n",
+					DBG("'%s': Found message of type '%s',0x%" PRIX64 ", seq_no=0x%" PRIX64 "\n",
 						name.c_str(),
 						type_name(it->type),
 						it->type,
@@ -227,7 +230,7 @@ void *rx_worker_thread_f(void *arg)
 									name.c_str(), rc);
 				}
 			} else {
-				CRIT("'%s': Unhandled category = 0x%" PRIx64 "\n",
+				CRIT("'%s': Unhandled category = 0x%" PRIX64 "\n",
 						name.c_str(), msg->category);
 				CRIT("'%s': type='%s',0x%X\n",
 						name.c_str(),
@@ -303,7 +306,9 @@ public:
 
 	virtual ~rx_engine()
 	{
-		if (this == NULL) return; // Avoid __run_exit_handlers/~unique_ptr problems
+		// FIXME: Commented out statement below to avoid compile issue.
+		// Might need a real fix in future.
+		// if (this == NULL) return; // Avoid __run_exit_handlers/~unique_ptr problems
 
 		/**
 		 * @brief There are two possiblities:
@@ -344,12 +349,12 @@ public:
 	 * Set the RX engine to post notify_sem when a message of the specified
 	 * type, category, and seq_no is received by this rx_engine.
 	 */
-	void set_notify(rdma_msg_type type, rdma_msg_cat category, uint32_t seq_no,
+	void set_notify(rdma_msg_type type, rdma_msg_cat category, rdma_msg_seq_no seq_no,
 						shared_ptr<sem_t> notify_sem)
 	{
 
 		sem_wait(&notify_list_sem);
-		DBG("'%s': type='%s',0x%X, category='%s',0x%X, seq_no=0x%X\n",
+		DBG("'%s': type='%s',0x%" PRIX64 ", category='%s',0x%" PRIX64 ", seq_no=0x%" PRIX64 "\n",
 				name.c_str(),
 				type_name(type),
 				type,
@@ -390,7 +395,7 @@ public:
 				       (msg.seq_no == seq_no);
 			});
 		if (it == end(message_queue)) {
-			ERR("'%s': Message (type='%s',0x%X, cat='%s',0x%X, seq_no=0x%X) not found!\n",
+			ERR("'%s': Message (type='%s',0x%" PRIX64 ", cat='%s',0x%" PRIX64 ", seq_no=0x%" PRIX64 ") not found!\n",
 			name.c_str(), type_name(type), type, cat_name(category), category, seq_no);
 			rc = -1;
 		} else {
@@ -399,7 +404,7 @@ public:
 
 			/* Remove from queue */
 			message_queue.erase(it);
-			DBG("'%s': (type='%s',0x%X, cat='%s',0x%X, seq_no=0x%X) removed\n",
+			DBG("'%s': (type='%s',0x%" PRIX64 ", cat='%s',0x%" PRIX64 ", seq_no=0x%" PRIX64 ") removed\n",
 			name.c_str(), type_name(type), type, cat_name(category), category, seq_no);
 			rc = 0;
 		}

@@ -32,10 +32,12 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 #include <map>
-#include <string>
 #include <iostream>
 #include <sstream>
 #include <vector>
+
+#include "string_util.h"
+#include "rio_misc.h"
 #include "goodput_cli.h"
 #include "libtime_utils.h"
 #include "mhz.h"
@@ -69,19 +71,19 @@ int check_idx(struct cli_env *env, int idx, int want_halted)
 	if ((idx < 0) || (idx >= MAX_WORKERS)) {
 		sprintf(env->output, "\nIndex must be 0 to %d...\n",
 								MAX_WORKERS);
-        	logMsg(env);
+		logMsg(env);
 		goto exit;
 	};
 
 	if (want_halted && (2 != wkr[idx].stat)) {
 		sprintf(env->output, "\nWorker not halted...\n");
-        	logMsg(env);
+		logMsg(env);
 		goto exit;
 	};
 
 	if (!want_halted && (2 == wkr[idx].stat)) {
 		sprintf(env->output, "\nWorker halted...\n");
-        	logMsg(env);
+		logMsg(env);
 		goto exit;
 	};
 	rc = 0;
@@ -100,7 +102,7 @@ int get_cpu(struct cli_env *env, char *dec_parm, int *cpu)
 	if ((*cpu  < -1) || (*cpu > MAX_GOODPUT_CPU)) {
 		sprintf(env->output, "\nCPU must be 0 to %d...\n",
 			MAX_GOODPUT_CPU);
-        	logMsg(env);
+		logMsg(env);
 		goto exit;
 	};
 
@@ -113,32 +115,33 @@ exit:
 #define MODE_STR(x) (char *)((x == kernel_action)?"KRNL":"User")
 #define THREAD_STR(x) (char *)((0 == x)?"---":((1 == x)?"Run":"Hlt"))
 
-int ThreadCmd(struct cli_env *env, int argc, char **argv)
+int ThreadCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 {
 	int idx, cpu, new_dma;
 
 	idx = getDecParm(argv[0], 0);
 	if (get_cpu(env, argv[1], &cpu))
 		goto exit;
+
 	new_dma = getDecParm(argv[2], 0);
 
 	if ((idx < 0) || (idx >= MAX_WORKERS)) {
 		sprintf(env->output, "\nIndex must be 0 to %d...\n",
 								MAX_WORKERS);
-        	logMsg(env);
+		logMsg(env);
 		goto exit;
 	};
 
 	if (wkr[idx].stat) {
 		sprintf(env->output, "\nWorker %d already running...\n", idx);
-        	logMsg(env);
+		logMsg(env);
 		goto exit;
 	};
 
 	wkr[idx].idx = idx;
 	start_worker_thread(&wkr[idx], new_dma, cpu);
 exit:
-        return 0;
+	return 0;
 };
 
 #define HACK(x) #x
@@ -157,7 +160,7 @@ ThreadCmd,
 ATTR_NONE
 };
 
-int KillCmd(struct cli_env *env, int argc, char **argv)
+int KillCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 {
 	int st_idx = 0, end_idx = MAX_WORKERS-1, i;
 
@@ -168,7 +171,7 @@ int KillCmd(struct cli_env *env, int argc, char **argv)
 		if ((st_idx < 0) || (st_idx >= MAX_WORKERS)) {
 			sprintf(env->output, "\nIndex must be 0 to %d...\n",
 								MAX_WORKERS);
-        		logMsg(env);
+			logMsg(env);
 			goto exit;
 		};
 	};
@@ -191,18 +194,18 @@ KillCmd,
 ATTR_NONE
 };
 
-int HaltCmd(struct cli_env *env, int argc, char **argv)
+int HaltCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 {
 	unsigned int st_idx = 0, end_idx = MAX_WORKERS-1, i;
 
 	if (strncmp(argv[0], "all", 3)) {
-		st_idx = getDecParm(argv[0], 0);
+		st_idx = (unsigned int) getDecParm(argv[0], 0);
 		end_idx = st_idx;
 
-		if ((st_idx < 0) || (st_idx >= MAX_WORKERS)) {
+		if (st_idx >= MAX_WORKERS) {
 			sprintf(env->output, "\nIndex must be 0 to %d...\n",
 								MAX_WORKERS);
-        		logMsg(env);
+			logMsg(env);
 			goto exit;
 		};
 	};
@@ -231,7 +234,7 @@ HaltCmd,
 ATTR_NONE
 };
 
-int MoveCmd(struct cli_env *env, int argc, char **argv)
+int MoveCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 {
 	int idx, cpu;
 
@@ -242,7 +245,7 @@ int MoveCmd(struct cli_env *env, int argc, char **argv)
 	if ((idx < 0) || (idx >= MAX_WORKERS)) {
 		sprintf(env->output, "\nIndex must be 0 to %d...\n",
 								MAX_WORKERS);
-        	logMsg(env);
+		logMsg(env);
 		goto exit;
 	};
 
@@ -250,7 +253,7 @@ int MoveCmd(struct cli_env *env, int argc, char **argv)
 	wkr[idx].stop_req = 0;
 	sem_post(&wkr[idx].run);
 exit:
-        return 0;
+	return 0;
 };
 
 struct cli_cmd Move = {
@@ -265,7 +268,7 @@ MoveCmd,
 ATTR_NONE
 };
 
-int WaitCmd(struct cli_env *env, int argc, char **argv)
+int WaitCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 {
 	int idx, state = -1, limit = 10000;
 	const struct timespec ten_usec = {0, 10 * 1000};
@@ -291,30 +294,31 @@ int WaitCmd(struct cli_env *env, int argc, char **argv)
 	if ((idx < 0) || (idx >= MAX_WORKERS)) {
 		sprintf(env->output, "\nIndex must be 0 to %d...\n",
 								MAX_WORKERS);
-        	logMsg(env);
+		logMsg(env);
 		goto exit;
 	};
 
 	if ((state < 0) || (state > 2)) {
 		sprintf(env->output,
 			"\nState must be 0|d|D, 1|r|R , or 2|h|H\n");
-        	logMsg(env);
+		logMsg(env);
 		goto exit;
 	};
 
 	while ((wkr[idx].stat != state) && limit--)
-        	nanosleep(&ten_usec, NULL);
+		nanosleep(&ten_usec, NULL);
 
-	if (wkr[idx].stat == state)
+	if (wkr[idx].stat == state) {
 		sprintf(env->output, "\nPassed, Worker %d is now %s\n",
 			idx, THREAD_STR(wkr[idx].stat));
-	else
+	} else {
 		sprintf(env->output, "\nFAILED, Worker %d is now %s\n",
 			idx, THREAD_STR(wkr[idx].stat));
-        logMsg(env);
+	};
+	logMsg(env);
 
 exit:
-        return 0;
+	return 0;
 };
 
 struct cli_cmd Wait = {
@@ -329,7 +333,7 @@ WaitCmd,
 ATTR_NONE
 };
 
-int SleepCmd(struct cli_env *env, int argc, char **argv)
+int SleepCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 {
 	float sec = GetFloatParm(argv[0], 0);
 	if(sec > 0) {
@@ -353,7 +357,7 @@ ATTR_NONE
 
 extern int setup_mport(int mportid);
 
-int MportCmd(struct cli_env *env, int argc, char **argv)
+int MportCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 {
         const int mportid = GetDecParm(argv[0], 0);
         if (mportid < 0) {
@@ -385,7 +389,7 @@ ATTR_NONE
 #define FOUR_KB (4*1024)
 #define SIXTEEN_MB (16*1024*1024)
 
-int IBAllocCmd(struct cli_env *env, int argc, char **argv)
+int IBAllocCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 {
 	int idx;
 	uint64_t ib_size;
@@ -399,7 +403,7 @@ int IBAllocCmd(struct cli_env *env, int argc, char **argv)
 	if ((ib_size < FOUR_KB) || (ib_size > SIXTEEN_MB)) {
 		sprintf(env->output, "\nIbwin size range: 0x%x to 0x%x\n",
 			FOUR_KB, SIXTEEN_MB);
-        	logMsg(env);
+		logMsg(env);
 		goto exit;
 	};
 
@@ -408,7 +412,7 @@ int IBAllocCmd(struct cli_env *env, int argc, char **argv)
 	wkr[idx].stop_req = 0;
 	sem_post(&wkr[idx].run);
 exit:
-        return 0;
+	return 0;
 };
 
 struct cli_cmd IBAlloc = {
@@ -423,7 +427,7 @@ IBAllocCmd,
 ATTR_NONE
 };
 
-int IBDeallocCmd(struct cli_env *env, int argc, char **argv)
+int IBDeallocCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 {
 	int idx;
 
@@ -436,7 +440,7 @@ int IBDeallocCmd(struct cli_env *env, int argc, char **argv)
 	wkr[idx].stop_req = 0;
 	sem_post(&wkr[idx].run);
 exit:
-        return 0;
+	return 0;
 };
 
 struct cli_cmd IBDealloc = {
@@ -465,7 +469,7 @@ void cpu_occ_parse_proc_line(char *file_line,
 	int tok_cnt = 0;
 	char fl_cpy[CPUOCC_BUFF_SIZE];
 	
-	strncpy(fl_cpy, file_line, CPUOCC_BUFF_SIZE-1);
+	SAFE_STRNCPY(fl_cpy, file_line, sizeof(fl_cpy));
 	tok = strtok_r(file_line, delim, &saveptr);
 	while ((NULL != tok) && (tok_cnt < 13)) {
 		tok = strtok_r(NULL, delim, &saveptr);
@@ -500,7 +504,7 @@ void cpu_occ_parse_stat_line(char *file_line,
 	char *delim = (char *)" ";
 	char fl_cpy[CPUOCC_BUFF_SIZE];
 	
-	strncpy(fl_cpy, file_line, CPUOCC_BUFF_SIZE-1);
+	SAFE_STRNCPY(fl_cpy, file_line, sizeof(fl_cpy));
 	
 	/* Throw the first token away. */
 	tok = strtok_r(file_line, delim, &saveptr);
@@ -588,7 +592,7 @@ int cpu_occ_set(uint64_t *tot_jifis,
 		goto exit;
 	};
 
-	if (NULL == fgets(file_line, 1024,  stat_fp)) {
+	if (NULL == fgets(file_line, sizeof(file_line), stat_fp)) {
 		ERR("Unexpected EOF 1 : %d %s\n", errno, strerror(errno));
 		goto exit;
 	};
@@ -596,8 +600,8 @@ int cpu_occ_set(uint64_t *tot_jifis,
 	cpu_occ_parse_proc_line(file_line, proc_user_jifis, proc_kern_jifis);
 
 		
-	memset(file_line, 0, 1024);
-	if (NULL == fgets(file_line, 1024,  cpu_stat_fp)) {
+	memset(file_line, 0, sizeof(file_line));
+	if (NULL == fgets(file_line, sizeof(file_line), cpu_stat_fp)) {
 		ERR("Unexpected EOF 1 : %d %s\n", errno, strerror(errno));
 		goto exit;
 	};
@@ -615,13 +619,13 @@ exit:
 	return rc;
 };
 
-int CPUOccSetCmd(struct cli_env *env, int argc, char **argv)
+int CPUOccSetCmd(struct cli_env *env, int UNUSED(argc), char **UNUSED(argv))
 {
 
 	if (cpu_occ_set(&old_tot_jifis, &old_proc_kern_jifis,
 			&old_proc_user_jifis)) {
 		sprintf(env->output, "\nFAILED: Could not get proc info \n");
-        	logMsg(env);
+		logMsg(env);
 		goto exit;
 	};
 	sprintf(env->output, "\nSet CPU Occ measurement start point\n");
@@ -645,7 +649,7 @@ ATTR_NONE
 
 int cpu_occ_saved_idx;
 
-int CPUOccDisplayCmd(struct cli_env *env, int argc, char **argv)
+int CPUOccDisplayCmd(struct cli_env *env, int UNUSED(argc), char **UNUSED(argv))
 {
 	char pctg[24];
 	int cpus = getCPUCount();
@@ -656,7 +660,7 @@ int CPUOccDisplayCmd(struct cli_env *env, int argc, char **argv)
 	if (!cpu_occ_valid) {
 		sprintf(env->output,
 			"\nFAILED: CPU OCC measurement start not set\n");
-        	logMsg(env);
+		logMsg(env);
 		goto exit;
 	};
 
@@ -698,7 +702,7 @@ ATTR_RPT
 
 #define FLOAT_STR_SIZE 20
 
-int GoodputCmd(struct cli_env *env, int argc, char **argv)
+int GoodputCmd(struct cli_env *env, int argc, char **UNUSED(argv))
 {
 	int i;
 	float MBps, Gbps, Msgpersec, link_occ; 
@@ -740,7 +744,7 @@ int GoodputCmd(struct cli_env *env, int argc, char **argv)
 		sprintf(env->output, "%2d %3s %16lx %8s %6s %9.0f  %6s\n",
 			i,  THREAD_STR(wkr[i].stat),
 			byte_cnt, MBps_str, Gbps_str, Msgpersec, link_occ_str);
-        	logMsg(env);
+		logMsg(env);
 
 		if (byte_cnt) {
 			tot_byte_cnt += byte_cnt;
@@ -770,9 +774,9 @@ int GoodputCmd(struct cli_env *env, int argc, char **argv)
 
 	sprintf(env->output, "Total  %16lx %8s %6s %9.0f  %6s\n",
 		tot_byte_cnt, MBps_str, Gbps_str, tot_Msgpersec, link_occ_str);
-        logMsg(env);
 
-        return 0;
+	logMsg(env);
+	return 0;
 };
 
 struct cli_cmd Goodput = {
@@ -787,15 +791,12 @@ GoodputCmd,
 ATTR_RPT
 };
 
-int LatCmd(struct cli_env *env, int argc, char **argv)
+int LatCmd(struct cli_env *env, int UNUSED(argc), char **UNUSED(argv))
 {
 	int i;
 	char min_lat_str[FLOAT_STR_SIZE];
 	char avg_lat_str[FLOAT_STR_SIZE];
 	char max_lat_str[FLOAT_STR_SIZE];
-
-	if (0)
-		argv[0][0] = argc;
 
 	sprintf(env->output,
         "\n W STS <<<<-Count-->>>> <<<<Min uSec>>>> <<<<Avg uSec>>>> <<<<Max uSec>>>>\n");
@@ -830,10 +831,10 @@ int LatCmd(struct cli_env *env, int argc, char **argv)
 			i,  THREAD_STR(wkr[i].stat),
 			wkr[i].perf_iter_cnt,
 			min_lat_str, avg_lat_str, max_lat_str);
-        	logMsg(env);
+		logMsg(env);
 	};
 
-        return 0;
+	return 0;
 };
 
 struct cli_cmd Lat = {
@@ -853,21 +854,21 @@ void display_cpu(struct cli_env *env, int cpu)
 		sprintf(env->output, "Any ");
 	else
 		sprintf(env->output, "%3d ", cpu);
-        logMsg(env);
+	logMsg(env);
 };
-		
+
 
 void display_gen_status(struct cli_env *env)
 {
 	int i;
 
 	sprintf(env->output,
-        "\n W STS CPU RUN ACTION  MODE DID <<<<--ADDR-->>>> ByteCnt AccSize W H IB\n");
-        logMsg(env);
+		"\n W STS CPU RUN ACTION  MODE DID <<<<--ADDR-->>>> ByteCnt AccSize W H IB\n");
+	logMsg(env);
 
 	for (i = 0; i < MAX_WORKERS; i++) {
 		sprintf(env->output, "%2d %3s ", i, THREAD_STR(wkr[i].stat));
-        	logMsg(env);
+		logMsg(env);
 		display_cpu(env, wkr[i].wkr_thr.cpu_req);
 		display_cpu(env, wkr[i].wkr_thr.cpu_run);
 		sprintf(env->output,
@@ -877,7 +878,7 @@ void display_gen_status(struct cli_env *env)
 			wkr[i].rio_addr, wkr[i].byte_cnt, wkr[i].acc_size, 
 			wkr[i].wr, wkr[i].mp_h_is_mine,
 			wkr[i].ib_valid);
-        	logMsg(env);
+		logMsg(env);
 	};
 };
 
@@ -943,8 +944,6 @@ struct cli_cmd Status = {
 StatusCmd,
 ATTR_RPT
 };
-
-static inline int MIN(int a, int b) { return a < b? a: b; }
 
 int dump_idx;
 uint64_t dump_base_offset;
@@ -1021,7 +1020,7 @@ DumpCmd,
 ATTR_RPT
 };
 
-int FillCmd(struct cli_env *env, int argc, char **argv)
+int FillCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 {
 	int idx;
 	uint64_t offset, base_offset;
@@ -1036,19 +1035,19 @@ int FillCmd(struct cli_env *env, int argc, char **argv)
 	if ((idx < 0) || (idx >= MAX_WORKERS)) {
 		sprintf(env->output, "\nIndex must be 0 to %d...\n",
 							MAX_WORKERS);
-        	logMsg(env);
+		logMsg(env);
 		goto exit;
 	};
 
 	if (!wkr[idx].ib_valid || (NULL == wkr[idx].ib_ptr)) {
 		sprintf(env->output, "\nNo mapped inbound window present\n");
-        	logMsg(env);
+		logMsg(env);
 		goto exit;
 	};
 
 	if ((base_offset + size) > wkr[idx].ib_byte_cnt) {
 		sprintf(env->output, "\nOffset + size exceeds window bytes\n");
-        	logMsg(env);
+		logMsg(env);
 		goto exit;
 	}
 
@@ -1078,7 +1077,7 @@ FillCmd,
 ATTR_RPT
 };
 
-int MpdevsCmd(struct cli_env *env, int argc, char **argv)
+int MpdevsCmd(struct cli_env *env, int UNUSED(argc) , char **UNUSED(argv))
 {
         uint32_t *mport_list = NULL;
         uint32_t *ep_list = NULL;
@@ -1095,7 +1094,7 @@ int MpdevsCmd(struct cli_env *env, int argc, char **argv)
                 sprintf(env->output, "riomp_mgmt_get_mport_list ERR %d:%s\n",
 			ret, strerror(ret));
         	logMsg(env);
-		goto exit;
+        	goto exit;
         }
 
         sprintf(env->output, "\nAvailable %d local mport(s):\n",
@@ -1346,7 +1345,7 @@ UTimeCmd,
 ATTR_NONE
 };
 
-int UMDdSHMCmd(struct cli_env *env, int argc, char **argv)
+int UMDdSHMCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 {
         int idx;
         int chan;
@@ -1428,7 +1427,7 @@ UMDdSHMCmd,
 ATTR_NONE
 };
 
-int UDMACmd(struct cli_env *env, int argc, char **argv)
+int UDMACmd(struct cli_env *env, int UNUSED(argc), char **argv)
 {
 	int idx;
 	int chan;
@@ -1542,7 +1541,7 @@ UDMACmd,
 ATTR_NONE
 };
 
-int UDMALatTxRxCmd(const char cmd, struct cli_env *env, int argc, char **argv)
+int UDMALatTxRxCmd(const char cmd, struct cli_env *env, int UNUSED(argc), char **argv)
 {
 	int idx;
 	int chan;
@@ -1559,6 +1558,7 @@ int UDMALatTxRxCmd(const char cmd, struct cli_env *env, int argc, char **argv)
 	idx      = GetDecParm(argv[n++], 0);
 	if (get_cpu(env, argv[n++], &cpu))
 		goto exit;
+
 	chan     = GetDecParm(argv[n++], 0);
 	buff     = GetHex(argv[n++], 0);
 	sts      = GetHex(argv[n++], 0);
@@ -1692,7 +1692,7 @@ UDMALatRxCmd,
 ATTR_NONE
 };
 
-int UDMALatNREAD(struct cli_env *env, int argc, char **argv)
+int UDMALatNREAD(struct cli_env *env, int UNUSED(argc), char **argv)
 {
 	int idx;
 	int chan;
@@ -1708,6 +1708,7 @@ int UDMALatNREAD(struct cli_env *env, int argc, char **argv)
 	idx      = GetDecParm(argv[n++], 0);
 	if (get_cpu(env, argv[n++], &cpu))
 		goto exit;
+
 	chan     = GetDecParm(argv[n++], 0);
 	buff     = GetHex(argv[n++], 0);
 	sts      = GetHex(argv[n++], 0);
@@ -1793,7 +1794,7 @@ UDMALatNREAD,
 ATTR_NONE
 };
 
-int UDMATestBed(struct cli_env *env, int argc, char **argv)
+int UDMATestBed(struct cli_env *env, int UNUSED(argc), char **argv)
 {
         int idx;
         int chan;

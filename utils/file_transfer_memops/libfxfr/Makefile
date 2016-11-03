@@ -10,9 +10,6 @@ HEADERS:=inc/lib$(NAME).h
 
 CC=$(CXX)
 
-CFLAGS+=-fPIC -DNDEBUG -I./inc
-LDFLAGS+=-L. -l$(NAME)
-
 OBJECTS:=$(patsubst src/%.c,src/%.o,$(wildcard src/*.c))
 
 all: $(TARGETS)
@@ -21,7 +18,8 @@ all: $(TARGETS)
 	$(AR) rcs $@ $^
 
 src/%.o: src/%.c $(HEADERS)
-	$(CXX) -c $(CFLAGS) $< -o $@
+	$(CXX) -c $(CFLAGS) $< -o $@ \
+	-I$(FMDDIR)/libdid/inc -I$(FMDDIR)/libct/inc
 
 clean:
 	rm -f $(TARGETS) $(OBJECTS) inc/*~ src/*~ *~ *.a

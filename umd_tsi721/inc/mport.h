@@ -53,14 +53,17 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "rapidio_mport_dma.h"
 #include "rapidio_mport_mgmt.h"
-//#include "rapidio_mport_sock.h"
 
 #include "debug.h"
 
+#ifdef RDMA_LL
+ #include "liblog.h"
+#endif
+
 #if defined(REGDEBUG) && defined(RDMA_LL)
-  #define REGDBG(format, ...) DBG(format, __VA_ARGS__)
+  #define REGDBG(format, ...) DBG(format, ## __VA_ARGS__)
 #else
-  #define REGDBG(format, ...)
+  #define REGDBG(format, ...) if (0) fprintf(stderr, format, ## __VA_ARGS__)
 #endif
 
 /** \brief A class to encapsulate mport_cdev and low level DMA buffer ops */

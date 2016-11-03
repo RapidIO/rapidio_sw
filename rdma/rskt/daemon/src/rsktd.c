@@ -32,7 +32,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 #include <stdio.h>
-#include <string.h>
 #include <stdlib.h>
 #include <stdarg.h>
 #include <semaphore.h>
@@ -57,6 +56,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <pthread.h>
 #include <arpa/inet.h>
 
+#include "string_util.h"
+#include "rio_misc.h"
 #include "libcli.h"
 #include "librdma.h"
 #include "librsktd.h"
@@ -342,7 +343,7 @@ exit:
 void set_prompt(struct cli_env *e)
 {
         if (e != NULL) {
-                strncpy(e->prompt, "RSKTDaemon> ", PROMPTLEN);
+               SAFE_STRNCPY(e->prompt, "RSKTDaemon> ", sizeof(e->prompt));
         };
 };
 
@@ -370,12 +371,12 @@ struct console_globals cli;
 
 void rskt_daemon_shutdown(void);
 
-void quit_command_customization(struct cli_env *env)
+void quit_command_customization(struct cli_env *UNUSED_PARM(env))
 {
 	rskt_daemon_shutdown();
 };
 	
-void *cli_session( void *rc_ptr )
+void *cli_session( void *UNUSED_PARM(rc_ptr))
 {
 	char buffer[256];
 	int one = 1;
@@ -385,7 +386,7 @@ void *cli_session( void *rc_ptr )
 
 	cli.cli_fd = socket(AF_INET, SOCK_STREAM, 0);
 	if (cli.cli_fd < 0) {
-        	ERR("RSKTD Remote CLI ERROR opening socket: %s\n", strerror(errno));
+		ERR("RSKTD Remote CLI ERROR opening socket: %s\n", strerror(errno));
 		goto fail;
 	}
 	bzero((char *) &cli.cli_addr, sizeof(cli.cli_addr));
@@ -398,7 +399,7 @@ void *cli_session( void *rc_ptr )
 					cli.cli_portno);
 	if (bind(cli.cli_fd, (struct sockaddr *) &cli.cli_addr, 
 						sizeof(cli.cli_addr)) < 0) {
-        	ERR("RSKTD Remote CLI ERROR on binding: %s\n", strerror(errno));
+		ERR("RSKTD Remote CLI ERROR on binding: %s\n", strerror(errno));
 		goto fail;
 	}
 
@@ -452,8 +453,8 @@ fail:
 		close(cli.cli_sess_fd);
 		cli.cli_sess_fd = -1;
 	};
-     	if (cli.cli_fd > 0) {
-     		close(cli.cli_fd);
+	if (cli.cli_fd > 0) {
+		close(cli.cli_fd);
 		cli.cli_fd = 0;
 	};
 

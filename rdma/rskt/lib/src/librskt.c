@@ -36,12 +36,14 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <unistd.h>
 #include <stdio.h>
 #include <stdint.h>
+#ifndef __STDC_FORMAT_MACROS
+#define __STDC_FORMAT_MACROS
+#endif
 #include <inttypes.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <errno.h>
 #include <time.h>
-#include <string.h>
 #include <semaphore.h>
 #include <signal.h>
 #include <netinet/in.h>
@@ -53,6 +55,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define __STDC_FORMAT_MACROS
 
+#include "string_util.h"
 #include "librskt_private.h"
 #include "librskt_test.h"
 #include "librsktd.h"
@@ -409,7 +412,7 @@ void *rsvp_loop(void *unused)
 		if (lib.all_must_die)
 			goto exit;
 
-		DBG("Received %d bytes max %d, %s Seq %d", rc, 
+		DBG("Received %d bytes max %zd, %s Seq %d", rc,
 			sizeof(struct librskt_rsktd_to_app_msg),
 			LIBRSKT_APP_MSG_TO_STR(htonl(rxd->msg_type)),
 			LIBRSKT_DMN_2_APP_MSG_SEQ_NO(rxd, htonl(rxd->msg_type)) );
@@ -486,7 +489,7 @@ void cleanup_skt(rskt_h skt_h, volatile struct rskt_socket_t *skt,
 			WARN("sn %d skt->msubh_valid is false", skt_h->sa.sn);
 		}
 		if (skt->msh_valid) {
-			DBG("sn %d skt->msh_valid is true. Closing skt->msh", skt_h->sa.sn, skt->msh);
+			DBG("sn %d skt->msh_valid is true. Closing skt->msh", skt_h->sa.sn);
 			rdma_close_ms_h(skt->msoh, skt->msh);
 			skt->msh_valid = 0;
 		} else {
@@ -1063,7 +1066,7 @@ int setup_skt_ptrs(struct rskt_socket_t *volatile skt)
       && ((skt->hdr->rem_tx_rd_flags & htonl(RSKT_BUF_HDR_FLAG_INIT)) == 0) \
       	       )
 
-	DBG("skt->hdr->rem_rx_wr_flags = 0x%08X, skt->hdr->rem_tx_rd_flags\n",
+	DBG("skt->hdr->rem_rx_wr_flags = 0x%08X, skt->hdr->rem_tx_rd_flags  = 0x%08X\n",
 			ntohl(skt->hdr->rem_rx_wr_flags), ntohl(skt->hdr->rem_tx_rd_flags));
 	DBG("Waiting for INIT_DONE and ZEROED or for ZEROED only\n");
 	while (!COND1 && !COND2) {
@@ -1222,8 +1225,10 @@ int rskt_accept(rskt_h l_skt_h, rskt_h skt_h,
 	skt_h->sa.ct = ntohl(rx->a_rsp.msg.accept.new_ct);
 	skt->sai.sa.ct = ntohl(rx->a_rsp.msg.accept.peer_sa.ct);
 	skt->sai.sa.sn = ntohl(rx->a_rsp.msg.accept.peer_sa.sn);
-	memcpy((void *)skt->msoh_name, rx->a_rsp.msg.accept.mso_name, MAX_MS_NAME);
-	memcpy((void *)skt->msh_name, rx->a_rsp.msg.accept.ms_name, MAX_MS_NAME);
+	SAFE_STRNCPY(skt->msoh_name, rx->a_rsp.msg.accept.mso_name,
+			sizeof(skt->msoh_name));
+	SAFE_STRNCPY(skt->msh_name, rx->a_rsp.msg.accept.ms_name,
+			sizeof(skt->msh_name));
 	DBG("ACCEPT: SN %d CT %d REM SN %d CT %d MSOH \"%s\" MSH \"%s\"", 
 		skt_h->sa.sn, skt_h->sa.ct, skt->sai.sa.sn, skt->sai.sa.ct,
 		skt->msoh_name, skt->msh_name);
@@ -1272,7 +1277,7 @@ int rskt_accept(rskt_h l_skt_h, rskt_h skt_h,
 		goto unlock;
 	}
 
-	DBG("ACCEPT: MSOH %p MSH %p MSUBH %p PTR %p",
+	DBG("ACCEPT: MSOH %" PRIu64 " MSH %" PRIu64 " MSUBH %" PRIu64 " PTR %p",
 		skt->msoh, skt->msh, skt->msubh, skt->msub_p);
 	/* Zero the entire msub (we can do that because we'll initialize
 	 * all pointers below).
@@ -1386,16 +1391,19 @@ int rskt_connect(rskt_h skt_h, struct rskt_sockaddr *sock_addr )
 	DBG("mso = %s, ms = %s, msub_sz = %d\n",
 			rx->a_rsp.msg.conn.mso,
 			rx->a_rsp.msg.conn.ms,
-			rx->a_rsp.msg.conn.msub_sz)
+			rx->a_rsp.msg.conn.msub_sz);
 	skt_h->st = rskt_connecting;
 	skt->connector = skt_rdma_connector;
 	skt_h->sa.ct = ntohl(rx->a_rsp.msg.conn.new_ct);
 	skt_h->sa.sn = ntohl(rx->a_rsp.msg.conn.new_sn);
 	skt->sai.sa.sn = ntohl(rx->a_rsp.msg.conn.rem_sn);
 	skt->sai.sa.ct = ntohl(rx->a_rsp.req.msg.conn.ct);
-	memcpy(skt->msoh_name, rx->a_rsp.msg.conn.mso, MAX_MS_NAME);
-	memcpy(skt->msh_name, rx->a_rsp.msg.conn.ms, MAX_MS_NAME);
-	memcpy(skt->con_msh_name, rx->a_rsp.msg.conn.rem_ms, MAX_MS_NAME);
+	SAFE_STRNCPY(skt->msoh_name, rx->a_rsp.msg.conn.mso,
+			sizeof(skt->msoh_name));
+	SAFE_STRNCPY(skt->msh_name, rx->a_rsp.msg.conn.ms,
+			sizeof(skt->msh_name));
+	SAFE_STRNCPY(skt->con_msh_name, rx->a_rsp.msg.conn.rem_ms,
+			sizeof(skt->con_msh_name));
 	skt->msub_sz = ntohl(rx->a_rsp.msg.conn.msub_sz);
 	skt->max_backlog = 0;
 
@@ -1993,7 +2001,7 @@ int rskt_close_locked(rskt_h skt_h)
 	}
 	if (skt->msh_valid) {
 		ms_name_valid = true;
-		memcpy(ms_name, (void *)skt->msh_name, MAX_MS_NAME);
+		SAFE_STRNCPY(ms_name, (void *)skt->msh_name, sizeof(ms_name));
 	};
 
 	cleanup_skt(skt_h, skt, li);
@@ -2007,7 +2015,8 @@ int rskt_close_locked(rskt_h skt_h)
 	
 		tx->msg_type = LIBRSKTD_RELEASE;
 		tx->a_rq.msg.release.sn = htonl(skt_h->sa.sn);
-		memcpy(tx->a_rq.msg.release.ms_name, ms_name, MAX_MS_NAME+1);
+		SAFE_STRNCPY(tx->a_rq.msg.release.ms_name, ms_name,
+				sizeof(tx->a_rq.msg.release.ms_name));
 		
 		librskt_dmsg_req_resp(tx, rx);
 		resp = (struct librskt_rsktd_to_app_msg *)rx;

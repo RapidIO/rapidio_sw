@@ -50,7 +50,7 @@ PROGRAM INFO
 
 rio_daemon.exe accepts the following command line arguments: 
         rio_demon manages a RapidIO subsystem.  Options are:
-	-c, -C: rio_daemon has a console CLI.
+        -c, -C: rio_daemon has a console CLI.
         -d, -D: Discover a previously enumerated RapidIO network.
         -e, -E: Enumerate and initialize a RapidIO network.
         -iX, -IX: Polling interval, in seconds.

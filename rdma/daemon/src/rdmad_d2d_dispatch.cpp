@@ -30,6 +30,12 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
+
+#ifndef __STDC_FORMAT_MACROS
+#define __STDC_FORMAT_MACROS
+#endif
+#include <inttypes.h>
+
 #include "cm_sock.h"
 #include "liblog.h"
 
@@ -474,7 +480,7 @@ void cm_server_disconnect_ms_ack_disp(cm_msg_t *msg, cm_server_tx_engine *tx_eng
 	cm_server_disconnect_ms_ack_msg *server_disconnect_ms_ack_msg =
 						&msg->cm_server_disconnect_ms_ack;
 
-	HIGH("Received CM_FORCE_DISCONNECT_MS_ACK for msid(0x%X), '%s'\n",
+	HIGH("Received CM_FORCE_DISCONNECT_MS_ACK for msid(0x%" PRIX64 "), '%s'\n",
 			be64toh(server_disconnect_ms_ack_msg->server_msid),
 			server_disconnect_ms_ack_msg->server_msname);
 

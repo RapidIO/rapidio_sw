@@ -1,5 +1,4 @@
-/* Data Structure for connection to FMD in slave mode */
-/* A Slave is an FMD that accepts commands and returns responses */
+/* Global state information for FMD threads handling library connections */
 /*
 ****************************************************************************
 Copyright (c) 2015, Integrated Device Technology Inc.
@@ -33,65 +32,70 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <stdarg.h>
 #include <semaphore.h>
 #include <pthread.h>
-#include <stdint.h>
-#include "fmd_peer_msg.h"
-#include <rapidio_mport_mgmt.h>
-#include <rapidio_mport_sock.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/mman.h>
+#include <sys/sem.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <sys/ioctl.h>
+#include <fcntl.h>
+#include <signal.h>
+#include <time.h>
 
-#ifndef __FMD_MGMT_SLAVE_H__
-#define __FMD_MGMT_SLAVE_H__
+#include <stdint.h>
+#include <unistd.h>
+#include <dirent.h>
+#include <errno.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
+#include <pthread.h>
+
+#include <rapidio_mport_mgmt.h>#include <rapidio_mport_rdma.h>#include <rapidio_mport_sock.h>
+
+#include "libcli.h"
+#include "librskt_private.h"
+#include "librsktd.h"
+#include "librdma.h"
+#include "liblist.h"
+#include "librsktd_dmn_info.h"
+
+#ifndef __FMD_APP_INFO_H__
+#define __FMD_APP_INFO_H__
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-struct fmd_slave {
-	riomp_mport_t mp_hnd; /* MPORT handle for register access */
-	pthread_t slave_thr; /* Slave FMDR, handles Master FMD cmds */
-	sem_t started; 
-	int slave_alive;
-	int slave_must_die;
+/* Information about applications which have registered with the FMD */
 
-        uint32_t mp_num;
-	uint32_t mast_did;
-        uint32_t mast_skt_num; /* Socket number to connect to */
-        uint32_t mb_valid;
-        riomp_mailbox_t mb;
-	uint32_t skt_valid;
-        riomp_sock_t skt_h; /* Connected socket */
-	sem_t tx_mtx;
-        int tx_buff_used;
-        int tx_rc;
-        union {
-                void *tx_buff;
-                struct fmd_slv_to_mast_msg *s2m; /* alias for tx_buff */
-        };
-        int rx_buff_used;
-        int rx_rc;
-        union {
-                void *rx_buff;
-                struct fmd_mast_to_slv_msg *m2s; /* alias for rx_buff */
-        };
-	int m_h_resp_valid;
-	struct fmd_p_hello m_h_rsp;
+struct fmd_app_info {
+        int app_fd;
+        socklen_t addr_size;
+        struct sockaddr_un addr;
+        pthread_t thread; /* Thread of communicating process */
+        int alive;
+        sem_t started;
+        volatile int i_must_die;
+	sem_t app_resp_mutex;
+	uint32_t dmn_req_num;
+	uint32_t rx_req_num; /* Sequence number for last received app req */
+	struct l_head_t app_resp_q; /* List of responses for requests sent
+					* to the APP.  Ordered by rsktd_seq_num
+					* Struct librsktd_unified_msg.
+					*/
+	char app_name[MAX_APP_NAME];
+	int32_t proc_num;
 };
-
-extern int start_peer_mgmt_slave(uint32_t mast_acc_skt_num, uint32_t mast_did,
-			uint32_t  mp_num, struct fmd_slave *slave);
-
-extern void shutdown_slave_mgmt(void);
-
-int add_device_to_dd(uint32_t ct, uint32_t did, uint32_t did_sz, uint32_t hc,
-                uint32_t is_mast_pt, uint32_t flag, char *name);
-
-int del_device_from_dd(uint32_t ct, uint32_t did);
-
-void update_master_flags_from_peer(void);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* __FMD_MGMT_SLAVE_H__ */
+#endif /* __FMD_APP_INFO_H__ */

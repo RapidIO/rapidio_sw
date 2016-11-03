@@ -45,7 +45,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 #include <stdio.h>
-#include <string.h>
 #include <stdlib.h>
 #include <stdarg.h>
 #include <semaphore.h>
@@ -58,6 +57,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <signal.h>
 #include <time.h>
 
+#include "string_util.h"
 #include "rapidio_mport_dma.h"
 #include "rapidio_mport_mgmt.h"
 #include "rapidio_mport_sock.h"
@@ -101,8 +101,8 @@ int process_rxed_msg(struct ibwin_info *info, int *abort_flag)
 
 	/* Make sure we have a file to write to */
 	if ('\0' == info->file_name[0]) {
-		strncpy(info->file_name, info->rxed_msg->rx_file_name,
-			MAX_FILE_NAME);
+		SAFE_STRNCPY(info->file_name, info->rxed_msg->rx_file_name,
+			sizeof(info->file_name));
 		info->fd = open(info->file_name, O_WRONLY | O_CREAT, 0644);
 		if (-1 == info->fd) {
 			*abort_flag = 1;
@@ -110,7 +110,7 @@ int process_rxed_msg(struct ibwin_info *info, int *abort_flag)
 		};
 	} else {
 		if (strncmp(info->file_name, info->rxed_msg->rx_file_name,
-			MAX_FILE_NAME)) {
+			sizeof(info->file_name))) {
 			*abort_flag = 1;
 			printf("Attempt to write to wrong file!!!\n");
 		};

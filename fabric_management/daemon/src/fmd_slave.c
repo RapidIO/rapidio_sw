@@ -32,8 +32,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 
+#include "fmd_slave.h"
+
 #include <stdio.h>
-#include <string.h>
 #include <stdlib.h>
 #include <stdarg.h>
 #include <semaphore.h>
@@ -60,14 +61,15 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <rapidio_mport_mgmt.h>
 #include <rapidio_mport_sock.h>
 
+#include "string_util.h"
 #include "fmd.h"
+#include "cfg.h"
 #include "libcli.h"
 #include "liblog.h"
 #include "libfmdd.h"
-#include "fmd_mgmt_master.h"
-#include "fmd_mgmt_slave.h"
+#include "fmd_app.h"
+#include "fmd_master.h"
 #include "fmd_state.h"
-#include "fmd_app_mgmt.h"
 #include "pe_mpdrv_private.h"
 
 #ifdef __cplusplus
@@ -80,25 +82,22 @@ struct fmd_slave *slv;
 
 int send_slave_hello_message(void)
 {
-	struct cfg_mport_info mp;
-	struct cfg_dev dev;
+	struct mport_regs regs;
 
-	if (cfg_find_mport(0, &mp))
+	if (riocp_get_mport_regs((*fmd->mp_h)->minfo->id, &regs)) {
 		goto fail;
-
-	if (cfg_find_dev_by_ct(mp.ct, &dev))
-		goto fail;
+	}
 
 	sem_wait(&slv->tx_mtx);
 	slv->s2m->msg_type = htonl(FMD_P_REQ_HELLO);
-	slv->s2m->src_did = htonl(slv->mast_did);
-	memset(slv->s2m->hello_rq.peer_name, 0, MAX_P_NAME+1);
-	strncpy(slv->s2m->hello_rq.peer_name, dev.name, MAX_P_NAME);
+	slv->s2m->src_did = htonl(regs.host_destID);
+	SAFE_STRNCPY(slv->s2m->hello_rq.peer_name, (*fmd->mp_h)->sysfs_name,
+			sizeof(slv->s2m->hello_rq.peer_name));
 	slv->s2m->hello_rq.pid = htonl(getpid());
-	slv->s2m->hello_rq.did = htonl(dev.did);
+	slv->s2m->hello_rq.did = htonl((regs.my_destID & RIO_DEVID_DEV8) >> 16);
 	slv->s2m->hello_rq.did_sz = htonl(FMD_DEV08);
-	slv->s2m->hello_rq.ct = htonl(dev.ct);
-	slv->s2m->hello_rq.hc = htonl(dev.hc);
+	slv->s2m->hello_rq.ct = htonl(regs.comptag);
+	slv->s2m->hello_rq.hc = htonl(0xFF);
 
 	slv->tx_buff_used = 1;
 	slv->tx_rc |= riomp_sock_send(slv->skt_h, slv->tx_buff,
@@ -110,9 +109,9 @@ int send_slave_hello_message(void)
 	return 0;
 fail:
 	return 1;
-};
+}
 
-int add_device_to_dd(uint32_t ct, uint32_t did, uint32_t did_sz, uint32_t hc,
+int add_device_to_dd(ct_t ct, uint32_t did, uint32_t did_sz, uint32_t hc,
 		uint32_t is_mast_pt, uint32_t flag, char *name)
 {
 	uint32_t idx, found_one = 0;
@@ -122,26 +121,29 @@ int add_device_to_dd(uint32_t ct, uint32_t did, uint32_t did_sz, uint32_t hc,
 
 	sem_wait(&fmd->dd_mtx->sem);
 	for (idx = 0; (idx < fmd->dd->num_devs) && !found_one; idx++) {
-		if ((fmd->dd->devs[idx].ct == ct) && 
-				(fmd->dd->devs[idx].destID == did)) {
+		if ((fmd->dd->devs[idx].ct == ct)
+				&& (fmd->dd->devs[idx].destID == did)) {
 			fmd->dd->devs[idx].destID_sz = did_sz;
 			fmd->dd->devs[idx].hc = hc;
 			fmd->dd->devs[idx].is_mast_pt = is_mast_pt;
 			fmd->dd->devs[idx].flag |= flag;
-			if (is_mast_pt)
+			if (is_mast_pt) {
 				fmd->dd->loc_mp_idx = idx;
-			strncpy(fmd->dd->devs[idx].name, name, FMD_MAX_NAME);
+			}
+			SAFE_STRNCPY(fmd->dd->devs[idx].name, name,
+					sizeof(fmd->dd->devs[idx].name));
 			found_one = 1;
-		};
-	};
+		}
+	}
 
-	if (found_one)
+	if (found_one) {
 		goto exit;
+	}
 
 	if (fmd->dd->num_devs >= FMD_MAX_DEVS) {
 		CRIT("More than 0x%x devices, increase FMD_MAX_DEVS.");
 		goto fail;
-	};
+	}
 
 	idx = fmd->dd->num_devs;
 	memset(&fmd->dd->devs[idx], 0, sizeof(fmd->dd->devs[0]));
@@ -151,9 +153,11 @@ int add_device_to_dd(uint32_t ct, uint32_t did, uint32_t did_sz, uint32_t hc,
 	fmd->dd->devs[idx].hc = hc;
 	fmd->dd->devs[idx].is_mast_pt = is_mast_pt;
 	fmd->dd->devs[idx].flag = flag;
-	strncpy(fmd->dd->devs[idx].name, name, FMD_MAX_NAME);
-	if (is_mast_pt)
+	SAFE_STRNCPY(fmd->dd->devs[idx].name, name,
+			sizeof(fmd->dd->devs[idx].name));
+	if (is_mast_pt) {
 		fmd->dd->loc_mp_idx = idx;
+	}
 	fmd->dd->num_devs++;
 		
 exit:
@@ -162,9 +166,9 @@ exit:
 fail:
 	sem_post(&fmd->dd_mtx->sem);
 	return 1;
-};
+}
 	
-int del_device_from_dd(uint32_t ct, uint32_t did)
+int del_device_from_dd(ct_t ct, uint32_t did)
 {
 	uint32_t idx, found_idx = -1, found_one = 0;
 
@@ -177,8 +181,8 @@ int del_device_from_dd(uint32_t ct, uint32_t did)
 				(fmd->dd->devs[idx].destID == did)) {
 			found_idx = idx;
 			found_one = 1;
-		};
-	};
+		}
+	}
 
 	if (!found_one)
 		goto fail;
@@ -198,7 +202,7 @@ int del_device_from_dd(uint32_t ct, uint32_t did)
 fail:
 	sem_post(&fmd->dd_mtx->sem);
 	return 1;
-};
+}
 	
 void slave_process_mod(void)
 {
@@ -235,17 +239,17 @@ void slave_process_mod(void)
 			if (NULL == p_dat) {
 				rc = 1;
 				break;
-			};
+			}
 			p_acc = (struct mpsw_drv_pe_acc_info *)
 				p_dat->dev_h.accessInfo;
 			if (NULL == p_acc) {
 				rc = 2;
 				break;
-			};
+			}
 			if (NULL == p_acc->maint) {
 				rc = 3;
 				break;
-			};
+			}
 
 			rc = riomp_mgmt_device_add(p_acc->maint,
 					ntohl(slv->m2s->mod_rq.did), 
@@ -256,7 +260,7 @@ void slave_process_mod(void)
 		if (rc) {
 			slv->s2m->mod_rsp.rc = htonl(rc);
 			break;
-		};
+		}
 		rc = add_device_to_dd( ntohl(slv->m2s->mod_rq.ct),
 				ntohl(slv->m2s->mod_rq.did), 
 				FMD_DEV08, 
@@ -276,7 +280,7 @@ void slave_process_mod(void)
 		if (rc) {
 			slv->s2m->mod_rsp.rc = htonl(rc);
 			break;
-		};
+		}
 		FIXME: END COMMENT
 		*/
 		rc = del_device_from_dd(ntohl(slv->m2s->mod_rq.ct),
@@ -284,7 +288,7 @@ void slave_process_mod(void)
 		slv->s2m->mod_rsp.rc = htonl(rc);
 		break;
 	default: slv->s2m->mod_rsp.rc = 0xFFFFFFFF;
-	};
+	}
 
 	slv->tx_buff_used = 1;
 	slv->tx_rc |= riomp_sock_send(slv->skt_h, slv->tx_buff, 
@@ -292,7 +296,7 @@ void slave_process_mod(void)
 	sem_post(&slv->tx_mtx);
 	if (!rc)
 		fmd_notify_apps();
-};
+}
 
 void slave_process_fset(void)
 {
@@ -310,12 +314,12 @@ void slave_process_fset(void)
         			(fmd->dd->devs[i].ct == ct)) {
                         fmd->dd->devs[i].flag = flag;
 			break;
-		};
-	};
+		}
+	}
         sem_post(&fmd->dd_mtx->sem);
 
 	fmd_notify_apps();
-};
+}
 
 void cleanup_slave(void)
 {
@@ -326,28 +330,28 @@ void cleanup_slave(void)
 		riomp_sock_release_send_buffer(slv->skt_h, slv->tx_buff);
 		slv->tx_buff = NULL;
 		slv->tx_buff_used = 0;
-	};
+	}
 	
 	if (slv->rx_buff_used) {
 		riomp_sock_release_receive_buffer(slv->skt_h, slv->rx_buff);
 		slv->rx_buff = NULL;
 		slv->rx_buff_used = 0;
-	};
+	}
 	
 	if (slv->skt_valid) {
 		int rc = riomp_sock_close(&slv->skt_h);
 		if (rc) {
 			ERR("Close RC is %d: %s\n", rc, strerror(errno));
-		};
+		}
 		slv->skt_valid = 0;
-	};
+	}
 
 	if (slv->mb_valid) {
 		riomp_sock_mbox_destroy_handle(&slv->mb);
 		memset(&slv->mb, 0, sizeof(slv->mb));
 		slv->mb_valid = 0;
-	};
-};
+	}
+}
 
 void slave_rx_req(void)
 {
@@ -361,8 +365,8 @@ void slave_rx_req(void)
 		ERR("SLV RX: %d (%d:%s)\n",
 			slv->rx_rc, errno, strerror(errno));
 		slv->slave_must_die = 1;
-	};
-};
+	}
+}
 
 void *mgmt_slave(void *unused)
 {
@@ -396,14 +400,14 @@ void *mgmt_slave(void *unused)
 			WARN("Slave RX Msg type %x\n", 
 					ntohl(slv->m2s->msg_type));
 			break;
-		};
-	};
+		}
+	}
 
 fail:
 	cleanup_slave();
 	INFO("FMD Slave EXITING\n");
 	pthread_exit(unused);
-};
+}
 
 int start_peer_mgmt_slave(uint32_t mast_acc_skt_num, uint32_t mast_did,
                         uint32_t  mp_num, struct fmd_slave *slave)
@@ -433,7 +437,7 @@ int start_peer_mgmt_slave(uint32_t mast_acc_skt_num, uint32_t mast_did,
 	if (rc) {
 		ERR("riodp_mbox_create ERR %d\n", rc);
 		goto fail;
-	};
+	}
 	slv->mb_valid = 1;
 
 	do {
@@ -441,7 +445,7 @@ int start_peer_mgmt_slave(uint32_t mast_acc_skt_num, uint32_t mast_did,
 		if (rc) {
 			ERR("riomp_sock_socket ERR %d\n", rc);
 			goto fail;
-		};
+		}
 
 		conn_rc = riomp_sock_connect(slv->skt_h, slv->mast_did,
 					fmd->opts->mast_cm_port);
@@ -463,63 +467,53 @@ int start_peer_mgmt_slave(uint32_t mast_acc_skt_num, uint32_t mast_did,
 				rem.tv_sec = 0;
 				rem.tv_nsec = 0;
 			} while (rc && (errno == EINTR));
-		};
+		}
 		rc = riomp_sock_close(&slv->skt_h);
 		if (rc) {
 			ERR("riomp_sock_close ERR %d\n", rc);
-		};
+		}
 	} while (conn_rc);
 
 	if (conn_rc) {
 		ERR("riomp_sock_connect ERR %d\n", conn_rc);
 		goto fail;
-	};
+	}
 
 	slv->skt_valid = 1;
 	
         if (riomp_sock_request_send_buffer(slv->skt_h, &slv->tx_buff)) {
                 riomp_sock_close(&slv->skt_h);
                 goto fail;
-        };
+        }
 	slv->rx_buff = calloc(1, 4096);
 
         rc = pthread_create(&slv->slave_thr, NULL, mgmt_slave, NULL);
 	if (rc) {
 		ERR("pthread_create ERR %d\n", rc);
 		goto fail;
-	};
+	}
 	sem_wait(&slv->started);
 
 	rc = send_slave_hello_message();
 	if (rc) {
 		ERR("hello message tx fail ERR %d\n", rc);
 		goto fail;
-	};
+	}
 
 	return rc;
 fail:
 	return 1;
 	
-};
+}
 		
-void shutdown_slave_mgmt(void)
-{
-	if (slv->slave_alive) {
-		slv->slave_must_die = 1;
-		pthread_kill(slv->slave_thr, SIGHUP);
-		pthread_join(slv->slave_thr, NULL);
-		slv->slave_alive = 0;
-	};
-	cleanup_slave();
-};
-
 void update_master_flags_from_peer(void)
 {
-	uint32_t did, did_sz, ct, flag, i;
+	uint32_t did, did_sz, flag, i;
+	ct_t ct;
 
 	if ((NULL == fmd->dd) || (NULL == fmd->dd_mtx) || (NULL == slv->s2m)) {
 		return;
-	};
+	}
 
 	sem_wait(&fmd->dd_mtx->sem);
 
@@ -548,7 +542,7 @@ void update_master_flags_from_peer(void)
 	slv->tx_rc |= riomp_sock_send(slv->skt_h, slv->tx_buff,
 				FMD_P_S2M_CM_SZ);
 	sem_post(&slv->tx_mtx);
-};
+}
 
 
 #ifdef __cplusplus

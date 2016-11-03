@@ -61,7 +61,7 @@ extern "C" {
 #define LIBRSKTD_HELLO_RESP (LIBRSKTD_HELLO|LIBRSKTD_RESP)
 #define LIBRSKTD_RELEASE 7
 #define LIBRSKTD_RELEASE_RESP (LIBRSKTD_RELEASE|LIBRSKTD_RESP)
-#define LIBRSKTD_LAST_MSG_TYPE 0x10;
+#define LIBRSKTD_LAST_MSG_TYPE 0x10
 
 #define LIBRSKT_CLOSE_CMD 0x111
 #define LIBRSKT_CLOSE_CMD_RESP (LIBRSKT_CLOSE_CMD|LIBRSKTD_RESP)
@@ -183,16 +183,16 @@ struct librskt_accept_resp {
 	struct rskt_sockaddr peer_sa;
 	/* Local mos/ms/msub to allocate for RDMA connect operation */
 	uint32_t ms_size;
-	char mso_name[MAX_MS_NAME]; 
-	char ms_name[MAX_MS_NAME];
+	char mso_name[MAX_MS_NAME+1];
+	char ms_name[MAX_MS_NAME+1];
 };
 
 struct librskt_connect_resp {
 	uint32_t new_sn; /* Local socket number allocated for connection */
 	uint32_t new_ct; /* Local Component Tag value */
-	char mso[MAX_MS_NAME];  /* Local mso to open() for ms */
-	char ms[MAX_MS_NAME]; /* Local ms to open() for msub */
-	char rem_ms[MAX_MS_NAME]; /* Remote ms for RDMA connect operation */
+	char mso[MAX_MS_NAME+1];  /* Local mso to open() for ms */
+	char ms[MAX_MS_NAME+1]; /* Local ms to open() for msub */
+	char rem_ms[MAX_MS_NAME+1]; /* Remote ms for RDMA connect operation */
 	uint32_t rem_sn;
 	uint32_t msub_sz;
 };

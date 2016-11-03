@@ -32,22 +32,19 @@
 TOPDIR?=$(shell pwd)/../..
 include $(TOPDIR)/rules.mk
 
-DEBUG?=DEBUG
-
-level=$(LOG_LEVEL)
-
 NAME:=fmdd
 TARGETS:=lib$(NAME).a
 HEADERS:=inc/lib$(NAME).h
 
 CC := $(CXX)
 
-CFLAGS+=$(addprefix -W,all extra) -fPIC
-CFLAGS+=-D$(DEBUG)
-CFLAGS+=-I. -I../inc
+CFLAGS=$(CXXFLAGS)
+CFLAGS+=-D$(DEBUG_CTL) -DRDMA_LL=$(LOG_LEVEL)
+CFLAGS+=-I../inc
+CFLAGS+=-I../libdid/inc
+CFLAGS+=-I../libct/inc
 CFLAGS+=-I../libriocp_pe/inc
 CFLAGS+=-I../librio_switch/inc
-CFLAGS+=-DRDMA_LL=$(level)
 
 LDFLAGS+=-L. -l$(NAME)
 

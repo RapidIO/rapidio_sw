@@ -39,7 +39,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <IDT_CPS_Common_Test.h>
 #include <CPS1848_registers.h>
 #include <CPS1616_registers.h>
-#include <string.h>
+
+#include "string_util.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -114,7 +115,7 @@ uint32_t IDT_CPSGEN2_DeviceSupported( DAR_DEV_INFO_t *dev_info )
     {
         if ( IDT_CPS1848_DEV_ID == ( DECODE_DEVICE_ID( dev_info->devID ) ) )
         {
-	    strncpy(dev_info->name,"CPS1848", sizeof(dev_info->name));
+            SAFE_STRNCPY(dev_info->name,"CPS1848", sizeof(dev_info->name));
             dev_info->dsf_h = cpsgen2_driver_handle ;
             dev_info->assyInfo = 0x100 ;
             dev_info->devInfo = 0 ;
@@ -136,7 +137,7 @@ uint32_t IDT_CPSGEN2_DeviceSupported( DAR_DEV_INFO_t *dev_info )
         }
 	else if ( IDT_CPS1432_DEV_ID == ( DECODE_DEVICE_ID( dev_info->devID ) ) )
         {
-	    strncpy(dev_info->name,"CPS1432", sizeof(dev_info->name));
+            SAFE_STRNCPY(dev_info->name,"CPS1432", sizeof(dev_info->name));
             dev_info->dsf_h = cpsgen2_driver_handle ;
             dev_info->assyInfo = 0x100 ;
             dev_info->devInfo = 0 ;
@@ -158,7 +159,7 @@ uint32_t IDT_CPSGEN2_DeviceSupported( DAR_DEV_INFO_t *dev_info )
         }
         else if ( IDT_CPS1616_DEV_ID == ( DECODE_DEVICE_ID( dev_info->devID ) ) )
         {
-	    strncpy(dev_info->name,"CPS1616", sizeof(dev_info->name));
+            SAFE_STRNCPY(dev_info->name,"CPS1616", sizeof(dev_info->name));
             dev_info->dsf_h = cpsgen2_driver_handle ;
             dev_info->assyInfo = 0x100 ;
             dev_info->devInfo = 0 ;
@@ -180,7 +181,7 @@ uint32_t IDT_CPSGEN2_DeviceSupported( DAR_DEV_INFO_t *dev_info )
         }
         else if ( IDT_VPS1616_DEV_ID == ( DECODE_DEVICE_ID( dev_info->devID ) ) )
         {
-	    strncpy(dev_info->name,"VPS1616", sizeof(dev_info->name));
+            SAFE_STRNCPY(dev_info->name,"VPS1616", sizeof(dev_info->name));
             dev_info->dsf_h = cpsgen2_driver_handle ;
             dev_info->assyInfo = 0x100 ;
             dev_info->devInfo = 0 ;
@@ -202,7 +203,7 @@ uint32_t IDT_CPSGEN2_DeviceSupported( DAR_DEV_INFO_t *dev_info )
         }
         else if ( IDT_SPS1616_DEV_ID == ( DECODE_DEVICE_ID( dev_info->devID ) ) )
         {
-	    strncpy(dev_info->name,"SPS1616", sizeof(dev_info->name));
+            SAFE_STRNCPY(dev_info->name,"SPS1616", sizeof(dev_info->name));
             dev_info->dsf_h = cpsgen2_driver_handle ;
             dev_info->assyInfo = 0x100 ;
             dev_info->devInfo = 0 ;

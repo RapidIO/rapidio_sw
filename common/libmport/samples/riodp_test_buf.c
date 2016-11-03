@@ -62,11 +62,15 @@
 #include <stdint.h> /* For size_t */
 #include <unistd.h>
 #include <getopt.h>
-#include <rapidio_mport_dma.h>
 #include <time.h>
 #include <signal.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <rapidio_mport_mgmt.h>
+#include <rapidio_mport_dma.h>
 
 /** \def DEFAULT_IBWIN_SIZE
      \brief Default size of Inbound Window and corresponding data buffer.
@@ -131,7 +135,7 @@ int fill_segment(uint32_t mport_id, int seg_id, uint64_t seg_handle, uint32_t se
 	memset(ibmap, fill, seg_size);
 
 	/** - unmap the physical memory address from the local process address space */
-	ret = riomp_dma_unmap_memory(mphnd, seg_size, ibmap);
+	ret = riomp_dma_unmap_memory(seg_size, ibmap);
 
 	if (ret)
 		perror("munmap");
@@ -270,7 +274,7 @@ int do_buf_test(uint32_t mport_id, uint64_t rio_base, uint32_t ib_size,
 	getchar();
 
 	/** - unmap the buffer from the local process address space */
-	ret = riomp_dma_unmap_memory(mport_hnd, ib_size, ibmap);
+	ret = riomp_dma_unmap_memory(ib_size, ibmap);
 	if (ret)
 		perror("munmap");
 out:
@@ -344,7 +348,6 @@ int main(int argc, char** argv)
 		{ "mport",  required_argument, NULL, 'M' },
 		{ "laddr",  required_argument, NULL, 'L' },
 		{ "help",   no_argument, NULL, 'h' },
-		{ }
 	};
 	char *program = argv[0];
 	int rc = EXIT_SUCCESS;
@@ -405,3 +408,7 @@ int main(int argc, char** argv)
 	riomp_mgmt_mport_destroy_handle(&mport_hnd);
 	exit(rc);
 }
+
+#ifdef __cplusplus
+}
+#endif

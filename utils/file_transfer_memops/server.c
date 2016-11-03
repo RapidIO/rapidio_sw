@@ -32,7 +32,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 #include <stdio.h>
-#include <string.h>
 #include <stdlib.h>
 #include <stdarg.h>
 #include <semaphore.h>
@@ -55,6 +54,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <netinet/tcp.h>
 #include <pthread.h>
 
+#include "string_util.h"
+#include "rio_misc.h"
 #include "rapidio_mport_mgmt.h"
 #include "rapidio_mport_sock.h"
 #include "rapidio_mport_dma.h"
@@ -242,7 +243,7 @@ sem_t cons_owner;
 void set_prompt(struct cli_env *e)
 {
         if (e != NULL) {
-                strncpy(e->prompt, "FXServer> ", PROMPTLEN);
+                SAFE_STRNCPY(e->prompt, "FXServer> ", sizeof(e->prompt));
         };
 };
 
@@ -358,7 +359,7 @@ ATTR_RPT
 
 void fxfr_server_shutdown(void);
 
-int FXShutdownCmd(struct cli_env *env, int argc, char **argv)
+int FXShutdownCmd(struct cli_env *env, int UNUSED(argc), char **UNUSED(argv))
 {
 	fxfr_server_shutdown();
 	sprintf(env->output, "Shutdown initiated...\n"); 
@@ -735,7 +736,7 @@ exit:
 };
 
 int setup_mport(uint8_t mport_num, uint8_t num_win, uint32_t win_size, 
-		uint64_t ibwin_base, int xfer_skt_num)
+		uint64_t UNUSED_PARM(ibwin_base), int UNUSED_PARM(xfer_skt_num))
 {
 	int rc = -1;
 	uint8_t i;
@@ -1009,10 +1010,8 @@ void fxfr_server_shutdown(void) {
 	};
 };
 
-void fxfr_server_shutdown_cli(struct cli_env *env)
+void fxfr_server_shutdown_cli(struct cli_env *UNUSED(env))
 {
-	if (0)
-		env = NULL;
 	fxfr_server_shutdown();
 };
 

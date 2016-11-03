@@ -57,12 +57,20 @@ extern "C" {
 #define RDMA_DFLT_DMN_CM_PORT 5544
 #define RSKT_DFLT_DMN_CM_PORT 4455
 
+/** \brief FMD configuration options */
+#define FMD_DFLT_INIT_DD 0
+#define FMD_DFLT_RUN_CONS 1
+#define FMD_DFLT_LOG_LEVEL ((RDMA_LL_ERR < RDMA_LL)?RDMA_LL_WARN:RDMA_LL)
+#define FMD_DFLT_MAST_INTERVAL 5
+#define FMD_DFLT_MAST_DEVID_SZ FMD_DEV08
+#define FMD_DFLT_MAST_DEVID 0xFD
+
 /** \brief File transfer and CM_SOCK demo default CM ports */
 #define FXFR_DFLT_SVR_CM_PORT 5555
 #define CM_SOCK_DFLT_SVR_CM_PORT 5556
 
 /** \brief AF_UNIX socket definitions for FMD */
-#define FMD_DFLT_APP_PORT_NUM 3434
+#define FMD_DFLT_APP_PORT_NUM 9797
 #define FMD_APP_MSG_SKT_FMT "/var/tmp/FMD%04d"
 #define FMD_DFLT_DD_FN "/RIO_SM_DEV_DIR"
 #define FMD_DFLT_DD_MTX_FN "/RIO_SM_DEV_DIR_MUTEX"

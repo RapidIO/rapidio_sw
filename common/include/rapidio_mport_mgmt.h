@@ -42,6 +42,7 @@ extern "C" {
 #endif
 
 #include <stdint.h>
+#include "ct.h"
 
 /** @brief max number of RIO mports supported by platform */
 #define RIODP_MAX_MPORTS 8
@@ -127,6 +128,14 @@ struct riomp_mgmt_event {
 		struct riomp_mgmt_doorbell doorbell;	/**< header is RIO_EVENT_DOORBELL */
 		struct riomp_mgmt_portwrite portwrite; 	/**< header is RIO_EVENT_PORTWRITE */
 	} u;					/**< Event specific data */
+};
+
+/** @brief RapidIO mport handle */
+struct rapidio_mport_handle {
+	int fd;			/**< posix api compatible fd to be used with poll/select */
+	uint8_t mport_id;
+	uint8_t umd_chan;
+	void* stats;		/**< Pointer to statistics gathering back door for driver... */
 };
 
 /** @brief RapidIO mport handle */
@@ -415,7 +424,7 @@ int riomp_mgmt_send_event(riomp_mport_t mport_handle, struct riomp_mgmt_event *e
  * @retval 0 on success
  * @retval -errno on error
  */
-int riomp_mgmt_device_add(riomp_mport_t mport_handle, uint16_t destid, uint8_t hc, uint32_t ctag, const char *name);
+int riomp_mgmt_device_add(riomp_mport_t mport_handle, uint16_t destid, uint8_t hc, ct_t ctag, const char *name);
 
 /**
  * @brief delete kernel object
@@ -429,7 +438,7 @@ int riomp_mgmt_device_add(riomp_mport_t mport_handle, uint16_t destid, uint8_t h
  * @retval 0 on success
  * @retval -errno on error
  */
-int riomp_mgmt_device_del(riomp_mport_t mport_handle, uint16_t destid, uint8_t hc, uint32_t ctag, const char *name);
+int riomp_mgmt_device_del(riomp_mport_t mport_handle, uint16_t destid, uint8_t hc, ct_t ctag, const char *name);
 
 #ifdef __cplusplus
 }

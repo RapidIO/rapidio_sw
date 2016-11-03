@@ -40,8 +40,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "IDT_Routing_Table_Config_API.h"
 #include "IDT_Error_Management_API.h"
 #include "IDT_DSF_DB_Private.h"
-// #include "IDT_Traffic_Gen_API.h"
-#include <string.h>
+
+#include "string_util.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -135,7 +135,7 @@ uint32_t IDT_tsi721DeviceSupported( DAR_DEV_INFO_t *DAR_info )
 
             if ( rc == RIO_SUCCESS ) {
                 num_Tsi721_driver_instances++ ;
-                strncpy(DAR_info->name, "Tsi721", sizeof(DAR_info->name));
+                SAFE_STRNCPY(DAR_info->name, "Tsi721", sizeof(DAR_info->name));
             }
         }
     }

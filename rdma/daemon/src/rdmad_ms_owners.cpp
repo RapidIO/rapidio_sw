@@ -32,8 +32,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 #include <stdint.h>
 
+#ifndef __STDC_FORMAT_MACROS
 #define __STDC_FORMAT_MACROS
+#endif
 #include <cinttypes>
+#include <inttypes.h>
 
 #include <string>
 #include <vector>
@@ -228,7 +231,7 @@ int ms_owners::destroy_mso(tx_engine<unix_server, unix_msg_t> *tx_eng)
 
 	/* Mark msoid as being free */
 	msoid_free_list[msoid] = true;
-	DBG("msoid(0x%X) now marked as 'free'\n");
+	DBG("msoid(0x%X) now marked as 'free'\n", msoid);
 
 	/* Remove owner */
 	owners.erase(mso_it);
@@ -258,7 +261,7 @@ int ms_owners::destroy_mso(uint32_t msoid)
 
 	/* Mark msoid as being free */
 	msoid_free_list[msoid] = true;
-	DBG("msoid(0x%X) now marked as 'free'\n");
+	DBG("msoid(0x%X) now marked as 'free'\n", msoid);
 
 	return 0;
 } /* destroy_msoid() */

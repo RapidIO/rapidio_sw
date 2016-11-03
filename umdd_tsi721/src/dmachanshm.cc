@@ -32,17 +32,22 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 #include <stdint.h>
+#ifndef __STDC_FORMAT_MACROS
+#define __STDC_FORMAT_MACROS
+#endif
+#include <inttypes.h>
 #include <assert.h>
 #include <unistd.h>
 #include <sched.h>
 #include <sys/syscall.h>   /* For SYS_xxx definitions */
 
 #include <stdexcept>
-#include <string>
 #include <sstream>
 
+#include "string_util.h"
 #include "IDT_Tsi721.h"
 
+#include "rio_misc.h"
 #include "mhz.h"
 #include "mport.h"
 #include "dmadesc.h"
@@ -50,8 +55,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "debug.h"
 #include "dmachanshm.h"
 #include "libtime_utils.h"
-
-#pragma GCC diagnostic ignored "-fpermissive"
 
 /* DMA Status FIFO */
 #define DMA_STATUS_FIFO_LENGTH (4096)
@@ -98,7 +101,7 @@ bool DMAChannelSHM::has_state(const uint32_t mport_id, const uint32_t chan)
 {
   char path[129] = {0};
 
-  strncpy(path, "/dev/shm/", 128);
+  SAFE_STRNCPY(path, "/dev/shm/", sizeof(path));
   const int N = strlen(path);
   snprintf(path+N, 128-N, DMA_SHM_STATE_NAME, mport_id, chan);
 
@@ -527,7 +530,6 @@ bool DMAChannelSHM::queueDmaOpT12(enum dma_rtype rtype, DmaOptions_t& opt, RioMp
     m_pending_tickets[bd_idx] = opt.ticket;
 
     if (m_pendingdata_tally != NULL) {
-      assert(m_pendingdata_tally->data[m_state->chan] >= 0);
       m_pendingdata_tally->data[m_state->chan] += opt.bcount;
     }
   }}
@@ -546,11 +548,11 @@ bool DMAChannelSHM::queueDmaOpT12(enum dma_rtype rtype, DmaOptions_t& opt, RioMp
 #ifdef DEBUG_BD
   const uint64_t offset = (uint8_t*)bd_hw - (uint8_t*)m_dmadesc.win_ptr;
 
-  XDBG("\n\tQueued DTYPE%d op=%s did=0x%x as BD HW @0x%lx bd_wp=%d pid=%d  ticket=%llu cliidx=%d\n",
+  XDBG("\n\tQueued DTYPE%d op=%s did=0x%x as BD HW @0x%" PRIx64 " bd_wp=%d pid=%d  ticket=%" PRIu64 " cliidx=%d\n",
       wk.opt.dtype, dma_rtype_str[rtype], wk.opt.destid, m_dmadesc.win_handle + offset, wk.bd_wp, m_pid, opt.ticket, m_cliidx);
 
   if(queued_T3)
-     XDBG("\n\tQueued DTYPE%d as BD HW @0x%lx bd_wp=%d\n", wk_end.opt.dtype, m_dmadesc.win_handle + m_state->T3_bd_hw, wk_end.bd_wp);
+     XDBG("\n\tQueued DTYPE%d as BD HW @0x%" PRIx64 " bd_wp=%d\n", wk_end.opt.dtype, m_dmadesc.win_handle + m_state->T3_bd_hw, wk_end.bd_wp);
 #endif
 
   return true;
@@ -1027,7 +1029,7 @@ int DMAChannelSHM::scanFIFO(WorkItem_t* completed_work, const int max_work, cons
     if(m_state->restart_pending && !force_scan) return 0;
 
 #ifdef DEBUG_BD
-     XDBG("\n\tFound idx=%d ticket=%llu for HW @0x%lx FIFO offset 0x%x in m_pending_work -- FIFO hw RP=%u WP=%u\n",
+     XDBG("\n\tFound idx=%d ticket=%" PRIu64 " for HW @0x%" PRIx64 " FIFO offset 0x%x in m_pending_work -- FIFO hw RP=%u WP=%u\n",
         idx, item.opt.ticket,
         compl_hwbuf[ci].win_handle, compl_hwbuf[ci].fifo_offset,
         getFIFOReadCount(), getFIFOWriteCount());
@@ -1112,7 +1114,6 @@ int DMAChannelSHM::scanFIFO(WorkItem_t* completed_work, const int max_work, cons
     if (item.cliidx >= 0) m_state->client_completion[item.cliidx].bytes_txd += item.opt.bcount;
 
     if (m_pendingdata_tally != NULL) {
-      assert(m_pendingdata_tally->data[m_state->chan] >= 0);
       m_pendingdata_tally->data[m_state->chan] -= item.opt.bcount;
     }
 
@@ -1139,7 +1140,7 @@ int DMAChannelSHM::scanFIFO(WorkItem_t* completed_work, const int max_work, cons
       if (k == P) break; // Upper bound
     }
 #ifdef DEBUG_BD
-    XDBG("\n\tDMA bd_idx=%d rtype=%d Ticket=%llu S/N=%llu Pending=%d pending_tickets_RP=%llu => k=%d\n",
+    XDBG("\n\tDMA bd_idx=%d rtype=%d Ticket=%" PRIu64 " S/N=%" PRIu64 " Pending=%d pending_tickets_RP=%" PRIu64 " => k=%d\n",
          item.bd_idx, item.opt.rtype, item.opt.ticket, m_state->serial_number, P, m_pending_tickets_RP, k);
 #endif
     if (k > 0) {
@@ -1269,13 +1270,9 @@ int DMAChannelSHM::simFIFO(const int max_bd, const uint32_t fault_bmask)
   if (!m_sim)
     throw std::runtime_error("DMAChannelSHM: Simulation was not flagged!");
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Waddress"
-        assert("simFIFO" == "IT'S SUUUUPERBUGGY");
-#pragma GCC diagnostic pop
-
   uint64_t* sts_ptr = (uint64_t*)m_dmacompl.win_ptr;
   const uint64_t HW_END = m_dmadesc.win_handle + m_dmadesc.win_size;
+  UNUSED_DBG(HW_END);
 
 #if defined(UDMA_SIM_DEBUG) && defined(RDMA_LL)
   if (7 <= g_level) { // DEBUG
@@ -1344,7 +1341,7 @@ int DMAChannelSHM::simFIFO(const int max_bd, const uint32_t fault_bmask)
       assert(next_idx > 0); // cannot be BD0
       assert(next_idx < (m_state->bd_num - 1)); // cannot be BD(bufc-1)
 
-      XDBG("BD0 jumps to linear address 0x%llx (offset 0x%llx) as BD%d -- DMA simRP %d->%d\n",
+      XDBG("BD0 jumps to linear address 0x%" PRIx64 " (offset 0x%" PRIx64 ") as BD%d -- DMA simRP %d->%d\n",
           next_linear, next_off, next_idx, m_sim_dma_rp, m_sim_dma_rp + next_idx);
 
       m_sim_dma_rp += next_idx;

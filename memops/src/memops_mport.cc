@@ -199,7 +199,7 @@ bool RIOMemOpsMport::free_dmawin(DmaMem_t& mem)
     if (it != m_memreg.end()) m_memreg.erase(it);
   pthread_mutex_unlock(&m_memreg_mutex);
 
-  int rc = riomp_dma_unmap_memory(m_mp_h, mem.win_size, mem.win_ptr);
+  int rc = riomp_dma_unmap_memory(mem.win_size, mem.win_ptr);
   if (rc) {
     XCRIT("FAIL riomp_dma_unmap_memory: %d:%s\n", rc, strerror(rc));
     ret = false;
@@ -227,7 +227,7 @@ bool RIOMemOpsMport::free_ibwin(DmaMem_t& ibwin)
   pthread_mutex_unlock(&m_memreg_mutex);
 
   /* Memory-unmap the inbound window's virtual pointer */
-  int rc = riomp_dma_unmap_memory(m_mp_h, ibwin.win_size, ibwin.win_ptr);
+  int rc = riomp_dma_unmap_memory(ibwin.win_size, ibwin.win_ptr);
   if (rc) {
     XCRIT("Failed to unmap inbound memory: @%p %d:%s\n",
          ibwin.win_ptr, ret, strerror(ret));

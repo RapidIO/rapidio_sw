@@ -61,7 +61,7 @@ extern "C" {
 			(x==RSKTD_CLOSE_RESP)?"CLOSE_RSP":">ERROR<"
 
 struct librsktd_hello_req {
-	uint32_t ct; /* Peer component tag */
+	ct_t ct; /* Peer component tag */
 	uint32_t cm_skt; /* Peer cm socket number for connecting to */
 	uint32_t cm_mp; /* Peer cm MPORT number */
 };
@@ -75,8 +75,8 @@ struct librsktd_connect_req {
 	uint32_t dst_ct; /* Thought we're sending here */
 	uint32_t src_sn; /* Connecting socket number */
 	/* Local mso/ms/msub to allocate for RDMA connect operation */
-	char src_mso[MAX_MS_NAME];  /* Client mso name */
-	char src_ms[MAX_MS_NAME]; /* Client ms name */
+	char src_mso[MAX_MS_NAME+1];  /* Client mso name */
+	char src_ms[MAX_MS_NAME+1]; /* Client ms name */
 	uint32_t src_msub_o; /* Client msub offset within ms */
 	uint32_t src_msub_s; /* Client msub size in bytes */
 };
@@ -87,7 +87,7 @@ struct librsktd_connect_resp {
 	uint32_t dst_ct; /* Request component tag */
 	uint32_t dst_dmn_cm_skt; /* Request cm skt number*/
 	/* Local mso/ms/msub to allocate for RDMA connect operation */
-	char dst_ms[MAX_MS_NAME]; /* Server ms name */
+	char dst_ms[MAX_MS_NAME+1]; /* Server ms name */
 	uint32_t msub_sz; /* Size of msub allocated */
 };
 

@@ -35,8 +35,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <stdint.h>
 
+#ifndef __STDC_FORMAT_MACROS
 #define __STDC_FORMAT_MACROS
+#endif
 #include <cinttypes>
+#include <inttypes.h>
 
 #include <algorithm>
 #include <iterator>
@@ -353,12 +356,12 @@ struct send_connect_input {
 		DBG("client_destid_len = 0x%X\n", client_destid_len);
 		DBG("client_destid     = 0x%X\n", client_destid);
 		DBG("seq_num           = 0x%X\n", seq_num);
-		DBG("connh             = 0x%X\n", connh);
+		DBG("connh             = 0x%" PRIX64 "\n", connh);
 		DBG("client_msid = 0x%X\n", client_msid);
 		DBG("client_msubid = 0x%X\n", client_msubid);
 		DBG("client_bytes = 0x%X\n", client_bytes);
 		DBG("client_rio_addr_len = 0x%X\n", client_rio_addr_len);
-		DBG("client_rio_addr_lo = 0x%016" PRIx64 "\n",
+		DBG("client_rio_addr_lo = 0x%016" PRIX64 "\n",
 							client_rio_addr_lo);
 		DBG("client_rio_addr_hi = 0x%X\n", client_rio_addr_hi);
 	}
@@ -422,16 +425,17 @@ struct connect_to_ms_req_input {
 	void dump()
 	{
 		DBG("client_msid = 0x%X\n", client_msid);
+
 		DBG("client_msubid = 0x%X\n", client_msubid);
 		DBG("client_msub_bytes = 0x%X\n", client_msub_bytes);
 		DBG("client_rio_addr_len = 0x%X\n", client_rio_addr_len);
-		DBG("client_rio_addr_lo = 0x%016" PRIx64 "\n", client_rio_addr_lo);
+		DBG("client_rio_addr_lo = 0x%016" PRIX64 "\n", client_rio_addr_lo);
 		DBG("client_rio_addr_hi = 0x%X\n", client_rio_addr_hi);
 		DBG("client_destid_len = 0x%X\n", client_destid_len);
 		DBG("client_destid = 0x%X\n", client_destid);
 		DBG("seq_num = 0x%X\n", seq_num);
-		DBG("connh = 0x%X\n", connh);
-		DBG("client_to_lib_tx_eng_h = 0x%X\n", client_to_lib_tx_eng_h);
+		DBG("connh = 0x%" PRIX64 "\n", connh);
+		DBG("client_to_lib_tx_eng_h = 0x%" PRIX64 "\n", client_to_lib_tx_eng_h);
 	}
 };
 
@@ -456,7 +460,7 @@ struct connect_to_ms_resp_input {
 		DBG("server_msubid = 0x%X\n", server_msubid);
 		DBG("server_msub_bytes = 0x%X\n", server_msub_bytes);
 		DBG("server_rio_addr_len = 0x%X\n", server_rio_addr_len);
-		DBG("server_rio_addr_lo = 0x%X\n", server_rio_addr_lo);
+		DBG("server_rio_addr_lo = 0x016%" PRIX64 "\n", server_rio_addr_lo);
 		DBG("server_rio_addr_hi = 0x%X\n", server_rio_addr_hi);
 	}
 };

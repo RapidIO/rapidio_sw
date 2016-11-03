@@ -34,8 +34,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdio.h>
 #include <sched.h>
 #include <assert.h>
-#define __STDC_FORMAT_MACROS
 #include <stdint.h>
+#ifndef __STDC_FORMAT_MACROS
+#define __STDC_FORMAT_MACROS
+#endif
 #include <inttypes.h>
 
 #include "memops.h"
@@ -449,10 +451,10 @@ next:
     struct timespec dT = time_difference(st_time, now);
     const int64_t nsec = dT.tv_nsec + (dT.tv_sec * 1000000000);
     if (nsec > timeout) { 
-      int abort = 0;
-      if (checkAbort())
-           abort = getAbortReason();
-      else m_errno = ETIMEDOUT;
+      if (false == checkAbort()) {
+        m_errno = ETIMEDOUT;
+      }
+      int abort = getAbortReason();
 
       fprintf(stderr, "UMD %s: Ticket %lu timed out in %" PRId64 " nsec with code %d (%s)\n", __func__, opt.ticket, nsec, abort, abortReasonToStr(abort));
       return false;
@@ -496,7 +498,7 @@ bool RIOMemOpsUMD::wait_async(MEMOPSRequest_t& dmaopt /*only if async flagged*/,
 
 const char* RIOMemOpsUMD::abortReasonToStr(int abort_reason)
 {
-  return strerror(m_errno);
+  return strerror(abort_reason);
 }
 
 int RIOMemOpsUMD::getAbortReason() { return m_errno; }

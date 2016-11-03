@@ -5,6 +5,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 
+#include "string_util.h"
 #include "umbox_afu.h"
 
 #define      CM_TAG   3
@@ -51,7 +52,7 @@ int main(int argc, char* argv[])
         pL3->tag    = htons(CM_TAG);
 
         uint8_t* pData = buffer + sizeof(DMA_MBOX_L3_t);
-        strncpy(pData, "Snow pants first, then your boots. Mittens last", 4096-sizeof(DMA_MBOX_L3_t));
+        SAFE_STRNCPY(pData, "Snow pants first, then your boots. Mittens last", 4096 - sizeof(DMA_MBOX_L3_t));
         const int N = sizeof(DMA_MBOX_L3_t) + strlen(pData);
 
         if (write(sock, buffer, N) < 0)

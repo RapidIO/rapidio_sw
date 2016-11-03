@@ -33,9 +33,13 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 #include <stdlib.h>
-#include "liblog.h"
 #include "liblist.h"
-#include "assert.h"
+
+#ifdef UNIT_TESTING
+#include <stdarg.h>
+#include <setjmp.h>
+#include "cmocka.h"
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -43,14 +47,23 @@ extern "C" {
 
 void l_init(struct l_head_t *l)
 {
+	if (NULL == l) {
+		return;
+	}
+
 	l->cnt = 0;
 	l->head = l->tail = NULL;
 };
 
 void l_push_tail(struct l_head_t *l, void *item)
 {
-	struct l_item_t *li = (struct l_item_t *)
-				calloc(1, sizeof(struct l_item_t));
+	struct l_item_t *li;
+
+	if ((NULL == l) || (NULL == item)) {
+		return;
+	}
+
+	li = (struct l_item_t *) calloc(1, sizeof(struct l_item_t));
 
 	li->key = 0;
 	li->item = item;
@@ -72,6 +85,10 @@ void *l_pop_head(struct l_head_t *l)
 	void *li = NULL;
 	struct l_item_t *temp;
 
+	if (NULL == l) {
+		return NULL;
+	}
+
 	if (l->cnt) {
 		li = l->head->item;
 		if (1 == l->cnt) {
@@ -91,10 +108,15 @@ void *l_pop_head(struct l_head_t *l)
 		
 struct l_item_t *l_add(struct l_head_t *l, uint32_t key, void *item)
 {
-	struct l_item_t *new_li = (struct l_item_t *)
-					calloc(1, sizeof(struct l_item_t));
-	struct l_item_t *li = NULL;
+	struct l_item_t *new_li;
+	struct l_item_t *li;
 
+	if ((NULL == l) || (NULL == item)) {
+		return NULL;
+	}
+
+	new_li = (struct l_item_t *) calloc(1, sizeof(struct l_item_t));
+	li = NULL;
 	new_li->next = new_li->prev = NULL;
 	new_li->key = key;
 	new_li->item = item;
@@ -134,11 +156,6 @@ struct l_item_t *l_add(struct l_head_t *l, uint32_t key, void *item)
 		li = li->next;
 	}
 	
-	if (li == NULL) {
-		CRIT("NEVER: li == NULL");
-		rdma_log_close();
-	};
-	assert(li != NULL);
 exit:
 	l->cnt++;
 	return new_li;
@@ -147,22 +164,10 @@ exit:
 void l_lremove(struct l_head_t *l, struct l_item_t *li)
 {
 	if ((NULL == l) || (NULL == li)) {
-		WARN("l or *li is NULL\n");
 		return;
 	}
 
-	if (!l->cnt) {
-		rdma_log_close();
-		CRIT("NEVER:(l->cnt == 0)\n");
-	}
-	assert(l->cnt);
-
 	if (1 == l->cnt) {
-		if (li != l->head) {
-			CRIT("NEVER:(l->cnt == 1) && (li != l->head)\n");
-			rdma_log_close();
-		};
-		assert(li == l->head);
 		l_init(l);
 	} else {
 		if (li == l->head) {
@@ -178,25 +183,34 @@ void l_lremove(struct l_head_t *l, struct l_item_t *li)
 			}
 		}
 		l->cnt--;
-	};
+	}
 	free(li);
 }
 
 void l_remove(struct l_head_t *l, struct l_item_t *li)
 {
-	void *l_val = li->item;
+	void *l_val;
 
+	if ((NULL == l) || (NULL == li)) {
+		return;
+	}
+
+	l_val = li->item;
 	l_lremove(l, li);
 	free(l_val);
 };
 
 void *l_find(struct l_head_t *l, uint32_t key, struct l_item_t **l_item)
 {
-	struct l_item_t *li = l->head;
+	struct l_item_t *li;
 	void *ret = NULL;
 	
-	*l_item = NULL;
+	if ((NULL == l) || (NULL == l_item)) {
+		return NULL;
+	}
 
+	li = l->head;
+	*l_item = NULL;
 	while (NULL != li) {
 		if (li->key == key) {
 			*l_item = li;
@@ -210,7 +224,7 @@ void *l_find(struct l_head_t *l, uint32_t key, struct l_item_t **l_item)
 
 int l_size(struct l_head_t *l)
 {
-	return l->cnt;
+	return (l == NULL ? 0 : l->cnt);
 };
 
 void *l_head(struct l_head_t *l, struct l_item_t **li)
@@ -219,9 +233,7 @@ void *l_head(struct l_head_t *l, struct l_item_t **li)
 		return NULL;
 	
 	*li = l->head;
-	if (NULL != *li)
-		return (*li)->item;
-	return NULL;
+	return (NULL == *li ? NULL : (*li)->item);
 };
 
 void *l_next(struct l_item_t **li)
@@ -230,9 +242,7 @@ void *l_next(struct l_item_t **li)
 		return NULL;
 
 	*li = (*li)->next;
-	if (NULL == *li)
-		return NULL;
-	return (*li)->item;
+	return (NULL == *li ? NULL : (*li)->item);
 };
 
 #ifdef __cplusplus

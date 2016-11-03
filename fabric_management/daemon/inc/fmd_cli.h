@@ -1,8 +1,7 @@
-/* Application (library) routines for internal use by FMD */
 /*
 ****************************************************************************
-Copyright (c) 2015, Integrated Device Technology Inc.
-Copyright (c) 2015, RapidIO Trade Association
+Copyright (c) 2014, Integrated Device Technology Inc.
+Copyright (c) 2014, RapidIO Trade Association
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -31,7 +30,7 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
-#include <stdint.h>
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -42,68 +41,35 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sys/stat.h>
 #include <sys/mman.h>
 #include <sys/sem.h>
-#include <sys/socket.h>
-#include <sys/un.h>
-#include <sys/ioctl.h>
 #include <fcntl.h>
 #include <signal.h>
-#include <time.h>
-#include "fmd_app_msg.h"
 
-#ifndef __FMD_APP_MGMT_H__
-#define __FMD_APP_MGMT_H__
+#include <stdint.h>
+#include <unistd.h>
+#include <dirent.h>
+#include <errno.h>
+#include <sys/ioctl.h>
+#include <sys/types.h>
+
+#include <netinet/in.h>
+#include <netinet/tcp.h>
+#include <pthread.h>
+#include "IDT_Routing_Table_Config_API.h"
+#include "IDT_Port_Config_API.h"
+#include "riocp_pe_internal.h"
+#include "fmd_dd.h"
+
+#ifndef _FMD_CLI_H_
+#define _FMD_CLI_H_
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-struct fmd_app_mgmt_state {
-	int index;
-	int alloced;
-        int app_fd;
-        socklen_t addr_size;
-        struct sockaddr_un addr;
-        pthread_t app_thr;
-        int alive;
-        sem_t started;
-        volatile int i_must_die;
-	uint32_t proc_num;
-	uint32_t flag;
-	char app_name[MAX_APP_NAME+1];
-	struct libfmd_dmn_app_msg req;
-	struct libfmd_dmn_app_msg resp;
-};
-
-struct app_mgmt_globals {
-        int port;
-        int bklg;
-	char *dd_fn;
-	char *dd_mtx_fn;
-
-        pthread_t conn_thread;
-        int loop_alive;
-        sem_t loop_started;
-        volatile int all_must_die;
-	uint32_t ct; /* Component tag of FMD mport */
-
-        int fd; /* File number library instance connect to */
-        struct sockaddr_un addr;
-	sem_t apps_avail;
-	struct fmd_app_mgmt_state apps[FMD_MAX_APPS];
-};
-
-int start_fmd_app_handler(uint32_t port, uint32_t backlog, int tst,
-			char *dd_fn, char *dd_mtx_fn);
-void halt_app_handler(void);
-
-void cleanup_app_handler(void);
-
-void fmd_notify_apps(void);
-
-extern struct app_mgmt_globals app_st;
+void fmd_bind_mgmt_dbg_cmds(void);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* __FMD_APP_MGMT_H__ */
+#endif /* _FMD_CLI_H_ */

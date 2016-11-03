@@ -31,8 +31,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 
-#define __STDC_FORMAT_MACROS
 #include <stdint.h>
+#ifndef __STDC_FORMAT_MACROS
+#define __STDC_FORMAT_MACROS
+#endif
 #include <inttypes.h>
 #include <stdio.h>
 #include <string.h>
@@ -49,9 +51,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <sched.h>
 
-#define __STDC_FORMAT_MACROS
-#include <stdint.h>
-#include <inttypes.h>
 #include <unistd.h>
 #include <errno.h>
 #include <sys/ioctl.h>
@@ -66,6 +65,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <sstream>
 
+#include "rio_misc.h"
 #include "libcli.h"
 #include "liblog.h"
 
@@ -410,7 +410,7 @@ first_message, force_nread, q_fullish, outstanding, Q_THR(info->umd_tx_buf_cnt-1
     }
   }}
 
-  DBG("\n\tSending to RIO %d+%d bytes to RIO destid %u addr 0x%llx WP=%d chan=%d oi=%d\n",
+  DBG("\n\tSending to RIO %d+%d bytes to RIO destid %u addr 0x%" PRIx64 " WP=%d chan=%d oi=%d\n",
       nread, DMA_L2_SIZE, destid_dpi, dmaopt.raddr.lsb64, peer->get_WP(), dci->chan, dci->oi);
 
   dci->rdma->setCheckHwReg(first_message);
@@ -572,7 +572,10 @@ bool umd_dma_goodput_tun_setup_chan2(struct worker *info)
     case ACCESS_UMD: {{
               assert(info->umd_dci_nread->rdma);
               DMAChannel* ch = (dynamic_cast<RdmaOpsUMD*>(info->umd_dci_nread->rdma))->setup_chan2(info);
-              assert(ch);
+              if (NULL == ch) {
+                assert(ch);
+                return false;
+              }
               info->umd_dci_nread->tx_buf_cnt = RdmaOpsUMD::DMA_CHAN2_BUFC;
               info->umd_dci_nread->sts_entries= RdmaOpsUMD::DMA_CHAN2_STS;
             }}
@@ -604,19 +607,21 @@ bool umd_dma_goodput_tun_setup_chanN(struct worker *info, const int n)
 
   switch (info->dma_method) {
     case ACCESS_UMD: {{
-              DMAChannel* ch = (dynamic_cast<RdmaOpsUMD*>(rdma))->setup_chanN(info, n, dci->dmamem);
-              assert(ch);
+              DMAChannel* ptr = (dynamic_cast<RdmaOpsUMD*>(rdma))->setup_chanN(info, n, dci->dmamem);
+              assert(ptr);
+              if (NULL == ptr) return false;
               dci->tx_buf_cnt  = info->umd_tx_buf_cnt;
               dci->sts_entries = info->umd_sts_entries;
             }}
             break;
     case ACCESS_MPORT: {{
-              bool r = (dynamic_cast<RdmaOpsMport*>(rdma))->setup_chanN(info, n, dci->dmamem);
-              assert(r);
+              bool rc = (dynamic_cast<RdmaOpsMport*>(rdma))->setup_chanN(info, n, dci->dmamem);
+              assert(rc);
+              if (false == rc) return false;
               dci->tx_buf_cnt  = info->umd_tx_buf_cnt;
             }}
             break;
-    default: assert(0); break;
+    default: assert(0); return false;
   }
 
   info->umd_dci_list[n] = dci;
@@ -978,7 +983,7 @@ void umd_dma_goodput_tun_RDMAD(struct worker *info, const int min_bcasts, const 
     if (7 <= g_level) {
       std::stringstream ss;
       for (int ip = 0; ip < peer_list.size(); ip++) ss << peer_list[ip] << " ";
-      DBG("\n\tGot %d peers to broadcast to [tx_fd=%d]: %s\n", peer_list.size(), info->umd_mbox_tx_fd, ss.str().c_str());
+      DBG("\n\tGot %zu peers to broadcast to [tx_fd=%d]: %s\n", peer_list.size(), info->umd_mbox_tx_fd, ss.str().c_str());
     }
 
     for (int ip = 0; ip < peer_list.size(); ip++) {
@@ -1012,7 +1017,7 @@ void umd_dma_goodput_tun_RDMAD(struct worker *info, const int min_bcasts, const 
       pL2->destid_dst = htons(destid);
       pL2->len        = htons(sizeof(DMA_MBOX_L2_t) + sizeof(DMA_MBOX_PAYLOAD_t));
 
-      DBG("\n\tSignalling [tx_fd=%d] peer destid %u {base_rio_addr=0x%llx base_size=0x%lx ibwin_size=0x%lx rio_addr=0x%llx bufc=%u MTU=%lu}\n",
+      DBG("\n\tSignalling [tx_fd=%d] peer destid %u {base_rio_addr=0x%" PRIx64 " base_size=0x%" PRIx64 " ibwin_size=0x%x rio_addr=0x%" PRIx64 " bufc=%u MTU=%d}\n",
           info->umd_mbox_tx_fd, destid,
           info->umd_peer_ibmap->getBaseRioAddr(), info->umd_peer_ibmap->getBaseSize(),
           info->umd_peer_ibmap->getIBwinSize(),
@@ -1119,7 +1124,7 @@ void umd_dma_goodput_tun_RDMAD(struct worker *info, const int min_bcasts, const 
       if (peer_setup) {
         assert(peer_rio_addr);
         if (from_rio_addr != peer_rio_addr) {
-          INFO("\n\tGot info [rx_fd=%d] for STALE destid %u NEW peer.rio_addr=0x%llx changed from stored peer.rio_addr=0x%llx. Nuking peer.\n",
+          INFO("\n\tGot info [rx_fd=%d] for STALE destid %u NEW peer.rio_addr=0x%" PRIx64 " changed from stored peer.rio_addr=0x%" PRIx64 ". Nuking peer.\n",
                info->umd_mbox_rx_fd, from_destid, from_rio_addr, peer_rio_addr);
           umd_dma_goodput_tun_del_ep(info, from_destid, true);
           break;
@@ -1143,7 +1148,7 @@ void umd_dma_goodput_tun_RDMAD(struct worker *info, const int min_bcasts, const 
 
       do {{
         if (from_info.MTU != info->umd_tun_MTU) {
-          INFO("\n\tGot a mismatched MTU %lu from peer destid %u (expecting %lu). Ignoring peer.\n",
+          INFO("\n\tGot a mismatched MTU %u from peer destid %u (expecting %d). Ignoring peer.\n",
                from_info.MTU, from_destid, info->umd_tun_MTU);
           break;
         }
@@ -1177,7 +1182,7 @@ void umd_dma_goodput_tun_RDMAD(struct worker *info, const int min_bcasts, const 
         }}
         pthread_mutex_unlock(&info->umd_dma_did_peer_mutex);
 
-        DBG("\n\tGot info [rx_fd=%d] for NEW destid %u peer.{base_rio_addr=0x%llx base_size=%lu rio_addr=0x%llx bufc=%u MTU=%lu} allocated rio_addr=%" PRIx64 " ib_ptr=%p bcast_cnt=%d\n",
+        DBG("\n\tGot info [rx_fd=%d] for NEW destid %u peer.{base_rio_addr=0x%" PRIx64 " base_size=%u rio_addr=0x%" PRIx64 " bufc=%u MTU=%u} allocated rio_addr=%" PRIx64 " ib_ptr=%p bcast_cnt=%d\n",
             info->umd_mbox_rx_fd,
             from_destid, from_info.base_rio_addr, from_info.base_size, from_info.rio_addr, from_info.bufc, from_info.MTU,
             rio_addr, peer_ib_ptr, bcast_cnt);
@@ -1226,11 +1231,13 @@ void umd_dma_goodput_tun_demo(struct worker *info)
   // convenience. However the IB ring should never be smaller than
   // info->umd_tx_buf_cnt-1 members -- (dis)counting T3 BD on TX side
   {{
-    const int IBWIN_SIZE = sizeof(DmaPeerRP_t) + BD_PAYLOAD_SIZE(info) * (info->umd_tx_buf_cnt-1);
 
     if (info->ib_ptr == NULL)
       throw std::runtime_error("umd_dma_goodput_tun_demo: NULL IBwin -- CMA disabled?");
+
+    const int IBWIN_SIZE = sizeof(DmaPeerRP_t) + BD_PAYLOAD_SIZE(info) * (info->umd_tx_buf_cnt-1);
     assert(info->ib_byte_cnt >= IBWIN_SIZE);
+    UNUSED_DBG(IBWIN_SIZE);
   }}
 
   memset(info->ib_ptr, 0, info->ib_byte_cnt);
@@ -1562,13 +1569,12 @@ void umd_dma_goodput_tun_del_ep(struct worker* info, const uint32_t destid, bool
   assert(info);
   //assert(info->umd_dci_nread);
 
-  const uint16_t my_destid = info->my_destid;
-  assert(my_destid != destid);
+  assert(info->my_destid != destid);
 
   bool found = false;
   pthread_mutex_lock(&info->umd_dma_did_peer_mutex);
   {{
-    DDBG("\n\t Enum EPs: %d Peers: %d\n", info->umd_dma_did_enum_list.size(), info->umd_dma_did_peer.size());
+    DDBG("\n\t Enum EPs: %lu Peers: %lu\n", info->umd_dma_did_enum_list.size(), info->umd_dma_did_peer.size());
 
     // Is it sane to do this hoping the peer will rebroadcast to us
     // when it comes back? This means that unless mport/FMD notifies
@@ -1991,7 +1997,7 @@ void umd_mbox_watch_demo(struct worker *info)
         if (!umd_check_dma_tun_thr_running(info)) goto exit_bomb;
 
         if (info->umd_mch->queueTxSize() > 0) {
-          DBG("\n\tTX queue non-empty for destid=%u. Soft MBOX restart.%s tx_ok=%d Run \"udd %d\" for perf counters.  %d attempts\n",
+          DBG("\n\tTX queue non-empty for destid=%u. Soft MBOX restart.%s tx_ok=%" PRIu64 " Run \"udd %d\" for perf counters.  %d attempts\n",
               opt.destid, (q_was_full? "Q FULL?": ""), tx_ok, tundmathreadindex, i);
 
           info->umd_mch->softRestart();
@@ -2356,5 +2362,5 @@ void UMD_Test(struct worker* info)
   uint32_t u4 = 0;
   bool r = udma_nread_mem(info->umd_dci_nread->rdma, info->did, info->ib_rio_addr, sizeof(u4), (uint8_t*)&u4);
 
-  INFO("\n\tNREAD %s did=%d rio_addr=0x%llx => %u\n", (r? "ok": "FAILED"), info->did, info->ib_rio_addr, u4);
+  INFO("\n\tNREAD %s did=%d rio_addr=0x%" PRIx64 " => %u\n", (r? "ok": "FAILED"), info->did, info->ib_rio_addr, u4);
 }

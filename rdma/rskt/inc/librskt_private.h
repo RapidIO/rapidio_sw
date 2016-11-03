@@ -156,11 +156,11 @@ struct rskt_socket_t {
 	struct rskt_sockaddr_internal sai; /* Remote socket connection */
 	enum skt_cleanup_ctl connector; /* 0 if acceptor, 1 if connector */
 	/* Local MSOH */
-	char msoh_name[MAX_MS_NAME];
+	char msoh_name[MAX_MS_NAME+1];
 	int msoh_valid;
 	mso_h msoh;
 	/* Local MSH */
-	char msh_name[MAX_MS_NAME];
+	char msh_name[MAX_MS_NAME+1];
 	int msh_valid;
 	ms_h msh;
 	/* Local MSUB */
@@ -176,7 +176,7 @@ struct rskt_socket_t {
 	volatile uint8_t *rx_buf; /* RX data buffer pointer */
 	uint32_t buf_sz; /* Size of TX and RX data buffers */
 	/* Connected MS */
-	char con_msh_name[MAX_MS_NAME];
+	char con_msh_name[MAX_MS_NAME+1];
 	conn_h connh;	/* Connection handle - for use in disconnection */
 	ms_h con_msh;
 	msub_h con_msubh;
@@ -202,7 +202,7 @@ struct librskt_globals {
         int mpnum;	/* RSKTD mport number to connect to */
         int init_ok;	/* Equal to portno when initialization is successful */
 
-	uint32_t ct;	/* Component Tag/destID of RSKTD */
+        ct_t ct;	/* Component Tag/destID of RSKTD */
         struct sockaddr_un addr; /* RSKTD Linux socket address */
         int addr_sz;	/* size of addr */
         int fd;		/* Connection to RSKTD */

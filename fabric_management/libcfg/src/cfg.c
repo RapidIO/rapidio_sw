@@ -49,6 +49,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sys/types.h>
 #include <netinet/in.h>
 
+#include "ct.h"
+#include "did.h"
 #include "fmd_dd.h"
 #include "cfg.h"
 #include "cfg_private.h"
@@ -79,7 +81,7 @@ void init_rt(idt_rt_state_t *rt)
 	};
 };
 
-int init_cfg_ptr(void)
+int init_cfg_ptr(char *dd_mtx_fn, char *dd_fn)
 {
 	int i, j;
 
@@ -89,6 +91,8 @@ int init_cfg_ptr(void)
 		return 1;
 	
 	cfg->mast_idx = CFG_SLAVE;
+	cfg->dd_mtx_fn = dd_mtx_fn;
+	cfg->dd_fn = dd_fn;
 
 	for (i = 0; i < CFG_MAX_MPORTS; i++) {
 		cfg->mport_info[i].num = -1;
@@ -138,6 +142,8 @@ int init_cfg_ptr(void)
 			cfg->cons[i].ends[e].ep = -1;
 		};
 	};
+
+	cfg->auto_config = false;
 
 	return 0;
 }
@@ -550,7 +556,7 @@ fail:
 	return 1;
 };
 
-int get_destid(struct int_cfg_parms *cfg, uint32_t *destid, uint32_t devid_sz)
+int cfg_get_destid(struct int_cfg_parms *cfg, uint32_t *destid, uint32_t devid_sz)
 {
 	int port = 0;
 	char *tok, *endptr;
@@ -580,7 +586,7 @@ int get_destid(struct int_cfg_parms *cfg, uint32_t *destid, uint32_t devid_sz)
 	*destid = ep->ports[port].devids[devid_sz].devid;
 	return 0;
 fail:
-	parse_err(cfg, (char *)"get_destid error.");
+	parse_err(cfg, (char *)"cfg_get_destid error.");
 	return 1;
 };
 
@@ -668,6 +674,8 @@ int parse_ep_devids(struct int_cfg_parms *cfg, struct dev_id *devids)
 				goto fail;
 		};
 	};
+
+
 	return 0;
 fail:
 	parse_err(cfg, (char *)"parse_ep_devids error.");
@@ -894,7 +902,7 @@ int parse_endpoint(struct int_cfg_parms *cfg)
 		int pt_i;
 		switch (get_parm_idx(cfg, (char *)"PORT PEND")) {
 		case 0: // "PORT"
-	       		pt_i = cfg->eps[i].port_cnt;
+			pt_i = cfg->eps[i].port_cnt;
 			if (cfg->eps[i].port_cnt >= CFG_MAX_EP_PORT) {
 				parse_err(cfg, (char *)"Too many ports!");
 				goto fail;
@@ -1118,7 +1126,7 @@ int parse_switch(struct int_cfg_parms *cfg)
 			rt->default_route = rtv;
 			break;
 		case 3: // DESTID
-			if (get_destid(cfg, &destid, rt_sz))
+			if (cfg_get_destid(cfg, &destid, rt_sz))
 				goto fail;
 			if (get_rt_v(cfg, &rtv))
 				goto fail;
@@ -1128,9 +1136,9 @@ int parse_switch(struct int_cfg_parms *cfg)
 			};
 			break;
 		case 4: // RANGE
-			if (get_destid(cfg, &destid, rt_sz))
+			if (cfg_get_destid(cfg, &destid, rt_sz))
 				goto fail;
-			if (get_destid(cfg, &destid1, rt_sz))
+			if (cfg_get_destid(cfg, &destid1, rt_sz))
 				goto fail;
 			if (get_rt_v(cfg, &rtv))
 				goto fail;
@@ -1152,6 +1160,7 @@ int parse_switch(struct int_cfg_parms *cfg)
 		};
 	};
 
+	cfg->sws[i].valid = 1;
 	cfg->sw_cnt++;
 	return 0;
 fail:
@@ -1187,7 +1196,7 @@ int fmd_parse_cfg(struct int_cfg_parms *cfg)
 
 	while ((NULL != tok) && !cfg->init_err) {
 		switch (parm_idx(tok, (char *)
-	"// DEV_DIR DEV_DIR_MTX MPORT MASTER_INFO ENDPOINT SWITCH CONNECT EOF")) {
+	"// DEV_DIR DEV_DIR_MTX MPORT MASTER_INFO ENDPOINT SWITCH CONNECT AUTO EOF")) {
 		case 0: // "//"
 			flush_comment(tok);
 			break;
@@ -1218,7 +1227,10 @@ int fmd_parse_cfg(struct int_cfg_parms *cfg)
 		case 7: // "CONNECT"
 			parse_connect(cfg);
 			break;
-		case 8: // "EOF"
+		case 8: // "AUTO"
+			cfg->auto_config = true;
+			break;
+		case 9: // "EOF"
 			DBG((char *)"\n");
 			goto exit;
 			break;
@@ -1251,8 +1263,21 @@ fail:
 int cfg_parse_file(char *cfg_fn, char **dd_mtx_fn, char **dd_fn,
 		uint32_t *m_did, uint32_t *m_cm_port, uint32_t *m_mode)
 {
+	int j,k;
+	uint32_t i;
 
-	if (init_cfg_ptr())
+	ct_t ct;
+	ct_nr_t nr;
+
+	did_t did;
+	did_val_t devid;
+	did_sz_t size;
+
+	struct int_cfg_ep ep;
+	struct int_cfg_ep_port port;
+	struct int_cfg_sw sw;
+
+	if (init_cfg_ptr(*dd_mtx_fn, *dd_fn))
 		goto fail;
 
 	INFO("\nCFG: Opening configuration file \"%s\"...\n", cfg_fn);
@@ -1276,25 +1301,72 @@ int cfg_parse_file(char *cfg_fn, char **dd_mtx_fn, char **dd_fn,
 	*m_did = cfg->mast_devid;
 	*m_cm_port = cfg->mast_cm_port;
 	*m_mode = !(CFG_SLAVE == cfg->mast_idx);
-	if (cfg->dd_mtx_fn) 
+	if (cfg->dd_mtx_fn && strlen(cfg->dd_mtx_fn))
 		update_string(dd_mtx_fn, cfg->dd_mtx_fn,
 					strlen(cfg->dd_mtx_fn));
-	if (cfg->dd_fn) 
+	if (cfg->dd_fn && strlen(cfg->dd_fn))
 		update_string(dd_fn, cfg->dd_fn,
 					strlen(cfg->dd_fn));
 
-	return cfg->init_err;
+	if (cfg->init_err) {
+		goto fail;
+	}
+
+	// mark the endpoint ct and devIds from the configuration as in use
+	for(i = 0; i < cfg->ep_cnt; i++) {
+		ep = cfg->eps[i];
+		if (ep.valid) {
+			for (j = 0; j < ep.port_cnt; j++) {
+				port = ep.ports[j];
+				if (port.valid) {
+					if (ct_get_nr(&nr, (ct_t)port.ct)) {
+						goto fail;
+					}
+
+					for (k = 0; k < CFG_DEVID_MAX; k++) {
+						if (did_size_from_int(&size, k)) {
+							goto fail;
+						}
+
+						devid = (did_val_t)port.devids[k].devid;
+						if (devid) {
+							if (ct_create_from_data(&ct, &did, nr, devid, size)) {
+								goto fail;
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// mark the switch ct and devIds from the configuration as in use
+	for(i=0; i < cfg->sw_cnt; i++) {
+		sw = cfg->sws[i];
+		if (sw.valid) {
+			if (ct_get_nr(&nr, sw.ct)) {
+				goto fail;
+			}
+			if (did_size_from_int(&size, sw.did_sz)) {
+				goto fail;
+			}
+			if (ct_create_from_data(&ct, &did, nr, (did_val_t)sw.did, size)) {
+				goto fail;
+			}
+		}
+	}
+	return 0;
 fail:
 	return 1;
 };
 
-struct int_cfg_sw *find_cfg_sw_by_ct(uint32_t ct, struct int_cfg_parms *cfg)
+struct int_cfg_sw *find_cfg_sw_by_ct(ct_t ct, struct int_cfg_parms *cfg)
 {
 	struct int_cfg_sw *ret = NULL;
 	uint32_t i;
 
 	for (i = 0; i < cfg->sw_cnt; i++) {
-		if ((uint32_t)cfg->sws[i].ct == ct) {
+		if (cfg->sws[i].ct == ct) {
 			ret = &cfg->sws[i];
 			break;
 		};
@@ -1303,7 +1375,7 @@ struct int_cfg_sw *find_cfg_sw_by_ct(uint32_t ct, struct int_cfg_parms *cfg)
 	return ret;
 };
 
-struct int_cfg_ep *find_cfg_ep_by_ct(uint32_t ct, struct int_cfg_parms *cfg)
+struct int_cfg_ep *find_cfg_ep_by_ct(ct_t ct, struct int_cfg_parms *cfg)
 {
 	struct int_cfg_ep *ret = NULL;
 	uint32_t i, p;
@@ -1339,6 +1411,7 @@ int cfg_find_mport(uint32_t mport, struct cfg_mport_info *mp)
 
 		mp->num = cfg->mport_info[i].num;
 		mp->ct = cfg->mport_info[i].ct;
+		mp->mem_sz = cfg->mport_info[i].mem_sz;
 		mp->op_mode = cfg->mport_info[i].op_mode;
 		memcpy(mp->devids, cfg->mport_info[i].devids,
 			sizeof(mp->devids));
@@ -1383,6 +1456,7 @@ int fill_in_dev_from_ep(struct cfg_dev *dev, struct int_cfg_ep *ep)
 	dev->ep_pt.ct = dev->ct;
 	memcpy(dev->ep_pt.devids, ep->ports[0].devids,
 		sizeof(dev->ep_pt.devids));
+	dev->auto_config = cfg->auto_config;
 
 	return 0;
 fail:
@@ -1433,25 +1507,23 @@ int fill_in_dev_from_sw(struct cfg_dev *dev, struct int_cfg_sw *sw)
 	return 0;
 };
 
-int cfg_find_dev_by_ct(uint32_t ct, struct cfg_dev *dev)
+int cfg_find_dev_by_ct(ct_t ct, struct cfg_dev *dev)
 {
 	struct int_cfg_ep *ep = NULL;
 	struct int_cfg_sw *sw = NULL;
 
 	ep = find_cfg_ep_by_ct(ct, cfg);
-
 	if (NULL != ep)
 		return fill_in_dev_from_ep(dev, ep);
 
 	sw = find_cfg_sw_by_ct(ct, cfg);
-
 	if (NULL != sw)
 		return fill_in_dev_from_sw(dev, sw);
 
 	return 1;
 };
 
-extern int cfg_get_conn_dev(uint32_t ct, int pt,
+extern int cfg_get_conn_dev(ct_t ct, int pt,
 		struct cfg_dev *dev, int *conn_pt)
 {
 	struct int_cfg_conn *conn = NULL;
@@ -1503,6 +1575,11 @@ fail:
 	return 1;
 	
 };
+
+extern bool cfg_auto(void)
+{
+	return cfg->auto_config;
+}
 
 #ifdef __cplusplus
 }

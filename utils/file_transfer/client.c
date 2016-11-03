@@ -35,11 +35,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
-#include <string.h>
 #include <time.h>
 #include <sys/time.h>
 #include <signal.h>
 
+#include "string_util.h"
 #include "rrmap_config.h"
 #include "libfxfr.h"
 #include "rapidio_mport_sock.h"
@@ -121,8 +121,8 @@ int parse_options(int argc, char *argv[],
 	if (argc < 3)
 		goto print_help;
 
-	strncpy(src_fs, argv[1], MAX_FILE_NAME);
-	strncpy(rem_fs, argv[2], MAX_FILE_NAME);
+	SAFE_STRNCPY(src_fs, argv[1], sizeof(src_fs));
+	SAFE_STRNCPY(rem_fs, argv[2], sizeof(rem_fs));
 
 	if (argc > 3)
 		*server_dest = atoi(argv[3]);

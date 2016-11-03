@@ -32,69 +32,70 @@
 TOPDIR?=$(shell pwd)/..
 include $(TOPDIR)/rules.mk
 
-ifndef DEBUG
-DEBUG ?= DEBUG
-export DEBUG
-endif
+all: libcmocka libcli liblist liblog libtime_utils \
+	libmport libunit_test librsvdmem samples
 
-all: libcli liblist liblog libtime_utils libmport libunit_test librsvdmem samples
+libcmocka: FORCE
+	$(MAKE) -C libcmocka
+	mkdir -p libs_so
+	(cd libcmocka; tar cf - libcmocka.so*) | (cd libs_so; tar xvf -)
 
-libcli: FORCE liblog
+libcli: FORCE libcmocka liblog
 	$(MAKE) all -C libcli
 	mkdir -p libs_a
 	mkdir -p libs_so
 	cp libcli/libcli.a libs_a/
 	(cd libcli; tar cf - libcli.so*) | (cd libs_so; tar xvf -)
 		
-liblist: FORCE liblog libcli
+liblist: FORCE libcmocka liblog libcli
 	$(MAKE) all -C liblist
 	mkdir -p libs_a
 	mkdir -p libs_so
 	cp liblist/liblist.a libs_a/
 	(cd liblist; tar cf - liblist.so*) | (cd libs_so; tar xvf -)
 		
-liblog: FORCE
+liblog: FORCE libcmocka 
 	$(MAKE) all -C liblog
 	mkdir -p libs_a
 	mkdir -p libs_so
 	cp liblog/liblog.a libs_a/
 	(cd liblog; tar cf - liblog.so*) | (cd libs_so; tar xvf -)
 		
-libtime_utils: FORCE liblog libcli
+libtime_utils: FORCE libcmocka liblog libcli
 	$(MAKE) all -C libtime_utils
 	mkdir -p libs_a
 	mkdir -p libs_so
 	cp libtime_utils/libtime_utils.a libs_a/
 	(cd libtime_utils; tar cf - libtime_utils.so*) | (cd libs_so; tar xvf -)
 		
-libunit_test: FORCE liblog libcli libtime_utils
+libunit_test: FORCE libcmocka liblog libcli libtime_utils
 	$(MAKE) all -C libunit_test
 	mkdir -p libs_a
 	mkdir -p libs_so
 	cp libunit_test/libunit_test.a libs_a/
 	(cd libunit_test; tar cf - libunit_test.so*) | (cd libs_so; tar xvf -)
 		
-librsvdmem: FORCE libcli
+librsvdmem: FORCE libcmocka libcli
 	$(MAKE) all -C librsvdmem
 	mkdir -p libs_a
 	mkdir -p libs_so
 	cp librsvdmem/librsvdmem.a libs_a/
 	(cd librsvdmem; tar cf - librsvdmem.so*) | (cd libs_so; tar xvf -)
 		
-libmport: FORCE libtime_utils
-	$(MAKE) all LDFLAGS= -C libmport
+libmport: FORCE libcmocka libtime_utils
+	$(MAKE) all -C libmport
 	mkdir -p libs_a
 	mkdir -p libs_so
 	cp libmport/libmport.a libs_a/
 	(cd libmport; tar cf - libmport.so*) | (cd libs_so; tar xvf -)
-	$(MAKE) LDFLAGS= -C libmport samples
 
-samples: FORCE liblog libcli
+samples: FORCE libcmocka liblog libcli
 	$(MAKE) -C samples
 
 FORCE:
 
 clean:
+	$(MAKE) clean -C libcmocka
 	$(MAKE) clean -C libcli
 	$(MAKE) clean -C liblist
 	$(MAKE) clean -C liblog

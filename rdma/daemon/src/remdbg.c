@@ -41,7 +41,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <netinet/tcp.h>
 
 #include <stdio.h>
-#include <string.h>
 #include <stdlib.h>
 
 #include <sys/types.h>
@@ -56,6 +55,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <netinet/in.h>
 #include <netdb.h>
 
+#include "string_util.h"
+#include "rio_misc.h"
 #include "libcli.h"
 
 #ifdef __cplusplus
@@ -64,7 +65,7 @@ extern "C" {
 
 extern struct cli_cmd CLIConnect;
 
-int CLIConnectCmd(struct cli_env *env, int argc, char **argv)
+int CLIConnectCmd(struct cli_env *, int UNUSED(argc), char **argv)
 {
 	int sockfd, portno, n;
 	struct sockaddr_in serv_addr;
@@ -74,9 +75,6 @@ int CLIConnectCmd(struct cli_env *env, int argc, char **argv)
 	int one = 1;
 	int zero = 0;
 	uint8_t session_over = 0;
-
-	(void)env;
-	(void)argc;
 
 	server = gethostbyname(argv[0]);
 	if (server == NULL) {
@@ -173,15 +171,12 @@ void set_prompt(struct cli_env *e)
         if (e != NULL) {
         };
 };
-int main(int argc, char *argv[])
+int main(int UNUSED(argc), char **UNUSED(argv))
 {
 	
 	struct cli_env env;
 	struct cli_cmd *temp_ptr = &CLIConnect;
 	
-	(void)argc;
-	(void)argv;
-
 	cli_init_base(NULL);
 	add_commands_to_cmd_db(1, &temp_ptr);
 
@@ -193,8 +188,7 @@ int main(int argc, char *argv[])
         env.progressState = 0;
         env.sess_socket = -1;
         env.cmd_prev = NULL;
-        bzero(env.prompt, PROMPTLEN+1);
-	strncpy(env.prompt, "Rem_RDMAD> ", PROMPTLEN);
+	SAFE_STRNCPY(env.prompt, "Rem_RDMAD> ", sizeof(env.prompt));
 
 	splashScreen((char *)"Remote Debug Session Client for RDMA Daemon");
 	cli_terminal(&env);

@@ -31,11 +31,12 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 
-#define __STDC_FORMAT_MACROS
 #include <stdint.h>
+#ifndef __STDC_FORMAT_MACROS
+#define __STDC_FORMAT_MACROS
+#endif
 #include <inttypes.h>
 #include <stdio.h>
-#include <string.h>
 #include <stdlib.h>
 #include <stdarg.h>
 #include <semaphore.h>
@@ -48,24 +49,13 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <signal.h>
 #include <time.h>
 
-#define __STDC_FORMAT_MACROS
-#include <stdint.h>
-#include <inttypes.h>
 #include <unistd.h>
 #include <dirent.h>
 #include <errno.h>
 #include <sys/ioctl.h>
-#include <sys/types.h>
-//#include <netinet/in.h>
-//#include <netinet/tcp.h>
-#include <unistd.h>
 #include <sys/socket.h>
 #include <linux/if.h>
 #include <linux/if_tun.h>
-#include <sys/types.h>
-#include <sys/ioctl.h>
-#include <sys/stat.h>
-#include <fcntl.h>
 #include <arpa/inet.h> 
 #include <sys/select.h>
 
@@ -74,7 +64,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <sched.h>
 
-
+#include "string_util.h"
 #include "libcli.h"
 #include "rapidio_mport_mgmt.h"
 #include "rapidio_mport_sock.h"
@@ -519,7 +509,7 @@ void direct_io_obwin_unmap(struct worker *info)
 	int rc = 0;
 
 	if (info->ob_ptr && info->ob_valid) {
-		rc = riomp_dma_unmap_memory(info->mp_h, info->ob_byte_cnt, 
+		rc = riomp_dma_unmap_memory(info->ob_byte_cnt,
 								info->ob_ptr);
 		info->ob_ptr = NULL;
 		if (rc)
@@ -712,7 +702,7 @@ void dealloc_dma_tx_buffer(struct worker *info)
 {
 	if (info->use_kbuf) {
 		if (NULL != info->rdma_ptr) {
-			riomp_dma_unmap_memory(info->mp_h, info->rdma_buff_size,
+			riomp_dma_unmap_memory(info->rdma_buff_size,
 				info->rdma_ptr);
 			info->rdma_ptr = NULL;
 		};
@@ -869,10 +859,10 @@ void dma_goodput(struct worker *info)
 			finish_iter_stats(info);
 
 			if (dly) {
-				INFO("Response after %d iterations.\n", 
+				INFO("Response after %" PRIu64 " iterations.\n",
 					st_dlay - dly);
 			} else {
-				ERR("FAILED: No response in %d checks\n",
+				ERR("FAILED: No response in %" PRIu64 " checks\n",
 					st_dlay);
 				break;
 			};
@@ -1448,7 +1438,7 @@ void dma_free_ibwin(struct worker *info)
 		return; 
 
 	if (info->ib_ptr && info->ib_valid) {
-		rc = riomp_dma_unmap_memory(info->mp_h, info->ib_byte_cnt, 
+		rc = riomp_dma_unmap_memory(info->ib_byte_cnt,
 								info->ib_ptr);
 		info->ib_ptr = NULL;
 		if (rc)
@@ -1504,10 +1494,12 @@ void *umd_dma_fifo_proc_thr(void *parm)
 	
 	migrate_thread_to_cpu(&info->umd_fifo_thr);
 
-	if (info->umd_fifo_thr.cpu_req != info->umd_fifo_thr.cpu_req) {
+	if (info->umd_fifo_thr.cpu_run != info->umd_fifo_thr.cpu_req) {
 		CRIT("\n\tRequested CPU %d does not match migrated cpu %d, bailing ou!\n",
-		     info->umd_fifo_thr.cpu_req, info->umd_fifo_thr.cpu_req);
-		goto exit;
+		     info->umd_fifo_thr.cpu_req, info->umd_fifo_thr.cpu_run);
+		// FIXME: Fixed compile error, not bailing out as the CPU
+		//        requested may not be available.
+		// goto exit;
 	}
 
 	wi_size = info->umd_sts_entries * 8 * sizeof(DMAChannel::WorkItem_t);
@@ -1578,10 +1570,12 @@ void* umd_mbox_fifo_proc_thr(void *parm)
 
         migrate_thread_to_cpu(&info->umd_fifo_thr);
 
-        if (info->umd_fifo_thr.cpu_req != info->umd_fifo_thr.cpu_req) {
+        if (info->umd_fifo_thr.cpu_req != info->umd_fifo_thr.cpu_run) {
 		CRIT("\n\tRequested CPU %d does not match migrated cpu %d, bailing ou!\n",
-		     info->umd_fifo_thr.cpu_req, info->umd_fifo_thr.cpu_req);
-		goto exit;
+		     info->umd_fifo_thr.cpu_req, info->umd_fifo_thr.cpu_run);
+		// FIXME: Fixed compile error, not bailing out as the CPU
+		//        requested may not be available.
+		// goto exit;
 	}
 
 	wi_size = info->umd_sts_entries * 8 * sizeof(MboxChannel::WorkItem_t);
@@ -1630,12 +1624,12 @@ again:
                                 info->perf_byte_cnt += info->acc_size;
                                 clock_gettime(CLOCK_MONOTONIC, &info->end_time);
                                 if(dT > 0) { info->tick_count++; info->tick_total += dT; info->tick_data_total += info->acc_size; }
-                                DBG("\n\tFIFO D4 did=%d bd_wp=%u FIFO iter %llu dTick %llu (%f uS)\n",
+                                DBG("\n\tFIFO D4 did=%d bd_wp=%u FIFO iter %" PRIu64 " dTick %" PRIu64 " (%f uS)\n",
                                         item.opt.destid,
                                         item.bd_wp, g_FifoStats[idx].fifo_thr_iter, dT, dTf);
                                 break;
                         case DTYPE5:
-                                DBG("\n\tFinished D5 bd_wp=%u -- FIFO iter %llu dTick %llu (%f uS)u\n",
+                                DBG("\n\tFinished D5 bd_wp=%u -- FIFO iter %" PRIu64 " dTick %" PRIu64 " (%f uS)u\n",
                                          item.bd_wp, g_FifoStats[idx].fifo_thr_iter, dT, dTf);
                                 break;
                         default:
@@ -1668,7 +1662,7 @@ exit:
 no_post:
 	info->umd_fifo_proc_alive = 0;
 
-        DBG("\n\t%s: EXITING iter=%llu must die? %d\n", __func__, g_FifoStats[idx].fifo_thr_iter, info->umd_fifo_proc_must_die);
+        DBG("\n\t%s: EXITING iter=%" PRIu64 " must die? %d\n", __func__, g_FifoStats[idx].fifo_thr_iter, info->umd_fifo_proc_must_die);
 
 	pthread_exit(parm);
 }
@@ -1679,7 +1673,7 @@ void UMD_DDD(const struct worker* info)
 
 	if (info->umd_fifo_total_ticks_count > 0) {
 	       float avgTick_uS = ((float)info->umd_fifo_total_ticks / info->umd_fifo_total_ticks_count) / MHz;
-	       INFO("\n\tFIFO Avg TX %f uS cnt=%llu\n", avgTick_uS, info->umd_fifo_total_ticks_count);
+	       INFO("\n\tFIFO Avg TX %f uS cnt=%" PRIu64 "\n", avgTick_uS, info->umd_fifo_total_ticks_count);
 	}
 #if 0
 	const int idx = info->idx;
@@ -2201,7 +2195,7 @@ void umd_dma_goodput_demo(struct worker *info)
 	};
 
         if (GetEnv((char *)"verb") != NULL) {
-	        INFO("\n\tUDMA my_destid=%u destid=%u rioaddr=0x%x bcount=%d #buf=%d #fifo=%d\n",
+	        INFO("\n\tUDMA my_destid=%u destid=%u rioaddr=0x%" PRIx64 " bcount=%ld #buf=%d #fifo=%d\n",
 			info->umd_dch->getDestId(),
 			info->did, info->rio_addr, info->acc_size,
 			info->umd_tx_buf_cnt, info->umd_sts_entries);
@@ -2258,8 +2252,7 @@ void umd_dma_goodput_demo(struct worker *info)
 				};
 			};
 			
-			if ((info->umd_dch->queueSize() > info->umd_tx_buf_cnt)
-			 || (info->umd_dch->queueSize() < 0))
+			if ((info->umd_dch->queueSize() > info->umd_tx_buf_cnt))
 				CRIT("\n\t Cnt=0x%lx Qsize=%d oi=%d\n", 
 					cnt, info->umd_dch->queueSize(), oi);
 
@@ -2292,7 +2285,7 @@ void umd_dma_goodput_demo(struct worker *info)
         } // END while NOT stop requested
 	goto exit_nomsg;
 exit:
-        INFO("\n\tDMA %srunning after %d %dus polls\n",
+        INFO("\n\tDMA %srunning after %ld %dus polls\n",
 		info->umd_dch->dmaIsRunning()? "": "NOT ", 
 			info->perf_msg_cnt, DMA_RUNPOLL_US);
 
@@ -2520,7 +2513,7 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 	zero_stats(info);
 
 	if (GetEnv((char *)"verb") != NULL) {
-		INFO("\n\tUDMA my_destid=%u destid=%u rioaddr=0x%lx bcount=%d #buf=%d #fifo=%d\n",
+		INFO("\n\tUDMA my_destid=%u destid=%u rioaddr=0x%lx bcount=%" PRIu64 " #buf=%d #fifo=%d\n",
 		     info->umd_dch->getDestId(),
 		     info->did, info->rio_addr, info->acc_size,
 		     info->umd_tx_buf_cnt, info->umd_sts_entries);
@@ -2584,7 +2577,7 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 			}
 
 			if (info->umd_dch->isMaster()) {
-				DBG("\n\tPolling FIFO transfer completion destid=%d iter=%llu\n", info->did, cnt);
+				DBG("\n\tPolling FIFO transfer completion destid=%d iter=%" PRIu64 "\n", info->did, cnt);
 				while (!q_was_full && !info->stop_req && info->umd_dch->scanFIFO(wi, info->umd_sts_entries*8) == 0) { ; }
 			}
 
@@ -2666,7 +2659,7 @@ void umd_mbox_goodput_demo(struct worker *info)
 	info->umd_mch->softRestart();
 
 	if (GetEnv((char *)"verb") != NULL) {
-		INFO("\n\tMBOX=%d my_destid=%u destid=%u (dest MBOX=%d letter=%d) acc_size=%d #buf=%d #fifo=%d\n",
+		INFO("\n\tMBOX=%d my_destid=%u destid=%u (dest MBOX=%d letter=%d) acc_size=%lu #buf=%d #fifo=%d\n",
 		     info->umd_chan,
 		     info->umd_mch->getDestId(),
 		     info->did, info->umd_chan_to, info->umd_letter,
@@ -2700,7 +2693,7 @@ void umd_mbox_goodput_demo(struct worker *info)
 			void* buf = NULL;
 			while ((buf = info->umd_mch->get_inb_message(opt)) != NULL) {
 			      rx_ok++; rx_buf = true;
-			      DBG("\n\tGot a message of size %d [%s] from destid %u mbox %u cnt=%llu\n", opt.bcount, buf, opt.destid, opt.mbox, rx_ok);
+			      DBG("\n\tGot a message of size %d [%s] from destid %u mbox %u cnt=%" PRIu64 "\n", opt.bcount, (char *)buf, opt.destid, opt.mbox, rx_ok);
 			      info->umd_mch->add_inb_buffer(buf); // recycle
 			}
 			if (! rx_buf) {
@@ -2767,7 +2760,7 @@ void umd_mbox_goodput_demo(struct worker *info)
 			}
 			if (info->stop_req) break;
 
-			if (q_was_full) INFO("\n\tQueue full for MBOX%d! tx_ok=%llu\n", info->umd_chan, tx_ok);
+			if (q_was_full) INFO("\n\tQueue full for MBOX%d! tx_ok=%" PRIu64 "\n", info->umd_chan, tx_ok);
 
                         // Busy-wait for queue to drain
                         for (uint64_t iq = 0; !info->stop_req && q_was_full &&
@@ -2828,7 +2821,7 @@ void umd_mbox_goodput_latency_demo(struct worker *info)
 	info->umd_mch->softRestart();
 
 	if (GetEnv((char *)"verb") != NULL) {
-		INFO("\n\tMBOX my_destid=%u destid=%u acc_size=%d #buf=%d #fifo=%d\n",
+		INFO("\n\tMBOX my_destid=%u destid=%u acc_size=%lu #buf=%d #fifo=%d\n",
 		     info->umd_mch->getDestId(),
 		     info->did, info->acc_size,
 		     info->umd_tx_buf_cnt, info->umd_sts_entries);
@@ -2848,7 +2841,7 @@ void umd_mbox_goodput_latency_demo(struct worker *info)
 	if(info->wr == 0) {
 		char msg_buf[PAGE_4K+1] = {0};
 #ifndef MBOXDEBUG
-		strncpy(msg_buf, "Generic pingback - Mary had a little lamb", PAGE_4K);
+		SAFE_STRNCPY(msg_buf, "Generic pingback - Mary had a little lamb", sizeof(msg_buf));
 #endif
 
 		MboxChannel::MboxOptions_t opt; memset(&opt, 0, sizeof(opt));
@@ -2899,7 +2892,7 @@ void umd_mbox_goodput_latency_demo(struct worker *info)
 
 			if (info->stop_req) break;
 
-			if (q_was_full) INFO("\n\tQueue full for MBOX%d! rx_ok=%llu\n", info->umd_chan, rx_ok);
+			if (q_was_full) INFO("\n\tQueue full for MBOX%d! rx_ok=%" PRIu64 "\n", info->umd_chan, rx_ok);
 
                         // Busy-wait for queue to drain
                         for (uint64_t iq = 0; !info->stop_req && q_was_full &&
@@ -2948,7 +2941,7 @@ void umd_mbox_goodput_latency_demo(struct worker *info)
 		      	} else { tx_ok++; }
 			if (info->stop_req) break;
 
-			if (q_was_full) INFO("\n\tQueue full for MBOX%d! tx_ok=%llu\n", info->umd_chan, tx_ok);
+			if (q_was_full) INFO("\n\tQueue full for MBOX%d! tx_ok=%" PRIu64 "\n", info->umd_chan, tx_ok);
 
                         // Busy-wait for queue to drain
                         for (uint64_t iq = 0; !info->stop_req && q_was_full &&
@@ -2969,7 +2962,7 @@ void umd_mbox_goodput_latency_demo(struct worker *info)
                         void* buf = NULL;
                         while ((buf = info->umd_mch->get_inb_message(opt)) != NULL) {
                               rx_ok++; rx_buf = true;
-                              DDBG("\n\tGot a message of size %d [%s] cnt=%llu\n", opt.bcount, buf, tx_ok);
+                              DDBG("\n\tGot a message of size %d [%s] cnt=%" PRIu64 "\n", opt.bcount, (char *)buf, tx_ok);
                               info->umd_mch->add_inb_buffer(buf); // recycle
                         }
                         if (! rx_buf) {
@@ -3134,7 +3127,7 @@ void umd_mbox_goodput_tun_demo(struct worker *info)
 		return;
 	}
 
-	strncpy(info->umd_tun_name, if_name, sizeof(info->umd_tun_name)-1);
+	SAFE_STRNCPY(info->umd_tun_name, if_name, sizeof(info->umd_tun_name));
 
         info->umd_mch = new MboxChannel(info->mp_num, info->umd_chan, info->mp_h);
 

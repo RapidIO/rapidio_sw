@@ -56,7 +56,7 @@ extern "C" {
 #define FMD_MAX_NAME 47
 
 struct fmd_dd_dev_info {
-	uint32_t ct;
+	ct_t ct;
 	uint32_t destID;
 	uint32_t destID_sz;
 	uint32_t hc;

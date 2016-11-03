@@ -32,7 +32,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 #include <stdio.h>
-#include <string.h>
 #include <stdlib.h>
 #include <stdarg.h>
 #include <semaphore.h>
@@ -65,6 +64,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <sched.h>
 
+#include "string_util.h"
 #include "libcli.h"
 #include "liblog.h"
 
@@ -150,7 +150,7 @@ void umd_afu_watch_demo(struct worker* info)
 
 		// Create the address of the server
 		sa.sun_family = AF_UNIX;
-		strncpy (sa.sun_path, sock_name, sizeof(sa.sun_path)-1);
+		SAFE_STRNCPY (sa.sun_path, sock_name, sizeof(sa.sun_path));
 		len = sizeof(sa.sun_family) + strlen(sa.sun_path);
 
 		// Bind the socket to the address.

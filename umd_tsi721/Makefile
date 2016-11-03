@@ -32,9 +32,6 @@
 TOPDIR?=$(shell pwd)/..
 include $(TOPDIR)/rules.mk
 
-DEBUG?=DEBUG
-config?=NODEBUG
-
 LIBMPINCDIR=$(COMMONDIR)/libmport/src
 REGSDIR=$(FMDDIR)/librio_switch/inc
 
@@ -45,16 +42,11 @@ SOURCES = src/crc32.c src/dmachan.cc src/mapfile.cc src/mboxchan.cc \
 	src/mport.cc src/psem.cc src/pshm.cc src/tsi721_dma.c \
 	src/chanlock.cc
 
-CXXFLAGS += -I./inc -I$(REGSDIR) -I$(COMMONINC) \
-	 -D$(DEBUG) \
-	 -pthread
-
-#CXXFLAGS += -DDEBUG_BD
+CXXFLAGS+=-D$(DEBUG_CTL) -DRDMA_LL=$(LOG_LEVEL)
+CXXFLAGS+=-I$(REGSDIR) -pthread
+CXXFLAGS+=-I$(FMDDIR)/libdid/inc -I$(FMDDIR)/libct/inc
 
 LIBFLAGS = -shared -fPIC
-
-#CXXFLAGS+=-pg
-#CXXFLAGS+=-DDEBUG=2
 
 SYSLIBS = -lrt -lpthread -ldl 
 LIBRARIES = -lmport -ltime_utils -lcli
@@ -63,7 +55,7 @@ all: libumd_tsi721.a libumd_tsi721_nolog.a libumd_tsi721_tik.a libumd_tsi721_nol
 
 libumd_tsi721.a: $(SOURCES) $(INCLUDES)
 	@rm -f *.o
-	$(CXX) $(CXXFLAGS) -DRDMA_LL=$(LOG_LEVEL) $(SOURCES) \
+	$(CXX) $(CXXFLAGS) $(SOURCES) \
 		-c $(SYSLIBS) $(LIBRARIES) -llog
 	$(AR) rcs $@ *.o
 	cp -v $@ $(COMMONDIR)/libs_a
@@ -81,7 +73,6 @@ libumd_tsi721_nolog.a: $(SOURCES) $(INCLUDES)
 libumd_tsi721_tik.a: $(SOURCES) $(INCLUDES)
 	@rm -f *.o
 	$(CXX) $(CXXFLAGS) \
-		-DRDMA_LL=$(LOG_LEVEL) \
 		-DDMACHAN_TICKETED \
 		-DDEBUG_BD \
 		-I$(UMDDINCDIR) $(LIBFLAGS) $(SOURCES) \
@@ -100,21 +91,19 @@ libumd_tsi721_nolog_tik.a: $(SOURCES) $(INCLUDES)
 
 mbox_client: samples/mbox_example.c libumd_tsi721.a
 	$(CXX) $(CXXFLAGS) \
-		-Iinc -I$(REGSDIR) -I../include \
-		-DRDMA_LL=$(LOG_LEVEL) -DMBOX_CLIENT \
+		-I$(REGSDIR) \
+		-DMBOX_CLIENT \
 		$^ -o $@ \
 		$(SYSLIBS)  -llog $(LIBRARIES) $(LIBS_RPATH) -L. -lumd_tsi721
 
 mbox_server: samples/mbox_example.c libumd_tsi721.a
 	$(CXX) $(CXXFLAGS) \
-		-Iinc -I$(REGSDIR) -I../include \
-		-DRDMA_LL=$(LOG_LEVEL) \
+		-I$(REGSDIR) \
 		$^ -o $@ \
 		$(SYSLIBS) -llog $(LIBRARIES) $(LIBS_RPATH) -L. -lumd_tsi721
 
 cmsock_ex: samples/cmsock_example.cc
 	$(CXX) $(CXXFLAGS) \
-		-I../include \
 		$^ -o $@ \
 		$(SYSLIBS) $(LIBRARIES) $(LIBS_RPATH) -llog 
 

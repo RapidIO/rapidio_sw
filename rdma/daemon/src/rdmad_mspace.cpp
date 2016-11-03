@@ -33,8 +33,11 @@
 #include <stdint.h>
 #include <errno.h>
 
+#ifndef __STDC_FORMAT_MACROS
 #define __STDC_FORMAT_MACROS
+#endif
 #include <cinttypes>
+#include <inttypes.h>
 
 #include <algorithm>
 #include <vector>
@@ -74,7 +77,7 @@ mspace::mspace(	const char *name, uint32_t msid, uint64_t rio_addr,
 		                client_msubid(NULL_MSUBID),
 		                client_to_lib_tx_eng_h(0)
 {
-	INFO("name=%s, msid=0x%08X, rio_addr=0x%" PRIx64 ", size=0x%X\n",
+	INFO("name=%s, msid=0x%08X, rio_addr=0x%" PRIX64 ", size=0x%" PRIX64 "\n",
 						name, msid, rio_addr, size);
 
 	/* Initially all free list sub-indexes are available */
@@ -339,7 +342,7 @@ int mspace::add_rem_connection(uint16_t client_destid,
 	/* We were NOT accepting by the owner, so check the users */
 	lock_guard<mutex> users_lock(users_mutex);
 	DBG("The creator was not accepting..checking the users\n");
-	DBG("There are %u user(s)\n", users.size());
+	DBG("There are %zu user(s)\n", users.size());
 	auto it = find_if(begin(users), end(users), [](ms_user& u)
 						{return u.accepting;});
 	if (it == end(users)) {

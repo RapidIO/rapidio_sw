@@ -37,13 +37,15 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sys/socket.h>
 #include <errno.h>
 #include <time.h>
-#include <string.h>
 
+#ifndef __STDC_FORMAT_MACROS
 #define __STDC_FORMAT_MACROS
+#endif
 #include <cinttypes>
 
 #include "rapidio_mport_dma.h"
 
+#include "string_util.h"
 #include "librsktd.h"
 #include "librdma.h"
 #include "librsktd.h"
@@ -251,7 +253,7 @@ int rsktd_areq_release(struct librsktd_unified_msg *msg)
 	struct librskt_release_req *req = &msg->rx->a_rq.msg.release;
 
 	msg->tx->a_rsp.err = htonl(0);
-	req->ms_name[MAX_MS_NAME] = 0;
+	req->ms_name[MAX_MS_NAME] = '\0';
 	INFO("Msg %s 0x%x Type 0x%x %s Proc %s Stage %s MS %s",
 		UMSG_W_OR_S(msg),
 		UMSG_CT(msg),
@@ -475,8 +477,10 @@ void rsktd_connect_accept(struct acc_skts *acc)
 	a_resp->peer_sa.ct = htonl((*con_req->sp)->ct);
 	a_resp->peer_sa.sn = dreq->src_sn;
 	a_resp->ms_size = htonl(loc_ms_info->ms_size);
-	memcpy(a_resp->mso_name, dmn.mso.msoh_name, MAX_MS_NAME);
-	memcpy(a_resp->ms_name, loc_ms_info->ms_name, MAX_MS_NAME);
+	SAFE_STRNCPY(a_resp->mso_name, dmn.mso.msoh_name,
+			sizeof(a_resp->mso_name));
+	SAFE_STRNCPY(a_resp->ms_name, loc_ms_info->ms_name,
+			sizeof(a_resp->ms_name));
 
 	/* Compose connect response next */
 	dresp->acc_sn = a_resp->new_sn;
@@ -484,7 +488,8 @@ void rsktd_connect_accept(struct acc_skts *acc)
 	dresp->dst_ct = dreq->dst_ct;
 	dresp->dst_dmn_cm_skt = htonl((*con_req->sp)->cm_skt_num);
 	dresp->msub_sz = a_resp->ms_size;
-	memcpy(dresp->dst_ms, loc_ms_info->ms_name, MAX_MS_NAME);
+	SAFE_STRNCPY(dresp->dst_ms, loc_ms_info->ms_name,
+			sizeof(dresp->dst_ms));
 
 	/* Add connected socket to list */
 	con = (struct con_skts *)calloc(1, sizeof(struct con_skts));
@@ -653,7 +658,7 @@ int rsktd_a2w_connect_req(struct librsktd_unified_msg *r)
 	struct librskt_resp *a_rsp = &r->tx->a_rsp;
 	struct  librsktd_connect_req *d_con = &r->dreq->msg.con;
 	uint32_t sn = ntohl(a_rq->sn);
-	uint32_t ct = ntohl(a_rq->ct);
+	ct_t ct = ntohl(a_rq->ct);
 	uint32_t new_sn = rsktd_sn_find_free();
 	int i, err = 0;
 	struct rskt_dmn_wpeer *w = NULL;
@@ -663,10 +668,10 @@ int rsktd_a2w_connect_req(struct librsktd_unified_msg *r)
 	r->dresp->msg_type = r->dreq->msg_type | htonl(RSKTD_RESP_FLAG);
 	a_rsp->err = 0;
 	a_rsp->msg.conn.new_sn = 0;
-	memset(a_rsp->msg.conn.mso, 0, MAX_MS_NAME);
-	memset(a_rsp->msg.conn.ms, 0, MAX_MS_NAME);
+	memset(a_rsp->msg.conn.mso, 0, sizeof(a_rsp->msg.conn.mso));
+	memset(a_rsp->msg.conn.ms, 0, sizeof(a_rsp->msg.conn.ms));
 	a_rsp->msg.conn.msub_sz = 0;
-	memset(a_rsp->msg.conn.rem_ms, 0, MAX_MS_NAME);
+	memset(a_rsp->msg.conn.rem_ms, 0, sizeof(a_rsp->msg.conn.rem_ms));
 
 	/* If can't find peer by component tag, fail */
 	r->wp = find_wpeer_by_ct(ct);
@@ -756,8 +761,8 @@ int rsktd_a2w_connect_req(struct librsktd_unified_msg *r)
 	d_con->dst_sn = htonl(sn);
 	d_con->dst_ct = htonl(ct);
 	d_con->src_sn = htonl(new_sn);
-	memcpy(d_con->src_mso, dmn.mso.msoh_name, MAX_MS_NAME);
-	memcpy(d_con->src_ms, r->loc_ms->ms_name, MAX_MS_NAME);
+	SAFE_STRNCPY(d_con->src_mso, dmn.mso.msoh_name, sizeof(d_con->src_mso));
+	SAFE_STRNCPY(d_con->src_ms, r->loc_ms->ms_name, sizeof(d_con->src_ms));
 	d_con->src_msub_o = 0;
 	d_con->src_msub_s = htonl(r->loc_ms->ms_size);
 
@@ -805,9 +810,9 @@ void rsktd_a2w_connect_resp(struct librsktd_unified_msg *r)
 	/* Pass con_resp info into a_rsp */
 	a_rsp->new_sn = d_req->src_sn;
 	a_rsp->new_ct = htonl(dmn.qresp.hdid);
-	memcpy(a_rsp->mso, d_req->src_mso, MAX_MS_NAME);
-	memcpy(a_rsp->ms, d_req->src_ms, MAX_MS_NAME);
-	memcpy(a_rsp->rem_ms, d_resp->dst_ms, MAX_MS_NAME);
+	SAFE_STRNCPY(a_rsp->mso, d_req->src_mso, sizeof(a_rsp->mso));
+	SAFE_STRNCPY(a_rsp->ms, d_req->src_ms, sizeof(a_rsp->ms));
+	SAFE_STRNCPY(a_rsp->rem_ms, d_resp->dst_ms, sizeof(a_rsp->rem_ms));
 	a_rsp->rem_sn = d_resp->acc_sn;
 	a_rsp->msub_sz = d_resp->msub_sz;
 	r->loc_ms->state = rsktd_ms_used;
@@ -1187,7 +1192,7 @@ uint32_t rsktd_sreq_connect_req(struct librsktd_unified_msg *r)
         dresp->msg.con.dst_sn = htonl(dreq->msg.con.dst_sn);
         dresp->msg.con.dst_ct = htonl(dreq->msg.con.dst_ct);
         dresp->msg.con.dst_dmn_cm_skt = htonl((*r->sp)->cm_skt_num);
-	memset(dresp->msg.con.dst_ms, 0, MAX_MS_NAME);
+	memset(dresp->msg.con.dst_ms, 0, sizeof(dresp->msg.con.dst_ms));
 
 	st = rsktd_sn_get(ntohl(dreq->msg.con.dst_sn));
 	if ((rskt_listening == st) || (rskt_accepting == st))

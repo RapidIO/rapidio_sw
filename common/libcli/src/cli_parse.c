@@ -200,11 +200,16 @@ float GetFloatParm(char* arg, float dflt)
 
 void update_string(char **target, char *new_str, int len)
 {
-        if (NULL != *target)
-                free(*target);
-        *target = (char *)malloc(len+1);
-        (*target)[len] = 0;
-        memcpy(*target, new_str, len);
+	if (*target == new_str) {
+		return;
+	}
+	if (NULL != *target) {
+		free(*target);
+	}
+
+	*target = (char *)malloc(len+1);
+	memcpy(*target, new_str, len);
+	(*target)[len] = 0;
 };
 
 int get_v_str(char **target, char *parm, int chk_slash)

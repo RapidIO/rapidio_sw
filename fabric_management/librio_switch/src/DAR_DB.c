@@ -38,9 +38,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
    - Routines for DAR DB initialization and binding driver routines
 */
 
-#include <DAR_DB.h>
-#include <DAR_DB_Private.h>
-#include <string.h>
+#include <stdbool.h>
+
+#include "string_util.h"
+#include "DAR_DB.h"
+#include "DAR_DB_Private.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -850,8 +852,7 @@ uint32_t DAR_Find_Driver_for_Device( bool    dev_info_devID_valid,
     int32_t driverIdx;
     uint32_t rc = RIO_SUCCESS;
 
-    strcpy(dev_info->name, "UNKNOWN");
-    dev_info->name[NAME_SIZE-1] = '\0';
+    SAFE_STRNCPY(dev_info->name, "UNKNOWN", sizeof(dev_info->name));
 
     /* If dev_info_devID_valid is true, we are using a static devID instead
          of probing.  Otherwise, we are probing a SRIO device to get a devID

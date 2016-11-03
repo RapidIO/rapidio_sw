@@ -14,7 +14,10 @@
 #include <stdint.h>
 #include <stddef.h>
 
-#include <riocp_pe.h>
+#include "did.h"
+#include "ct.h"
+#include "riocp_pe.h"
+#include "fmd_dd.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -22,7 +25,6 @@ extern "C" {
 
 #define RIOCP_PE_HANDLE_REV 1
 
-#define ANY_ID 0xff /* @todo To be removed, any_id will be stored in mport handle after get/calculation of sys_size */
 #define RIOCP_PE_ANY_PORT 0xff
 
 #define RIOCP_PE_DEV_DIR  "/dev"
@@ -113,10 +115,11 @@ struct riocp_pe_mport {
 /** RapidIO Processing element */
 struct riocp_pe {
 	uint32_t version;			/**< Internal handle revision */
-	const char *name;			/**< Name of device */
+	const char *dev_name;			/**< Name of device type */
+	char sysfs_name[FMD_MAX_NAME+1];	/**< SysFS Name of device */
 	uint8_t hopcount;			/**< RapidIO hopcount */
 	uint32_t destid;			/**< RapidIO destination ID */
-	uint32_t comptag;			/**< RapidIO component tag */
+	ct_t comptag;				/**< RapidIO component tag */
 	uint8_t *address;			/**< RapidIO address used to access this PE */
 	struct riocp_pe_capabilities cap;	/**< RapidIO Capabilities */
 	uint16_t efptr;				/**< RapidIO extended feature pointer */

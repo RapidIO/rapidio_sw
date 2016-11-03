@@ -13,6 +13,9 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
+#ifndef __STDC_FORMAT_MACROS
+#define __STDC_FORMAT_MACROS
+#endif
 #include <inttypes.h>
 
 #include <sys/ioctl.h>
@@ -292,10 +295,10 @@ static void riocp_pe_handle_destroy(struct riocp_pe **handle)
  * @param port       RapidIO port
  */
 int riocp_pe_handle_create_pe(struct riocp_pe *pe, struct riocp_pe **handle, uint8_t hopcount,
-	uint32_t destid, uint8_t port, uint32_t *comptag_in, char *name)
+	uint32_t destid, uint8_t port, ct_t *comptag_in, char *name)
 {
 	struct riocp_pe *h = NULL;
-	uint32_t comptag_nr = 0;
+	ct_nr_t comptag_nr = 0;
 	uint8_t peer_port = 0;
 	int ret = 0;
 
@@ -463,7 +466,7 @@ err:
  */
 int riocp_pe_handle_create_mport(uint8_t mport, bool is_host,
 	struct riocp_pe **handle, struct riocp_reg_rw_driver *drv,
-	uint32_t *comptag, char *name)
+	ct_t *comptag, char *name)
 {
 	int ret = 0;
 	struct riocp_pe *h = NULL;
@@ -520,13 +523,11 @@ int riocp_pe_handle_create_mport(uint8_t mport, bool is_host,
 		goto err;
 	}
 
-#if 0
 	ret = riocp_pe_read_features(h);
 	if (ret) {
 		RIOCP_ERROR("Features could not be read\n");
 		goto err;
 	}
-#endif
 
 	ret = riocp_pe_comptag_read(h, &h->comptag);
 	if (ret) {
@@ -603,7 +604,7 @@ void riocp_pe_handle_mport_put(struct riocp_pe **mport)
  * @retval 0 Handle not found
  * @retval -EIO Error in reading remote
  */
-int riocp_pe_handle_pe_exists(struct riocp_pe *mport, uint32_t comptag,
+int riocp_pe_handle_pe_exists(struct riocp_pe *mport, ct_t comptag,
 				struct riocp_pe **peer)
 {
 	int ret;
@@ -859,6 +860,46 @@ int RIOCP_SO_ATTR riocp_pe_handle_free_list(riocp_pe_handle **list)
 
 	return 0;
 }
+
+int RIOCP_WU riocp_pe_find_comptag(riocp_pe_handle mport, ct_t comptag,
+							riocp_pe_handle *pe)
+{
+	size_t count;
+	riocp_pe_handle *pes = NULL;
+	size_t i;
+
+	*pe = NULL;
+
+	if ((NULL == pe) || (COMPTAG_UNSET == comptag)) {
+		errno = -EINVAL;
+		goto fail;
+	};
+
+	if (!ct_not_inuse(comptag, dev08_sz)) {
+		errno = -ENOENT;
+		goto fail;
+	};
+
+	if (riocp_mport_get_pe_list(mport,&count, &pes)) {
+		goto fail;
+	};
+
+	for (i = 0; i < count; i++) {
+		if (pes[i]->comptag == comptag) {
+			*pe = pes[i];
+			break;
+		};
+	};
+
+	if (riocp_mport_free_pe_list(&pes)) {
+		*pe = NULL;
+		goto fail;
+	};
+
+	return NULL == *pe;
+fail:
+	return 1;
+};
 
 #ifdef __cplusplus
 }

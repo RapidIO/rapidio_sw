@@ -32,14 +32,17 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 
+#ifndef _LIBFMDD_H_
+#define _LIBFMDD_H_
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdarg.h>
 #include <stdint.h>
 
-#ifndef _LIBFMDD_H_
-#define _LIBFMDD_H_
+#include "did.h"
+#include "ct.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -136,7 +139,7 @@ void fmdd_destroy_handle(fmdd_h *dd_h);
  * @retval 0 means no requested flags were present
  */
 
-uint8_t fmdd_check_ct(fmdd_h h, uint32_t ct, uint8_t flag); /* OK if > 0 */
+uint8_t fmdd_check_ct(fmdd_h h, ct_t ct, uint8_t flag); /* OK if > 0 */
 
 /**
  * @brief Checks what flags are associated with a device ID

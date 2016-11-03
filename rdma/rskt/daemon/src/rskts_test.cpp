@@ -2,8 +2,8 @@
 #include <cstdint>
 #include <cstdio>
 #include <csignal>
-#include <cstring>
 
+#include "string_util.h"
 #include "ts_vector.h"
 #include "rapidio_mport_mgmt.h"
 #include "librskt_private.h"
@@ -227,7 +227,7 @@ void rskts_console_cleanup(struct cli_env *env);
 void set_prompt(struct cli_env *e)
 {
         if (e != NULL) {
-                strncpy(e->prompt, "RSKTSvr> ", PROMPTLEN);
+                SAFE_STRNCPY(e->prompt, "RSKTSvr> ", sizeof(e->prompt));
         };
 };
 

@@ -37,7 +37,7 @@ export DEBUG
 COMMON_DIR ?= $(COMMONDIR)
 export COMMON_DIR
 
-LOCAL_LIBRARY_DIR="libs_a"
+LOCAL_LIBRARY_DIR=libs_a
 
 level ?= $(LOG_LEVEL)
 
@@ -49,13 +49,23 @@ CCFLAGS= $(CXXFLAGS) -fPIC -Wall -I. \
 	-I./libriocp_pe/src \
 	-DRDMA_LL=$(level)
 
-LIB_DEPS= libriocp_pe libcli libswitch_api libdd libcfg libpe_mpdrv
+LIB_DEPS= libdid libct libriocp_pe libcli libswitch_api libdd libcfg libpe_mpdrv
 .PHONY: $(LIB_DEPS)
 
 all: daemon libfmdd
 
-%.o: %.c $(CLI_DEPS) $(DAEMON_DEPS) $(LIB_DEPS)
+%.o: %.c $(CLI_DEPS) $(LIB_DEPS)
 	$(CXX) -o $@ -c $< $(CCFLAGS)
+
+libdid: FORCE
+	$(MAKE) all -C libdid
+	mkdir -p $(LOCAL_LIBRARY_DIR)
+	cp libdid/libdid.a $(LOCAL_LIBRARY_DIR)
+
+libct: FORCE
+	$(MAKE) all -C libct
+	mkdir -p $(LOCAL_LIBRARY_DIR)
+	cp libct/libct.a $(LOCAL_LIBRARY_DIR)
 
 libriocp_pe: FORCE
 	$(MAKE) all -C libriocp_pe
@@ -98,10 +108,12 @@ FORCE:
 clean:
 	rm -f fmd *.o *~ inc/*~ *.exe core $(LOCAL_LIBRARY_DIR)/*.so \
 		$(LOCAL_LIBRARY_DIR)/*.a
+	$(MAKE) clean -C daemon
+	$(MAKE) clean -C libcfg
+	$(MAKE) clean -C libct
+	$(MAKE) clean -C libdd
+	$(MAKE) clean -C libdid
+	$(MAKE) clean -C libfmdd
+	$(MAKE) clean -C libpe_mpdrv
 	$(MAKE) clean -C librio_switch
 	$(MAKE) clean -C libriocp_pe
-	$(MAKE) clean -C daemon
-	$(MAKE) clean -C libfmdd
-	$(MAKE) clean -C libdd
-	$(MAKE) clean -C libcfg
-	$(MAKE) clean -C libpe_mpdrv

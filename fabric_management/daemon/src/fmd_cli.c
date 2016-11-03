@@ -31,7 +31,6 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
-// #include <cinttypes>
 
 #include <string.h>
 #include <stdlib.h>
@@ -54,17 +53,17 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "fmd_dd.h"
 #include "fmd_app_msg.h"
 #include "liblog.h"
-#include "fmd_app_mgmt.h"
 #include "cfg.h"
 #include "fmd_state.h"
 #include "fmd.h"
+#include "fmd_app.h"
+#include "fmd_app.h"
+#include "fmd_master.h"
+#include "fmd_slave.h"
 // #include "cli_cmd_line.h"
 // #include "cli_cmd_db.h"
 // #include "cli_parse.h"
 #include "libcli.h"
-#include "fmd_app_mgmt.h"
-#include "fmd_mgmt_master.h"
-#include "fmd_mgmt_slave.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -123,7 +122,7 @@ int CLIStatusCmd(struct cli_env *env, int argc, char **argv)
 	display_apps_dd(env);
 
 	if (!fmp.mode) {
-		sprintf(env->output, "PeerMgmt Alive: %1d Exit: %1d SLAVE %5d %s\n", 
+		sprintf(env->output, "\nPeerMgmt Alive: %1d Exit: %1d SLAVE %5d %s\n", 
 			fmp.slv.slave_alive, fmp.slv.slave_must_die,
 			fmp.slv.mast_skt_num,
 			fmp.slv.m_h_resp_valid?"OK":"No Hello Rsp");
@@ -132,7 +131,7 @@ int CLIStatusCmd(struct cli_env *env, int argc, char **argv)
 	};
 
 	sprintf(env->output,
-		"PeerMgmt Alive %1d Exit %1d PeerCnt %4d MASTER %5d\n",
+		"\nPeerMgmt Alive %1d Exit %1d PeerCnt %4d MASTER %5d\n",
 		fmp.acc.acc_alive, fmp.acc.acc_must_die, 
 		l_size(&fmp.peers), fmp.acc.cm_skt_num);
 	logMsg(env);
@@ -143,7 +142,7 @@ int CLIStatusCmd(struct cli_env *env, int argc, char **argv)
 		goto exit;
 	};
 
-	sprintf(env->output, "         ---CT--- ---DID-- HC A D I R\n");
+	sprintf(env->output, "\n         ---CT--- ---DID-- HC A D I R\n");
 	logMsg(env);
 
 	peer = (struct fmd_peer *)l_head(&fmp.peers, &li);
@@ -216,11 +215,12 @@ extern struct cli_cmd CLINotify;
 
 int CLINotifyCmd(struct cli_env *env, int argc, char **argv)
 {
-	if (0)
+	if (0) {
 		argv[0][0] = argc;
+		(void) env;
+	}
 
 	fmd_notify_apps();
-
 	return 0;
 };
 

@@ -41,7 +41,8 @@
 extern "C" {
 #endif
 
-#include <rapidio_mport_mgmt.h>
+#include "ct.h"
+#include "rapidio_mport_mgmt.h"
 
 /** @brief DirectIO transfer type */
 enum riomp_dma_directio_type {
@@ -236,14 +237,13 @@ int riomp_dma_map_memory(riomp_mport_t mport_handle, size_t size, off_t paddr, v
 /**
  * @brief unmap a kernel buffer to the userspace map
  *
- * @param[in] mport_handle port handle
  * @param[in] size number of bytes
  * @param[in] vaddr userspace memory pointer
  * @return status of the function call
  * @retval 0 on success
  * @retval -errno on error
  */
-int riomp_dma_unmap_memory(riomp_mport_t mport_handle, size_t size, void *vaddr);
+int riomp_dma_unmap_memory(size_t size, void *vaddr);
 
 #ifdef __cplusplus
 }

@@ -58,6 +58,8 @@ DAEMON_OBJS:=$(patsubst src/%.c,src/%.o,$(wildcard src/*.c))
 src/%.o: src/%.c
 	$(CXX) $(CXXFLAGS) -o $@ -c $< -Wall \
 	-I./src -I./inc -I../inc \
+	-I$(FMDDIR)/libdid/inc \
+	-I$(FMDDIR)/libct/inc \
 	-I$(COMMONDIR)/liblist/inc \
 	-I../../lib/src \
 	-I$(TOPDIR)/rdma/inc \
@@ -89,21 +91,24 @@ all: rsktd rskts remdbg
 rsktd:  $(RSKTLIB_OBJECTS) $(RSKTD_OBJECTS) src/*.h
 	@echo ---------- Building rsktd...
 	$(CXX) $(CXXFLAGS) $(LIBS_RPATH) \
-	-o $@ $(RSKTLIB_OBJECTS) $(RSKTD_OBJECTS) $(LIB_DIRS) $(LIBRARIES)
+	-o $@ $(RSKTLIB_OBJECTS) $(RSKTD_OBJECTS) \
+	$(LIB_DIRS) $(LIBRARIES) $(TST_LIBS)
 
 # The RDMA Sockets Test Server
 rskts:  $(RSKTLIB_OBJECTS) $(RSKTS_OBJECTS) src/*.h
 	@echo ---------- Building rskt test server...
 	$(CXX) $(CXXFLAGS) -L$(COMMONLIB) \
 	$(LIBS_RPATH) \
-	-o $@ $(RSKTLIB_OBJECTS) $(RSKTS_OBJECTS) $(LIB_DIRS) $(LIBRARIES)
+	-o $@ $(RSKTLIB_OBJECTS) $(RSKTS_OBJECTS) \
+	$(LIB_DIRS) $(LIBRARIES) $(TST_LIBS)
 
 # The Remote Debug shellsrc/librsktd_cli.c 
 remdbg:  $(RSKTLIB_OBJECTS) $(REMDBG_OBJECTS) src/*.h
 	@echo ---------- Building remote debug CLI ...
 	$(CXX) $(CXXFLAGS) -L$(COMMONLIB) \
 	$(LIBS_RPATH) \
-	-o $@ $(RSKTLIB_OBJECTS) $(REMDBG_OBJECTS) $(LIB_DIRS) $(LIBRARIES)
+	-o $@ $(RSKTLIB_OBJECTS) $(REMDBG_OBJECTS) \
+	$(LIB_DIRS) $(LIBRARIES) $(TST_LIBS)
 
 clean:
 	rm -f *.o src/*.o *~ *.exe core rsktd remdbg rskts rskt_server rskt_client

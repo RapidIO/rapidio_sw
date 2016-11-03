@@ -1,4 +1,7 @@
 #include <stdint.h>
+#ifndef __STDC_FORMAT_MACROS
+#define __STDC_FORMAT_MACROS
+#endif
 #include <inttypes.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -12,7 +15,6 @@
 
 #include <cstdlib>
 #include <cstdio>
-#include <inttypes.h>
 
 #include "memory_supp.h"
 #include "librdma.h"

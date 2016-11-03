@@ -60,7 +60,7 @@ struct rskt_dmn_speer {
 	struct rskt_dmn_speer *self_ref_ref;
 
 	/* Variables set by HELLO message */
-	uint32_t ct;
+	ct_t ct;
 	uint32_t cm_skt_num;
 	uint32_t cm_mp;
 

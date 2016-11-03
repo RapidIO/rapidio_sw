@@ -172,7 +172,7 @@ static void unix_engine_monitoring_thread_f(sem_t *engine_cleanup_sem)
 		}
 
 		/* Remove all dead Tx engine entries, or all if shutting down */
-		DBG("tx_eng_list.size() = %u\n", unix_tx_eng_list.size());
+		DBG("tx_eng_list.size() = %zu\n", unix_tx_eng_list.size());
 		unix_tx_eng_list.erase(remove_if(begin(unix_tx_eng_list),
 				         end(unix_tx_eng_list),
 			 		   [](unique_ptr<unix_tx_engine> &e)
@@ -359,7 +359,6 @@ int main (int argc, char **argv)
 	int c;
 	int rc;
 	int cons_ret;
-	constexpr auto LOGGER_FAILURE = 1;
 	constexpr auto CONSOLE_FAILURE = 2;
 	constexpr auto OUT_KILL_CONSOLE_THREAD = 4;
 	constexpr auto OUT_CLOSE_PORT = 5;
@@ -407,7 +406,6 @@ int main (int argc, char **argv)
 		/* Initialize logger */
 		if (rdma_log_init("rdmad.log", 1)) {
 			puts("Failed to initialize logging system");
-			throw LOGGER_FAILURE;
 		}
 
 		/* Prepare and start console thread, if applicable */
@@ -446,7 +444,7 @@ int main (int argc, char **argv)
 								strerror(-rc));
 			throw OUT_KILL_CONSOLE_THREAD;
 		}
-		DBG("peer.mport_hnd = 0x%X\n", peer.mport_hnd);
+		DBG("peer.mport_hnd = %p\n", peer.mport_hnd);
 
 		/* Query device information, and store destid */
 		struct riomp_mgmt_mport_properties prop;
@@ -554,10 +552,6 @@ int main (int argc, char **argv)
 
 		case CONSOLE_FAILURE:
 			rdma_log_close();
-			/* No break */
-
-		case LOGGER_FAILURE:
-			fprintf(stderr, "Exiting due to logger failure\n");
 			/* No break */
 
 		default:

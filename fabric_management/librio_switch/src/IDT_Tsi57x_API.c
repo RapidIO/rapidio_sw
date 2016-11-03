@@ -339,8 +339,10 @@ uint32_t init_scratchpad( DAR_DEV_INFO_t *DAR_info )
 	uint8_t idx;
 
 	for (idx = SCRPAD_FIRST_IDX; idx < MAX_DAR_SCRPAD_IDX; idx++) {
-		if (SCRPAD_EOF_OFFSET == scratchpad_const[idx].offset)
+		if (SCRPAD_EOF_OFFSET == scratchpad_const[idx].offset) {
+			rc = RIO_ERR_REG_ACCESS_FAIL;
 			break;
+		};
 
 		rc = ReadReg( DAR_info, scratchpad_const[idx].offset, &DAR_info->scratchpad[idx]);
 		if (RIO_SUCCESS != rc)
@@ -3308,7 +3310,7 @@ uint32_t idt_tsi57x_set_int_cfg( DAR_DEV_INFO_t       *dev_info,
 {
     uint32_t rc = RIO_ERR_INVALID_PARAMETER;
     uint32_t glob_int_en, spx_ctl_indep, spx_mode, i2c_int_en;
-    uint8_t  port_idx, port_num;
+    uint8_t  port_idx, port_num = 0;
     bool  en_mecs_int = false, en_rcs_int = false;
 
     // Validate notfn

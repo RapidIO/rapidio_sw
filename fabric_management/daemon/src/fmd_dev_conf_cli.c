@@ -53,11 +53,15 @@ extern "C" {
 int CLIConfigCmd(struct cli_env *env, int argc, char **argv)
 {
 	int rc, info_rc;
-        riocp_pe_handle pe_h = (riocp_pe_handle)(env->h);
+	riocp_pe_handle pe_h = (riocp_pe_handle)(env->h);
 	struct mpsw_drv_private_data *h;
 	int j;
 	struct riocp_pe_port pe_port_info[24];
-        struct cfg_dev cfg_dev;
+	riocp_pe_handle peer_pe;
+
+	if (0) {
+		argv[0][0] = argc;
+	}
 
 	if (NULL == pe_h) {
 		sprintf(env->output, "\nNo Device Selected...\n");
@@ -114,10 +118,11 @@ int CLIConfigCmd(struct cli_env *env, int argc, char **argv)
 				name = (char *)"NO_CONN";
 			} else {
 				port = pe_port_info[i].peer->id;
-				if (!cfg_find_dev_by_ct(
+				if (!riocp_pe_find_comptag(*fmd->mp_h,
 					pe_port_info[i].peer->pe->comptag,
-					&cfg_dev)) {
-						name = (char *)cfg_dev.name;
+					&peer_pe)) {
+						name =
+						(char *)peer_pe->sysfs_name;
 				};
 			};
 		};

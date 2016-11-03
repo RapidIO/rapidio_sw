@@ -1,7 +1,8 @@
+/* Application (library) routines for internal use by FMD */
 /*
 ****************************************************************************
-Copyright (c) 2014, Integrated Device Technology Inc.
-Copyright (c) 2014, RapidIO Trade Association
+Copyright (c) 2015, Integrated Device Technology Inc.
+Copyright (c) 2015, RapidIO Trade Association
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -30,58 +31,83 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
-
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdarg.h>
-#include <stdint.h>
-#include <unistd.h>
-#include <dirent.h>
-#include <errno.h>
-#include "rrmap_config.h"
-#include "cfg.h"
-#include "liblog.h"
+#include <semaphore.h>
+#include <pthread.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/mman.h>
+#include <sys/sem.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <sys/ioctl.h>
+#include <fcntl.h>
+#include <signal.h>
+#include <time.h>
 
-#ifndef _FMD_OPTS_H_
-#define _FMD_OPTS_H_
+#include "did.h"
+#include "ct.h"
+#include "fmd_dd.h"
+#include "fmd_app_msg.h"
+
+#ifndef __FMD_APP_H__
+#define __FMD_APP_H__
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#define FMD_DFLT_INIT_DD 0
-#define FMD_DFLT_RUN_CONS 1
-#define FMD_DFLT_LOG_LEVEL ((RDMA_LL_WARN < RDMA_LL)?RDMA_LL_WARN:RDMA_LL)
-#define FMD_DFLT_MAST_INTERVAL 5
-#define FMD_DFLT_MAST_DEVID_SZ FMD_DEV08
-#define FMD_DFLT_MAST_DEVID 1
-
-#define FMD_MAX_DEV_FN 256
-
-struct fmd_opt_vals {
-	int init_and_quit;	/* If asserted, exit after completing init */
-	int init_err;
-	int simple_init;	/* If asserted, do not init device directory */
-	int print_help;		/* If asserted, print help and exit */
-	int cli_port_num;	/* POSIX Socket for remote CLI session */
-	int app_port_num;	/* POSIX Socket for applications to connect */
-	int run_cons;		/* Run a console on this daemon. */
-	int log_level;		/* Starting log level */
-	uint32_t mast_mode;          /* 0 - FMD slave, 1 - FMD master */
-	int mast_interval;	/* Master FMD location information */
-	uint32_t mast_devid_sz; /* Master FMD location information */
-	uint32_t mast_devid;    /* Master FMD location information */
-	uint32_t mast_cm_port;  /* Master FMD location information */
-	char *fmd_cfg; /* FMD configuration file */
-	char *dd_fn; /* Device directory file name */
-	char *dd_mtx_fn; /* Device directory mutext file name */
+struct fmd_app_mgmt_state {
+	int index;
+	int alloced;
+        int app_fd;
+        socklen_t addr_size;
+        struct sockaddr_un addr;
+        pthread_t app_thr;
+        int alive;
+        sem_t started;
+        volatile int i_must_die;
+	uint32_t proc_num;
+	uint32_t flag;
+	char app_name[MAX_APP_NAME+1];
+	struct libfmd_dmn_app_msg req;
+	struct libfmd_dmn_app_msg resp;
 };
 
-extern struct fmd_opt_vals *fmd_parse_options(int argc, char *argv[]);
+struct app_mgmt_globals {
+        int port;
+        int bklg;
+	char *dd_fn;
+	char *dd_mtx_fn;
+
+        pthread_t conn_thread;
+        int loop_alive;
+        sem_t loop_started;
+        volatile int all_must_die;
+	ct_t ct; /* Component tag of FMD mport */
+
+        int fd; /* File number library instance connect to */
+        struct sockaddr_un addr;
+	sem_t apps_avail;
+	struct fmd_app_mgmt_state apps[FMD_MAX_APPS];
+};
+
+int start_fmd_app_handler(uint32_t port, uint32_t backlog,
+			char *dd_fn, char *dd_mtx_fn);
+void halt_app_handler(void);
+
+void cleanup_app_handler(void);
+
+void fmd_notify_apps(void);
+
+extern struct app_mgmt_globals app_st;
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* _FMD_OPTS_H_ */
+#endif /* __FMD_APP_H__ */

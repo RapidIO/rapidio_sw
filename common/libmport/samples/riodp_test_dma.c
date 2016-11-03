@@ -82,6 +82,12 @@
 #include <time.h>
 #include <signal.h>
 #include <pthread.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#include "rio_misc.h"
 #include <rapidio_mport_dma.h>
 #include <rapidio_mport_mgmt.h>
 
@@ -300,7 +306,7 @@ void dmatest_buf_free(riomp_mport_t mport_hnd, void *buf, uint32_t size,
 	if (handle && *handle) {
 		int ret;
 
-		ret = riomp_dma_unmap_memory(mport_hnd, size, buf);
+		ret = riomp_dma_unmap_memory(size, buf);
 		if (ret)
 			perror("munmap");
 
@@ -316,7 +322,6 @@ void dmatest_buf_free(riomp_mport_t mport_hnd, void *buf, uint32_t size,
  * specified.
  * 
  *
- * \param[in] mport_id Local mport device ID (index)
  * \param[in] rio_base Base RapidIO address for inbound window
  * \param[in] ib_size Inbound window and buffer size in bytes
  * \param[in] loc_addr Physical address in reserved memory range
@@ -327,7 +332,7 @@ void dmatest_buf_free(riomp_mport_t mport_hnd, void *buf, uint32_t size,
  * Performs the following steps:
  *
  */
-int do_ibwin_test(uint32_t mport_id, uint64_t rio_base, uint32_t ib_size, uint64_t loc_addr,
+int do_ibwin_test(uint64_t rio_base, uint32_t ib_size, uint64_t loc_addr,
 		  int verify)
 {
 	int ret;
@@ -364,7 +369,7 @@ int do_ibwin_test(uint32_t mport_id, uint64_t rio_base, uint32_t ib_size, uint64
 		dmatest_verify((U8P)ibmap, 0, ib_size, 0, PATTERN_SRC | PATTERN_COPY, 0);
 
 	/** - Unmap kernel-space data buffer */
-	ret = riomp_dma_unmap_memory(mport_hnd, ib_size, ibmap);
+	ret = riomp_dma_unmap_memory(ib_size, ibmap);
 	if (ret)
 		perror("munmap");
 out:
@@ -726,7 +731,6 @@ int main(int argc, char** argv)
 		{ "async",  no_argument, NULL, 'Y' },
 		{ "debug",  no_argument, NULL, 'd' },
 		{ "help",   no_argument, NULL, 'h' },
-		{ }
 	};
 	char *program = argv[0];
 	struct riomp_mgmt_mport_properties prop;
@@ -838,7 +842,7 @@ int main(int argc, char** argv)
 		if (loc_addr != RIOMP_MAP_ANY_ADDR)
 			printf("\tloc_addr=0x%llx\n", (unsigned long long)loc_addr);
 
-		do_ibwin_test(mport_id, rio_base, ibwin_size, loc_addr, verify);
+		do_ibwin_test(rio_base, ibwin_size, loc_addr, verify);
 	} else if (has_dma) {
 		printf("+++ RapidIO DMA Test +++\n");
 		printf("\tmport%d destID=%d rio_addr=0x%llx align=%d repeat=%d PID:%d\n",
@@ -861,3 +865,7 @@ out:
 	riomp_mgmt_mport_destroy_handle(&mport_hnd);
 	exit(rc);
 }
+
+#ifdef __cplusplus
+}
+#endif

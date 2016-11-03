@@ -33,11 +33,12 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 #include <stdio.h>
-#include <string.h>
 #include <stdlib.h>
 #include <stdarg.h>
 #include <stdint.h>
 #include "fake_libfmdd.h"
+
+#include "string_util.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -136,8 +137,7 @@ void init_destids(void)
  */
 fmdd_h fmdd_get_handle(char *my_name, uint8_t flag)
 {
-	memset(the_name, 0, 256);
-	strncpy(the_name, my_name, 256);
+	SAFE_STRNCPY(the_name, my_name, sizeof(the_name));
 	the_flag = flag;
 
 	init_destids();	

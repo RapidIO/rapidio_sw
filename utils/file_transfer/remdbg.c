@@ -42,7 +42,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <netinet/tcp.h>
 
 #include <stdio.h>
-#include <string.h>
 #include <stdlib.h>
 
 #include <sys/types.h>
@@ -57,11 +56,13 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <netinet/in.h>
 #include <netdb.h>
 
+#include "string_util.h"
+#include "rio_misc.h"
 #include "libcli.h"
 
 extern struct cli_cmd CLIConnect;
 
-int CLIConnectCmd(struct cli_env *env, int argc, char **argv)
+int CLIConnectCmd(struct cli_env *UNUSED(env), int UNUSED(argc), char **argv)
 {
 	int sockfd, portno, n;
 	struct sockaddr_in serv_addr;
@@ -168,7 +169,7 @@ void set_prompt(struct cli_env *e)
         };
 };
 
-int main(int argc, char *argv[])
+int main(int UNUSED(argc), char **UNUSED(argv))
 {
 	
 	struct cli_env env;
@@ -185,8 +186,7 @@ int main(int argc, char *argv[])
         env.progressState = 0;
         env.sess_socket = -1;
         env.cmd_prev = NULL;
-        bzero(env.prompt, PROMPTLEN+1);
-	strncpy(env.prompt, "RemDbg> ", PROMPTLEN);
+	SAFE_STRNCPY(env.prompt, "RemDbg> ", sizeof(env.prompt));
 
 	splashScreen((char *)"RapidIO Remote Debug Console");
 	cli_terminal(&env);

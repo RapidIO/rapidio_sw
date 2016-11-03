@@ -34,6 +34,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 #include <stdint.h>
+#include "did.h"
+#include "ct.h"
 
 #ifndef __FMD_PEER_MSG_H__
 #define __FMD_PEER_MSG_H__
@@ -55,7 +57,7 @@ struct fmd_p_hello {
 	uint32_t pid; /* Process ID */
 	uint32_t did;
 	uint32_t did_sz;
-	uint32_t ct;
+	ct_t ct;
 	uint32_t hc;
 };
 
@@ -73,7 +75,7 @@ struct fmd_m_peer_mod_req {
 	uint32_t did;
 	uint32_t did_sz;
 	uint32_t hc;
-	uint32_t ct;
+	ct_t ct;
 	uint32_t is_mp;
 	uint32_t flag;
 	char name[MAX_P_NAME+1];
@@ -83,7 +85,7 @@ struct fmd_s_peer_mod_resp {
 	uint32_t did;
 	uint32_t did_sz;
 	uint32_t hc;
-	uint32_t ct;
+	ct_t ct;
 	uint32_t is_mp;
 	uint32_t flag;
 	uint32_t rc; /* 0 means success */
@@ -94,7 +96,7 @@ struct fmd_s_peer_mod_resp {
 struct fmd_flag_set_req {
 	uint32_t did;
 	uint32_t did_sz;
-	uint32_t ct;
+	ct_t ct;
 	uint32_t flag;
 };
 

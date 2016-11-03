@@ -76,6 +76,11 @@ int rdma_log_init(const char *log_filename, unsigned circ_buf_en)
 
 	::circ_buf_en = circ_buf_en;
 
+	if (circ_buf_en && (NULL == log_filename)) {
+		log_file = NULL;
+		return 0;
+	};
+
 	/* Directory name */
 	string filename(DEFAULT_LOG_DIR);
 
@@ -87,7 +92,7 @@ int rdma_log_init(const char *log_filename, unsigned circ_buf_en)
 		if (system(create_dir.c_str()) < 0) {
 			fprintf(stderr, "Failed to create '%s'\n",
 							filename.c_str());
-			return -2;
+			return -ENOENT;
 		}
 	}
 
@@ -96,7 +101,7 @@ int rdma_log_init(const char *log_filename, unsigned circ_buf_en)
 	log_file = fopen(filename.c_str(), "ae");
 	if (!log_file) {
 		perror("rdma_log_init: fopen()");
-		return -4;
+		return -ENOENT;
 	}
 
 	return 0;

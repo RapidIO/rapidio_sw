@@ -34,7 +34,7 @@ static size_t pes_count;
 static int riocp_pe_test_dump_pe(riocp_pe_handle pe)
 {
 	int ret;
-	uint32_t comptag = 0;
+	ct_t comptag = 0;
 	uint32_t destid;
 	struct riocp_pe_capabilities cap;
 
@@ -65,7 +65,7 @@ static int discover(riocp_pe_handle root, riocp_pe_handle node)
 {
 	int ret = 0;
 	size_t j = 0;
-	uint32_t comptag;
+	ct_t comptag;
 	riocp_pe_handle next = node;
 
 	struct riocp_pe_port *ports = NULL;

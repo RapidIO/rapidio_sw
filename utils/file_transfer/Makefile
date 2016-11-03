@@ -38,10 +38,9 @@ include $(TOPDIR)/rules.mk
 export LOCAL_LIBRARY_DIR=libs_a
 COMMON_LIBS_DIR?=../../common/libs_a
 
-DEBUG?=DEBUG
-
-CXXFLAGS += -fPIC -Wall -I. -DRDMA_LL=$(LOG_LEVEL) \
-	-I./file_xfer_lib/inc -I./libcdev/inc \
+CXXFLAGS+=-D$(DEBUG_CTL) -DRDMA_LL=$(LOG_LEVEL)
+CXXFLAGS+=-I. -I./file_xfer_lib/inc -I./libcdev/inc -I./libfxfr/inc
+CXXFLAGS+=-I$(FMDDIR)/libdid/inc -I$(FMDDIR)/libct/inc
 
 REMDBG_DEPS=
 
@@ -62,7 +61,7 @@ LIBRARIES=-lfxfr -lmport -lrsvdmem -llog -lcli -ldl -lrt
 
 
 %.o: %.c $(SERVER_DEPS) $(LIB_DEPS)
-	$(CXX) -c -o $@ $< $(CXXFLAGS) -I./libfxfr/inc
+	$(CXX) -c -o $@ $< $(CXXFLAGS)
 
 libfxfr:
 	$(MAKE) all -C libfxfr
@@ -70,17 +69,17 @@ libfxfr:
 	cp libfxfr/libfxfr.a $(LOCAL_LIBRARY_DIR)
 	
 fxfr_server: $(SERVER_OBJS) 
-	$(CXX) $(CXXFLAGS) -o $@ $^ -pthread -L$(LOCAL_LIBRARY_DIR) -L$(COMMON_LIBS_DIR) \
+	$(CXX) $(CXXFLAGS) -o $@ $^ -L$(LOCAL_LIBRARY_DIR) -L$(COMMON_LIBS_DIR) \
 	$(LIBS_RPATH) $(LIBRARIES) \
-	-D__CLI_LINUX__ -I./libfxfr/inc
+	-D__CLI_LINUX__
 
 rftp: $(CLIENT_OBJS)
-	$(CXX) $(CXXFLAGS) -o $@ $^ -pthread -L$(LOCAL_LIBRARY_DIR) -L$(COMMON_LIBS_DIR) \
+	$(CXX) $(CXXFLAGS) -o $@ $^ -L$(LOCAL_LIBRARY_DIR) -L$(COMMON_LIBS_DIR) \
 	$(LIBS_RPATH) $(LIBRARIES) \
 	-D__CLI_LINUX__ -I./libfxfr/inc
 
 remdbg: $(REMDBG_OBJS)
-	$(CXX) $(CXXFLAGS) -o $@ $^ -pthread -L$(LOCAL_LIBRARY_DIR) -L$(COMMON_LIBS_DIR) \
+	$(CXX) $(CXXFLAGS) -o $@ $^ -L$(LOCAL_LIBRARY_DIR) -L$(COMMON_LIBS_DIR) \
 	$(LIBS_RPATH) -lfxfr -lcli -llog -lrt \
 	-D__CLI_LINUX__ 
 

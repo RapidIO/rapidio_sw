@@ -37,7 +37,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdlib.h>
 #include <unistd.h>
 #include <errno.h>
-#include <string.h>
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sys/ioctl.h>
@@ -51,6 +50,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <netinet/tcp.h>
 #include <netinet/ip_icmp.h>
 
+#include "string_util.h"
 #include "liblog.h"
 
 #ifdef __cplusplus
@@ -77,7 +77,7 @@ int tun_alloc(char* dev, int flags)
   ifr.ifr_flags = flags;
 
   if (*dev) {
-    strncpy(ifr.ifr_name, dev, IFNAMSIZ);
+    SAFE_STRNCPY(ifr.ifr_name, dev, sizeof(ifr.ifr_name));
   }
 
   if( (err = ioctl(fd, TUNSETIFF, (void *)&ifr)) < 0 ) {

@@ -32,8 +32,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 
+#include "fmd_master.h"
+
 #include <stdio.h>
-#include <string.h>
 #include <stdlib.h>
 #include <stdarg.h>
 #include <semaphore.h>
@@ -60,14 +61,14 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <rapidio_mport_mgmt.h>
 #include <rapidio_mport_sock.h>
 
+#include "string_util.h"
 #include "libcli.h"
-#include "fmd_mgmt_master.h"
-#include "fmd_mgmt_slave.h"
 #include "fmd.h"
 #include "cfg.h"
+#include "fmd_app.h"
 #include "liblog.h"
 #include "fmd_dd.h"
-#include "fmd_app_mgmt.h"
+#include "fmd_slave.h"
 #include "libfmdd.h"
 
 #ifdef __cplusplus
@@ -93,17 +94,17 @@ void send_m2s_flag_update(struct fmd_peer *peer, struct fmd_dd_dev_info *dev)
 
 	peer->m2s->fset.flag = htonl(flag);
 
-	INFO("TX M2S FLAG UPDATE to did %x for did %x flag %x\n",
+	INFO("TX M2S FLAG UPDATE to did 0x%x for did 0x%x flag 0x%x\n",
 		peer->p_did, dev->destID, flag);
 
 	peer->tx_buff_used = 1;
 	peer->tx_rc = riomp_sock_send(peer->cm_skt_h, 
 				peer->tx_buff, FMD_P_M2S_CM_SZ);
 	sem_post(&peer->tx_mtx);
-	INFO("Sent M2S update to %s for %s, flags 0x%2x, tx rc %x\n",
+	INFO("Sent M2S update to %s for %s, flags 0x%2x, tx rc 0x%x\n",
 		peer->peer_name, dev->name, flag, peer->tx_rc);
 	if (peer->tx_rc) {
-		ERR("Failed M2S update to %s for %s, flags 0x%2x, tx rc %x\n",
+		ERR("Failed M2S update to %s for %s, flags 0x%2x, tx rc 0x%x\n",
 			peer->peer_name, dev->name, flag, peer->tx_rc);
 	};
 };
@@ -125,12 +126,12 @@ void send_add_dev_msg(struct fmd_peer *peer, struct fmd_dd_dev_info *dev)
 	peer->m2s->mod_rq.is_mp = 0;
 
 	if (dev->is_mast_pt) {
-		strncpy(peer->m2s->mod_rq.name, FMD_SLAVE_MASTER_NAME, 
-			MAX_P_NAME);
+		SAFE_STRNCPY(peer->m2s->mod_rq.name, FMD_SLAVE_MASTER_NAME, 
+			sizeof(peer->m2s->mod_rq.name));
 	} else {
 		if (dev->destID == peer->p_did) {
-			strncpy(peer->m2s->mod_rq.name, FMD_SLAVE_MPORT_NAME,
-				MAX_P_NAME);
+			SAFE_STRNCPY(peer->m2s->mod_rq.name, FMD_SLAVE_MPORT_NAME,
+				sizeof(peer->m2s->mod_rq.name));
 			peer->m2s->mod_rq.is_mp = htonl(1);
 			flag |= FMDD_FLAG_OK_MP;
 		} else {
@@ -145,11 +146,12 @@ void send_add_dev_msg(struct fmd_peer *peer, struct fmd_dd_dev_info *dev)
 			/* Only tell peers about other connected peers */
 			if (NULL == t_peer)
 				goto exit;
-			strncpy(peer->m2s->mod_rq.name, dev->name, MAX_P_NAME);
+			SAFE_STRNCPY(peer->m2s->mod_rq.name, dev->name, 
+				sizeof(peer->m2s->mod_rq.name));
 		};
 	};
-	INFO("TX ADD DEV MSG to did %x Name %s Adding did %x ct %x\n",
-		peer->p_did, peer->m2s->mod_rq.name, dev->destID, dev->ct, 0);
+	INFO("TX ADD DEV MSG to did 0x%x Name %s Adding did 0x%x ct 0x%x\n",
+		peer->p_did, peer->m2s->mod_rq.name, dev->destID, dev->ct);
 
 	peer->m2s->mod_rq.flag = htonl(flag);
 	peer->tx_buff_used = 1;
@@ -173,8 +175,8 @@ void send_del_dev_msg(struct fmd_peer *peer, struct fmd_peer *del_peer)
 	peer->m2s->mod_rq.is_mp = 0;
 	memcpy(peer->m2s->mod_rq.name, del_peer->peer_name, MAX_P_NAME+1);
 
-	INFO("TX DEL DEV MSG to did %x Dropping did %x ct %x\n",
-		peer->p_did, del_peer->p_did, del_peer->p_ct, 0);
+	INFO("TX DEL DEV MSG to did 0x%x Dropping did 0x%x ct 0x%x\n",
+		peer->p_did, del_peer->p_did, del_peer->p_ct);
 
 	peer->m2s->mod_rq.flag = 0;
 	peer->tx_buff_used = 1;
@@ -198,9 +200,9 @@ void update_all_peer_dd_and_flags(uint32_t add_dev)
 		return;
 
 	for (src = 0; src < num_devs; src++) {
-		INFO("\nSRC DestID %d %s\n", devs[src].destID, devs[src].name);
+		INFO("\nSRC DestID 0x%x %s\n", devs[src].destID, devs[src].name);
 		for (tgt = 0; tgt < num_devs; tgt++) {
-			INFO("    TGT DestID %d %s\n",
+			INFO("    TGT DestID 0x%x %s\n",
 				devs[tgt].destID, devs[tgt].name);
 			if (src == tgt) {
 				// INFO("\n         Skip, SRC == TGT\n");
@@ -245,7 +247,7 @@ void send_peer_removal_messages(struct fmd_peer *del_peer)
 
 void master_process_hello_peer(struct fmd_peer *peer)
 {
-	struct cfg_dev peer_ep;
+	riocp_pe_handle peer_pe;
 	int add_to_list = 0;
 	int peer_not_found;
 
@@ -262,12 +264,14 @@ void master_process_hello_peer(struct fmd_peer *peer)
 	peer->p_did_sz = ntohl(peer->s2m->hello_rq.did_sz);
 	peer->p_ct = ntohl(peer->s2m->hello_rq.ct);
 	peer->p_hc = ntohl(peer->s2m->hello_rq.hc);
-	memcpy(peer->peer_name, peer->s2m->hello_rq.peer_name, MAX_P_NAME+1);
+	SAFE_STRNCPY(peer->peer_name, peer->s2m->hello_rq.peer_name,
+		sizeof(peer->peer_name));
 
-	peer_not_found = cfg_find_dev_by_ct(peer->p_ct, &peer_ep);
+	peer_not_found = riocp_pe_find_comptag(*fmd->mp_h, peer->p_ct, &peer_pe);
 
-	if (peer_not_found)
+	if (peer_not_found) {
 		DBG("Could not find configured peer ct 0x%x\n", peer->p_ct);
+	}
 
 	sem_wait(&peer->tx_mtx);
 
@@ -282,15 +286,15 @@ void master_process_hello_peer(struct fmd_peer *peer)
 		peer->m2s->hello_rsp.ct = htonl(0);
 		peer->m2s->hello_rsp.hc = htonl(0);
 	} else {
-		strncpy(peer->m2s->hello_rsp.peer_name, peer_ep.name, 
-			MAX_P_NAME);
+		SAFE_STRNCPY(peer->m2s->hello_rsp.peer_name, peer_pe->sysfs_name,
+			sizeof(peer->m2s->hello_rsp.peer_name));
 		peer->m2s->hello_rsp.pid = htonl(getpid());
 		peer->m2s->hello_rsp.did = htonl(fmd->opts->mast_devid);
 		peer->m2s->hello_rsp.did_sz = htonl(fmd->opts->mast_devid_sz);
-		peer->m2s->hello_rsp.ct = htonl(peer_ep.ct);
+		peer->m2s->hello_rsp.ct = htonl(peer_pe->comptag);
 		peer->m2s->hello_rsp.hc = htonl(0);
 		add_to_list = 1;
-		peer->p_hc = peer_ep.hc;
+		peer->p_hc = 0xFF;
 	};
 	peer->tx_buff_used = 1;
 	peer->tx_rc = riomp_sock_send(peer->cm_skt_h, peer->tx_buff,
@@ -298,22 +302,23 @@ void master_process_hello_peer(struct fmd_peer *peer)
 	sem_post(&peer->tx_mtx);
 
 	if (!peer->tx_rc && add_to_list) {
-		peer->rx_alive = 1;
+		peer->rx_alive = 2;
 		peer->got_hello = 1;
-		sem_post(&peer->started);
 		sem_wait(&fmp.peers_mtx);
 		peer->li = l_add(&fmp.peers, peer->p_did, peer);
 		sem_post(&fmp.peers_mtx);
 		add_device_to_dd(peer->p_ct, peer->p_did, peer->p_did_sz,
-			peer->p_hc, 0, FMDD_FLAG_OK, (char *)peer_ep.name);
-		HIGH("New Peer %x: Updating all dd and flags\n", peer->p_ct);
+			peer->p_hc, 0, FMDD_FLAG_OK,
+			(char *)peer_pe->sysfs_name);
+		HIGH("New Peer 0x%x: Updating all dd and flags\n", peer->p_ct);
 		update_all_peer_dd_and_flags(1);
 	};
 };
 
 void master_process_flag_set(struct fmd_peer *peer)
 {
-	uint32_t did, ct;
+	uint32_t did;
+	ct_t ct;
 	uint8_t flag;
 	uint32_t i;
 	int tell_peers = 0;
@@ -321,7 +326,7 @@ void master_process_flag_set(struct fmd_peer *peer)
 	if ((NULL == fmd->dd) || (NULL == fmd->dd_mtx))
 		return;
 
-	INFO("Peer(%x) RX FLAG Set 0x%x 0x%x 0x%x\n",
+	INFO("Peer(0x%x) RX FLAG Set 0x%x 0x%x 0x%x\n",
 		peer->p_ct, ntohl(peer->s2m->fset.did),
 		ntohl(peer->s2m->fset.ct),
 		ntohl(peer->s2m->fset.flag));
@@ -346,7 +351,7 @@ void master_process_flag_set(struct fmd_peer *peer)
 	sem_post(&fmd->dd_mtx->sem);
 
 	if (tell_peers) {
-		HIGH("Peer %x FLAG SET %x: Updating all dd and flags\n",
+		HIGH("Peer 0x%x FLAG SET 0x%x: Updating all dd and flags\n",
 			peer->p_ct, flag);
 
 		update_all_peer_dd_and_flags(0);
@@ -363,7 +368,7 @@ void peer_rx_req(struct fmd_peer *peer)
 	} while ((peer->rx_rc) && ((errno == EINTR) || (errno == ETIME)));
 
 	if (peer->rx_rc) {
-		ERR("PEER RX(%x): %d (%d:%s)\n",
+		ERR("PEER RX(0x%x): %d (%d:%s)\n",
 			peer->p_ct, peer->rx_rc, errno, strerror(errno));
 		peer->rx_must_die = 1;
 	};
@@ -380,8 +385,9 @@ void cleanup_peer(struct fmd_peer *peer)
 		sem_post(&fmp.peers_mtx);
 	};
 
-	del_device_from_dd(peer->p_ct, peer->p_did);
-	send_peer_removal_messages(peer);
+	if (!del_device_from_dd(peer->p_ct, peer->p_did)) {
+		send_peer_removal_messages(peer);
+	};
 
 	if (peer->tx_buff_used) {
 		riomp_sock_release_send_buffer(peer->cm_skt_h,
@@ -397,11 +403,12 @@ void cleanup_peer(struct fmd_peer *peer)
 		peer->rx_buff_used = 0;
 	};
 
-	if (peer->skt_h_valid) {
+	if (peer->skt_h_valid && (NULL != peer->cm_skt_h)) {
 		int rc = riomp_sock_close(&peer->cm_skt_h);
 		if (rc) {
 			ERR("socket close rc %d: %s\n", rc, strerror(errno));
 		};
+		peer->cm_skt_h = NULL;
 		peer->skt_h_valid= 0;
 	};
 };
@@ -409,6 +416,9 @@ void cleanup_peer(struct fmd_peer *peer)
 void *peer_rx_loop(void *p_i)
 {
 	struct fmd_peer *peer = (struct fmd_peer *)p_i;
+
+	peer->rx_alive = 1;
+	sem_post(&peer->started);
 
 	while (!peer->rx_must_die && !peer->tx_rc && !peer->rx_rc) {
 		peer_rx_req(peer);
@@ -423,7 +433,7 @@ void *peer_rx_loop(void *p_i)
 		case FMD_P_RESP_MOD:
 			/* Nothing to do for a modification response */
 			INFO(
-			"Peer(%x) RX MOD Resp 0x%x 0x%x 0x%x 0x%x 0x%x rc %d\n",
+			"Peer(0x%x) RX MOD Resp 0x%x 0x%x 0x%x 0x%x 0x%x rc %d\n",
 				peer->p_ct,
 				ntohl(peer->s2m->mod_rsp.did),
 				ntohl(peer->s2m->mod_rsp.did_sz),
@@ -436,7 +446,7 @@ void *peer_rx_loop(void *p_i)
 			master_process_flag_set(peer);
 			break;
 		default:
-			WARN("Peer(%x) RX Msg type %x\n", peer->p_ct,
+			WARN("Peer(0x%x) RX Msg type 0x%x\n", peer->p_ct,
 					ntohl(peer->s2m->msg_type));
 			break;
 		};
@@ -444,7 +454,7 @@ void *peer_rx_loop(void *p_i)
 
 	cleanup_peer(peer);
 
-	INFO("Peer(%x) EXITING\n", peer->p_ct);
+	INFO("Peer(0x%x) EXITING\n", peer->p_ct);
 	pthread_exit(NULL);
 };
 
@@ -455,26 +465,11 @@ int start_new_peer(riomp_sock_t new_skt)
 
 	peer = (struct fmd_peer *) calloc(1, sizeof(struct fmd_peer));
 
-	peer->p_pid = 0;
-	peer->p_did = 0;
-	peer->p_did_sz = 0;
-	peer->p_ct = 0;
-	peer->p_hc = 0;
-	peer->cm_skt = 0;
 	peer->skt_h_valid= 1;
 	peer->cm_skt_h = new_skt;
-	sem_init(&peer->started, 0, 0);
-	peer->got_hello = 0;
 	sem_init(&peer->init_cplt_mtx, 0, 1);
-	peer->init_cplt = 0;
-	peer->rx_must_die = 0;
-	peer->tx_buff_used = 0;
-	peer->tx_rc = 0;
-	peer->rx_rc = 0;
 	sem_init(&peer->tx_mtx, 0, 1);
 	sem_init(&peer->started, 0, 0);
-	peer->rx_alive = 0;
-	peer->rx_buff_used = 0;
 	peer->rx_buff = calloc(1, 4096);
 
 	if (riomp_sock_request_send_buffer(new_skt, &peer->tx_buff)) {
@@ -483,11 +478,16 @@ int start_new_peer(riomp_sock_t new_skt)
 	};
 
         rc = pthread_create(&peer->rx_thr, NULL, peer_rx_loop, (void*)peer);
-	if (!rc)
-		sem_wait(&peer->started);
-
-	if (rc || !peer->rx_alive)
+	if (rc) {
+		cleanup_peer(peer);
 		goto fail;
+	};
+
+	sem_wait(&peer->started);
+
+	if (rc || !peer->rx_alive) {
+		goto fail;
+	};
 
 	return 0;
 fail:
@@ -565,6 +565,7 @@ void *mast_acc(void *unused)
 			};
 		};
 		do {
+			errno = 0;
 			rc = riomp_sock_accept(fmp.acc.cm_acc_h,
 				&new_skt, 3*60*1000);
 		} while (rc && ((errno == ETIME) || (errno == EINTR)));
@@ -580,8 +581,7 @@ void *mast_acc(void *unused)
 		};
 
 		if (start_new_peer(new_skt)) {
-			WARN("Could not start peer after accept\n", rc);
-			free(new_skt);
+			WARN("Could not start peer after accept\n");
 		};
 			
 		new_skt = NULL;
@@ -598,8 +598,7 @@ exit:
 	pthread_exit(unused);
 };
 
-int start_peer_mgmt_master(uint32_t mast_acc_skt_num, uint32_t mp_num, 
-		uint32_t mast_did)
+int start_peer_mgmt_master(uint32_t mast_acc_skt_num, uint32_t mp_num)
 {
 	uint32_t rc;
 
@@ -631,54 +630,15 @@ int start_peer_mgmt(uint32_t mast_acc_skt_num, uint32_t mp_num,
 	fmp.acc.mp_num = mp_num;
 	fmp.mode = master;
 
-	if (master)
-		rc = start_peer_mgmt_master(mast_acc_skt_num, mp_num, mast_did);
-	else
+	if (master) {
+		rc = start_peer_mgmt_master(mast_acc_skt_num, mp_num);
+	} else {
 		rc = start_peer_mgmt_slave(mast_acc_skt_num, mast_did, mp_num, 
 			&fmp.slv);
-
-	if (rc)
-		shutdown_mgmt();
+	};
 	return rc;
 };
 		
-void shutdown_master_mgmt(void)
-{
-	struct fmd_peer *peer = NULL;
-	void *unused = NULL;
-
-	/* Shut down accept thread first... */
-	if (fmp.acc.acc_alive) {
-		fmp.acc.acc_must_die = 1;
-		pthread_kill(fmp.acc.acc, SIGHUP);
-		pthread_join(fmp.acc.acc, &unused);
-	};
-
-	/* Then kill every listening thread, if they're not dead already */
-
-	peer = (struct fmd_peer *)l_pop_head(&fmp.peers);
-	while (peer != NULL) {
-		peer->li = NULL;
-		cleanup_peer(peer);
-	
-		pthread_kill(peer->rx_thr, SIGHUP);
-		pthread_join(peer->rx_thr, &unused);
-		free(peer);
-		peer = (struct fmd_peer *)l_pop_head(&fmp.peers);
-	};
-	cleanup_acc_handler();
-};
-
-void shutdown_mgmt(void)
-{
-	if (fmp.mode)
-		shutdown_master_mgmt();
-	else
-		shutdown_slave_mgmt();
-};
-
-	
-
 void update_peer_flags(void)
 {
 	if (fmp.mode)

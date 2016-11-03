@@ -45,21 +45,26 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "IDT_Tsi721.h"
 
+#include "rio_misc.h"
 #include "mport.h"
 #include "dmadesc.h"
 #include "rdtsc.h"
 #include "debug.h"
 
-#if defined(DEBUG) && DEBUG > 1
-  #define DDBG(format, ...) DBG(format, __VA_ARGS__)
-#else
-  #define DDBG(format, ...)
+#ifdef RDMA_LL
+ #include "liblog.h"
 #endif
 
-#if defined(DEBUG) && DEBUG > 2
-  #define DDDBG(format, ...) DBG(format, __VA_ARGS__)
+#if defined(DEBUG) && DEBUG > 1 && defined(RDMA_LL)
+  #define DDBG(format, ...) DBG(format, ## __VA_ARGS__)
 #else
-  #define DDDBG(format, ...)
+  #define DDBG(format, ...) if (0) fprintf(stdout, format, ## __VA_ARGS__);
+#endif
+
+#if defined(DEBUG) && DEBUG > 2 && defined(RDMA_LL)
+  #define DDDBG(format, ...) DBG(format, ## __VA_ARGS__)
+#else
+  #define DDDBG(format, ...) if (0) fprintf(stdout, format, ## __VA_ARGS__);
 #endif
 
 struct hw_omsg_desc_ {
@@ -180,7 +185,7 @@ public:
    * \note This is polling the HO bit in inbound BDs
    * \param[out] rx_ts rdtsc timestamp when message was ready
    */
-  inline bool inb_message_ready(uint64_t& rx_ts)
+  inline bool inb_message_ready(uint64_t &UNUSED_PARM(rx_ts))
   {
     if (!m_imsg_init) throw std::runtime_error("inb_message_ready: mbox not initialised!");
 

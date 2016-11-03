@@ -44,7 +44,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <time.h>
 #include <sys/time.h>
 
+#ifndef __STDC_FORMAT_MACROS
 #define __STDC_FORMAT_MACROS
+#endif
 #include <cinttypes>
 
 #include <algorithm>
@@ -155,13 +157,13 @@ static int daemon_call(unique_ptr<unix_msg_t> in_msg, unix_msg_t *out_msg)
 
 	/* Send message */
 	in_msg->seq_no = seq_no;
-	DBG("Queuing for sending: type='%s',0x%X, cat='%s',0x%X, seq_no = 0x%X",
+	DBG("Queuing for sending: type='%s',0x%" PRIx64 ", cat='%s',0x%" PRIx64 ", seq_no = 0x%" PRIx64,
 		type_name(in_msg->type), in_msg->type, cat_name(in_msg->category),
 		in_msg->category, in_msg->seq_no);
 	tx_eng->send_message(move(in_msg));
 
 	/* Wait for reply */
-	DBG("Waiting for notification (type='%s',0x%X, cat='%s',0x%X, seq_no=0x%X)",
+	DBG("Waiting for notification (type='%s',0x%" PRIx64 ", cat='%s',0x%" PRIx64 ", seq_no=0x%" PRIx64 ")",
 		type_name(reply_type), reply_type, cat_name(RDMA_CALL),
 					RDMA_CALL, seq_no);
 	struct timespec timeout;
@@ -674,7 +676,7 @@ int rdma_close_mso_h(mso_h msoh)
 		list<loc_ms *>	ms_list(get_num_ms_by_msoh(msoh));
 		get_list_msh_by_msoh(msoh, ms_list);
 
-		DBG("ms_list now has %d elements", ms_list.size());
+		DBG("ms_list now has %zu elements", ms_list.size());
 
 		/* For each one of the memory spaces in this mso, close */
 		bool	ok =  true;
@@ -768,7 +770,7 @@ int rdma_destroy_mso_h(mso_h msoh)
 		list<loc_ms *>	ms_list(get_num_ms_by_msoh(msoh));
 		get_list_msh_by_msoh(msoh, ms_list);
 
-		INFO("ms_list now has %d elements", ms_list.size());
+		INFO("ms_list now has %zu elements", ms_list.size());
 
 		/* For each one of the memory spaces, call destroy */
 		bool	ok = true;
@@ -934,7 +936,7 @@ int destroy_msubs_in_msh(ms_h msh)
 	list<struct loc_msub *>	msub_list(get_num_loc_msub_in_ms(msid));
 	get_list_loc_msub_in_msid(msid, msub_list);
 
-	DBG("%d msub(s) in msh(0x%" PRIx64 "):", msub_list.size(), msh);
+	DBG("%zu msub(s) in msh(0x%" PRIx64 "):", msub_list.size(), msh);
 
 	/* For each one of the memory sub-spaces, call destroy */
 	bool	ok = true;
@@ -1211,8 +1213,8 @@ int rdma_create_msub_h(ms_h	msh,
 
 		/* Check for NULL */
 		if (!msh || !msubh) {
-			ERR("NULL param: msh=0x%" PRIx64 ", msubh=%p",
-								msh, msubh);
+			ERR("NULL param: msh=0x%" PRIx64 ", msubh=0x%" PRIx64,
+								msh, *msubh);
 			throw RDMA_NULL_PARAM;
 		}
 
@@ -1270,7 +1272,7 @@ int rdma_create_msub_h(ms_h	msh,
 			throw RDMA_DB_ADD_FAIL;
 		}
 	
-		DBG("msubh = 0x%" PRIx64 "", msubh);
+		DBG("msubh = 0x%" PRIx64, *msubh);
 	} /* try */
 	catch(int& e) {
 		rc = e;
@@ -1294,7 +1296,7 @@ int rdma_destroy_msub_h_locked(ms_h msh, msub_h msubh)
 			throw RDMA_NULL_PARAM;
 		}
 
-		DBG("msubh = 0x%" PRIx64 "", msubh);
+		DBG("msubh = 0x%" PRIx64, msubh);
 
 		/* Set up input parameters */
 		auto in_msg = make_unique<unix_msg_t>();
@@ -1324,7 +1326,7 @@ int rdma_destroy_msub_h_locked(ms_h msh, msub_h msubh)
 
 		/* Remove msub from database */
 		if (remove_loc_msub(msubh) < 0) {
-			WARN("Failed to remove %p from database", msubh);
+			WARN("Failed to remove 0x%" PRIx64 " from database", msubh);
 			throw RDMA_DB_REM_FAIL;
 		}
 
@@ -1842,7 +1844,7 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 		clock_gettime(CLOCK_MONOTONIC, &after);
 		__sync_synchronize();
 		rtt = time_difference(before, after);
-		HIGH("Round-trip-time for accept/connect = %u seconds and %u microseconds",
+		HIGH("Round-trip-time for accept/connect = %zd seconds and %zd microseconds",
 							rtt.tv_sec, rtt.tv_nsec/1000);
 
 		/* Point to the accept message */
@@ -2263,7 +2265,7 @@ static int dma_push_pull_msub(bool is_push,
 
 			INFO("Receiving %u bytes over DMA from destid=0x%X",
 						in->num_bytes, rmsub->destid);
-			INFO("Source RIO addr = 0x%X, lmsub->paddr = 0x%" PRIx64 "",
+			INFO("Source RIO addr = 0x%" PRIx64 ", lmsub->paddr = 0x%" PRIx64 "",
 						rmsub->rio_addr_lo + in->rem_offset,
 						lmsub->paddr);
 
@@ -2383,7 +2385,7 @@ static int dma_push_pull_buf(bool is_push, void *buf, int num_bytes,
 		out->in_param_ok = 0;
 
 		if (is_push) {
-			INFO("Sending %u bytes over DMA to destid=0x%X, rio_addr = 0x%X",
+			INFO("Sending %u bytes over DMA to destid=0x%X, rio_addr = 0x%" PRIx64,
 				num_bytes,
 				rmsub->destid,
 				rmsub->rio_addr_lo + rem_offset);
@@ -2399,7 +2401,7 @@ static int dma_push_pull_buf(bool is_push, void *buf, int num_bytes,
 				ERR("riomp_dma_write() failed:(%d) %s", rc, strerror(rc));
 			}
 		} else {
-			INFO("Receiving %u DMA bytes from destid=0x%X, RIO addr = 0x%X",
+			INFO("Receiving %u DMA bytes from destid=0x%X, RIO addr = 0x%" PRIx64,
 							num_bytes,
 							rmsub->destid,
 							rmsub->rio_addr_lo + rem_offset);

@@ -32,54 +32,54 @@
 TOPDIR?=$(shell pwd)/../..
 include $(TOPDIR)/rules.mk
 
-LOG_LEVEL?=7
-DEBUG?=NDEBUG
-
-level=$(LOG_LEVEL)
-
 NAME:=time_utils
 TARGETS:=lib$(NAME).a lib$(NAME).so
-TEST_TARGET:=$(NAME)_test
-HEADERS:=inc/lib$(NAME).h
-
-XFLAGS=-Wall -Wextra -fPIC
-XFLAGS+=-D$(DEBUG) -DRDMA_LL=$(level)
-XFLAGS+=-I. -Iinc -Isrc
-
-CFLAGS += $(XFLAGS)
-CXXFLAGS += $(XFLAGS)
-
-LDFLAGS+=-L. -l$(NAME)
-LINK_FLAGS+= -rdynamic -shared -Wl,-soname,lib$(NAME).so.$(SOVER)
+TEST_TARGETS:=$(NAME)_test
 
 OBJECTS:=$(patsubst src/%.c,src/%.o,$(wildcard src/*.c))
-
 TEST_OBJECTS:=$(patsubst test/%.c,test/%.o,$(wildcard test/*.c))
 
-ifndef TEST
-all: $(TARGETS)
+CXXFLAGS+=-D$(DEBUG_CTL) -DRDMA_LL=$(LOG_LEVEL)
+LINK_FLAGS+= -rdynamic -shared -Wl,-soname,lib$(NAME).so.$(SOVER)
+LDFLAGS+=-L. -L$(COMMONLIB) $(LIBS_RPATH) -l$(NAME)
+
+
+.PHONY: all clean test
+
+ifdef TEST
+all: $(TARGETS) $(TEST_TARGETS)
 else
-all: $(TARGETS) $(TEST_TARGET)
+all: $(TARGETS)
 endif
 
+test: $(TEST_TARGETS)
+ 
 %.a: $(OBJECTS)
+	@echo ---------- Building $@
 	$(AR) rcs $@ $^
 
 %.so: $(OBJECTS)
+	@echo ---------- Building $@
 	$(CXX) $(CXXFLAGS) -o $@.$(SOVER) $(OBJECTS) $(LINK_FLAGS)
 	@ln -s $@.$(SOVER) $@ &>/dev/null
 
-src/%.o: src/%.c $(HEADERS)
-	$(CXX) -c $(CXXFLAGS) $< -o $@
+src/%.o: src/%.c
+	@echo ---------- Building $@
+	$(CXX) -c $(CXXFLAGS) $< -o $@ \
+	$(TST_INCS)
 
-test: $(TARGETS) $(TEST_TARGET) 
-
-$(TEST_TARGET): $(TEST_OBJECTS) $(OBJECTS)
-	$(CXX) $(CXXFLAGS) $(TEST_OBJECTS) $(OBJECTS) -o $(TEST_TARGET) \
-	-L. -L$(COMMONLIBA) \
-	-llog -lcli -pthread
+test/%.o: test/%.c
+	@echo ---------- Building $@
+	$(CXX) -c $(CXXFLAGS) $< -o $@ \
+	$(TST_INCS)
+	
+$(TEST_TARGETS): $(TEST_OBJECTS)
+	@echo ---------- Building $@
+	$(CXX) -o $@ $< $(LDFLAGS) \
+	$(TST_LIBS)
 
 clean:
-	rm -f $(TARGETS) $(TEST_TARGET) $(OBJECTS) $(TEST_OBJECTS) inc/*~ src/*~ *~ *.a lib$(NAME).so*
+	rm -f $(TARGETS) lib$(NAME).so.$(SOVER) $(OBJECTS) \
+	$(TEST_TARGETS) $(TEST_OBJECTS) \
+	inc/*~ src/*~ test/*~ *~
 
-.PHONY: all clean

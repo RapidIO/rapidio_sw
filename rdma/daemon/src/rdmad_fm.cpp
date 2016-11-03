@@ -39,6 +39,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <vector>
 #include <set>
 
+#include "did.h"
+#include "ct.h"
 #include "liblog.h"
 #include "libfmdd.h"
 #include "rdmad_mspace.h"
@@ -93,7 +95,7 @@ static int provision_new_dids(uint32_t old_did_list_size,
 			old_did_list, old_did_list + old_did_list_size,
 			begin(result));
 	result.resize(end_result - begin(result));
-	INFO("%u new endpoints detected\n", result.size());
+	INFO("%zu new endpoints detected\n", result.size());
 
 	/* Provision new dids */
 	for (uint32_t& did : result) {
