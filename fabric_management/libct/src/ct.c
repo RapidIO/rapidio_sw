@@ -66,7 +66,7 @@ extern "C" {
 int ct_ids[NUMBER_OF_CTS];
 uint32_t ct_idx = 0;
 
-#define CT_FROM_NR_DID(n,d) ((((uint64_t)(n) << 16) & CT_NR_MASK) | (CT_DID_MASK & d))
+#define CT_FROM_NR_DID(n,d) (((n << 16) & CT_NR_MASK) | (CT_DID_MASK & d))
 
 void initialize()
 {
