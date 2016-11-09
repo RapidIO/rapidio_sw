@@ -33,6 +33,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef __IDT_PORT_CONFIG_API_H__
 #define __IDT_PORT_CONFIG_API_H__
 
+#include <stdbool.h>
 #include <DAR_DevDriver.h>
 
 #ifdef __cplusplus

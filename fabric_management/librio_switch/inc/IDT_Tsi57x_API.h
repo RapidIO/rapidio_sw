@@ -33,11 +33,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef __IDT_TSI57X_API_H__
 #define __IDT_TSI57X_API_H__
 
+#include <stdint.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include <stdint.h>
 
 /* Routine to bind in all Tsi57x specific DAR support routines.
    Supports Tsi574, Tsi576, Tsi577, Tsi578

@@ -279,6 +279,8 @@ int RIOCP_WU riocp_drv_reset_port(struct riocp_pe *pe, pe_port_t port,
 int RIOCP_WU riocp_drv_set_route_entry(struct riocp_pe *pe,
                         pe_port_t port, uint32_t did, pe_rt_val rt_val)
 {
+	RIOCP_DEBUG("set_route_entry %s port 0x%x did 0x%x rt_val 0x%x\n",
+		pe->sysfs_name, port, did, rt_val);
 	if (drvr.set_route_entry && drvr_ok)
 		return drvr.set_route_entry(pe, port, did, rt_val);
 	else
@@ -308,9 +310,12 @@ int RIOCP_WU riocp_drv_get_route_entry(struct riocp_pe *pe,
 * @brief Free an allocated multicast mask on this PE
 *
 * @param[in] pe Processing element to be queried
-* @param[in] lut Look up table where the multicast mask should be freed.
+* @param[in] port Look up table where the multicast mask should be freed.
 * @param[in] rt_val Routing table value which identifies the multicast mask.
 *                    to be freed.
+* @param[in] port_mask Bit vector of ports to be set in the allocated multicast
+*                    mask.  Least significant bit corresponds to port 0, most
+*                    significant bit to port 31
 *
 */
 int RIOCP_WU riocp_drv_alloc_mcast_mask(struct riocp_pe *sw, pe_port_t port,

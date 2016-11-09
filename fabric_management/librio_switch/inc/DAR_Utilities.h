@@ -33,12 +33,12 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef __DAR_UTILITIES_H__
 #define __DAR_UTILITIES_H__
 
+#include "stdint.h"
+#include "DAR_DevDriver.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include "stdint.h"
-#include "DAR_DevDriver.h"
 
 #define RIO_MAX_PKT_BYTES 276
 #define RIO_MAX_PKT_PAYLOAD 256

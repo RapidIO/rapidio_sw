@@ -52,7 +52,7 @@ extern "C" {
 
 /* 1 - UINT16_MAX are available for use */
 #define NUMBER_OF_CTS (1 << 16)
-#define CT_NR_MASK (0xffff0000)
+#define CT_NR_MASK (0x0ffff0000)
 #define CT_DID_MASK (0x0000ffff)
 
 /**
@@ -66,7 +66,7 @@ extern "C" {
 int ct_ids[NUMBER_OF_CTS];
 uint32_t ct_idx = 0;
 
-#define CT_FROM_NR_DID(n,d) (((n << 16) & 0xffff0000) | (0x0000ffff & d))
+#define CT_FROM_NR_DID(n,d) (((n << 16) & CT_NR_MASK) | (CT_DID_MASK & d))
 
 void initialize()
 {

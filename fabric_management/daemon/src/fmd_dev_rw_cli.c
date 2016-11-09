@@ -115,7 +115,6 @@ int CLIDevSelCmd(struct cli_env *env, int argc, char **argv)
 	riocp_pe_handle *pes = NULL;
 	size_t pes_count, i;
 	int rc;
-	struct riocp_pe_capabilities caps;
 	const char *dev_name, *vend_name, *sysfs_name;
 
 	rc = riocp_mport_get_pe_list(mport_pe, &pes_count, &pes);
@@ -182,20 +181,7 @@ int CLIDevSelCmd(struct cli_env *env, int argc, char **argv)
 	"\n  CompTag -->Sysfs Name<-- ----------->> Vendor <<-------------------  Device\n");
 	logMsg(env);
 	for (i = 0; i < pes_count; i++) {
-		rc = riocp_pe_get_comptag(pes[i], &pe_ct);
-		if (rc) {
-			sprintf(env->output, "\nFailed reading CT: %d\n", rc);
-			logMsg(env);
-			goto exit;
-		}
-		rc = riocp_pe_get_capabilities(pes[i], &caps);
-		if (rc) {
-			sprintf(env->output,
-				"\nFailed reading capabilities: %d\n", rc);
-			logMsg(env);
-			goto exit;
-		}
-
+		pe_ct = pes[i]->comptag;
 		sysfs_name = riocp_pe_get_sysfs_name(pes[i]);
 		dev_name = riocp_pe_get_device_name(pes[i]);
 		vend_name = riocp_pe_get_vendor_name(pes[i]);

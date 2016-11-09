@@ -44,6 +44,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 #include <DAR_Utilities.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 void (* WaitSec) ( uint32_t delay_nsec, uint32_t delay_sec );
 
 void DAR_WaitSec( uint32_t delay_nsec, uint32_t delay_sec )
@@ -2576,5 +2580,8 @@ char *DAR_pkt_resp_status_descr( DAR_pkt_fields_t *pkt_fields )
 
     return rc;
 }
-       
+
+#ifdef __cplusplus
+}
+#endif
 

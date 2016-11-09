@@ -60,7 +60,7 @@ void assumptions(void **state)
 	assert_int_equal(-1, ct_ids[0]);
 	assert_int_equal(0, ct_ids[1]);
 	assert_int_equal(0, ct_ids[101]);
-	assert_int_equal(0, ct_ids[1 << 16]);
+	assert_int_equal(0, ct_ids[(1 << 16)-1]);
 
 	(void)state; // unused
 }
@@ -68,12 +68,14 @@ void assumptions(void **state)
 void macros_test(void **state)
 {
 	// the macro doesn't care if you give it values out of range
+	// technically not true, it will die if a value > 32 bits is
+	// provided as the NR value
 	assert_int_equal(0xcafebabe, CT_FROM_NR_DID(0xcafe, 0xbabe));
 	assert_int_equal(0xdeadbeef, CT_FROM_NR_DID(0xdead, 0xbeef));
 	assert_int_equal(0x5a5aa5a5, CT_FROM_NR_DID(0x5a5a, 0xa5a5));
 	assert_int_equal(0xa5a55a5a, CT_FROM_NR_DID(0xa5a5, 0x5a5a));
-	assert_int_equal(0x5a5aa5a5, CT_FROM_NR_DID(0x5a5a5a, 0xa5a5a5));
-	assert_int_equal(0xa5a55a5a, CT_FROM_NR_DID(0xa5a5a5, 0x5a5a5a));
+	assert_int_equal(0x5a5aa5a5, CT_FROM_NR_DID((uint64_t)0x5a5a5a, 0xa5a5a5));
+	assert_int_equal(0xa5a55a5a, CT_FROM_NR_DID((uint64_t)0xa5a5a5, 0x5a5a5a));
 	assert_int_equal(0xcafebabe, CT_FROM_NR_DID(0xdeadcafe, 0xdeadbabe));
 
 	(void)state; // unused

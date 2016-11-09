@@ -40,6 +40,9 @@ OBJECTS:=$(patsubst src/%.c,src/%.o,$(wildcard src/*.c))
 LINK_FLAGS+= -rdynamic -shared -Wl,-soname,lib$(NAME).so.$(SOVER)
 LDFLAGS+=-L. -l$(NAME)
 
+# Keep clobbered as an acceptable warning, not our code...
+CFLAGS+=-Wno-error=clobbered
+
 # begin cmocka config.h
 CFLAGS+=-DHAVE_ASSERT_H=1
 CFLAGS+=-DHAVE_INTTYPES_H=1
