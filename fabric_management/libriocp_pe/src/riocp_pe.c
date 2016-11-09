@@ -500,12 +500,22 @@ err:
 
 /**
  * Probe for next peer
- * @param pe   Point from where to probe
- * @param port Port to probe
- * @param peer New probed peer
- * @param comptag Points to comptag value configured for connected device.
- *                Null if no value was configured.
- * @note Keep in mind this function always initialises found switches (clearing LUTs etc) even
+ * @param[in] pe   Point from where to probe
+ * @param[in] port Port to probe on pe
+ * @param[out] peer New probed peer.  Handle is invalid if the peer was
+ *              previously probed, or if this is a new link to a previously
+ *              enumerated peer.
+ * @param[inout] comptag Points to comptag value configured for connected
+ *                device. On exit, when a newpeer is found, contains the
+ *                component tag of the connected device.
+ * @param name sysfs_name of the peer, if found and configured
+ * @param force_ct True if the the peer node is in the configuration file,
+ *              so the component tag of the connected peer is known.
+ *              False if the peer node is not in the configuration file, so the
+ *              peer may or may not be a known node.
+ *
+ * @note Keep in mind this function always initialises found switches
+ * 	(clearing LUTs etc) even
  *  when they are previously found and no handle exists yet!
  * @retval -EINVAL invalid parameters
  * @retval -EPERM Handle has no host capabilities
@@ -516,7 +526,8 @@ int RIOCP_SO_ATTR riocp_pe_probe(riocp_pe_handle pe,
 	uint8_t port,
 	riocp_pe_handle *peer,
 	ct_t *comptag_in,
-	char *name)
+	char *name,
+	bool force_ct)
 {
 	uint32_t val;
 	struct riocp_pe *p = NULL;
@@ -525,16 +536,24 @@ int RIOCP_SO_ATTR riocp_pe_probe(riocp_pe_handle pe,
 	uint8_t sw_port = 0;
 	int ret;
 
-	if (peer == NULL)
+	if (peer == NULL) {
 		return -EINVAL;
-	if (riocp_pe_handle_check(pe))
+	}
+	if (riocp_pe_handle_check(pe)) {
 		return -EINVAL;
-	if (!RIOCP_PE_IS_HOST(pe))
+	}
+	if (!RIOCP_PE_IS_HOST(pe)) {
 		return -EPERM;
-	if (port >= RIOCP_PE_PORT_COUNT(pe->cap))
+	}
+	if (port >= RIOCP_PE_PORT_COUNT(pe->cap)) {
 		return -EINVAL;
-	if (!RIOCP_PE_IS_MPORT(pe))
+	}
+	if (NULL == comptag_in) {
+		return -EPERM;
+	}
+	if (!RIOCP_PE_IS_MPORT(pe)) {
 		hopcount = pe->hopcount + 1;
+	}
 
 	RIOCP_TRACE("Probe on PE 0x%08x (hopcount %u, port %u)\n",
 		pe->comptag, hopcount, port);
@@ -583,8 +602,11 @@ int RIOCP_SO_ATTR riocp_pe_probe(riocp_pe_handle pe,
 	RIOCP_DEBUG("Probe peer(hc: %u, address: %s,%u) comptag 0x%08x\n",
 		hopcount, riocp_pe_handle_addr_ntoa(p->address, p->hopcount), port, comptag);
 
-	/* Can access the device, update the comptag if possible/necessary */
-	if (NULL != comptag_in) {
+        // If the device is accessible, and the component tag value has been
+        // dictated in a configuration file, set the component tag value.
+        // This ensures that future checks of the device do not accidentally
+        // see an old component tag value.
+	if (force_ct && (NULL != comptag_in)) {
 		if (*comptag_in != comptag) {
 			comptag = *comptag_in;
 			ret = riocp_drv_raw_reg_wr(p, p->destid, p->hopcount,
@@ -597,19 +619,23 @@ int RIOCP_SO_ATTR riocp_pe_probe(riocp_pe_handle pe,
 		};
 	};
 
-	/* Read/test existing handle, based on component tag */
+        // Comptag congains the current component tag value of the device.
+        // Check to see if the device already exists in the device database.
 	ret = riocp_pe_handle_pe_exists(pe->mport, comptag, &p);
 	if (ret == 0) {
+                // If the device is not known to libriocp_pe yet,
+                // create a new handle with the requested component tag value.
+                // Note that this updates the component tag of
+                // the device if necessary.
 		RIOCP_DEBUG("Peer not found on mport %u with comptag 0x%08x\n",
 			pe->mport->minfo->id, comptag);
-
 create_pe:
-		/* Add self to the routing tables */
+		// Add self to the routing tables using new component tag
 		did_t did;
-		ct_get_destid(&did, comptag, dev08_sz);
+		ct_get_destid(&did, *comptag_in, dev08_sz);
 		ret = riocp_pe_maint_set_route(pe, did, port);
 
-		/* Create peer handle */
+		// Create peer handle using new component tag
 		free(p);
 		ret = riocp_pe_handle_create_pe(pe, &p, hopcount, ANY_ID, port,
 				comptag_in, name);
@@ -626,8 +652,11 @@ create_pe:
 			p->comptag);
 
 	} else if (ret == 1) {
-
-		/* Verify existing handle when found handle is not a mport */
+               // The component tag exists in the device database.  However,
+               // this could be a stale component tag value on a different
+               // device.  Check that the device we've found is in fact the
+               // device in the database.  If it is not, then it's actually
+               // a new device.
 		if (!RIOCP_PE_IS_MPORT(p)) {
 			ret = riocp_pe_probe_verify_found(pe, port, p);
 			if (ret == 0)

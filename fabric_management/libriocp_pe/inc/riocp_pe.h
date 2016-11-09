@@ -192,7 +192,7 @@ int RIOCP_WU riocp_pe_discover(riocp_pe_handle pe, uint8_t port,
 				riocp_pe_handle *peer, char *name);
 int RIOCP_WU riocp_pe_probe(riocp_pe_handle pe, uint8_t port,
 				riocp_pe_handle *peer, ct_t *comptag_in,
-				char *name);
+				char *name, bool force_ct);
 int RIOCP_WU riocp_pe_verify(riocp_pe_handle pe);
 riocp_pe_handle riocp_pe_peek(riocp_pe_handle pe, uint8_t port);
 int RIOCP_WU riocp_pe_restore(riocp_pe_handle pe);

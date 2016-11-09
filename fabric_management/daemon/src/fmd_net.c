@@ -108,7 +108,7 @@ int fmd_traverse_network_from_pe_port(riocp_pe_handle pe, rio_port_t port_num, s
 			}
 
 			rc = riocp_pe_probe(curr_pe, pnum, &new_pe, &conn_dev.ct,
-					(char *)conn_dev.name);
+					(char *)conn_dev.name, true);
 
 			if (rc) {
 				if ((-ENODEV != rc) && (-EIO != rc)) {
@@ -214,7 +214,7 @@ int fmd_traverse_network_from_pe_port(riocp_pe_handle pe, rio_port_t port_num, s
 			pnum = no_cfg->pnum;
 			free(no_cfg);
 
-			rc = riocp_pe_probe(curr_pe, pnum, &new_pe, &ct, sysfs_name);
+			rc = riocp_pe_probe(curr_pe, pnum, &new_pe, &ct, sysfs_name, false);
 			if (rc) {
 				if ((-ENODEV != rc) && (-EIO != rc)) {
 					CRIT("PE 0x%0x Port %d probe failed %d\n",
@@ -254,13 +254,8 @@ int fmd_traverse_network_from_pe_port(riocp_pe_handle pe, rio_port_t port_num, s
 
 				if (RIOCP_PE_IS_SWITCH(new_pe->cap)) {
 					// explore the other ports of the switch
-					port_st = pnum; // hijack port_st variable
 					port_cnt = RIOCP_PE_PORT_COUNT(new_pe->cap);
 					for (pnum = 0; pnum < port_cnt; pnum++) {
-						if (pnum == port_st) {
-							// don't include ourself
-							continue;
-						}
 						no_cfg = (struct fmd_no_cfg *)malloc(
 								sizeof(struct fmd_no_cfg));
 						no_cfg->curr_pe = new_pe;
