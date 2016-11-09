@@ -663,7 +663,7 @@ int main(int argc, char *argv[])
 	if ((opts->init_and_quit) && (opts->print_help)) {
 		goto fail;
 	}
-	fmd = (fmd_state *)calloc(1, sizeof(struct fmd_state));
+	fmd = (struct fmd_state *)calloc(1, sizeof(struct fmd_state));
 	fmd->opts = opts;
 	fmd->fmd_rw = 1;
 	fmd->dd_mtx_fn = fmd->opts->dd_mtx_fn;

@@ -33,9 +33,15 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef __DAR_DEVDRIVER_H__
 #define __DAR_DEVDRIVER_H__ 
 
+#include <stdint.h>
+#include <stdbool.h>
+#include <rio_standard.h>
+#include <IDT_Common.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
+
 /* Device Access Routine (DAR) Device Driver Interface
 * 
 *  DAR_DevDriver.h defines the interface for invoking the device driver routines
@@ -45,9 +51,6 @@ extern "C" {
 *  There are also hooks to extend the use of the DAR to support Device 
 *  Specific Functions (DSF)
 */
-#include <stdint.h>
-#include <rio_standard.h>
-#include <IDT_Common.h>
 
 /* Each unique device driver is identified with a handle.
 *  The structure of the handle is hidden from the user.

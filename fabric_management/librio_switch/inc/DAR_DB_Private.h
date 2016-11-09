@@ -30,12 +30,6 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
-/* Device Access Routines (DAR) Private interface.
-* 
-*  Private interface, contains implementation specific details of the DAR.
-* 
-*  Trust me, you don't want to use this in your implementation of DAR routines.
-*/
 
 #include "rio_standard.h"
 #include <DAR_DB.h>
@@ -47,6 +41,13 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+/* Device Access Routines (DAR) Private interface.
+*
+*  Private interface, contains implementation specific details of the DAR.
+*
+*  Trust me, you don't want to use this in your implementation of DAR routines.
+*/
 
 extern DAR_DB_Driver_t driver_db[DAR_DB_MAX_DRIVERS];
 

@@ -36,6 +36,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <DAR_DevDriver.h>
 #include <IDT_Common.h>
+#include <stdbool.h>
 
 #ifdef __cplusplus
 extern "C" {
