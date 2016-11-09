@@ -74,8 +74,8 @@ void macros_test(void **state)
 	assert_int_equal(0xdeadbeef, CT_FROM_NR_DID(0xdead, 0xbeef));
 	assert_int_equal(0x5a5aa5a5, CT_FROM_NR_DID(0x5a5a, 0xa5a5));
 	assert_int_equal(0xa5a55a5a, CT_FROM_NR_DID(0xa5a5, 0x5a5a));
-	assert_int_equal(0x5a5aa5a5, CT_FROM_NR_DID(0x5a5a5a, 0xa5a5a5));
-	assert_int_equal(0xa5a55a5a, CT_FROM_NR_DID(0xa5a5a5, 0x5a5a5a));
+	assert_int_equal(0x5a5aa5a5, CT_FROM_NR_DID((uint64_t)0x5a5a5a, 0xa5a5a5));
+	assert_int_equal(0xa5a55a5a, CT_FROM_NR_DID((uint64_t)0xa5a5a5, 0x5a5a5a));
 	assert_int_equal(0xcafebabe, CT_FROM_NR_DID(0xdeadcafe, 0xdeadbabe));
 
 	(void)state; // unused
