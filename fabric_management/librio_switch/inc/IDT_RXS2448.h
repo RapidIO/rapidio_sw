@@ -41,33 +41,54 @@ extern "C" {
 #define RXS2448_MAX_PORTS                                     23
 #define RXS2448_MAX_LANES                                     47
 
+#define FIRST_BYTE_MASK                                       (0x000000FF)
+#define SECOND_BYTE_MASK                                      (0x0000FF00)
+#define THIRD_BYTE_MASK                                       (0x00FF0000)
+#define FOURTH_BYTE_MASK                                      (0xFF000000)
+
 /* ************************************************ */
 /* RXS2448 : Register address offset definitions    */
 /* ************************************************ */
 #define RXS_RIO_DEV_ID                                        (0x00000000)
+#define RXS_RIO_ROUTE_DFLT_PORT                               (0x00000078)
 #define RXS_RIO_SP0_LM_REQ                                    (0x00000140)
 #define RXS_RIO_SP0_LM_RESP                                   (0x00000144)
 #define RXS_RIO_SP0_CTL2                                      (0x00000154)
 #define RXS_RIO_SP0_ERR_STAT                                  (0x00000158)
-#define RXS_RIO_SP0_CTL                                       (0x0000015c)
+#define RXS_RIO_SP0_CTL(X)                                    (0x0000015c +(0x40*X))
 #define RXS_RIO_SP_LT_CTL                                     (0x00000120)
 #define RXS_RIO_SR_RSP_TO                                     (0x00000124)
-#define RXS_RIO_PLM_SP0_IMP_SPEC_CTL                          (0x00010100)
 #define RXS_RIO_PW_TGT_ID                                     (0x00001028)
+#define RXS_RIO_PKT_TIME_LIVE                                 (0x0000102c)
+#define RXS_RIO_PLM_SP0_IMP_SPEC_CTL                          (0x00010100)
 
-#define RXS_RIO_PCNTR_CTL                                     (0x1c004)
-#define RXS_RIO_SPX_PCNTR_EN(X)                               (0x1c100 +(0x100*(X)))
-#define RXS_RIO_SPX_PCNTR_CTL(X,Y)                            (0x1c110 +(0x100*(X))+(4*Y))
-#define RXS_RIO_SPX_PCNTR_CNT(X,Y)                            (0x1c130 +(0x100*(X))+(4*Y))
+#define RXS_RIO_PCNTR_CTL                                     (0x0001c004)
+#define RXS_RIO_SPX_PCNTR_EN(X)                               (0x0001c100 +(0x100*(X)))
+#define RXS_RIO_SPX_PCNTR_CTL(X,Y)                            (0x0001c110 +(0x100*(X))+(4*Y))
+#define RXS_RIO_SPX_PCNTR_CNT(X,Y)                            (0x0001c130 +(0x100*(X))+(4*Y))
 
 #define RXS_RIO_EM_RST_INT_EN                                 (0x00040068)
 #define RXS_RIO_EM_RST_PW_EN                                  (0x00040070)
 #define RXS_RIO_PW_CTL                                        (0x00040204)
 
+#define RXS_RIO_BC_L0_G0_ENTRYX_CSR(X)                        (0x00030000 +(0x4*X))
+#define RXS_RIO_BC_L1_GX_ENTRYY_CSR(X, Y)                     (0x00030400 +(0x400*(X))+(0x4*Y))
+#define RXS_RIO_BC_L2_GX_ENTRYY_CSR(X, Y)                     (0x00031000 +(0x400*(X))+(0x4*Y)) 
+#define RXS_RIO_BC_MC_X_S_CSR(X)                              (0x00032000 +(0x8*(X)))
+#define RXS_RIO_SPX_L0_G0_ENTRYY_CSR(X, Y)                    (0x00050000 +(0x2000*(X))+(0x4*Y))
+#define RXS_RIO_SPX_L1_GY_ENTRYZ_CSR(X, Y, Z)                 (0x00050400 +(0x2000*(X))+(0x400*Y)+(0x4*Z))
+#define RXS_RIO_SPX_L2_GY_ENTRYZ_CSR(X, Y, Z)                 (0x00051000 +(0x2000*(X))+(0x400*Y)+(0x4*Z))
+#define RXS_RIO_SPX_MC_Y_S_CSR(X, Y)                          (0x00080000 +(0x1000*(X))+(0x8*Y))
+
 /* RXS_RIO_DEV_ID : Register Bits Masks Definitions */
 #define RXS_RIO_DEV_IDENT_VEND                                (0x0000ffff)
 #define RXS_RIO_DEV_IDENT_DEVI                                (0xffff0000)
 #define RXS_RIO_DEVICE_VENDOR                                 (0x00000038)
+
+/* RXS_RIO_ROUTE_DFLT_PORT : Register Bits Masks Definitions */
+#define RXS_RIO_ROUTE_DFLT_PORT_CAPTURE                       (0x80000000)
+#define RXS_RIO_ROUTE_DFLT_PORT_ROUTE_TYPE                    (0x00000300)
+#define RXS_RIO_ROUTE_DFLT_PORT_DEFAULT_OUT_PORT              (0x000000FF)
 
 /* RXS_RIO_SP0_LM_RESP : Register Bits Masks Definitions */
 #define RXS_RIO_SP0_LM_RESP_LINK_STAT                         (0x0000001f)
@@ -139,6 +160,9 @@ extern "C" {
 #define RXS_RIO_SP0_CTL_INIT_PWIDTH                           (0x38000000)
 #define RXS_RIO_SP0_CTL_PORT_WIDTH                            (0xc0000000)
 
+/* RXS_RIO_PKT_TIME_LIVE : Register Bits Masks Definitions */
+#define RXS_RIO_PKT_TIME_LIVE_PKT_TIME_LIVE                   (0xffff0000)
+
 /* RXS_RIO_PLM_SP0_IMP_SPEC_CTL : Register Bits Masks Definitions */
 #define RXS_RIO_PLM_SP0_IMP_SPEC_CTL_PA_BKLOG_THRESH          (0x0000003f)
 #define RXS_RIO_PLM_SP0_IMP_SPEC_CTL_CONT_PNA                 (0x00000040)
@@ -181,6 +205,10 @@ extern "C" {
 #define RXS_RIO_PW_TGT_ID_PW_TGT_ID                           (0x00ff0000)
 #define RXS_RIO_PW_TGT_ID_MSB_PW_ID                           (0xff000000)
 
+/* RXS_RIO_PCNTR_CTL : Register Bits Masks Definitions */
+#define RXS_RIO_PCNTR_CTL_CNTR_FRZ                            (0x80000000)
+#define RXS_RIO_PCNTR_CTL_CNTR_CLR                            (0x40000000)
+
 /* RXS_RIO_SPX_PCNTR_EN : Register Bits Masks Definitions */
 #define RXS_RIO_SPX_PCNTR_EN_ENABLE                           (0x80000000)
 
@@ -194,6 +222,16 @@ extern "C" {
 #define RXS_RIO_SPX_PCNTR_CTL_PRIO2C                          (0x00002000)
 #define RXS_RIO_SPX_PCNTR_CTL_PRIO3                           (0x00004000)
 #define RXS_RIO_SPX_PCNTR_CTL_PRIO3C                          (0x00008000)
+#define RXS_RIO_SPX_PCNTR_CTL_SEL                             (0x0000007F)
+#define RXS_RIO_SPX_PCNTR_CTL_SEL_RIO_PKT                     (0x00000000)
+#define RXS_RIO_SPX_PCNTR_CTL_SEL_FAB_PKT                     (0x00000001)
+#define RXS_RIO_SPX_PCNTR_CTL_SEL_RIO_PKTCNTR                 (0x00000002)
+#define RXS_RIO_SPX_PCNTR_CTL_SEL_FAB_PKTCNTR                 (0x00000003)
+#define RXS_RIO_SPX_PCNTR_CTL_SEL_RIO_TTL_PKTCNTR             (0x00000007)
+#define RXS_RIO_SPX_PCNTR_CTL_SEL_RETRIES                     (0x00000008)
+#define RXS_RIO_SPX_PCNTR_CTL_SEL_PNA                         (0x00000009)
+#define RXS_RIO_SPX_PCNTR_CTL_SEL_PKT_DROP                    (0x0000000A)
+#define RXS_RIO_SPX_PCNTR_CTL_SEL_DISABLED                    (0x0000007F)
 
 /* RXS_RIO_EM_RST_INT_EN : Register Bits Masks Definitions */
 #define RXS_RIO_EM_RST_INT_EN_RST_INT_EN                      (0x00ffffff)
@@ -203,6 +241,38 @@ extern "C" {
 
 /* RXS_RIO_PW_CTL : Register Bits Masks Definitions */
 #define RXS_RIO_PW_CTL_PW_TMR                                 (0xffffff00)
+
+/* RXS_RIO_BC_L0_GX_ENTRYY_CSR : Register Bits Masks Definitions */
+#define RXS_RIO_BC_L0_GX_ENTRYY_CSR_CAPTURE                   (0x80000000)
+#define RXS_RIO_BC_L0_GX_ENTRYY_CSR_ROUTING_VALUE             (0x000003FF)
+
+/* RXS_RIO_BC_L1_GX_ENTRYY_CSR : Register Bits Masks Definitions */
+#define RXS_RIO_BC_L1_GX_ENTRYY_CSR_CAPTURE                   (0x80000000)
+#define RXS_RIO_BC_L1_GX_ENTRYY_CSR_ROUTING_VALUE             (0x000003FF)
+
+/* RXS_RIO_BC_L2_GX_ENTRYY_CSR : Register Bits Masks Definitions */
+#define RXS_RIO_BC_L2_GX_ENTRYY_CSR_CAPTURE                   (0x80000000)
+#define RXS_RIO_BC_L2_GX_ENTRYY_CSR_ROUTING_VALUE             (0x000003FF)
+
+/* RXS_RIO_SPX_L0_G0_ENTRYY_CSR : Register Bits Masks Definitions */
+#define RXS_RIO_SPX_L0_G0_ENTRYY_CSR_CAPTURE                  (0x80000000) 
+#define RXS_RIO_SPX_L0_G0_ENTRYY_CSR_ROUTING_VALUE            (0x000003FF)
+
+/* RXS_RIO_SPX_L1_GY_ENTRYZ_CSR : Register Bits Masks Definitions */
+#define RXS_RIO_SPX_L1_GY_ENTRYZ_CSR_CAPTURE                  (0x80000000)
+#define RXS_RIO_SPX_L1_GY_ENTRYZ_CSR_ROUTING_VALUE            (0x000003FF)
+
+/* RXS_RIO_SPX_L2_GY_ENTRYZ_CSR : Register Bits Masks Definitions */
+#define RXS_RIO_SPX_L2_GY_ENTRYZ_CSR_CAPTURE                  (0x80000000)
+#define RXS_RIO_SPX_L2_GY_ENTRYZ_CSR_ROUTING_VALUE            (0x000003FF)
+
+/* RXS_RIO_SPX_MC_Y_S_CSR : Register Bits Masks Definitions */
+#define RXS2448_RIO_SPX_MC_Y_S_CSR_SET                        (0x00FFFFFF)
+#define RXS1632_RIO_SPX_MC_Y_S_CSR_SET                        (0x0000FFFF)
+
+/* RXS_RIO_BC_MC_X_S_CSR : Register Bits Masks Definitions */
+#define RXS2448_RIO_BC_MC_X_S_CSR_SET                         (0x00FFFFFF)
+#define RXS1632_RIO_BC_MC_X_S_CSR_SET                         (0x0000FFFF)
 
 #ifdef __cplusplus
 }

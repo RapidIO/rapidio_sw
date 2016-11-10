@@ -185,7 +185,7 @@ typedef struct idt_rt_initialize_in_t_TAG
     uint8_t     default_route; // Routing control for IDT_DSF_RT_DEFAULT_ROUTE routing table value.
                              //    Must be a valid port number, or IDT_DSF_RT_NO_ROUTE
 
-    uint8_t     default_route_table_port; // Select the default routing for every destination ID in the routing table
+    uint32_t    default_route_table_port; // Select the default routing for every destination ID in the routing table
                                         // Can be one of: a valid port number, IDT_DSF_RT_NO_ROUTE, or
                                         //   IDT_DSF_RT_USE_DEFAULT_ROUTE
     bool      update_hw;  // true : Update hardware state
@@ -309,7 +309,7 @@ typedef struct idt_rt_change_rte_in_t_TAG
     bool            dom_entry;  // true  if domain routing table entry is being updated 
                                 // false if device routing table entry is being update
     uint8_t           idx;        // Index of routing table entry to be updated
-    uint8_t           rte_value;  // Value for the routing table entry
+    uint32_t          rte_value;  // Value for the routing table entry
                                 //  - Note that if the requested routing table entry
                                 //    matches the routing table entry value in *rt,
                                 //    the routing table entry status is "no change"
@@ -323,7 +323,7 @@ typedef struct idt_rt_change_rte_out_t_TAG
 
 typedef struct idt_rt_change_mc_mask_in_t_TAG
 {
-    uint8_t            mc_mask_rte; // Multicast mask routing value which identifies the
+    uint32_t            mc_mask_rte; // Multicast mask routing value which identifies the
                                   //    mask to be modified.                          
     idt_rt_mc_info_t mc_info;     // Multicast information to be assigned to associated multicast entry
     idt_rt_state_t  *rt;          // Pointer to routing table state structure to be updated

@@ -46,6 +46,12 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "riocp_pe_internal.h"
 #include "pe_mpdrv_private.h"
 
+#include "rio_standard.h"
+#include "IDT_RXS2448.h"
+#include "IDT_RXS_API.h"
+#include "IDT_RXS_Routing_Table_Config_API.h"
+#include "IDT_Routing_Table_Config_API.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -850,16 +856,19 @@ int CLICountReadCmd(struct cli_env *env, int argc, char **argv)
 		logMsg(env);
 		goto exit;
 	};
-
+        
+        if (0) {
+            argv[0][0] = argc;
+	}
 	sc_in.ptl.num_ports = RIO_ALL_PORTS;
 	sc_in.dev_ctrs = &priv->st.sc_dev;
 
-	if ((RXS2448_RIO_DEVICE_ID == ((dev_h->devID & 0xffff0000) >> 16) ||
-                RXS1632_RIO_DEVICE_ID == ((dev_h->devID & 0xffff0000) >> 16)) &&
+	if ((IDT_RXS2448_RIO_DEVICE_ID == ((dev_h->devID & RIO_DEV_IDENT_DEVI) >> 16) ||
+                IDT_RXS1632_RIO_DEVICE_ID == ((dev_h->devID & RIO_DEV_IDENT_DEVI) >> 16)) &&
                 NULL == sc_in.dev_ctrs)
         {
 		for (srch_i = 0; srch_i < sc_in.dev_ctrs->valid_p_ctrs; srch_i++) {
-                	for (cntr = 0; cntr < 8; cntr++) {
+                	for (cntr = 0; cntr < RXS_NUM_PERF_CTRS; cntr++) {
                         	sc_in.dev_ctrs->p_ctrs[srch_i].ctrs[cntr].tx = true;
                         	switch (cntr) {
                                 	case 0:
@@ -890,7 +899,7 @@ int CLICountReadCmd(struct cli_env *env, int argc, char **argv)
                 	}
         	}
 	}
-	else if ( (TSI721_RIO_DEVICE_ID) == ( (dev_h->devID & 0xffff0000) >> 16) && NULL == sc_in.dev_ctrs )
+	else if ( (TSI721_RIO_DEVICE_ID) == ( (dev_h->devID & RIO_DEV_IDENT_DEVI) >> 16) && NULL == sc_in.dev_ctrs )
         {
                 sc_init_in.ptl.num_ports = RIO_ALL_PORTS;
                 sc_init_in.dev_ctrs = &priv->st.sc_dev;
@@ -944,8 +953,6 @@ CLICountReadCmd,
 ATTR_NONE
 };
 
-#define RXS_NUM_CTRS        8
-
 
 int CLICountDisplayCmd(struct cli_env *env, int argc, char **argv)
 {
@@ -974,14 +981,18 @@ int CLICountDisplayCmd(struct cli_env *env, int argc, char **argv)
                 goto exit;
  	};
 
-	if ((RXS2448_RIO_DEVICE_ID == ((dev_h->devID & 0xffff0000) >> 16) || 
-		RXS1632_RIO_DEVICE_ID == ((dev_h->devID & 0xffff0000) >> 16)) && 
+        if (0) {
+           argv[0][0] = argc;
+	}
+
+	if ((IDT_RXS2448_RIO_DEVICE_ID == ((dev_h->devID & RIO_DEV_IDENT_DEVI) >> 16) || 
+		IDT_RXS1632_RIO_DEVICE_ID == ((dev_h->devID & RIO_DEV_IDENT_DEVI) >> 16)) && 
 		NULL == sc_in.dev_ctrs)
 	{
 		sc_in.ptl.num_ports = RIO_ALL_PORTS;
         	sc_in.dev_ctrs = &priv->st.sc_dev;
 		for (srch_i = 0; srch_i < sc_in.dev_ctrs->valid_p_ctrs; srch_i++) {
-                	for (cntr = 0; cntr < RXS_NUM_CTRS; cntr++) {
+                	for (cntr = 0; cntr < RXS_NUM_PERF_CTRS; cntr++) {
 				sc_in.dev_ctrs->p_ctrs[srch_i].ctrs[cntr].tx = true;
 				switch (cntr) {
 					case 0:
@@ -1012,7 +1023,7 @@ int CLICountDisplayCmd(struct cli_env *env, int argc, char **argv)
                 	}
         	}
 	}
-	else if ( (TSI721_RIO_DEVICE_ID) == ( (dev_h->devID & 0xffff0000) >> 16) && NULL == sc_in.dev_ctrs )
+	else if ( (TSI721_RIO_DEVICE_ID) == ( (dev_h->devID & RIO_DEV_IDENT_DEVI) >> 16) && NULL == sc_in.dev_ctrs )
 	{
 		sc_init_in.ptl.num_ports = RIO_ALL_PORTS;
                 sc_init_in.dev_ctrs = &priv->st.sc_dev;
@@ -1138,15 +1149,19 @@ int CLICountCfgCmd(struct cli_env *env, int argc, char **argv)
                 goto exit;
         };
 
-	if (RXS2448_RIO_DEVICE_ID == ((dev_h->devID & 0xffff0000) >> 16) ||
-                RXS1632_RIO_DEVICE_ID == ((dev_h->devID & 0xffff0000) >> 16))
+        if (0) {
+           argv[0][0] = argc;
+	}
+
+	if (IDT_RXS2448_RIO_DEVICE_ID == ((dev_h->devID & RIO_DEV_IDENT_DEVI) >> 16) ||
+                IDT_RXS1632_RIO_DEVICE_ID == ((dev_h->devID & RIO_DEV_IDENT_DEVI) >> 16))
         {
-		for (sc_rxs_in.ctr_idx = 0; sc_rxs_in.ctr_idx < RXS_NUM_CTRS; ++sc_rxs_in.ctr_idx) {
+		for (sc_rxs_in.ctr_idx = 0; sc_rxs_in.ctr_idx < RXS_NUM_PERF_CTRS; ++sc_rxs_in.ctr_idx) {
 			sc_rxs_in.ptl.num_ports = RIO_ALL_PORTS;
        			sc_rxs_in.dev_ctrs = &priv->st.sc_dev; 
         		sc_rxs_in.tx = tx;
-        		sc_rxs_in.ctr_en = 0x80000000;
-        		sc_rxs_in.prio_mask = 0xff;
+        		sc_rxs_in.ctr_en = RXS_RIO_PCNTR_CTL_CNTR_FRZ;
+        		sc_rxs_in.prio_mask = FIRST_BYTE_MASK;
 
 			switch (sc_rxs_in.ctr_idx) {
                         	case 0:
@@ -1178,12 +1193,12 @@ int CLICountCfgCmd(struct cli_env *env, int argc, char **argv)
                         	break;
                  	}
 
-			rc = idt_sc_cfg_rxs_ctr(dev_h, &sc_rxs_in, &sc_rxs_out);
+			rc = idt_rxs_sc_cfg_ctr(dev_h, &sc_rxs_in, &sc_rxs_out);
 			if (RIO_SUCCESS != rc)
                 		goto exit;
 		}
 	}
-	else if ((TSI721_RIO_DEVICE_ID) != ( (dev_h->devID & 0xffff0000) >> 16))
+	else if ((TSI721_RIO_DEVICE_ID) != ( (dev_h->devID & RIO_DEV_IDENT_DEVI) >> 16))
 	{
 		sc_init_in.ptl.num_ports = RIO_ALL_PORTS;
         	sc_init_in.dev_ctrs = &priv->st.sc_dev;
@@ -1233,6 +1248,175 @@ CLICountCfgCmd,
 ATTR_NONE
 };
 
+
+int CLIRoutingTableCmd(struct cli_env *env, int argc, char **argv)
+{
+	uint32_t rc;
+	struct mpsw_drv_private_data *priv = NULL;
+	DAR_DEV_INFO_t               *dev_h = NULL;
+	riocp_pe_handle               pe_h = (riocp_pe_handle)(env->h);
+
+        idt_rt_state_t             *rt; 
+	idt_rt_initialize_in_t      in_parm;
+        idt_rt_initialize_out_t     out_parm;
+        idt_rt_set_all_in_t         set_in;
+	idt_rt_set_all_out_t        set_out;
+        idt_rt_set_changed_in_t     set_chg_in;
+	idt_rt_set_changed_out_t    set_chg_out;
+        idt_rt_change_rte_in_t      chg_in;
+	idt_rt_change_rte_out_t     chg_out;
+        idt_rt_alloc_mc_mask_in_t   alloc_in;
+	idt_rt_alloc_mc_mask_out_t  alloc_out;
+        idt_rt_change_mc_mask_in_t  mc_chg_in;
+	idt_rt_change_mc_mask_out_t mc_chg_out;
+        uint32_t   temp;
+        uint32_t   idx;
+        uint8_t    port = 0;
+        uint8_t    did = 1;
+        uint32_t   st_idx = 0;
+
+        priv = (struct mpsw_drv_private_data *)(pe_h->private_data);
+        dev_h = &priv->dev_h;
+        rc = RIO_SUCCESS;
+        rt = (idt_rt_state_t *)malloc(sizeof(idt_rt_state_t));
+
+        if (NULL == pe_h) {
+                sprintf(env->output, "\nNo Device Selected...\n");
+                logMsg(env);
+                goto exit;
+        };
+ 
+        if (0) {
+           argv[0][0] = argc;
+        }
+
+	if (IDT_RXS2448_RIO_DEVICE_ID == ((dev_h->devID & RIO_DEV_IDENT_DEVI) >> 16) ||
+		IDT_RXS1632_RIO_DEVICE_ID == ((dev_h->devID & RIO_DEV_IDENT_DEVI) >> 16))
+	{
+           rt->default_route = 2;
+           for (idx = 0; idx < IDT_DAR_RT_DEV_TABLE_SIZE; idx++)
+           {
+               rt->dev_table[idx].rte_val = IDT_RXS_DSF_RT_NO_ROUTE;
+               rt->dev_table[idx].changed = false;
+               rt->dom_table[idx].rte_val = IDT_RXS_DSF_RT_NO_ROUTE;
+               rt->dom_table[idx].changed = false;
+           }
+           for (idx = 0; idx < IDT_DSF_MAX_MC_MASK; idx++) //TODO: We need to update the size of mc_masks to support RXS
+           {
+               rt->mc_masks[idx].mc_destID = 0xFF;
+               rt->mc_masks[idx].tt = tt_dev8;
+               rt->mc_masks[idx].mc_mask = 0;
+               rt->mc_masks[idx].in_use = false;
+               rt->mc_masks[idx].allocd = false;
+               rt->mc_masks[idx].changed = false;
+           }
+           rc = DARRegRead(dev_h, RXS_RIO_ROUTE_DFLT_PORT, &temp);
+           if (RIO_SUCCESS != rc) {
+              goto exit;
+           };
+
+           in_parm.set_on_port = port; //RIO_ALL_PORTS; //port;
+           in_parm.default_route = (uint8_t)(temp & RXS_RIO_ROUTE_DFLT_PORT_DEFAULT_OUT_PORT);
+           in_parm.default_route_table_port = IDT_RXS_DSF_RT_NO_ROUTE;
+           in_parm.update_hw = false;
+           in_parm.rt        = rt; //NULL;
+           rc = idt_rt_initialize(dev_h, &in_parm, &out_parm);
+           if (RIO_SUCCESS != rc) {
+              goto exit;
+           };
+
+           set_in.set_on_port = in_parm.set_on_port;
+           set_in.rt = in_parm.rt;
+           rc = idt_rt_set_all(dev_h, &set_in, &set_out);
+           if (RIO_SUCCESS != rc) {
+              goto exit;
+           };
+
+           for (st_idx = 0; st_idx < 2; st_idx++)
+           {
+               printf("index: %d, Routing table entry value(dev - after set all): %x\n", st_idx, set_in.rt->dev_table[st_idx].rte_val);
+               printf("index: %d, Routing table entry value(dom - after set all): %x\n", st_idx, set_in.rt->dom_table[st_idx].rte_val);
+               printf("index: %d, Destination ID of packets to be multicast (after set all): %d\n", st_idx, set_in.rt->mc_masks[st_idx].mc_destID);
+               printf("index: %d, Size of mc_destID (after set all): %d\n", st_idx, set_in.rt->mc_masks[st_idx].tt);
+               printf("index: %d, Bit vector of ports (after set all): %d\n", st_idx, set_in.rt->mc_masks[st_idx].mc_mask);
+               printf("index: %d, Multicast mask and mc_destID are in use (after set all): %d\n", st_idx, set_in.rt->mc_masks[st_idx].in_use);
+               printf("index: %d, Mask has been allocated(after set all): %d\n", st_idx, set_in.rt->mc_masks[st_idx].allocd);
+               printf("index: %d, The mc_destID or mc_mask value has changed (after set all): %d\n", st_idx, set_in.rt->mc_masks[st_idx].changed);
+               printf("\n");
+           }
+
+           chg_in.dom_entry = true;
+           chg_in.idx       = 1;
+           chg_in.rte_value = 1;
+           chg_in.rt        = set_in.rt;
+           rc = idt_rt_change_rte(dev_h, &chg_in, &chg_out);
+           if (RIO_SUCCESS != rc) {
+              goto exit;
+           };
+
+           set_chg_in.set_on_port = in_parm.set_on_port;
+           set_chg_in.rt = chg_in.rt;
+           rc = idt_rt_set_changed(dev_h, &set_chg_in, &set_chg_out);
+           if (RIO_SUCCESS != rc) {
+              goto exit;
+           };
+
+           dev_h->swMcastInfo = 1; //Just for test
+           alloc_in.rt = chg_in.rt;
+           rc = idt_rt_alloc_mc_mask(dev_h, &alloc_in, &alloc_out);
+           if (RIO_SUCCESS != rc) {
+               goto exit;
+           }
+
+           mc_chg_in.mc_mask_rte = alloc_out.mc_mask_rte;
+           mc_chg_in.mc_info.mc_mask = 1;//port_mask;
+           mc_chg_in.mc_info.mc_destID = did;
+           mc_chg_in.mc_info.tt = tt_dev8;
+           mc_chg_in.mc_info.in_use = false;
+           mc_chg_in.mc_info.allocd = false;
+           mc_chg_in.mc_info.changed = false;
+           mc_chg_in.rt = alloc_in.rt;
+           rc = idt_rt_change_mc_mask(dev_h, &mc_chg_in, &mc_chg_out);
+           if (RIO_SUCCESS != rc) {
+               goto exit;
+           }
+
+           set_chg_in.set_on_port = port; //RIO_ALL_PORTS; //port;
+           set_chg_in.rt = alloc_in.rt;
+           rc = idt_rt_set_changed(dev_h, &set_chg_in, &set_chg_out);
+           if (RIO_SUCCESS != rc) {
+               goto exit;
+           }
+
+           for (st_idx = 0; st_idx < 2; st_idx++)
+           {
+               printf("index: %d, Routing table entry value(dev - after set changed): %x\n", st_idx, set_chg_in.rt->dev_table[st_idx].rte_val);
+               printf("index: %d, Routing table entry value(dom - after set changed): %x\n", st_idx, set_chg_in.rt->dom_table[st_idx].rte_val);
+               printf("index: %d, Destination ID of packets to be multicast (after set changed): %d\n", st_idx, set_chg_in.rt->mc_masks[st_idx].mc_destID);
+               printf("index: %d, Size of mc_destID (after set changed): %d\n", st_idx, set_chg_in.rt->mc_masks[st_idx].tt);
+               printf("index: %d, Bit vector of ports (after set changed): %d\n", st_idx, set_chg_in.rt->mc_masks[st_idx].mc_mask);
+               printf("index: %d, Multicast mask and mc_destID are in use (after set changed): %d\n", st_idx, set_chg_in.rt->mc_masks[st_idx].in_use);
+               printf("index: %d, Mask has been allocated(after set changed): %d\n", st_idx, set_chg_in.rt->mc_masks[st_idx].allocd);
+               printf("index: %d, The mc_destID or mc_mask value has changed (after set changed): %d\n", st_idx, set_chg_in.rt->mc_masks[st_idx].changed);
+               printf("\n"); 
+           }
+
+        }
+
+exit:
+	return 0;
+};
+
+struct cli_cmd CLIRoutingTable = {
+	(char *)"rt",
+	1,
+	0,
+	(char *)"It is just for testing Routing Table",
+	(char *)"rt \n",
+	CLIRoutingTableCmd,
+	ATTR_NONE
+};
+
 struct cli_cmd *reg_cmd_list[] = {
 &CLIRegRead,
 &CLIRegWrite,
@@ -1246,7 +1430,8 @@ struct cli_cmd *reg_cmd_list[] = {
 &CLIDevSel,
 &CLICountRead,
 &CLICountDisplay,
-&CLICountCfg
+&CLICountCfg,
+&CLIRoutingTable
 };
 
 void fmd_bind_dev_rw_cmds(void)

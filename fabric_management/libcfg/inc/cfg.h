@@ -57,7 +57,7 @@ extern "C" {
 #define CFG_DEV32 2
 #define CFG_DEVID_MAX (CFG_DEV32+1)
 
-#define CFG_MAX_SW_PORT 18
+#define CFG_MAX_SW_PORT 24 //18
 
 #define CFG_MEM_SZ_34 (uint8_t)(34)
 #define CFG_MEM_SZ_50 (uint8_t)(50)

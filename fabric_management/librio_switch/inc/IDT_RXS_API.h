@@ -43,8 +43,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "DAR_Utilities.h"
 #include "IDT_Error_Management_API.h"
 #include "IDT_RXS2448.h"
+#include "IDT_Routing_Table_Config_API.h"
+#include "IDT_RXS_Routing_Table_Config_API.h"
 
-#define RXS_MAX_PORTS			 23
+#define RXS_MAX_PORTS            23
 
 #define RXS_NUM_PERF_CTRS        8
 
@@ -71,4 +73,3 @@ uint32_t bind_rxs1632_DSF_support( void );
 #endif
 
 #endif /* __IDT_RXS_API_H__ */
-

@@ -290,7 +290,7 @@ extern uint32_t idt_sc_cfg_cps_ctrs(
     idt_sc_cfg_cps_ctrs_out_t *out_parms
 );
 
-extern uint32_t idt_sc_cfg_rxs_ctr(
+extern uint32_t idt_rxs_sc_cfg_ctr(
     DAR_DEV_INFO_t            *dev_info,
     idt_sc_cfg_rxs_ctr_in_t  *in_parms,
     idt_sc_cfg_rxs_ctr_out_t *out_parms
