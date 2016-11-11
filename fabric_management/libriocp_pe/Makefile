@@ -7,7 +7,11 @@ include $(TOPDIR)/rules.mk
 
 NAME:=riocp_pe
 TARGETS:=lib$(NAME).a
+TEST_TARGETS:=$(NAME)_test
 HEADERS:=inc/lib$(NAME).h
+
+OBJECTS:=$(patsubst src/%.c,src/%.o,$(wildcard src/*.c))
+TEST_OBJECTS:=$(patsubst test/%.c,test/%.o,$(wildcard test/*.c))
 
 CC=$(CXX) # XXX very UGGLY switcheroo
 
@@ -17,19 +21,37 @@ CFLAGS+=-I../inc
 CFLAGS+=-I./inc -I./src
 CFLAGS+=-I../libct/inc -I../libdid/inc
 
-LDFLAGS+=-L. -l$(NAME)
+LDFLAGS+=-L. -L$(COMMONLIB) -L$(FMDDIR)/libs_a $(LIBS_RPATH) -l$(NAME)
 
-OBJECTS:=$(patsubst src/%.c,src/%.o,$(wildcard src/*.c)) 
 
-src/%.o: src/%.c $(HEADERS)
-	$(CC) -c $(CFLAGS) $< -o $@
+ifdef TEST
+all: $(TARGETS) $(TEST_TARGETS)
+else
+all: $(TARGETS)
+endif
+
+test: $(TEST_TARGETS)
 
 %.a: $(OBJECTS)
+	@echo ---------- Building $@
 	$(AR) rcs $@ $^
 
-all: $(TARGETS)
+src/%.o: src/%.c $(HEADERS)
+	@echo ---------- Building $@
+	$(CC) -c $(CFLAGS) $< -o $@ \
+	$(TST_INCS)
+
+test/%.o: test/%.c
+	@echo ---------- Building $@
+	$(CC) -c $(CFLAGS) $< -o $@ \
+	$(TST_INCS)
+
+$(TEST_TARGETS): $(TEST_OBJECTS)
+	@echo ---------- Building $@
+	$(CC) -o $@ $< $(LDFLAGS) \
+	$(TST_LIBS) -lct -ldid
 
 clean:
-	rm -f $(TARGETS) $(OBJECTS)
-
-.PHONY: all clean
+	rm -f $(TARGETS) $(OBJECTS) \
+	$(TEST_TARGETS) $(TEST_OBJECTS) \
+	inc/*~ src/*~ test/*~ *~

@@ -120,7 +120,7 @@ static int riocp_pe_dot_dump_foreach(FILE *file, struct riocp_pe_llist_item *lis
  * @retval -EPERM  Unable to open filename for writing
  * @retval -EIO    Error with RapidIO maintenance access
  */
-int RIOCP_SO_ATTR riocp_pe_dot_dump(char *filename, riocp_pe_handle mport)
+int RIOCP_SO_ATTR riocp_pe_dot_dump(const char *filename, riocp_pe_handle mport)
 {
 	FILE *file;
 	struct riocp_pe_llist_item *seen;

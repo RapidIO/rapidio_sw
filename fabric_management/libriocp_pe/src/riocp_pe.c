@@ -533,6 +533,7 @@ int RIOCP_SO_ATTR riocp_pe_probe(riocp_pe_handle pe,
 	struct riocp_pe *p = NULL;
 	uint8_t hopcount = 0;
 	ct_t comptag = 0;
+	did_t did;
 	uint8_t sw_port = 0;
 	int ret;
 
@@ -619,7 +620,7 @@ int RIOCP_SO_ATTR riocp_pe_probe(riocp_pe_handle pe,
 		};
 	};
 
-        // Comptag congains the current component tag value of the device.
+        // Comptag contains the current component tag value of the device.
         // Check to see if the device already exists in the device database.
 	ret = riocp_pe_handle_pe_exists(pe->mport, comptag, &p);
 	if (ret == 0) {
@@ -631,7 +632,6 @@ int RIOCP_SO_ATTR riocp_pe_probe(riocp_pe_handle pe,
 			pe->mport->minfo->id, comptag);
 create_pe:
 		// Add self to the routing tables using new component tag
-		did_t did;
 		ct_get_destid(&did, *comptag_in, dev08_sz);
 		ret = riocp_pe_maint_set_route(pe, did, port);
 
