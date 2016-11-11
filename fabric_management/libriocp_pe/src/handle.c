@@ -446,8 +446,10 @@ int riocp_pe_handle_create_pe(struct riocp_pe *pe, struct riocp_pe **handle, uin
 
 	*handle = h;
 
-	RIOCP_DEBUG("Created new pe handle (h: %d, dev_id: %08x, ct: 0x%08x, destid: %u (0x%08x), addr: %s) handle %p\n",
-		h->hopcount, h->cap.dev_id, h->comptag, h->destid, h->destid, h, riocp_pe_handle_addr_ntoa(h->address, h->hopcount));
+	RIOCP_DEBUG("Created new pe handle (hc: %d, dev_id: %08x, ct: 0x%08x, destid: %u (0x%08x), (addr: %s) sysfs %s\n",
+		h->hopcount, h->cap.dev_id, h->comptag, h->destid, h,
+		riocp_pe_handle_addr_ntoa(h->address, h->hopcount),
+		&h->sysfs_name[0]);
 
 	return 0;
 
@@ -617,7 +619,7 @@ int riocp_pe_handle_pe_exists(struct riocp_pe *mport, ct_t comptag,
 	if (comptag == RIOCP_PE_COMPTAG_UNSET)
 		goto notfound;
 
-	/* Loop trough all mport handles */
+	/* Loop through all mport handles */
 	item = riocp_pe_mport_handles.next;
 	while (item != NULL) {
 		ptr = (struct riocp_pe *)item->data;
@@ -870,14 +872,23 @@ int RIOCP_WU riocp_pe_find_comptag(riocp_pe_handle mport, ct_t comptag,
 
 	*pe = NULL;
 
-	if ((NULL == pe) || (COMPTAG_UNSET == comptag)) {
+	if (COMPTAG_UNSET == comptag) {
+		goto found;
+	};
+
+	if ((NULL == mport) || (NULL == pe)) {
 		errno = -EINVAL;
 		goto fail;
 	};
 
+	// If the component tag is not in use, it will not be found.
 	if (!ct_not_inuse(comptag, dev08_sz)) {
-		errno = -ENOENT;
-		goto fail;
+		goto found;
+	};
+
+	if (mport->comptag == comptag) {
+		*pe = mport;
+		goto found;
 	};
 
 	if (riocp_mport_get_pe_list(mport,&count, &pes)) {
@@ -895,10 +906,10 @@ int RIOCP_WU riocp_pe_find_comptag(riocp_pe_handle mport, ct_t comptag,
 		*pe = NULL;
 		goto fail;
 	};
-
+found:
 	return NULL == *pe;
 fail:
-	return 1;
+	return -1;
 };
 
 #ifdef __cplusplus

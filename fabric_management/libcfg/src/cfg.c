@@ -1077,7 +1077,7 @@ int parse_switch(struct int_cfg_parms *cfg)
 		goto fail;
 	if (get_devid_sz(cfg, &cfg->sws[i].did_sz))
 		goto fail;
-	if (get_dec_int(cfg, &cfg->sws[i].did))
+	if (get_hex_int(cfg, &cfg->sws[i].did))
 		goto fail;
 	if (get_dec_int(cfg, &cfg->sws[i].hc))
 		goto fail;
@@ -1323,8 +1323,9 @@ int cfg_parse_file(char *cfg_fn, char **dd_mtx_fn, char **dd_fn,
 					}
 
 					for (k = 0; k < CFG_DEVID_MAX; k++) {
+						// Continue for unsupported sizes
 						if (did_size_from_int(&size, k)) {
-							goto fail;
+							continue;
 						}
 
 						devid = (did_val_t)port.devids[k].devid;
@@ -1346,8 +1347,9 @@ int cfg_parse_file(char *cfg_fn, char **dd_mtx_fn, char **dd_fn,
 			if (ct_get_nr(&nr, sw.ct)) {
 				goto fail;
 			}
+			// Continue for unsupported sizes
 			if (did_size_from_int(&size, sw.did_sz)) {
-				goto fail;
+				continue;
 			}
 			if (ct_create_from_data(&ct, &did, nr, (did_val_t)sw.did, size)) {
 				goto fail;
@@ -1469,7 +1471,7 @@ int fill_in_dev_from_sw(struct cfg_dev *dev, struct int_cfg_sw *sw)
 
 	dev->name = sw->name;
 	dev->port_cnt = CFG_MAX_SW_PORT;
-	dev->did_sz = CFG_MAX_SW_PORT;
+	dev->did_sz = CFG_DEV08;
 	dev->did = sw->did;
 	dev->hc = sw->hc;
 	dev->ct = sw->ct;

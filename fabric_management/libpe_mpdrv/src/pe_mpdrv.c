@@ -655,7 +655,7 @@ int RIOCP_WU mpsw_drv_init_pe(struct riocp_pe *pe, uint32_t *ct,
 				&temp_devid);
 	if (ret) {
 		CRIT("Unable to read device ID %d:%s\n", ret, strerror(ret));
-		goto error;
+		goto exit;
 	}
 	
 	p_dat->dev_h.devID = temp_devid;
@@ -664,25 +664,21 @@ int RIOCP_WU mpsw_drv_init_pe(struct riocp_pe *pe, uint32_t *ct,
 		CRIT("Unable to find driver for device, type 0x%x\n, ret 0x%x",
 			ret, p_dat->dev_h.devID);
 		ret = errno = EOPNOTSUPP;
-		goto error;
+		goto exit;
 	}
 	p_dat->dev_h_valid = 1;
 
 	ret = generic_device_init(pe, ct);
 	if (ret) {
 		CRIT("Generic device init failed: %d (0x%x)\n", ret, ret);
-		goto error;
+		goto exit;
 	}
 
 	ret = mpsw_mport_dev_add(pe, name);
 	if (ret) {
 		CRIT("Adding device to mport failed: %d (0x%x)\n", ret, ret);
-		goto error;
+		goto exit;
 	}
-
-	goto exit;
-error: 
-	mpsw_destroy_priv_data(pe);
 exit:
 	DBG("EXIT\n");
 	return ret;

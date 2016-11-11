@@ -292,6 +292,11 @@ static int riocp_pe_create_mport_handle(riocp_pe_handle *handle,
 		return 0;
 	if (riocp_pe_handle_create_mport(mport, is_host, &pe, drv, comptag, name))
 		return -ENOMEM;
+	if (is_host) {
+		if (riocp_pe_lock_clear(pe, ANY_ID, 0)) {
+			return -EAGAIN;
+		};
+	};
 
 	*handle = pe;
 
@@ -530,12 +535,13 @@ int RIOCP_SO_ATTR riocp_pe_probe(riocp_pe_handle pe,
 	bool force_ct)
 {
 	uint32_t val;
-	struct riocp_pe *p = NULL;
+	struct riocp_pe *p = NULL; // Temporary handle pointer
+	struct riocp_pe *temp_p = NULL; // Temporary handle pointer
 	uint8_t hopcount = 0;
 	ct_t comptag = 0;
 	did_t did;
 	uint8_t sw_port = 0;
-	int ret;
+	int ret, find_ret, verif_ret = 0;
 
 	if (peer == NULL) {
 		return -EINVAL;
@@ -550,7 +556,7 @@ int RIOCP_SO_ATTR riocp_pe_probe(riocp_pe_handle pe,
 		return -EINVAL;
 	}
 	if (NULL == comptag_in) {
-		return -EPERM;
+		return -EINVAL;
 	}
 	if (!RIOCP_PE_IS_MPORT(pe)) {
 		hopcount = pe->hopcount + 1;
@@ -568,80 +574,118 @@ int RIOCP_SO_ATTR riocp_pe_probe(riocp_pe_handle pe,
 				pe->peers[port].peer->comptag);
 			*peer = NULL;
 			return 0;
-		};
-	};
+		}
+	}
 	/* Prepare probe (setup route, test if port is active on PE) */
 	ret = riocp_pe_probe_prepare(pe, port);
-	if (ret)
+	if (ret) {
 		return -EIO;
+	};
 
-	p = (struct riocp_pe *)calloc(1, sizeof(struct riocp_pe));
-	*p = *pe;
-	p->hopcount = hopcount;
-	p->destid = ANY_ID;
-	p->address = NULL;
-	p->mport = pe->mport;
-	p->minfo = NULL;
-	p->peers = NULL;
-	p->port = NULL;
-	p->private_data = NULL;
+	temp_p = (struct riocp_pe *)calloc(1, sizeof(struct riocp_pe));
+	*temp_p = *pe;
+	temp_p->hopcount = hopcount;
+	temp_p->destid = ANY_ID;
+	temp_p->address = NULL;
+	temp_p->mport = pe->mport;
+	temp_p->minfo = NULL;
+	temp_p->peers = NULL;
+	temp_p->port = NULL;
+	temp_p->private_data = NULL;
 
 	/* Read component tag on peer */
-	ret = riocp_drv_raw_reg_rd(p, ANY_ID, hopcount, RIO_COMPONENT_TAG_CSR, &comptag);
+	ret = riocp_drv_raw_reg_rd(temp_p, ANY_ID, hopcount,
+					RIO_COMPONENT_TAG_CSR, &comptag);
 	if (ret) {
 		/* TODO try second time when failed, the ANY_ID route seems to be programmed correctly
 			at this point but the route was not working previous read */
 		RIOCP_WARN("Trying reading again component tag on h: %u\n", hopcount);
-		ret = riocp_drv_raw_reg_rd(p, p->destid, p->hopcount, RIO_COMPONENT_TAG_CSR, &comptag);
+		ret = riocp_drv_raw_reg_rd(temp_p, ANY_ID, hopcount, 
+					RIO_COMPONENT_TAG_CSR, &comptag);
 		if (ret) {
 			RIOCP_ERROR("Retry read comptag failed on h: %u\n", hopcount);
+			free(temp_p);
 			goto err_out;
 		}
 		RIOCP_WARN("Retry read successfull: 0x%08x\n", comptag);
 	}
 
 	RIOCP_DEBUG("Probe peer(hc: %u, address: %s,%u) comptag 0x%08x\n",
-		hopcount, riocp_pe_handle_addr_ntoa(p->address, p->hopcount), port, comptag);
+		hopcount,
+		riocp_pe_handle_addr_ntoa(temp_p->address, temp_p->hopcount),
+		port, comptag);
 
         // If the device is accessible, and the component tag value has been
         // dictated in a configuration file, set the component tag value.
         // This ensures that future checks of the device do not accidentally
         // see an old component tag value.
-	if (force_ct && (NULL != comptag_in)) {
-		if (*comptag_in != comptag) {
-			comptag = *comptag_in;
-			ret = riocp_drv_raw_reg_wr(p, p->destid, p->hopcount,
+	if (force_ct && (*comptag_in != comptag)) {
+		comptag = *comptag_in;
+		ret = riocp_drv_raw_reg_wr(temp_p, ANY_ID, hopcount,
 				RIO_COMPONENT_TAG_CSR, comptag);
-			if (ret) {
-				RIOCP_ERROR("Update comptag failed on h: %u\n",
+		if (ret) {
+			RIOCP_ERROR("Update comptag failed on h: %u\n",
 					 hopcount);
-				goto err_out;
-			};
-		};
-	};
+			free(temp_p);
+			goto err_out;
+		}
+	}
+	free(temp_p);
 
-        // Comptag contains the current component tag value of the device.
-        // Check to see if the device already exists in the device database.
-	ret = riocp_pe_handle_pe_exists(pe->mport, comptag, &p);
-	if (ret == 0) {
-                // If the device is not known to libriocp_pe yet,
-                // create a new handle with the requested component tag value.
-                // Note that this updates the component tag of
-                // the device if necessary.
+        // Comptag congains the current component tag value of the device.
+        // Check if the component tag already exists in the device database.
+	find_ret = riocp_pe_find_comptag(pe->mport, comptag, &p);
+	if (find_ret < 0) {
+		RIOCP_ERROR(
+			"Error in checking if handle exists ret = %d (%s)\n",
+			-errno, strerror(-errno));
+		goto err;
+	}
+	if (!find_ret) {
+		// The component tag exists in the device database.  However,
+		// this could be a stale component tag value on a different
+		// device than what is in the database.
+		// Check that the device we've found is in fact the
+		// device in the database.  If it is not, then it's actually
+		// a new device.
+
+		if (!RIOCP_PE_IS_MPORT(p)) {
+			verif_ret = riocp_pe_probe_verify_found(pe, port, p);
+			if (verif_ret < 0) {
+				goto err;
+			}
+		}
+	}
+
+	if (find_ret || (!find_ret && !verif_ret)) {
+                // The device is not known to libriocp_pe.
+                // Create a new handle with the requested component tag value.
+                // Note that this updates the component tag of the device
 		RIOCP_DEBUG("Peer not found on mport %u with comptag 0x%08x\n",
 			pe->mport->minfo->id, comptag);
-create_pe:
-		// Add self to the routing tables using new component tag
 		ct_get_destid(&did, *comptag_in, dev08_sz);
 		ret = riocp_pe_maint_set_route(pe, did, port);
+		if (ret) {
+			RIOCP_ERROR(
+				"Error setting mtx route for comptag 0x%08x\n",
+				comptag);
+			goto err;
+		};
+		
+		ret = riocp_pe_lock_clear(pe->mport, ANY_ID, hopcount);
+		if (ret) {
+			RIOCP_ERROR(
+			"Failed lock clear, new PE CT 0x%08x on port %d, %s\n",
+				pe->comptag, port, strerror(-ret));
+			goto err;
+		}
 
 		// Create peer handle using new component tag
-		free(p);
 		ret = riocp_pe_handle_create_pe(pe, &p, hopcount, ANY_ID, port,
 				comptag_in, name);
 		if (ret) {
 			RIOCP_ERROR(
-			"Create peer failed for ct 0x%08x on port %d of %s\n",
+			"Create peer failed for ct 0x%08x on port %d, %s\n",
 				pe->comptag, port, strerror(-ret));
 			goto err_out;
 		}
@@ -650,29 +694,17 @@ create_pe:
 				" devinfo 0x%08x, ct 0x%08x\n",
 			p->hopcount, port, p->cap.dev_id, p->cap.dev_info,
 			p->comptag);
-
-	} else if (ret == 1) {
-               // The component tag exists in the device database.  However,
-               // this could be a stale component tag value on a different
-               // device.  Check that the device we've found is in fact the
-               // device in the database.  If it is not, then it's actually
-               // a new device.
-		if (!RIOCP_PE_IS_MPORT(p)) {
-			ret = riocp_pe_probe_verify_found(pe, port, p);
-			if (ret == 0)
-				goto create_pe;
-			else if (ret < 0)
-				goto err;
-		}
-
+	} else {
+		// Found a device that already exists in the database.
+		// Add peer connection to switch device.
 		RIOCP_DEBUG("Peer found h: %d p %d vid 0x%08x devinfo 0x%08x"
 				" ct 0x%08x\n",
 			p->hopcount, port, p->cap.dev_id, p->cap.dev_info,
 			p->comptag);
 
-		/* Peer handle already in list, add PE to peer for network graph */
 		if (RIOCP_PE_IS_SWITCH(p->cap)) {
-			ret = riocp_drv_raw_reg_rd(p, ANY_ID, hopcount, RIO_SWP_INFO_CAR, &val);
+			ret = riocp_drv_raw_reg_rd(p, ANY_ID, hopcount,
+							RIO_SWP_INFO_CAR, &val);
 			if (ret) {
 				RIOCP_ERROR("Could not read switch port info CAR at hc %u\n", hopcount);
 				goto err;
@@ -685,29 +717,21 @@ create_pe:
 				goto err;
 			}
 		}
-	} else {
-		RIOCP_ERROR("Error in checking if handle exists ret = %d (%s)\n",
-			ret, strerror(-ret));
-		goto err;
 	}
 
 	ret = riocp_pe_maint_unset_anyid_route(p);
 	if (ret) {
 		RIOCP_ERROR("Error in unset_anyid_route for peer\n");
-		goto err_destroy;
+		goto err_out;
 	}
 
 	*peer = p;
 	return 0;
-
 err:
-	ret = riocp_pe_maint_unset_anyid_route(p);
+	ret = riocp_pe_maint_unset_anyid_route(pe);
 	if (ret) {
 		RIOCP_ERROR("Error in unset_anyid_route for peer\n");
 	}
-
-err_destroy:
-	riocp_pe_destroy_handle(&p);
 err_out:
 	ret = riocp_pe_lock_clear(pe->mport, pe->destid, pe->hopcount);
 	if (ret) {

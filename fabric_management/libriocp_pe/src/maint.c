@@ -93,16 +93,13 @@ err:
  	*  error?
  	*/
 	for (; i >= 0; i--) {
-
-		ret = riocp_pe_lock_clear(pes[i], ANY_ID, i);
-		if (ret) {
-			RIOCP_TRACE("Could not clear lock at hopcount %u\n",
-				i);
-			ret = -EIO;
-			goto err;
+		if (riocp_pe_lock_clear(pes[i], ANY_ID, i)) {
+			RIOCP_TRACE("Could not clear lock at hopcount %u\n", i);
+			goto fail;
 		}
 	}
 
+fail:
 	pe->mport->minfo->any_id_target = NULL;
 	RIOCP_TRACE("Error in programming ANY_ID route\n");
 	return ret;
