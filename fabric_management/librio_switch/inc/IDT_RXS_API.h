@@ -46,7 +46,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "IDT_Routing_Table_Config_API.h"
 #include "IDT_RXS_Routing_Table_Config_API.h"
 
-#define RXS_MAX_PORTS            23
 
 #define RXS_NUM_PERF_CTRS        8
 
