@@ -1563,10 +1563,12 @@ void* umd_mbox_fifo_proc_thr(void *parm)
 
         const int MHz = getCPUMHz();
 
-        if (NULL == parm) goto exit;
+        if (NULL == parm)
+        	return NULL;
 
         info = (struct worker *)parm;
-        if (NULL == info->umd_mch) goto exit;
+        if (NULL == info->umd_mch)
+        	return NULL;
 
         migrate_thread_to_cpu(&info->umd_fifo_thr);
 
@@ -1660,9 +1662,13 @@ exit:
 	sem_post(&info->umd_fifo_proc_started); 
 
 no_post:
-	info->umd_fifo_proc_alive = 0;
+	if (NULL == info) {
+		DBG("\n\t%s: EXITING iter=%" PRIu64 "\n", __func__, g_FifoStats[idx].fifo_thr_iter);
+	} else {
+		info->umd_fifo_proc_alive = 0;
+		DBG("\n\t%s: EXITING iter=%" PRIu64 " must die? %d\n", __func__, g_FifoStats[idx].fifo_thr_iter, info->umd_fifo_proc_must_die);
+	}
 
-        DBG("\n\t%s: EXITING iter=%" PRIu64 " must die? %d\n", __func__, g_FifoStats[idx].fifo_thr_iter, info->umd_fifo_proc_must_die);
 
 	pthread_exit(parm);
 }
@@ -1775,6 +1781,9 @@ fail:
 
 void calibrate_array_performance(struct worker *info)
 {
+	// calibration routines, used to contrast the performance of a simple
+	// array against some of the built in and computationally expensive
+	// C++ structures
 	int i, j, max = info->umd_tx_buf_cnt;
 	uint8_t *m_bl_busy;
 	uint32_t *m_bl_outstanding;
@@ -1785,12 +1794,29 @@ void calibrate_array_performance(struct worker *info)
 	struct timespec end_time; /* End of the run, for throughput*/
 	struct timespec ts_min, ts_max, ts_tot;
 
-	m_bl_busy = (uint8_t *)malloc(max*sizeof(uint8_t)); 
+	m_bl_busy = (uint8_t *)malloc(max*sizeof(uint8_t));
+	if (NULL == m_bl_busy) {
+		CRIT("Out of memory : m_bl_busy");
+		return;
+	}
+
 	m_bl_outstanding =
 		(uint32_t *)malloc(max*sizeof(uint32_t)); 
+	if (NULL == m_bl_outstanding) {
+		free(m_bl_busy);
+		CRIT("Out of memory : m_bl_outstanding")
+		return;
+	}
+
 	m_pending_work =
 		(DMAChannel::WorkItem_t *)malloc(
 			max*sizeof(DMAChannel::WorkItem_t)); 
+	if (NULL == m_pending_work) {
+		free(m_bl_busy);
+		free(m_bl_outstanding);
+		CRIT("Out of memory : m_pending_work")
+		return;
+	}
 
 	memset(&wk, 0, sizeof(wk));
 

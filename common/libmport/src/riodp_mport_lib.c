@@ -1131,22 +1131,26 @@ int riomp_sock_accept(riomp_sock_t socket_handle, riomp_sock_t *conn,
 			uint32_t timeout)
 {
 	struct rapidio_mport_socket *handle = socket_handle;
-	struct rapidio_mport_socket *new_handle = *conn;
+	struct rapidio_mport_socket *new_handle;
 	struct rio_cm_accept param;
 	int ret;
 
-	if (!handle || !conn)
+	if (!handle || !conn) {
 		return -1;
+	}
 
 	param.ch_num = handle->ch.id;
 	param.wait_to = timeout;
 
 	ret = ioctl(handle->mbox->fd, RIO_CM_CHAN_ACCEPT, &param);
-	if (ret)
+	if (ret) {
 		return errno;
+	}
 
-	if (new_handle)
+	new_handle = *conn;
+	if (new_handle) {
 		new_handle->ch.id = param.ch_num;
+	}
 
 	return 0;
 }

@@ -380,7 +380,7 @@ void check_test_socket(struct cli_env *env, rskt_h *skt_h)
 		sprintf(env->output, "Allocating test socket\n"); 
 		logMsg(env);
 		*skt_h = rskt_create_socket();
-	};
+	}
 };
 
 extern struct cli_cmd RSKTLibinit;
@@ -494,10 +494,14 @@ int RSKTDataDumpCmd(struct cli_env *env, int argc, char **argv)
 {
 	struct rskt_socket_t *skt;
 
-	check_test_socket(env, &t_skt_h);
-
 	if (argc)
 		goto print_help;
+
+	check_test_socket(env, &t_skt_h);
+	if (NULL == t_skt_h) {
+		// messages have been logged
+		goto exit;
+	}
 
 	skt = (struct rskt_socket_t *)t_skt_h->skt;
 	sprintf(env->output, "State : %d - \"%s\"\n", 
@@ -563,6 +567,8 @@ print_help:
 			argv[0]);
         logMsg(env);
         cli_print_help(env, &RSKTDataDump);
+
+exit:
         return 0;
 };
 
@@ -589,16 +595,24 @@ int RSKTSocketDumpCmd(struct cli_env *env, int argc, char **argv)
 
 	if (opt) {
 		check_test_socket(env, &t_skt_h);
-        	sprintf(env->output, "\nDisplay t_skt_h\n");
-        	logMsg(env);
+		if (NULL == t_skt_h) {
+			goto exit;
+		}
+		sprintf(env->output, "\nDisplay t_skt_h\n");
+		logMsg(env);
 		librskt_display_skt(env, t_skt_h, 0, 1);
 	} else {
 		check_test_socket(env, &a_skt_h);
-        	sprintf(env->output, "\nDisplay a_skt_h\n");
-        	logMsg(env);
+		if (NULL == a_skt_h) {
+			goto exit;
+		}
+
+		sprintf(env->output, "\nDisplay a_skt_h\n");
+		logMsg(env);
 		librskt_display_skt(env, a_skt_h, 0, 1);
 	};
 
+exit:
 	return 0;
 
 print_help:
@@ -631,6 +645,10 @@ int RSKTBindCmd(struct cli_env *env, int argc, char **argv)
 		goto show_help;
 
 	check_test_socket(env, &a_skt_h);
+	if (NULL == a_skt_h) {
+		// messages have been logged
+		goto exit;
+	}
 
 	sock_addr.ct = 0;
 	sock_addr.sn = getDecParm(argv[0], 1);
@@ -653,6 +671,7 @@ show_help:
         logMsg(env);
         cli_print_help(env, &RSKTBind);
 
+exit:
         return 0;
 };
 
@@ -678,6 +697,10 @@ int RSKTListenCmd(struct cli_env *env, int argc, char **argv)
 		goto show_help;
 
 	check_test_socket(env, &a_skt_h);
+	if (NULL == a_skt_h) {
+		// messages have been logged
+		return 0;
+	}
 
 	max_backlog = getDecParm(argv[0], 1);
 
@@ -723,7 +746,10 @@ int RSKTAcceptCmd(struct cli_env *env, int argc, char **argv)
 	if (argc > 1)
 		goto show_help;
 	check_test_socket(env, &a_skt_h);
-	check_test_socket(env, &t_skt_h);
+	if (NULL == a_skt_h) {
+		// messages have been logged
+		goto exit;
+	}
 
 	sn = getDecParm(argv[0], 1);
 
@@ -750,6 +776,7 @@ show_help:
         logMsg(env);
         cli_print_help(env, &RSKTAccept);
 
+exit:
         return 0;
 };
 
@@ -774,6 +801,10 @@ int RSKTConnectCmd(struct cli_env *env, int argc, char **argv)
 	if (argc > 2)
 		goto show_help;
 	check_test_socket(env, &t_skt_h);
+	if (NULL == t_skt_h) {
+		// messages have been logged
+		goto exit;
+	}
 
 	t_sa.ct = getDecParm(argv[0], 1);
 	t_sa.sn = getDecParm(argv[1], 1);
@@ -798,6 +829,7 @@ show_help:
         logMsg(env);
         cli_print_help(env, &RSKTConnect);
 
+exit:
         return 0;
 };
 
@@ -819,7 +851,8 @@ uint8_t rskt_wr_data;
 extern struct cli_cmd RSKTWrite;
 int RSKTWriteCmd(struct cli_env *env, int argc, char **argv)
 {
-	uint8_t *data_buf = NULL, value;
+	uint8_t *data_buf;
+	uint8_t value;
 	uint32_t i, rc;
 	uint32_t repeat = 1;
 
@@ -836,11 +869,21 @@ int RSKTWriteCmd(struct cli_env *env, int argc, char **argv)
 	value = rskt_wr_data;
 
 	data_buf = (uint8_t *)calloc(1, rskt_wr_cnt);
+	if (NULL == data_buf) {
+		sprintf(env->output, "Failed to allocate memory for data buffer\n");
+		logMsg(env);
+		goto exit;
+	}
 
 	for (i = 0; i < rskt_wr_cnt; i++)
 		data_buf[i] = value--;
 
 	check_test_socket(env, &t_skt_h);
+	if (NULL == t_skt_h) {
+		// messages have been logged
+		free(data_buf);
+		goto exit;
+	}
 
         sprintf(env->output, "Byte Cnt: %x\n", rskt_wr_cnt);
         logMsg(env);
@@ -862,6 +905,7 @@ show_help:
         logMsg(env);
         cli_print_help(env, &RSKTWrite);
 
+exit:
         return 0;
 };
 
@@ -884,7 +928,7 @@ uint32_t rskt_rd_cnt;
 extern struct cli_cmd RSKTRead;
 int RSKTReadCmd(struct cli_env *env, int argc, char **argv)
 {
-        uint8_t *data_buf = NULL;
+        uint8_t *data_buf;
         int i, rc;
         uint32_t repeat = 1, r;
 
@@ -898,10 +942,21 @@ int RSKTReadCmd(struct cli_env *env, int argc, char **argv)
                 goto show_help;
 
         check_test_socket(env, &t_skt_h);
+        if (NULL == t_skt_h) {
+                // messages have been logged
+                goto exit;
+        }
+
 
         sprintf(env->output, "Byte Cnt: %x\n", rskt_rd_cnt);
         logMsg(env);
         data_buf = (uint8_t *)calloc(1, rskt_rd_cnt);
+        if (NULL == data_buf) {
+                sprintf(env->output, "Failed to allocate memory for data buffer\n");
+                logMsg(env);
+                goto exit;
+        }
+
         for (r = 0; r < repeat; r++) {
                 do {
                         rc = rskt_read(t_skt_h, data_buf, rskt_rd_cnt);
@@ -933,7 +988,7 @@ show_help:
 			argv[0]);
         logMsg(env);
         cli_print_help(env, &RSKTRead);
-
+exit:
         return 0;
 };
 
@@ -967,6 +1022,10 @@ int RSKTTxTestCmd(struct cli_env *env, int argc, char **argv)
 		goto show_help;
 
 	check_test_socket(env, &t_skt_h);
+	if (NULL == t_skt_h) {
+		// messages have been logged
+		goto exit;
+	}
 
 	for (r = 0; r < TEST_BUFF_SIZE; r++)
 		data_buf[r] = (r % 0xFD) + 1; /* NO 0's, no FF's */
@@ -1063,6 +1122,10 @@ int RSKTRxTestCmd(struct cli_env *env, int argc, char **argv)
                 goto show_help;
 
         check_test_socket(env, &t_skt_h);
+        if (NULL == t_skt_h) {
+                // messages have been logged
+                goto exit;
+        }
 
         for (r = 0; r < TEST_BUFF_SIZE; r++)
                 data_buf[r] = (r % 0xFD) + 1; /* NO 0's, no FF's */

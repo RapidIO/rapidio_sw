@@ -658,12 +658,22 @@ int main(int argc, char *argv[])
 	signal(SIGUSR1, sig_handler);
 
 	rdma_log_init("fmd.log", 1);
+
 	opts = fmd_parse_options(argc, argv);
+	if (NULL == opts) {
+		goto fail;
+	}
+
 	g_level = opts->log_level;
 	if ((opts->init_and_quit) && (opts->print_help)) {
 		goto fail;
 	}
+
 	fmd = (struct fmd_state *)calloc(1, sizeof(struct fmd_state));
+	if (NULL == fmd) {
+		goto fail;
+	}
+
 	fmd->opts = opts;
 	fmd->fmd_rw = 1;
 	fmd->dd_mtx_fn = fmd->opts->dd_mtx_fn;

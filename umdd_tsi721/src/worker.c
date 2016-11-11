@@ -641,7 +641,7 @@ void umd_dma_goodput_demo(struct worker *info)
 	if (NULL == info->umd_dch) {
 		CRIT("\n\tDMAChannelSHM alloc FAIL: chan %d mp_num %d hnd %x",
 			info->umd_chan, info->mp_num, info->mp_h);
-		goto exit;
+		return;
 	};
 
 	if(info->umd_dch->getDestId() == info->did && GetEnv((char *)"FORCE_DESTID") == NULL) {
@@ -1113,12 +1113,12 @@ void umd_dma_goodput_testbed(struct worker* info)
 	if (NULL == info->umd_dch) {
 		CRIT("\n\tDMAChannelSHM alloc FAIL: chan %d mp_num %d hnd %x",
 			info->umd_chan, info->mp_num, info->mp_h);
-		goto exit;
+		return;
 	};
 
         if(info->umd_dch->getDestId() == info->did && GetEnv((char *)"FORCE_DESTID") == NULL) {
                 CRIT("\n\tERROR: Testing against own desitd=%d. Set env FORCE_DESTID to disable this check.\n", info->did);
-                goto exit;
+                return;
         }
 
         memset(info->dmamem, 0, sizeof(info->dmamem));

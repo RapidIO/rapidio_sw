@@ -1,3 +1,4 @@
+
 /* Fabric Management Daemon Configuration file and options parsing support */
 /*
 ****************************************************************************
@@ -51,6 +52,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "ct.h"
 #include "did.h"
+#include "rio_ecosystem.h"
 #include "fmd_dd.h"
 #include "cfg.h"
 #include "cfg_private.h"
@@ -472,6 +474,11 @@ int find_sw_and_port(struct int_cfg_parms *cfg, char *tok,
 	*sw = NULL;
 
 	temp = strchr(tok, '.');
+	if (NULL == temp) {
+		parse_err(cfg, (char *)"Illegal token.");
+		goto fail;
+	}
+
 	if ('.' == temp[0]) {
 		temp[0] = '\0';
 		*port = atoi(&temp[1]);
@@ -481,8 +488,10 @@ int find_sw_and_port(struct int_cfg_parms *cfg, char *tok,
 		};
 	};
 
-	if (find_sw_name(cfg, tok, sw))
+	if (find_sw_name(cfg, tok, sw)) {
+		parse_err(cfg, (char *)"Invalid switch selected");
 		goto fail;
+	}
 
 	if (!(*sw)->ports[*port].valid) {
 		parse_err(cfg, (char *)"Invalid port selected.");
@@ -490,7 +499,6 @@ int find_sw_and_port(struct int_cfg_parms *cfg, char *tok,
 	};
 	return 0;
 fail:
-	parse_err(cfg, (char *)"find_sw_and_port error.");
 	return 1;
 };
 
@@ -503,10 +511,17 @@ int get_ep_sw_and_port(struct int_cfg_parms *cfg, struct int_cfg_conn *conn,
 	conn->ends[idx].ep_h = NULL;
 	conn->ends[idx].sw_h = NULL;
 
-	if (get_next_token(cfg, &tok))
+	if (get_next_token(cfg, &tok)) {
+		parse_err(cfg, (char *)"No tokens.");
 		goto fail;
+	}
 
 	temp = strchr(tok, '.');
+	if (NULL == temp) {
+		parse_err(cfg, (char *)"Illegal token.");
+		goto fail;
+	}
+
 	if ('.' == temp[0]) {
 		temp[0] = '\0';
 		conn->ends[idx].port_num = atoi(&temp[1]);
@@ -551,7 +566,6 @@ int get_ep_sw_and_port(struct int_cfg_parms *cfg, struct int_cfg_conn *conn,
 	};
 	parse_err(cfg, (char *)"Unknown device.");
 fail:
-	parse_err(cfg, (char *)"Premature EOF.");
 	return 1;
 };
 
@@ -1106,7 +1120,7 @@ int parse_switch(struct int_cfg_parms *cfg)
 				break;
 			default: uint32_t  port = atoi(token);
 	// FIXME: Need to use standard macros to check this...
-				if (port >= 18) {
+				if (port >= RIO_MAX_DEV_PORT) {
 					parse_err(cfg, (char *)"Illegal port.");
 					goto fail;
 				};
@@ -1129,6 +1143,18 @@ int parse_switch(struct int_cfg_parms *cfg)
 				goto fail;
 			if (get_rt_v(cfg, &rtv))
 				goto fail;
+
+			// klocwork sees rt as null, but...
+			// rt is set whenever ROUTING_TABLE option (above) is hit
+			//
+			// That option, if successful, will set
+			// cfg->sws[i].rt_valid[rt_sz] = true; or
+			// cfg->sws[i].ports[port].rt_valid[rt_sz] = true;
+			//
+			if (NULL == rt) {
+				parse_err(cfg, (char *)"DESTID: rt not set.");
+				goto fail;
+			}
 			if (assign_rt_v(rt_sz, destid, destid, rtv, rt, cfg)) {
 				parse_err(cfg, (char *)"Illegal destID/rtv.");
 				goto fail;
@@ -1141,12 +1167,24 @@ int parse_switch(struct int_cfg_parms *cfg)
 				goto fail;
 			if (get_rt_v(cfg, &rtv))
 				goto fail;
+
+			// klocwork - see DESTID comment about rt
+			if (NULL == rt) {
+				parse_err(cfg, (char *)"rt not set.");
+				goto fail;
+			}
 			if (assign_rt_v(rt_sz, destid, destid1, rtv, rt, cfg)) {
-				parse_err(cfg, (char *)"Illegal destID/rtv.");
+				parse_err(cfg, (char *)"RANGE: Illegal destID/rtv.");
 				goto fail;
 			};
 			break;
 		case 5: // MCMASK
+			// klocwork - see DESTID comment about rt
+			if (NULL == rt) {
+				parse_err(cfg, (char *)"MCMASK: rt not set.");
+				goto fail;
+			}
+
 			if (parse_mc_mask(cfg, rt->mc_masks))
 				goto fail;
 			break;
@@ -1248,7 +1286,7 @@ exit:
 
 int cfg_find_sys_mast(uint32_t *m_did, uint32_t *m_cm_port)
 {
-	if ((!cfg) || (NULL == m_did) || (m_cm_port))
+	if ((NULL == cfg) || (NULL == m_did) || (NULL == m_cm_port))
 		goto fail;
 
 	*m_did = cfg->mast_devid;

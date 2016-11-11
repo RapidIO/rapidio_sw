@@ -217,24 +217,28 @@ int main(int argc, char* argv[])
 		}
 	}
 
-	if (0xFFFF == did)
+	if (0xFFFF == did) {
 		usage_and_exit(argv[0]);
-	
+	}
+
 #ifdef RDMA_LL
 	rdma_log_init("memops_demo_log.txt", 1);
 #else
 	if (DMAChannelSHM_has_logging()) {
+		char *umdd_lib = getenv("UMDD_LIB");
 		fprintf(stderr, "Selected version of UMDD_LIB (%s)"
 		" has logging compiled ON and is called in a logging"
-		" OFF binary!\n", getenv("UMDD_LIB"));
+		" OFF binary!\n", NULL == umdd_lib ? "null" : umdd_lib);
 		return 69;
 	}
 #endif
 
 	/** - Get UMD channel from UMD_CHAN environment variable */
 	int chan = 6;
-	if (getenv("UMD_CHAN") != NULL)
-		chan = atoi(getenv("UMD_CHAN"));
+	char* umd_chan = getenv("UMD_CHAN");
+	if (umd_chan != NULL) {
+		chan = atoi(getenv(umd_chan));
+	}
 
 	/** - Create memory operation object */
 	RIOMemOpsIntf* mops = RIOMemOps_classFactory(met[m], 0, chan);

@@ -122,41 +122,33 @@ int librskt_wait_for_sem(sem_t *sema, int err_code)
 struct librskt_app_to_rsktd_msg *alloc_app2d(void)
 {
 	struct librskt_app_to_rsktd_msg *ptr;
-	assert(A2RSKTD_SZ >= sizeof(struct librskt_app_to_rsktd_msg)); 
 	ptr = (struct librskt_app_to_rsktd_msg *)calloc(1, A2RSKTD_SZ);
-	ptr->in_use = 1;
+	if (ptr) {
+		ptr->in_use = 1;
+	}
 
 	return ptr;
 };
 
 int free_app2d(struct librskt_app_to_rsktd_msg *ptr)
 {
-	if (NULL == ptr)
-		goto fail;
-
 	free(ptr);
 	return 0;
-fail:
-	return 1;
 };
 struct librskt_rsktd_to_app_msg *alloc_d2app(void)
 {
 	struct librskt_rsktd_to_app_msg *ptr;
-	assert(RSKTD2A_SZ >= sizeof(struct librskt_rsktd_to_app_msg));
 	ptr = (struct librskt_rsktd_to_app_msg *)calloc(1, RSKTD2A_SZ);
-	ptr->in_use = 1;
+	if (ptr) {
+		ptr->in_use = 1;
+	}
 	return ptr;
 };
 
 int free_d2app(struct librskt_rsktd_to_app_msg *ptr)
 {
-	if (NULL == ptr)
-		goto fail;
-
 	free(ptr);
 	return 0;
-fail:
-	return 1;
 };
 
 struct rsvp_li *alloc_rsvp(void)
@@ -167,25 +159,24 @@ struct rsvp_li *alloc_rsvp(void)
 
 int free_rsvp(struct rsvp_li *ptr)
 {
-	if (NULL == ptr)
-		goto fail;
-
 	free(ptr);
 	return 0;
-fail:
-	return 1;
 };
 
 int librskt_dmsg_req_resp(struct librskt_app_to_rsktd_msg *tx, 
 			struct librskt_rsktd_to_app_msg *rx)
 {
-	struct rsvp_li *rsvp = alloc_rsvp();
+	struct rsvp_li *rsvp;
 	int rc = 0;
 	struct l_item_t *li = NULL;
 	uint32_t seq_num;
 
-	sem_post(&lib.skts_mtx);
+	rsvp = alloc_rsvp();
+	if (NULL == rsvp) {
+		return -1;
+	}
 
+	sem_post(&lib.skts_mtx);
 	sem_init(&rsvp->resp_rx, 0, 0);
 	rsvp->resp = rx;
 
@@ -230,8 +221,7 @@ int librskt_dmsg_req_resp(struct librskt_app_to_rsktd_msg *tx,
 		goto fail;
 	};
 
-	if (free_rsvp(rsvp))
-		ERR("ERR freeing rsvp");
+	free_rsvp(rsvp);
 	DBG("Returning!\n");
 	librskt_wait_for_sem(&lib.skts_mtx, 0x1333);
 	
@@ -247,7 +237,7 @@ fail:
 		errno = saved_errno;
 		rx->a_rsp.err = errno;
 	};
-	free(rsvp);
+	free_rsvp(rsvp);
 	librskt_wait_for_sem(&lib.skts_mtx, 0x1334);
 	return -1;
 }; /* librskt_dmsg_req_resp() */
@@ -408,9 +398,12 @@ void *rsvp_loop(void *unused)
 		if (rc <= 0) {
 			ERR("Failed in recv()\n");
 			lib.all_must_die = 10;
-		};
-		if (lib.all_must_die)
+		}
+
+		if (lib.all_must_die) {
+			free_d2app(rxd);
 			goto exit;
+		}
 
 		DBG("Received %d bytes max %zd, %s Seq %d", rc,
 			sizeof(struct librskt_rsktd_to_app_msg),
@@ -430,12 +423,11 @@ void *rsvp_loop(void *unused)
 			rxd = alloc_d2app();
 			if (rxd == NULL) {
 				CRIT("Failed to allocate librskt_rsktd_to_app_msg");
+				goto exit;
 			}
 		};
 	};
 exit:
-	free(rxd);
-
 	sem_wait(&lib.rsvp_mtx);
 	delayed = (struct rsvp_li *)l_pop_head(&lib.rsvp);
 
@@ -709,7 +701,7 @@ int librskt_init(int rsktd_port, int rsktd_mpnum)
 	resp = alloc_d2app();
 	if (resp == NULL) {
 		CRIT("Failed to calloc 'resp'\n");
-		free(req);
+		free_app2d(req);
 		goto fail;
 	}
 
@@ -722,14 +714,14 @@ int librskt_init(int rsktd_port, int rsktd_mpnum)
 	DBG("Calling librskt_dmsg_req_resp to send LIBRSKTD_HELLO (A2RSKTD_SZ)\n");
 	if (librskt_dmsg_req_resp(req, resp)) {
 		ERR("ERROR on LIBRSKTD_HELLO\n");
-		free(resp);
+		free_d2app(resp);
 		goto fail;
 	};
 
 	lib.init_ok = rsktd_port;
 	lib.ct = ntohl(resp->a_rsp.msg.hello.ct);
 
-	free(resp);
+	free_d2app(resp);
 fail:
 	rc = -!((lib.init_ok == lib.portno) && (lib.portno));
 	DBG("EXIT, rc = %d\n", rc);
@@ -909,7 +901,16 @@ int rskt_bind(rskt_h skt_h, struct rskt_sockaddr *sock_addr)
 	skt_h->skt->sai.sa.ct = sock_addr->ct;
 
 	tx = alloc_app2d();
+	if (NULL == tx) {
+		errno = ENOMEM;
+		goto unlock;
+	}
 	rx = alloc_d2app();
+	if (NULL == rx) {
+		free_app2d(tx);
+		errno = ENOMEM;
+		goto unlock;
+	}
 
 	tx->msg_type = LIBRSKTD_BIND;
 	tx->a_rq.msg.bind.sn = htonl(sock_addr->sn);
@@ -931,8 +932,7 @@ int rskt_bind(rskt_h skt_h, struct rskt_sockaddr *sock_addr)
 unlock:
 	sem_post(&lib.skts_mtx);
 exit:
-	if (NULL != rx)
-		free(rx);
+	free_d2app(rx);
 	return -errno;
 };
 
@@ -971,7 +971,16 @@ int rskt_listen(rskt_h skt_h, int max_backlog)
 	skt_h->skt->max_backlog = max_backlog;
 
 	tx = alloc_app2d();
+	if (NULL == tx) {
+		errno = ENOMEM;
+		goto unlock;
+	}
+
 	rx = alloc_d2app();
+	if (NULL == rx)	 {
+		errno = ENOMEM;
+		free_app2d(tx);
+	}
 
 	tx->msg_type = LIBRSKTD_LISTEN;
 	tx->a_rq.msg.listen.sn = htonl(skt_h->sa.sn);
@@ -992,8 +1001,7 @@ int rskt_listen(rskt_h skt_h, int max_backlog)
 unlock:
 	sem_post(&lib.skts_mtx);
 exit:
-	if (NULL != rx)
-		free(rx);
+	free_d2app(rx);
 	return -errno;
 };
 
@@ -1204,7 +1212,17 @@ int rskt_accept(rskt_h l_skt_h, rskt_h skt_h,
 	}
 
 	tx = alloc_app2d();
+	if (NULL == tx) {
+		rc = -ENOMEM;
+		goto unlock;
+	}
+
 	rx = alloc_d2app();
+	if (NULL == rx) {
+		free_app2d(tx);
+		rc = -ENOMEM;
+		goto unlock;
+	}
 
 	tx->msg_type = LIBRSKTD_ACCEPT;
 	tx->a_rq.msg.accept.sn = htonl(l_skt_h->sa.sn);
@@ -1314,8 +1332,7 @@ unlock:
 	rskt_close_locked(skt_h);
 	sem_post(&lib.skts_mtx);
 exit:
-	if (NULL != rx)
-		free(rx);
+	free_d2app(rx);
 	DBG("EXIT, rc = 0x%X\n", rc);
 	return rc;
 }; /* rskt_accept() */
@@ -1330,6 +1347,12 @@ int rskt_connect(rskt_h skt_h, struct rskt_sockaddr *sock_addr )
 	int conn_retries = RDMA_CONN_TO_SECS * 1000000 / RDMA_CONN_POLL_USECS;
 
 	DBG("ENTER\n");
+	if ((NULL == skt_h) || (NULL == sock_addr)) {
+		CRIT("NULL param(s): skt_h = %p, sock_addr = %p\n",
+			skt_h, sock_addr);
+		goto exit;
+	}
+
 	if (lib_uninit()) {
 		CRIT("lib_uninit() failed..exiting\n");
 		goto exit;
@@ -1340,11 +1363,6 @@ int rskt_connect(rskt_h skt_h, struct rskt_sockaddr *sock_addr )
 		goto exit;
 	}
 
-	if ((NULL == skt_h) || (NULL == sock_addr)) {
-		CRIT("NULL parameter: skt_h = %p, sock_addr = %p\n",
-			skt_h, sock_addr);
-		goto unlock;
-	}
 
 	if (NULL == skt_h->skt) {
 		WARN("skt_h->skt is NULL\n");
@@ -1367,8 +1385,22 @@ int rskt_connect(rskt_h skt_h, struct rskt_sockaddr *sock_addr )
 		goto unlock;
 	}
 
+	if (lib.all_must_die) {
+		goto unlock;
+	}
+
 	tx = alloc_app2d();
+	if (NULL == tx) {
+		rc = -ENOMEM;
+		goto unlock;
+	}
+
 	rx = alloc_d2app();
+	if (NULL == rx) {
+		free_app2d(tx);
+		rc = -ENOMEM;
+		goto unlock;
+	}
 
 	tx->msg_type = LIBRSKTD_CONN;
 	tx->a_rq.msg.conn.sn = htonl(sock_addr->sn);
@@ -1378,9 +1410,6 @@ int rskt_connect(rskt_h skt_h, struct rskt_sockaddr *sock_addr )
 	 * what ms to rdma_connect with
 	 */
 	DBG("Calling librskt_dmsg_req_resp to send LIBRSKTD_CONN (A2RSKTD_SZ)\n");
-	if (lib.all_must_die)
-		goto unlock;
-
 	rc = librskt_dmsg_req_resp(tx, rx);
 	if (rc) {
 		ERR("librskt_dmsg_req_resp() failed..closing\n");
@@ -1506,8 +1535,7 @@ unlock:
 	sem_post(&lib.skts_mtx);
 	errno = temp_errno;
 exit:
-	if (rx != NULL)
-		free(rx);
+	free_d2app(rx);
 	return rc;
 }; /* rskt_connect() */
 
@@ -1979,13 +2007,23 @@ int rskt_close_locked(rskt_h skt_h)
         case rskt_shutting_down:
         case rskt_closing:
 		tx = alloc_app2d();
+		if (NULL == tx) {
+			errno = ENOMEM;
+			break;
+		}
+
 		rx = alloc_d2app();
+		if (NULL == rx) {
+			errno = ENOMEM;
+			free_app2d(tx);
+			break;
+		}
 	
 		tx->msg_type = LIBRSKTD_CLOSE;
 		tx->a_rq.msg.close.sn = htonl(skt_h->sa.sn);
 	
 		librskt_dmsg_req_resp(tx, rx);
-		free(rx);
+		free_d2app(rx);
 		break;
 	default:
 		break;
@@ -2011,7 +2049,16 @@ int rskt_close_locked(rskt_h skt_h)
 		struct librskt_rsktd_to_app_msg *resp;
 
 		tx = alloc_app2d();
+		if (NULL == tx) {
+			errno = ENOMEM;
+			goto exit;
+		}
 		rx = alloc_d2app();
+		if (NULL == rx) {
+			errno = ENOMEM;
+			free_app2d(tx);
+			goto exit;
+		}
 	
 		tx->msg_type = LIBRSKTD_RELEASE;
 		tx->a_rq.msg.release.sn = htonl(skt_h->sa.sn);
@@ -2026,7 +2073,7 @@ int rskt_close_locked(rskt_h skt_h)
 				resp->a_rsp.req.msg.release.ms_name,
 				ntohl(resp->a_rsp.err),
 				strerror(ntohl(resp->a_rsp.err)));
-		free(rx);
+		free_d2app(rx);
 	};
 exit:
 	return -errno;

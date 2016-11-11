@@ -79,6 +79,9 @@ static int riocp_pe_mport_list(size_t *count, uint8_t **list)
 	rewinddir(dev_dir);
 
 	_list = (uint8_t *)calloc(_count, sizeof(*_list));
+	if (NULL == _list) {
+		goto err;
+	}
 
 	/* Iteration 2, get the devices */
 	while ((dev_ent = readdir(dev_dir)) != NULL) {
@@ -526,6 +529,7 @@ err:
  * @retval -EPERM Handle has no host capabilities
  * @retval -EIO Error in maintenance access
  * @retval -ENODEV Supplied port is inactive
+ * @retvak -ENOMEM Out of memory
  */
 int RIOCP_SO_ATTR riocp_pe_probe(riocp_pe_handle pe,
 	uint8_t port,
@@ -576,13 +580,18 @@ int RIOCP_SO_ATTR riocp_pe_probe(riocp_pe_handle pe,
 			return 0;
 		}
 	}
+
 	/* Prepare probe (setup route, test if port is active on PE) */
 	ret = riocp_pe_probe_prepare(pe, port);
 	if (ret) {
 		return -EIO;
-	};
+	}
 
 	temp_p = (struct riocp_pe *)calloc(1, sizeof(struct riocp_pe));
+	if (NULL == temp_p) {
+		return -ENOMEM;
+	}
+
 	*temp_p = *pe;
 	temp_p->hopcount = hopcount;
 	temp_p->destid = ANY_ID;
@@ -632,7 +641,7 @@ int RIOCP_SO_ATTR riocp_pe_probe(riocp_pe_handle pe,
 	}
 	free(temp_p);
 
-        // Comptag congains the current component tag value of the device.
+        // Comptag contains the current component tag value of the device.
         // Check if the component tag already exists in the device database.
 	find_ret = riocp_pe_find_comptag(pe->mport, comptag, &p);
 	if (find_ret < 0) {

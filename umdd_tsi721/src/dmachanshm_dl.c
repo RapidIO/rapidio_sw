@@ -32,6 +32,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 #include <assert.h>
+#include <stdbool.h>
 #include <unistd.h>
 #include <dlfcn.h>
 
@@ -79,18 +80,29 @@ typedef struct {
 
 bool DMAChannelSHM_has_state(uint32_t mport_id, uint32_t channel)
 {
-  const char* UMDD_LIB = getenv(UMDD_LIB_ENV);
+  const char* UMDD_LIB;
+  DMAChannelSHMPtr_t* libp;
+  char* err;
 
-  assert(UMDD_LIB);
-  assert(access(UMDD_LIB, R_OK) != -1);
+  UMDD_LIB = getenv(UMDD_LIB_ENV);
+  if (NULL == UMDD_LIB) {
+    return NULL;
+  }
 
-  DMAChannelSHMPtr_t* libp = (DMAChannelSHMPtr_t*)calloc(1, sizeof(DMAChannelSHMPtr_t));
+  if (access(UMDD_LIB, R_OK)) {
+    return NULL;
+  }
+
+  libp = (DMAChannelSHMPtr_t*)calloc(1, sizeof(DMAChannelSHMPtr_t));
+  if (NULL == libp) {
+    return NULL;
+  }
 
   dlerror();
-
   libp->dlh = dlopen(UMDD_LIB, RTLD_LAZY);
   if (libp->dlh == NULL) {
-    fprintf(stderr, "%s: Cannot dlopen %s: %s\n", __func__, UMDD_LIB, dlerror());
+    err = dlerror();
+    fprintf(stderr, "%s: Cannot dlopen %s: %s\n", __func__, UMDD_LIB, err ? err : "NULL");
     assert(libp->dlh);
   }
 
@@ -107,18 +119,29 @@ bool DMAChannelSHM_has_state(uint32_t mport_id, uint32_t channel)
 
 bool DMAChannelSHM_has_logging()
 {
-  const char* UMDD_LIB = getenv(UMDD_LIB_ENV);
+  const char* UMDD_LIB;
+  DMAChannelSHMPtr_t* libp;
+  char* err;
 
-  assert(UMDD_LIB);
-  assert(access(UMDD_LIB, R_OK) != -1);
+  UMDD_LIB = getenv(UMDD_LIB_ENV);
+  if (NULL == UMDD_LIB) {
+    return NULL;
+  }
 
-  DMAChannelSHMPtr_t* libp = (DMAChannelSHMPtr_t*)calloc(1, sizeof(DMAChannelSHMPtr_t));
+  if (access(UMDD_LIB, R_OK)) {
+    return NULL;
+  }
+
+  libp = (DMAChannelSHMPtr_t*)calloc(1, sizeof(DMAChannelSHMPtr_t));
+  if (NULL == libp) {
+    return NULL;
+  }
 
   dlerror();
-
   libp->dlh = dlopen(UMDD_LIB, RTLD_LAZY);
   if (libp->dlh == NULL) {
-    fprintf(stderr, "%s: Cannot dlopen %s: %s\n", __func__, UMDD_LIB, dlerror());
+    err = dlerror();
+    fprintf(stderr, "%s: Cannot dlopen %s: %s\n", __func__, UMDD_LIB, err ? err : "NULL");
     assert(libp->dlh);
   }
 
@@ -135,19 +158,31 @@ bool DMAChannelSHM_has_logging()
 
 void* DMAChannelSHM_create(const uint32_t mportid, const uint32_t chan)
 {
-  const char* UMDD_LIB = getenv(UMDD_LIB_ENV);
+  const char* UMDD_LIB;
+  DMAChannelSHMPtr_t* libp;
+  char* err;
 
-  assert(UMDD_LIB);
-  assert(access(UMDD_LIB, R_OK) != -1);
+  UMDD_LIB = getenv(UMDD_LIB_ENV);
+  if (NULL == UMDD_LIB) {
+    return NULL;
+  }
 
-  DMAChannelSHMPtr_t* libp = (DMAChannelSHMPtr_t*)calloc(1, sizeof(DMAChannelSHMPtr_t));
+  if (access(UMDD_LIB, R_OK)) {
+    return NULL;
+  }
+
+  libp = (DMAChannelSHMPtr_t*)calloc(1, sizeof(DMAChannelSHMPtr_t));
+  if (NULL == libp) {
+    return NULL;
+  }
 
   dlerror();
-
   libp->dlh = dlopen(UMDD_LIB, RTLD_LAZY);
-  if (libp->dlh == NULL) {
-    fprintf(stderr, "%s: Cannot dlopen %s: %s\n", __func__, UMDD_LIB, dlerror());
-    assert(libp->dlh);
+  if (NULL == libp->dlh) {
+    err = dlerror();
+    fprintf(stderr, "%s: Cannot dlopen %s: %s\n", __func__, UMDD_LIB, err ? err : "NULL");
+    free(libp);
+    return NULL;
   }
 
   libp->create          = (void* (*)(uint32_t, uint32_t))dlsym(libp->dlh, "DMAChannelSHM_create"); assert(libp->create);

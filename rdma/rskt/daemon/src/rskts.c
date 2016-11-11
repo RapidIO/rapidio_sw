@@ -452,7 +452,7 @@ void *cli_session( void *sock_num )
 
 	cli->cli_fd = socket(AF_INET, SOCK_STREAM, 0);
 	if (cli->cli_fd < 0) {
-        	perror("RSKTD Remote CLI ERROR opening socket");
+		perror("RSKTD Remote CLI ERROR opening socket");
 		goto fail;
 	}
 	bzero((char *) &cli->cli_addr, sizeof(cli->cli_addr));
@@ -463,7 +463,7 @@ void *cli_session( void *sock_num )
 	setsockopt (cli->cli_fd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof (one));
 	if (bind(cli->cli_fd, (struct sockaddr *) &cli->cli_addr, 
 						sizeof(cli->cli_addr)) < 0) {
-        	perror("\nRSKTD Remote CLI ERROR on binding");
+		perror("\nRSKTD Remote CLI ERROR on binding");
 		goto fail;
 	}
 
@@ -513,17 +513,15 @@ fail:
 	if (cli->cli_sess_fd > 0) {
 		close(cli->cli_sess_fd);
 		cli->cli_sess_fd = 0;
-	};
-     	if (cli->cli_fd > 0) {
-     		close(cli->cli_fd);
+	}
+	if (cli->cli_fd > 0) {
+		close(cli->cli_fd);
 		cli->cli_fd = 0;
 	};
 
-	sock_num = malloc(sizeof(int));
-	*(int *)(sock_num) = cli->cli_portno;
-	pthread_exit(sock_num);
-	return sock_num;
+	pthread_exit(0);
 }
+
 void spawn_threads()
 {
         int  cli_ret, console_ret = 0, rc;
@@ -538,6 +536,10 @@ void spawn_threads()
 
         /* Prepare and start console thread */
 	pass_console_ret = (int *)(malloc(sizeof(int)));
+	if (NULL == pass_console_ret) {
+		fprintf(stderr, "Error - console_thread creation\n");
+		exit(EXIT_FAILURE);
+	}
 	*pass_console_ret = 0;
 	console_ret = pthread_create( &rskts.cli.cons_thread, NULL,
 			console, (void *)(pass_console_ret));
@@ -548,6 +550,10 @@ void spawn_threads()
 
         /* Start cli_session_thread, enabling remote debug over Ethernet */
         pass_sock_num = (int *)(malloc(sizeof(int)));
+        if (NULL == pass_sock_num) {
+                fprintf(stderr, "Error - cli_session_thread creation\n");
+                exit(EXIT_FAILURE);
+        }
         *pass_sock_num = rskts.ctrls.remcli_portno;
 
         cli_ret = pthread_create( &rskts.cli.cli_thread, NULL, cli_session,
@@ -565,8 +571,6 @@ void spawn_threads()
 	};
 }
  
-int init_srio_api(uint8_t mport_id);
-
 void rskt_server_shutdown(void)
 {
 	if (!all_must_die) {

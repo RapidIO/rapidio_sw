@@ -176,13 +176,19 @@ void *speer_rx_loop(void *p_i)
         sigh.sa_handler = speer_loop_sig_handler;
         sigaction(SIGUSR1, &sigh, NULL);
 
+	msg = alloc_msg(0, RSKTD_PROC_SREQ, RSKTD_SPEER_SEQ_DREQ);
 	while (!speer->i_must_die && !speer->comm_fail) {
-		msg = alloc_msg(0, RSKTD_PROC_SREQ, RSKTD_SPEER_SEQ_DREQ);
+		if (NULL == msg) {
+			break;
+		}
 
 		msg->dreq = alloc_dreq();
 		msg->dresp = alloc_dresp();
-		msg->sp = speer->self_ref;
+		if ((NULL == msg->dreq) || (NULL == msg->dresp)) {
+			break;
+		}
 
+		msg->sp = speer->self_ref;
 		rc = speer_rx_req(speer);
 
 		if (speer->i_must_die || speer->comm_fail || dmn.all_must_die 
@@ -214,9 +220,11 @@ void *speer_rx_loop(void *p_i)
 			UMSG_TYPE_TO_STR(msg),
 			UMSG_PROC_TO_STR(msg));
 		enqueue_mproc_msg(msg);
+		msg = alloc_msg(0, RSKTD_PROC_SREQ, RSKTD_SPEER_SEQ_DREQ);
+		// ensure the last msg is not freed after this while
 	};
 
-	DBG("\n\tSPEER %d: Exiting, startin to cleanup!\n", speer->ct);
+	DBG("\n\tSPEER %d: Exiting, starting to cleanup!\n", speer->ct);
 	speer->comm_fail = 1;
 	speer->alive = 0;
 

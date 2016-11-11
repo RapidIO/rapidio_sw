@@ -244,9 +244,20 @@ void handle_app_msg(struct librskt_app *app,
 		};
 
 		msg = alloc_msg(msg_type, proc_type, proc_stage);
+		if (NULL == msg) {
+			ERR("Could not allocate message buffer %d\n", msg_type);
+			free(rxed);
+			return;
+		}
+		msg->tx = alloc_tx();
+		if (NULL == msg->tx) {
+			ERR("Could not allocate tx message buffer %d\n", msg_type);
+			free(rxed);
+			dealloc_msg(msg);
+			return;
+		}
 		msg->app = app->self_ptr;
 		msg->rx = rxed; // XXX memleak
-		msg->tx = alloc_tx();
 		memset(msg->tx, 0, RSKTD2A_SZ);
 		msg->tx->msg_type = rxed->msg_type | htonl(LIBRSKTD_RESP);
 		memcpy((void *)&msg->tx->a_rsp.req, (void *)&rxed->a_rq, 
@@ -254,6 +265,7 @@ void handle_app_msg(struct librskt_app *app,
 		msg->tx->a_rsp.err = 0xFFFFFFFF;
 		app->rx_req_num = ntohl(rxed->a_rq.app_seq_num);
 	};
+
         INFO("Msg %s 0x%x Type 0x%x %s Proc %s Stage %s",
                 UMSG_W_OR_S(msg),
                 UMSG_CT(msg),
@@ -317,6 +329,11 @@ void *app_rx_loop(void *ip)
 
         while (!app->i_must_die && !dmn.all_must_die) {
 		rxed = alloc_rx();
+		if (NULL == rxed) {
+			CRIT("Out of memory\n");
+			break;
+		}
+
 		memset(rxed, 0, A2RSKTD_SZ);
                 do {
                 	DBG("*** Waiting for A2RSKTD_SZ...\n");
@@ -331,7 +348,6 @@ void *app_rx_loop(void *ip)
                         break;
                 }
 		handle_app_msg(app, rxed);
-		// free_rx(rxed); rxed = NULL;
 	}
 
 	app->alive = 0;

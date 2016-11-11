@@ -27,6 +27,7 @@ extern "C" {
  * @param data Entry
  * @retval 0 Entry succesfull added
  * @retval -EINVAL Invalid head
+ * @retval -ENOMEM No memory to allocate a new entry
  */
 int RIOCP_SO_ATTR riocp_pe_llist_add(struct riocp_pe_llist_item *head, void *data)
 {
@@ -41,6 +42,10 @@ int RIOCP_SO_ATTR riocp_pe_llist_add(struct riocp_pe_llist_item *head, void *dat
 
 	cur->next = (struct riocp_pe_llist_item *)
 		calloc(1, sizeof(struct riocp_pe_llist_item));
+	if (NULL == cur->next) {
+		return -ENOMEM;
+	}
+
 	cur->next->next = NULL;
 	cur->next->data = data;
 

@@ -2167,15 +2167,17 @@ static int dma_push_pull_msub(bool is_push,
 	try {
 		/* Check for NULL pointers */
 		if (!in || !out) {
-			ERR("%s: NULL. in=%p, out=%p", in, out);
-			out->in_param_ok = RDMA_NULL_PARAM;
+			ERR("NULL param(s). in=%p, out=%p", in, out);
+			if (out) {
+				out->in_param_ok = RDMA_NULL_PARAM;
+			}
 			throw RDMA_NULL_PARAM;
 		}
 
 		lmsub = (loc_msub *)in->loc_msubh;
 		rmsub = (rem_msub *)in->rem_msubh;
 		if (!lmsub || !rmsub) {
-			ERR("%s: NULL. lmsub=%p, rmsub=%p", lmsub, rmsub);
+			ERR("NULL param(s). lmsub=%p, rmsub=%p", lmsub, rmsub);
 			out->in_param_ok = RDMA_NULL_PARAM;
 			throw RDMA_NULL_PARAM;
 		}
@@ -2199,6 +2201,7 @@ static int dma_push_pull_msub(bool is_push,
 		DBG("Check if local daemon is alive");
 		if (!rdmad_is_alive()) {
 			ERR("Local RDMA daemon is dead. Exiting");
+			out->in_param_ok = RDMA_DAEMON_UNREACHABLE;
 			throw RDMA_DAEMON_UNREACHABLE;
 		}
 
@@ -2335,7 +2338,9 @@ static int dma_push_pull_buf(bool is_push, void *buf, int num_bytes,
 		if (!buf || !out || !rem_msubh) {
 			ERR("NULL param(s). buf=%p, out=%p, rem_msubh = %u",
 							buf, out, rem_msubh);
-			out->in_param_ok = RDMA_NULL_PARAM;
+			if (out) {
+				out->in_param_ok = RDMA_NULL_PARAM;
+			}
 			throw RDMA_NULL_PARAM;
 		}
 		rmsub = (rem_msub *)rem_msubh;
@@ -2358,6 +2363,7 @@ static int dma_push_pull_buf(bool is_push, void *buf, int num_bytes,
 		if (fm_alive && (dd_h != NULL))
 			if (!fmdd_check_did(dd_h, rmsub->destid, FMDD_RDMA_FLAG)) {
 				ERR("Remote destination daemon NOT running!");
+				out->in_param_ok = RDMA_REMOTE_UNREACHABLE;
 				throw RDMA_REMOTE_UNREACHABLE;
 			}
 

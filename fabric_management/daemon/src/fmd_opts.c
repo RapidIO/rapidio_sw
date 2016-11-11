@@ -105,6 +105,10 @@ struct fmd_opt_vals *fmd_parse_options(int argc, char *argv[])
 	struct fmd_opt_vals *opts;
 
 	opts = (struct fmd_opt_vals *)calloc(1, sizeof(struct fmd_opt_vals));
+	if (NULL == opts) {
+		printf("Unable to allocate memory\n");
+		return NULL;
+	}
 	opts->init_err = 0;
 	opts->init_and_quit = 0;
 	opts->simple_init = 0;

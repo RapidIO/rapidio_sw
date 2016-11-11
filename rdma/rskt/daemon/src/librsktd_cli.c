@@ -624,8 +624,11 @@ void display_acc_list(struct cli_env *env)
 	int found_one = 0;
 
 	acc = (struct acc_skts *)l_head(&lib_st.acc, &li);
-
 	while (NULL != li) {
+		if (NULL == acc) {
+			continue;
+		}
+
 		app = *(acc->app);
 		if (NULL != app) {
 			if (!found_one) {
@@ -659,8 +662,11 @@ void display_con_list(struct cli_env *env)
 	int found_one = 0;
 
 	con = (struct con_skts *)l_head(&lib_st.con, &li);
-
 	while (NULL != li) {
+		if (NULL == con) {
+			continue;
+		}
+
 		app = *(con->app);
 		if (NULL != app) {
 			if (!found_one) {

@@ -376,11 +376,10 @@ void quit_command_customization(struct cli_env *UNUSED_PARM(env))
 	rskt_daemon_shutdown();
 };
 	
-void *cli_session( void *UNUSED_PARM(rc_ptr))
+void *cli_session(void *rc_ptr)
 {
 	char buffer[256];
 	int one = 1;
-	int *prc;
 
 	cli.cli_portno = ctrls.e_cli_skt;
 
@@ -458,12 +457,9 @@ fail:
 		cli.cli_fd = 0;
 	};
 
-	/* For return code to be checked in pthread_join() */
-	prc = (int *)malloc(sizeof(int));
-	if (prc)
-		*prc = cli.cli_portno;
-	pthread_exit(prc); // XXX small memleak
-} /* cli_session() */
+	*(int *)(rc_ptr) = cli.cli_portno;
+	pthread_exit(rc_ptr);
+}
 
 void spawn_threads(void)
 {
@@ -515,8 +511,6 @@ void spawn_threads(void)
 		exit(EXIT_FAILURE);
 	};
 }
-
-int init_srio_api(uint8_t mport_id);
 
 void rskt_daemon_shutdown(void)
 {

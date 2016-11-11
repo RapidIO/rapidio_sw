@@ -731,8 +731,7 @@ exit:
 		printf("\nSERVER File Transfer EXITING\n");
 	conn_loop_alive = 0;
 	sem_post(&conn_loop_started);
-	*(int *)(ret) = rc;
-	pthread_exit(ret);
+	pthread_exit(0);
 };
 
 int setup_mport(uint8_t mport_num, uint8_t num_win, uint32_t win_size, 
@@ -895,7 +894,7 @@ void fxfr_server_shutdown_cli(struct cli_env *env);
 void spawn_threads(int cons_skt, int xfer_skt, int run_cons)
 {
 	int  conn_ret, cli_ret, cons_ret = 0;
-	int *pass_sock_num, *pass_cons_ret, *conn_loop_rc;
+	int *pass_sock_num, *conn_loop_rc;
 	int i;
 
 	all_must_die = 0;
@@ -913,8 +912,6 @@ void spawn_threads(int cons_skt, int xfer_skt, int run_cons)
 
 	/* Prepare and start console thread */
 	if (run_cons) {
-		pass_cons_ret = (int *)(malloc(sizeof(int)));
-		*pass_cons_ret = 0;
 		splashScreen((char *)
 			"RTA File Transfer Server Command Line Interface");
 
@@ -934,6 +931,11 @@ void spawn_threads(int cons_skt, int xfer_skt, int run_cons)
 	sem_init(&conn_loop_started, 0, 0);
 
 	conn_loop_rc = (int *)(malloc(sizeof(int)));
+	if (NULL == conn_loop_rc) {
+		printf("Error - failed to allocate memory\n");
+		exit(EXIT_FAILURE);
+	}
+
 	*conn_loop_rc = xfer_skt;
 	conn_ret = pthread_create(&conn_thread, NULL, conn_loop, 
 				(void *)(conn_loop_rc));
@@ -950,8 +952,12 @@ void spawn_threads(int cons_skt, int xfer_skt, int run_cons)
 			continue;
 
 		pass_idx = (int *)(malloc(sizeof(int)));
-		*pass_idx = i;
+		if (NULL == pass_idx) {
+			fprintf(stderr,"Error - cli_session_thread could not allocate pass_idx\n");
+			exit(EXIT_FAILURE);
+		}
 
+		*pass_idx = i;
 		ibwin_ret = pthread_create( &ibwins[i].xfer_thread, NULL, 
 				xfer_loop, (void *)(pass_idx));
 		if (ibwin_ret) {
@@ -963,6 +969,10 @@ void spawn_threads(int cons_skt, int xfer_skt, int run_cons)
 
 	/* Start cli_session_thread, enabling remote debug over Ethernet */
 	pass_sock_num = (int *)(malloc(sizeof(int)));
+	if (NULL == pass_sock_num) {
+		fprintf(stderr,"Error - cli_session_thread could not allocate pass_sock_num\n");
+		exit(EXIT_FAILURE);
+	}
 	*pass_sock_num = cons_skt;
 
 	cli_ret = pthread_create( &cli_session_thread, NULL, cli_session, 
@@ -983,8 +993,6 @@ void spawn_threads(int cons_skt, int xfer_skt, int run_cons)
 	};
 }
  
-int init_srio_api(uint8_t mport_id);
-
 void fxfr_server_shutdown(void) {
 	int idx;
 

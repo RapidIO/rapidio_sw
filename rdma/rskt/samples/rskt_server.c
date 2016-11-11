@@ -382,6 +382,10 @@ int main(int argc, char *argv[])
  		*/
 		slave_params = (struct slave_thread_params *)
 				calloc(1, sizeof(struct slave_thread_params));
+		if (NULL == slave_params) {
+			CRIT("Failed to allocate memory for slave_thread\n");
+			continue;
+		}
 		slave_params->accept_socket = accept_socket;
 		rc = pthread_create(&slave_params->slave_thread,
 				    NULL,

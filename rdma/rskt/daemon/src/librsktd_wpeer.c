@@ -213,6 +213,9 @@ int init_wpeer(struct rskt_dmn_wpeer **wp, ct_t ct, uint32_t cm_skt)
 	int conn_rc;
 
 	w = alloc_wpeer(ct, cm_skt);
+	if (NULL == w) {
+		return -ENOMEM;
+	}
 	*wp = w;
 
 	DBG("ENTER\n");
@@ -271,13 +274,23 @@ exit:
 
 void send_hello_to_wpeer(struct rskt_dmn_wpeer *w)
 {
-	struct librsktd_unified_msg *msg = NULL;
+	struct librsktd_unified_msg *msg;
 
 	DBG("Sending hello to wpeer\n");
 	msg = alloc_msg(RSKTD_HELLO_REQ, RSKTD_PROC_A2W, RSKTD_A2W_SEQ_DREQ);
+	if (NULL == msg) {
+		ERR("No message buffers\n");
+		return;
+	}
+
 	msg->wp = w->self_ref;
 	msg->dreq = alloc_dreq();
 	msg->dresp = alloc_dresp();
+	if ((NULL == msg->dreq) || (NULL == msg->dresp)) {
+		ERR("No buffers %p, %p\n", msg->dreq, msg->dresp);
+		dealloc_msg(msg);
+		return;
+	}
 
 	msg->dreq->msg_type = htonl(RSKTD_HELLO_REQ);
 	msg->dreq->msg.hello.ct = htonl(dmn.qresp.hdid);
@@ -295,7 +308,7 @@ int open_wpeers_for_requests(int num_peers, struct peer_rsktd_addr *peers)
 	struct rskt_dmn_wpeer *w = NULL;
 
 	if (!dmn.mb_valid || !dmn.speer_conn_alive) {
-		ERR("Mailbox invalid or no speer connection thread'\n");
+		ERR("Mailbox invalid or no speer connection thread\n");
 		return -1;
 	}
 
@@ -331,6 +344,10 @@ void cleanup_wpeer(struct rskt_dmn_wpeer *wpeer)
 {
 	struct librsktd_unified_msg *msg = NULL;
 
+	if (NULL == wpeer) {
+		return;
+	}
+
 	*wpeer->self_ref = NULL;
 	wpeer->wpeer_alive = 0;
 	wpeer->i_must_die = 1;
@@ -364,9 +381,7 @@ void cleanup_wpeer(struct rskt_dmn_wpeer *wpeer)
 	/* Send "failed" responses to application */
 	while (NULL != msg) {
 		msg->proc_stage = RSKTD_A2W_SEQ_DRESP;
-		if (wpeer == NULL) {
-			WARN("wpeer == NULL\n");
-		} else if (wpeer->resp == NULL) {
+		if (wpeer->resp == NULL) {
 			WARN("wpeer->resp == NULL\n");
 		} else {
 			wpeer->resp->err = ECONNRESET;
@@ -438,8 +453,12 @@ void *wpeer_tx_loop(void *unused)
 		};
 
 		/* Formulate request message to be sent... */
-		msg->dreq->msg_seq = htonl(seq_num);
-		msg->dresp->msg_seq = msg->dreq->msg_seq;
+		if (NULL != msg->dreq) {
+			msg->dreq->msg_seq = htonl(seq_num);
+		}
+		if (NULL != msg->dresp) {
+			msg->dresp->msg_seq = htonl(seq_num);
+		}
 
 		if (NULL == w) {
 			/* Enqueue error response for processing */
