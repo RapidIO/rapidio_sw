@@ -135,7 +135,7 @@ int main(int argc, char* argv[])
 		case 's': server = 1;
 			break;
 		case 'c': server = 0;
-			destid = atoi(optarg);
+			destid = (uint16_t)strtoul(optarg, NULL, 10);
 			break;
 		default: exit(9);
 			break;

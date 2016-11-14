@@ -88,7 +88,7 @@ int main(int argc, char *argv[])
 	while ((c = getopt(argc, argv, "hc:")) != -1) {
 		switch(c) {
 		case 'c':
-			channel = atoi(optarg);
+			channel = (uint16_t)strtoul(optarg, NULL, 10);
 			break;
 		case 'h':
 			show_help();

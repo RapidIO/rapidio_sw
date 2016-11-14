@@ -40,13 +40,13 @@ int main(int argc, char *argv[])
 	while ((c = getopt(argc, argv, "c:d:hm:")) != -1) {
 		switch (c) {
 		case 'c':
-			channel = atoi(optarg);
+			channel = (int)strtol(optarg, NULL, 10);
 			break;
 		case 'd':
-			destid = atoi(optarg);
+			destid = (uint16_t)strtoul(optarg, NULL, 10);
 			break;
 		case 'm':
-			mport_id = atoi(optarg);
+			mport_id = (int)strtol(optarg, NULL, 10);
 			break;
 		case 'h':
 		default:

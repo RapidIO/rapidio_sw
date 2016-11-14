@@ -108,7 +108,7 @@ uint64_t getHex(char *token, unsigned long defaultData)
 
 	errno = 0;
 	if ((token != NULL) && (token[0] != '/')) {
-		data = strtoull(token, &end, 16);
+		data = (uint64_t)strtoull(token, &end, 16);
 		if (!data && (end == token)) {
 			data = defaultData;
 		} else if (data == ULLONG_MAX && errno) {

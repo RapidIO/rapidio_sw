@@ -201,10 +201,10 @@ int main(int argc, char** argv)
 		show_rio_devs();
 		exit(1);
 	}
-	arg.mport_id       = strtoul(argv[1], NULL, 10);
-	arg.remote_destid  = strtoul(argv[2], NULL, 10);
-	arg.remote_channel = strtoul(argv[3], NULL, 10);
-	arg.repeat         = strtoul(argv[4], NULL, 10);
+	arg.mport_id       = (uint32_t)strtoul(argv[1], NULL, 10);
+	arg.remote_destid  = (uint16_t)strtoul(argv[2], NULL, 10);
+	arg.remote_channel = (uint16_t)strtoul(argv[3], NULL, 10);
+	arg.repeat         = (uint32_t)strtoul(argv[4], NULL, 10);
 
 	printf("Start CM_CLIENT (PID %d)\n", (int)getpid());
 

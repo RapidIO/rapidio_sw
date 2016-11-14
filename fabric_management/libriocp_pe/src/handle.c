@@ -75,7 +75,7 @@ int riocp_pe_handle_addr_aton(char *addr, uint8_t **address, size_t *address_len
 		token = strtok_r(str, ",", &saveptr1);
 		if (token == NULL)
 			break;
-		_address[i] = strtoul(token, NULL, 0);
+		_address[i] = (uint8_t)strtoul(token, NULL, 0);
 	}
 
 	*address = _address;

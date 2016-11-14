@@ -188,7 +188,7 @@ void parse_options(int argc, char *argv[])
 					  goto exit;
 				};
 				idx++;
-				ctrls.e_cli_skt = atoi(argv[idx]);
+				ctrls.e_cli_skt = (int)strtol(argv[idx], NULL, 10);
 				if (!ctrls.e_cli_skt) {
 					  printf("\n<e_skt> must not be 0\n");
 					  ctrls.print_help = 1;
@@ -201,7 +201,7 @@ void parse_options(int argc, char *argv[])
 					  goto exit;
 				};
 				idx++;
-				ctrls.num_ms = atoi(argv[idx]);
+				ctrls.num_ms = (int)strtol(argv[idx], NULL, 10);
 				if (ctrls.num_ms > MAX_DMN_NUM_MS) {
 					  printf("\n<num_spaces> max is %d\n",
 						MAX_DMN_NUM_MS);
@@ -215,7 +215,7 @@ void parse_options(int argc, char *argv[])
 					  goto exit;
 				};
 				idx++;
-				ctrls.ms_size = atoi(argv[idx]);
+				ctrls.ms_size = (int)strtol(argv[idx], NULL, 10);
 				if ((128 != ctrls.ms_size) &&
 					(256 != ctrls.ms_size) &&
 					(512 != ctrls.ms_size) &&
@@ -232,7 +232,7 @@ void parse_options(int argc, char *argv[])
 					goto exit;
 				};
 				idx++;
-				ctrls.rskt_buff_size = atoi(argv[idx]);
+				ctrls.rskt_buff_size = (int)strtol(argv[idx], NULL, 10);
 				if ((2 != ctrls.rskt_buff_size) &&
 					(4 != ctrls.rskt_buff_size) &&
 					(8 != ctrls.rskt_buff_size) &&
@@ -251,7 +251,7 @@ void parse_options(int argc, char *argv[])
 					  goto exit;
 				};
 				idx++;
-				ctrls.rsktd_uskt = atoi(argv[idx]);
+				ctrls.rsktd_uskt = (int)strtol(argv[idx], NULL, 10);
 				if (!ctrls.rsktd_uskt) {
 					  printf("\n<u_skt> must not be 0\n");
 					  ctrls.print_help = 1;
@@ -273,7 +273,7 @@ void parse_options(int argc, char *argv[])
 					  goto exit;
 				};
 				idx++;
-				ctrls.rsktd_u_bklg = atoi(argv[idx]);
+				ctrls.rsktd_u_bklg = (int)strtol(argv[idx], NULL, 10);
 				if (!ctrls.rsktd_u_bklg) {
 					  printf("\n<u_bklg> must not be 0\n");
 					  ctrls.print_help = 1;
@@ -294,7 +294,7 @@ void parse_options(int argc, char *argv[])
 					  goto exit;
 				};
 				idx++;
-				ctrls.rsktd_cskt = atoi(argv[idx]);
+				ctrls.rsktd_cskt = (int)strtol(argv[idx], NULL, 10);
 				if (!ctrls.rsktd_cskt) {
 					  printf("\n<cm_skt> must not be 0\n");
 					  ctrls.print_help = 1;
@@ -316,9 +316,9 @@ void parse_options(int argc, char *argv[])
 					  goto exit;
 				};
 				ctrls.peers[ctrls.num_peers].ct 
-					= atoi(argv[idx+1]);
+					= (uint32_t)strtoul(argv[idx+1], NULL, 10);
 				ctrls.peers[ctrls.num_peers].cm_skt 
-					= atoi(argv[idx+2]);
+					= (uint32_t)strtoul(argv[idx+2], NULL, 10);
 				idx+=2;
 				
 				if (!ctrls.peers[ctrls.num_peers].cm_skt) {

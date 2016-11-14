@@ -160,23 +160,23 @@ int main(int argc, char** argv)
 			break;
 		switch (option) {
 		case 'D':
-			tgt_destid = strtol(optarg, NULL, 0);
+			tgt_destid = (uint32_t)strtoul(optarg, NULL, 0);
 			tgt_remote = 1;
 			break;
 		case 'H':
-			tgt_hc = strtol(optarg, NULL, 0);
+			tgt_hc = (uint32_t)strtoul(optarg, NULL, 0);
 			break;
 		case 'O':
-			offset = strtol(optarg, NULL, 0);
+			offset = (uint32_t)strtoul(optarg, NULL, 0);
 			break;
 		case 'S':
-			op_size = strtol(optarg, NULL, 0);
+			op_size = (uint32_t)strtoul(optarg, NULL, 0);
 			break;
 		case 'M':
-			mport_id = strtol(optarg, NULL, 0);
+			mport_id = (uint32_t)strtoul(optarg, NULL, 0);
 			break;
 		case 'V':
-			data = strtoul(optarg, NULL, 0);
+			data = (uint32_t)strtoul(optarg, NULL, 0);
 			break;
 		case 'w':
 			tgt_write = 1;

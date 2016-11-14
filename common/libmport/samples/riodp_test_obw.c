@@ -575,42 +575,42 @@ int main(int argc, char** argv)
 		switch (option) {
 			/* Data Transfer Mode options*/
 		case 'A':
-			tgt_addr = strtoull(optarg, NULL, 0);
+			tgt_addr = (uint64_t)strtoull(optarg, NULL, 0);
 			break;
 		case 'a':
-			align = strtol(optarg, NULL, 0);
+			align = (int)strtol(optarg, NULL, 0);
 			break;
 		case 'D':
-			tgt_destid = strtol(optarg, NULL, 0);
+			tgt_destid = (uint32_t)strtoul(optarg, NULL, 0);
 			break;
 		case 'O':
-			offset = strtol(optarg, NULL, 0);
+			offset = (uint32_t)strtoul(optarg, NULL, 0);
 			break;
 		case 'S':
-			copy_size = strtol(optarg, NULL, 0);
+			copy_size = (uint32_t)strtoul(optarg, NULL, 0);
 			break;
 		case 'T':
-			repeat = strtol(optarg, NULL, 0);
+			repeat = (unsigned)strtoul(optarg, NULL, 0);
 			break;
 		case 'B':
-			tbuf_size = strtol(optarg, NULL, 0) * 1024 * 1024;
+			tbuf_size = (uint32_t)strtoul(optarg, NULL, 0) * 1024 * 1024;
 			break;
 		case 'r':
 			do_rand = 1;
 			break;
 			/* Inbound Memory (window) Mode options */
 		case 'I':
-			ibwin_size = strtol(optarg, NULL, 0);
+			ibwin_size = (uint32_t)strtoul(optarg, NULL, 0);
 			break;
 		case 'i':
 			ibwin_size = DEFAULT_IBWIN_SIZE;
 			break;
 		case 'R':
-			rio_base = strtoull(optarg, NULL, 0);
+			rio_base = (uint64_t)strtoull(optarg, NULL, 0);
 			break;
 			/* Options common for all modes */
 		case 'M':
-			mport_id = strtol(optarg, NULL, 0);
+			mport_id = (uint32_t)strtoul(optarg, NULL, 0);
 			break;
 		case 'v':
 			verify = 0;

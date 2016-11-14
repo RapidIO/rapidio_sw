@@ -38,10 +38,10 @@ int main(int argc, char *argv[])
 		switch (c) {
 
 		case 'c':
-			channel = atoi(optarg);
+			channel = (int)strtol(optarg, NULL, 10);
 			break;
 		case 'm':
-			mport_id = atoi(optarg);
+			mport_id = (int)strtol(optarg, NULL, 10);
 			break;
 		case 'h':
 		default:

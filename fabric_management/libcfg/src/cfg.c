@@ -286,24 +286,37 @@ fail:
 int get_dec_int(struct int_cfg_parms *cfg, uint32_t *dec_int)
 {
 	char *tok = NULL;
+	char *endptr = NULL;
 
 	if (cfg->init_err || get_next_token(cfg, &tok))
 		goto fail;
-	*dec_int = atoi(tok);
+
+	errno = 0;
+	*dec_int = (uint32_t)strtol(tok, &endptr, 10);
+
+	if ((errno == ERANGE && (*dec_int == 0xFFFFFFFF || *dec_int == 0))
+		|| ((errno != 0) && (*dec_int == 0)))
+		goto fail;
+
+	if (endptr == tok) {
+		goto fail;
+	}
 	return 0;
 fail:
-	parse_err(cfg, (char *)"Premature EOF.");
+	parse_err(cfg, (char *)"get_dec_int error.");
 	return 1;
 };
 
 int get_hex_int(struct int_cfg_parms *cfg, uint32_t *hex_int)
 {
-	char *tok = NULL, *endptr = NULL;
+	char *tok = NULL;
+	char *endptr = NULL;
 
 	if (cfg->init_err || get_next_token(cfg, &tok))
 		goto fail;
+
 	errno = 0;
-	*hex_int = strtol(tok, &endptr, 16);
+	*hex_int = strtoul(tok, &endptr, 16);
 
 	if ((errno == ERANGE && (*hex_int == 0xFFFFFFFF || *hex_int == 0))
 		|| ((errno != 0) && (*hex_int == 0)))
@@ -384,7 +397,7 @@ int get_rt_v(struct int_cfg_parms *cfg, uint32_t *rt_val)
 		*rt_val = IDT_DSF_RT_NO_ROUTE;
 		break;
 	default:
-		val = strtol(tok, &endptr, 0);
+		val = (pe_rt_val)strtoul(tok, &endptr, 0);
 		if ((errno == ERANGE && (val == 0xFFFFFFFF || val == 0))
 			|| ((errno != 0) && (val == 0)))
 			goto fail;
@@ -446,7 +459,7 @@ int find_ep_and_port(struct int_cfg_parms *cfg, char *tok,
 
 	if ('.' == temp[0]) {
 		temp[0] = '\0';
-		*port = atoi(&temp[1]);
+		*port = (int)strtol(&temp[1], NULL, 10);
 		if ((*port < 0) || (*port >= CFG_MAX_EP_PORT)) {
 			parse_err(cfg, (char *)"Illegal port index.");
 			goto fail;
@@ -481,7 +494,7 @@ int find_sw_and_port(struct int_cfg_parms *cfg, char *tok,
 
 	if ('.' == temp[0]) {
 		temp[0] = '\0';
-		*port = atoi(&temp[1]);
+		*port = (int)strtol(&temp[1], NULL, 10);
 		if ((*port < 0) || (*port >= CFG_MAX_EP_PORT)) {
 			parse_err(cfg, (char *)"Illegal port index.");
 			goto fail;
@@ -524,7 +537,7 @@ int get_ep_sw_and_port(struct int_cfg_parms *cfg, struct int_cfg_conn *conn,
 
 	if ('.' == temp[0]) {
 		temp[0] = '\0';
-		conn->ends[idx].port_num = atoi(&temp[1]);
+		conn->ends[idx].port_num = (int)strtol(&temp[1], NULL, 10);
 		if (conn->ends[idx].port_num < 0) {
 			parse_err(cfg, (char *)"Illegal port index.");
 			goto fail;
@@ -581,7 +594,7 @@ int cfg_get_destid(struct int_cfg_parms *cfg, uint32_t *destid, uint32_t devid_s
 	if (find_ep_and_port(cfg, tok, &ep, &port)) {
 		if (cfg->init_err)
 			goto fail;
-		*destid = strtol(tok, &endptr, 16);
+		*destid = (uint32_t)strtoul(tok, &endptr, 16);
 		if ((errno == ERANGE && (*destid == 0xFFFFFFFF 
 			|| *destid == 0)) || 
 			((errno != 0) && (*destid == 0)))
@@ -829,7 +842,7 @@ int parse_mc_mask(struct int_cfg_parms *cfg, idt_rt_mc_info_t *mc_info)
 			done = 1;
 			break;
 		default: 
-			pnum = atoi(tok);
+			pnum = (uint32_t)strtoul(tok, NULL, 10);
 			if (pnum >= CFG_MAX_SW_PORT) {
 				parse_err(cfg, 
 					(char *)"Illegal multicast port.");
@@ -1118,7 +1131,7 @@ int parse_switch(struct int_cfg_parms *cfg)
 			case 0: rt = &cfg->sws[i].rt[rt_sz];
 				cfg->sws[i].rt_valid[rt_sz] = true;
 				break;
-			default: uint32_t  port = atoi(token);
+			default: uint32_t  port = (uint32_t)strtoul(token, NULL, 10);
 	// FIXME: Need to use standard macros to check this...
 				if (port >= RIO_MAX_DEV_PORT) {
 					parse_err(cfg, (char *)"Illegal port.");

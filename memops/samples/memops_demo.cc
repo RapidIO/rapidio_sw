@@ -203,10 +203,10 @@ int main(int argc, char* argv[])
                         m = 2;
                         break;
                 case 'A':
-                        rio_addr = strtol(optarg, NULL, 16);
+                        rio_addr = (uint64_t)strtoull(optarg, NULL, 16);
                         break;
                 case 'd':
-                        did = strtol(optarg, NULL, 0);
+                        did = (uint16_t)strtoul(optarg, NULL, 0);
                         break;
                 case 'h':
 			usage_and_exit(argv[0]);
@@ -237,7 +237,7 @@ int main(int argc, char* argv[])
 	int chan = 6;
 	char* umd_chan = getenv("UMD_CHAN");
 	if (umd_chan != NULL) {
-		chan = atoi(getenv(umd_chan));
+		chan = (int)strtol(getenv(umd_chan), NULL, 10);
 	}
 
 	/** - Create memory operation object */

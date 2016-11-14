@@ -170,7 +170,7 @@ int parse_options(int argc, char *argv[], struct server_controls *ctrls)
 					goto exit;
 				};
 				idx++;
-				ctrls->rsktlib_portno = atoi(argv[idx]);
+				ctrls->rsktlib_portno = (int)strtol(argv[idx], NULL, 10);
 				if (!ctrls->rsktlib_portno) {
 					printf("\n<u_skt> cannot be 0\n");
 					ctrls->print_help = 1;
@@ -183,7 +183,7 @@ int parse_options(int argc, char *argv[], struct server_controls *ctrls)
 					goto exit;
 				};
 				idx++;
-				ctrls->remcli_portno = atoi(argv[idx]);
+				ctrls->remcli_portno = (int)strtol(argv[idx], NULL, 10);
 				if (!ctrls->remcli_portno) {
 					printf("\n<e_skt> cannot be 0\n");
 					ctrls->print_help = 1;

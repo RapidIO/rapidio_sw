@@ -135,7 +135,7 @@ int main(int argc, char *argv[])
 	signal(SIGUSR1, sig_handler);
 
 	if (argc > 1)
-		mport_num = atoi(argv[1]);
+		mport_num = (int)strtol(argv[1], NULL, 10);
 
 	for(int n = 2; n < argc; n++) {
 		const char* arg = argv[n];

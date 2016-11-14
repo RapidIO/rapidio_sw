@@ -191,16 +191,16 @@ int main(int argc, char** argv)
 		switch (option) {
 			/* Data Transfer Mode options*/
 		case 'M':
-			mport_id = strtol(optarg, NULL, 0);
+			mport_id = (uint32_t)strtoul(optarg, NULL, 0);
 			break;
 		case 'D':
-			tgt_destid = strtol(optarg, NULL, 0);
+			tgt_destid = (uint16_t)strtoul(optarg, NULL, 0);
 			break;
 		case 'H':
-			tgt_hop = strtoull(optarg, NULL, 0);
+			tgt_hop = (uint8_t)strtoul(optarg, NULL, 0);
 			break;
 		case 'T':
-			comptag = strtol(optarg, NULL, 0);
+			comptag = (ct_t)strtoul(optarg, NULL, 0);
 			break;
 		case 'N':
 			SAFE_STRNCPY(dev_name, optarg, sizeof(dev_name));

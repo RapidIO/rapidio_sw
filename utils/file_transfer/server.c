@@ -152,7 +152,7 @@ void parse_options(int argc, char *argv[],
 					  goto exit;
 				} else {
 					idx++;
-					*cons_skt = atoi(argv[idx]);
+					*cons_skt = (int)strtol(argv[idx], NULL, 10);
 				};
 				break;
 			case '?': 
@@ -180,7 +180,7 @@ void parse_options(int argc, char *argv[],
 					  goto exit;
 				};
 				idx++;
-				*win_size = atoi(argv[idx]);
+				*win_size = (int)strtol(argv[idx], NULL, 10);
 				if (*win_size > (TOTAL_TX_BUFF_SIZE/1024)) {
 					printf("\n<size> exceeds max\n");
 					*print_help = 1;
@@ -190,7 +190,7 @@ void parse_options(int argc, char *argv[],
 			case 'w':
 			case 'W': if ((argv[idx][2] >= '0') && 
 				    (argv[idx][2] <= '9')) {
-					*num_buffs = atoi(&argv[idx][2]);
+					*num_buffs = (int)strtol(&argv[idx][2], NULL, 10);
 				} else {
 					printf("\n<buffers> invalid\n");
 					*print_help = 1;
@@ -199,12 +199,12 @@ void parse_options(int argc, char *argv[],
 				break;
 			case 'x': 
 			case 'X': if (argc < (idx+1)) {
-					  printf("\n<skt> not specified\n");
-					  *print_help = 1;
-					  goto exit;
+					printf("\n<skt> not specified\n");
+					*print_help = 1;
+					goto exit;
 				} else {
 					idx++;
-					  *xfer_skt = atoi(argv[idx]);
+					*xfer_skt = (int)strtol(argv[idx], NULL, 10);
 				};
 				  break;
 			default: printf("\nUnknown parm: \"%s\"\n", argv[idx]);

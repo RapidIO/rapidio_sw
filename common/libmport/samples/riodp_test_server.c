@@ -258,8 +258,8 @@ int main(int argc, char** argv)
 		return 0;
 	}
 
-	arg.mport_id       = strtoul(argv[1], NULL, 10);
-	arg.loc_channel    = strtoul(argv[2], NULL, 10);
+	arg.mport_id       = (uint32_t)strtoul(argv[1], NULL, 10);
+	arg.loc_channel    = (uint16_t)strtoul(argv[2], NULL, 10);
 
 	if (argc == 4)
 		srv_debug = 1;

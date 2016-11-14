@@ -123,8 +123,8 @@ int get_phys_mem(const char *filename, char *parm_name, uint64_t *sa, uint64_t *
 			errno = EDOM;
 			goto fail;
 		};
-		*sa = strtoul(a_token, &a_endptr, 0);
-		*sz = strtoul(s_token, &s_endptr, 0);
+		*sa = (uint64_t)strtoull(a_token, &a_endptr, 0);
+		*sz = (uint64_t)strtoull(s_token, &s_endptr, 0);
 
 		// Did not get to end of token, so there must be 
 		// invalid characters in the address and/or size.

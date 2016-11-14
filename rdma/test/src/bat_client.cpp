@@ -68,10 +68,10 @@ int main(int argc, char *argv[])
 {
 	auto tc = 'a';
 	int c;
-	auto first_channel = 2224;
-	auto num_channels  = 1;
-	auto repetitions   = 1;
-	auto mport_id = BAT_MPORT_ID;
+	int first_channel = 2224;
+	int num_channels  = 1;
+	int repetitions   = 1;
+	int mport_id = BAT_MPORT_ID;
 	uint32_t destid;
 	vector<unique_ptr<bat_connection> > connections;
 
@@ -139,10 +139,10 @@ int main(int argc, char *argv[])
 	while ((c = getopt(argc, argv, "hld:o:c:t:n:r:")) != -1)
 		switch (c) {
 		case 'c':
-			first_channel = atoi(optarg);
+			first_channel = (int)strtol(optarg, NULL, 10);
 			break;
 		case 'd':
-			destid = atoi(optarg);
+			destid = (uint32_t)strtoul(optarg, NULL, 10);
 			break;
 		case 'h':
 			show_help();
@@ -151,16 +151,16 @@ int main(int argc, char *argv[])
 		case 'l':
 			break;
 		case 'm':
-			mport_id = atoi(optarg);
+			mport_id = (int)strtol(optarg, NULL, 10);
 			break;
 		case 'n':
-			num_channels = atoi(optarg);
+			num_channels = (int)strtol(optarg, NULL, 10);
 			break;
 		case 'o':
 			strcpy(log_filename, optarg);
 			break;
 		case 'r':
-			repetitions = atoi(optarg);
+			repetitions = (int)strtol(optarg, NULL, 10);
 			printf("Tests will be run %d times!\n", repetitions);
 			break;
 		case 't':	/* test case */

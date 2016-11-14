@@ -159,7 +159,7 @@ void parse_options(int argc, char *argv[],
 					  goto exit;
 				} else {
 					idx++;
-					*cons_skt = atoi(argv[idx]);
+					*cons_skt = (int)strtol(argv[idx], NULL, 10);
 				};
 				break;
 			case '?': 
@@ -173,7 +173,7 @@ void parse_options(int argc, char *argv[],
 					  goto exit;
 				} else {
 					idx++;
-					*ibwin_base = atoi(argv[idx]);
+					*ibwin_base = (uint64_t)strtoull(argv[idx], NULL, 10);
 				};
 				break;
 			case 'm': 
@@ -197,7 +197,7 @@ void parse_options(int argc, char *argv[],
 					  goto exit;
 				};
 				idx++;
-				*win_size = atoi(argv[idx]);
+				*win_size = (int)strtol(argv[idx], NULL, 10);
 				if (*win_size > (TOTAL_TX_BUFF_SIZE/1024)) {
 					printf("\n<size> exceeds max\n");
 					*print_help = 1;
@@ -216,12 +216,12 @@ void parse_options(int argc, char *argv[],
 				break;
 			case 'x': 
 			case 'X': if (argc < (idx+1)) {
-					  printf("\n<skt> not specified\n");
-					  *print_help = 1;
-					  goto exit;
+					printf("\n<skt> not specified\n");
+					*print_help = 1;
+					goto exit;
 				} else {
 					idx++;
-					  *xfer_skt = atoi(argv[idx]);
+					*xfer_skt = (int)strtol(argv[idx], NULL, 10);
 				};
 				  break;
 			default: printf("\nUnknown parm: \"%s\"\n", argv[idx]);

@@ -16,7 +16,7 @@ int main(int argc, char *argv[])
 	}
 
 	/* Number of iterations */
-	unsigned n = atoi(argv[1]);
+	unsigned n = (unsigned)strtoul(argv[1], NULL, 10);
 
 	/* Initialize the logger */
 	rdma_log_init("msg_mq1.log", 0);

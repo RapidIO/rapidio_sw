@@ -201,11 +201,11 @@ int main(int argc, char *argv[])
 		switch (c) {
 
 		case 'c':
-			count = atoi(optarg);
+			count = (unsigned)strtoul(optarg, NULL, 10);
 			break;
 
 		case 'd':
-			destid = atoi(optarg);
+			destid = (uint32_t)strtoul(optarg, NULL, 10);
 			break;
 
 		case 'h':
@@ -214,7 +214,7 @@ int main(int argc, char *argv[])
 			break;
 
 		case 'i':
-			i = atoi(optarg);
+			i = (unsigned)strtoul(optarg, NULL, 10);
 			break;
 
 		case '?':

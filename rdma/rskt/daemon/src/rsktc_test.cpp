@@ -93,20 +93,20 @@ int main(int argc, char *argv[])
 		switch (c) {
 
 		case 'd':
-			destid = atoi(optarg);
+			destid = (uint16_t)strtoul(optarg, NULL, 10);
 			break;
 		case 'h':
 			show_help();
 			exit(1);
 			break;
 		case 'l':
-			data_length = atoi(optarg);
+			data_length = (unsigned)strtoul(optarg, NULL, 10)
 			break;
 		case 'r':
-			repetitions = atoi(optarg);
+			repetitions = (unsigned)strtoul(optarg, NULL, 10);
 			break;
 		case 's':
-			socket_number = atoi(optarg);
+			socket_number = (int)strtol(optarg, NULL, 10);
 			break;
 		case 't':
 			tx_test = true;

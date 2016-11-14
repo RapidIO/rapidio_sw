@@ -182,7 +182,7 @@ static int riocp_pe_test_lookup(int argc, char **argv)
 	}
 
 	token = strtok(pathstring, ",");
-	port = strtoul(token, NULL, 10);
+	port = (uint8_t)strtoul(token, NULL, 10);
 
 	if (is_host) {
 		ret = riocp_pe_maint_read(mport, 0x6c, &comptag);
@@ -302,7 +302,7 @@ static int riocp_pe_test_connected()
 static int riocp_pe_test_set_destid(int argc, char **argv)
 {
 	int ret;
-	uint32_t destid = strtoul(argv[3], NULL, 0);
+	uint32_t destid = (uint32_t)strtoul(argv[3], NULL, 0);
 	if (argc < 4) {
 		usage(argv[0]);
 		return -EINVAL;

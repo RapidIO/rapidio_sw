@@ -374,7 +374,7 @@ int main (int argc, char **argv)
 	while ((c = getopt(argc, argv, "hnl:c:m:")) != -1)
 		switch (c) {
 		case 'c':
-			peer.cons_skt = atoi(optarg);
+			peer.cons_skt = (int)strtol(optarg, NULL, 10);
 			break;
 		case 'h':
 			puts("rdmad -h -m<port> -l<loglv> -c<socket num>|-n");
@@ -386,10 +386,10 @@ int main (int argc, char **argv)
 			exit(1);
 			break;
 		case 'm':
-			peer.mport_id = atoi(optarg);
+			peer.mport_id = (int)strtol(optarg, NULL, 10);
 			break;
 		case 'l':
-			g_level = atoi(optarg);
+			g_level = (unsigned)strtoul(optarg, NULL, 10);
 			break;
 		case 'n':	/* Same as doing "rdmad &" */
 			peer.run_cons = 0;

@@ -300,10 +300,10 @@ int main(int argc, char *argv[])
 			exit(1);
 			break;
 		case 's':
-			socket_number = atoi(optarg);
+			socket_number = (int)strtol(optarg, NULL, 10);
 			break;
 		case 'l':
-			g_level = atoi(optarg);
+			g_level = (unsigned)strtoul(optarg, NULL, 10);
 			g_disp_level = g_level;
 			break;
 		}

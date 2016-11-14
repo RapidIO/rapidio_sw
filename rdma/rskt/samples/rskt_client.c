@@ -342,7 +342,7 @@ int main(int argc, char *argv[])
 		switch (c) {
 
 		case 'd':
-			destid = atoi(optarg);
+			destid = (uint16_t)strtoul(optarg, NULL, 10);
 			break;
 		default :
 		case 'h':
@@ -350,20 +350,20 @@ int main(int argc, char *argv[])
 			exit(1);
 			break;
 		case 'l':
-			g_level = atoi(optarg);
+			g_level = (unsigned)strtoul(optarg, NULL, 10);
 			g_disp_level = g_level;
 			break;
 		case 'L':
-			data_length = atoi(optarg);
+			data_length = (int)strtol(optarg, NULL, 10);
 			break;
 		case 'p':
-			parallel = atoi(optarg);
+			parallel = (unsigned)strtoul(optarg, NULL, 10);
 			break;
 		case 'r':
-			repetitions = atoi(optarg);
+			repetitions = (unsigned)strtoul(optarg, NULL, 10);
 			break;
 		case 's':
-			socket_number = atoi(optarg);
+			socket_number = (int)strtol(optarg, NULL, 10);
 			break;
 		case 't':
 			tx_test = 1;

@@ -133,16 +133,18 @@ struct fmd_opt_vals *fmd_parse_options(int argc, char *argv[])
 		if ('-' == argv[idx][0]) {
 			switch(argv[idx][1]) {
 			case 'a': 
-			case 'A': opts->app_port_num= atoi(&argv[idx][2]);
+			case 'A': opts->app_port_num= (int)strtol(&argv[idx][2], NULL, 10);
 				  break;
 			case 'c': 
 			case 'C': if (get_v_str(&opts->fmd_cfg, 
-							  &argv[idx][2], 0))
+							&argv[idx][2],
+							0))
 					  goto print_help;
 				  break;
 			case 'd': 
 			case 'D': if (get_v_str(&opts->dd_fn,
-							  &argv[idx][2], 1))
+							&argv[idx][2],
+							1))
 					  goto print_help;
 				  break;
 			case '?': 
@@ -150,14 +152,15 @@ struct fmd_opt_vals *fmd_parse_options(int argc, char *argv[])
 			case 'H': goto print_help;
 
 			case 'i': 
-			case 'I': opts->mast_interval = atoi(&argv[idx][2]);
+			case 'I': opts->mast_interval = (int)strtol(&argv[idx][2], NULL, 10);
 				  break;
 			case 'l': 
-			case 'L': opts->log_level = atoi(&argv[idx][2]);
+			case 'L': opts->log_level = (int)strtol(&argv[idx][2], NULL, 10);
 				  break;
 			case 'm': 
 			case 'M': if (get_v_str(&opts->dd_mtx_fn,
-							&argv[idx][2], 1))
+							&argv[idx][2],
+							1))
 					  goto print_help;
 				  break;
 			case 'n': 
@@ -165,7 +168,7 @@ struct fmd_opt_vals *fmd_parse_options(int argc, char *argv[])
 				  break;
 
 			case 'p': 
-			case 'P': opts->cli_port_num= atoi(&argv[idx][2]);
+			case 'P': opts->cli_port_num= (int)strtol(&argv[idx][2], NULL, 10);
 				  break;
 			case 's': 
 			case 'S': opts->simple_init = 1;
