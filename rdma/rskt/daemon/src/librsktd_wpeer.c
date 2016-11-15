@@ -483,8 +483,14 @@ void *wpeer_tx_loop(void *unused)
 			l_add(&w->w_rsp, seq_num, msg);
 			sem_post(&w->w_rsp_mutex);
 
-			memcpy((void *)w->tx_buff, (void *)msg->dreq,
-				DMN_REQ_SZ);
+			if (NULL != msg->dreq) {
+				memcpy((void *)w->tx_buff, (void *)msg->dreq,
+					DMN_REQ_SZ);
+			} else {
+				ERR("Setting tx_buff null, msg->dreq is null\n");
+				memset((void *)w->tx_buff, 0,
+					DMN_REQ_SZ);
+			}
         		w->tx_buff_used = 1;
 			INFO("Msg %s 0x%x Type 0x%x %s Proc %s Stage %s Sent to WP!",
 				UMSG_W_OR_S(msg),

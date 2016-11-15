@@ -432,9 +432,13 @@ void *console(void *cons_parm)
 	rc = cli_terminal(&cons_env);
 
 	rskt_server_shutdown();
-	if (NULL == cons_parm)
+	if (NULL == cons_parm) {
 		cons_parm = malloc(sizeof(int));
-	*(int *)(cons_parm) = rc;
+	}
+
+	if (NULL != cons_parm) {
+		*(int *)(cons_parm) = rc;
+	}
 	printf("\nConsole EXITING\n");
 	rskts.cli.cons_alive = 0;
 	pthread_exit(cons_parm);

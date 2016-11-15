@@ -131,7 +131,6 @@ void set_prompt(struct cli_env *e)
 	struct cfg_dev cfg_dev;
 
 	if (NULL == e) {
-		SAFE_STRNCPY(e->prompt, "UNINIT> ", sizeof(e->prompt));
 		return;
 	}
 
@@ -258,14 +257,24 @@ fail:
 void spawn_threads(struct fmd_opt_vals *cfg)
 {
 	int  poll_ret, cli_ret, cons_ret;
-	int *pass_sock_num = NULL, *pass_poll_interval = NULL;
-	int *pass_cons_ret = NULL;
+	int *pass_sock_num;
+	int *pass_poll_interval;
+	int *pass_cons_ret;
 	int ret;
 
 	sem_init(&cons_owner, 0, 0);
 	pass_sock_num = (int *)(calloc(1, sizeof(int)));
 	pass_poll_interval = (int *)(calloc(2, sizeof(int)));
 	pass_cons_ret = (int *)(calloc(1, sizeof(int))); /// \todo MEMLEAK
+	if (!pass_sock_num || !pass_poll_interval || !pass_cons_ret) {
+		free(pass_cons_ret);
+		free(pass_poll_interval);
+		free(pass_sock_num);
+
+		CRIT("Error - Out of memory\n");
+		exit(EXIT_FAILURE);
+	}
+
 	*pass_sock_num = cfg->cli_port_num;
 	pass_poll_interval[0] = cfg->mast_interval;
 	pass_poll_interval[1] = cfg->run_cons;
@@ -486,7 +495,12 @@ int setup_mport_master(int mport)
 			return 1;
 		}
 		name = (char *)calloc(1,40);
-		snprintf(name, 39, "MPORT%d", mport);
+		if (NULL == name) {
+			CRIT("\nOut of Memory\n");
+			return 1;
+		} else {
+			snprintf(name, 39, "MPORT%d", mport);
+		}
 	}
 
 	if (riocp_pe_create_host_handle(&mport_pe, mport, 0, &pe_mpsw_rw_driver,

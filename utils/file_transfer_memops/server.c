@@ -542,6 +542,10 @@ void add_conn_req(struct req_list_head_t *list, MportCMSocket* new_socket)
 	struct req_list_t *new_req;
 
 	new_req = (struct req_list_t *)(malloc(sizeof(struct req_list_t)));
+	if (NULL == new_req) {
+		return;
+	}
+
 	new_req->skt = new_socket;
 	new_req->next = NULL;
 
@@ -884,7 +888,9 @@ fail:
      	close(sockfd);
 
 	sock_num = malloc(sizeof(int));
-	*(int *)(sock_num) = portno;
+	if (NULL != sock_num) {
+		*(int *)(sock_num) = portno;
+	}
 	pthread_exit(sock_num);
 }
 

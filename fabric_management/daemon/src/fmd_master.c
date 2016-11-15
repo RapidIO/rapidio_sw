@@ -464,6 +464,9 @@ int start_new_peer(riomp_sock_t new_skt)
 	struct fmd_peer *peer = NULL;
 
 	peer = (struct fmd_peer *) calloc(1, sizeof(struct fmd_peer));
+	if (NULL == peer) {
+		goto fail;
+	}
 
 	peer->skt_h_valid= 1;
 	peer->cm_skt_h = new_skt;

@@ -281,8 +281,13 @@ void shutdown_worker_thread(struct worker *info)
 int getCPUCount()
 {
 	FILE* f = fopen("/proc/cpuinfo", "rte");
-
 	int count = 0;
+
+	if (NULL == f) {
+		CRIT("Could not open /proc/cpuinfo\n");
+		return 1;
+	}
+
 	while (! feof(f)) {
 		char buf[257] = {0};
 		if (NULL == fgets(buf, 256, f))
@@ -1485,13 +1490,16 @@ void *umd_dma_fifo_proc_thr(void *parm)
 	int wi_size = 0;
 	DMAChannel::WorkItem_t* wi = NULL;
 
-	if (NULL == parm)
-		goto exit;
+	if (NULL == parm) {
+		CRIT("Parameter is null\n");
+		goto null_parm;
+	}
 
 	info = (struct worker *)parm;
-	if (NULL == info->umd_dch)
+	if (NULL == info->umd_dch) {
 		goto exit;
-	
+	}
+
 	migrate_thread_to_cpu(&info->umd_fifo_thr);
 
 	if (info->umd_fifo_thr.cpu_run != info->umd_fifo_thr.cpu_req) {
@@ -1548,7 +1556,7 @@ exit:
 	sem_post(&info->umd_fifo_proc_started); 
 no_post:
 	info->umd_fifo_proc_alive = 0;
-
+null_parm:
 	pthread_exit(parm);
 };
 
@@ -2175,7 +2183,7 @@ void umd_dma_goodput_demo(struct worker *info)
 	if (NULL == info->umd_dch) {
 		CRIT("\n\tDMAChannel alloc FAIL: chan %d mp_num %d hnd %x",
 			info->umd_chan, info->mp_num, info->mp_h);
-		goto exit;
+		goto exit_nomsg;
 	};
 
 	if(info->umd_dch->getDestId() == info->did && 
@@ -2321,12 +2329,15 @@ exit:
                 info->umd_dch->getFIFOWriteCount());
 exit_nomsg:
         info->umd_fifo_proc_must_die = 1;
-	if (info->umd_dch)
+	if (info->umd_dch) {
 		info->umd_dch->shutdown();
+	}
 
         pthread_join(info->umd_fifo_thr.thr, NULL);
 
-        info->umd_dch->cleanup();
+	if (info->umd_dch) {
+		info->umd_dch->cleanup();
+	}
 
 	// Only allocatd one DMA buffer for performance reasons
 	if(info->dmamem[0].type != 0) 
@@ -2634,10 +2645,10 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 	} // END for infinite transmit
 
 exit:
-	if (info->umd_dch)
+	if (info->umd_dch) {
 		info->umd_dch->shutdown();
-
-        info->umd_dch->cleanup();
+		info->umd_dch->cleanup();
+	}
 
 	// Only allocatd one DMA buffer for performance reasons
 	if(info->dmamem[0].type != 0) 

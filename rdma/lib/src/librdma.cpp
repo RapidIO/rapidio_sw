@@ -1213,8 +1213,14 @@ int rdma_create_msub_h(ms_h	msh,
 
 		/* Check for NULL */
 		if (!msh || !msubh) {
-			ERR("NULL param: msh=0x%" PRIx64 ", msubh=0x%" PRIx64,
-								msh, *msubh);
+			if (!msubh) {
+				ERR("NULL param: msh=0x%" PRIx64, msh);
+
+			} else {
+				ERR("NULL param(s): msh=0x%" PRIx64 ", "
+						"msubh=0x%" PRIx64,
+						msh, *msubh);
+			}
 			throw RDMA_NULL_PARAM;
 		}
 

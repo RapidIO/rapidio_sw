@@ -1149,6 +1149,13 @@ int parse_switch(struct int_cfg_parms *cfg)
 		case 2: // DFLTPORT
 			if (get_rt_v(cfg, &rtv))
 				goto fail;
+
+			// klocwork sees rt as null, but...
+			// rt is set whenever ROUTING_TABLE option (above) is hit
+			if (NULL == rt) {
+				parse_err(cfg, (char *)"DFLTPORT: rt not set.");
+				goto fail;
+			}
 			rt->default_route = rtv;
 			break;
 		case 3: // DESTID

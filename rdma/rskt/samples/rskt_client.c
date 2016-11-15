@@ -58,8 +58,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define RSKT_DEFAULT_SOCKET_NUMBER	1234
 
 
-static FILE *log_file;
-
 /**
  * \file
  *\brief Example multi threaded client application for RMA Sockets library
@@ -377,18 +375,17 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
-        /** Initialize RSKT library */
+	/** Open log file for debug, initialize status variables */
+	rdma_log_init("rskt_test.log", 1);
+
+	/** Initialize RSKT library */
 	rc = librskt_init(RSKT_DEFAULT_DAEMON_SOCKET, 0);
 	if (rc) {
 		CRIT("librskt_init failed, rc=%d: %s\n", rc, strerror(errno));
 		goto exit_main;
 	}
 
-	/** Open log file for debug, initialize status variables */
-	char logfilename[FILENAME_MAX];
-	sprintf(logfilename, "/var/log/rdma/rskt_test.log");
-	log_file = fopen(logfilename, "a");
-	assert(log_file);
+
 	sem_init(&client_done, 0, 0);
 	errorish_goodbye = 0;
 
@@ -449,7 +446,7 @@ exit_main:
 		CRIT("\n#### Errorish Goodbye! ###\n\n");
 	};
 	/** Close the log file */
-	fclose(log_file);
+	rdma_log_close();
 	return errorish_goodbye;
 
 } /* main() */

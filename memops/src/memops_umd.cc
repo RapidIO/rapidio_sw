@@ -54,7 +54,8 @@ static int getCPUCount()
   int count = 0;
 
   if (NULL == f) {
-    goto exit;
+    fprintf(stderr, "Could not open /proc/cpuinfo\n");
+    return 1;
   }
 
   while (! feof(f)) {
@@ -67,7 +68,6 @@ static int getCPUCount()
 
   fclose(f);
 
-exit:
   return count;
 }
 

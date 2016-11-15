@@ -197,6 +197,11 @@ int provision_rdaemon(uint32_t destid)
 					    peer.prov_channel,
 					    &shutting_down);
 
+		if (NULL == the_client) {
+			CRIT("Failed to create client\n");
+			throw RDMA_MALLOC_FAIL;
+		}
+
 		/* Connect to remote daemon */
 		rc = the_client->connect(destid);
 		if (rc < 0) {

@@ -146,11 +146,6 @@ extern void splashScreen(char *app_name);
 /* Send string to one/all of the many output streams supported by cli_env */
 extern void logMsg(struct cli_env *env);
 
-/* UNTESTED */
-extern int send_cmd(struct cli_env *env, int argc, char **argv, 
-			int cmd(struct cli_env *env, char *cmd_line),
-			char *saved_cmd_line, int max_cmd_len);
-
 /* Command processing:
  * process_command accepts a string and processes a command, if any is present
  * cli_terminal processes commands from a specified input stream until "quit"

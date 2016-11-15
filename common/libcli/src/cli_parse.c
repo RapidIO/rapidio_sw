@@ -155,12 +155,21 @@ char* GetEnv(char* var)
 
 void SetEnvVar(char* arg)
 {
+	// TODO: handle errors, return value
+	char *tmp;
+	char *sep;
+
         if(arg == NULL || arg[0] == '\0') return;
 
-        char* tmp = strdup(arg);
+        tmp = strdup(arg);
+        if (NULL == tmp) {
+        	goto exit;
+        }
 
-        char* sep = strstr(tmp, "=");
-        if (sep == NULL) goto exit;
+        sep = strstr(tmp, "=");
+        if (sep == NULL) {
+        	goto exit;
+        }
         sep[0] = '\0';
         SET_VARS[tmp] = (sep+1);
 
@@ -200,6 +209,7 @@ float GetFloatParm(char* arg, float dflt)
 
 void update_string(char **target, char *new_str, int len)
 {
+	// TODO: handle errors, return value
 	if (*target == new_str) {
 		return;
 	}
@@ -208,8 +218,10 @@ void update_string(char **target, char *new_str, int len)
 	}
 
 	*target = (char *)malloc(len+1);
-	memcpy(*target, new_str, len);
-	(*target)[len] = 0;
+	if (NULL != *target) {
+		memcpy(*target, new_str, len);
+		(*target)[len] = 0;
+	}
 };
 
 int get_v_str(char **target, char *parm, int chk_slash)

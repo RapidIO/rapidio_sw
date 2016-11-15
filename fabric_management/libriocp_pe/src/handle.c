@@ -870,15 +870,14 @@ int RIOCP_WU riocp_pe_find_comptag(riocp_pe_handle mport, ct_t comptag,
 	riocp_pe_handle *pes = NULL;
 	size_t i;
 
+	if ((NULL == mport) || (NULL == pe)) {
+		errno = -EINVAL;
+		goto fail;
+	};
 	*pe = NULL;
 
 	if (COMPTAG_UNSET == comptag) {
 		goto found;
-	};
-
-	if ((NULL == mport) || (NULL == pe)) {
-		errno = -EINVAL;
-		goto fail;
 	};
 
 	// If the component tag is not in use, it will not be found.

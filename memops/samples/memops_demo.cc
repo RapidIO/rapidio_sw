@@ -251,7 +251,9 @@ int main(int argc, char* argv[])
 	MEMOPSRequest_t req;
 	memset(&req, 0, sizeof(req));
 	uint8_t* p = (uint8_t*)req.mem.win_ptr;
-
+	if (NULL == p) {
+		goto done;
+	}
 
 	printf("HW access method=%s %s destid=%u rio_addr=0x%" PRIx64 " [chan=%d]\n",
 		met_str[m], sync_str, did, rio_addr, chan);

@@ -980,6 +980,7 @@ int rskt_listen(rskt_h skt_h, int max_backlog)
 	if (NULL == rx)	 {
 		errno = ENOMEM;
 		free_app2d(tx);
+		goto unlock;
 	}
 
 	tx->msg_type = LIBRSKTD_LISTEN;
@@ -1170,6 +1171,12 @@ int rskt_accept(rskt_h l_skt_h, rskt_h skt_h,
 	int rc = -1;
 
 	DBG("ENTER\n");
+	if ((NULL == l_skt_h) || (NULL == skt_h) || (NULL == sktaddr)) {
+		CRIT("NULL parameter passed: l_skt_h=%p, skt_h=%p, sktaddr=%p\n",
+				l_skt_h, skt_h, sktaddr);
+		goto exit;
+	}
+
 	if (lib_uninit()) {
 		CRIT("lib_uninit() failed..exiting\n");
 		goto exit;
@@ -1181,12 +1188,6 @@ int rskt_accept(rskt_h l_skt_h, rskt_h skt_h,
 	}
 
 	errno = EINVAL;
-	if ((NULL == l_skt_h) || (NULL == skt_h) || (NULL == sktaddr)) {
-		CRIT("NULL parameter passed: l_skt_h=%p, skt_h=%p, sktaddr=%p\n",
-				l_skt_h, skt_h, sktaddr);
-		goto unlock;
-	}
-
 	l_skt = (struct rskt_socket_t *)l_skt_h->skt;
 	if (NULL == l_skt) {
 		ERR("l_skt_h->skt is NULL\n");

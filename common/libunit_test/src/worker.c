@@ -105,8 +105,13 @@ void init_worker(struct worker *info)
 int getCPUCount()
 {
 	FILE* f = fopen("/proc/cpuinfo", "rt");
-
 	int count = 0;
+
+	if (NULL == f) {
+		CRIT("Could not open /proc/cpuinfo\n")
+		return 1;
+	}
+
 	while (! feof(f)) {
 		char buf[257] = {0};
 		if (NULL == fgets(buf, 256, f))
