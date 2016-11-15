@@ -186,13 +186,14 @@ int main(int argc, char** argv)
 	void *msg_tx = NULL;
 	struct args arg;
 	riomp_mailbox_t mailbox;
-	riomp_sock_t socket;
+	riomp_sock_t socket = NULL;
 	uint32_t i;
 	struct timespec starttime;
 	struct timespec endtime;
 	struct timespec time;
 	float totaltime;
 	float mean;
+	int tmp;
 
 	/** - Parse console arguments */
 	/** - If number of arguments is less than expected display help message and list of devices. */
@@ -216,13 +217,15 @@ int main(int argc, char** argv)
 	}
 
 	for (ep = 0; ep < number_of_eps; ep++) {
-		if (ep_list[ep] == arg.remote_destid)
+		if (ep_list[ep] == arg.remote_destid) {
 			ep_found = 1;
+		}
 	}
 
 	ret = riomp_mgmt_free_ep_list(&ep_list);
 	if (ret) {
 		printf("ERROR: riodp_ep_free_list error: %d\n",	ret);
+		exit(1);
 	}
 
 	if (!ep_found) {
@@ -238,19 +241,22 @@ int main(int argc, char** argv)
 		exit(1);
 	}
 
-	/** - Create a socket  structure associated with given mailbox */
+	/** - Create a socket structure associated with given mailbox */
 	ret = riomp_sock_socket(mailbox, &socket);
 	if (ret) {
 		printf("riomp_sock_socket error: %d\n", ret);
-		goto out;
+		riomp_sock_mbox_destroy_handle(&mailbox);
+		exit(1);
 	}
 
 	ret = riomp_sock_connect(socket, arg.remote_destid, arg.remote_channel);
-	if (ret == EADDRINUSE)
-		printf("riomp_sock_connect: Requested channel already in use, reusing...\n");
-	else if (ret) {
-		printf("riomp_sock_connect error: %d\n", ret);
-		goto out;
+	if (ret) {
+		if (ret == EADDRINUSE) {
+			printf("riomp_sock_connect: Requested channel already in use, reusing...\n");
+		} else {
+			printf("riomp_sock_connect error: %d\n", ret);
+			goto out;
+		}
 	}
 
 	ret = riomp_sock_request_send_buffer(socket, &msg_tx);
@@ -262,6 +268,7 @@ int main(int argc, char** argv)
 	msg_rx = malloc(0x1000);
 	if (msg_rx == NULL) {
 		printf("CM_CLIENT(%d): error allocating rx buffer\n", (int)getpid());
+		riomp_sock_release_send_buffer(socket, msg_tx);
 		goto out;
 	}
 
@@ -285,8 +292,6 @@ int main(int argc, char** argv)
 		if (ret) {
 			printf("CM_CLIENT(%d): riomp_sock_receive() ERR %d on roundtrip %d\n",
 				(int)getpid(), ret, i);
-			if (msg_rx)
-				riomp_sock_release_receive_buffer(socket, msg_rx);
 			break;
 		}
 
@@ -297,23 +302,24 @@ int main(int argc, char** argv)
 				(int)getpid(), (char *)msg_tx + 20);
 			printf("CM_CLIENT(%d): MSG IN: %s\n",
 				(int)getpid(), (char *)msg_rx + 20);
-			riomp_sock_release_receive_buffer(socket, msg_rx);
 			ret = -1;
 			break;
 		}
 	}
 
+	// free the rx and tx buffers
 	riomp_sock_release_receive_buffer(socket, msg_rx);
 	riomp_sock_release_send_buffer(socket, msg_tx);
 
 	clock_gettime(CLOCK_MONOTONIC, &endtime);
 
-	if (ret)
+	if (ret) {
 		printf("CM_CLIENT(%d) ERROR.\n",
 			(int)getpid());
-	else
+	} else {
 		printf("CM_CLIENT(%d) Test finished.\n",
 			(int)getpid());
+	}
 
 	/* getchar(); */
 	time 	  = timediff(starttime,endtime);
@@ -327,15 +333,18 @@ int main(int argc, char** argv)
 	       mean,
 	       ((4096*i)/totaltime)/(1024*1024));
 
-	/** - Close messaging channel */
-	ret = riomp_sock_close(&socket);
-	if (ret)
-		printf("riomp_sock_close error: %d\n", ret);
-
 out:
-	ret = riomp_sock_mbox_destroy_handle(&mailbox);
-	if (ret)
-		printf("riodp_mbox_shutdown error: %d\n", ret);
+	/** - Close messaging channel */
+	tmp = riomp_sock_close(&socket);
+	if (tmp) {
+		printf("riomp_sock_close error: %d\n", tmp);
+	}
+
+	// free the mailbox
+	tmp = riomp_sock_mbox_destroy_handle(&mailbox);
+	if (tmp) {
+		printf("riodp_mbox_shutdown error: %d\n", tmp);
+	}
 	return ret;
 }
 

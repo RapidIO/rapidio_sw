@@ -149,16 +149,16 @@ int main(int argc, char** argv)
 	uint32_t tgt_remote = 0, tgt_write = 0, do_query = 0;
 	uint32_t offset = 0;
 	uint32_t op_size = sizeof(uint32_t);
-	uint32_t data;
+	uint32_t data = 0;
 	int rc = EXIT_SUCCESS;
 
 	/** - Parse command line options, if any */
 	while (1) {
 		option = getopt_long_only(argc, argv,
 				"wdhqH:D:O:M:S:V:", options, NULL);
-		if (option == -1)
-			break;
 		switch (option) {
+		case -1 :
+			break;
 		case 'D':
 			tgt_destid = (uint32_t)strtoul(optarg, NULL, 0);
 			tgt_remote = 1;

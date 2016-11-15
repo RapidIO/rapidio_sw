@@ -244,11 +244,12 @@ int main(int argc, char** argv)
 {
 	int ret = 0;
 	struct args arg;
-	riomp_mailbox_t mailbox;
-	riomp_sock_t socket;
+	riomp_mailbox_t mailbox = NULL;
+	riomp_sock_t socket = NULL;
 	riomp_sock_t new_socket;
 	pid_t pid, wpid;
 	int status = 0;
+	int tmp;
 
 	/** - Parse console arguments */
 	/** - If number of arguments is less than expected display help message and list of devices. */
@@ -261,8 +262,9 @@ int main(int argc, char** argv)
 	arg.mport_id       = (uint32_t)strtoul(argv[1], NULL, 10);
 	arg.loc_channel    = (uint16_t)strtoul(argv[2], NULL, 10);
 
-	if (argc == 4)
+	if (argc == 4) {
 		srv_debug = 1;
+	}
 
 	/** - Trap signals that we expect to receive */
 	signal(SIGINT, srv_sig_handler);
@@ -283,21 +285,21 @@ int main(int argc, char** argv)
 	ret = riomp_sock_socket(mailbox, &socket);
 	if (ret) {
 		printf("CM_SERVER: riomp_sock_socket() ERR %d\n", ret);
-		goto out_h;
+		goto out;
 	}
 
 	/** - Bind the listen channel to opened MPORT device */
 	ret = riomp_sock_bind(socket, arg.loc_channel);
 	if (ret) {
 		printf("CM_SERVER: riomp_sock_bind() ERR %d\n", ret);
-		goto out_s;
+		goto out;
 	}
 
 	/** - Initiate LISTEN on the specified channel */
 	ret = riomp_sock_listen(socket);
 	if (ret) {
 		printf("CM_SERVER: riomp_sock_listen() ERR %d\n", ret);
-		goto out_s;
+		goto out;
 	}
 
 	/** - Create child process for each accepted request */
@@ -313,16 +315,18 @@ int main(int argc, char** argv)
 repeat:
 		while (1) {
 			wpid = waitpid(-1, &status, WNOHANG);
-			if (wpid != -1 && wpid != 0)
+			if (wpid != -1 && wpid != 0) {
 				printf("CM_SERVER(%d): terminated with status %d\n", wpid, status);
-			else
+			} else {
 				break;
+			}
 		}
 
 		ret = riomp_sock_accept(socket, &new_socket, 3*60000); /* TO = 3 min */
 		if (ret) {
-			if (ret == ETIME && !srv_exit)
+			if (ret == ETIME && !srv_exit) {
 				goto repeat;
+			}
 			printf("CM_SERVER(%d): riomp_sock_accept() ERR %d\n", (int)getpid(), ret);
 			riomp_sock_close(&new_socket);
 			srv_exit = 2;
@@ -345,18 +349,20 @@ repeat:
 		}
 	}
 
-	/** - Exit closing listening channel */
-out_s:
-	ret = riomp_sock_close(&socket);
-	if (ret)
-		printf("CM_SERVER(%d): riomp_sock_close() ERR %d\n",
-			(int)getpid(), ret);
-out_h:
-	/** - Release rapidio_mport_mailbox control structure */
-	ret = riomp_sock_mbox_destroy_handle(&mailbox);
-	if (ret)
-		printf("riodp_mbox_shutdown error: %d\n", ret);
 out:
+	/** - Exit closing listening channel */
+	tmp = riomp_sock_close(&socket);
+	if (tmp) {
+		printf("CM_SERVER(%d): riomp_sock_close() ERR %d\n",
+			(int)getpid(), tmp);
+	}
+
+	/** - Release rapidio_mport_mailbox control structure */
+	tmp = riomp_sock_mbox_destroy_handle(&mailbox);
+	if (tmp) {
+		printf("riodp_mbox_shutdown error: %d\n", tmp);
+	}
+
 	return ret;
 }
 
