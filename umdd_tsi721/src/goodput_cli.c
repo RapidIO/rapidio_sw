@@ -1997,10 +1997,13 @@ int IsolcpuCmd(struct cli_env *env, int argc, char **argv)
 	int c = 0;
 	char clist[129] = {0};
 	std::vector<std::string>::iterator it = cpus.begin();
-	for(; it != cpus.end(); it++) {
+	for (; it != cpus.end(); it++) {
 		char tmp[9] = {0};
 		snprintf(tmp, 8, "cpu%d=%s", ++c, it->c_str());
-		SetEnvVar(tmp);
+		if (SetEnvVar(tmp)) {
+			CRIT("IsolcpuCmd: Out of memory %s\n", tmp);
+			return -1;
+		}
 		strncat(clist, it->c_str(), 128);
 		strncat(clist, " ", 128);
 	}

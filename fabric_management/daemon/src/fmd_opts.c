@@ -106,9 +106,9 @@ struct fmd_opt_vals *fmd_parse_options(int argc, char *argv[])
 
 	opts = (struct fmd_opt_vals *)calloc(1, sizeof(struct fmd_opt_vals));
 	if (NULL == opts) {
-		printf("Unable to allocate memory\n");
-		return NULL;
+		goto oom;
 	}
+
 	opts->init_err = 0;
 	opts->init_and_quit = 0;
 	opts->simple_init = 0;
@@ -122,9 +122,17 @@ struct fmd_opt_vals *fmd_parse_options(int argc, char *argv[])
 	opts->mast_devid_sz = FMD_DFLT_MAST_DEVID_SZ;
 	opts->mast_devid = FMD_DFLT_MAST_DEVID;
 	opts->mast_cm_port = FMD_DFLT_MAST_CM_PORT;
-	update_string(&opts->fmd_cfg, dflt_fmd_cfg, strlen(dflt_fmd_cfg));
-	update_string(&opts->dd_fn, dflt_dd_fn, strlen(dflt_dd_fn));
-	update_string(&opts->dd_mtx_fn, dflt_dd_mtx_fn, strlen(dflt_dd_mtx_fn));
+
+	if (update_string(&opts->fmd_cfg, dflt_fmd_cfg, strlen(dflt_fmd_cfg))) {
+		goto oom;
+	}
+	if (update_string(&opts->dd_fn, dflt_dd_fn, strlen(dflt_dd_fn))) {
+		goto oom;
+	}
+	if (update_string(&opts->dd_mtx_fn, dflt_dd_mtx_fn,
+			strlen(dflt_dd_mtx_fn))) {
+		goto oom;
+	}
 
 	for (idx = 0; idx < argc; idx++) {
 		if (strnlen(argv[idx], 4) < 2)
@@ -188,6 +196,10 @@ print_help:
 	opts->print_help = 1;
 	fmd_print_help();
 	return opts;
+
+oom:
+	free(opts);
+	return NULL;
 }
 
 #ifdef __cplusplus

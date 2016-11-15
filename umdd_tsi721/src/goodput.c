@@ -147,20 +147,23 @@ int main(int argc, char *argv[])
 			continue;
 		}
 		if(! strstr(arg,"=")) continue;
-		SetEnvVar((char *)arg);
-        }
+		if (SetEnvVar((char *)arg)) {
+			printf("Out of memory %s\n", (char *)arg);
+			exit(EXIT_FAILURE);
+		}
+	}
 
 	rdma_log_init("umdd_log.txt", 1);
 	if (setup_mport(mport_num)) {
 		printf("\nCould not open mport %d, exiting\n", mport_num);
 		exit(EXIT_FAILURE);
-	};
+	}
 
 	for (int i = 0; i < MAX_WORKERS; i++)
 		init_worker_info(&wkr[i], 1);
 
-        cli_init_base(goodput_thread_shutdown);
-        bind_goodput_cmds();
+	cli_init_base(goodput_thread_shutdown);
+	bind_goodput_cmds();
 	liblog_bind_cli_cmds();
 	splashScreen((char *)"UMDd/SHM");
 
@@ -172,10 +175,10 @@ int main(int argc, char *argv[])
 
 	goodput_thread_shutdown(NULL);
 
-        if (mp_h_valid) {
-                riomp_mgmt_mport_destroy_handle(&mp_h);
+	if (mp_h_valid) {
+		riomp_mgmt_mport_destroy_handle(&mp_h);
 		mp_h_valid = 0;
-	};
+	}
 
 	printf("\nUMDd/SHM Exiting. All Your Base Are Belong To Us!\n");
 	rc = EXIT_SUCCESS;

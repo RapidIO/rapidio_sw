@@ -362,8 +362,7 @@ int get_string(struct int_cfg_parms *cfg, char **parm)
 	char *tok = NULL;
 
 	if (!get_next_token(cfg, &tok)) {
-		update_string(parm, tok, strlen(tok));
-		return 0;
+		return update_string(parm, tok, strlen(tok));
 	}
 	parse_err(cfg, (char *)"Premature EOF.");
 	return 1;
@@ -1359,11 +1358,14 @@ int cfg_parse_file(char *cfg_fn, char **dd_mtx_fn, char **dd_fn,
 	*m_cm_port = cfg->mast_cm_port;
 	*m_mode = !(CFG_SLAVE == cfg->mast_idx);
 	if (cfg->dd_mtx_fn && strlen(cfg->dd_mtx_fn))
-		update_string(dd_mtx_fn, cfg->dd_mtx_fn,
-					strlen(cfg->dd_mtx_fn));
+		if (update_string(dd_mtx_fn, cfg->dd_mtx_fn,
+				strlen(cfg->dd_mtx_fn))) {
+			goto fail;
+		}
 	if (cfg->dd_fn && strlen(cfg->dd_fn))
-		update_string(dd_fn, cfg->dd_fn,
-					strlen(cfg->dd_fn));
+		if (update_string(dd_fn, cfg->dd_fn, strlen(cfg->dd_fn))) {
+			goto fail;
+		}
 
 	if (cfg->init_err) {
 		goto fail;

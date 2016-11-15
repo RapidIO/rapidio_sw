@@ -374,7 +374,8 @@ int IsolcpuCmd(struct cli_env *env, int argc, char **argv)
 
         const int NI = getIsolCPU(cpus);
 
-        if(minisolcpu > 0 && NI < minisolcpu) {                CRIT("\n\tMinimum number of isolcpu cores (%d) not met, got %d. Bailing out!\n", minisolcpu, NI);
+        if(minisolcpu > 0 && NI < minisolcpu) {
+                CRIT("\n\tMinimum number of isolcpu cores (%d) not met, got %d. Bailing out!\n", minisolcpu, NI);
                 return -1;
         }
 
@@ -384,7 +385,10 @@ int IsolcpuCmd(struct cli_env *env, int argc, char **argv)
         for(; it != cpus.end(); it++) {
                 char tmp[9] = {0};
                 snprintf(tmp, 8, "cpu%d=%s", ++c, it->c_str());
-                SetEnvVar(tmp);
+                if (SetEnvVar(tmp)) {
+                        CRIT("IsolcpuCmd: Out of memory %s\n", tmp);
+                        return -1;
+                }
                 strncat(clist, it->c_str(), 128);
                 strncat(clist, " ", 128);
         }
