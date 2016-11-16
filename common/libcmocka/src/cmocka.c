@@ -979,12 +979,20 @@ void _function_called(const char *const function,
                 list_remove_free(value_node, free_value, NULL);
             }
         } else {
-            cm_print_error(SOURCE_LOCATION_FORMAT
-                           ": error: Expected call to %s but received called() "
-                           "in %s\n",
-                           file, line,
-                           expected_call->function,
-                           function);
+            if (expected_call == NULL) {
+                    cm_print_error(SOURCE_LOCATION_FORMAT
+                                   ": error: Received called() "
+                                   "in %s\n",
+                                   file, line,
+                                   function);
+            } else {
+                cm_print_error(SOURCE_LOCATION_FORMAT
+                               ": error: Expected call to %s but received called() "
+                               "in %s\n",
+                               file, line,
+                               expected_call->function,
+                               function);
+            }
             exit_test(1);
         }
     } else {

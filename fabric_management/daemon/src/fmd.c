@@ -354,6 +354,7 @@ int delete_sysfs_devices(riocp_pe_handle mport_pe, bool auto_config)
 	struct l_head_t names_list;
 	char *sysfs_name;
 	regex_t regex;
+	bool regex_allocated = false;
 
 	int rc = 0;
 	int tmp;
@@ -389,6 +390,7 @@ int delete_sysfs_devices(riocp_pe_handle mport_pe, bool auto_config)
 	if(rc) {
 		return rc;
 	}
+	regex_allocated = true;
 
 	l_init(&names_list);
 	while(NULL != (entry = readdir(dir))) {
@@ -407,6 +409,11 @@ int delete_sysfs_devices(riocp_pe_handle mport_pe, bool auto_config)
 				if(!regexec(&regex, entry->d_name, 0, NULL, 0)) {
 					sysfs_name =(char *)malloc(
 							strlen(entry->d_name));
+					if (NULL == sysfs_name) {
+						CRIT("Out of memory, kernel object: %s\n", entry->d_name);
+						rc = -ENOMEM;
+						goto cleanup;
+					}
 					strcpy(sysfs_name, entry->d_name);
 					l_push_tail(&names_list,
 							(void *)sysfs_name);
@@ -417,6 +424,11 @@ int delete_sysfs_devices(riocp_pe_handle mport_pe, bool auto_config)
 				if(auto_config) {
 					sysfs_name = (char *)malloc(
 							strlen(entry->d_name));
+					if (NULL == sysfs_name) {
+						CRIT("Out of memory, object: %s\n", entry->d_name);
+						rc = -ENOMEM;
+						goto cleanup;
+					}
 					strcpy(sysfs_name, entry->d_name);
 					l_push_tail(&names_list,
 							(void *)sysfs_name);
@@ -428,6 +440,11 @@ int delete_sysfs_devices(riocp_pe_handle mport_pe, bool auto_config)
 						strlen(AUTO_NAME_PREFIX))) {
 					sysfs_name = (char *)malloc(
 							strlen(entry->d_name));
+					if (NULL == sysfs_name) {
+						CRIT("Out of memory, object: %s\n", entry->d_name);
+						rc = -ENOMEM;
+						goto cleanup;
+					}
 					strcpy(sysfs_name, entry->d_name);
 					l_push_tail(&names_list,
 							(void *)sysfs_name);
@@ -437,9 +454,7 @@ int delete_sysfs_devices(riocp_pe_handle mport_pe, bool auto_config)
 		}
 	}
 
-	// Free memory allocated to the regex
-	regfree(&regex);
-
+cleanup:
 	if (0 == l_size(&names_list)) {
 		goto exit;
 	}
@@ -448,7 +463,8 @@ int delete_sysfs_devices(riocp_pe_handle mport_pe, bool auto_config)
 		tmp = riomp_mgmt_device_del(hnd, 0, 0, 0,
 						(const char *)sysfs_name);
 		if(tmp) {
-			rc = tmp;
+			// retain the original error
+			rc = (rc == 0 ? tmp : rc);
 			WARN("Failed to delete device %s, err=%d\n",
 					sysfs_name, rc);
 			// try and delete as many as possible
@@ -457,6 +473,10 @@ int delete_sysfs_devices(riocp_pe_handle mport_pe, bool auto_config)
 	}
 
 exit:
+	// Free memory allocated to the regex
+	if (regex_allocated) {
+		regfree(&regex);
+	}
 	closedir(dir);
 	return rc;
 }

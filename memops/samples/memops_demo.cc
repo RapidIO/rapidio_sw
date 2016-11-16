@@ -237,7 +237,7 @@ int main(int argc, char* argv[])
 	int chan = 6;
 	char* umd_chan = getenv("UMD_CHAN");
 	if (umd_chan != NULL) {
-		chan = (int)strtol(getenv(umd_chan), NULL, 10);
+		chan = (int)strtol(umd_chan, NULL, 10);
 	}
 
 	/** - Create memory operation object */

@@ -2137,8 +2137,8 @@ void umd_dma_calibrate(struct worker *info)
 	calibrate_sched_yield(info);
 
 exit:
-        info->umd_dch->cleanup();
-        delete info->umd_dch;
+	info->umd_dch->cleanup();
+	delete info->umd_dch;
 	info->umd_dch = NULL;
 };
 
@@ -2328,22 +2328,24 @@ exit:
 		info->umd_dch->getFIFOReadCount(),
                 info->umd_dch->getFIFOWriteCount());
 exit_nomsg:
-        info->umd_fifo_proc_must_die = 1;
+	info->umd_fifo_proc_must_die = 1;
 	if (info->umd_dch) {
 		info->umd_dch->shutdown();
 	}
 
-        pthread_join(info->umd_fifo_thr.thr, NULL);
+	pthread_join(info->umd_fifo_thr.thr, NULL);
 
 	if (info->umd_dch) {
 		info->umd_dch->cleanup();
+
+		// Only allocatd one DMA buffer for performance reasons
+		if(info->dmamem[0].type != 0) {
+			info->umd_dch->free_dmamem(info->dmamem[0]);
+		}
+
+		delete info->umd_dch;
+		info->umd_dch = NULL;
 	}
-
-	// Only allocatd one DMA buffer for performance reasons
-	if(info->dmamem[0].type != 0) 
-                info->umd_dch->free_dmamem(info->dmamem[0]);
-
-        delete info->umd_dch; info->umd_dch = NULL;
 	delete info->umd_lock[0]; info->umd_lock[0] = NULL;
 }
 
@@ -2648,13 +2650,14 @@ exit:
 	if (info->umd_dch) {
 		info->umd_dch->shutdown();
 		info->umd_dch->cleanup();
+
+		// Only allocatd one DMA buffer for performance reasons
+		if(info->dmamem[0].type != 0) {
+			info->umd_dch->free_dmamem(info->dmamem[0]);
+		}
+		delete info->umd_dch;
+		info->umd_dch = NULL;
 	}
-
-	// Only allocatd one DMA buffer for performance reasons
-	if(info->dmamem[0].type != 0) 
-                info->umd_dch->free_dmamem(info->dmamem[0]);
-
-        delete info->umd_dch; info->umd_dch = NULL;
 	delete info->umd_lock[0]; info->umd_lock[0] = NULL;
 }
 
