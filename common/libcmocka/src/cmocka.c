@@ -541,10 +541,6 @@ static ListNode* list_initialize(ListNode * const node) {
 static ListNode* list_add_value(ListNode * const head, const void *value,
                                      const int refcount) {
     ListNode * const new_node = (ListNode*)malloc(sizeof(ListNode));
-    if (NULL == new_node) {
-        return head;
-    }
-
     assert_non_null(head);
     assert_non_null(value);
     new_node->value = value;
@@ -692,10 +688,6 @@ static void add_symbol_value(ListNode * const symbol_map_head,
                    &target_node)) {
         SymbolMapValue * const new_symbol_map_value =
             (SymbolMapValue*)malloc(sizeof(*new_symbol_map_value));
-
-        if (NULL == new_symbol_map_value) {
-            return;
-        }
         new_symbol_map_value->symbol_name = symbol_name;
         list_initialize(&new_symbol_map_value->symbol_values_list_head);
         target_node = list_add_value(symbol_map_head, new_symbol_map_value,
@@ -979,20 +971,12 @@ void _function_called(const char *const function,
                 list_remove_free(value_node, free_value, NULL);
             }
         } else {
-            if (expected_call == NULL) {
-                    cm_print_error(SOURCE_LOCATION_FORMAT
-                                   ": error: Received called() "
-                                   "in %s\n",
-                                   file, line,
-                                   function);
-            } else {
-                cm_print_error(SOURCE_LOCATION_FORMAT
-                               ": error: Expected call to %s but received called() "
-                               "in %s\n",
-                               file, line,
-                               expected_call->function,
-                               function);
-            }
+            cm_print_error(SOURCE_LOCATION_FORMAT
+                           ": error: Expected call to %s but received called() "
+                           "in %s\n",
+                           file, line,
+                           expected_call->function,
+                           function);
             exit_test(1);
         }
     } else {
@@ -1011,11 +995,6 @@ void _will_return(const char * const function_name, const char * const file,
                   const int count) {
     SymbolValue * const return_value =
         (SymbolValue*)malloc(sizeof(*return_value));
-
-    if (NULL == return_value) {
-        return;
-    }
-
     assert_true(count != 0);
     return_value->value = value;
     set_source_location(&return_value->location, file, line);
@@ -1039,11 +1018,6 @@ void _expect_check(
     CheckParameterEvent * const check =
         event ? event : (CheckParameterEvent*)malloc(sizeof(*check));
     const char* symbols[] = {function, parameter};
-
-    if (NULL == check) {
-        return;
-    }
-
     check->parameter_name = parameter;
     check->check_value = check_function;
     check->check_value_data = check_data;
@@ -1071,9 +1045,6 @@ void _expect_function_call(
     assert_true(count != 0);
 
     ordering = (FuncOrderingValue *)malloc(sizeof(*ordering));
-    if (NULL == ordering) {
-        return;
-    }
 
     set_source_location(&ordering->location, file, line);
     ordering->function = function_name;
@@ -1297,11 +1268,6 @@ static void expect_set(
                (sizeof(values[0]) * number_of_values));
     LargestIntegralType * const set = (LargestIntegralType*)(
         check_integer_set + 1);
-
-    if (NULL == check_integer_set) {
-        return;
-    }
-
     declare_initialize_value_pointer_pointer(check_data, check_integer_set);
     assert_non_null(values);
     assert_true(number_of_values);
@@ -1369,11 +1335,6 @@ static void expect_range(
         const CheckParameterValue check_function, const int count) {
     CheckIntegerRange * const check_integer_range =
         (CheckIntegerRange*)malloc(sizeof(*check_integer_range));
-
-    if (NULL == check_integer_range) {
-        return;
-    }
-
     declare_initialize_value_pointer_pointer(check_data, check_integer_range);
     check_integer_range->minimum = minimum;
     check_integer_range->maximum = maximum;
@@ -1505,11 +1466,6 @@ static void expect_memory_setup(
     CheckMemoryData * const check_data =
         (CheckMemoryData*)malloc(sizeof(*check_data) + size);
     void * const mem = (void*)(check_data + 1);
-
-    if (NULL == check_data) {
-        return;
-    }
-
     declare_initialize_value_pointer_pointer(check_data_pointer, check_data);
     assert_non_null(memory);
     assert_true(size);
