@@ -38,8 +38,11 @@
 extern "C" {
 #endif
 
-#define RXS2448_MAX_PORTS                                     23
-#define RXS2448_MAX_LANES                                     47
+#define RXS2448_MAX_PORTS                                     24
+#define RXS2448_MAX_LANES                                     48
+
+#define RXS_MAX_L1_GROUP                                      3
+#define RXS_MAX_L2_GROUP                                      4
 
 #define FIRST_BYTE_MASK                                       (0x000000FF)
 #define SECOND_BYTE_MASK                                      (0x0000FF00)

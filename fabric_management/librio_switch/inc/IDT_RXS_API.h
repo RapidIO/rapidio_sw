@@ -43,7 +43,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "DAR_Utilities.h"
 #include "IDT_Error_Management_API.h"
 #include "IDT_RXS2448.h"
-#include "IDT_Routing_Table_Config_API.h"
+//#include "IDT_Routing_Table_Config_API.h"
 #include "IDT_RXS_Routing_Table_Config_API.h"
 
 

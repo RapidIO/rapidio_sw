@@ -895,6 +895,9 @@ int CLICountReadCmd(struct cli_env *env, int argc, char **argv)
                                 	case 7:
                                         	sc_in.dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc = idt_sc_pkt_drop;
                                 	break;
+                                        default:
+                                                sc_in.dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc = idt_sc_disabled;
+                                        break;
                         	}
                 	}
         	}
@@ -1019,6 +1022,9 @@ int CLICountDisplayCmd(struct cli_env *env, int argc, char **argv)
 					case 7:
 						sc_in.dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc = idt_sc_pkt_drop;
                                 	break;
+                                        default:
+                                                sc_in.dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc = idt_sc_disabled;
+                                        break;
 				}
                 	}
         	}
@@ -1191,6 +1197,9 @@ int CLICountCfgCmd(struct cli_env *env, int argc, char **argv)
                         	case 7:
                                 	sc_rxs_in.ctr_type = idt_sc_pna;
                         	break;
+                                default:
+                                        sc_rxs_in.ctr_type = idt_sc_disabled;
+                                break;
                  	}
 
 			rc = idt_rxs_sc_cfg_ctr(dev_h, &sc_rxs_in, &sc_rxs_out);
@@ -1315,11 +1324,11 @@ int CLIRoutingTableCmd(struct cli_env *env, int argc, char **argv)
               goto exit;
            };
 
-           in_parm.set_on_port = port; //RIO_ALL_PORTS; //port;
+           in_parm.set_on_port = port;
            in_parm.default_route = (uint8_t)(temp & RXS_RIO_ROUTE_DFLT_PORT_DEFAULT_OUT_PORT);
            in_parm.default_route_table_port = IDT_RXS_DSF_RT_NO_ROUTE;
            in_parm.update_hw = false;
-           in_parm.rt        = rt; //NULL;
+           in_parm.rt        = rt;
            rc = idt_rt_initialize(dev_h, &in_parm, &out_parm);
            if (RIO_SUCCESS != rc) {
               goto exit;
@@ -1369,7 +1378,7 @@ int CLIRoutingTableCmd(struct cli_env *env, int argc, char **argv)
            }
 
            mc_chg_in.mc_mask_rte = alloc_out.mc_mask_rte;
-           mc_chg_in.mc_info.mc_mask = 1;//port_mask;
+           mc_chg_in.mc_info.mc_mask = 1;
            mc_chg_in.mc_info.mc_destID = did;
            mc_chg_in.mc_info.tt = tt_dev8;
            mc_chg_in.mc_info.in_use = false;
@@ -1381,7 +1390,7 @@ int CLIRoutingTableCmd(struct cli_env *env, int argc, char **argv)
                goto exit;
            }
 
-           set_chg_in.set_on_port = port; //RIO_ALL_PORTS; //port;
+           set_chg_in.set_on_port = port;
            set_chg_in.rt = alloc_in.rt;
            rc = idt_rt_set_changed(dev_h, &set_chg_in, &set_chg_out);
            if (RIO_SUCCESS != rc) {

@@ -7,8 +7,8 @@ TOPDIR?=$(shell pwd)/../..
 include $(TOPDIR)/rules.mk
 
 NAME:=switch_api
-TARGETS:=lib$(NAME).a
 HEADERS:=inc
+TARGETS:=lib$(NAME).a
 TEST_TARGETS:=$(NAME)_test
 
 LOG_LEVEL?=4
@@ -18,7 +18,8 @@ CFLAGS+=$(addprefix -W,all extra) -fPIC
 CFLAGS+=-DNDEBUG -DIDT_TSI721_SUPPORT
 CFLAGS+=-I./inc
 CFLAGS+=-I$(FMDDIR)/librio_switch/inc
-LDFLAGS+= -Wl,--wrap=DARRegRead -Wl,--wrap=DARRegWrite
+
+LDFLAGS+=-Wl,--wrap=DARRegRead -Wl,--wrap=DARRegWrite
 LDFLAGS+=-L. -L$(COMMONLIB) -L$(FMDDIR)/libs_a $(LIBS_RPATH) -l$(NAME)
 LDFLAGS+=-lcmocka
 
