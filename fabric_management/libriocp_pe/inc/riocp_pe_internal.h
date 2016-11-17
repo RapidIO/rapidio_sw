@@ -108,7 +108,7 @@ struct riocp_pe_mport {
 	struct riocp_pe_llist_item handles;	/**< Handles of PEs behind this mport */
 	struct riocp_pe **comptag_pool;		/**< Pool of assigned component tags */
 	size_t comptag_pool_size;		/**< Pool size of assigned component tags */
-	riocp_reg_rw_driver reg_acc;		/**< Driver to allow local reads and writes of register space, and register reads/writes to other devices from this mport */
+	struct riocp_reg_rw_driver reg_acc;	/**< Driver to allow local reads and writes of register space, and register reads/writes to other devices from this mport */
 	void *private_data;			/**< Mport private data */
 };
 
@@ -157,7 +157,7 @@ int riocp_pe_handle_get_peer_list(riocp_pe_handle pe,
 int riocp_pe_handle_free_list(riocp_pe_handle **list);
 
 /* Dot graph */
-int riocp_pe_dot_dump(char *filename, riocp_pe_handle mport);
+int riocp_pe_dot_dump(const char *filename, riocp_pe_handle mport);
 
 #ifdef __cplusplus
 }

@@ -438,9 +438,10 @@ error:
    */
   inline int scan_RO()
   {
-    int cnt = 0;
-
-    assert(m_info); // Not initlialised?
+    if (NULL == m_info) {
+      // Not initialized?
+      return -1;
+    }
 
     assert(sig == PEER_SIG_UP);
 
@@ -452,6 +453,7 @@ error:
     update_RP_LastSeen();
 
     uint64_t now = rdtsc();
+    int cnt = 0;
 
     if (m_rio_rx_bd_ready_size >= (m_info->umd_tx_buf_cnt-1)) { // Quick peek while unlocked -- Receiver too slow, go to next peer!
       if (m_stats.rio_rx_peer_full_ts == 0) m_stats.rio_rx_peer_full_ts = now;
@@ -484,17 +486,17 @@ error:
     const uint32_t saved_RP = k;
 #endif
     for (int i = 0; i < (m_info->umd_tx_buf_cnt-1); i++) {
-      if (stop_req || (m_info != NULL && m_info->stop_req)) goto stop_req;
+      if (stop_req || m_info->stop_req) goto stop_req;
       assert(sig == PEER_SIG_UP);
 
       update_RP_LastSeen();
       if (idx >= (m_info->umd_tx_buf_cnt-1)) break;
 
-      if (stop_req || (m_info != NULL && m_info->stop_req)) goto stop_req;
+      if (stop_req || m_info->stop_req) goto stop_req;
       assert(sig == PEER_SIG_UP);
 
       if(0 != m_rio_rx_bd_L2_ptr[k]->RO) {
-        if (stop_req || (m_info != NULL && m_info->stop_req)) goto stop_req;
+        if (stop_req || m_info->stop_req) goto stop_req;
         assert(sig == PEER_SIG_UP);
 
         if (42 == m_rio_rx_bd_L2_ptr[k]->RO) goto next; // Not yet cleared by "bottom half"
@@ -521,7 +523,7 @@ error:
       ASSERT_BUFC(k);
     }
 
-    if (stop_req || (m_info != NULL && m_info->stop_req)) goto stop_req;
+    if (stop_req || m_info->stop_req) goto stop_req;
 
     if (cnt > 0) {
       assert(cnt <= (m_info->umd_tx_buf_cnt-1)); // XXX Cannot exceed that!
@@ -565,17 +567,22 @@ error:
    */
   inline int service_TUN_TX(const uint64_t MAX_RP_INTERVAL)
   {
+    if (NULL == m_info) {
+      // Not initialized?
+      return -1;
+    }
+
     assert(this);
-    assert(m_info);
     assert(m_rio_rx_bd_ready_size <= (m_info->umd_tx_buf_cnt-1));
 
     int rx_ok = 0; // TX'ed into Tun device
     uint64_t last_ts = 0;
 
     int cnt = 0;
-    int ready_bd_list[m_info->umd_tx_buf_cnt]; memset(ready_bd_list, 0xff, sizeof(ready_bd_list));
+    int ready_bd_list[m_info->umd_tx_buf_cnt];
+    memset(ready_bd_list, 0xff, sizeof(ready_bd_list));
 
-    if (stop_req || (m_info != NULL && m_info->stop_req)) return -1;
+    if (stop_req || m_info->stop_req) return -1;
     assert(sig == PEER_SIG_UP);
 
     splock();
@@ -589,7 +596,7 @@ error:
 
     if (cnt == 0) return 0;
 
-    if (stop_req || (m_info != NULL && m_info->stop_req)) return -1;
+    if (stop_req || m_info->stop_req) return -1;
     assert(sig == PEER_SIG_UP);
 
     m_stats.rio_rx_pass++;
@@ -600,15 +607,15 @@ error:
 
     bool last_pkt_acked = false;
 
-    if (stop_req || (m_info != NULL && m_info->stop_req)) goto stop_req;
+    if (stop_req || m_info->stop_req) goto stop_req;
     assert(sig == PEER_SIG_UP);
 
-    for (int i = 0; i < cnt && !stop_req && m_info != NULL && !m_info->stop_req; i++) {
+    for (int i = 0; i < cnt && !stop_req && !m_info->stop_req; i++) {
       int rp = ready_bd_list[i];
       assert(rp >= 0);
       ASSERT_BUFC(rp);
 
-      if (stop_req || (m_info != NULL && m_info->stop_req)) goto stop_req;
+      if (stop_req || m_info->stop_req) goto stop_req;
       assert(sig == PEER_SIG_UP);
 
       DMA_L2_t* pL2 = m_rio_rx_bd_L2_ptr[rp];
@@ -630,7 +637,7 @@ error:
          ntohl(pL2->len), ntohs(pL2->destid), crc, rx_ok, nwrite, m_tun_name, rp);
 #endif
 
-      if (stop_req || (m_info != NULL && m_info->stop_req)) goto stop_req;
+      if (stop_req || m_info->stop_req) goto stop_req;
       assert(sig == PEER_SIG_UP);
 
       if (nwrite == payload_size) {
@@ -649,7 +656,7 @@ error:
       DBG("\n\tUpdating old RP %d to %d\n", pRP->RP, rp);
 #endif
 
-      if (stop_req || (m_info != NULL && m_info->stop_req)) goto stop_req;
+      if (stop_req || m_info->stop_req) goto stop_req;
       assert(sig == PEER_SIG_UP);
 
       m_pRP->RP = rp;
@@ -664,7 +671,7 @@ error:
       }
       last_ts = now;
 
-      if (stop_req || (m_info != NULL && m_info->stop_req)) goto stop_req;
+      if (stop_req || m_info->stop_req) goto stop_req;
       assert(sig == PEER_SIG_UP);
 
       // THIS is gasping at straws!
@@ -682,7 +689,7 @@ error:
 stop_req:
     do {
       if (last_pkt_acked) break;
-      if (stop_req || (m_info != NULL && m_info->stop_req)) break;
+      if (stop_req || m_info->stop_req) break;
       assert(m_pRP->sig == DMAPEER_SIG);
       umd_dma_tun_update_peer_RP(m_info, this); m_stats.push_rp_cnt++;
       assert(m_pRP->sig == DMAPEER_SIG);

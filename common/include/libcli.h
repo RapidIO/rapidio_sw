@@ -109,7 +109,7 @@ int parm_idx(char *token, char *token_list);
 
 /* Routines to manage environment variables within the CLI */
 char* GetEnv(char* var);
-void SetEnvVar(char* arg);
+int SetEnvVar(char* arg);
 char* SubstituteParam(char* arg);
 
 /* Parsing support routines that support parameter substitution */
@@ -118,12 +118,12 @@ uint64_t GetHex(char* arg, int dflt);
 float GetFloatParm(char* arg, float dflt);
 
 /* Updates *target with a copy of length len bytes of new_str
- *  */
-void update_string(char **target, char *new_str, int len);
+ */
+int update_string(char **target, char *new_str, int len);
 
 /* Updates *target with a copy of length len bytes of new_str
- *  * If chk_slash <> 0, then parm must start with '/' to be valid.
- *   */
+ * If chk_slash <> 0, then parm must start with '/' to be valid.
+ */
 int get_v_str(char **target, char *parm, int chk_slash);
 
 /* CLI initialization/command binding routine.
@@ -145,11 +145,6 @@ extern void splashScreen(char *app_name);
 
 /* Send string to one/all of the many output streams supported by cli_env */
 extern void logMsg(struct cli_env *env);
-
-/* UNTESTED */
-extern int send_cmd(struct cli_env *env, int argc, char **argv, 
-			int cmd(struct cli_env *env, char *cmd_line),
-			char *saved_cmd_line, int max_cmd_len);
 
 /* Command processing:
  * process_command accepts a string and processes a command, if any is present

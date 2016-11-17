@@ -176,7 +176,7 @@ int CLIAppCmd(struct cli_env *env, int argc, char **argv)
 	int idx;
 
 	if (argc) {
-		idx = atoi(argv[0]);
+		idx = (int)strtol(argv[0], NULL, 10);
 		if ((idx >= FMD_MAX_APPS) || (idx < 0)) {
 			sprintf(env->output, "Illegal idx, range 0 - %d\n",
 				FMD_MAX_APPS-1);

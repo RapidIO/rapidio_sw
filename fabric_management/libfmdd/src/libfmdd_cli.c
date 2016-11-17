@@ -156,22 +156,27 @@ int CLIDDListCmd(struct cli_env *env, int argc, char **argv)
 	uint32_t did_list_sz, *did_list, i;
 	int rc;
 
-	if (0)
+	if (0) {
 		argv[0][0] = argc;
+	}
 
 	rc = fmdd_get_did_list(ddl_h_cli, &did_list_sz, &did_list);
 
 	sprintf(env->output, "\nfmdd_get_did_list returned : %d\n", rc);
 	logMsg(env);
 
-	if (rc)
+	// did_list can be null on success
+	if (rc) {
 		goto exit;
+	}
 
 	sprintf(env->output, "\nNumber of device IDs: %d\n", did_list_sz);
 	logMsg(env);
 
-	if (!did_list_sz)
+	// klocwork analysis led to paranoid NULL check
+	if ((!did_list_sz) || (NULL == did_list)) {
 		goto exit;
+	}
 
 	sprintf(env->output, "\nIdx ---DID--\n");
 	logMsg(env);
@@ -179,10 +184,9 @@ int CLIDDListCmd(struct cli_env *env, int argc, char **argv)
 	for (i = 0; i < did_list_sz; i++) {
 		sprintf(env->output, "%d %8x\n", did_list_sz, did_list[i]);
 		logMsg(env);
-	};
+	}
 exit:
-	if (NULL != did_list)
-		free(did_list);
+	free(did_list);
 	return 0;
 };
 

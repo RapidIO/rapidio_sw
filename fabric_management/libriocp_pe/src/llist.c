@@ -27,6 +27,7 @@ extern "C" {
  * @param data Entry
  * @retval 0 Entry succesfull added
  * @retval -EINVAL Invalid head
+ * @retval -ENOMEM No memory to allocate a new entry
  */
 int RIOCP_SO_ATTR riocp_pe_llist_add(struct riocp_pe_llist_item *head, void *data)
 {
@@ -36,11 +37,16 @@ int RIOCP_SO_ATTR riocp_pe_llist_add(struct riocp_pe_llist_item *head, void *dat
 		return -EINVAL;
 
 	cur = head;
-	while (cur->next != NULL)
+	while (cur->next != NULL) {
 		cur = cur->next;
+	}
 
 	cur->next = (struct riocp_pe_llist_item *)
 		calloc(1, sizeof(struct riocp_pe_llist_item));
+	if (NULL == cur->next) {
+		return -ENOMEM;
+	}
+
 	cur->next->next = NULL;
 	cur->next->data = data;
 
@@ -59,13 +65,15 @@ int RIOCP_SO_ATTR riocp_pe_llist_del(struct riocp_pe_llist_item *head, void *dat
 {
 	struct riocp_pe_llist_item *cur, *prev = NULL, *next = NULL;
 
-	if (head == NULL || data == NULL)
+	if (head == NULL || data == NULL) {
 		return -EINVAL;
+	}
 
 	cur = head;
 	while (cur != NULL) {
-		if (cur->data == data)
+		if (cur->data == data) {
 			goto found;
+		}
 		prev = cur;
 		cur  = cur->next;
 		next = cur->next;
@@ -73,8 +81,9 @@ int RIOCP_SO_ATTR riocp_pe_llist_del(struct riocp_pe_llist_item *head, void *dat
 
 	return -ENOENT;
 found:
-	if (prev != NULL)
+	if (prev != NULL) {
 		prev->next = next;
+	}
 	free(cur);
 	return 0;
 }
@@ -90,13 +99,15 @@ void RIOCP_SO_ATTR *riocp_pe_llist_find(struct riocp_pe_llist_item *head, void *
 {
 	struct riocp_pe_llist_item *cur = NULL;
 
-	if (head == NULL || data == NULL)
+	if (head == NULL || data == NULL) {
 		return NULL;
+	}
 
 	cur = head;
 	while (cur != NULL) {
-		if (cur->data == data)
+		if (cur->data == data) {
 			return data;
+		}
 		cur = cur->next;
 	}
 
@@ -113,8 +124,9 @@ int RIOCP_SO_ATTR riocp_pe_llist_free(struct riocp_pe_llist_item *head)
 {
 	struct riocp_pe_llist_item *cur, *next;
 
-	if (head == NULL)
+	if (head == NULL) {
 		return -EINVAL;
+	}
 
 	cur = head;
 	while (cur != NULL) {

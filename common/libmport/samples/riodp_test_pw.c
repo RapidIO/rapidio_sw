@@ -231,19 +231,19 @@ int main(int argc, char** argv)
 			break;
 		switch (option) {
 		case 'm':
-			pw_mask = strtoul(optarg, NULL, 0);
+			pw_mask = (uint32_t)strtoul(optarg, NULL, 0);
 			break;
 		case 'n':
 			flags = O_NONBLOCK;
 			break;
 		case 'M':
-			mport_id = strtol(optarg, NULL, 0);
+			mport_id = (uint32_t)strtoul(optarg, NULL, 0);
 			break;
 		case 'L':
-			pw_low = strtoul(optarg, NULL, 0);
+			pw_low = (uint32_t)strtoul(optarg, NULL, 0);
 			break;
 		case 'H':
-			pw_high = strtoul(optarg, NULL, 0);
+			pw_high = (uint32_t)strtoul(optarg, NULL, 0);
 			break;
 		case 'd':
 			debug = 1;

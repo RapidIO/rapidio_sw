@@ -360,21 +360,21 @@ int main(int argc, char** argv)
 			break;
 		switch (option) {
 		case 'S':
-			ibwin_size = strtol(optarg, NULL, 0);
+			ibwin_size = (uint32_t)strtoul(optarg, NULL, 0);
 			break;
 		case 'i':
 			/* 0 = common DMA buffer, 1 = IBwin mapped DMA buffer */
 			buf_mode = 1;
 			break;
 		case 'R':
-			rio_base = strtoull(optarg, NULL, 0);
+			rio_base = (uint64_t)strtoull(optarg, NULL, 0);
 			break;
 			/* Options common for all modes */
 		case 'L':
-			loc_addr = strtoull(optarg, NULL, 0);
+			loc_addr = (uint64_t)strtoull(optarg, NULL, 0);
 			break;
 		case 'M':
-			mport_id = strtol(optarg, NULL, 0);
+			mport_id = (uint32_t)strtoul(optarg, NULL, 0);
 			break;
 		case 'h':
 		default:

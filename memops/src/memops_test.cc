@@ -111,7 +111,7 @@ int main(int argc, char* argv[])
 
   if (m < 0 || m > 2) usage(argv[0]);
 
-  uint16_t did = atoi(argv[n++]);
+  uint16_t did = (uint16_t)strtoul(argv[n++], NULL, 10);
 
   uint64_t rio_addr = 0;
   sscanf(argv[n++], "%llx", &rio_addr);
@@ -126,7 +126,7 @@ int main(int argc, char* argv[])
 #endif
 
   int chan = 7;
-  if (getenv("UMD_CHAN") != NULL) chan = atoi(getenv("UMD_CHAN"));
+  if (getenv("UMD_CHAN") != NULL) chan = (int)strtol(getenv("UMD_CHAN"), NULL, 10);
 
   RIOMemOpsIntf* mops = RIOMemOps_classFactory(met[m], 0, chan);
 

@@ -64,6 +64,9 @@ void l_push_tail(struct l_head_t *l, void *item)
 	}
 
 	li = (struct l_item_t *) calloc(1, sizeof(struct l_item_t));
+	if (NULL == li) {
+		return;
+	}
 
 	li->key = 0;
 	li->item = item;
@@ -116,6 +119,10 @@ struct l_item_t *l_add(struct l_head_t *l, uint32_t key, void *item)
 	}
 
 	new_li = (struct l_item_t *) calloc(1, sizeof(struct l_item_t));
+	if (NULL == new_li) {
+		return NULL;
+	}
+
 	li = NULL;
 	new_li->next = new_li->prev = NULL;
 	new_li->key = key;

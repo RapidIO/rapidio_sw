@@ -43,8 +43,6 @@ extern "C" {
 void *console(void *cons_parm)
 {
 	struct cli_env cons_env;
-	int rc;
-	int *ret = (int *)malloc(sizeof(int));
 
 	cons_env.script = NULL;
 	cons_env.fout = NULL;
@@ -61,22 +59,20 @@ void *console(void *cons_parm)
 	else
 		strcpy(cons_env.prompt, (char *)cons_parm);
 
-	rc = cli_terminal(&cons_env);
+	cli_terminal(&cons_env);
 
-	*ret = rc;
-
-	pthread_exit((void *)ret); // XXX small memleak
+	pthread_exit(NULL);
 } /* console */
 
 void* console_rc(void* cons_parm_v)
 {
-	if (cons_parm_v == NULL) return NULL;
+	if (cons_parm_v == NULL)
+		return NULL;
 
-        ConsoleRc_t* cons_parm = (ConsoleRc_t*)cons_parm_v;
+	ConsoleRc_t* cons_parm = (ConsoleRc_t*)cons_parm_v;
 
-	struct cli_env cons_env; memset(&cons_env, 0, sizeof(cons_env));
-
-	int *ret = (int *)malloc(sizeof(int));
+	struct cli_env cons_env;
+	memset(&cons_env, 0, sizeof(cons_env));
 
 	cons_env.sess_socket = -1;
 	if (NULL == cons_parm->prompt)
@@ -87,11 +83,9 @@ void* console_rc(void* cons_parm_v)
 	if (cons_parm->script != NULL)
 		cli_script(&cons_env, (char *)cons_parm->script, 1);
 
-	const int rc = cli_terminal(&cons_env);
+	cli_terminal(&cons_env);
 
-	*ret = rc;
-
-	pthread_exit((void *)ret);
+	pthread_exit(NULL);
 } /* console_rc */
 #ifdef __cplusplus
 }

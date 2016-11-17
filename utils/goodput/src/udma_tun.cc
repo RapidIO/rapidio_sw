@@ -833,7 +833,7 @@ void* umd_dma_tun_fifo_proc_thr(void* parm)
   int dch_cnt = 0;
   DmaChannelInfo_t* dch_list[6] = {0};
 
-  if (NULL == parm) goto exit;
+  if (NULL == parm) return NULL;
 
   info = (struct worker *)parm;
 

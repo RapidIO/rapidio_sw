@@ -65,73 +65,61 @@ struct librsktd_msg_proc_info mproc;
 
 struct rsktd_req_msg *alloc_dreq(void)
 {
-	struct rsktd_req_msg *ret_p = NULL;
+	struct rsktd_req_msg *ret_p;
 
 	ret_p = (struct rsktd_req_msg *)calloc(1, DMN_REQ_SZ);
-	ret_p->in_use = 1;
+	if (ret_p) {
+		ret_p->in_use = 1;
+	}
 	return ret_p;
 };
 	
 int free_dreq(struct rsktd_req_msg *dreq)
 {
-
-	if (NULL == dreq)
-		goto fail;
-
 	free(dreq);
 	return 0;
-fail:
-	return 1;
 };
 	
 struct rsktd_resp_msg *alloc_dresp(void)
 {
-	struct rsktd_resp_msg *ret_p = NULL;
+	struct rsktd_resp_msg *ret_p;
 
 	ret_p = (struct rsktd_resp_msg *)calloc(1, DMN_RESP_SZ);
-	ret_p->in_use = 1;
+	if (ret_p) {
+		ret_p->in_use = 1;
+	}
 	return ret_p;
 };
 	
 int free_dresp(struct rsktd_resp_msg *dresp)
 {
-	if (NULL == dresp)
-		goto fail;
-
 	free(dresp);
 	return 0;
-fail:
-	return 1;
 };
 	
 
 struct librskt_app_to_rsktd_msg *alloc_rx(void)
 {
-	struct librskt_app_to_rsktd_msg *ret_p = NULL;
+	struct librskt_app_to_rsktd_msg *ret_p;
 
 	ret_p = (struct librskt_app_to_rsktd_msg *)
 		calloc(1, sizeof(struct librskt_app_to_rsktd_msg));
-	ret_p->in_use = 1;
 
-	if (NULL == ret_p)
-		ERR("Exhausted mproc.rxs pool! %d entries", MAX_MSG);
-
+	if (ret_p) {
+		ret_p->in_use = 1;
+	}
 	return ret_p;
 };
 	
 int free_rx(struct librskt_app_to_rsktd_msg *rx)
 {
-	if (NULL == rx)
-		goto fail;
 	free(rx);
 	return 0;
-fail:
-	return 1;
 };
 	
 struct librskt_rsktd_to_app_msg *alloc_tx(void)
 {
-	struct librskt_rsktd_to_app_msg *ret_p = NULL;
+	struct librskt_rsktd_to_app_msg *ret_p;
 
 	ret_p = (struct librskt_rsktd_to_app_msg *)
 		calloc(1, sizeof(struct librskt_rsktd_to_app_msg));
@@ -140,13 +128,8 @@ struct librskt_rsktd_to_app_msg *alloc_tx(void)
 	
 int free_tx(struct librskt_rsktd_to_app_msg *tx)
 {
-	if (NULL == tx)
-		goto fail;
-
 	free(tx);
 	return 0;
-fail:
-	return 1;
 };
 	
 
@@ -154,42 +137,35 @@ struct librsktd_unified_msg *alloc_msg(uint32_t msg_type,
 					uint32_t proc_type,
 					uint32_t proc_stage)
 {
-	struct librsktd_unified_msg *lum = NULL;
+	struct librsktd_unified_msg *lum;
 	lum = (struct librsktd_unified_msg *)
 			calloc(1, sizeof(struct librsktd_unified_msg));
-	if (NULL == lum) {
-		CRIT("Exhausted mproc.u_msg pool! %d entries", MAX_MSG);
-		goto exit;
-	};
-	memset(lum, 0, sizeof(struct librsktd_unified_msg));
-	lum->msg_type = msg_type;
-	lum->proc_type = proc_type;
-	lum->proc_stage = proc_stage;
-exit:
+	if (lum) {
+		memset(lum, 0, sizeof(struct librsktd_unified_msg));
+		lum->msg_type = msg_type;
+		lum->proc_type = proc_type;
+		lum->proc_stage = proc_stage;
+	}
 	return lum;
 };
 
 int dealloc_msg(struct librsktd_unified_msg *u_msg)
 {
 	if (NULL == u_msg)
-		goto fail;
+		goto exit;
 
 	DBG("Freeing u_msg");
-	if (NULL != u_msg->dreq)
-		free_dreq(u_msg->dreq);
-	if (NULL != u_msg->dresp)
-		free_dresp(u_msg->dresp);
-	if (NULL != u_msg->rx)
-		free_rx(u_msg->rx);
-	if (NULL != u_msg->tx)
-		free_tx(u_msg->tx);
+	free_dreq(u_msg->dreq);
+	free_dresp(u_msg->dresp);
+	free_rx(u_msg->rx);
+	free_tx(u_msg->tx);
 	if (NULL != u_msg->loc_ms)
 		u_msg->loc_ms->state = rsktd_ms_free;
 	DBG("Freed u_msg");
 	free(u_msg);
+
+exit:
 	return 0;
-fail:
-	return 1;
 };
 
 void rsktd_areq_bind(struct librsktd_unified_msg *msg)
@@ -493,6 +469,9 @@ void rsktd_connect_accept(struct acc_skts *acc)
 
 	/* Add connected socket to list */
 	con = (struct con_skts *)calloc(1, sizeof(struct con_skts));
+	if (NULL == con) {
+		goto fail;
+	}
 	con->app = acc_req->app;
 	con->loc_sn = ntohl(a_resp->new_sn);
 	con->loc_ms = loc_ms_info;
@@ -820,6 +799,9 @@ void rsktd_a2w_connect_resp(struct librsktd_unified_msg *r)
 
 	/* Add connected socket to list */
 	con = (struct con_skts *)calloc(1, sizeof(struct con_skts));
+	if (NULL == con) {
+		goto fail;
+	}
 	con->app = r->app;
 	con->loc_sn = ntohl(d_req->src_sn);
 	con->loc_ms = r->loc_ms;
@@ -840,9 +822,10 @@ fail:
 void terminate_accept_and_conn_reqs(uint32_t sn)
 {
 	struct l_item_t *li = NULL;
-	struct acc_skts *acc = (struct acc_skts *)l_find(&lib_st.acc, sn, &li);
+	struct acc_skts *acc;
 	struct librsktd_unified_msg *con_req;
 
+	acc = (struct acc_skts *)l_find(&lib_st.acc, sn, &li);
 	if (NULL == acc)
 		return;
 
@@ -1086,8 +1069,13 @@ void msg_q_handle_a2w(struct librsktd_unified_msg *r)
 
 	switch (r->proc_stage) {
 	case RSKTD_A2W_SEQ_AREQ:
-		r->dreq = (struct rsktd_req_msg *)calloc(1, DMN_REQ_SZ);
-		r->dresp = (struct rsktd_resp_msg *)calloc(1, DMN_RESP_SZ);
+		r->dreq = alloc_dreq();
+		r->dresp = alloc_dresp();
+		if ((NULL == r->dreq) || (NULL == r->dresp)) {
+			ERR("RSKTD_A2W_SEQ_AREQ out of memory");
+			dealloc_msg(r);
+			return;
+		}
 		r->dresp->err = 0;
 
 		switch(r->msg_type) {

@@ -51,8 +51,13 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 static int getCPUCount()
 {
   FILE* f = fopen("/proc/cpuinfo", "rte");
-
   int count = 0;
+
+  if (NULL == f) {
+    fprintf(stderr, "Could not open /proc/cpuinfo\n");
+    return 1;
+  }
+
   while (! feof(f)) {
     char buf[257] = {0};
     if (NULL == fgets(buf, 256, f))

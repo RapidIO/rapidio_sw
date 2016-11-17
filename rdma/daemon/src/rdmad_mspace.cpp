@@ -200,11 +200,15 @@ void mspace::notify_remote_clients()
 		 * force-disconnect message.
 		 */
 		tx_engine<cm_server, cm_msg_t>* tx_eng =
-		     prov_daemon_info_list.get_tx_eng_by_destid(client_destid);
+				prov_daemon_info_list.get_tx_eng_by_destid(
+						client_destid);
 
-		send_cm_force_disconnect_ms(tx_eng,
-		 			    server_msubid,
-					    client_to_lib_tx_eng_h);
+		if (tx_eng) {
+			send_cm_force_disconnect_ms(tx_eng, server_msubid,
+					client_to_lib_tx_eng_h);
+		} else {
+			ERR("Could not access tx_eng\n");
+		}
 	} else {
 		/* It is not the creator who has a connection; search users */
 		DBG("Searching users...\n");
@@ -236,9 +240,13 @@ void mspace::notify_remote_clients()
 				prov_daemon_info_list.get_tx_eng_by_destid(
 							u.client_destid);
 
-			send_cm_force_disconnect_ms(tx_eng,
-						    u.server_msubid,
-						    u.client_to_lib_tx_eng_h);
+			if (tx_eng) {
+				send_cm_force_disconnect_ms(tx_eng,
+						u.server_msubid,
+						u.client_to_lib_tx_eng_h);
+			} else {
+				ERR("Could not access tx_eng\n");
+			}
 		}
 		if (locked) {
 			users_mutex.unlock();

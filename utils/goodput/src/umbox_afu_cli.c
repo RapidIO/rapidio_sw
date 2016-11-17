@@ -25,7 +25,7 @@ int main(int argc, char* argv[])
         return 1;
     }
 
-    const uint16_t destid = atoi(argv[1]);
+    const uint16_t destid = (uint16_t)strtoul(argv[1], NULL, 10);
 
     int is_server = 0;
     if (argc > 2 && tolower(argv[2][0]) == 's') is_server = 1;

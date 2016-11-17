@@ -330,7 +330,7 @@ int main(int argc, char *argv[])
 	while ((c = getopt(argc, argv, "hd:")) != -1)
 		switch (c) {
 		case 'd':
-			destid = atoi(optarg);
+			destid = (uint16_t)strtoul(optarg, NULL, 10);
 		break;
 		case 'h':
 			puts("rdmad -h -d<destid>");

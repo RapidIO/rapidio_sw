@@ -281,8 +281,13 @@ void shutdown_worker_thread(struct worker *info)
 int getCPUCount()
 {
 	FILE* f = fopen("/proc/cpuinfo", "rte");
-
 	int count = 0;
+
+	if (NULL == f) {
+		CRIT("Could not open /proc/cpuinfo\n");
+		return 1;
+	}
+
 	while (! feof(f)) {
 		char buf[257] = {0};
 		if (NULL == fgets(buf, 256, f))
@@ -1485,13 +1490,16 @@ void *umd_dma_fifo_proc_thr(void *parm)
 	int wi_size = 0;
 	DMAChannel::WorkItem_t* wi = NULL;
 
-	if (NULL == parm)
-		goto exit;
+	if (NULL == parm) {
+		CRIT("Parameter is null\n");
+		goto null_parm;
+	}
 
 	info = (struct worker *)parm;
-	if (NULL == info->umd_dch)
+	if (NULL == info->umd_dch) {
 		goto exit;
-	
+	}
+
 	migrate_thread_to_cpu(&info->umd_fifo_thr);
 
 	if (info->umd_fifo_thr.cpu_run != info->umd_fifo_thr.cpu_req) {
@@ -1548,7 +1556,7 @@ exit:
 	sem_post(&info->umd_fifo_proc_started); 
 no_post:
 	info->umd_fifo_proc_alive = 0;
-
+null_parm:
 	pthread_exit(parm);
 };
 
@@ -1563,10 +1571,12 @@ void* umd_mbox_fifo_proc_thr(void *parm)
 
         const int MHz = getCPUMHz();
 
-        if (NULL == parm) goto exit;
+        if (NULL == parm)
+        	return NULL;
 
         info = (struct worker *)parm;
-        if (NULL == info->umd_mch) goto exit;
+        if (NULL == info->umd_mch)
+        	return NULL;
 
         migrate_thread_to_cpu(&info->umd_fifo_thr);
 
@@ -1660,9 +1670,13 @@ exit:
 	sem_post(&info->umd_fifo_proc_started); 
 
 no_post:
-	info->umd_fifo_proc_alive = 0;
+	if (NULL == info) {
+		DBG("\n\t%s: EXITING iter=%" PRIu64 "\n", __func__, g_FifoStats[idx].fifo_thr_iter);
+	} else {
+		info->umd_fifo_proc_alive = 0;
+		DBG("\n\t%s: EXITING iter=%" PRIu64 " must die? %d\n", __func__, g_FifoStats[idx].fifo_thr_iter, info->umd_fifo_proc_must_die);
+	}
 
-        DBG("\n\t%s: EXITING iter=%" PRIu64 " must die? %d\n", __func__, g_FifoStats[idx].fifo_thr_iter, info->umd_fifo_proc_must_die);
 
 	pthread_exit(parm);
 }
@@ -1775,6 +1789,9 @@ fail:
 
 void calibrate_array_performance(struct worker *info)
 {
+	// calibration routines, used to contrast the performance of a simple
+	// array against some of the built in and computationally expensive
+	// C++ structures
 	int i, j, max = info->umd_tx_buf_cnt;
 	uint8_t *m_bl_busy;
 	uint32_t *m_bl_outstanding;
@@ -1785,12 +1802,29 @@ void calibrate_array_performance(struct worker *info)
 	struct timespec end_time; /* End of the run, for throughput*/
 	struct timespec ts_min, ts_max, ts_tot;
 
-	m_bl_busy = (uint8_t *)malloc(max*sizeof(uint8_t)); 
+	m_bl_busy = (uint8_t *)malloc(max*sizeof(uint8_t));
+	if (NULL == m_bl_busy) {
+		CRIT("Out of memory : m_bl_busy");
+		return;
+	}
+
 	m_bl_outstanding =
 		(uint32_t *)malloc(max*sizeof(uint32_t)); 
+	if (NULL == m_bl_outstanding) {
+		free(m_bl_busy);
+		CRIT("Out of memory : m_bl_outstanding")
+		return;
+	}
+
 	m_pending_work =
 		(DMAChannel::WorkItem_t *)malloc(
 			max*sizeof(DMAChannel::WorkItem_t)); 
+	if (NULL == m_pending_work) {
+		free(m_bl_busy);
+		free(m_bl_outstanding);
+		CRIT("Out of memory : m_pending_work")
+		return;
+	}
 
 	memset(&wk, 0, sizeof(wk));
 
@@ -2103,8 +2137,8 @@ void umd_dma_calibrate(struct worker *info)
 	calibrate_sched_yield(info);
 
 exit:
-        info->umd_dch->cleanup();
-        delete info->umd_dch;
+	info->umd_dch->cleanup();
+	delete info->umd_dch;
 	info->umd_dch = NULL;
 };
 
@@ -2149,7 +2183,7 @@ void umd_dma_goodput_demo(struct worker *info)
 	if (NULL == info->umd_dch) {
 		CRIT("\n\tDMAChannel alloc FAIL: chan %d mp_num %d hnd %x",
 			info->umd_chan, info->mp_num, info->mp_h);
-		goto exit;
+		goto exit_nomsg;
 	};
 
 	if(info->umd_dch->getDestId() == info->did && 
@@ -2294,19 +2328,24 @@ exit:
 		info->umd_dch->getFIFOReadCount(),
                 info->umd_dch->getFIFOWriteCount());
 exit_nomsg:
-        info->umd_fifo_proc_must_die = 1;
-	if (info->umd_dch)
+	info->umd_fifo_proc_must_die = 1;
+	if (info->umd_dch) {
 		info->umd_dch->shutdown();
+	}
 
-        pthread_join(info->umd_fifo_thr.thr, NULL);
+	pthread_join(info->umd_fifo_thr.thr, NULL);
 
-        info->umd_dch->cleanup();
+	if (info->umd_dch) {
+		info->umd_dch->cleanup();
 
-	// Only allocatd one DMA buffer for performance reasons
-	if(info->dmamem[0].type != 0) 
-                info->umd_dch->free_dmamem(info->dmamem[0]);
+		// Only allocatd one DMA buffer for performance reasons
+		if(info->dmamem[0].type != 0) {
+			info->umd_dch->free_dmamem(info->dmamem[0]);
+		}
 
-        delete info->umd_dch; info->umd_dch = NULL;
+		delete info->umd_dch;
+		info->umd_dch = NULL;
+	}
 	delete info->umd_lock[0]; info->umd_lock[0] = NULL;
 }
 
@@ -2608,16 +2647,17 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 	} // END for infinite transmit
 
 exit:
-	if (info->umd_dch)
+	if (info->umd_dch) {
 		info->umd_dch->shutdown();
+		info->umd_dch->cleanup();
 
-        info->umd_dch->cleanup();
-
-	// Only allocatd one DMA buffer for performance reasons
-	if(info->dmamem[0].type != 0) 
-                info->umd_dch->free_dmamem(info->dmamem[0]);
-
-        delete info->umd_dch; info->umd_dch = NULL;
+		// Only allocatd one DMA buffer for performance reasons
+		if(info->dmamem[0].type != 0) {
+			info->umd_dch->free_dmamem(info->dmamem[0]);
+		}
+		delete info->umd_dch;
+		info->umd_dch = NULL;
+	}
 	delete info->umd_lock[0]; info->umd_lock[0] = NULL;
 }
 

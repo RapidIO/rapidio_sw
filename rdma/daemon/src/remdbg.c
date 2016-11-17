@@ -82,7 +82,7 @@ int CLIConnectCmd(struct cli_env *, int UNUSED(argc), char **argv)
 		goto exit;
 	}
 
-	portno = atoi(argv[1]);
+	portno = (int)strtol(argv[1], NULL, 10);
 	printf("\nAttempting connection to host \"%s\" socket %d.\n", argv[0], 
 		portno );
 	sockfd = socket(AF_INET, SOCK_STREAM, 0);

@@ -282,7 +282,7 @@ private:
 	        buf[num_read] = 0;
 	        tracer_pid    = strstr(buf, TracerPid);
 	        if (tracer_pid)
-	            debugger_present = !!atoi(tracer_pid + sizeof(TracerPid) - 1);
+	            debugger_present = !!strtol(tracer_pid + sizeof(TracerPid) - 1, NULL, 10);
 	    }
 
 	    close(status_fd);

@@ -704,9 +704,6 @@ int test_speer_connect(struct worker *info)
 	fail_pt = 10;
  
 	while (info->stop_req == worker_running) {
-		struct rsktd_resp_msg *resp =
-			(struct rsktd_resp_msg *)malloc(DMN_RESP_SZ);
-
 		INFO("SPEER %d waiting new request to TX", info->idx);
 		while ((info->stop_req == worker_running) && !test->new_req)
 			sleep(0);
@@ -725,7 +722,6 @@ int test_speer_connect(struct worker *info)
 		if (info->stop_req != worker_running)
 			continue;
 		fail_pt = 30;
-		memset(resp, 0, sizeof(struct rsktd_resp_msg));
 		ret = riomp_sock_receive(sock_h, (void **)&rsp_p, DMN_RESP_SZ, 0);
 		if (ret) {
 			INFO("SPEER %d SENDing request FAILED %x",
@@ -1176,8 +1172,8 @@ fail:
  */
 int test_case_0(void)
 {
-	struct librsktd_unified_msg *u_msg[MAX_MSG];
-	int fail_pt;
+	struct librsktd_unified_msg *u_msg[MAX_MSG] = {0};
+	int fail_pt = 0;
 	int i;
 
 	for (i = 0; i < MAX_MSG; i++) {
@@ -1192,30 +1188,19 @@ int test_case_0(void)
 			(NULL == u_msg[i]->tx) ||
 			(NULL == u_msg[i]->rx)) {
 				fail_pt = 1000 + i;
-				goto fail;
+				break;
 		}
 	};
 	
 	for (i = 0; i < MAX_MSG; i++) {
 		if (dealloc_msg(u_msg[i])) {
-			fail_pt = 2100+i;
-			goto fail;
+			if (!fail_pt) {
+				fail_pt = 2100+i;
+			}
 		};
 		u_msg[i] = NULL;
 	};
 	
-	for (i = 0; i < MAX_MSG; i++) {
-		if (!dealloc_msg(u_msg[i])) {
-			fail_pt = 9100+i;
-			goto fail;
-		};
-
-	};
-	
-	i = 100;
-
-	return 0;
-fail:
 	return fail_pt;
 };
 		

@@ -123,19 +123,19 @@ int parse_options(int argc, char *argv[],
 	SAFE_STRNCPY(rem_fs, argv[2], sizeof(rem_fs));
 
 	if (argc > 3)
-		*server_dest = atoi(argv[3]);
+		*server_dest = (uint16_t)strtoul(argv[3], NULL, 10);
 
 	if (argc > 4)
-		*xfer_skt = atoi(argv[4]);
+		*xfer_skt = (int)strtol(argv[4], NULL, 10);
 
 	if (argc > 5)
-		*mport_num = atoi(argv[5]);
+		*mport_num = (uint8_t)strtoul(argv[5], NULL, 10);
 
 	if (argc > 6)
-		*debug = atoi(argv[6]);
+		*debug = (int)strtol(argv[6], NULL, 10);
 
 	if (argc > 7)
-		*k_buffs = atoi(argv[7])?1:0;
+		*k_buffs = (uint8_t)strtoul(argv[7], NULL, 10) ? 1:0;
 
 	return 0;
 

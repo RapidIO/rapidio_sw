@@ -183,9 +183,9 @@ void UMD_DD_WWW(struct worker* info, struct worker* udmatun_info, const int PORT
       if (routes.size() > 0) ss << "\nPeer route/dev(s):\n" << routes;
 
       char* rsp2 = strdup(ss.str().c_str());
-      const int rsp2_size = strlen(rsp2);
-
-      respond(client_fd, rsp2, rsp2_size);
+      if (rsp2) {
+        respond(client_fd, rsp2, strlen(rsp2));
+      }
 
       exit(0);
     }

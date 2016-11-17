@@ -167,7 +167,7 @@ int main(int argc, char** argv)
 	int do_create = 0;
 	int do_delete = 0;
 	int discovered = 0;
-	uint32_t regval;
+	uint32_t regval = 0;
 	static const struct option options[] = {
 		{ "mport",  required_argument, NULL, 'M' },
 		{ "destid", required_argument, NULL, 'D' },
@@ -186,21 +186,21 @@ int main(int argc, char** argv)
 	while (1) {
 		option = getopt_long_only(argc, argv,
 				"dhcM:D:H:T:N:", options, NULL);
-		if (option == -1)
-			break;
 		switch (option) {
+		case -1 :
+			break;
 			/* Data Transfer Mode options*/
 		case 'M':
-			mport_id = strtol(optarg, NULL, 0);
+			mport_id = (uint32_t)strtoul(optarg, NULL, 0);
 			break;
 		case 'D':
-			tgt_destid = strtol(optarg, NULL, 0);
+			tgt_destid = (uint16_t)strtoul(optarg, NULL, 0);
 			break;
 		case 'H':
-			tgt_hop = strtoull(optarg, NULL, 0);
+			tgt_hop = (uint8_t)strtoul(optarg, NULL, 0);
 			break;
 		case 'T':
-			comptag = strtol(optarg, NULL, 0);
+			comptag = (ct_t)strtoul(optarg, NULL, 0);
 			break;
 		case 'N':
 			SAFE_STRNCPY(dev_name, optarg, sizeof(dev_name));
@@ -253,19 +253,21 @@ int main(int argc, char** argv)
 		goto out;
 	}
 
-	if (regval & 0x20000000)
+	if (regval & 0x20000000) {
 		discovered = 1;
-	else
+	} else {
 		printf("ATTN: Port DISCOVERED flag is not set\n");
+	}
 
 	if (discovered && prop.hdid == 0xffff ) {
 		err = riomp_mgmt_lcfg_read(mport_hnd, 0x60, sizeof(uint32_t), &regval);
 		prop.hdid = (regval >> 16) & 0xff;
 		err = riomp_mgmt_destid_set(mport_hnd, prop.hdid);
-		if (err)
+		if (err) {
 			printf("Failed to update local destID, err=%d\n", err);
-		else
+		} else {
 			printf("Updated destID=0x%x\n", prop.hdid);
+		}
 	}
 
 	/** - Perform the specified operation. */
@@ -274,10 +276,12 @@ int main(int argc, char** argv)
 		printf("+++ Create RapidIO device object as specified +++\n");
 		printf("\tmport%d destID=0x%x hop_count=%d CTag=0x%x",
 			mport_id, tgt_destid, tgt_hop, comptag);
-		if (strlen(dev_name))
+		if (strlen(dev_name)) {
 			printf(" name=%s\n", dev_name);
-		else
+		}
+		else {
 			printf("\n");
+		}
 
 		test_create();
 
@@ -285,10 +289,11 @@ int main(int argc, char** argv)
 		printf("+++ Delete RapidIO device object as specified +++\n");
 		printf("\tmport%d destID=0x%x hop_count=%d CTag=0x%x",
 			mport_id, tgt_destid, tgt_hop, comptag);
-		if (strlen(dev_name))
+		if (strlen(dev_name)) {
 			printf(" name=%s\n", dev_name);
-		else
+		} else {
 			printf("\n");
+		}
 
 		test_delete();
 	} else

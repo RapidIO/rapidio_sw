@@ -57,10 +57,11 @@ int getDecParm(char *token, int defaultData)
 {
 	unsigned long data;
 
-	if (token == NULL || token[0] == '/')
+	if (token == NULL || token[0] == '/') {
 		data = defaultData;
-	else if (sscanf(token, "%ld", &data) <= 0)
+	} else if (sscanf(token, "%ld", &data) <= 0) {
 		data = defaultData;
+	}
 	return data;
 }
 
@@ -68,10 +69,11 @@ float getFloatParm(char *token, float defaultData)
 {
 	float data;
 
-	if (token == NULL || token[0] == '/')
+	if (token == NULL || token[0] == '/') {
 		data = defaultData;
-	else if (sscanf(token, "%f", &data) <= 0)
+	} else if (sscanf(token, "%f", &data) <= 0) {
 		data = defaultData;
+	}
 	return data;
 }
 
@@ -84,15 +86,17 @@ unsigned long getHexParm(char *dollarParameters[], unsigned int nDollarParms,
 	if (token == NULL || token[0] == '/') {
 		data = defaultData;
 		goto exit;
-	};
+	}
 
-	if (sscanf(token, "%lX", &data) > 0)
+	if (sscanf(token, "%lX", &data) > 0) {
 		goto exit;
+	}
 
-	if ((sscanf(token, "$%ld", &dollarIndex) > 0) &&
-	    (dollarIndex < nDollarParms)) {
-		if (1 == sscanf(dollarParameters[dollarIndex], "%lX", &data))
+	if ((sscanf(token, "$%ld", &dollarIndex) > 0)
+			&& (dollarIndex < nDollarParms)) {
+		if (1 == sscanf(dollarParameters[dollarIndex], "%lX", &data)) {
 			goto exit;
+		}
 	}
 
 	data = defaultData;
@@ -108,125 +112,155 @@ uint64_t getHex(char *token, unsigned long defaultData)
 
 	errno = 0;
 	if ((token != NULL) && (token[0] != '/')) {
-		data = strtoull(token, &end, 16);
+		data = (uint64_t)strtoull(token, &end, 16);
 		if (!data && (end == token)) {
 			data = defaultData;
 		} else if (data == ULLONG_MAX && errno) {
-    			data = defaultData;
+			data = defaultData;
 		} else if (*end) {
-    			data = defaultData;
+			data = defaultData;
 		}
-	};
+	}
 
 	return data;
 }
 
 int parm_idx(char *token, char *token_list)
 {
-        int rc = 0;
-        int len;
+	int rc = 0;
+	int len;
 
-        if (NULL == token)
-                return -1;
+	if (NULL == token) {
+		return -1;
+	}
 
-        len = strlen(token);
-
-        while (NULL != token_list) {
-                if (!strncmp(token, token_list, len))
-                        if ((' ' == token_list[len]) || (0 == token_list[len]))
-                                break;
-                rc++;
-                token_list = strchr(token_list, ' ');
-                if (NULL != token_list)
-                        token_list = &token_list[1];
-        }
-        return rc;
-};
+	len = strlen(token);
+	while (NULL != token_list) {
+		if (!strncmp(token, token_list, len)) {
+			if ((' ' == token_list[len])
+					|| (0 == token_list[len])) {
+				break;
+			}
+		}
+		rc++;
+		token_list = strchr(token_list, ' ');
+		if (NULL != token_list) {
+			token_list = &token_list[1];
+		}
+	}
+	return rc;
+}
 
 char* GetEnv(char* var)
 {
-        if (var == NULL || var[0] == '\0') return NULL;
+	if (var == NULL || var[0] == '\0') {
+		return NULL;
+	}
 
-        std::map<std::string, std::string>::iterator it = SET_VARS.find(var);
-        if (it == SET_VARS.end()) return NULL;
+	std::map<std::string, std::string>::iterator it = SET_VARS.find(var);
+	if (it == SET_VARS.end()) {
+		return NULL;
+	}
 
-        return (char *)it->second.c_str();
+	return (char *)it->second.c_str();
 }
 
-void SetEnvVar(char* arg)
+int SetEnvVar(char* arg)
 {
-        if(arg == NULL || arg[0] == '\0') return;
+	char *tmp;
+	char *sep;
 
-        char* tmp = strdup(arg);
+	if (arg == NULL || arg[0] == '\0') {
+		return -EINVAL;
+	}
 
-        char* sep = strstr(tmp, "=");
-        if (sep == NULL) goto exit;
-        sep[0] = '\0';
-        SET_VARS[tmp] = (sep+1);
+	tmp = strdup(arg);
+	if (NULL == tmp) {
+		return -ENOMEM;
+	}
 
-exit:
-        free(tmp);
+	sep = strstr(tmp, "=");
+	if (sep == NULL) {
+		free(tmp);
+		return -ENOMEM;
+	}
+	sep[0] = '\0';
+	SET_VARS[tmp] = (sep + 1);
+
+	free(tmp);
+	return 0;
 }
 
 char* SubstituteParam(char* arg)
 {
-	if (arg == NULL || arg[0] == '\0')
+	if (arg == NULL || arg[0] == '\0') {
 		return arg;
+	}
 
-	if (arg[0] != '$')
+	if (arg[0] != '$') {
 		return arg;
+	}
 
-        std::map<std::string, std::string>::iterator it = SET_VARS.find(arg+1);
-        if (it == SET_VARS.end())
+	std::map<std::string, std::string>::iterator it = SET_VARS.find(arg+1);
+	if (it == SET_VARS.end()) {
 		return arg;
+	}
 
-        return (char *)it->second.c_str();
+	return (char *)it->second.c_str();
 }
 
 int GetDecParm(char* arg, int dflt)
 {
-        return getDecParm((char*)SubstituteParam(arg), dflt);
-};
+	return getDecParm((char*)SubstituteParam(arg), dflt);
+}
 
 uint64_t GetHex(char* arg, int dflt)
 {
-        return getHex((char*)SubstituteParam(arg), dflt);
-};
+	return getHex((char*)SubstituteParam(arg), dflt);
+}
 
 float GetFloatParm(char* arg, float dflt)
 {
-        return getFloatParm((char*)SubstituteParam(arg), dflt);
-};
+	return getFloatParm((char*)SubstituteParam(arg), dflt);
+}
 
-void update_string(char **target, char *new_str, int len)
+int update_string(char **target, char *new_str, int len)
 {
 	if (*target == new_str) {
-		return;
+		return 0;
 	}
+
 	if (NULL != *target) {
 		free(*target);
 	}
 
 	*target = (char *)malloc(len+1);
-	memcpy(*target, new_str, len);
-	(*target)[len] = 0;
-};
+	if (NULL != *target) {
+		memcpy(*target, new_str, len);
+		(*target)[len] = 0;
+		return 0;
+	}
+	return -ENOMEM;
+}
 
 int get_v_str(char **target, char *parm, int chk_slash)
 {
-        int len;
+	int len;
 
-        if (NULL == parm)
-                return 1;
-        len = strlen(parm);
+	if (NULL == parm) {
+		return -EINVAL;
+	}
 
-        if (len < 2)
-                return 1;
-        if (chk_slash && ((parm[0] != '/') || (parm[1] == '/')))
-                return 1;
-        update_string(target, parm, len);
-        return 0;
-};
+	len = strlen(parm);
+	if (len < 2) {
+		return -EINVAL;
+	}
+
+	if (chk_slash && ((parm[0] != '/') || (parm[1] == '/'))) {
+		return -EINVAL;
+	}
+	return update_string(target, parm, len);
+}
 
 #ifdef __cplusplus
 }

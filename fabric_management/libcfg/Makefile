@@ -66,8 +66,9 @@ src/%.o: src/%.c $(HEADERS)
 test: all $(TEST_TARGET) 
 
 $(TEST_TARGET) : $(TEST_OBJECTS)
-	$(CC) $(TEST_OBJECTS) -o $(TEST_TARGET) -lcfg -lcli -llog -pthread \
-	-L. -L$(COMMONLIBA)
+	$(CC) $(TEST_OBJECTS) -o $(TEST_TARGET) \
+	-L. -L../libs_a -L$(COMMONLIBA) \
+	-lcfg -lct -ldid -lcli -llog -pthread
 
 clean:
 	rm -f $(TARGETS) $(TEST_TARGET) $(OBJECTS) inc/*~ src/*~ *~ *.a

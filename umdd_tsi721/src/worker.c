@@ -211,8 +211,13 @@ void shutdown_worker_thread(struct worker *info)
 int getCPUCount()
 {
 	FILE* f = fopen("/proc/cpuinfo", "rte");
-
 	int count = 0;
+
+	if (NULL == f) {
+		CRIT("Could not open /proc/cpuinfo\n");
+		return 1;
+	}
+
 	while (! feof(f)) {
 		char buf[257] = {0};
 		if (NULL == fgets(buf, 256, f))
@@ -497,8 +502,8 @@ void umd_shm_goodput_demo(struct worker *info)
         if (NULL == info->umd_dch) {
                 CRIT("\n\tDMAChannelSHM alloc FAIL: chan %d mp_num %d hnd %x",
                         info->umd_chan, info->mp_num, info->mp_h);
-                goto exit;
-        };
+                goto exit_nomsg;
+        }
 
         if(info->umd_dch->getDestId() == info->did && GetEnv((char *)"FORCE_DESTID") == NULL) {
                 CRIT("\n\tERROR: Testing against own desitd=%d. Set env FORCE_DESTID to disable this check.\n", info->did);
@@ -641,7 +646,7 @@ void umd_dma_goodput_demo(struct worker *info)
 	if (NULL == info->umd_dch) {
 		CRIT("\n\tDMAChannelSHM alloc FAIL: chan %d mp_num %d hnd %x",
 			info->umd_chan, info->mp_num, info->mp_h);
-		goto exit;
+		return;
 	};
 
 	if(info->umd_dch->getDestId() == info->did && GetEnv((char *)"FORCE_DESTID") == NULL) {
@@ -1093,8 +1098,9 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 
 exit:
 	// Only allocatd one DMA buffer for performance reasons
-	if(info->dmamem[0].type != 0) 
+	if ((info->dmamem[0].type != 0) && (NULL != info->umd_dch)) {
                 info->umd_dch->free_dmamem(info->dmamem[0]);
+	}
 
         try { delete info->umd_dch; info->umd_dch = NULL; }
 	catch(std::runtime_error& ex) {}
@@ -1113,12 +1119,12 @@ void umd_dma_goodput_testbed(struct worker* info)
 	if (NULL == info->umd_dch) {
 		CRIT("\n\tDMAChannelSHM alloc FAIL: chan %d mp_num %d hnd %x",
 			info->umd_chan, info->mp_num, info->mp_h);
-		goto exit;
+		return;
 	};
 
         if(info->umd_dch->getDestId() == info->did && GetEnv((char *)"FORCE_DESTID") == NULL) {
                 CRIT("\n\tERROR: Testing against own desitd=%d. Set env FORCE_DESTID to disable this check.\n", info->did);
-                goto exit;
+                return;
         }
 
         memset(info->dmamem, 0, sizeof(info->dmamem));

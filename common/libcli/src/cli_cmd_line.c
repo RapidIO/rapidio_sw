@@ -85,42 +85,6 @@ void logMsg(struct cli_env *env)
 		fprintf(env->fout, "%s", env->output);
 }
 
-int send_cmd(struct cli_env *env, int argc, char **argv,
-                        int cmd(struct cli_env *env, char *cmd_line),
-                        char *saved_cmd_line, int max_cmd_len)
-{
-        char *cmd_line = (char *)malloc(max_cmd_len+1);
-        int i, len = 0, tlen = 0;
-
-        memset(cmd_line, 0, max_cmd_len+1);
-        if (!argc) {
-                memcpy(cmd_line, saved_cmd_line, max_cmd_len);
-                len = strlen(cmd_line);
-        };
-        /* ELSE */
-        for (i = 0; (i < argc) && (len < (max_cmd_len)); i++) {
-                tlen = strlen(argv[i]);
-                if ((len + tlen + 1) < (max_cmd_len-1)) {
-                        if (i)
-                                cmd_line[len++] = ' ';
-                        memcpy(&cmd_line[len], argv[i], tlen);
-                }
-                len += tlen;
-        };
-
-        if (len && (len < max_cmd_len)) {
-                memcpy(saved_cmd_line, cmd_line, max_cmd_len);
-                cmd(env, cmd_line);
-        } else {
-                sprintf(env->output,
-                        "Error: Max %d characters, actual %d, not executed\n",
-                        max_cmd_len, len);
-                logMsg(env);
-        }
-
-        return 0;
-};
-
 int process_command(struct cli_env *env, char *input)
 {
 	char *cmd;

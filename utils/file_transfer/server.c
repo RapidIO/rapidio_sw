@@ -152,7 +152,7 @@ void parse_options(int argc, char *argv[],
 					  goto exit;
 				} else {
 					idx++;
-					*cons_skt = atoi(argv[idx]);
+					*cons_skt = (int)strtol(argv[idx], NULL, 10);
 				};
 				break;
 			case '?': 
@@ -180,7 +180,7 @@ void parse_options(int argc, char *argv[],
 					  goto exit;
 				};
 				idx++;
-				*win_size = atoi(argv[idx]);
+				*win_size = (int)strtol(argv[idx], NULL, 10);
 				if (*win_size > (TOTAL_TX_BUFF_SIZE/1024)) {
 					printf("\n<size> exceeds max\n");
 					*print_help = 1;
@@ -190,7 +190,7 @@ void parse_options(int argc, char *argv[],
 			case 'w':
 			case 'W': if ((argv[idx][2] >= '0') && 
 				    (argv[idx][2] <= '9')) {
-					*num_buffs = atoi(&argv[idx][2]);
+					*num_buffs = (int)strtol(&argv[idx][2], NULL, 10);
 				} else {
 					printf("\n<buffers> invalid\n");
 					*print_help = 1;
@@ -199,12 +199,12 @@ void parse_options(int argc, char *argv[],
 				break;
 			case 'x': 
 			case 'X': if (argc < (idx+1)) {
-					  printf("\n<skt> not specified\n");
-					  *print_help = 1;
-					  goto exit;
+					printf("\n<skt> not specified\n");
+					*print_help = 1;
+					goto exit;
 				} else {
 					idx++;
-					  *xfer_skt = atoi(argv[idx]);
+					*xfer_skt = (int)strtol(argv[idx], NULL, 10);
 				};
 				  break;
 			default: printf("\nUnknown parm: \"%s\"\n", argv[idx]);
@@ -554,6 +554,9 @@ void add_conn_req( struct req_list_head_t *list, riomp_sock_t *new_socket)
 	struct req_list_t *new_req;
 
 	new_req = (struct req_list_t *)(malloc(sizeof(struct req_list_t)));
+	if (NULL == new_req) {
+		return;
+	}
 	new_req->skt = new_socket;
 	new_req->next = NULL;
 
@@ -710,6 +713,10 @@ void *conn_loop(void *ret)
 		if (NULL == new_socket) {
 			new_socket = (riomp_sock_t *)
 				(malloc(sizeof(riomp_sock_t)));
+			if (NULL == new_socket) {
+				rc = -ENOMEM;
+				break;
+			}
 			rc = riomp_sock_socket(conn_mb, new_socket);
 			if (rc) {
 				if (debug)
@@ -788,8 +795,7 @@ exit:
 		printf("\nSERVER File Transfer EXITING\n");
 	conn_loop_alive = 0;
 	sem_post(&conn_loop_started);
-	*(int *)(ret) = rc;
-	pthread_exit(ret);
+	pthread_exit(0);
 };
 
 int setup_ibwins(int num_buffs, uint32_t buff_size)
@@ -850,7 +856,12 @@ int setup_buffers(int num_buffs, uint32_t buff_size)
 	uint64_t rsvd_addr, rsvd_size;
 	uint64_t req_size = (uint64_t)buff_size * (uint64_t)num_buffs;
 	
-	rx_bufs = (buffer_info *)calloc(num_buffs, sizeof(struct buffer_info));
+	rx_bufs = (struct buffer_info *)calloc(num_buffs, sizeof(struct buffer_info));
+	if (NULL == rx_bufs) {
+		rc = -ENOMEM;
+		goto exit;
+	}
+
 	for (i = 0; i < num_buffs; i++) {
 		sem_init(&rx_bufs[i].req_avail, 0, 0);
 		rx_bufs[i].ib_mem = (char *)MAP_FAILED;
@@ -1028,9 +1039,7 @@ fail:
 		close(newsockfd);
      	close(sockfd);
 
-	sock_num = malloc(sizeof(int));
-	*(int *)(sock_num) = portno;
-	pthread_exit(sock_num);
+	pthread_exit(0);
 }
 
 int spawned_threads;
@@ -1039,7 +1048,7 @@ void fxfr_server_shutdown_cli(struct cli_env *env);
 void spawn_threads(int cons_skt, int xfer_skt, int run_cons)
 {
 	int  conn_ret, cli_ret, cons_ret = 0;
-	int *pass_sock_num, *pass_cons_ret, *conn_loop_rc;
+	int *pass_sock_num, *conn_loop_rc;
 	int i;
 
 	all_must_die = 0;
@@ -1059,8 +1068,6 @@ void spawn_threads(int cons_skt, int xfer_skt, int run_cons)
 	if (run_cons) {
 		char thr_name[16] = {0};
 
-		pass_cons_ret = (int *)(malloc(sizeof(int)));
-		*pass_cons_ret = 0;
 		splashScreen((char *)
 			"RTA File Transfer Server Command Line Interface");
 
@@ -1083,6 +1090,10 @@ void spawn_threads(int cons_skt, int xfer_skt, int run_cons)
 	sem_init(&conn_loop_started, 0, 0);
 
 	conn_loop_rc = (int *)(malloc(sizeof(int)));
+	if (NULL == conn_loop_rc) {
+		printf("Error - failed to allocate memory\n");
+		exit(EXIT_FAILURE);
+	}
 	*conn_loop_rc = xfer_skt;
 	conn_ret = pthread_create(&conn_thread, NULL, conn_loop, 
 				(void *)(conn_loop_rc));
@@ -1099,8 +1110,12 @@ void spawn_threads(int cons_skt, int xfer_skt, int run_cons)
 			continue;
 
 		pass_idx = (int *)(malloc(sizeof(int)));
-		*pass_idx = i;
+		if (NULL == pass_idx) {
+			fprintf(stderr,"Error - cli_session_thread could not allocate pass_idx\n");
+			exit(EXIT_FAILURE);
+		}
 
+		*pass_idx = i;
 		ibwin_ret = pthread_create( &rx_bufs[i].xfer_thread, NULL, 
 				xfer_loop, (void *)(pass_idx));
 		if (ibwin_ret) {
@@ -1112,6 +1127,10 @@ void spawn_threads(int cons_skt, int xfer_skt, int run_cons)
 
 	/* Start cli_session_thread, enabling remote debug over Ethernet */
 	pass_sock_num = (int *)(malloc(sizeof(int)));
+	if (NULL == pass_sock_num) {
+		fprintf(stderr,"Error - cli_session_thread could not allocate pass_sock_num\n");
+		exit(EXIT_FAILURE);
+	}
 	*pass_sock_num = cons_skt;
 
 	cli_ret = pthread_create( &cli_session_thread, NULL, cli_session, 
@@ -1132,8 +1151,6 @@ void spawn_threads(int cons_skt, int xfer_skt, int run_cons)
 	};
 }
  
-int init_srio_api(uint8_t mport_id);
-
 void fxfr_server_shutdown(void) {
 	int idx;
 

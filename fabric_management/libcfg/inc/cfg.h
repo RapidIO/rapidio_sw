@@ -42,6 +42,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rrmap_config.h"
 #include "IDT_Routing_Table_Config_API.h"
 #include "IDT_Port_Config_API.h"
+#include "ct.h"
 
 #ifndef _CFG_H_
 #define _CFG_H_ 

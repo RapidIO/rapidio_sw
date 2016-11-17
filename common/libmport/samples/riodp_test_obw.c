@@ -246,6 +246,7 @@ static void obwtest_buf_free(void *buf)
  *
  * \param[in] rio_base Base RapidIO address for inbound window
  * \param[in] ib_size Inbound window and buffer size in bytes
+ * \param[in] loc_addr Physical address in reserved memory range
  * \param[in] verify Flag to enable/disable data verification on exit
  *
  * \return 0 if successful or error code returned by mport API.
@@ -253,10 +254,11 @@ static void obwtest_buf_free(void *buf)
  * Performs the following steps:
  *
  */
-int do_ibwin_test(uint64_t rio_base, uint32_t ib_size, int verify)
+int do_ibwin_test(uint64_t rio_base, uint32_t ib_size, uint64_t loc_addr,
+		  int verify)
 {
 	int ret;
-	uint64_t ib_handle;
+	uint64_t ib_handle = loc_addr;
 	void *ibmap;
 
 	/** - Request mport's inbound window mapping */ 
@@ -272,6 +274,8 @@ int do_ibwin_test(uint64_t rio_base, uint32_t ib_size, int verify)
 		perror("mmap");
 		goto out;
 	}
+
+	memset(ibmap, 0, ib_size);
 
 	printf("\tSuccessfully allocated/mapped IB buffer (rio_base=0x%x_%x)\n",
 	       (uint32_t)(rio_base >> 32), (uint32_t)(rio_base & 0xffffffff));
@@ -528,6 +532,9 @@ static void display_help(char *program)
 	printf("  -R xxxx\n");
 	printf("  --ibbase xxxx\n");
 	printf("    inbound window base address in RapidIO address space\n");
+	printf("  -L xxxx\n");
+	printf("  --laddr xxxx\n");
+	printf("    physical address of reserved local memory to use\n");
 	printf("\n");
 }
 
@@ -548,6 +555,7 @@ int main(int argc, char** argv)
 	int verify = 1;
 	unsigned int repeat = 1;
 	uint64_t rio_base = RIOMP_MAP_ANY_ADDR;
+	uint64_t loc_addr = RIOMP_MAP_ANY_ADDR;
 	static const struct option options[] = {
 		{ "destid", required_argument, NULL, 'D' },
 		{ "taddr",  required_argument, NULL, 'A' },
@@ -558,6 +566,7 @@ int main(int argc, char** argv)
 		{ "ibwin",  required_argument, NULL, 'I' },
 		{ "ibbase", required_argument, NULL, 'R' },
 		{ "mport",  required_argument, NULL, 'M' },
+		{ "laddr",  required_argument, NULL, 'L' },
 		{ "faf",    no_argument, NULL, 'F' },
 		{ "async",  no_argument, NULL, 'Y' },
 		{ "debug",  no_argument, NULL, 'd' },
@@ -569,48 +578,51 @@ int main(int argc, char** argv)
 
 	while (1) {
 		option = getopt_long_only(argc, argv,
-				"rvwdhika:A:D:I:O:M:R:S:T:B:", options, NULL);
+				"rvwdhika:A:D:I:O:M:R:S:T:B:L:", options, NULL);
 		if (option == -1)
 			break;
 		switch (option) {
 			/* Data Transfer Mode options*/
 		case 'A':
-			tgt_addr = strtoull(optarg, NULL, 0);
+			tgt_addr = (uint64_t)strtoull(optarg, NULL, 0);
+			break;
+		case 'L':
+			loc_addr = strtoull(optarg, NULL, 0);
 			break;
 		case 'a':
-			align = strtol(optarg, NULL, 0);
+			align = (int)strtol(optarg, NULL, 0);
 			break;
 		case 'D':
-			tgt_destid = strtol(optarg, NULL, 0);
+			tgt_destid = (uint32_t)strtoul(optarg, NULL, 0);
 			break;
 		case 'O':
-			offset = strtol(optarg, NULL, 0);
+			offset = (uint32_t)strtoul(optarg, NULL, 0);
 			break;
 		case 'S':
-			copy_size = strtol(optarg, NULL, 0);
+			copy_size = (uint32_t)strtoul(optarg, NULL, 0);
 			break;
 		case 'T':
-			repeat = strtol(optarg, NULL, 0);
+			repeat = (unsigned)strtoul(optarg, NULL, 0);
 			break;
 		case 'B':
-			tbuf_size = strtol(optarg, NULL, 0) * 1024 * 1024;
+			tbuf_size = (uint32_t)strtoul(optarg, NULL, 0) * 1024 * 1024;
 			break;
 		case 'r':
 			do_rand = 1;
 			break;
 			/* Inbound Memory (window) Mode options */
 		case 'I':
-			ibwin_size = strtol(optarg, NULL, 0);
+			ibwin_size = (uint32_t)strtoul(optarg, NULL, 0);
 			break;
 		case 'i':
 			ibwin_size = DEFAULT_IBWIN_SIZE;
 			break;
 		case 'R':
-			rio_base = strtoull(optarg, NULL, 0);
+			rio_base = (uint64_t)strtoull(optarg, NULL, 0);
 			break;
 			/* Options common for all modes */
 		case 'M':
-			mport_id = strtol(optarg, NULL, 0);
+			mport_id = (uint32_t)strtoul(optarg, NULL, 0);
 			break;
 		case 'v':
 			verify = 0;
@@ -649,8 +661,10 @@ int main(int argc, char** argv)
 		printf("+++ RapidIO Inbound Window Mode +++\n");
 		printf("\tmport%d ib_size=0x%x PID:%d\n",
 			mport_id, ibwin_size, (int)getpid());
+		if (loc_addr != RIOMP_MAP_ANY_ADDR)
+			printf("\tloc_addr=0x%llx\n", (unsigned long long)loc_addr);
 
-		do_ibwin_test(rio_base, ibwin_size, verify);
+		do_ibwin_test(rio_base, ibwin_size, loc_addr, verify);
 	} else {
 		printf("+++ RapidIO Outbound Window Mapping Test +++\n");
 		printf("\tmport%d destID=%d rio_addr=0x%llx repeat=%d PID:%d\n",

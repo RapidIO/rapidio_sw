@@ -267,7 +267,7 @@ int main(int argc, char** argv)
 			break;
 		switch (option) {
 		case 'D':
-			rio_destid = strtol(optarg, NULL, 0);
+			rio_destid = (uint32_t)strtoul(optarg, NULL, 0);
 			break;
 		case 'r':
 			do_dbrecv = 1;
@@ -276,16 +276,16 @@ int main(int argc, char** argv)
 			flags = O_NONBLOCK;
 			break;
 		case 'I':
-			db_info = strtol(optarg, NULL, 0);
+			db_info = (uint32_t)strtoul(optarg, NULL, 0);
 			break;
 		case 'M':
-			mport_id = strtol(optarg, NULL, 0);
+			mport_id = (uint32_t)strtoul(optarg, NULL, 0);
 			break;
 		case 'S':
-			db_start = strtol(optarg, NULL, 0);
+			db_start = (uint32_t)strtoul(optarg, NULL, 0);
 			break;
 		case 'E':
-			db_end = strtol(optarg, NULL, 0);
+			db_end = (uint32_t)strtoul(optarg, NULL, 0);
 			break;
 		case 'd':
 			debug = 1;

@@ -479,13 +479,13 @@ void cpu_occ_parse_proc_line(char *file_line,
 	if (NULL == tok)
 		goto error;
 	
-	*proc_new_utime = atoll(tok);
+	*proc_new_utime = (uint64_t)strtoull(tok, NULL, 10);
 
 	tok = strtok_r(NULL, delim, &saveptr);
 	if (NULL == tok)
 		goto error;
 
-	*proc_new_stime = atoll(tok);
+	*proc_new_stime = (uint64_t)strtoull(tok, NULL, 10);
 	return;
 error:
 	ERR("\nFAILED: proc_line \"%s\"\n", fl_cpy);
@@ -515,37 +515,37 @@ void cpu_occ_parse_stat_line(char *file_line,
 	tok = strtok_r(NULL, delim, &saveptr);
 	if (NULL == tok)
 		goto error;
-	*p_user = atoll(tok);
+	*p_user = (uint64_t)strtoull(tok, NULL, 10);
 
 	tok = strtok_r(NULL, delim, &saveptr);
 	if (NULL == tok)
 		goto error;
-	*p_nice = atoll(tok);
+	*p_nice = (uint64_t)strtoull(tok, NULL, 10);
 
 	tok = strtok_r(NULL, delim, &saveptr);
 	if (NULL == tok)
 		goto error;
-	*p_system = atoll(tok);
+	*p_system = (uint64_t)strtoull(tok, NULL, 10);
 
 	tok = strtok_r(NULL, delim, &saveptr);
 	if (NULL == tok)
 		goto error;
-	*p_idle = atoll(tok);
+	*p_idle = (uint64_t)strtoull(tok, NULL, 10);
 
 	tok = strtok_r(NULL, delim, &saveptr);
 	if (NULL == tok)
 		goto error;
-	*p_iowait = atoll(tok);
+	*p_iowait = (uint64_t)strtoull(tok, NULL, 10);
 
 	tok = strtok_r(NULL, delim, &saveptr);
 	if (NULL == tok)
 		goto error;
-	*p_irq = atoll(tok);
+	*p_irq = (uint64_t)strtoull(tok, NULL, 10);
 
 	tok = strtok_r(NULL, delim, &saveptr);
 	if (NULL == tok)
 		goto error;
-	*p_softirq = atoll(tok);
+	*p_softirq = (uint64_t)strtoull(tok, NULL, 10);
 	
 	return;
 error:
@@ -1997,10 +1997,13 @@ int IsolcpuCmd(struct cli_env *env, int argc, char **argv)
 	int c = 0;
 	char clist[129] = {0};
 	std::vector<std::string>::iterator it = cpus.begin();
-	for(; it != cpus.end(); it++) {
+	for (; it != cpus.end(); it++) {
 		char tmp[9] = {0};
 		snprintf(tmp, 8, "cpu%d=%s", ++c, it->c_str());
-		SetEnvVar(tmp);
+		if (SetEnvVar(tmp)) {
+			CRIT("IsolcpuCmd: Out of memory %s\n", tmp);
+			return -1;
+		}
 		strncat(clist, it->c_str(), 128);
 		strncat(clist, " ", 128);
 	}

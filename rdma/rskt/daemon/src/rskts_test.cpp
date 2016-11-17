@@ -613,7 +613,7 @@ int main(int argc, char *argv[])
 			exit(1);
 			break;
 		case 's':
-			socket_number = atoi(optarg);
+			socket_number = (int)strtol(optarg, NULL, 10);
 			break;
 		case '?':
 			/* Invalid command line option */

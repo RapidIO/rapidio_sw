@@ -571,32 +571,32 @@ void parse_options(struct worker *info, int argc, char* argv[])
 		switch (c) {
 			case 'h': usage_and_exit(); 
 				break;
-			case 'm': info->mp_num = atoi(optarg);
+			case 'm': info->mp_num = (int)strtol(optarg, NULL, 10);
 				if (info->mp_num < 0)
 					usage_and_exit();
 				break;
-			case 'd': info->tgt_did = atoi(optarg);
+			case 'd': info->tgt_did = (int)strtol(optarg, NULL, 10);
 				if (info->tgt_did < 0)
 					usage_and_exit();
 				break;
-			case 'c': info->mbox = atoi(optarg);
+			case 'c': info->mbox = (int)strtol(optarg, NULL, 10);
 				if ((info->mbox < 2) || (info->mbox > 3)) 
 					usage_and_exit();
 				break;
-			case 'C': info->tgt_mbox = atoi(optarg);
+			case 'C': info->tgt_mbox = (int)strtol(optarg, NULL, 10);
 				if ((info->tgt_mbox < 2) || (info->tgt_mbox > 3)) 
 					usage_and_exit();
 				break;
-			case 's': info->msg_sz = atoi(optarg);
+			case 's': info->msg_sz = (uint64_t)strtoull(optarg, NULL, 10);
 				if ((info->msg_sz < 8) || (info->msg_sz > 4096)) 
 					usage_and_exit();
 				break;
-			case 'b': info->tx_buf_cnt = atoi(optarg);
+			case 'b': info->tx_buf_cnt = (int)strtol(optarg, NULL, 10);
 				if ((info->tx_buf_cnt < 32) ||
 					(info->tx_buf_cnt > 4096)) 
 					usage_and_exit();
 				break;
-			case 'f': info->sts_entries = atoi(optarg);
+			case 'f': info->sts_entries = (int)strtol(optarg, NULL, 10);
 				if ((info->sts_entries < 32) ||
 					(info->sts_entries > 4096)) 
 					usage_and_exit();

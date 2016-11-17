@@ -11,6 +11,7 @@
 
 #include <riocp_pe.h>
 #include <riocp_pe_internal.h>
+#include "driver.h"
 
 #define MAX_LOOKUP_HOPS 16
 
@@ -66,6 +67,7 @@ static int discover(riocp_pe_handle root, riocp_pe_handle node)
 	int ret = 0;
 	size_t j = 0;
 	ct_t comptag;
+	struct riocp_pe_port_state_t state;
 	riocp_pe_handle next = node;
 
 	struct riocp_pe_port *ports = NULL;
@@ -75,7 +77,7 @@ static int discover(riocp_pe_handle root, riocp_pe_handle node)
 	if (ret)
 		return ret;
 
-	ports = calloc(RIOCP_PE_PORT_COUNT(cap), sizeof(*ports));
+	ports = (struct riocp_pe_port *) calloc(RIOCP_PE_PORT_COUNT(cap), sizeof(*ports));
 	if (ports == NULL)
 		return -ENOMEM;
 
@@ -88,17 +90,26 @@ static int discover(riocp_pe_handle root, riocp_pe_handle node)
 		goto err;
 
 	for (j = 0; j < RIOCP_PE_PORT_COUNT(cap); j++) {
-		if (ports[j].state == RIOCP_PE_PORT_STATE_OK) {
+		ret = riocp_drv_get_port_state(pe, ports[j].id, &state);
+		if (ret) {
+			printf("Unable to read port state id:%d, ct:%d\n",
+					ports[j].id, ports[j].pe->comptag);
+			continue;
+		}
+
+		if (state.port_ok) {
 			next = riocp_pe_peek(node, j);
 			if (next != NULL) {
 				continue;
 			}
 			if (is_host) {
-				ret = riocp_pe_probe(node, j, &next);
+				ret = riocp_pe_probe(node, j, &next, &comptag,
+						node->sysfs_name, false);
 				if (ret)
 					goto err;
 			} else {
-				ret = riocp_pe_discover(node, j, &next);
+				ret = riocp_pe_discover(node, j, &next,
+						node->sysfs_name);
 				if (ret)
 					goto err;
 			}
@@ -120,15 +131,23 @@ err:
 static int riocp_pe_test_discover()
 {
 	int ret = 0;
+	ct_t comptag;
 	riocp_pe_handle sw;
 
-	if (is_host)
-		ret = riocp_pe_probe(mport, 0, &sw);
-	else
-		ret = riocp_pe_discover(mport, 0, &sw);
+	if (is_host) {
+		ret = riocp_pe_maint_read(mport, 0x6c, &comptag);
+		if (ret) {
+			goto err;
+		}
+		ret = riocp_pe_probe(mport, 0, &sw, &comptag,
+			 mport->sysfs_name, false);
+	} else {
+		ret = riocp_pe_discover(mport, 0, &sw, mport->sysfs_name);
+	}
 
 	ret = discover(mport, sw);
 
+err:
 	return ret;
 }
 
@@ -153,6 +172,7 @@ static int riocp_pe_test_lookup(int argc, char **argv)
 	int ret = 0;
 	uint8_t port = 0;
 	uint8_t hopcount = 0;
+	ct_t comptag;
 	char *token;
 	char *pathstring = argv[3];
 
@@ -162,12 +182,19 @@ static int riocp_pe_test_lookup(int argc, char **argv)
 	}
 
 	token = strtok(pathstring, ",");
-	port = strtoul(token, NULL, 10);
+	port = (uint8_t)strtoul(token, NULL, 10);
 
-	if (is_host)
-		ret = riocp_pe_probe(mport, port, &path[hopcount]);
-	else
-		ret = riocp_pe_discover(mport, port, &path[hopcount]);
+	if (is_host) {
+		ret = riocp_pe_maint_read(mport, 0x6c, &comptag);
+		if (ret) {
+			return -1;
+		}
+		ret = riocp_pe_probe(mport, port, &path[hopcount], &comptag,
+				mport->sysfs_name, false);
+	} else {
+		ret = riocp_pe_discover(mport, port, &path[hopcount],
+				mport->sysfs_name);
+	}
 
 	if (ret) {
 		fprintf(stderr, "could not probe/disc: %s\n", strerror(-ret));
@@ -181,10 +208,21 @@ static int riocp_pe_test_lookup(int argc, char **argv)
 	while ((token = strtok(NULL, ",")) && (token !=NULL)) {
 		port = strtoul(token, NULL, 10);
 
-		if (is_host)
-			ret = riocp_pe_probe(path[hopcount], port, &path[hopcount + 1]);
-		else
-			ret = riocp_pe_discover(path[hopcount], port, &path[hopcount + 1]);
+		if (is_host) {
+			ret = riocp_pe_maint_read(path[hopcount], 0x6c,
+					&comptag);
+			if (ret) {
+				return -1;
+			}
+			ret = riocp_pe_probe(path[hopcount], port,
+					&path[hopcount + 1],
+					&comptag, path[hopcount]->sysfs_name,
+					false);
+		} else {
+			ret = riocp_pe_discover(path[hopcount], port,
+					&path[hopcount + 1],
+					path[hopcount]->sysfs_name);
+		}
 
 		printf("[hop %2u] port: %2u, \"%s\"\n",
 			hopcount + 1, port,
@@ -208,6 +246,8 @@ static int riocp_pe_test_connected()
 	int ret;
 	size_t j;
 	riocp_pe_handle peer;
+	ct_t comptag;
+	struct riocp_pe_port_state_t state;
 	struct riocp_pe_capabilities cap;
 	struct riocp_pe_port ports[32]; /* STATIC ! */
 
@@ -224,12 +264,27 @@ static int riocp_pe_test_connected()
 	if (ret)
 		return ret;
 
+	ret = riocp_pe_maint_read(pe, 0x6c, &comptag);
+	if (ret) {
+		return ret;
+	}
+
+
 	for (j = 0; j < RIOCP_PE_PORT_COUNT(cap); j++) {
-		if (ports[j].state == RIOCP_PE_PORT_STATE_OK) {
+		ret = riocp_drv_get_port_state(pe, ports[j].id, &state);
+		if (ret) {
+			printf("Unable to read port state id:%d, ct:%d\n",
+					ports[j].id, ports[j].pe->comptag);
+			continue;
+		}
+
+		if (state.port_ok) {
 			if (is_host)
-				ret = riocp_pe_probe(pe, j, &peer);
+				ret = riocp_pe_probe(pe, j, &peer, &comptag,
+						pe->sysfs_name, false);
 			else
-				ret = riocp_pe_discover(pe, j, &peer);
+				ret = riocp_pe_discover(pe, j, &peer,
+						pe->sysfs_name);
 			if (ret)
 				continue;
 
@@ -247,7 +302,7 @@ static int riocp_pe_test_connected()
 static int riocp_pe_test_set_destid(int argc, char **argv)
 {
 	int ret;
-	uint32_t destid = strtoul(argv[3], NULL, 0);
+	uint32_t destid = (uint32_t)strtoul(argv[3], NULL, 0);
 	if (argc < 4) {
 		usage(argv[0]);
 		return -EINVAL;
@@ -283,6 +338,8 @@ static int riocp_pe_test_check_destid()
 int main(int argc, char **argv)
 {
 	int ret = 0;
+	ct_t comptag;
+	struct riocp_reg_rw_driver drv;
 
 	if (argc < 3) {
 		usage(argv[0]);
@@ -303,12 +360,20 @@ int main(int argc, char **argv)
 		return -1;
 	}
 
+	ret = riocp_pe_maint_read(mport, 0x6c, &comptag);
+	if (ret) {
+		fprintf(stderr, "Cannot get component tag: %s\n", strerror(-ret));
+		return -1;
+	}
+
 	if (is_host) {
 		printf("Creating host handle\n");
-		ret = riocp_pe_create_host_handle(&mport, 0, RIOCP_PE_LIB_REV);
+		ret = riocp_pe_create_host_handle(&mport, 0, RIOCP_PE_LIB_REV,
+				&drv ,&comptag, mport->sysfs_name);
 	} else {
 		printf("Creating agent handle\n");
-		ret = riocp_pe_create_agent_handle(&mport, 0, RIOCP_PE_LIB_REV);
+		ret = riocp_pe_create_agent_handle(&mport, 0, RIOCP_PE_LIB_REV,
+				&drv ,&comptag, mport->sysfs_name);
 	}
 	if (ret) {
 		fprintf(stderr, "error initializing mport handle: %s\n", strerror(-ret));

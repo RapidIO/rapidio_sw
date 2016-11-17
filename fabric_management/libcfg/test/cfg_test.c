@@ -59,7 +59,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "cfg_private.h"
 #include "libcli.h"
 #include "liblog.h"
-#include "rrmap_config.h"
+#include "ct_test.h"
+#include "did_test.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -152,6 +153,8 @@ int test_case_3(void)
 	char *dd_mtx_fn = NULL, *dd_fn = NULL;
 	uint32_t m_did, m_cm_port, m_mode;
 
+	did_reset();
+	ct_reset();
 	memset(&dev, 0, sizeof(dev));
 	if (cfg_parse_file(MASTER_SUCCESS, &dd_mtx_fn, &dd_fn, &m_did,
 			&m_cm_port, &m_mode))
@@ -203,7 +206,7 @@ int test_case_3(void)
 	if (cfg_find_dev_by_ct(0x40008, &dev))
 		goto fail;
 
-	if (cfg_find_dev_by_ct(0x70000, &dev))
+	if (cfg_find_dev_by_ct(0x70009, &dev))
 		goto fail;
 
 	if (dev.sw_info.sw_pt[0].max_pw != idt_pc_pw_4x)
@@ -241,19 +244,19 @@ int test_case_3(void)
 	if (dev.sw_info.sw_pt[4].ls != idt_pc_ls_1p25)
 		goto fail;
 
-	if (cfg_get_conn_dev(0x70000, 0, &dev, &conn_pt))
+	if (cfg_get_conn_dev(0x70009, 0, &dev, &conn_pt))
 		goto fail;
 
-	if (cfg_get_conn_dev(0x70000, 1, &dev, &conn_pt))
+	if (cfg_get_conn_dev(0x70009, 1, &dev, &conn_pt))
 		goto fail;
 
-	if (cfg_get_conn_dev(0x70000, 4, &dev, &conn_pt))
+	if (cfg_get_conn_dev(0x70009, 4, &dev, &conn_pt))
 		goto fail;
 
-	if (cfg_get_conn_dev(0x70000, 5, &dev, &conn_pt))
+	if (cfg_get_conn_dev(0x70009, 5, &dev, &conn_pt))
 		goto fail;
 
-	if (!cfg_get_conn_dev(0x70000, 7, &dev, &conn_pt))
+	if (!cfg_get_conn_dev(0x70009, 7, &dev, &conn_pt))
 		goto fail;
 
 	if (cfg_get_conn_dev(0x10005, 0, &dev, &conn_pt))
@@ -288,6 +291,8 @@ int test_case_4(void)
 	char *test_dd_fn = (char *)FMD_DFLT_DD_FN;
 	uint32_t m_did, m_cm_port, m_mode;
 
+	did_reset();
+	ct_reset();
 	if (cfg_parse_file(SLAVE_SUCCESS, &dd_mtx_fn, &dd_fn, &m_did,
 			&m_cm_port, &m_mode))
 		goto fail;
@@ -337,6 +342,8 @@ int test_case_5(void)
 	uint8_t chk_pnum[6] = {0, 1, 4, 7, 8, 9};
 	int x = 1;
 
+	did_reset();
+	ct_reset();
 	if (cfg_parse_file(TOR_SUCCESS, &dd_mtx_fn, &dd_fn, &m_did,
 			&m_cm_port, &m_mode))
 		goto fail;
@@ -369,7 +376,7 @@ int test_case_5(void)
 		goto fail;
 
 	/* Check out the switch routing table parsing in detail. */
-	if (cfg_find_dev_by_ct(0x10010, &dev))
+	if (cfg_find_dev_by_ct(0x100f1, &dev))
 		goto fail;
 
 	if (!dev.is_sw)
@@ -443,7 +450,7 @@ int test_case_5(void)
 
 	for (int sw = 1; sw < 7; sw++) {
 		struct cfg_dev l0_sw, l1_sw, rev_dev;
-		uint32_t ct = 0x10010 * sw;
+		uint32_t ct = 0x000f0 + (0x10001 * sw);
 		int port_list[6] = {0, 1, 4, 7, 8, 9};
 		int pt_idx;
 		int l0_pt, l1_pt, rev_pt;

@@ -212,7 +212,7 @@ int main(int argc, char *argv[])
 			exit(1);
 			break;
 		case 'n':
-			n = atoi(optarg);
+			n = (unsigned)strtoul(optarg, NULL, 10);
 			printf("Creating %u memory spaces!\n", n);
 			break;
 

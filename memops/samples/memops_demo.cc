@@ -203,10 +203,10 @@ int main(int argc, char* argv[])
                         m = 2;
                         break;
                 case 'A':
-                        rio_addr = strtol(optarg, NULL, 16);
+                        rio_addr = (uint64_t)strtoull(optarg, NULL, 16);
                         break;
                 case 'd':
-                        did = strtol(optarg, NULL, 0);
+                        did = (uint16_t)strtoul(optarg, NULL, 0);
                         break;
                 case 'h':
 			usage_and_exit(argv[0]);
@@ -217,24 +217,28 @@ int main(int argc, char* argv[])
 		}
 	}
 
-	if (0xFFFF == did)
+	if (0xFFFF == did) {
 		usage_and_exit(argv[0]);
-	
+	}
+
 #ifdef RDMA_LL
 	rdma_log_init("memops_demo_log.txt", 1);
 #else
 	if (DMAChannelSHM_has_logging()) {
+		char *umdd_lib = getenv("UMDD_LIB");
 		fprintf(stderr, "Selected version of UMDD_LIB (%s)"
 		" has logging compiled ON and is called in a logging"
-		" OFF binary!\n", getenv("UMDD_LIB"));
+		" OFF binary!\n", NULL == umdd_lib ? "null" : umdd_lib);
 		return 69;
 	}
 #endif
 
 	/** - Get UMD channel from UMD_CHAN environment variable */
 	int chan = 6;
-	if (getenv("UMD_CHAN") != NULL)
-		chan = atoi(getenv("UMD_CHAN"));
+	char* umd_chan = getenv("UMD_CHAN");
+	if (umd_chan != NULL) {
+		chan = (int)strtol(umd_chan, NULL, 10);
+	}
 
 	/** - Create memory operation object */
 	RIOMemOpsIntf* mops = RIOMemOps_classFactory(met[m], 0, chan);
@@ -247,7 +251,9 @@ int main(int argc, char* argv[])
 	MEMOPSRequest_t req;
 	memset(&req, 0, sizeof(req));
 	uint8_t* p = (uint8_t*)req.mem.win_ptr;
-
+	if (NULL == p) {
+		goto done;
+	}
 
 	printf("HW access method=%s %s destid=%u rio_addr=0x%" PRIx64 " [chan=%d]\n",
 		met_str[m], sync_str, did, rio_addr, chan);

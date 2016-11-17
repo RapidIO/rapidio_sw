@@ -120,7 +120,7 @@ int riocp_pe_lock_clear(struct riocp_pe *mport, uint32_t destid, uint8_t hopcoun
 	if (lock == RIO_HOST_LOCK_BASE_ID_MASK)
 		return 0;
 
-	ret = riocp_pe_lock_write(mport, destid, hopcount, mport->destid);
+	ret = riocp_pe_lock_write(mport, destid, hopcount, lock);
 	if (ret) {
 		RIOCP_ERROR("Unable to write lock d: %u, h: %u\n",
 			destid, hopcount);

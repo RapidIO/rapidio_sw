@@ -131,7 +131,6 @@ void set_prompt(struct cli_env *e)
 	struct cfg_dev cfg_dev;
 
 	if (NULL == e) {
-		SAFE_STRNCPY(e->prompt, "UNINIT> ", sizeof(e->prompt));
 		return;
 	}
 
@@ -258,14 +257,24 @@ fail:
 void spawn_threads(struct fmd_opt_vals *cfg)
 {
 	int  poll_ret, cli_ret, cons_ret;
-	int *pass_sock_num = NULL, *pass_poll_interval = NULL;
-	int *pass_cons_ret = NULL;
+	int *pass_sock_num;
+	int *pass_poll_interval;
+	int *pass_cons_ret;
 	int ret;
 
 	sem_init(&cons_owner, 0, 0);
 	pass_sock_num = (int *)(calloc(1, sizeof(int)));
 	pass_poll_interval = (int *)(calloc(2, sizeof(int)));
 	pass_cons_ret = (int *)(calloc(1, sizeof(int))); /// \todo MEMLEAK
+	if (!pass_sock_num || !pass_poll_interval || !pass_cons_ret) {
+		free(pass_cons_ret);
+		free(pass_poll_interval);
+		free(pass_sock_num);
+
+		CRIT("Error - Out of memory\n");
+		exit(EXIT_FAILURE);
+	}
+
 	*pass_sock_num = cfg->cli_port_num;
 	pass_poll_interval[0] = cfg->mast_interval;
 	pass_poll_interval[1] = cfg->run_cons;
@@ -345,6 +354,7 @@ int delete_sysfs_devices(riocp_pe_handle mport_pe, bool auto_config)
 	struct l_head_t names_list;
 	char *sysfs_name;
 	regex_t regex;
+	bool regex_allocated = false;
 
 	int rc = 0;
 	int tmp;
@@ -380,6 +390,7 @@ int delete_sysfs_devices(riocp_pe_handle mport_pe, bool auto_config)
 	if(rc) {
 		return rc;
 	}
+	regex_allocated = true;
 
 	l_init(&names_list);
 	while(NULL != (entry = readdir(dir))) {
@@ -398,6 +409,11 @@ int delete_sysfs_devices(riocp_pe_handle mport_pe, bool auto_config)
 				if(!regexec(&regex, entry->d_name, 0, NULL, 0)) {
 					sysfs_name =(char *)malloc(
 							strlen(entry->d_name));
+					if (NULL == sysfs_name) {
+						CRIT("Out of memory, kernel object: %s\n", entry->d_name);
+						rc = -ENOMEM;
+						goto cleanup;
+					}
 					strcpy(sysfs_name, entry->d_name);
 					l_push_tail(&names_list,
 							(void *)sysfs_name);
@@ -408,6 +424,11 @@ int delete_sysfs_devices(riocp_pe_handle mport_pe, bool auto_config)
 				if(auto_config) {
 					sysfs_name = (char *)malloc(
 							strlen(entry->d_name));
+					if (NULL == sysfs_name) {
+						CRIT("Out of memory, object: %s\n", entry->d_name);
+						rc = -ENOMEM;
+						goto cleanup;
+					}
 					strcpy(sysfs_name, entry->d_name);
 					l_push_tail(&names_list,
 							(void *)sysfs_name);
@@ -419,6 +440,11 @@ int delete_sysfs_devices(riocp_pe_handle mport_pe, bool auto_config)
 						strlen(AUTO_NAME_PREFIX))) {
 					sysfs_name = (char *)malloc(
 							strlen(entry->d_name));
+					if (NULL == sysfs_name) {
+						CRIT("Out of memory, object: %s\n", entry->d_name);
+						rc = -ENOMEM;
+						goto cleanup;
+					}
 					strcpy(sysfs_name, entry->d_name);
 					l_push_tail(&names_list,
 							(void *)sysfs_name);
@@ -428,9 +454,7 @@ int delete_sysfs_devices(riocp_pe_handle mport_pe, bool auto_config)
 		}
 	}
 
-	// Free memory allocated to the regex
-	regfree(&regex);
-
+cleanup:
 	if (0 == l_size(&names_list)) {
 		goto exit;
 	}
@@ -439,7 +463,8 @@ int delete_sysfs_devices(riocp_pe_handle mport_pe, bool auto_config)
 		tmp = riomp_mgmt_device_del(hnd, 0, 0, 0,
 						(const char *)sysfs_name);
 		if(tmp) {
-			rc = tmp;
+			// retain the original error
+			rc = (rc == 0 ? tmp : rc);
 			WARN("Failed to delete device %s, err=%d\n",
 					sysfs_name, rc);
 			// try and delete as many as possible
@@ -448,6 +473,10 @@ int delete_sysfs_devices(riocp_pe_handle mport_pe, bool auto_config)
 	}
 
 exit:
+	// Free memory allocated to the regex
+	if (regex_allocated) {
+		regfree(&regex);
+	}
 	closedir(dir);
 	return rc;
 }
@@ -486,7 +515,12 @@ int setup_mport_master(int mport)
 			return 1;
 		}
 		name = (char *)calloc(1,40);
-		snprintf(name, 39, "MPORT%d", mport);
+		if (NULL == name) {
+			CRIT("\nOut of Memory\n");
+			return 1;
+		} else {
+			snprintf(name, 39, "MPORT%d", mport);
+		}
 	}
 
 	if (riocp_pe_create_host_handle(&mport_pe, mport, 0, &pe_mpsw_rw_driver,
@@ -658,12 +692,22 @@ int main(int argc, char *argv[])
 	signal(SIGUSR1, sig_handler);
 
 	rdma_log_init("fmd.log", 1);
+
 	opts = fmd_parse_options(argc, argv);
+	if (NULL == opts) {
+		goto fail;
+	}
+
 	g_level = opts->log_level;
 	if ((opts->init_and_quit) && (opts->print_help)) {
 		goto fail;
 	}
+
 	fmd = (struct fmd_state *)calloc(1, sizeof(struct fmd_state));
+	if (NULL == fmd) {
+		goto fail;
+	}
+
 	fmd->opts = opts;
 	fmd->fmd_rw = 1;
 	fmd->dd_mtx_fn = fmd->opts->dd_mtx_fn;

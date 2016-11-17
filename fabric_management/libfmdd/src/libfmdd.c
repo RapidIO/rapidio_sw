@@ -257,9 +257,13 @@ void *mon_loop(void *parms)
 	fml.mon_alive = 1;
 	sem_post(&fml.mon_started);
 	do {
+		if (NULL == fml.dd_mtx) {
+			goto exit;
+		}
+
 		fml.dd_mtx->dd_ev[fml.app_idx].waiting = 1;
 		rc = sem_wait(&fml.dd_mtx->dd_ev[fml.app_idx].dd_event);
-		if (rc || (NULL == fml.dd_mtx) || fml.mon_must_die ) {
+		if (rc || fml.mon_must_die ) {
 			goto exit;
 		}
 		fml.dd_mtx->dd_ev[fml.app_idx].waiting = 0;
@@ -372,6 +376,7 @@ int fmdd_get_did_list(fmdd_h h, uint32_t *did_list_sz, uint32_t **did_list)
 	uint8_t flag = 0;
 
 	DBG("Fetching DID list\n");
+
 	if (h != &fml) {
 		ERR("Invalid fmdd_h h(0x%X)\n", h);
 		goto fail;
@@ -384,7 +389,6 @@ int fmdd_get_did_list(fmdd_h h, uint32_t *did_list_sz, uint32_t **did_list)
 	};
 
 	*did_list_sz = cnt;
-
 	if (!cnt) {
 		INFO("Returning empty(NULL) list since cnt==0\n");
 		*did_list = NULL;
@@ -392,6 +396,10 @@ int fmdd_get_did_list(fmdd_h h, uint32_t *did_list_sz, uint32_t **did_list)
 	};
 
 	*did_list = (uint32_t *)calloc(cnt, sizeof(uint32_t));
+	if (NULL == *did_list) {
+		goto fail;
+	}
+
 	for (i = 0; i <= FMD_MAX_DEVID; i++) {
 		flag = fmdd_check_did(h, i, FMDD_FLAG_OK_MP);
 		if (flag && (FMDD_FLAG_OK_MP != flag)) {

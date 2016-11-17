@@ -41,7 +41,11 @@ static inline int getCPUMHz()
 {
 #ifdef __linux
   FILE* fcpu = fopen("/proc/cpuinfo", "rte");
-  if(fcpu == NULL) return -1;
+
+  if(NULL == fcpu) {
+    fprintf(stderr, "Could not open /proc/cpuinfo\n");
+    return -1;
+  }
 
   int MHz = 0;
   while(! feof(fcpu)) {

@@ -58,8 +58,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define RSKT_DEFAULT_SOCKET_NUMBER	1234
 
 
-static FILE *log_file;
-
 /**
  * \file
  *\brief Example multi threaded client application for RMA Sockets library
@@ -183,23 +181,24 @@ void *parallel_client(void *parms)
 	int rc, j;
 	uint8_t send_buf[RSKT_DEFAULT_SEND_BUF_SIZE];
 	uint8_t recv_buf[RSKT_DEFAULT_RECV_BUF_SIZE];
-	int *client_num = (int *)parms;
+	int client_num;
 	char my_name[16];
 	struct rskt_sockaddr sock_addr;
 	rskt_h	client_socket;
 
 	sock_addr.ct = destid;
 	sock_addr.sn = socket_number;
+	client_num = (NULL == parms ? -1 : *(int *)parms);
 
 	/** Set thread name based on client  number */
         memset(my_name, 0, 16);
-        snprintf(my_name, 15, "CLIENT_%d", *client_num);
+        snprintf(my_name, 15, "CLIENT_%d", client_num);
         pthread_setname_np(pthread_self(), my_name);
 
 	/** Detach thread to allow easy process exit */
         rc = pthread_detach(pthread_self());
         if (rc) {
-                WARN("Client %d pthread_detach rc %d", *client_num, rc);
+                WARN("Client %d pthread_detach rc %d", client_num, rc);
         };
 
 	/** For each repetition, do */
@@ -209,7 +208,7 @@ void *parallel_client(void *parms)
 
 		if (!client_socket) {
 			ERR("Client %d: Create socket failed, rc = %d: %s",
-				*client_num, rc, strerror(errno));
+				client_num, rc, strerror(errno));
 			goto cleanup_rskt;
 		}
 
@@ -217,7 +216,7 @@ void *parallel_client(void *parms)
 		rc = rskt_connect(client_socket, &sock_addr);
 		if (rc) {
 			ERR("Client %d: Connect to %u on %u failed",
-				*client_num, destid, socket_number);
+				client_num, destid, socket_number);
 			goto close_client_socket;
 		}
 
@@ -230,7 +229,7 @@ void *parallel_client(void *parms)
 			rc = rskt_write(client_socket, send_buf, data_length);
 			if (rc) {
 				ERR("Client %d: iter %d %d  write fail %d: %s",
-					*client_num, i, j, rc, strerror(errno));
+					client_num, i, j, rc, strerror(errno));
 				goto close_client_socket;
 			}
 
@@ -243,21 +242,21 @@ void *parallel_client(void *parms)
 
 			if (rc <= 0) {
 				ERR("Client %d: iter %d read fail %d: %s",
-					*client_num, i, j, rc, strerror(errno));
+					client_num, i, j, rc, strerror(errno));
 				goto close_client_socket;
 			}
 			if (rc != data_length) {
 				ERR("Client %d: iter %x %x Byte %u Got %u ",
-					*client_num, i, j, data_length, rc);
+					client_num, i, j, data_length, rc);
 			}
 
 			/* Compare with the original data that we'd sent */
 			if (memcmp(send_buf, recv_buf, data_length)) {
 				ERR("Client %d: !!! Iter %d %d Compare FAILED.",
-					*client_num, i, j);
+					client_num, i, j);
 			} else {
 				INFO("Client %d: *** Iter %d %d DATA OK ***",
-					*client_num, i, j);
+					client_num, i, j);
 			}
 		}
 
@@ -266,30 +265,35 @@ void *parallel_client(void *parms)
 		rc = rskt_close(client_socket);
 		if (rc) {
 			CRIT("Client %d: Failed to close socket, rc=%d: %s\n",
-				*client_num, rc, strerror(errno));
+				client_num, rc, strerror(errno));
 			goto destroy_client_socket;
 		}
 
 		/** - Destroy the connected socket */
 		rskt_destroy_socket(&client_socket);
+		client_socket = NULL;
 
 	} /* for() */
 
 	/** Do accounting for thread exit */
-	HIGH("Client %d: DONE!", *client_num);
+	HIGH("Client %d: DONE!", client_num);
 	sem_post(&client_done);
 	pthread_exit(NULL);
 
 cleanup_rskt:
 close_client_socket:
 	/** Ensure client socket is closed before exiting */
-	rskt_close(client_socket);
+	if (client_socket) {
+		rskt_close(client_socket);
+	}
 
 destroy_client_socket:
-	rskt_destroy_socket(&client_socket);
 	/** Ensure client socket is destroyed before exiting */
+	if (client_socket) {
+		rskt_destroy_socket(&client_socket);
+	}
 	errorish_goodbye = 1;
-	CRIT("Client %d: FAILED!", *client_num);
+	CRIT("Client %d: FAILED!", client_num);
 	sem_post(&client_done);
 	pthread_exit(NULL);
 };
@@ -305,12 +309,22 @@ destroy_client_socket:
  * Performs the following steps:
  */
 
+struct pthread_info {
+	int *parm;
+	pthread_t *pt;
+};
+
 int main(int argc, char *argv[])
 {
 	int c;
 	time_t	cur_time;
 	char	asc_time[26];
 	unsigned parallel = 1;
+
+	struct l_head_t pthread_list;
+	struct l_item_t *li;
+	void *l_item;
+	struct pthread_info mem_info;
 
 	unsigned i;
 	int rc = 0;
@@ -326,7 +340,7 @@ int main(int argc, char *argv[])
 		switch (c) {
 
 		case 'd':
-			destid = atoi(optarg);
+			destid = (uint16_t)strtoul(optarg, NULL, 10);
 			break;
 		default :
 		case 'h':
@@ -334,20 +348,20 @@ int main(int argc, char *argv[])
 			exit(1);
 			break;
 		case 'l':
-			g_level = atoi(optarg);
+			g_level = (unsigned)strtoul(optarg, NULL, 10);
 			g_disp_level = g_level;
 			break;
 		case 'L':
-			data_length = atoi(optarg);
+			data_length = (int)strtol(optarg, NULL, 10);
 			break;
 		case 'p':
-			parallel = atoi(optarg);
+			parallel = (unsigned)strtoul(optarg, NULL, 10);
 			break;
 		case 'r':
-			repetitions = atoi(optarg);
+			repetitions = (unsigned)strtoul(optarg, NULL, 10);
 			break;
 		case 's':
-			socket_number = atoi(optarg);
+			socket_number = (int)strtol(optarg, NULL, 10);
 			break;
 		case 't':
 			tx_test = 1;
@@ -361,33 +375,38 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
-        /** Initialize RSKT library */
+	/** Open log file for debug, initialize status variables */
+	rdma_log_init("rskt_test.log", 1);
+
+	/** Initialize RSKT library */
 	rc = librskt_init(RSKT_DEFAULT_DAEMON_SOCKET, 0);
 	if (rc) {
 		CRIT("librskt_init failed, rc=%d: %s\n", rc, strerror(errno));
 		goto exit_main;
 	}
 
-	/** Open log file for debug, initialize status variables */
-	char logfilename[FILENAME_MAX];
-	sprintf(logfilename, "/var/log/rdma/rskt_test.log");
-	log_file = fopen(logfilename, "a");
-	assert(log_file);
+
 	sem_init(&client_done, 0, 0);
 	errorish_goodbye = 0;
 
 	/** For each thread requested, start the thread with a 
 	 * unique identifying number.
 	 */
+	l_init(&pthread_list);
 	for (i = 0; i < parallel; i++) {
-		int *parm;
 		int ret;
-		pthread_t *pt;
 	
-		parm = (int *)malloc(sizeof(int));
-		pt = (pthread_t *)malloc(sizeof(pthread_t)); /// \todo MEMLEAK: track and free
-		*parm = i;
-        	ret = pthread_create(pt, NULL, parallel_client, (void *)(parm));
+		mem_info.parm = (int *)malloc(sizeof(int));
+		mem_info.pt = (pthread_t *)malloc(sizeof(pthread_t));
+		l_push_tail(&pthread_list, (void *)&mem_info);
+		if ((NULL == mem_info.parm) || (NULL == mem_info.pt)) {
+			ERR("Could not allocate memory for client %d. EXITING", i);
+			errorish_goodbye = 1;
+			goto cleanup_rskt;
+		}
+
+		*(mem_info.parm) = i;
+		ret = pthread_create(mem_info.pt, NULL, parallel_client, (void *)(mem_info.parm));
         	if (ret) {
                 	ERR("Could not start client %d. EXITING", i);
 			errorish_goodbye = 1;
@@ -396,20 +415,30 @@ int main(int argc, char *argv[])
 		CRIT("Client %d started.", i);
 	};
 
+cleanup_rskt:
 	/** Wait for all threads to exit, print a message as each finishes */
 	for (i = 0; i < parallel; i++) {
 		sem_wait(&client_done);
 		CRIT("%d clients done.", i+1);
 	};
 
+	/** Free memory allocated for threads */
+	l_item = l_head(&pthread_list, &li);
+	while (NULL != l_item) {
+		mem_info = *((struct pthread_info *)l_item);
+		free(mem_info.parm);
+		free(mem_info.pt);
+		l_item = l_next(&li);
+	}
+
 	/** Close the RSKT library exit */
 	librskt_finish();
 
 	/** Log the status in log file */
-cleanup_rskt:
 	time(&cur_time);
 	ctime_r(&cur_time, asc_time);
 	asc_time[strlen(asc_time) - 1] = '\0';
+
 exit_main:
 	if (!errorish_goodbye) {
 		CRIT("\n%s @@@ Graceful Goodbye! @@@\n\n", asc_time);
@@ -417,7 +446,7 @@ exit_main:
 		CRIT("\n#### Errorish Goodbye! ###\n\n");
 	};
 	/** Close the log file */
-	fclose(log_file);
+	rdma_log_close();
 	return errorish_goodbye;
 
 } /* main() */
