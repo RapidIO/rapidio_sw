@@ -834,7 +834,7 @@ uint32_t CPS_set_config_init_parms_check_conflict( DAR_DEV_INFO_t          *dev_
           *fail_pt = PC_SET_CONFIG(0x33);
           goto chk_parms_exit;
        };
-       rc = DARRegRead( dev_info, CPS1848_LANE_X_STATUS_4_CSR(lane), &regs->lanes[lane].l_stat_4 );
+       rc = DARRegRead( dev_info, CPS1848_LANE_X_uint32_t_4_CSR(lane), &regs->lanes[lane].l_stat_4 );
        if (RIO_SUCCESS != rc) {
           *fail_pt = PC_SET_CONFIG(0x33);
           goto chk_parms_exit;
@@ -1014,18 +1014,18 @@ uint32_t compute_baudrate_config( DAR_DEV_INFO_t          *dev_info,
                                   break;
             case idt_pc_ls_1p25 : // Lane speed 0 is selected by clearing TX & RX Rates
                                   chgd->lanes[lane_num].l_ctl   &= ~(CPS1848_LANE_X_CTL_RX_RATE | CPS1848_LANE_X_CTL_TX_RATE);
-				  chgd->lanes[lane_num].l_stat_4 = CPS1848_LANE_X_STATUS_4_CSR_CC_MONITOR_THRESH;
+				  chgd->lanes[lane_num].l_stat_4 = CPS1848_LANE_X_uint32_t_4_CSR_CC_MONITOR_THRESH;
                                   break;
             case idt_pc_ls_2p5  :
             case idt_pc_ls_3p125: chgd->lanes[lane_num].l_ctl &= ~(CPS1848_LANE_X_CTL_RX_RATE | CPS1848_LANE_X_CTL_TX_RATE);
                                   chgd->lanes[lane_num].l_ctl |= CPS1848_LANE_X_CTL_SPD1;
-				  chgd->lanes[lane_num].l_stat_4 = CPS1848_LANE_X_STATUS_4_CSR_CC_MONITOR_THRESH;
+				  chgd->lanes[lane_num].l_stat_4 = CPS1848_LANE_X_uint32_t_4_CSR_CC_MONITOR_THRESH;
                                   break;
             case idt_pc_ls_5p0  :
             case idt_pc_ls_6p25 : chgd->lanes[lane_num].l_ctl &= ~(CPS1848_LANE_X_CTL_RX_RATE | CPS1848_LANE_X_CTL_TX_RATE);
                                   chgd->lanes[lane_num].l_ctl |= CPS1848_LANE_X_CTL_SPD2;
-				  chgd->lanes[lane_num].l_stat_4 = CPS1848_LANE_X_STATUS_4_CSR_CC_MONITOR_THRESH | 
-					                           CPS1848_LANE_X_STATUS_4_CSR_CC_MONITOR_EN;
+				  chgd->lanes[lane_num].l_stat_4 = CPS1848_LANE_X_uint32_t_4_CSR_CC_MONITOR_THRESH | 
+					                           CPS1848_LANE_X_uint32_t_4_CSR_CC_MONITOR_EN;
                                   break;
             default: *fail_pt = PC_SET_CONFIG(0x61);
                      goto compute_baudrate_config_exit;
@@ -1466,11 +1466,11 @@ reset_reg_vals_t CPS_reset_reg_vals[ARRAY_SIZE_CPS_RESET_REG_VALS] = {
    {0x00000000, 0xffffffff, CPS1848_PORT_X_CAPT_3_CSR(0)         ,  0x040, 0x000, false, true},
    {0x80000000, 0xffffffff, CPS1848_PORT_X_ERR_RATE_CSR(0)       ,  0x040, 0x000, false, true},
    {0xFFFF0000, 0xffffffff, CPS1848_PORT_X_ERR_RATE_THRESH_CSR(0),  0x040, 0x000, false, true},
-   {0x00000000, 0xffffffff, CPS1848_LANE_X_STATUS_0_CSR(0)       ,  0x000, 0x020, true , false}, // Register values change
-   {0x00000000, 0xffffffff, CPS1848_LANE_X_STATUS_1_CSR(0)       ,  0x000, 0x020, true , false}, // Register values change
-   {0x00000000, 0xffffffff, CPS1848_LANE_X_STATUS_2_CSR(0)       ,  0x000, 0x020, false, true},
-   {0xDFF80000, 0xffffffff, CPS1848_LANE_X_STATUS_3_CSR(0)       ,  0x000, 0x020, false, true},
-   {0x80011388, 0xffffffff, CPS1848_LANE_X_STATUS_4_CSR(0)       ,  0x000, 0x020, false, false}, // idtPcSetConfig legitimately messes with these registers
+   {0x00000000, 0xffffffff, CPS1848_LANE_X_uint32_t_0_CSR(0)       ,  0x000, 0x020, true , false}, // Register values change
+   {0x00000000, 0xffffffff, CPS1848_LANE_X_uint32_t_1_CSR(0)       ,  0x000, 0x020, true , false}, // Register values change
+   {0x00000000, 0xffffffff, CPS1848_LANE_X_uint32_t_2_CSR(0)       ,  0x000, 0x020, false, true},
+   {0xDFF80000, 0xffffffff, CPS1848_LANE_X_uint32_t_3_CSR(0)       ,  0x000, 0x020, false, true},
+   {0x80011388, 0xffffffff, CPS1848_LANE_X_uint32_t_4_CSR(0)       ,  0x000, 0x020, false, false}, // idtPcSetConfig legitimately messes with these registers
 
    {0x000020C4, 0xffffffff, CPS1848_PORT_X_WM(0)                 ,  0x010, 0x000, false, true},
    {0x00000000, 0xffffffff, CPS1848_PORT_X_ERR_RPT_EN(0)         ,  0x040, 0x000, false, true},
@@ -1512,7 +1512,7 @@ reset_reg_vals_t CPS_reset_reg_vals[ARRAY_SIZE_CPS_RESET_REG_VALS] = {
    {0x00000000, 0xffffffff, CPS1848_PORT_X_VC0_TTL_DROP_CNTR(0)  ,  0x100, 0x000, true , true},
    {0x00000000, 0xffffffff, CPS1848_PORT_X_VC0_CRC_LIMIT_DROP_CNTR(0), 0x100, 0x000, true , true},
    {0xFFFF0000, 0xffffffff, CPS1848_PORT_X_RETRY_CNTR(0)         ,  0x100, 0x000, true , true},
-   {0x00000004, 0xfffffffB, CPS1848_PORT_X_STATUS_AND_CTL(0)     ,  0x100, 0x000, false, true},   
+   {0x00000004, 0xfffffffB, CPS1848_PORT_X_uint32_t_AND_CTL(0)     ,  0x100, 0x000, false, true},   
 // {0x00000000, 0xffffffff, CPS1848_PLL_X_CTL_1(0)               ,  0x010, 0x000, false, true}, // Handled elsewhere by pc_set_cfg
 // {0x00000000, 0xffffffff, CPS1848_PLL_X_CTL_2(0)               ,  0x010, 0x000, false, true}, // Handled elsewhere by pc_set_cfg
 
@@ -1802,7 +1802,7 @@ uint32_t CPS_set_config_write_changes( DAR_DEV_INFO_t          *dev_info,
             };
 
             if (regs->lanes[lane_num].l_stat_4 != chgd->lanes[lane_num].l_stat_4) { 
-               rc = DARRegWrite( dev_info, CPS1848_LANE_X_STATUS_4_CSR(lane_num), chgd->lanes[lane_num].l_stat_4 );
+               rc = DARRegWrite( dev_info, CPS1848_LANE_X_uint32_t_4_CSR(lane_num), chgd->lanes[lane_num].l_stat_4 );
                if (RIO_SUCCESS != rc) {
                   *fail_pt = PC_SET_CONFIG(0x97);
                   goto write_changes_exit;
@@ -1844,7 +1844,7 @@ uint32_t CPS_set_config_write_changes( DAR_DEV_INFO_t          *dev_info,
                   };
 
                   if (regs->lanes[lane_num].l_stat_4 != chgd->lanes[lane_num].l_stat_4) { 
-                     rc = DARRegWrite( dev_info, CPS1848_LANE_X_STATUS_4_CSR(lane_num), chgd->lanes[lane_num].l_stat_4 );
+                     rc = DARRegWrite( dev_info, CPS1848_LANE_X_uint32_t_4_CSR(lane_num), chgd->lanes[lane_num].l_stat_4 );
                      if (RIO_SUCCESS != rc) {
                         *fail_pt = PC_SET_CONFIG(0x98);
                         goto write_changes_exit;
@@ -2418,13 +2418,13 @@ uint32_t set_int_pw_ignore_reset( DAR_DEV_INFO_t      *dev_info,
       *policy_out = idt_pc_rst_ignore;
 
       for (pnum = start_port; pnum <= end_port; pnum++) {
-         rc = DARRegRead( dev_info, CPS1616_PORT_X_STATUS_AND_CTL(pnum), &regVal );
+         rc = DARRegRead( dev_info, CPS1616_PORT_X_uint32_t_AND_CTL(pnum), &regVal );
          if (RIO_SUCCESS != rc) {
             *fail_pt = 1;
             goto set_int_pw_ignore_reset_exit;
          };
-         rc = DARRegWrite( dev_info, CPS1616_PORT_X_STATUS_AND_CTL(pnum), 
-                            regVal | CPS1616_PORT_X_STATUS_AND_CTL_IGNORE_RST_CS );
+         rc = DARRegWrite( dev_info, CPS1616_PORT_X_uint32_t_AND_CTL(pnum), 
+                            regVal | CPS1616_PORT_X_uint32_t_AND_CTL_IGNORE_RST_CS );
          if (RIO_SUCCESS != rc) {
             *fail_pt = 2;
             goto set_int_pw_ignore_reset_exit;
@@ -2513,19 +2513,19 @@ uint32_t IDT_CPS_pc_secure_port (
 
 		/* Only SPS1616 supports ignoring MECS */
 		if ((IDT_SPS1616_DEV_ID == DEV_CODE(dev_info)) || (IDT_CPS1616_DEV_ID == DEV_CODE(dev_info))) {
-		   rc = DARRegRead( dev_info, CPS1616_PORT_X_STATUS_AND_CTL(pnum), &regVal );
+		   rc = DARRegRead( dev_info, CPS1616_PORT_X_uint32_t_AND_CTL(pnum), &regVal );
 		   if ( RIO_SUCCESS != rc ) {
 			  out_parms->imp_rc = PC_SECURE_PORT(0x10);
 			  goto IDT_CPS_pc_secure_port_exit;
 		   };
 
 		   if ( in_parms->MECS_acceptance ) {
-			  regVal &= ~CPS1616_PORT_X_STATUS_AND_CTL_IGNORE_MC_CS;
+			  regVal &= ~CPS1616_PORT_X_uint32_t_AND_CTL_IGNORE_MC_CS;
 		   } else {
-			  regVal |= CPS1616_PORT_X_STATUS_AND_CTL_IGNORE_MC_CS;
+			  regVal |= CPS1616_PORT_X_uint32_t_AND_CTL_IGNORE_MC_CS;
 		   };
 
-		   rc = DARRegWrite( dev_info, CPS1616_PORT_X_STATUS_AND_CTL(pnum), regVal );
+		   rc = DARRegWrite( dev_info, CPS1616_PORT_X_uint32_t_AND_CTL(pnum), regVal );
 		   if ( RIO_SUCCESS != rc ) {
 			  out_parms->imp_rc = PC_SECURE_PORT(0x11);
 			  goto IDT_CPS_pc_secure_port_exit;

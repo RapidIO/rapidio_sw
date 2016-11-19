@@ -273,9 +273,8 @@ void check_unicast_routing( DAR_DEV_INFO_t     *dev_info,
                             idt_rt_probe_in_t  *in_parms, 
                             idt_rt_probe_out_t *out_parms ) 
 {
-    uint8_t idx;
-    pe_rt_val rte = 0;
-    pe_rt_val phys_rte;
+    uint8_t idx, rte = 0;
+    uint8_t phys_rte;
     bool  dflt_pt;
 
 	if (NULL == dev_info)

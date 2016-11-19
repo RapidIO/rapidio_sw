@@ -12,7 +12,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "riocp_pe.h"
+#include "inc/riocp_pe.h"
+#include "inc/riocp_pe_internal.h"
 
 #include "llist.h"
 

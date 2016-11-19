@@ -160,8 +160,8 @@ typedef enum idt_em_events_t_TAG {
 //
 // NOTE: The RIO_SPX_RATE_EN_IMP_SPEC_ERR cannot be enabled by this routine.
 //       Depending on the device, some events will not be enabled/counted.
-//       The RIO_SPX_ERR_RATE_ERR_RR, RIO_SPX_ERR_RATE_ERR_RB and 
-//          RIO_SPX_ERR_THRESH_ERR_RFT are packet into *info.
+//       The RIO_EMHS_SPX_RATE_RR, RIO_EMHS_SPX_RATE_RB and 
+//          RIO_EMHS_SPX_THRESH_FAIL are packet into *info.
 
 uint32_t idt_em_compute_f_err_rate_info( uint32_t spx_rate_en,
                                        uint32_t spx_err_rate,
@@ -298,9 +298,9 @@ typedef struct idt_em_parse_pw_out_t_TAG
     uint32_t           imp_rc;         // Implementation specific return code, useful for debug
     uint8_t            num_events;     // Number of entries in the arrays pointed to by
                                      //    *events which are valid.
-    bool             too_many;       // TRUE if there were more events present than could be
+    bool             too_many;       // true if there were more events present than could be
                                      //    returned 
-    bool             other_events;   // TRUE if other (debug?) events are indicaed by the port-write.
+    bool             other_events;   // true if other (debug?) events are indicaed by the port-write.
 } idt_em_parse_pw_out_t;
 
 typedef struct idt_em_get_int_stat_in_t_TAG
@@ -317,9 +317,9 @@ typedef struct idt_em_get_int_stat_out_t_TAG
     uint32_t           imp_rc;         // Implementation specific return code, useful for debug
     uint8_t            num_events;     // Number of entries in events[] which are valid.  
                                      //    Maximum value is IDT_MAX_PORTS * idt_em_last.
-    bool             too_many;       // TRUE if there were more events present than could be
+    bool             too_many;       // true if there were more events present than could be
                                      //    returned 
-    bool             other_events;   // TRUE if debug events are present in the port-write.
+    bool             other_events;   // true if debug events are present in the port-write.
 } idt_em_get_int_stat_out_t;
 
 typedef struct idt_em_get_pw_stat_in_t_TAG
@@ -343,9 +343,9 @@ typedef struct idt_em_get_pw_stat_out_t_TAG
     uint32_t           imp_rc;         // Implementation specific return code, useful for debug
     uint16_t           num_events;     // Number of entries in the arrays popwed to by
                                      //    *events which are valid.
-    bool             too_many;       // TRUE if there were more events present than could be
+    bool             too_many;       // true if there were more events present than could be
                                      //    returned 
-    bool             other_events;   // TRUE if debug events can/will trigger port-writes.  
+    bool             other_events;   // true if debug events can/will trigger port-writes.  
 } idt_em_get_pw_stat_out_t;
 
 // Note: It is possible to set num_events to 1, and the *event entry to {RIO_ALL_PORTS,idt_em_last}

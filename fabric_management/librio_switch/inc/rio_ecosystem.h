@@ -32,21 +32,41 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
-/* Initialization of regrw handle based on known devices and regsiters. 
+/* Definitions for the RapidIO ecosystem, including vendors/devices and 
+ * device port/lane limits.
  */
 
 #include <stdint.h>
 #include "rio_standard.h"
-#include "rio_ecosystem.h"
-#include "CPS1616.h"
-#include "CPS1848.h"
-#include "Tsi578.h"
-#include "Tsi721.h"
-#include "Tsi575_SRSF.h"
+
+#ifndef __RIO_ECOSYSTEM_H__
+#define __RIO_ECOSYSTEM_H__
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+typedef uint8_t rio_port_t;
+typedef uint8_t rio_lane_t;
+
+typedef uint16_t rio_dev16_t; /* Also supports dev8 */
+typedef uint32_t rio_dev32_t; /* Also supports dev8 & dev16 */
+
+typedef uint32_t rio_mc_mask_t; /* Biggest mask available */
+
+#define RIO_SW_PORT_INF_PORT_MAX ((RIO_SW_PORT_INFO_T)(24))
+#define RIO_SW_PORT_INF_LANE_MAX ((RIO_SW_PORT_INFO_T)(48))
+
+#define RIO_ALL_PORTS       ((rio_port_t)(0xFF))
+#define RIO_MAX_DEV_PORT    ((rio_port_t)(RIO_SW_PORT_INF_PORT_MAX))
+#define RIO_MAX_PORT_LANES  ((rio_lane_t)(4))
+#define RIO_MAX_DEV_LANES   ((rio_lane_t)(RIO_SW_PORT_INF_LANE_MAX))
+#define RIO_MAX_MC_MASKS    RIO_RT_GRP_SIZE
+
+/* RIO_DEV_IDENT : RIO_DEV_IDENT_VEND and RIO_DEV_IDENT_DEVI Values */
+
+#define RIO_VEND_RESERVED        0xffff
+#define RIO_DEVI_RESERVED        0xffff
 
 #define RIO_VEND_FREESCALE      0x0002
 #define RIO_VEND_TUNDRA         0x000d
@@ -57,8 +77,6 @@ extern "C" {
 #define RIO_DEVI_TSI576         0x0578 /* Same ID as Tsi578 */
 #define RIO_DEVI_TSI577         0x0577
 #define RIO_DEVI_TSI578         0x0578
-#define RIO_DEVI_TSI575         0x0575
-#define RIO_DEVI_TSI620         0x0620
 
 #define RIO_VEND_TI             0x0030
 
@@ -81,18 +99,18 @@ extern "C" {
 
 #define RIO_VEND_PRODRIVE       0x00a4
 
-struct regrw_vendor {
+struct riocp_pe_vendor {
         uint16_t vid;
         const char *vendor;
 };
 
-struct regrw_dev_id {
+struct riocp_pe_dev_id {
         uint16_t vid;
         uint16_t did;
         const char *name;
 };
 
-const struct regrw_vendor regrw_vendors[] = {
+static const struct riocp_pe_vendor riocp_pe_vendors[] = {
         {0x0000,                "Reserved"},
         {0x0001,                "Mercury Computer Systems"},
         {RIO_VEND_FREESCALE,     "Freescale"},
@@ -147,7 +165,7 @@ const struct regrw_vendor regrw_vendors[] = {
         {0xffff,                "Reserved"},
 };
 
-static const struct regrw_dev_id regrw_device_ids[] = {
+static const struct riocp_pe_dev_id riocp_pe_device_ids[] = {
         /* Prodrive */
         {0x0000, 0x5130, "QHA (domo capable)"},
         {0x0000, 0x5131, "QHA"},
@@ -183,7 +201,6 @@ static const struct regrw_dev_id regrw_device_ids[] = {
         {RIO_VEND_TUNDRA, RIO_DEVI_TSI577,        "Tsi577"},
         {RIO_VEND_TUNDRA, RIO_DEVI_TSI576,        "Tsi576"},
         {RIO_VEND_TUNDRA, RIO_DEVI_TSI578,        "Tsi578"},
-        {RIO_VEND_TUNDRA, RIO_DEVI_TSI620,        "Tsi620"},
 
         /* IDT */
         {RIO_VEND_IDT, RIO_DEVI_IDT_70K200,       "70K200"},
@@ -213,3 +230,6 @@ static const struct regrw_dev_id regrw_device_ids[] = {
 #ifdef __cplusplus
 }
 #endif
+
+#endif /* __RIO_ECOSYSTEM_H__ */
+

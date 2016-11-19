@@ -13,7 +13,8 @@
 #include <stdlib.h>
 #include <stdbool.h>
 
-#include "riocp_pe.h"
+#include "inc/riocp_pe.h"
+#include "inc/riocp_pe_internal.h"
 
 #include "maint.h"
 #include "driver.h"

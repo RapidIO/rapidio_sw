@@ -30,43 +30,38 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
-#include CPS1848.h
-#include CPS1616.h
-#include RXS2448.h
 
-#ifdef __cplusplus
-extern "C" {
+#ifndef __DAR_BASIC_DEFS_H__
+#define __DAR_BASIC_DEFS_H__
+
+/* Device Access Routine (DAR) Basic Definitions
+* 
+*  DAR_Basic_Defs.h is where basic types used by the DAR, 
+*  and by all common DAR structures, are defined.
+*/
+
+#define VOID void      
+#define PVOID void *  
+typedef unsigned int        STATUS;
+typedef unsigned int        UINT32;
+typedef unsigned short      UINT16;
+typedef unsigned char       UINT8;
+typedef unsigned int *      PUINT32;
+typedef unsigned short *    PUINT16;
+typedef unsigned char *     PUINT8;
+typedef int                 INT32;
+typedef short               INT16;
+typedef int *               PINT32;
+typedef short *             PINT16;
+typedef int                 BOOL;
+
+#ifndef TRUE
+
+#define TRUE  ((BOOL) 1)
+#define FALSE ((BOOL) 0)
+
 #endif
 
-int idt_fill_in_handle(regrw_i *h)
-{
-	int rc = 0;
+#endif /* __DAR_BASIC_DEFS_H__ */
 
-	switch(GET_DEV_IDENT(h)) {
-	case RIO_DEVI_IDT_CPS1848:
-	case RIO_DEVI_IDT_CPS1432:
-	case RIO_DEVI_IDT_CPS1616:
-	case RIO_DEVI_IDT_SPS1616:
-		rc = idt_cps_fill_in_handle(regrw_i *h);
-		break;
-
-	case RIO_DEVI_IDT_TSI721:
-		rc = idt_721_fill_in_handle(regrw_i *h);
-		break;
-
-	case RIO_DEVI_IDT_RXS2448:
-	case RIO_DEVI_IDT_RXS1632:
-		rc = idt_rxs_fill_in_handle(regrw_i *h);
-		break;
-	default: rc = -1;
-		errno = ENOSYS;
-		break;
-	};
-
-	return rc;
-};
-
-#ifdef __cplusplus
-}
-#endif
 

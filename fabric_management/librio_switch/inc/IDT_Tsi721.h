@@ -1287,7 +1287,7 @@ extern "C" {
 #define TSI721_RIO_LANEX_STAT1(X)                          (0x3014 + 0x020*(X))
 #define TSI721_RIO_PLM_BH                                          (0x00010000)
 #define TSI721_RIO_PLM_SP_IMP_SPEC_CTL                             (0x00010080)
-#define TSI721_RIO_PLM_SP_STATUS                                   (0x00010090)
+#define TSI721_RIO_PLM_SP_uint32_t                                   (0x00010090)
 #define TSI721_RIO_PLM_SP_INT_ENABLE                               (0x00010094)
 #define TSI721_RIO_PLM_SP_PW_ENABLE                                (0x00010098)
 #define TSI721_RIO_PLM_SP_EVENT_GEN                                (0x0001009c)
@@ -1388,7 +1388,6 @@ extern "C" {
 #define TSI721_RIO_ASSY_INF_ASSY_REV                            (0xffff0000)
 
 /* TSI721_RIO_PE_FEAT : Register Bits Masks Definitions */
-#define TSI721_PE_FEAT_VAL 0xC000003F
 #define TSI721_RIO_PE_FEAT_EXT_AS                                  (0x00000007)
 #define TSI721_RIO_PE_FEAT_EXT_FEA                                 (0x00000008)
 #define TSI721_RIO_PE_FEAT_CTLS                                    (0x00000010)
@@ -1405,7 +1404,6 @@ extern "C" {
 #define TSI721_RIO_PE_FEAT_BRDG                                    (0x80000000)
 
 /* TSI721_RIO_SRC_OP : Register Bits Masks Definitions */
-#define TSI721_SRC_OP_VAL 0x0000FC04
 #define TSI721_RIO_SRC_OP_IMPLEMENT_DEF2                           (0x00000003)
 #define TSI721_RIO_SRC_OP_PORT_WR                                  (0x00000004)
 #define TSI721_RIO_SRC_OP_A_SWAP                                   (0x00000008)
@@ -1438,7 +1436,6 @@ extern "C" {
 #define TSI721_RIO_SRC_OP_G_READ                                   (0x80000000)
 
 /* TSI721_RIO_DEST_OP : Register Bits Masks Definitions */
-#define TSI721_DST_OP_VAL 0x0000FC04
 #define TSI721_RIO_DEST_OP_IMPLEMENT_DEF2                          (0x00000003)
 #define TSI721_RIO_DEST_OP_PORT_WR                                 (0x00000004)
 #define TSI721_RIO_DEST_OP_A_SWAP                                  (0x00000008)
@@ -1681,7 +1678,6 @@ extern "C" {
 #define TSI721_RIO_LANEX_STAT0_TX_TYPE                             (0x00080000)
 #define TSI721_RIO_LANEX_STAT0_LANE_NUM                            (0x00f00000)
 #define TSI721_RIO_LANEX_STAT0_PORT_NUM                            (0xff000000)
-#define TSI721_LANE_REGS_VAL                                       (0x00000008)
 
 /* TSI721_RIO_LANEX_STAT1 : Register Bits Masks Definitions */
 #define TSI721_RIO_LANEX_STAT1_LP_SCRM                             (0x00008000)

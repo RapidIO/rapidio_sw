@@ -66,12 +66,12 @@ all: $(TARGETS)
 	$(AR) rcs $@ $^
 
 src/%.o: src/%.c $(HEADERS)
-	$(CXX) -c $(CFLAGS) $< -o $@
+	$(CC) -c $(CFLAGS) $< -o $@
 
 test: all $(TEST_TARGET) 
 
 $(TEST_TARGET) : $(TEST_OBJECTS)
-	$(CXX) $(TEST_OBJECTS) -o $(TEST_TARGET) -lcfg -lcli -llog -pthread \
+	$(CC) $(TEST_OBJECTS) -o $(TEST_TARGET) -lcfg -lcli -llog -pthread \
 	-L. -L../../common/libs_a
 
 clean:

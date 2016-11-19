@@ -55,8 +55,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "liblog.h"
 #include "pe_mpdrv_private.h"
-#include "riocp_pe.h"
-#include "ctdrv.h"
+#include "riocp_pe_internal.h"
+#include "comptag.h"
 #include "IDT_Statistics_Counter_API.h"
 #include "cfg.h"
 
@@ -308,52 +308,6 @@ int mpsw_destroy_priv_data(struct riocp_pe *pe)
 	return 0;
 };
 
-	
-int mpdrv_init_rt(uint32_t ct, DAR_DEV_INFO_t *dh)
-{
-	struct cfg_dev sw;
-	idt_rt_set_all_in_t set_in;
-	idt_rt_set_all_out_t set_out;
-	pe_port_t port;
-	int rc;
-
-	if (cfg_find_dev_by_ct(ct, &sw)) {
-		if (!sw.is_sw)
-			WARN("libriocp_pe libcfg conflict: is CT 0x%x"
-				" a switch?", ct); 
-	};
-
-	if (NULL != sw.sw_info.rt[CFG_DEV08]) {
-		set_in.set_on_port = RIO_ALL_PORTS;
-		set_in.rt = sw.sw_info.rt[CFG_DEV08];
-
-		rc = idt_rt_set_all(dh, &set_in, &set_out);
-		if (RIO_SUCCESS != rc) {
-			ERR("Error programming global rt on ct 0x%x rc %d\n",
-				sw.ct, rc);
-			goto fail;
-		};
-	}
-
-	for (port = 0; port < NUM_PORTS(dh); port++) {
-		if (NULL == sw.sw_info.sw_pt[port].rt[CFG_DEV08]) 
-			continue;
-
-		set_in.set_on_port = port;
-		set_in.rt = sw.sw_info.sw_pt[port].rt[CFG_DEV08];
-
-		rc = idt_rt_set_all(dh, &set_in, &set_out);
-		if (RIO_SUCCESS != rc) {
-			ERR("Error programming port %d rt on ct 0x%x rc %d\n",
-				port, ct, rc);
-			goto fail;
-		};
-	}
-	return 0;
-fail:
-	return 1;
-};
-
 int generic_device_init(struct riocp_pe *pe, uint32_t *ct)
 {
 	struct mpsw_drv_private_data *priv;
@@ -387,10 +341,7 @@ int generic_device_init(struct riocp_pe *pe, uint32_t *ct)
 		/* FIXME: Assumes comptag and destID is passed in, not
  		* administered by riocp_pe.
  		*/
-/** TODO: Fix linkage between component tag and destID.
- */
-#define FIXME(X) X
-		uint32_t did = FIXME(*ct);
+		uint32_t did = RIOCP_PE_COMPTAG_DESTID(*ct);
 		rc = riocp_pe_update_comptag(pe, ct, did, 1);
 		if (rc) {
 			ERR("Could not update comptag\n");
@@ -455,11 +406,6 @@ int generic_device_init(struct riocp_pe *pe, uint32_t *ct)
 
         if (SWITCH((&priv->dev_h))) {
                 pe_port_t port;
-
-		rc = mpdrv_init_rt(*ct, dev_h);
-		if (rc)
-			goto exit;
-
                 rt_in.probe_on_port = RIO_ALL_PORTS;
                 rt_in.rt            = &priv->st.g_rt;
                 rc = idt_rt_probe_all(dev_h, &rt_in, &rt_out);

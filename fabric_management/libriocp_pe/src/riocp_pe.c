@@ -21,12 +21,13 @@
 #include <fcntl.h>
 #include <dirent.h>
 
-#include "riocp_pe.h"
+#include "inc/riocp_pe.h"
+#include "inc/riocp_pe_internal.h"
 
 #include "llist.h"
 #include "maint.h"
 #include "handle.h"
-#include "ctdrv.h"
+#include "comptag.h"
 #include "rio_regs.h"
 #include "rio_devs.h"
 #include "driver.h"
@@ -454,7 +455,7 @@ found:
 	RIOCP_DEBUG("Working route on port %u to peer(d: %u (0x%08x), hc: %u, ct 0x%08x\n",
 		port, destid, destid, hopcount, comptag);
 
-	if (comptag == CTDRV_UNSET) {
+	if (comptag == RIOCP_PE_COMPTAG_UNSET) {
 		RIOCP_TRACE("PE found, comptag is not set\n");
 		return -ENODEV;
 	}
@@ -533,18 +534,6 @@ int RIOCP_SO_ATTR riocp_pe_probe(riocp_pe_handle pe,
 
 	RIOCP_TRACE("Probe on PE 0x%08x (hopcount %u, port %u)\n",
 		pe->comptag, hopcount, port);
-
-	if (pe->peers != NULL) {
-		if (NULL != pe->peers[port].peer) {
-			RIOCP_TRACE(
-				"Probe PE 0x%08x (hopcount %u, port %u)"
-				" Peer Exists! Comptag 0x%08x\n",
-				pe->comptag, hopcount, port,
-				pe->peers[port].peer->comptag);
-			*peer = NULL;
-			return 0;
-		};
-	};
 
 	/* Prepare probe (setup route, test if port is active on PE) */
 	ret = riocp_pe_probe_prepare(pe, port);
@@ -792,7 +781,7 @@ int RIOCP_SO_ATTR riocp_pe_verify(riocp_pe_handle pe)
 
 	if (riocp_pe_handle_check(pe))
 		return -EINVAL;
-	if (ct_read(pe, &comptag))
+	if (riocp_pe_comptag_read(pe, &comptag))
 		return -EIO;
 	if (pe->comptag != comptag)
 		return -EBADF;
@@ -810,7 +799,7 @@ int RIOCP_SO_ATTR riocp_pe_restore(riocp_pe_handle pe)
 {
 	if (riocp_pe_handle_check(pe))
 		return -EINVAL;
-	if (ct_write(pe, pe->comptag))
+	if (riocp_pe_comptag_write(pe, pe->comptag))
 		return -EIO;
 
 	RIOCP_TRACE("Handle %p restored dev_id: 0x%08x, ct 0x%08x\n", pe, pe->comptag);
@@ -1253,11 +1242,8 @@ int RIOCP_SO_ATTR riocp_pe_update_comptag(riocp_pe_handle pe,
 
 	RIOCP_TRACE("Updating PE handle %p CompTag %x *ct %x\n",
 		pe, pe->comptag, *comptag);
-/** TODO: must fix linkage between comptag and destID...
- */
-#define FIXME(x) x
-	new_ct = FIXME(did) |
-		(CTDRV_NR(CTDRV_GET_NR((*comptag))));
+	new_ct = RIOCP_PE_COMPTAG_DESTID(did) |
+		(RIOCP_PE_COMPTAG_NR(RIOCP_PE_COMPTAG_GET_NR((*comptag))));
 
 	RIOCP_TRACE("Changing ct %x to %x\n", pe->comptag, new_ct);
 	

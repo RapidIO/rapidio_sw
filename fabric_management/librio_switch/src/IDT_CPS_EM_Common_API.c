@@ -186,7 +186,7 @@ typedef struct idt_event_cfg_reg_values_t_TAG {
    uint32_t imp_err_rate   ; // CPS1848_PORT_X_IMPL_SPEC_ERR_RATE_EN(pnum)
    uint32_t retry_lim      ; // CPS1848_PORT_X_RETRY_CNTR(pnum)
    uint32_t lane_err_rate[IDT_MAX_LANES]; // CPS1848_LANE_X_ERR_RATE_EN(lnum)
-   uint32_t stat_n_ctl     ; // CPS1848_PORT_X_STATUS_AND_CTL(pnum)
+   uint32_t stat_n_ctl     ; // CPS1848_PORT_X_uint32_t_AND_CTL(pnum)
    bool   wr_dev_ctl_regs; // true if dev_ctl1, i2c_mast_ctl, aux_port capture 
                            //      should be written
    uint32_t dev_ctl1       ; // CPS1848_DEVICE_CTL_1
@@ -284,7 +284,7 @@ uint32_t get_event_cfg_reg_vals(  DAR_DEV_INFO_t             *dev_info,
       };
    };
   
-      rc = DARRegRead( dev_info, CPS1848_PORT_X_STATUS_AND_CTL(pnum), &vals->stat_n_ctl );
+      rc = DARRegRead( dev_info, CPS1848_PORT_X_uint32_t_AND_CTL(pnum), &vals->stat_n_ctl );
       if (RIO_SUCCESS != rc) {
          *fail_pt = EM_GET_EC_REGS(0x08);
          goto get_event_cfg_reg_vals_exit;
@@ -417,7 +417,7 @@ uint32_t set_event_cfg_reg_vals(  DAR_DEV_INFO_t             *dev_info,
      goto set_event_cfg_reg_vals_exit;
   };
 
-   rc = DARRegWrite( dev_info, CPS1848_PORT_X_STATUS_AND_CTL(pnum), vals->stat_n_ctl );
+   rc = DARRegWrite( dev_info, CPS1848_PORT_X_uint32_t_AND_CTL(pnum), vals->stat_n_ctl );
    if (RIO_SUCCESS != rc) {
       *fail_pt = EM_SET_EC_REGS(0x08);
       goto set_event_cfg_reg_vals_exit;
@@ -614,12 +614,12 @@ uint32_t IDT_CPS_set_event_en_cfg( DAR_DEV_INFO_t        *dev_info,
                *fail_pt = SET_EVENT_EN(0x32);
                goto idt_CPS_set_event_en_cfg_exit;
             };
-	    regs->stat_n_ctl |= CPS1848_PORT_X_STATUS_AND_CTL_RETRY_LIM_EN;
+	    regs->stat_n_ctl |= CPS1848_PORT_X_uint32_t_AND_CTL_RETRY_LIM_EN;
          } else {
 	    // Note: Writing 0 to retry_lim will cause a 2 MANY RETRIES event.
             regs->imp_err_rpt &= ~CPS1848_PORT_X_IMPL_SPEC_ERR_RPT_EN_MANY_RETRY_EN;
             regs->retry_lim   = 0xFFFF0000;
-	    regs->stat_n_ctl &= ~CPS1848_PORT_X_STATUS_AND_CTL_RETRY_LIM_EN;
+	    regs->stat_n_ctl &= ~CPS1848_PORT_X_uint32_t_AND_CTL_RETRY_LIM_EN;
          };
          break;
 
@@ -2603,13 +2603,13 @@ uint32_t IDT_CPS_em_clr_events   ( DAR_DEV_INFO_t           *dev_info,
 	       { uint32_t temp;
 	       regs[pnum].imp_err_det &= ~( CPS1848_PORT_X_IMPL_SPEC_ERR_DET_MANY_RETRY);
 
-               rc = DARRegRead( dev_info, CPS1848_PORT_X_STATUS_AND_CTL(pnum), &temp );
+               rc = DARRegRead( dev_info, CPS1848_PORT_X_uint32_t_AND_CTL(pnum), &temp );
                if (RIO_SUCCESS != rc) {
 		  out_parms->imp_rc = EM_CLR_EVENTS(0x21);
                   goto idt_CPS_em_clr_events_exit;
                }
-	       temp |= CPS1848_PORT_X_STATUS_AND_CTL_CLR_MANY_RETRY;
-               rc = DARRegWrite( dev_info, CPS1848_PORT_X_STATUS_AND_CTL(pnum), temp );
+	       temp |= CPS1848_PORT_X_uint32_t_AND_CTL_CLR_MANY_RETRY;
+               rc = DARRegWrite( dev_info, CPS1848_PORT_X_uint32_t_AND_CTL(pnum), temp );
                if (RIO_SUCCESS != rc) {
 		  out_parms->imp_rc = EM_CLR_EVENTS(0x22);
                   goto idt_CPS_em_clr_events_exit;

@@ -12,11 +12,13 @@
 #include <stdint.h>
 #include <string.h>
 
+#include "inc/riocp_pe_internal.h"
+
 #include "pe.h"
 
 #include "maint.h"
 #include "handle.h"
-#include "ctdrv.h"
+#include "comptag.h"
 #include "rio_regs.h"
 #include "rio_devs.h"
 #include "driver.h"
@@ -421,7 +423,7 @@ int riocp_pe_probe_verify_found(struct riocp_pe *pe, uint8_t port, struct riocp_
 		peer->hopcount, peer->comptag, port);
 
 	/* Reset the component tag for alternative route */
-	ret = riocp_drv_raw_reg_wr(pe, ANY_ID, hopcount_alt, RIO_COMPONENT_TAG_CSR, 0);
+	ret = riocp_drv_raw_reg_wr(pe->mport, ANY_ID, hopcount_alt, RIO_COMPONENT_TAG_CSR, 0);
 	if (ret) {
 		RIOCP_ERROR("Error reading comptag from d: %u, hc: %u\n", ANY_ID, hopcount_alt);
 		return -EIO;
@@ -429,14 +431,14 @@ int riocp_pe_probe_verify_found(struct riocp_pe *pe, uint8_t port, struct riocp_
 
 	/* read same comptag again to make sure write has been performed
 		(we read pe comptag from potentially (shorter) different path) */
-	ret = riocp_drv_raw_reg_rd(pe, ANY_ID, hopcount_alt, RIO_COMPONENT_TAG_CSR, &comptag_alt);
+	ret = riocp_drv_raw_reg_rd(pe->mport, ANY_ID, hopcount_alt, RIO_COMPONENT_TAG_CSR, &comptag_alt);
 	if (ret) {
 		RIOCP_ERROR("Error reading comptag from d: %u, hc: %u\n", ANY_ID, hopcount_alt);
 		return -EIO;
 	}
 
 	/* Read peer, this programs ANY_ID route to the device */
-	ret = ct_read(peer, &comptag_peer);
+	ret = riocp_pe_comptag_read(peer, &comptag_peer);
 	if (ret) {
 		RIOCP_ERROR("Error reading comptag from peer\n");
 		return -EIO;

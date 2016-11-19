@@ -12,17 +12,17 @@
 #include <stdlib.h>
 #include <stdint.h>
 
-#include "riocp_pe.h"
+#include "inc/riocp_pe_internal.h"
 
 #include "maint.h"
-#include "ctdrv.h"
+#include "comptag.h"
 #include "rio_regs.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#define RIOCP_PE_COMPTAG_POOL_REALLOC_SIZE 256 /**< Amount of elements to grow the pool */
+#define RIOCP_PE_COMPTAG_POOL_REALLOC_SIZE 32 /**< Amount of elements to grow the pool */
 
 /**
  * Grow the size of component tag pool with amount of elements
@@ -210,7 +210,7 @@ int riocp_pe_comptag_write(struct riocp_pe *pe, uint32_t comptag)
 	if (ret < 0)
 		return ret;
 
-	return  riocp_pe_comptag_set_slot(pe, CTDRV_GET_NR(comptag));
+	return 0;
 }
 
 /**
@@ -240,11 +240,8 @@ int riocp_pe_comptag_init(struct riocp_pe *pe)
 		}
 	}
 
-/** TODO: fix linkage between comptag and destid
- */
-#define FIXME(x) x
-	comptag = FIXME(pe->mport->destid);
-	comptag |= CTDRV_GET_NR(_comptag_nr);
+	comptag = RIOCP_PE_COMPTAG_DESTID(pe->mport->destid);
+	comptag |= RIOCP_PE_COMPTAG_NR(_comptag_nr);
 
 	ret = riocp_pe_comptag_write(pe, comptag);
 	if (ret) {

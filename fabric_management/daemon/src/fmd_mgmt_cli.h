@@ -56,7 +56,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <pthread.h>
 #include "IDT_Routing_Table_Config_API.h"
 #include "IDT_Port_Config_API.h"
-#include "riocp_pe.h"
+#include "riocp_pe_internal.h"
 #include "fmd_dd.h"
 
 #ifndef _FMD_MGMT_CLI_H_

@@ -19,10 +19,11 @@
 
 #include <rapidio_mport_mgmt.h>
 
-#include "riocp_pe.h"
+#include "inc/riocp_pe.h"
+#include "inc/riocp_pe_internal.h"
 
 #include "handle.h"
-#include "ctdrv.h"
+#include "comptag.h"
 #include "llist.h"
 #include "pe.h"
 #include "rio_regs.h"
@@ -364,7 +365,7 @@ int riocp_pe_handle_create_pe(struct riocp_pe *pe, struct riocp_pe **handle, uin
 		goto err;
 	}
 
-	ret = ct_read(h, &h->comptag);
+	ret = riocp_pe_comptag_read(h, &h->comptag);
 	if (ret) {
 		RIOCP_ERROR("Could not read comptag\n");
 		ret = -EIO;
@@ -373,7 +374,7 @@ int riocp_pe_handle_create_pe(struct riocp_pe *pe, struct riocp_pe **handle, uin
 
 	/* Decide if the host needs to initialize comptag/destid the PE based
 		on comptag unique number */
-	comptag_nr = CTDRV_GET_NR(h->comptag);
+	comptag_nr = RIOCP_PE_COMPTAG_GET_NR(h->comptag);
 
 	RIOCP_DEBUG("h->comptag: 0x%08x (comptag_nr: %u, 0x%08x)\n", h->comptag,
 		comptag_nr, comptag_nr);
@@ -383,7 +384,7 @@ int riocp_pe_handle_create_pe(struct riocp_pe *pe, struct riocp_pe **handle, uin
 
 		RIOCP_DEBUG("Initializing empty comptag/reset destid for h 0x%08x\n", h->comptag);
 
-		ret = ct_init(h);
+		ret = riocp_pe_comptag_init(h);
 		if (ret) {
 			RIOCP_ERROR("Could not initialize component tag\n");
 			goto err;
@@ -399,7 +400,7 @@ int riocp_pe_handle_create_pe(struct riocp_pe *pe, struct riocp_pe **handle, uin
 		}
 	} else {
 		/* Add h to comptag_pool at comptag_nr */
-		ret = ct_set_slot(h, comptag_nr);
+		ret = riocp_pe_comptag_set_slot(h, comptag_nr);
 		if (ret) {
 			RIOCP_ERROR("Error adding handle at comptag pool slot %u\n",
 				comptag_nr);
@@ -527,7 +528,7 @@ int riocp_pe_handle_create_mport(uint8_t mport, bool is_host,
 	}
 #endif
 
-	ret = ct_read(h, &h->comptag);
+	ret = riocp_pe_comptag_read(h, &h->comptag);
 	if (ret) {
 		RIOCP_ERROR("Could not read comptag\n");
 		ret = -EIO;
@@ -612,7 +613,7 @@ int riocp_pe_handle_pe_exists(struct riocp_pe *mport, uint32_t comptag,
 	RIOCP_TRACE("Check of PE with comptag 0x%08x exists\n", comptag);
 
 	/* Bail out directly when comptag is zero */
-	if (comptag == CTDRV_UNSET)
+	if (comptag == RIOCP_PE_COMPTAG_UNSET)
 		goto notfound;
 
 	/* Loop trough all mport handles */
@@ -627,7 +628,7 @@ int riocp_pe_handle_pe_exists(struct riocp_pe *mport, uint32_t comptag,
 		item = item->next;
 	}
 
-	ret = ct_get_slot(mport, CTDRV_GET_NR(comptag), &ptr);
+	ret = riocp_pe_comptag_get_slot(mport, RIOCP_PE_COMPTAG_GET_NR(comptag), &ptr);
 	if (ret)
 		goto notfound;
 

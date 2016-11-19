@@ -11,7 +11,7 @@
 #define RIOCP_PE_MAINT_H__
 
 #include <sys/types.h>
-#include "riocp_pe.h"
+#include "inc/riocp_pe.h"
 
 #ifdef __cplusplus
 extern "C" {
