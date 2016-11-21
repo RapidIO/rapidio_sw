@@ -94,7 +94,7 @@ struct int_mport_info {
 #define CFG_DFLT_MAST_DEVID 1
 #define CFG_DFLT_MAST_INTERVAL 5
 #define CFG_INVALID_CT 0
-#define CFG_MAX_EP 4
+#define CFG_MAX_EP 70
 #define CFG_MAX_EP_PORT 1
 #define CFG_MAX_SW 20
 #define CFG_MAX_CONN_PORT 24
