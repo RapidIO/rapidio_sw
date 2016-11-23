@@ -223,12 +223,10 @@ int main(int argc, char** argv)
 	int err;
 	int rc = EXIT_SUCCESS;
 
-	/** - Parse command line options, if any */
-	while (1) {
-		option = getopt_long_only(argc, argv,
-				"dhnm:M:L:H:", options, NULL);
-		if (option == -1)
-			break;
+	/** Parse command line options, if any */
+	while (-1 != (option = getopt_long_only(argc, argv,
+			"dhnm:M:L:H:", options, NULL))) {
+
 		switch (option) {
 		case 'm':
 			pw_mask = (uint32_t)strtoul(optarg, NULL, 0);

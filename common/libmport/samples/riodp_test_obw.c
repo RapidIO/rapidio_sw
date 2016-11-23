@@ -576,13 +576,11 @@ int main(int argc, char** argv)
 	struct riomp_mgmt_mport_properties prop;
 	int rc = EXIT_SUCCESS;
 
-	while (1) {
-		option = getopt_long_only(argc, argv,
-				"rvwdhika:A:D:I:O:M:R:S:T:B:L:", options, NULL);
-		if (option == -1)
-			break;
+	/** Parse command line options, if any */
+	while (-1 != (option = getopt_long_only(argc, argv,
+			"rvwdhika:A:D:I:O:M:R:S:T:B:L:", options, NULL))) {
+
 		switch (option) {
-			/* Data Transfer Mode options*/
 		case 'A':
 			tgt_addr = (uint64_t)strtoull(optarg, NULL, 0);
 			break;
