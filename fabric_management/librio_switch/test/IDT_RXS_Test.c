@@ -59,7 +59,7 @@ typedef struct mock_dar_reg_t_TAG
 } mock_dar_reg_t;
 
 #define NUM_DAR_REG ((((RXS2448_MAX_PORTS)*(RXS_NUM_PERF_CTRS))*2)+ \
-                     (RXS2448_MAX_PORTS*3)+6+ \
+                     (RXS2448_MAX_PORTS*4)+5+ \
                      ((RXS2448_MAX_PORTS)*IDT_DAR_RT_DEV_TABLE_SIZE)+ \
                      (RXS_MAX_L2_GROUP*IDT_DAR_RT_DEV_TABLE_SIZE)+ \
                      (RXS_MAX_L1_GROUP*IDT_DAR_RT_DEV_TABLE_SIZE)+ \
@@ -158,7 +158,7 @@ static void init_mock_rxs_reg(void)
             }
         }
 
-        // Initialize RXS_RIO_SPX_PCNTR_CTL, RXS_RIO_SPX_CTL, and RXS_RIO_SPX_ERR_STAT
+        // Initialize RXS_RIO_SPX_PCNTR_CTL, RXS_RIO_SPX_CTL, RXS_RIO_SPX_CTL2, and RXS_RIO_SPX_ERR_STAT
         for (port = 0; port < RXS2448_MAX_PORTS; port++)
         {
             mock_dar_reg[idx].offset = RXS_RIO_SPX_PCNTR_EN(port);
@@ -168,6 +168,9 @@ static void init_mock_rxs_reg(void)
             mock_dar_reg[idx].data = 0x00;
             idx++;
             mock_dar_reg[idx].offset = RXS_RIO_SPX_ERR_STAT(port);
+            mock_dar_reg[idx].data = 0x00;
+            idx++;
+            mock_dar_reg[idx].offset = RXS_RIO_SPX_CTL2(port);
             mock_dar_reg[idx].data = 0x00;
             idx++;
         }
@@ -194,11 +197,6 @@ static void init_mock_rxs_reg(void)
 
         // Initialize RXS_RIO_SR_RSP_TO
         mock_dar_reg[idx].offset = RXS_RIO_SR_RSP_TO;
-        mock_dar_reg[idx].data = 0x00;
-        idx++;
-
-        // Initialize RXS_RIO_SP0_CTL2
-        mock_dar_reg[idx].offset = RXS_RIO_SP0_CTL2;
         mock_dar_reg[idx].data = 0x00;
         idx++;
 

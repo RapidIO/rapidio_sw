@@ -881,7 +881,7 @@ uint32_t idt_rxs_pc_get_config( DAR_DEV_INFO_t           *dev_info,
 		};
 
 		// Determine configured port speed...
-		rc = DARRegRead(dev_info, RXS_RIO_SP0_CTL2, &spxCtl2);
+		rc = DARRegRead(dev_info, RXS_RIO_SPX_CTL2(port_idx), &spxCtl2);
 		if (RIO_SUCCESS != rc) {
 			out_parms->imp_rc = PC_GET_CONFIG(0x11);
 			goto idt_rxs_pc_get_config_exit;
