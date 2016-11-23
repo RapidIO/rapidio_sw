@@ -849,18 +849,18 @@ uint32_t idt_rxs_pc_get_config( DAR_DEV_INFO_t           *dev_info,
 		};
 
 		// Check that RapidIO transmitter is enabled...
-		rc = DARRegRead(dev_info, RXS_RIO_SP0_CTL(port_idx), &spxCtl);
+		rc = DARRegRead(dev_info, RXS_RIO_SPX_CTL(port_idx), &spxCtl);
 		if (RIO_SUCCESS != rc) {
 			out_parms->imp_rc = PC_GET_CONFIG(8);
 			goto idt_rxs_pc_get_config_exit;
 		};
 
 		out_parms->pc[port_idx].xmitter_disable =
-			(spxCtl & RXS_RIO_SP0_CTL_PORT_DIS) ? true : false;
+			(spxCtl & RXS_RIO_SPX_CTL_PORT_DIS) ? true : false;
 
 		// OK, port is enabled so it can train.
 		// Check for port width overrides...
-		rc = DARRegRead(dev_info, RXS_RIO_SP0_CTL(port_idx), &spxCtl);
+		rc = DARRegRead(dev_info, RXS_RIO_SPX_CTL(port_idx), &spxCtl);
 		if (RIO_SUCCESS != rc)
 		{
 			out_parms->imp_rc = PC_GET_CONFIG(0x10);
@@ -909,11 +909,11 @@ uint32_t idt_rxs_pc_get_config( DAR_DEV_INFO_t           *dev_info,
 		};
 
 		out_parms->pc[port_idx].port_lockout =
-			(spxCtl & RXS_RIO_SP0_CTL_PORT_LOCKOUT) ? true : false;
+			(spxCtl & RXS_RIO_SPX_CTL_PORT_LOCKOUT) ? true : false;
 
 		out_parms->pc[port_idx].nmtc_xfer_enable =
-			((spxCtl & (RXS_RIO_SP0_CTL_INP_EN | RXS_RIO_SP0_CTL_OTP_EN))
-				== (RXS_RIO_SP0_CTL_INP_EN | RXS_RIO_SP0_CTL_OTP_EN));
+			((spxCtl & (RXS_RIO_SPX_CTL_INP_EN | RXS_RIO_SPX_CTL_OTP_EN))
+				== (RXS_RIO_SPX_CTL_INP_EN | RXS_RIO_SPX_CTL_OTP_EN));
 
 		// Check for lane swapping & inversion
 		// LANE SWAPPING AND INVERSION NOT SUPPORTED
@@ -966,36 +966,36 @@ uint32_t idt_rxs_pc_get_status( DAR_DEV_INFO_t           *dev_info,
 		out_parms->ps[port_idx].output_stopped = false;
 
 		// Port is available and powered up, so let's figure out the status...
-		rc = DARRegRead(dev_info, RXS_RIO_SP0_ERR_STAT, &errStat);
+		rc = DARRegRead(dev_info, RXS_RIO_SPX_ERR_STAT(port_idx), &errStat);
 		if (RIO_SUCCESS != rc) {
 			out_parms->imp_rc = PC_GET_uint32_t(0x30 + port_idx);
 			goto idt_rxs_pc_get_status_exit;
 		};
 
-		rc = DARRegRead(dev_info, RXS_RIO_SP0_CTL(port_idx), &spxCtl);
+		rc = DARRegRead(dev_info, RXS_RIO_SPX_CTL(port_idx), &spxCtl);
 		if (RIO_SUCCESS != rc) {
 			out_parms->imp_rc = PC_GET_uint32_t(0x40 + port_idx);
 			goto idt_rxs_pc_get_status_exit;
 		};
 
 		out_parms->ps[port_idx].port_ok =
-			(errStat & RXS_RIO_SP0_ERR_STAT_PORT_OK) ? true : false;
+			(errStat & RXS_RIO_SPX_ERR_STAT_PORT_OK) ? true : false;
 		out_parms->ps[port_idx].input_stopped =
-			(errStat & RXS_RIO_SP0_ERR_STAT_INPUT_ERR_STOP) ? true : false;
+			(errStat & RXS_RIO_SPX_ERR_STAT_INPUT_ERR_STOP) ? true : false;
 		out_parms->ps[port_idx].output_stopped =
-			(errStat & RXS_RIO_SP0_ERR_STAT_OUTPUT_ERR_STOP) ? true : false;
+			(errStat & RXS_RIO_SPX_ERR_STAT_OUTPUT_ERR_STOP) ? true : false;
 
 		// Port Error is true if a PORT_ERR is present, OR
 		// if a OUTPUT_FAIL is present when STOP_FAIL_EN is set.
 		out_parms->ps[port_idx].port_error =
-			((errStat & RXS_RIO_SP0_ERR_STAT_PORT_ERR) ||
-				((spxCtl  & RXS_RIO_SP0_CTL_STOP_FAIL_EN) &&
-					(errStat & RXS_RIO_SP0_ERR_STAT_OUTPUT_FAIL)));
+			((errStat & RXS_RIO_SPX_ERR_STAT_PORT_ERR) ||
+				((spxCtl  & RXS_RIO_SPX_CTL_STOP_FAIL_EN) &&
+					(errStat & RXS_RIO_SPX_ERR_STAT_OUTPUT_FAIL)));
 
 		// Baudrate and portwidth status are only defined when
 		// PORT_OK is asserted... 
 		if (out_parms->ps[port_idx].port_ok) {
-			switch (spxCtl & RXS_RIO_SP0_CTL_INIT_PWIDTH) {
+			switch (spxCtl & RXS_RIO_SPX_CTL_INIT_PWIDTH) {
 			case RIO_SPX_CTL_PTW_INIT_1x_L0: out_parms->ps[port_idx].pw = idt_pc_pw_1x_l0;
 				break;
 			case RIO_SPX_CTL_PTW_INIT_1x_LR: out_parms->ps[port_idx].pw = idt_pc_pw_1x_l2;
@@ -1073,7 +1073,7 @@ uint32_t idt_rxs_check_port_for_discard( DAR_DEV_INFO_t     *dev_info,
                    out_parms->reason_for_discard = (dflt_rt)?idt_rt_disc_dflt_pt_lkout_or_dis:
 			                                 idt_rt_disc_port_lkout_or_dis;
 		} else {
-                   rc = DARRegRead( dev_info, RXS_RIO_SP0_CTL(port), &ctlData );
+                   rc = DARRegRead( dev_info, RXS_RIO_SPX_CTL(port), &ctlData );
                    if (RIO_SUCCESS != rc) {
                       out_parms->reason_for_discard = idt_rt_disc_probe_abort;
                       out_parms->imp_rc = RT_PROBE(4);
