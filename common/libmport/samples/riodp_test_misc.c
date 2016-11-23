@@ -152,13 +152,11 @@ int main(int argc, char** argv)
 	uint32_t data = 0;
 	int rc = EXIT_SUCCESS;
 
-	/** - Parse command line options, if any */
-	while (1) {
-		option = getopt_long_only(argc, argv,
-				"wdhqH:D:O:M:S:V:", options, NULL);
+	/** Parse command line options, if any */
+	while (-1 != (option = getopt_long_only(argc, argv,
+			"wdhqH:D:O:M:S:V:", options, NULL))) {
+
 		switch (option) {
-		case -1 :
-			break;
 		case 'D':
 			tgt_destid = (uint32_t)strtoul(optarg, NULL, 0);
 			tgt_remote = 1;

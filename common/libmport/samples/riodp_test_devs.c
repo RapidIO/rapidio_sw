@@ -182,14 +182,11 @@ int main(int argc, char** argv)
 	int rc = EXIT_SUCCESS;
 	int err;
 
-	/** - Parse command line options */
-	while (1) {
-		option = getopt_long_only(argc, argv,
-				"dhcM:D:H:T:N:", options, NULL);
+	/** Parse command line options, if any */
+	while (-1 != (option = getopt_long_only(argc, argv,
+			"dhcM:D:H:T:N:", options, NULL))) {
+
 		switch (option) {
-		case -1 :
-			break;
-			/* Data Transfer Mode options*/
 		case 'M':
 			mport_id = (uint32_t)strtoul(optarg, NULL, 0);
 			break;
