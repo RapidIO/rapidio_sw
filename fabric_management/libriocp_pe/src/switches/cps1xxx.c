@@ -3360,6 +3360,15 @@ skip_port_errors:
 				return -EIO;
 			}
 			if (!(err_status & CPS1xxx_ERR_STATUS_PORT_OK)) {
+				/*
+				 * Use case: Delayed handler calls due to port write burst.
+				 * If there was a link down/up sequence before this handler
+				 * has been called the port init bit needs to be kept to be handled
+				 * by the link up port write that will follow the event currently
+				 * handled.
+				 */
+				if(impl_err_det & CPS1xxx_IMPL_SPEC_ERR_DET_PORT_INIT)
+					impl_err_det &= ~CPS1xxx_IMPL_SPEC_ERR_DET_PORT_INIT;
 				RIOCP_DEBUG("switch 0x%04x (0x%08x) port %d link down detected\n", sw->destid, sw->comptag, port);
 				cps1xxx_lock_port(sw, port);
 				event->event |= RIOCP_PE_EVENT_LINK_DOWN;
