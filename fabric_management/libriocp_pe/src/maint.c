@@ -33,6 +33,31 @@
 extern "C" {
 #endif
 
+/*
+ * Only lock the path to the PE when the destination ID is the any ID. The
+ * purpose for the lock is when there are multiple instances that could
+ * overwrite the any ID route.
+ *
+ * It is safe to enable this when there is only one active instance which uses
+ * any ID routing in the system.
+ */
+#define CONFIG_MAINT_LOCK_ANYID_ONLY 1
+
+/*
+ * do not lock the path to a PE for maintenance access.
+ *
+ * It is safe to enable this when there is only one active instance which uses
+ * any ID routing in the system.
+ */
+#define CONFIG_MAINT_NO_LOCK_PATH 1
+
+/*
+ * Avoid cleanup of the any ID route cache.
+ *
+ * It is safe to enable that when CONFIG_MAINT_NO_LOCK_PATH is disabled.
+ */
+#define CONFIG_MAINT_NO_CACHE_CLEANUP 1
+
 /**
  * Program the ANY_ID route from hopcount 0 to pe->hopcount in the global switch LUT
  *  it will program according to route in variable pe->address.
@@ -60,6 +85,7 @@ int riocp_pe_maint_set_anyid_route(struct riocp_pe *pe)
 
 	/* Write ANY_ID route until pe */
 	for (i = 0; i < pe->hopcount; i++) {
+#ifndef CONFIG_MAINT_NO_LOCK_PATH
 		ret = riocp_pe_lock_set(pe->mport, any_id, i);
 		if (ret) {
 			RIOCP_TRACE("Could not set lock at hopcount %u\n",
@@ -67,7 +93,7 @@ int riocp_pe_maint_set_anyid_route(struct riocp_pe *pe)
 			i--;
 			goto err;
 		}
-
+#endif
 		/* Program forward route from host */
 		ret = riocp_pe_maint_write_remote(pe->mport, any_id, i,
 			RIO_STD_RTE_CONF_DESTID_SEL_CSR, any_id);
@@ -96,6 +122,7 @@ int riocp_pe_maint_set_anyid_route(struct riocp_pe *pe)
 	return ret;
 
 err:
+#ifndef CONFIG_MAINT_NO_LOCK_PATH
 	/* Write ANY_ID route until pe */
 	for (; i >= 0; i--) {
 		int rc = -1;
@@ -105,7 +132,7 @@ err:
 			RIOCP_TRACE("Could not clear lock at hopcount %u - %d\n",
 				i, rc);
 	}
-
+#endif
 	pe->mport->minfo->any_id_target = NULL;
 	RIOCP_TRACE("Error in programming ANY_ID route\n");
 	return ret;
@@ -120,7 +147,9 @@ err:
  */
 int riocp_pe_maint_unset_anyid_route(struct riocp_pe *pe)
 {
+#ifndef CONFIG_MAINT_NO_LOCK_PATH
 	int32_t i;
+#endif
 	int ret = 0;
 
 	if (!RIOCP_PE_IS_HOST(pe))
@@ -129,7 +158,7 @@ int riocp_pe_maint_unset_anyid_route(struct riocp_pe *pe)
 	/* If the ANY_ID is already programmed for this pe, skip it */
 	if (pe->mport->minfo->any_id_target == NULL)
 		return 0;
-
+#ifndef CONFIG_MAINT_NO_LOCK_PATH
 	RIOCP_TRACE("Unset ANY_ID route locks to PE 0x%08x\n", pe->comptag);
 
 	/* Write ANY_ID route until pe */
@@ -143,17 +172,20 @@ int riocp_pe_maint_unset_anyid_route(struct riocp_pe *pe)
 			goto err;
 		}
 	}
-
+#endif
+#ifndef CONFIG_MAINT_NO_CACHE_CLEANUP
 	pe->mport->minfo->any_id_target = NULL;
+#endif
 
 	RIOCP_TRACE("Unset ANY_ID route to PE 0x%08x successfull\n", pe->comptag);
 
 	return ret;
-
+#ifndef CONFIG_MAINT_NO_LOCK_PATH
 err:
 	pe->mport->minfo->any_id_target = NULL;
 	RIOCP_TRACE("Error in unset ANY_ID route\n");
 	return ret;
+#endif
 }
 
 /**
@@ -184,12 +216,18 @@ int RIOCP_SO_ATTR riocp_pe_maint_read(struct riocp_pe *pe, uint32_t offset, uint
 		if (ret)
 			return -EIO;
 	} else {
-		/* Program and lock ANY_ID route */
-		ret = riocp_pe_maint_set_anyid_route(pe);
-		if (ret) {
-			RIOCP_ERROR("Could not program ANY_ID to pe: %s\n", strerror(-ret));
-			return -EIO;
-		}
+#ifdef CONFIG_MAINT_LOCK_ANYID_ONLY
+	    if(destid == RIOCP_PE_ANY_ID(pe)) {
+#endif
+        /* Program and lock ANY_ID route */
+        ret = riocp_pe_maint_set_anyid_route(pe);
+        if (ret) {
+            RIOCP_ERROR("Could not program ANY_ID to pe: %s\n", strerror(-ret));
+            return -EIO;
+        }
+#ifdef CONFIG_MAINT_LOCK_ANYID_ONLY
+	    }
+#endif
 
 		ret = riomp_mgmt_rcfg_read(pe->mport->minfo->maint, destid, pe->hopcount, offset,
 				     sizeof(*val), val);
@@ -202,12 +240,18 @@ int RIOCP_SO_ATTR riocp_pe_maint_read(struct riocp_pe *pe, uint32_t offset, uint
 		RIOCP_TRACE("Read remote ok, h: %u, d: %u (0x%08x), o: 0x%08x, v: 0x%08x\n",
 			pe->hopcount, destid, destid, offset, *val);
 
-		/* Unlock ANY_ID route */
-		ret = riocp_pe_maint_unset_anyid_route(pe);
-		if (ret) {
-			RIOCP_ERROR("Could unset ANY_ID route to pe: %s\n", strerror(-ret));
-			return -EIO;
-		}
+#ifdef CONFIG_MAINT_LOCK_ANYID_ONLY
+        if(destid == RIOCP_PE_ANY_ID(pe)) {
+#endif
+        /* Unlock ANY_ID route */
+        ret = riocp_pe_maint_unset_anyid_route(pe);
+        if (ret) {
+            RIOCP_ERROR("Could unset ANY_ID route to pe: %s\n", strerror(-ret));
+            return -EIO;
+        }
+#ifdef CONFIG_MAINT_LOCK_ANYID_ONLY
+        }
+#endif
 	}
 
 	return ret;
@@ -241,12 +285,18 @@ int RIOCP_SO_ATTR riocp_pe_maint_write(struct riocp_pe *pe, uint32_t offset, uin
 		if (ret)
 			return -EIO;
 	} else {
+#ifdef CONFIG_MAINT_LOCK_ANYID_ONLY
+        if(destid == RIOCP_PE_ANY_ID(pe)) {
+#endif
 		/* Program and lock ANY_ID route */
 		ret = riocp_pe_maint_set_anyid_route(pe);
 		if (ret) {
 			RIOCP_ERROR("Could not program ANY_ID to pe: %s\n", strerror(-ret));
 			return -EIO;
 		}
+#ifdef CONFIG_MAINT_LOCK_ANYID_ONLY
+        }
+#endif
 
 		RIOCP_TRACE("Write h: %u, d: %u (0x%08x), o: 0x%08x, v: 0x%08x\n",
 			pe->hopcount, destid, destid, offset, val);
@@ -257,12 +307,18 @@ int RIOCP_SO_ATTR riocp_pe_maint_write(struct riocp_pe *pe, uint32_t offset, uin
 			return -EIO;
 		}
 
+#ifdef CONFIG_MAINT_LOCK_ANYID_ONLY
+        if(destid == RIOCP_PE_ANY_ID(pe)) {
+#endif
 		/* Unlock ANY_ID route */
 		ret = riocp_pe_maint_unset_anyid_route(pe);
 		if (ret) {
 			RIOCP_ERROR("Could unset ANY_ID route to pe: %s\n", strerror(-ret));
 			return -EIO;
 		}
+#ifdef CONFIG_MAINT_LOCK_ANYID_ONLY
+        }
+#endif
 	}
 
 	return ret;
