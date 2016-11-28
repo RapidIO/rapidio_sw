@@ -23,11 +23,10 @@
 #include "inc/riocp_pe.h"
 #include "inc/riocp_pe_internal.h"
 
+#include "rio_standard.h"
 #include "lock.h"
 #include "maint.h"
-// #include "switch.h"
 #include "handle.h"
-#include "rio_regs.h"
 #include "driver.h"
 
 #ifdef __cplusplus

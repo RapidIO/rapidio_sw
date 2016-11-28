@@ -12,6 +12,8 @@
 #include <stdint.h>
 #include <string.h>
 
+#include "rio_ecosystem.h"
+#include "rio_standard.h"
 #include "did.h"
 #include "ct.h"
 #include "pe.h"
@@ -19,8 +21,6 @@
 #include "maint.h"
 #include "handle.h"
 #include "comptag.h"
-#include "rio_regs.h"
-#include "rio_devs.h"
 #include "driver.h"
 
 #ifdef __cplusplus
@@ -40,39 +40,39 @@ int riocp_pe_read_capabilities(struct riocp_pe *pe)
 
 	RIOCP_TRACE("Read capabilities\n");
 
-	ret = riocp_pe_maint_read(pe, RIO_DEV_ID_CAR, &pe->cap.dev_id);
+	ret = riocp_pe_maint_read(pe, RIO_DEV_IDENT, &pe->cap.dev_id);
 	if (ret)
 		return ret;
 
-	ret = riocp_pe_maint_read(pe, RIO_DEV_INFO_CAR, &pe->cap.dev_info);
+	ret = riocp_pe_maint_read(pe, RIO_DEV_INF, &pe->cap.dev_info);
 	if (ret)
 		return ret;
 
-	ret = riocp_pe_maint_read(pe, RIO_ASM_ID_CAR, &pe->cap.asbly_id);
+	ret = riocp_pe_maint_read(pe, RIO_ASSY_ID, &pe->cap.asbly_id);
 	if (ret)
 		return ret;
 
-	ret = riocp_pe_maint_read(pe, RIO_ASM_INFO_CAR, &pe->cap.asbly_info);
+	ret = riocp_pe_maint_read(pe, RIO_ASSY_INF, &pe->cap.asbly_info);
 	if (ret)
 		return ret;
 
-	ret = riocp_pe_maint_read(pe, RIO_PEF_CAR, &pe->cap.pe_feat);
+	ret = riocp_pe_maint_read(pe, RIO_PE_FEAT, &pe->cap.pe_feat);
 	if (ret)
 		return ret;
 
-	ret = riocp_pe_maint_read(pe, RIO_SWP_INFO_CAR, &pe->cap.sw_port);
+	ret = riocp_pe_maint_read(pe, RIO_SW_PORT_INF, &pe->cap.sw_port);
 	if (ret)
 		return ret;
 
-	ret = riocp_pe_maint_read(pe, RIO_SRC_OPS_CAR, &pe->cap.src_op);
+	ret = riocp_pe_maint_read(pe, RIO_SRC_OPS, &pe->cap.src_op);
 	if (ret)
 		return ret;
 
-	ret = riocp_pe_maint_read(pe, RIO_DST_OPS_CAR, &pe->cap.dst_op);
+	ret = riocp_pe_maint_read(pe, RIO_DST_OPS, &pe->cap.dst_op);
 	if (ret)
 		return ret;
 
-	ret = riocp_pe_maint_read(pe, RIO_SWITCH_RT_LIMIT, &pe->cap.lut_size);
+	ret = riocp_pe_maint_read(pe, RIO_SW_RT_TBL_LIM, &pe->cap.lut_size);
 	if (ret)
 		return ret;
 
@@ -94,15 +94,15 @@ static int RIOCP_WU riocp_pe_get_efb(struct riocp_pe *pe, uint32_t from, uint32_
 	uint32_t val;
 
 	if (from == 0) {
-		ret = riocp_pe_maint_read(pe, RIO_ASM_INFO_CAR, &val);
+		ret = riocp_pe_maint_read(pe, RIO_ASSY_INF, &val);
 		if (ret)
 			return ret;
-		val = val & RIO_EXT_FTR_PTR_MASK;
+		val = val & RIO_ASSY_INF_EFB_PTR;
 	} else {
 		ret = riocp_pe_maint_read(pe, from, &val);
 		if (ret)
 			return ret;
-		val = RIO_GET_BLOCK_ID(val);
+		val = RIO_EFB_ID(val);
 	}
 
 	*value = val;
@@ -130,7 +130,7 @@ static int riocp_pe_get_efptr_phys(struct riocp_pe *pe, uint32_t *efptr)
 		if (ret)
 			return ret;
 
-		_efptr_hdr = RIO_GET_BLOCK_ID(_efptr_hdr);
+		_efptr_hdr = RIO_EFB_ID(_efptr_hdr);
 		switch (_efptr_hdr) {
 		case RIO_EFB_SER_EP_ID_V13P:
 		case RIO_EFB_SER_EP_REC_ID_V13P:
@@ -175,14 +175,14 @@ static int riocp_pe_get_ef(struct riocp_pe *pe, uint32_t feature, uint32_t *valu
 			return ret;
 		}
 
-		if (feature == RIO_GET_BLOCK_ID(efptr_hdr)) {
+		if (feature == RIO_EFB_ID(efptr_hdr)) {
 			RIOCP_DEBUG("Feature[0x%08x] found with value 0x%08x\n",
 				feature, *value);
 			*value = efptr;
 			return 0;
 		}
 
-		efptr = RIO_GET_BLOCK_PTR(efptr_hdr);
+		efptr = RIO_EFB_GET_NEXT(efptr_hdr);
 		if (!efptr)
 			break;
 	}
@@ -205,13 +205,13 @@ int riocp_pe_read_features(struct riocp_pe *pe)
 
 	/* Get extended feature pointers when available */
 	if (pe->cap.pe_feat & RIO_PEF_EXT_FEATURES) {
-		pe->efptr      = pe->cap.asbly_info & RIO_EXT_FTR_PTR_MASK;
+		pe->efptr      = pe->cap.asbly_info & RIO_ASSY_INF_EFB_PTR;
 
 		ret = riocp_pe_get_efptr_phys(pe, &pe->efptr_phys);
 		if (ret)
 			return ret;
 
-		ret = riocp_pe_get_ef(pe, RIO_EFB_ERR_MGMNT, &pe->efptr_em);
+		ret = riocp_pe_get_ef(pe, RIO_EFB_T_EMHS, &pe->efptr_em);
 		if (ret)
 			return ret;
 
@@ -248,7 +248,7 @@ int riocp_pe_is_port_active(struct riocp_pe *pe, uint32_t port)
 		}
 	}
 
-	if (val & RIO_PORT_N_ERR_STS_PORT_OK)
+	if (val & RIO_SPX_ERR_STAT_OK)
 		return 1;
 
 	return 0;
@@ -270,7 +270,7 @@ int riocp_pe_is_discovered(struct riocp_pe *pe)
 	if (ret)
 		return ret;
 
-	return (val & RIO_PORT_GEN_DISCOVERED) ? 1 : 0;
+	return (val & RIO_SP_GEN_CTL_DISC) ? 1 : 0;
 }
 
 /**
@@ -286,7 +286,7 @@ int riocp_pe_set_discovered(struct riocp_pe *pe)
 	int ret;
 
 	ret = riocp_pe_maint_read(pe, pe->efptr_phys + RIO_PORT_GEN_CTL_CSR, &val);
-	val |= RIO_PORT_GEN_DISCOVERED | RIO_PORT_GEN_MASTER;
+	val |= RIO_SP_GEN_CTL_DISC | RIO_SP_GEN_CTL_MAST_EN;
 	ret += riocp_pe_maint_write(pe, pe->efptr_phys + RIO_PORT_GEN_CTL_CSR, val);
 
 	return ret;
@@ -423,7 +423,7 @@ int riocp_pe_probe_verify_found(struct riocp_pe *pe, uint8_t port, struct riocp_
 		peer->hopcount, peer->comptag, port);
 
 	/* Reset the component tag for alternative route */
-	ret = riocp_drv_raw_reg_wr(pe, ANY_ID, hopcount_alt, RIO_COMPONENT_TAG_CSR, 0);
+	ret = riocp_drv_raw_reg_wr(pe, ANY_ID, hopcount_alt, RIO_COMPTAG, 0);
 	if (ret) {
 		RIOCP_ERROR("Error reading comptag from d: %u, hc: %u\n", ANY_ID, hopcount_alt);
 		return -EIO;
@@ -431,7 +431,7 @@ int riocp_pe_probe_verify_found(struct riocp_pe *pe, uint8_t port, struct riocp_
 
 	/* read same comptag again to make sure write has been performed
 		(we read pe comptag from potentially (shorter) different path) */
-	ret = riocp_drv_raw_reg_rd(pe, ANY_ID, hopcount_alt, RIO_COMPONENT_TAG_CSR, &comptag_alt);
+	ret = riocp_drv_raw_reg_rd(pe, ANY_ID, hopcount_alt, RIO_COMPTAG, &comptag_alt);
 	if (ret) {
 		RIOCP_ERROR("Error reading comptag from d: %u, hc: %u\n", ANY_ID, hopcount_alt);
 		return -EIO;

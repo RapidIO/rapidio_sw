@@ -25,12 +25,12 @@
 #include "inc/riocp_pe.h"
 #include "inc/riocp_pe_internal.h"
 
+#include "rio_ecosystem.h"
+#include "rio_standard.h"
 #include "handle.h"
 #include "comptag.h"
 #include "llist.h"
 #include "pe.h"
-#include "rio_regs.h"
-#include "rio_devs.h"
 #include "driver.h"
 
 #ifdef __cplusplus
@@ -394,7 +394,7 @@ int riocp_pe_handle_create_pe(struct riocp_pe *pe, struct riocp_pe **handle, uin
 		}
 
 		if (!RIOCP_PE_IS_SWITCH(h->cap)) {
-			ret = riocp_pe_maint_write(h, RIO_DID_CSR, RIO_DID_UNSET);
+			ret = riocp_pe_maint_write(h, RIO_DEVID, RIO_DID_UNSET);
 			if (ret) {
 				RIOCP_ERROR("Could not write destid\n");
 				ret = -EIO;

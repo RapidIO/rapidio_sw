@@ -22,9 +22,9 @@
 
 #include "inc/riocp_pe_internal.h"
 
+#include "rio_standard.h"
 #include "maint.h"
 #include "comptag.h"
-#include "rio_regs.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -197,7 +197,7 @@ int riocp_pe_comptag_read(struct riocp_pe *pe, ct_t *comptag)
 {
 	int ret;
 
-	ret = riocp_pe_maint_read(pe, RIO_COMPONENT_TAG_CSR, comptag);
+	ret = riocp_pe_maint_read(pe, RIO_COMPTAG, comptag);
 	if (ret < 0)
 		return ret;
 
@@ -214,7 +214,7 @@ int riocp_pe_comptag_write(struct riocp_pe *pe, ct_t comptag)
 {
 	int ret;
 
-	ret = riocp_pe_maint_write(pe, RIO_COMPONENT_TAG_CSR, comptag);
+	ret = riocp_pe_maint_write(pe, RIO_COMPTAG, comptag);
 	if (ret < 0)
 		return ret;
 

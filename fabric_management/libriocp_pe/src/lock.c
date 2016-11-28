@@ -11,8 +11,8 @@
 
 #include "inc/riocp_pe_internal.h"
 
+#include "rio_standard.h"
 #include "driver.h"
-#include "rio_regs.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -27,7 +27,7 @@ int riocp_pe_lock_read(struct riocp_pe *pe, uint32_t destid, uint8_t hopcount, u
 	uint32_t _lock;
 
 	ret = riocp_drv_raw_reg_rd(pe, destid, hopcount,
-						RIO_HOST_DID_LOCK_CSR, &_lock);
+						RIO_HOST_LOCK, &_lock);
 	if (ret)
 		return -EIO;
 
@@ -44,7 +44,7 @@ int riocp_pe_lock_write(struct riocp_pe *pe, uint32_t destid, uint8_t hopcount, 
 	int ret;
 
 	ret = riocp_drv_raw_reg_wr(pe, destid, hopcount,
-						RIO_HOST_DID_LOCK_CSR, lock);
+						RIO_HOST_LOCK, lock);
 	if (ret)
 		return -EIO;
 

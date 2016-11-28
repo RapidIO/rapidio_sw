@@ -13,6 +13,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 
+#include "rio_standard.h"
 #include "did.h"
 #include "ct.h"
 #include "inc/riocp_pe.h"
@@ -20,7 +21,6 @@
 
 #include "maint.h"
 #include "driver.h"
-#include "rio_regs.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -42,7 +42,7 @@ int riocp_pe_port_clear_enumerated(struct riocp_pe *pe, uint8_t port)
         if (ret)
                 return ret;
 
-        val &= ~RIO_PORT_N_CTL_ENUM_B;
+        val &= ~RIO_SPX_CTL_ENUM_B;
         ret = riocp_pe_maint_write(pe, offset, val);
 
         return ret;
@@ -86,7 +86,7 @@ int riocp_pe_switch_port_is_enumerated(struct riocp_pe *sw, uint8_t port)
 	if (ret)
 		return ret;
 
-	return (val & RIO_PORT_N_CTL_ENUM_B) ? 1 : 0;
+	return (val & RIO_SPX_CTL_ENUM_B) ? 1 : 0;
 }
 
 /**
@@ -105,7 +105,7 @@ int riocp_pe_switch_port_set_enumerated(struct riocp_pe *sw, uint8_t port)
 	if (ret)
 		return ret;
 
-	val |= RIO_PORT_N_CTL_ENUM_B;
+	val |= RIO_SPX_CTL_ENUM_B;
 	ret = riocp_pe_maint_write(sw, offset, val);
 
 	return ret;
