@@ -150,16 +150,13 @@ int ms_owner::remove_ms(mspace* ms)
 
 void ms_owner::dump_info(struct cli_env *env)
 {
-	sprintf(env->output, "%8X %32s\t", msoid, name.c_str());
-	logMsg(env);
+	LOGMSG(env, "%8X %32s\t", msoid, name.c_str());
 
 	lock_guard<mutex> ms_list_lock(ms_list_mutex);
 
 	for (auto& ms : ms_list) {
-		sprintf(env->output, "%8X ", ms->get_msid());
-		logMsg(env);
+		LOGMSG(env, "%8X ", ms->get_msid());
 	}
 
-	sprintf(env->output, "\n");
-	logMsg(env);
+	LOGMSG(env, "\n");
 } /* dump_info() */

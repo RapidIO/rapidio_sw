@@ -50,6 +50,11 @@ extern "C" {
 #define CLI_VERSION_YR "15"
 #define CLI_VERSION_MO "01"
 
+/* Send string to one/all of the many output streams supported by cli_env */
+#define LOGMSG(env, format, ...) \
+	sprintf(env->output, format, ##__VA_ARGS__); \
+	logMsg(env);
+
 struct cli_cmd;
 
 struct cli_env {
@@ -143,7 +148,7 @@ extern const char *delimiter;
 /* NOTE: These messages are sent to stdout */
 extern void splashScreen(char *app_name);
 
-/* Send string to one/all of the many output streams supported by cli_env */
+/* Use LOGMSG */
 extern void logMsg(struct cli_env *env);
 
 /* Command processing:

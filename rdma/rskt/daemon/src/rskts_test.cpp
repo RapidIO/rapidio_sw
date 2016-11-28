@@ -234,8 +234,7 @@ void set_prompt(struct cli_env *e)
 int RSKTShutdownCmd(struct cli_env *env, int argc, char **argv)
 {
 	/* FIXME: Missing */
-	sprintf(env->output, "Shutdown initiated...\n");
-	logMsg(env);
+	LOGMSG(env, "Shutdown initiated...\n");
 
 	return 0;
 };
@@ -266,16 +265,12 @@ int RSKTMpdevsCmd(struct cli_env *env, int argc, char **argv)
         int ret = 0;
 
 	if (argc) {
-                sprintf(env->output,
-			"FAILED: Extra parameters ignored: %s\n", argv[0]);
-		logMsg(env);
-	};
+		LOGMSG(env, "FAILED: Extra parameters ignored: %s\n", argv[0]);
+	}
 
         ret = riomp_mgmt_get_mport_list(&mport_list, &number_of_mports);
         if (ret) {
-                sprintf(env->output,
-			"ERR: riomp_mgmt_get_mport_list() ERR %d\n", ret);
-		logMsg(env);
+                LOGMSG(env, "ERR: riomp_mgmt_get_mport_list() ERR %d\n", ret);
                 return 0;
        }
 
@@ -283,49 +278,37 @@ int RSKTMpdevsCmd(struct cli_env *env, int argc, char **argv)
         list_ptr = mport_list;
         for (i = 0; i < number_of_mports; i++, list_ptr++) {
                 mport_id = *list_ptr >> 16;
-                sprintf(env->output, "+++ mport_id: %u dest_id: %u\n",
+                LOGMSG(env, "+++ mport_id: %u dest_id: %u\n",
                                 mport_id, *list_ptr & 0xffff);
-		logMsg(env);
 
                 /* Display EPs for this MPORT */
 
                 ret = riomp_mgmt_get_ep_list(mport_id, &ep_list,
 						&number_of_eps);
                 if (ret) {
-                	sprintf(env->output,
-                        	"ERR: riodp_ep_get_list() ERR %d\n", ret);
-			logMsg(env);
+                	LOGMSG(env, "ERR: riodp_ep_get_list() ERR %d\n", ret);
                         break;
                 }
 
-                sprintf(env->output, "\t%u Endpoints (dest_ID): ",
-			number_of_eps);
-		logMsg(env);
+                LOGMSG(env, "\t%u Endpoints (dest_ID): ", number_of_eps);
                 for (ep = 0; ep < number_of_eps; ep++) {
-                	sprintf(env->output, "%u ", *(ep_list + ep));
-			logMsg(env);
+                	LOGMSG(env, "%u ", *(ep_list + ep));
 		};
 
-                sprintf(env->output, "\n");
-		logMsg(env);
+                LOGMSG(env, "\n");
 
                 ret = riomp_mgmt_free_ep_list(&ep_list);
                 if (ret) {
-                	sprintf(env->output,
-                        	"ERR: riodp_ep_free_list() ERR %d\n", ret);
-			logMsg(env);
+                	LOGMSG(env, "ERR: riodp_ep_free_list() ERR %d\n", ret);
 		};
 
         }
 
-	sprintf(env->output, "\n");
-	logMsg(env);
+        LOGMSG(env, "\n");
 
         ret = riomp_mgmt_free_mport_list(&mport_list);
         if (ret) {
-		sprintf(env->output,
-                	"ERR: riodp_ep_free_list() ERR %d\n", ret);
-		logMsg(env);
+        	LOGMSG(env, "ERR: riodp_ep_free_list() ERR %d\n", ret);
 	};
 
 	return 0;
@@ -344,8 +327,7 @@ ATTR_NONE
 
 void print_skt_conn_status(struct cli_env *env)
 {
-	sprintf(env->output, "\nStatus unimplemented.\n");
-	logMsg(env);
+	LOGMSG(env, "\nStatus unimplemented.\n");
 
 };
 
@@ -356,9 +338,8 @@ int RSKTSStatusCmd(struct cli_env *env, int argc, char **argv)
 	if (argc)
 		goto show_help;
 #if 0
-	sprintf(env->output, "        Alive Socket # BkLg MP Pse Max Reqs\n");
-        logMsg(env);
-        sprintf(env->output, "Lib Lp %5d %8d %4d %2d %3d %3d %3d\n",
+	LOGMSG(env, "        Alive Socket # BkLg MP Pse Max Reqs\n");
+	LOGMSG(env, "Lib Lp %5d %8d %4d %2d %3d %3d %3d\n",
                         rskts.lib.loop_alive,
                         rskts.lib.portno,
                         rskts.lib.bklg,
@@ -367,23 +348,17 @@ int RSKTSStatusCmd(struct cli_env *env, int argc, char **argv)
                         rskts.lib.max_reqs,
                         rskts.lib.num_reqs);
 
-        logMsg(env);
-	sprintf(env->output, "Cli Lp %5d %8d                 %3d\n",
+	LOGMSG(env, "Cli Lp %5d %8d                 %3d\n",
 			rskts.cli.cli_alive,
 			rskts.cli.cli_portno,
 			rskts.cli.cli_sess_num);
 
-        logMsg(env);
-	sprintf(env->output, "Cons   %5d\n\n", rskts.cli.cons_alive);
-
-        logMsg(env);
+	LOGMSG(env, "Cons   %5d\n\n", rskts.cli.cons_alive);
 #endif
 	return 0;
 
 show_help:
-	sprintf(env->output, "\nFAILED: Extra parms or invalid values: %s\n",
-		argv[0]);
-        logMsg(env);
+	LOGMSG(env, "\nFAILED: Extra parms or invalid values: %s\n", argv[0]);
 	cli_print_help(env, &RSKTSStatus);
 
 	return 0;

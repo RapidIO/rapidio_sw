@@ -75,27 +75,23 @@ void display_apps_dd(struct cli_env *env)
 	for (i = 0; i < FMD_MAX_APPS; i++) {
 		if (app_st.apps[i].alloced) {
 			if (!found_one) {
-				sprintf(env->output,
-				"         Idx V Fd A D ProcNum- Name\n");
-				logMsg(env);
+				LOGMSG(env,
+						"         Idx V Fd A D ProcNum- Name\n");
 			};
 			found_one = 1;
-			sprintf(env->output,
-				"         %3d %1d %2d %1d %1d %8d %s\n",
-				app_st.apps[i].index, 
-				app_st.apps[i].alloced, 
-				app_st.apps[i].app_fd, 
-				app_st.apps[i].alive, 
-				app_st.apps[i].i_must_die, 
-				app_st.apps[i].proc_num, 
-				app_st.apps[i].app_name); 
-			logMsg(env);
+			LOGMSG(env, "         %3d %1d %2d %1d %1d %8d %s\n",
+					app_st.apps[i].index,
+					app_st.apps[i].alloced,
+					app_st.apps[i].app_fd,
+					app_st.apps[i].alive,
+					app_st.apps[i].i_must_die,
+					app_st.apps[i].proc_num,
+					app_st.apps[i].app_name);
 		};
 	};
 
 	if (!found_one) {
-		sprintf(env->output, "         No apps connected...\n");
-		logMsg(env);
+		LOGMSG(env, "         No apps connected...\n");
 	};
 }
 extern struct cli_cmd CLIStatus;
@@ -113,51 +109,43 @@ int CLIStatusCmd(struct cli_env *env, int argc, char **argv)
 		if (app_st.apps[i].alloced)
 			app_cnt++;
 	};
-	sprintf(env->output,
-		"AppMgmt Alive: %1d Exit: %1d  NumApps: %4d Skt: %5d\n",
-		app_st.loop_alive, app_st.all_must_die, app_cnt, app_st.port);
-	logMsg(env);
-	sprintf(env->output, "\nThread   A D Conn\n");
-	logMsg(env);
+	LOGMSG(env, "AppMgmt Alive: %1d Exit: %1d  NumApps: %4d Skt: %5d\n",
+			app_st.loop_alive, app_st.all_must_die, app_cnt,
+			app_st.port);
+	LOGMSG(env, "\nThread   A D Conn\n");
 	display_apps_dd(env);
 
 	if (!fmp.mode) {
-		sprintf(env->output, "\nPeerMgmt Alive: %1d Exit: %1d SLAVE %5d %s\n", 
-			fmp.slv.slave_alive, fmp.slv.slave_must_die,
-			fmp.slv.mast_skt_num,
-			fmp.slv.m_h_resp_valid?"OK":"No Hello Rsp");
-		logMsg(env);
+		LOGMSG(env, "\nPeerMgmt Alive: %1d Exit: %1d SLAVE %5d %s\n",
+				fmp.slv.slave_alive, fmp.slv.slave_must_die,
+				fmp.slv.mast_skt_num,
+				fmp.slv.m_h_resp_valid ? "OK" : "No Hello Rsp");
 		goto exit;
 	};
 
-	sprintf(env->output,
-		"\nPeerMgmt Alive %1d Exit %1d PeerCnt %4d MASTER %5d\n",
-		fmp.acc.acc_alive, fmp.acc.acc_must_die, 
-		l_size(&fmp.peers), fmp.acc.cm_skt_num);
-	logMsg(env);
+	LOGMSG(env, "\nPeerMgmt Alive %1d Exit %1d PeerCnt %4d MASTER %5d\n",
+			fmp.acc.acc_alive, fmp.acc.acc_must_die,
+			l_size(&fmp.peers), fmp.acc.cm_skt_num);
 
 	if (!l_size(&fmp.peers)) {
-		sprintf(env->output, "No connected peers.\n");
-		logMsg(env);
+		LOGMSG(env, "No connected peers.\n");
 		goto exit;
 	};
 
-	sprintf(env->output, "\n         ---CT--- ---DID-- HC A D I R\n");
-	logMsg(env);
+	LOGMSG(env, "\n         ---CT--- ---DID-- HC A D I R\n");
 
 	peer = (struct fmd_peer *)l_head(&fmp.peers, &li);
 	while (NULL != peer) {
-		sprintf(env->output,
-			"         %8x %8x %2x %1d %1d %1d %1d %s\n",
-			peer->p_ct, peer->p_did, peer->p_hc, peer->rx_alive,
-			peer->rx_must_die, peer->init_cplt, peer->restart_init,
-			peer->peer_name);
-		logMsg(env);
+		LOGMSG(env, "         %8x %8x %2x %1d %1d %1d %1d %s\n",
+				peer->p_ct, peer->p_did, peer->p_hc,
+				peer->rx_alive, peer->rx_must_die,
+				peer->init_cplt, peer->restart_init,
+				peer->peer_name);
 		peer = (struct fmd_peer *)l_next(&li);
 	};
-exit: 
-	return 0;
-};
+	exit: return 0;
+}
+;
 
 struct cli_cmd CLIStatus  = {
 (char *)"status",
@@ -178,9 +166,8 @@ int CLIAppCmd(struct cli_env *env, int argc, char **argv)
 	if (argc) {
 		idx = (int)strtol(argv[0], NULL, 10);
 		if ((idx >= FMD_MAX_APPS) || (idx < 0)) {
-			sprintf(env->output, "Illegal idx, range 0 - %d\n",
-				FMD_MAX_APPS-1);
-			logMsg(env);
+			LOGMSG(env, "Illegal idx, range 0 - %d\n",
+					FMD_MAX_APPS-1);
 			goto exit;
 		};
 		if (app_st.apps[idx].alive) {
@@ -191,14 +178,14 @@ int CLIAppCmd(struct cli_env *env, int argc, char **argv)
 		app_st.apps[idx].alive = 0;
 		app_st.apps[idx].i_must_die = 0;
 		app_st.apps[idx].proc_num = 0;
-		memset(app_st.apps[idx].app_name, 0, MAX_APP_NAME+1);
+		memset(app_st.apps[idx].app_name, 0, MAX_APP_NAME + 1);
 		app_st.apps[idx].alloced = 0;
 	};
 	display_apps_dd(env);
 
-exit: 
-	return 0;
-};
+	exit: return 0;
+}
+;
 
 struct cli_cmd CLIApp  = {
 (char *)"app",

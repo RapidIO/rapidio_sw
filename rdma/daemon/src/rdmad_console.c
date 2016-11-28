@@ -150,18 +150,16 @@ int hello_rdaemon_cmd_f(struct cli_env *env, int argc, char **argv)
 	}
 
 	/* Extract parameters from command */
-	uint32_t destid   = getDecParm(argv[0], 0);
+	uint32_t destid = getDecParm(argv[0], 0);
 
 	/* Call provisioning command to send HELLO to remote daemon */
 	ret = provision_rdaemon(destid);
 	if (ret == -7) {
-		sprintf(env->output, "destid(0x%X) already provisioned\n", destid);
-		logMsg(env);
+		LOGMSG(env, "destid(0x%X) already provisioned\n", destid);
 		return 0;
 	}
 
-	sprintf(env->output, "Return code %d:%s\n", ret, strerror(ret));
-	logMsg(env);
+	LOGMSG(env, "Return code %d:%s\n", ret, strerror(ret));
 
 	return 0;
 } /* hello_rdaemon_cmd_f() */

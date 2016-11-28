@@ -299,46 +299,31 @@ int FXStatusCmd(struct cli_env *env, int argc, char **argv)
 	};
 
 	
-	sprintf(env->output, 
-	"\nWin V   RapidIO Addr    Size    Memory Space PHYS TV D C RC\n");
-        logMsg(env);
+	LOGMSG(env,
+			"\nWin V   RapidIO Addr    Size    Memory Space PHYS TV D C RC\n");
 	for (idx = st_idx; idx < max_idx; idx++) {
-		sprintf(env->output, 
-			"%2d  %1d %16lx %8lx  %16lx  %1d %1d %1d %8x\n",
-				idx,
-				ibwins[idx].valid,
-				(long unsigned int)ibwins[idx].rio_base,
-				(long unsigned int)ibwins[idx].length,
-				(long unsigned int)ibwins[idx].handle,
-				ibwins[idx].thr_valid,
-				ibwins[idx].debug,
-				ibwins[idx].completed,
-				ibwins[idx].rc);
-		logMsg(env);
+		LOGMSG(env, "%2d  %1d %16lx %8lx  %16lx  %1d %1d %1d %8x\n",
+				idx, ibwins[idx].valid,
+				(long unsigned int )ibwins[idx].rio_base,
+				(long unsigned int )ibwins[idx].length,
+				(long unsigned int )ibwins[idx].handle,
+				ibwins[idx].thr_valid, ibwins[idx].debug,
+				ibwins[idx].completed, ibwins[idx].rc);
 	}
-	sprintf(env->output, "\nall_must_die status : %d\n", all_must_die);
-        logMsg(env);
-	sprintf(env->output, "XFER Socket #       : %d\n", conn_skt_num);
-        logMsg(env);
-	sprintf(env->output, "XFER conn_loop_alive: %d\n", conn_loop_alive);
-        logMsg(env);
-	sprintf(env->output, "Pending conn reqs   : %s\n", 
-			(conn_reqs.head)?"AVAILABLE":"None");
-        logMsg(env);
-	sprintf(env->output, "\nCLI Sessions Alive : %d\n", cli_session_alive);
-        logMsg(env);
-	sprintf(env->output, "CLI Socket #       : %d\n", cli_session_portno);
-        logMsg(env);
-	sprintf(env->output, "\nServer mport       : %d\n", mp_h_mport_num);
-        logMsg(env);
-	sprintf(env->output, "Server destID      : %x\n", qresp.hdid);
-        logMsg(env);
+	LOGMSG(env, "\nall_must_die status : %d\n", all_must_die);
+	LOGMSG(env, "XFER Socket #       : %d\n", conn_skt_num);
+	LOGMSG(env, "XFER conn_loop_alive: %d\n", conn_loop_alive);
+	LOGMSG(env, "Pending conn reqs   : %s\n",
+			(conn_reqs.head) ? "AVAILABLE" : "None");
+	LOGMSG(env, "\nCLI Sessions Alive : %d\n", cli_session_alive);
+	LOGMSG(env, "CLI Socket #       : %d\n", cli_session_portno);
+	LOGMSG(env, "\nServer mport       : %d\n", mp_h_mport_num);
+	LOGMSG(env, "Server destID      : %x\n", qresp.hdid);
 
 	return 0;
 
 show_help:
-	sprintf(env->output, "\nFAILED: Extra parms or invalid values\n");
-        logMsg(env);
+	LOGMSG(env, "\nFAILED: Extra parms or invalid values\n");
 	cli_print_help(env, &FXStatus);
 
 	return 0;
@@ -362,9 +347,7 @@ void fxfr_server_shutdown(void);
 int FXShutdownCmd(struct cli_env *env, int UNUSED(argc), char **UNUSED(argv))
 {
 	fxfr_server_shutdown();
-	sprintf(env->output, "Shutdown initiated...\n"); 
-	logMsg(env);
-
+	LOGMSG(env, "Shutdown initiated...\n");
 	return 0;
 };
 
@@ -382,17 +365,14 @@ ATTR_NONE
 int FXMpdevsCmd(struct cli_env *env, int argc, char **argv)
 {
 	if (argc) {
-                sprintf(env->output,
-			"FAILED: Extra parameters ignored: %s\n", argv[0]);
-		logMsg(env);
-	};
+		LOGMSG(env, "FAILED: Extra parameters ignored: %s\n", argv[0]);
+	}
 
-        std::vector<uint32_t> mport_list;
-        if (! MportMgmt::get_mport_list(mport_list)) {
-                sprintf(env->output,
-			"ERR: riomp_mport_get_mport_list() ERR\n");
-		logMsg(env);
-                return 0;
+	std
+	::vector<uint32_t> mport_list;
+	if (! MportMgmt::get_mport_list(mport_list)) {
+		LOGMSG(env, "ERR: riomp_mport_get_mport_list() ERR\n");
+		return 0;
 	}
 
 	const int number_of_mports = mport_list.size();
@@ -402,36 +382,27 @@ int FXMpdevsCmd(struct cli_env *env, int argc, char **argv)
         for (int i = 0; i < number_of_mports; i++) {
                 const int mport_id = mport_list[i];
 
-                sprintf(env->output, "+++ mport_id: %u\n", mport_id);
-		logMsg(env);
+                LOGMSG(env, "+++ mport_id: %u\n", mport_id);
 
                 /* Display EPs for this MPORT */
 
 		std::vector<uint32_t> ep_list;
                 if (! MportMgmt::get_ep_list(mport_id, ep_list)) {
-                	sprintf(env->output,
-                        	"ERR: riomp_ep_get_list() ERR\n");
-			logMsg(env);
+                	LOGMSG(env, "ERR: riomp_ep_get_list() ERR\n");
                         break;
                 }
 
 		const int number_of_eps = ep_list.size();
 
-                sprintf(env->output, "\t%u Endpoints (dest_ID): ", 
-			number_of_eps);
-		logMsg(env);
+		LOGMSG(env, "\t%u Endpoints (dest_ID): ", number_of_eps);
                 for (int ep = 0; ep < number_of_eps; ep++) {
-                	sprintf(env->output, "%u ", ep_list[i]);
-			logMsg(env);
+                	LOGMSG(env, "%u ", ep_list[i]);
 		}
 
-                sprintf(env->output, "\n");
-		logMsg(env);
+                LOGMSG(env, "\n");
         }
 
-	sprintf(env->output, "\n");
-	logMsg(env);
-
+        LOGMSG(env, "\n");
 	return 0;
 }
 
@@ -448,20 +419,14 @@ ATTR_NONE
 
 void print_file_xfer_status(struct cli_env *env)
 {
-	sprintf(env->output, "\nFile transfer status: %s\n", 
-		pause_file_xfer_conn?"PAUSED":"running");
-	logMsg(env);
+	LOGMSG(env, "\nFile transfer status: %s\n",
+			pause_file_xfer_conn ? "PAUSED" : "running");
 
 	if (pause_file_xfer_conn) {
-		sprintf(env->output, "Maximum Q length: %d\n",
-			max_file_xfer_queue);
-		logMsg(env);
-		
-		sprintf(env->output, "Current Q length: %d\n",
-			num_conn_reqs);
-		logMsg(env);
-	};
-};
+		LOGMSG(env, "Maximum Q length: %d\n", max_file_xfer_queue);
+		LOGMSG(env, "Current Q length: %d\n", num_conn_reqs);
+	}
+}
 		
 void batch_start_connections(void)
 {

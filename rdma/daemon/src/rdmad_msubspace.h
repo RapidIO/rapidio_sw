@@ -121,10 +121,10 @@ public:
 	 *
 	 * @env	  CLI console environment object
 	 */
-	void dump_info(struct cli_env *env) {
-		sprintf(env->output, "%08X %016" PRIx64 " %08X %08X %016" PRIx64
-				"\n", msubid, rio_addr, size, msid, phys_addr);
-		logMsg(env);
+	void dump_info(struct cli_env *env)
+	{
+		LOGMSG(env, "%08X %016" PRIx64 " %08X %08X %016" PRIx64 "\n",
+				msubid, rio_addr, size, msid, phys_addr);
 	} /* dump_info() */
 
 private:

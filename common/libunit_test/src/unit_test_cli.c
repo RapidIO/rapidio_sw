@@ -52,21 +52,17 @@ int check_idx(struct cli_env *env, int idx, int want_halted)
 	int rc = 1;
 
 	if ((idx < 0) || (idx >= MAX_WORKERS)) {
-		sprintf(env->output, "\nIndex must be 0 to %d...\n",
-								MAX_WORKERS);
-        	logMsg(env);
+		LOGMSG(env, "\nIndex must be 0 to %d...\n", MAX_WORKERS);
 		goto exit;
 	};
 
 	if (want_halted && (2 != wkr[idx].stat)) {
-		sprintf(env->output, "\nWorker not halted...\n");
-        	logMsg(env);
+		LOGMSG(env, "\nWorker not halted...\n");
 		goto exit;
 	};
 
 	if (!want_halted && (2 == wkr[idx].stat)) {
-		sprintf(env->output, "\nWorker halted...\n");
-        	logMsg(env);
+		LOGMSG(env, "\nWorker halted...\n");
 		goto exit;
 	};
 	rc = 0;
@@ -82,10 +78,8 @@ int get_cpu(struct cli_env *env, char *dec_parm, int *cpu)
 
 	const int MAX_GOODPUT_CPU = getCPUCount() - 1;
 
-	if ((*cpu  < -1) || (*cpu > MAX_GOODPUT_CPU)) {
-		sprintf(env->output, "\nCPU must be 0 to %d...\n",
-			MAX_GOODPUT_CPU);
-        	logMsg(env);
+	if ((*cpu < -1) || (*cpu > MAX_GOODPUT_CPU)) {
+		LOGMSG(env, "\nCPU must be 0 to %d...\n", MAX_GOODPUT_CPU);
 		goto exit;
 	};
 
@@ -106,15 +100,12 @@ int ThreadCmd(struct cli_env *env, int argc, char **argv)
 		goto exit;
 
 	if ((idx < 0) || (idx >= MAX_WORKERS)) {
-		sprintf(env->output, "\nIndex must be 0 to %d...\n",
-								MAX_WORKERS);
-        	logMsg(env);
+		LOGMSG(env, "\nIndex must be 0 to %d...\n", MAX_WORKERS);
 		goto exit;
 	};
 
 	if (wkr[idx].stat) {
-		sprintf(env->output, "\nWorker %d already running...\n", idx);
-        	logMsg(env);
+		LOGMSG(env, "\nWorker %d already running...\n", idx);
 		goto exit;
 	};
 
@@ -150,9 +141,7 @@ int KillCmd(struct cli_env *env, int argc, char **argv)
 		end_idx = st_idx;
 
 		if ((st_idx < 0) || (st_idx >= MAX_WORKERS)) {
-			sprintf(env->output, "\nIndex must be 0 to %d...\n",
-								MAX_WORKERS);
-        		logMsg(env);
+			LOGMSG(env, "\nIndex must be 0 to %d...\n", MAX_WORKERS);
 			goto exit;
 		};
 	};
@@ -187,9 +176,7 @@ int HaltCmd(struct cli_env *env, int argc, char **argv)
 		end_idx = st_idx;
 
 		if (st_idx >= MAX_WORKERS) {
-			sprintf(env->output, "\nIndex must be 0 to %d...\n",
-								MAX_WORKERS);
-        		logMsg(env);
+			LOGMSG(env, "\nIndex must be 0 to %d...\n", MAX_WORKERS);
 			goto exit;
 		};
 	};
@@ -224,21 +211,17 @@ int MoveCmd(struct cli_env *env, int argc, char **argv)
 		goto exit;
 
 	if ((idx < 0) || (idx >= MAX_WORKERS)) {
-		sprintf(env->output, "\nIndex must be 0 to %d...\n",
-								MAX_WORKERS);
-        	logMsg(env);
+		LOGMSG(env, "\nIndex must be 0 to %d...\n", MAX_WORKERS);
 		goto exit;
 	};
 
-	if (migrate_worker_thread(&wkr[idx], cpu))
-		sprintf(env->output, "\nFAILED: Could not move thread %d..\n",
-									idx);
-	else
-		sprintf(env->output, "\nThread %d moving to cpu %d..\n",
-			idx, cpu);
-        logMsg(env);
+	if (migrate_worker_thread(&wkr[idx], cpu)) {
+		LOGMSG(env, "\nFAILED: Could not move thread %d..\n", idx);
+	} else {
+		LOGMSG(env, "\nThread %d moving to cpu %d..\n", idx, cpu);
+	}
 exit:
-        return 0;
+	return 0;
 };
 
 struct cli_cmd Move = {
@@ -284,29 +267,25 @@ int WaitCmd(struct cli_env *env, int argc, char **argv)
 	};
 
 	if ((idx < 0) || (idx >= MAX_WORKERS)) {
-		sprintf(env->output, "\nIndex must be 0 to %d...\n",
-								MAX_WORKERS);
-        	logMsg(env);
+		LOGMSG(env, "\nIndex must be 0 to %d...\n", MAX_WORKERS);
 		goto exit;
 	};
 
 	if ((state < worker_dead) || (state > worker_running)) {
-		sprintf(env->output,
-			"\nState must be 0|d|D, 1|r|R , or 2|h|H\n");
-        	logMsg(env);
+		LOGMSG(env, "\nState must be 0|d|D, 1|r|R , or 2|h|H\n")
 		goto exit;
 	};
 
-	if (wait_for_worker_status(&wkr[idx], state))
-		sprintf(env->output, "\nFAILED, Worker %d is now %s\n",
-			idx, THREAD_STR(wkr[idx].stat));
-	else
-		sprintf(env->output, "\nPassed, Worker %d is now %s\n",
-			idx, THREAD_STR(wkr[idx].stat));
-        logMsg(env);
+	if (wait_for_worker_status(&wkr[idx], state)) {
+		LOGMSG(env, "\nFAILED, Worker %d is now %s\n", idx,
+				THREAD_STR(wkr[idx].stat));
+	} else {
+		LOGMSG(env, "\nPassed, Worker %d is now %s\n", idx,
+				THREAD_STR(wkr[idx].stat));
+	}
 
 exit:
-        return 0;
+	return 0;
 };
 
 struct cli_cmd Wait = {
@@ -328,8 +307,7 @@ int SleepCmd(struct cli_env *env, int argc, char **argv)
 
 	float sec = GetFloatParm(argv[0], 0);
 	if(sec > 0) {
-		sprintf(env->output, "\nSleeping %f sec...\n", sec);
-        	logMsg(env);
+		LOGMSG(env, "\nSleeping %f sec...\n", sec);
 		const long usec = sec * 1000000;
 		usleep(usec);
 	}
@@ -393,7 +371,7 @@ int IsolcpuCmd(struct cli_env *env, int argc, char **argv)
                 strncat(clist, " ", 128);
         }
 
-        sprintf(env->output, "\nIsolcpus: %s\n", clist); logMsg(env);
+        LOGMSG(env, "\nIsolcpus: %s\n", clist);
 
         return 0;
 }
@@ -593,16 +571,14 @@ int CPUOccSetCmd(struct cli_env *env, int argc, char **argv)
 
 	if (cpu_occ_set(&old_tot_jifis, &old_proc_kern_jifis,
 			&old_proc_user_jifis)) {
-		sprintf(env->output, "\nFAILED: Could not get proc info \n");
-        	logMsg(env);
+		LOGMSG(env, "\nFAILED: Could not get proc info \n");
 		goto exit;
 	};
-	sprintf(env->output, "\nSet CPU Occ measurement start point\n");
-        logMsg(env);
+	LOGMSG(env, "\nSet CPU Occ measurement start point\n");
 
 	cpu_occ_valid = 1;
 exit:
-        return 0;
+	return 0;
 };
 
 struct cli_cmd CPUOccSet = {
@@ -630,16 +606,13 @@ int CPUOccDisplayCmd(struct cli_env *env, int argc, char **argv)
 		cpus = 1;
 
 	if (!cpu_occ_valid) {
-		sprintf(env->output,
-			"\nFAILED: CPU OCC measurement start not set\n");
-        	logMsg(env);
+		LOGMSG(env, "\nFAILED: CPU OCC measurement start not set\n");
 		goto exit;
 	};
 
 	if (cpu_occ_set(&new_tot_jifis, &new_proc_kern_jifis,
 			&new_proc_user_jifis)) {
-		sprintf(env->output, "\nFAILED: Could not get proc info \n");
-        	logMsg(env);
+		LOGMSG(env, "\nFAILED: Could not get proc info \n");
 		goto exit;
 	};
 
@@ -648,17 +621,12 @@ int CPUOccDisplayCmd(struct cli_env *env, int argc, char **argv)
 				 old_proc_kern_jifis - old_proc_user_jifis)) /
 		((float)(new_tot_jifis - old_tot_jifis))) * 100.0 * cpus;
 	sprintf(pctg, "%4.2f", cpu_occ_pct);
-
-	sprintf(env->output, "\n-Kernel- ProcUser ProcKern CPU_Occ\n");
-        logMsg(env);
-	sprintf(env->output, "%8ld %8ld %8ld %7s\n",
-		new_tot_jifis - old_tot_jifis,
-		new_proc_user_jifis - old_proc_user_jifis,
-		new_proc_kern_jifis - old_proc_kern_jifis,
-		pctg);
-        logMsg(env);
+	LOGMSG(env, "\n-Kernel- ProcUser ProcKern CPU_Occ\n");
+	LOGMSG(env, "%8ld %8ld %8ld %7s\n", new_tot_jifis - old_tot_jifis,
+			new_proc_user_jifis - old_proc_user_jifis,
+			new_proc_kern_jifis - old_proc_kern_jifis, pctg);
 exit:
-        return 0;
+	return 0;
 };
 
 struct cli_cmd CPUOccDisplay = {
@@ -674,25 +642,22 @@ ATTR_RPT
 
 void display_cpu(struct cli_env *env, int cpu)
 {
-	if (-1 == cpu)
-		sprintf(env->output, "Any ");
-	else
-		sprintf(env->output, "%3d ", cpu);
-        logMsg(env);
+	if (-1 == cpu) {
+		LOGMSG(env, "Any ");
+	} else {
+		LOGMSG(env, "%3d ", cpu);
+	}
 };
-		
 
 void display_status(struct cli_env *env)
 {
 	int i;
 	char *action_str;
 
-	sprintf(env->output, "\n W STS CPU RUN ACTION\n");
-        logMsg(env);
+	LOGMSG(env, "\n W STS CPU RUN ACTION\n");
 
 	for (i = 0; i < MAX_WORKERS; i++) {
-		sprintf(env->output, "%2d %3s ", i, THREAD_STR(wkr[i].stat));
-        	logMsg(env);
+		LOGMSG(env, "%2d %3s ", i, THREAD_STR(wkr[i].stat));
 		display_cpu(env, wkr[i].wkr_thr.cpu_req);
 		display_cpu(env, wkr[i].wkr_thr.cpu_run);
 
@@ -708,8 +673,7 @@ void display_status(struct cli_env *env)
 				action_str = (char *)"INVALID";
 		};
 		
-		sprintf(env->output, "%7s\n", action_str);
-        	logMsg(env);
+		LOGMSG(env, "%7s\n", action_str);
 	};
 };
 
@@ -747,13 +711,11 @@ int UTimeCmd(struct cli_env *env, int argc, char **argv)
 		goto exit;
 
 	if (!drvr_valid || (NULL == drvr.ts_sel)) {
-                sprintf(env->output, "Cannot parse ts_idx, using 0\n");
-        	logMsg(env);
+		LOGMSG(env, "Cannot parse ts_idx, using 0\n");
 	} else {
 		ts_idx = drvr.ts_sel(argv[1]);
 		if ((ts_idx < 0) || (ts_idx >= MAX_UNIT_TEST_TS_IDX)) {
-                	sprintf(env->output, "FAILED: Unknown ts_idx.\n");
-        		logMsg(env);
+			LOGMSG(env, "FAILED: Unknown ts_idx.\n");
 			goto exit;
 		};
 	};
@@ -769,31 +731,24 @@ int UTimeCmd(struct cli_env *env, int argc, char **argv)
 			st_i = GetDecParm(argv[3], 0);
 			end_i = GetDecParm(argv[4], 0);
 		} else {
-                	sprintf(env->output,
-				"\nFAILED: Must enter two idexes\n");
-        		logMsg(env);
+			LOGMSG(env, "\nFAILED: Must enter two indices\n");
 			goto exit;
-		};
+		}
 
 		if ((end_i < st_i) || (st_i < 0) || (end_i >= MAX_TIMESTAMPS)) {
-                	sprintf(env->output, "FAILED: Index range 0 to %d.\n",
-				MAX_TIMESTAMPS-1);
-        		logMsg(env);
+			LOGMSG(env, "FAILED: Index range 0 to %d.\n",
+					MAX_TIMESTAMPS-1);
 			goto exit;
-		};
+		}
 
 		if (ts_p->ts_idx < MAX_TIMESTAMPS - 1) {
-                	sprintf(env->output,
-				"\nWARNING: Last valid timestamp is %d\n",
-				ts_p->ts_idx);
-        		logMsg(env);
-		};
+			LOGMSG(env, "\nWARNING: Last valid timestamp is %d\n",
+					ts_p->ts_idx);
+		}
+
 		diff = time_difference(ts_p->ts_val[st_i], ts_p->ts_val[end_i]);
-                sprintf(env->output, "\n---->> Sec<<---- Nsec---MMMuuuNNN\n");
-        	logMsg(env);
-                sprintf(env->output, "%16ld %16ld\n",
-				diff.tv_sec, diff.tv_nsec);
-        	logMsg(env);
+		LOGMSG(env, "\n---->> Sec<<---- Nsec---MMMuuuNNN\n");
+		LOGMSG(env, "%16ld %16ld\n", diff.tv_sec, diff.tv_nsec);
 		break;
 
 	case 'p':
@@ -804,29 +759,23 @@ int UTimeCmd(struct cli_env *env, int argc, char **argv)
 			end_i = GetDecParm(argv[4], 0);
 
 		if ((end_i < st_i) || (st_i < 0) || (end_i >= MAX_TIMESTAMPS)) {
-                	sprintf(env->output, "FAILED: Index range 0 to %d.\n",
-				MAX_TIMESTAMPS-1);
-        		logMsg(env);
+			LOGMSG(env, "FAILED: Index range 0 to %d.\n",
+					MAX_TIMESTAMPS-1);
 			goto exit;
-		};
+		}
 
 		if (ts_p->ts_idx < MAX_TIMESTAMPS - 1) {
-                	sprintf(env->output,
-				"\nWARNING: Last valid timestamp is %d\n",
-				ts_p->ts_idx);
-        		logMsg(env);
-		};
+			LOGMSG(env, "\nWARNING: Last valid timestamp is %d\n",
+					ts_p->ts_idx);
+		}
 
-                sprintf(env->output,
-			"\n Idx ---->> Sec<<---- Nsec---mmmuuunnn Marker\n");
-        	logMsg(env);
+		LOGMSG(env, "\n Idx ---->> Sec<<---- Nsec---mmmuuunnn Marker\n");
 		for (idx = st_i; idx <= end_i; idx++) {
-                	sprintf(env->output, "%4d %16ld %16ld %d\n", idx,
-				ts_p->ts_val[idx].tv_sec, 
-				ts_p->ts_val[idx].tv_nsec,
-				ts_p->ts_mkr[idx]);
-        		logMsg(env);
-		};
+			LOGMSG(env, "%4d %16ld %16ld %d\n", idx,
+					ts_p->ts_val[idx].tv_sec,
+					ts_p->ts_val[idx].tv_nsec,
+					ts_p->ts_mkr[idx]);
+		}
 		break;
 			
 	case 'l':
@@ -834,7 +783,7 @@ int UTimeCmd(struct cli_env *env, int argc, char **argv)
 		if (argc > 3)
 			lim = GetDecParm(argv[3], 0);
 		else
-               		lim = 0;
+			lim = 0;
 
 		for (idx = st_i; idx < end_i; idx++) {
 			time_track(idx, ts_p->ts_val[idx], ts_p->ts_val[idx+1],
@@ -844,39 +793,27 @@ int UTimeCmd(struct cli_env *env, int argc, char **argv)
 			if ((uint64_t)diff.tv_nsec < lim)
 				continue;
 			if (!got_one) {
-                		sprintf(env->output,
-				"\n Idx ---->> Sec<<---- Nsec---MMMuuuNNN Marker\n");
-        			logMsg(env);
+				LOGMSG(env,
+						"\n Idx ---->> Sec<<---- Nsec---MMMuuuNNN Marker\n");
 				got_one = 1;
-			};
-                	sprintf(env->output, "%4d %16ld %16ld %d -> %d\n", idx,
-				diff.tv_sec, diff.tv_nsec, 
-				ts_p->ts_mkr[idx], ts_p->ts_mkr[idx+1]);
-        		logMsg(env);
+			}
+			LOGMSG(env, "%4d %16ld %16ld %d -> %d\n", idx,
+					diff.tv_sec, diff.tv_nsec,
+					ts_p->ts_mkr[idx],
+					ts_p->ts_mkr[idx + 1]);
 		};
 
 		if (!got_one) {
-                	sprintf(env->output,
-				"\nNo delays found bigger than %ld\n", lim);
-        		logMsg(env);
-		};
-                sprintf(env->output,
-			"\n==== ---->> Sec<<---- Nsec---MMMuuuNNN\n");
-        	logMsg(env);
-                sprintf(env->output, "Min: %16ld %16ld\n", 
-				min.tv_sec, min.tv_nsec);
-        	logMsg(env);
+			LOGMSG(env, "\nNo delays found bigger than %ld\n", lim);
+		}
+		LOGMSG(env, "\n==== ---->> Sec<<---- Nsec---MMMuuuNNN\n");
+		LOGMSG(env, "Min: %16ld %16ld\n", min.tv_sec, min.tv_nsec);
 		diff = time_div(tot, end_i - st_i);
-                sprintf(env->output, "Avg: %16ld %16ld\n",
-				diff.tv_sec, diff.tv_nsec);
-        	logMsg(env);
-                sprintf(env->output, "Max: %16ld %16ld\n",
-				max.tv_sec, max.tv_nsec);
-        	logMsg(env);
+		LOGMSG(env, "Avg: %16ld %16ld\n", diff.tv_sec, diff.tv_nsec);
+		LOGMSG(env, "Max: %16ld %16ld\n", max.tv_sec, max.tv_nsec);
 		break;
 	default:
-                sprintf(env->output, "FAILED: <cmd> not 's','p' or 'l'.\n");
-        	logMsg(env);
+		LOGMSG(env, "FAILED: <cmd> not 's','p' or 'l'.\n");
 	};
 exit:
         return 0;
