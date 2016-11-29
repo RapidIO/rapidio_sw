@@ -482,7 +482,10 @@ void spawn_threads(void)
 
 	/* Prepare and start console thread */
 	if (ctrls.run_cons) {
-		splashScreen((char *)"RDMA Socket Daemon Console");
+		struct cli_env t_env;
+
+		init_cli_env(&t_env);
+		splashScreen(&t_env, (char *)"RDMA Socket Daemon Console");
 		console_ret = pthread_create( &cli.cons_thread, NULL, 
 						console, 
 					(void *)((char *)"RSKTD > "));

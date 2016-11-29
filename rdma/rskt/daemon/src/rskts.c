@@ -376,22 +376,13 @@ void *console(void *cons_parm)
 	struct cli_env cons_env;
 	int rc;
 
-	cons_env.script = NULL;
-	cons_env.fout = NULL;
-	bzero(cons_env.output, BUFLEN);
-	bzero(cons_env.input, BUFLEN);
-	cons_env.DebugLevel = 0;
-	cons_env.progressState = 0;
-	cons_env.sess_socket = -1;
-	cons_env.h = NULL;
-	cons_env.cmd_prev = NULL;
-	bzero(cons_env.prompt, PROMPTLEN+1);
+	init_cli_env(&cons_env);
 	set_prompt( &cons_env );
 
 	cli_init_base(rskts_console_cleanup);
 	bind_server_cmds();
 
-	splashScreen((char *)"RSKT_Server");
+	splashScreen(&cons_env, (char *)"RSKT_Server");
 
 	rskts.cli.cons_alive = 1;
 	

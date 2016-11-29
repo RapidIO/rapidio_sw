@@ -53,19 +53,26 @@ extern "C" {
 
 void (*cons_cleanup)(struct cli_env *env);
 
-void splashScreen(char *app_name)
+void splashScreen(struct cli_env *env, char *app_name)
 {
-        printf("-----------------------------------------------------------\n");
-        printf("---      %s     ---\n", app_name);
+	char *dash = (char *)
+		"----------------------------------------------------------\n";
+	char *dash_ends = (char *)
+		"---                                                    ---\n";
+	int dash_len = strlen(dash) - 7;
 
-	printf("-----------------------------------------------------------\n");
-	printf("---            Version: %2s.%2s (%s-%s)      ---\n",
+        LOGMSG(env, dash);
+        LOGMSG(env, dash_ends);
+	LOGMSG(env, "---%*s%*s---\n",
+		(int)((dash_len + strlen(app_name))/2), app_name,
+		(int)((dash_len - strlen(app_name))/2), " ");
+        LOGMSG(env, dash_ends);
+	LOGMSG(env, dash);
+	LOGMSG(env, "---         Version: %2s.%2s (%11s-%8s)      ---\n",
                 CLI_VERSION_YR, CLI_VERSION_MO, __DATE__, __TIME__);
-        printf("-----------------------------------------------------------\n");
-        printf("\t\tRapidIO Trade Association\n");
-        printf("\t\tCopyright 2015\n");
-
-        fflush(stdout);
+        LOGMSG(env, dash);
+        LOGMSG(env, "            RapidIO Trade Association\n");
+        LOGMSG(env, "            Copyright 2016\n");
 };
 
 const char *delimiter = " ,\t\n";   /* Input token delimiter */

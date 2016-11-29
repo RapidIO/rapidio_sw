@@ -2441,6 +2441,7 @@ int main(int argc, char *argv[])
 {
 	int rc = EXIT_FAILURE;
 	int ret;
+	struct cli_env t_env;
 
 	if (0)
 		argv[0][0] = argc;
@@ -2642,7 +2643,8 @@ int main(int argc, char *argv[])
 		CRIT("Test case 8 Passed\n");
 	};
 
-        splashScreen((char *)"RSKT UNIT TEST");
+	init_cli_env(&t_env);
+        splashScreen(&t_env, (char *)"RSKT UNIT TEST");
 	console((void *)"RSKT_TEST > ");
 
 	cleanup_proc(NULL);

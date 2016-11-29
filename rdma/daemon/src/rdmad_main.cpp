@@ -410,13 +410,17 @@ int main (int argc, char **argv)
 
 		/* Prepare and start console thread, if applicable */
 		if (peer.run_cons) {
+			struct cli_env t_env;
 			cli_init_base(custom_quit);
 
 			add_commands_to_cmd_db(
 					rdmad_cmds_size()/sizeof(rdmad_cmds[0]),
 					rdmad_cmds);
 			liblog_bind_cli_cmds();
-			splashScreen((char *)"RDMA Daemon Command Line Interface");
+		
+			init_cli_env(&t_env);
+			splashScreen(&t_env,
+				(char *)"RDMA Daemon Command Line Interface");
 			cons_ret = pthread_create( &console_thread, NULL,
 					console, (void *)((char *)"RDMADaemon> "));
 			if(cons_ret) {

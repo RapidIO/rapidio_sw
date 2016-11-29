@@ -867,6 +867,7 @@ void spawn_threads(int cons_skt, int xfer_skt, int run_cons)
 	int  conn_ret, cli_ret, cons_ret = 0;
 	int *pass_sock_num, *conn_loop_rc;
 	int i;
+	struct cli_env t_env;
 
 	all_must_die = 0;
 	conn_loop_alive = 0;
@@ -883,7 +884,8 @@ void spawn_threads(int cons_skt, int xfer_skt, int run_cons)
 
 	/* Prepare and start console thread */
 	if (run_cons) {
-		splashScreen((char *)
+		init_cli_env(&t_env);
+		splashScreen(&t_env, (char *)
 			"RTA File Transfer Server Command Line Interface");
 
 		cons_ret = pthread_create( &console_thread, NULL, 

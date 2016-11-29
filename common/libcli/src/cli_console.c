@@ -40,20 +40,17 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 extern "C" {
 #endif
 
+void init_cli_env(struct cli_env *env)
+{
+	memset(env, 0, sizeof(struct cli_env));
+	env->sess_socket = -1;
+};
+
 void *console(void *cons_parm)
 {
 	struct cli_env cons_env;
 
-	cons_env.script = NULL;
-	cons_env.fout = NULL;
-	bzero(cons_env.output, BUFLEN);
-	bzero(cons_env.input, BUFLEN);
-	cons_env.DebugLevel = 0;
-	cons_env.progressState = 0;
-	cons_env.sess_socket = -1;
-	cons_env.h = NULL;
-	cons_env.cmd_prev = NULL;
-	bzero(cons_env.prompt, PROMPTLEN+1);
+	init_cli_env(&cons_env);
 	if (NULL == cons_parm)
 		strcpy(cons_env.prompt, "PROMPT> ");
 	else
@@ -72,9 +69,8 @@ void* console_rc(void* cons_parm_v)
 	ConsoleRc_t* cons_parm = (ConsoleRc_t*)cons_parm_v;
 
 	struct cli_env cons_env;
-	memset(&cons_env, 0, sizeof(cons_env));
 
-	cons_env.sess_socket = -1;
+	init_cli_env(&cons_env);
 	if (NULL == cons_parm->prompt)
 		strcpy(cons_env.prompt, "PROMPT> ");
 	else

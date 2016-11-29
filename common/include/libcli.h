@@ -82,6 +82,8 @@ struct cli_env {
 	struct cli_cmd *cmd_prev; /* store last valid command */
 };
 
+void init_cli_env(struct cli_env *env);
+
 #define ATTR_NONE  0x0
 #define ATTR_RPT   0x1
 
@@ -146,7 +148,7 @@ extern const char *delimiter;
 
 /* Display routines for start of a console or cli_terminal call */
 /* NOTE: These messages are sent to stdout */
-extern void splashScreen(char *app_name);
+extern void splashScreen(struct cli_env *env, char *app_name);
 
 /* Use LOGMSG */
 extern void logMsg(struct cli_env *env);

@@ -152,7 +152,7 @@ void set_prompt(struct cli_env *e)
 		name = (char *)cfg_dev.name;
 	}
 
-	snprintf(e->prompt, PROMPTLEN,  "%s.%03x >", name, pe_did);
+	snprintf(e->prompt, PROMPTLEN,  "%s.%03x> ", name, pe_did);
 }
 
 void *poll_loop( void *poll_interval ) 
@@ -220,15 +220,8 @@ void *cli_session( void *sock_num )
 	while (strncmp(buffer, "done", 4)) {
 		struct cli_env env;
 
-		env.script = NULL;
-		env.fout = NULL;
-		bzero(env.output, BUFLEN);
-		bzero(env.input, BUFLEN);
-		env.DebugLevel = 0;
-		env.progressState = 0;
-		env.sess_socket = -1;
+		init_cli_env(&env);
 		env.h = mport_pe;
-		bzero(env.prompt, PROMPTLEN+1);
 		set_prompt( &env );
 
 		listen(sockfd,5);
@@ -304,8 +297,10 @@ void spawn_threads(struct fmd_opt_vals *cfg)
 	}
 
 	if (cfg->run_cons) {
+		struct cli_env t_env;
 
-		splashScreen((char *)"FMD Daemon Command Line Interface");
+		init_cli_env(&t_env);
+		splashScreen(&t_env, (char *)"FMD Command Line Interface");
 		cons_ret = pthread_create( &console_thread, NULL, 
 			console, (void *)((char *)"FMD > "));
 		if(cons_ret) {

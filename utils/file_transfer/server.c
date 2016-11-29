@@ -1026,8 +1026,10 @@ void spawn_threads(int cons_skt, int xfer_skt, int run_cons)
 	/* Prepare and start console thread */
 	if (run_cons) {
 		char thr_name[16] = {0};
+		struct cli_env t_env;
 
-		splashScreen((char *)
+		init_cli_env(&t_env);
+		splashScreen(&t_env, (char *)
 			"RTA File Transfer Server Command Line Interface");
 
 		cons_ret = pthread_create( &console_thread, NULL, 

@@ -178,17 +178,10 @@ int main(int UNUSED(argc), char **UNUSED(argv))
 	cli_init_base(NULL);
 	add_commands_to_cmd_db(1, &temp_ptr);
 
-        env.script = NULL;
-        env.fout = NULL;
-        bzero(env.output, BUFLEN);
-        bzero(env.input, BUFLEN);
-        env.DebugLevel = 0;
-        env.progressState = 0;
-        env.sess_socket = -1;
-        env.cmd_prev = NULL;
+	init_cli_env(&env);
 	SAFE_STRNCPY(env.prompt, "RemDbg> ", sizeof(env.prompt));
 
-	splashScreen((char *)"RapidIO Remote Debug Console");
+	splashScreen(&env, (char *)"RapidIO Remote Debug Console");
 	cli_terminal(&env);
 
 	exit(EXIT_SUCCESS);
