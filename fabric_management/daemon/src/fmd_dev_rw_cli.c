@@ -38,7 +38,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <string.h>
 #include <stdlib.h>
 
-//#include "riocp_pe_internal.h"
+#include "rio_ecosystem.h"
 #include "fmd.h"
 #include "fmd_dev_rw_cli.h"
 #include "liblog.h"
@@ -95,7 +95,7 @@ static uint32_t mstore_numbytes;
 static uint32_t mstore_numacc;
 static uint32_t mstore_data;
 static uint32_t mstore_did;
-static uint32_t mstore_hc;
+static hc_t mstore_hc;
 
 void aligningAddress(struct cli_env *env, uint32_t address)
 {
@@ -673,26 +673,32 @@ int CLIMRegReadCmd(struct cli_env *env, int argc, char **argv)
 	uint32_t data, prevRead;
 	uint32_t numReads = 1, i;
 	uint32_t did;
-	uint32_t hc;
+	uint32_t tmp;
+	hc_t hc;
 	int rc;
 
 	if (argc) {
 		address = getHex(argv[0], 0);
 		if(argc > 2) {
-			did = getHex(argv[1], 0);
-			hc = getHex(argv[2], 0);
+			did = (uint32_t)getHex(argv[1], 0);
+			tmp = (uint32_t)getHex(argv[2], 0);
+			if (tmp > HC_MP) {
+				goto exit;
+			}
+			hc = tmp;
 		} else {
 			did = mstore_did;
 			hc = mstore_hc;
 		};
 		
 		if(argc > 3)
-			numReads = getHex(argv[3], 1);
+			numReads = (uint32_t)getHex(argv[3], 1);
 
 		if ((address % 4) != 0) {
 			aligningAddress(env, address);
 			address = address - (address % 4);
 		}
+
 		mstore_address = address;
 		mstore_numacc = numReads;
 		mstore_did = did;
@@ -742,30 +748,39 @@ ATTR_RPT
 };
 
 int CLIMRegWriteCmd(struct cli_env *env, int argc, char **argv)
-
 {
 	int errorStat = 0;
 	uint32_t address;
 	uint32_t did;
-	uint32_t hc;
+	hc_t hc;
+	uint32_t tmp;
 	uint32_t data;
 	uint32_t rc;
 
 	if (argc) {
-		address = getHex(argv[0], 0);
-		data    = getHex(argv[1], 0);
+		address = (uint32_t)getHex(argv[0], 0);
+		data    = (uint32_t)getHex(argv[1], 0);
+
 		if (argc > 3) {
-			did = getHex(argv[2], 0);
-			hc = getHex(argv[3], 0);
+			did = (uint32_t)getHex(argv[2], 0);
+			tmp = (uint32_t)getHex(argv[3], 0);
+			if (tmp > HC_MP) {
+				goto exit;
+			}
+			hc = tmp;
+
+
 		} else {
 			did = mstore_did;
 			hc = mstore_hc;
-		};
+		}
+
 		if ((address % 4) != 0) {
 			/*ensure that the address is a multiple of n bytes*/
 			aligningAddress(env, address);
 			address = address - (address % 4);
-		};
+		}
+
 		mstore_address = address;
 		mstore_data    = data;
 		mstore_did     = did;
@@ -842,7 +857,7 @@ void fmd_bind_dev_rw_cmds(void)
 
 	mstore_address = 0;
 	mstore_did = 0;
-	mstore_hc = 0xFF;
+	mstore_hc = HC_MP;
 	mstore_numbytes = 4;
 	mstore_numacc = 1;
 	mstore_data = 0;

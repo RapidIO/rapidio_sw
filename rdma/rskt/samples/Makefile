@@ -67,7 +67,7 @@ rskt_server:  $(RSKT_SERVER_SOURCE) $(COMMONDIR)/include/*.h
 	@echo ---------- Building rskt_server
 	$(CXX) $(CXXFLAGS) \
 	-I./src -I../inc \
-	-I$(FMDDIR)/libdid/inc -I$(FMDDIR)/libct/inc \
+	-I$(FMDDIR)/librio_switch/inc -I$(FMDDIR)/libdid/inc -I$(FMDDIR)/libct/inc \
 	$(LIBS_RPATH) \
 	-o $@ $(RSKTLIB_OBJECTS) $(RSKT_SERVER_SOURCE) \
 	$(LIB_DIRS) $(LIBRARIES) $(TST_LIBS)
@@ -76,7 +76,7 @@ rskt_client:  $(RSKT_CLIENT_SOURCE) $(COMMONDIR)/include/*.h
 	@echo ---------- Building rskt_client
 	$(CXX) $(CXXFLAGS) \
 	-I../inc \
-	-I$(FMDDIR)/libdid/inc -I$(FMDDIR)/libct/inc \
+	-I$(FMDDIR)/librio_switch/inc -I$(FMDDIR)/libdid/inc -I$(FMDDIR)/libct/inc \
 	$(LIBS_RPATH) \
 	-o $@ $(RSKTLIB_OBJECTS) $(RSKT_CLIENT_SOURCE) \
 	$(LIB_DIRS) $(LIBRARIES) $(TST_LIBS)

@@ -41,9 +41,9 @@ int RIOCP_WU riocp_drv_reg_rd(struct riocp_pe *pe,
                         uint32_t offset, uint32_t *val);
 int RIOCP_WU riocp_drv_reg_wr(struct riocp_pe *pe,
                         uint32_t offset, uint32_t val);
-int RIOCP_WU riocp_drv_raw_reg_rd(struct riocp_pe *pe, uint32_t did, uint8_t hc,
+int RIOCP_WU riocp_drv_raw_reg_rd(struct riocp_pe *pe, uint32_t did, hc_t hc,
                         uint32_t offset, uint32_t *val);
-int RIOCP_WU riocp_drv_raw_reg_wr(struct riocp_pe *pe, uint32_t did, uint8_t hc,
+int RIOCP_WU riocp_drv_raw_reg_wr(struct riocp_pe *pe, uint32_t did, hc_t hc,
                         uint32_t offset, uint32_t val);
 
 /* Driver binding/initialization */

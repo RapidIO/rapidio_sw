@@ -59,10 +59,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <netinet/in.h>
 // #endif
 
+#include "rio_ecosystem.h"
 #include "fmd_dd.h"
 #include "liblog.h"
 #include "riocp_pe.h"
-//#include "riocp_pe_internal.h"
 #include "libcli.h"
 #include <stdio.h>
 #include <string.h>
@@ -130,7 +130,7 @@ int fmd_dd_open_rw(char *dd_fn, int *dd_fd, struct fmd_dd **dd,
 		(*dd)->devs[idx].ct = 0;
 		(*dd)->devs[idx].destID = 0;
 		(*dd)->devs[idx].destID_sz = FMD_DEV08;
-		(*dd)->devs[idx].hc = 0xFF;
+		(*dd)->devs[idx].hc = HC_MP;
 		(*dd)->devs[idx].is_mast_pt = 0;
 		(*dd)->devs[idx].flag = 0;
 		memset((*dd)->devs[idx].name, 0, FMD_MAX_NAME+1);

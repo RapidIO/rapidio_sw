@@ -362,7 +362,7 @@ int RIOCP_SO_ATTR riocp_pe_discover(riocp_pe_handle pe,
 	riocp_pe_handle *peer, char *name)
 {
 	struct riocp_pe *p = NULL;
-	uint8_t hopcount = 0;
+	hc_t hopcount;
 	ct_t comptag = 0;
 	uint32_t destid;
 	unsigned int i;
@@ -393,11 +393,8 @@ int RIOCP_SO_ATTR riocp_pe_discover(riocp_pe_handle pe,
 			return -ENODEV;
 		}
 	}
-	if (!RIOCP_PE_IS_MPORT(pe))
-		hopcount = pe->hopcount + 1;
 
 	destid = ANY_ID;
-
 	if (RIOCP_PE_IS_MPORT(pe))
 		goto found;
 
@@ -452,6 +449,9 @@ found_unlock_pe:
 
 found:
 	RIOCP_TRACE("Found peer d: %u (0x%08x) -> Port %d\n", destid, destid, _port);
+
+	// initialize the hopcount
+	HC_INCR(hopcount, pe->hopcount);
 
 	/* Read comptag */
 	ret = riocp_drv_raw_reg_rd(pe->mport, destid,
@@ -541,7 +541,7 @@ int RIOCP_SO_ATTR riocp_pe_probe(riocp_pe_handle pe,
 	uint32_t val;
 	struct riocp_pe *p = NULL; // Temporary handle pointer
 	struct riocp_pe *temp_p = NULL; // Temporary handle pointer
-	uint8_t hopcount = 0;
+	hc_t hopcount;
 	ct_t comptag = 0;
 	did_t did;
 	uint8_t sw_port = 0;
@@ -562,9 +562,9 @@ int RIOCP_SO_ATTR riocp_pe_probe(riocp_pe_handle pe,
 	if (NULL == comptag_in) {
 		return -EINVAL;
 	}
-	if (!RIOCP_PE_IS_MPORT(pe)) {
-		hopcount = pe->hopcount + 1;
-	}
+
+	// initialize the hopcount
+	HC_INCR(hopcount, pe->hopcount);
 
 	RIOCP_TRACE("Probe on PE 0x%08x (hopcount %u, port %u)\n",
 		pe->comptag, hopcount, port);

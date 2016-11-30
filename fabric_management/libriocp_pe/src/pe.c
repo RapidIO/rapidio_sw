@@ -405,7 +405,7 @@ int riocp_pe_probe_prepare(struct riocp_pe *pe, uint8_t port)
 /**
  * Verify found handle by writing current PE comptag and verify peer comptag
  * @param pe Target PE (for comptag_alt)
- * @retval 0 New device, no redudant path
+ * @retval 0 New device, no redundant path
  * @retval 1 Redundant path
  */
 int riocp_pe_probe_verify_found(struct riocp_pe *pe, uint8_t port, struct riocp_pe *peer)
@@ -413,7 +413,10 @@ int riocp_pe_probe_verify_found(struct riocp_pe *pe, uint8_t port, struct riocp_
 	int ret;
 	ct_t comptag_peer;
 	ct_t comptag_alt;
-	uint8_t  hopcount_alt = pe->hopcount + 1;
+	hc_t hopcount_alt;
+
+	// initialize the hopcount
+	HC_INCR(hopcount_alt, pe->hopcount);
 
 	RIOCP_TRACE("Probe verify pe: hc: %u, comptag: 0x%08x, port %u\n",
 		pe->hopcount, pe->comptag, port);

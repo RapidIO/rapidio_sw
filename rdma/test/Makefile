@@ -52,6 +52,7 @@ RDMAAPP_CFLAGS = --std=c++11 -Wall -Werror -Wextra -g -ggdb -DRDMA_LL=$(level) \
 		-I$(TOP_LEVEL)/common/include \
 		-I$(TOP_LEVEL)/rdma/lib/src \
 		-I$(TOP_LEVEL)/rdma/inc \
+		-I$(TOP_LEVEL)/fabric_management/librio_switch/inc \
 		-I$(TOP_LEVEL)/fabric_management/libdid/inc \
 		-I$(TOP_LEVEL)/fabric_management/libct/inc
 

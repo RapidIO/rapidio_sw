@@ -171,7 +171,7 @@ static int riocp_pe_test_lookup(int argc, char **argv)
 {
 	int ret = 0;
 	uint8_t port = 0;
-	uint8_t hopcount = 0;
+	hc_t hopcount = 0;
 	ct_t comptag;
 	char *token;
 	char *pathstring = argv[3];
@@ -182,7 +182,7 @@ static int riocp_pe_test_lookup(int argc, char **argv)
 	}
 
 	token = strtok(pathstring, ",");
-	port = (uint8_t)strtoul(token, NULL, 10);
+	port = (uint8_t)strtoul(token,hopcount NULL, 10);
 
 	if (is_host) {
 		ret = riocp_pe_maint_read(mport, 0x6c, &comptag);
@@ -205,11 +205,12 @@ static int riocp_pe_test_lookup(int argc, char **argv)
 		hopcount, port,
 		riocp_pe_get_device_name(path[hopcount]));
 
-	while ((token = strtok(NULL, ",")) && (token !=NULL)) {
+	while ((token = strtok(NULL, ",")) && (token != NULL)
+			&& hopcount < MAX_LOOKUP_HOPS-1) {
 		port = strtoul(token, NULL, 10);
 
 		if (is_host) {
-			ret = riocp_pe_maint_read(path[hopcount], 0x6c,
+			ret = riocp_pe_maint_read(path[hopcount], RIO_COMPTAG,
 					&comptag);
 			if (ret) {
 				return -1;
@@ -233,7 +234,7 @@ static int riocp_pe_test_lookup(int argc, char **argv)
 				port, hopcount, strerror(-ret));
 			return -1;
 		}
-		hopcount++;
+		HC_INCR(hopcount, hopcount);
 	}
 
 	pe = path[hopcount];

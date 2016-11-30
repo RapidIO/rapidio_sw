@@ -148,7 +148,7 @@ struct int_cfg_sw {
 	char *dev_type;
 	uint32_t did_sz;
 	uint32_t did;
-	uint32_t hc;
+	hc_t hc;
 	ct_t ct;
 	uint32_t traversed;
 	struct int_cfg_sw_port ports[CFG_MAX_SW_PORT];

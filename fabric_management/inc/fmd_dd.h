@@ -39,6 +39,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <riocp_pe.h>
 
 #include <rrmap_config.h>
+#include "rio_ecosystem.h"
+#include "ct.h"
 
 #ifndef _FMD_DD_H_
 #define _FMD_DD_H_
@@ -59,7 +61,7 @@ struct fmd_dd_dev_info {
 	ct_t ct;
 	uint32_t destID;
 	uint32_t destID_sz;
-	uint32_t hc;
+	hc_t hc;
 	uint32_t is_mast_pt;
 	uint32_t flag;
 	char name[FMD_MAX_NAME+1];

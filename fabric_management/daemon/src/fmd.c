@@ -64,6 +64,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "DAR_Utilities.h"
 
 #include "string_util.h"
+#include "rio_ecosystem.h"
 #include "libcli.h"
 #include "riocp_pe.h"
 #include "DAR_DevDriver.h"
@@ -518,7 +519,7 @@ int setup_mport_slave(int mport)
                 } else {
 			rc = riomp_mgmt_device_add(acc_p->maint,
 				(uint16_t)fmd->opts->mast_devid,
-				0xff, fmd->opts->mast_devid,
+				HC_MP, fmd->opts->mast_devid,
 				FMD_SLAVE_MASTER_NAME);
 		};
 		if (rc) {

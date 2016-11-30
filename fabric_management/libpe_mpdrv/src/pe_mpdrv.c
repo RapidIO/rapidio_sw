@@ -52,6 +52,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <netinet/in.h>
 
 #include "string_util.h"
+#include "rio_ecosystem.h"
 #include "liblog.h"
 #include "pe_mpdrv_private.h"
 #include "riocp_pe_internal.h"
@@ -122,7 +123,7 @@ int mpsw_drv_reg_wr(struct riocp_pe  *pe, uint32_t offset, uint32_t val)
 	return 0;
 }
 
-int mpsw_drv_raw_reg_wr(struct riocp_pe *pe, uint32_t did, uint8_t hc,
+int mpsw_drv_raw_reg_wr(struct riocp_pe *pe, uint32_t did, hc_t hc,
 				uint32_t addr, uint32_t val)
 {
 	int rc;
@@ -144,7 +145,7 @@ int mpsw_drv_raw_reg_wr(struct riocp_pe *pe, uint32_t did, uint8_t hc,
 	return rc;
 }
 
-int mpsw_drv_raw_reg_rd(struct riocp_pe *pe, uint32_t did, uint8_t hc,
+int mpsw_drv_raw_reg_rd(struct riocp_pe *pe, uint32_t did, hc_t hc,
 				uint32_t addr, uint32_t *val)
 {
 	int rc;

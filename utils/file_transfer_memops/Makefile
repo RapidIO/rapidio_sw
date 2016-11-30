@@ -41,7 +41,7 @@ DEBUG?=DEBUG
 
 CXXFLAGS+=-D$(DEBUG_CTL) -DRDMA_LL=$(LOG_LEVEL)
 CXXFLAGS+=-I. -I./file_xfer_lib/inc -I./libcdev/inc -I./libfxfr/inc
-CXXFLAGS+=-I$(FMDDIR)/libdid/inc -I$(FMDDIR)/libct/inc
+CXXFLAGS+=-I$(FMDDIR)/librio_switch/inc -I$(FMDDIR)/libdid/inc -I$(FMDDIR)/libct/inc
 
 REMDBG_DEPS=
 

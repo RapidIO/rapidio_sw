@@ -39,6 +39,7 @@
 #include <rapidio_mport_sock.h>
 #include <stdint.h>
 #include <sched.h>
+#include "rio_ecosystem.h"
 #include "fake_libmport.h"
 #include "libunit_test.h"
 #include "rskt_worker.h"
@@ -359,7 +360,7 @@ int riomp_mgmt_lcfg_write(riomp_mport_t mport_handle, uint32_t offset,
 };
 
 int riomp_mgmt_rcfg_read(riomp_mport_t mport_handle, uint32_t destid,
-			uint32_t hc, uint32_t offset, uint32_t size,
+			hc_t hc, uint32_t offset, uint32_t size,
 			uint32_t *data)
 {
 	if (0) {
@@ -371,7 +372,7 @@ int riomp_mgmt_rcfg_read(riomp_mport_t mport_handle, uint32_t destid,
 };
 
 int riomp_mgmt_rcfg_write(riomp_mport_t mport_handle, uint32_t destid,
-			uint32_t hc, uint32_t offset, uint32_t size,
+			hc_t hc, uint32_t offset, uint32_t size,
 			uint32_t data)
 {
 	if (0) {
@@ -469,7 +470,7 @@ int riomp_mgmt_send_event(riomp_mport_t mport_handle,
 };
 
 int riomp_mgmt_device_add(riomp_mport_t mport_handle, uint16_t destid,
-			uint8_t hc, ct_t ctag, const char *name)
+			hc_t hc, ct_t ctag, const char *name)
 {
 	if (0) {
 		if ((NULL == mport_handle) || (NULL == name))
@@ -480,7 +481,7 @@ int riomp_mgmt_device_add(riomp_mport_t mport_handle, uint16_t destid,
 };
 
 int riomp_mgmt_device_del(riomp_mport_t mport_handle, uint16_t destid,
-			uint8_t hc, ct_t ctag, const char *name)
+		hc_t hc, ct_t ctag, const char *name)
 {
 	if (0) {
 		if ((NULL == mport_handle) || (NULL == name))

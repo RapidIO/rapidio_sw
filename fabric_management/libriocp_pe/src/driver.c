@@ -13,9 +13,6 @@
 #include <stdlib.h>
 #include <stdbool.h>
 
-#include "rio_standard.h"
-#include "did.h"
-#include "ct.h"
 #include "inc/riocp_pe.h"
 #include "inc/riocp_pe_internal.h"
 
@@ -423,7 +420,7 @@ int RIOCP_WU riocp_drv_reg_wr(struct riocp_pe *pe, uint32_t offset, uint32_t val
 		return -ENOSYS;
 }
 
-int RIOCP_WU riocp_drv_raw_reg_rd(struct riocp_pe *pe, uint32_t did, uint8_t hc,
+int RIOCP_WU riocp_drv_raw_reg_rd(struct riocp_pe *pe, uint32_t did, hc_t hc,
                         uint32_t offset, uint32_t *val)
 {
 	if (RIOCP_PE_IS_HOST(pe) || RIOCP_PE_IS_MPORT(pe))
@@ -433,7 +430,7 @@ int RIOCP_WU riocp_drv_raw_reg_rd(struct riocp_pe *pe, uint32_t did, uint8_t hc,
 		return -ENOSYS;
 };
 
-int RIOCP_WU riocp_drv_raw_reg_wr(struct riocp_pe *pe, uint32_t did, uint8_t hc,
+int RIOCP_WU riocp_drv_raw_reg_wr(struct riocp_pe *pe, uint32_t did, hc_t hc,
                         uint32_t offset, uint32_t val)
 {
 	if (RIOCP_PE_IS_HOST(pe) || RIOCP_PE_IS_MPORT(pe))
