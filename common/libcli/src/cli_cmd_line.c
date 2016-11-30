@@ -56,23 +56,22 @@ void (*cons_cleanup)(struct cli_env *env);
 void splashScreen(struct cli_env *env, char *app_name)
 {
 	char *dash = (char *)
-		"----------------------------------------------------------\n";
+			"----------------------------------------------------------";
 	char *dash_ends = (char *)
-		"---                                                    ---\n";
-	int dash_len = strlen(dash) - 7;
+			"---                                                    ---";
+	int dash_len = strlen(dash) - 6;
 	int app_name_len = (int)((dash_len + strlen(app_name))/2); 
 	int app_name_rem = dash_len - app_name_len;
-
-        LOGMSG(env, dash);
-        LOGMSG(env, dash_ends);
+	LOGMSG(env, "%s\n", dash);
+	LOGMSG(env, "%s\n", dash_ends);
 	LOGMSG(env, "---%*s%*s---\n", app_name_len, app_name, app_name_rem, "");
-        LOGMSG(env, dash_ends);
-	LOGMSG(env, dash);
+	LOGMSG(env, "%s\n", dash_ends);
+	LOGMSG(env, "%s\n", dash);
 	LOGMSG(env, "---         Version: %2s.%2s (%11s-%8s)      ---\n",
-                CLI_VERSION_YR, CLI_VERSION_MO, __DATE__, __TIME__);
-        LOGMSG(env, dash);
-        LOGMSG(env, "            RapidIO Trade Association\n");
-        LOGMSG(env, "            Copyright 2016\n");
+			CLI_VERSION_YR, CLI_VERSION_MO, __DATE__, __TIME__);
+	LOGMSG(env, "%s\n", dash);
+	LOGMSG(env, "            RapidIO Trade Association\n");
+	LOGMSG(env, "            Copyright 2016\n");
 };
 
 const char *delimiter = " ,\t\n";   /* Input token delimiter */

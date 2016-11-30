@@ -87,7 +87,7 @@ void *remote_login(void *remote_login_parm)
 	struct cli_env *env = NULL;
 	struct rem_sess_parms *sess = NULL;
 
-	snprintf(my_name, 15, parms->thr_name);
+	snprintf(my_name, 15, "%s", parms->thr_name);
 	pthread_setname_np(remote_login_thread, my_name);
 	pthread_detach(remote_login_thread);
 
