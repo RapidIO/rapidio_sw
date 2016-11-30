@@ -809,6 +809,10 @@ uint32_t DARDB_rioDeviceSupportedDefault( DAR_DEV_INFO_t *dev_info )
                     dev_info->extFPtrForErr = prev_addr;
                     break;
 
+                case RIO_EFB_T_HS:
+                    dev_info->extFPtrForHS = prev_addr;
+                    break;
+
                 case RIO_EFB_T_LANE :
                     dev_info->extFPtrForLane = prev_addr;
                     break;
@@ -1003,11 +1007,13 @@ void DARDB_Init_Device_Info( DAR_DEV_INFO_t *dev_info )
     dev_info->extFPtrPortType= 0 ;
     dev_info->extFPtrForLane = 0 ;
     dev_info->extFPtrForErr  = 0 ;
+    dev_info->extFPtrForHS   = 0 ;
     dev_info->extFPtrForVC   = 0 ;
     dev_info->extFPtrForVOQ  = 0 ;
     dev_info->extFPtrForRT   = 0 ;
     dev_info->extFPtrForTS   = 0 ;
     dev_info->extFPtrForMISC = 0 ;
+
 }
 
 

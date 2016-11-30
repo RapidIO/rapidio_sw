@@ -122,6 +122,8 @@ typedef struct DAR_DEV_INFO_t_TAG
                               */
     uint32_t    extFPtrForMISC;  /* RO: ID  0x10: Miscellaneous Register Block
                               */
+    uint32_t    extFPtrForHS;  /* RO: ID  0x17: Hot Swap
+                              */
     /* Values of RapidIO Standard Registers, useful for understanding device
            capabilities without reading registers.
     */
