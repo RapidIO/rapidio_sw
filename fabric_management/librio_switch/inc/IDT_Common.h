@@ -44,8 +44,7 @@ extern "C" {
 #define IDT_TSI57X_DAR_WANTED
 #define IDT_CPS_GEN2_DAR_WANTED
 #define IDT_CPS_GEN1_DAR_WANTED
-#define IDT_RXS2448_DAR_WANTED
-#define IDT_RXS1632_DAR_WANTED
+#define IDT_RXSx_DAR_WANTED
 
 
 #ifdef IDT_TSI721_SUPPORT
@@ -71,6 +70,7 @@ extern "C" {
 
 #define TSI721_RIO_DEVICE_ID                    0x000080AB
 
+#define IDT_RXSx_RIO_DEVICE_ID                  0x000080e0
 #define IDT_RXS2448_RIO_DEVICE_ID               0x000080e6
 #define IDT_RXS1632_RIO_DEVICE_ID               0x000080e5
 

@@ -1305,12 +1305,12 @@ int CLIRoutingTableCmd(struct cli_env *env, int argc, char **argv)
            rt->default_route = 2;
            for (idx = 0; idx < IDT_DAR_RT_DEV_TABLE_SIZE; idx++)
            {
-               rt->dev_table[idx].rte_val = IDT_RXS_DSF_RT_NO_ROUTE;
+               rt->dev_table[idx].rte_val = IDT_DSF_RT_NO_ROUTE;
                rt->dev_table[idx].changed = false;
-               rt->dom_table[idx].rte_val = IDT_RXS_DSF_RT_NO_ROUTE;
+               rt->dom_table[idx].rte_val = IDT_DSF_RT_NO_ROUTE;
                rt->dom_table[idx].changed = false;
            }
-           for (idx = 0; idx < IDT_DSF_MAX_MC_MASK; idx++) //TODO: We need to update the size of mc_masks to support RXS
+           for (idx = 0; idx < IDT_DSF_MAX_MC_MASK; idx++)
            {
                rt->mc_masks[idx].mc_destID = 0xFF;
                rt->mc_masks[idx].tt = tt_dev8;
@@ -1326,7 +1326,7 @@ int CLIRoutingTableCmd(struct cli_env *env, int argc, char **argv)
 
            in_parm.set_on_port = port;
            in_parm.default_route = (uint8_t)(temp & RXS_RIO_ROUTE_DFLT_PORT_DEFAULT_OUT_PORT);
-           in_parm.default_route_table_port = IDT_RXS_DSF_RT_NO_ROUTE;
+           in_parm.default_route_table_port = IDT_DSF_RT_NO_ROUTE;
            in_parm.update_hw = false;
            in_parm.rt        = rt;
            rc = idt_rt_initialize(dev_h, &in_parm, &out_parm);

@@ -277,8 +277,8 @@ void check_unicast_routing( DAR_DEV_INFO_t     *dev_info,
                             idt_rt_probe_in_t  *in_parms, 
                             idt_rt_probe_out_t *out_parms ) 
 {
-    uint8_t idx, rte = 0;
-    uint8_t phys_rte;
+    uint8_t idx;
+    uint32_t phys_rte, rte = 0;
     bool  dflt_pt;
 
 	if (NULL == dev_info)
@@ -764,14 +764,9 @@ uint32_t IDT_DSF_bind_DAR_routines(
     bind_tsi721_DSF_support();
 #endif
 
-#ifdef IDT_RXS2448_DAR_WANTED
+#ifdef IDT_RXSx_DAR_WANTED
     bind_rxs_DAR_support();
-    bind_rxs2448_DSF_support();
-#endif
-
-#ifdef IDT_RXS1632_DAR_WANTED
-    bind_rxs_DAR_support();
-    bind_rxs1632_DSF_support();
+    bind_rxs_DSF_support();
 #endif
 
     ReadReg  = ReadRegCall;

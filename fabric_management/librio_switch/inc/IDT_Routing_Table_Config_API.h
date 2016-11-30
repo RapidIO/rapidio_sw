@@ -99,19 +99,28 @@ extern "C" {
 #define IDT_DAR_RT_DEV_TABLE_SIZE                   256
 #define IDT_DAR_RT_DOM_TABLE_SIZE                   256
 
-#define IDT_DSF_RT_USE_DEVICE_TABLE                 0xDD
+/* For CPS and SPS devices */
+/*#define IDT_DSF_RT_USE_DEVICE_TABLE                 0xDD
 #define IDT_DSF_RT_USE_DEFAULT_ROUTE                0xDE
 #define IDT_DSF_RT_NO_ROUTE                         0xDF
 
 #define IDT_DSF_FIRST_MC_MASK                       0x40
-#define IDT_DSF_MAX_MC_MASK                         0x28
+#define IDT_DSF_MAX_MC_MASK                         0x28*/
+
+/* For RXSs */
+#define IDT_DSF_RT_USE_DEVICE_TABLE                 0x0301
+#define IDT_DSF_RT_USE_DEFAULT_ROUTE                0xDE
+#define IDT_DSF_RT_NO_ROUTE                         0x0300
+
+#define IDT_DSF_FIRST_MC_MASK                       0x0100
+#define IDT_DSF_MAX_MC_MASK                         0x00FF
 #define IDT_DSF_BAD_MC_MASK                         (IDT_DSF_FIRST_MC_MASK+IDT_DSF_MAX_MC_MASK)
 
 #define IDT_LAST_DEV8_DESTID  0xFF
 #define IDT_LAST_DEV16_DESTID 0xFFFF
 
-#define MC_MASK_IDX_FROM_ROUTE(x) (uint8_t)(((x >= IDT_DSF_FIRST_MC_MASK) && (x < IDT_DSF_BAD_MC_MASK))?(x - IDT_DSF_FIRST_MC_MASK):IDT_DSF_BAD_MC_MASK)
-#define MC_MASK_ROUTE_FROM_IDX(x) (uint8_t)((x < IDT_DSF_MAX_MC_MASK)?(IDT_DSF_FIRST_MC_MASK + x):IDT_DSF_BAD_MC_MASK)
+#define MC_MASK_IDX_FROM_ROUTE(x) (uint32_t)(((x >= IDT_DSF_FIRST_MC_MASK) && (x < IDT_DSF_BAD_MC_MASK))?(x - IDT_DSF_FIRST_MC_MASK):IDT_DSF_BAD_MC_MASK)
+#define MC_MASK_ROUTE_FROM_IDX(x) (uint32_t)((x < IDT_DSF_MAX_MC_MASK)?(IDT_DSF_FIRST_MC_MASK + x):IDT_DSF_BAD_MC_MASK)
 
 typedef enum { tt_dev8, tt_dev16 } tt_t;
 
@@ -174,7 +183,7 @@ typedef struct idt_rt_state_t_TAG
     uint32_t                default_route;             // The 'default route' for ports routed using IDT_DAR_RT_USE_DEFAULT_ROUTE
     idt_rt_uc_info_t      dev_table[IDT_DAR_RT_DEV_TABLE_SIZE]; // Encoded routing table value, should never be IDT_DAR_RT_USE_DEVICE_TABLE
     idt_rt_uc_info_t      dom_table[IDT_DAR_RT_DOM_TABLE_SIZE]; // Encoded routing table value read, should never be DAR_RT_FIRST_MC_MASK
-    idt_rt_mc_info_t      mc_masks[IDT_RXS_DSF_MAX_MC_MASK];
+    idt_rt_mc_info_t      mc_masks[IDT_DSF_MAX_MC_MASK];
 } idt_rt_state_t;
 
 typedef struct idt_rt_initialize_in_t_TAG
@@ -184,7 +193,7 @@ typedef struct idt_rt_initialize_in_t_TAG
                            //   this function also clears all multicast masks and removes all
                            //   associations between multicast masks and ports.
 
-    uint8_t     default_route; // Routing control for IDT_DSF_RT_DEFAULT_ROUTE routing table value.
+    uint32_t    default_route; // Routing control for IDT_DSF_RT_DEFAULT_ROUTE routing table value.
                              //    Must be a valid port number, or IDT_DSF_RT_NO_ROUTE
 
     uint32_t    default_route_table_port; // Select the default routing for every destination ID in the routing table

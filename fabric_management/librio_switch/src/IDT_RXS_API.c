@@ -122,31 +122,31 @@ uint32_t idt_rxs_sc_read_ctrs( DAR_DEV_INFO_t           *dev_info,
 	if (NULL == in_parms->dev_ctrs) {
 		out_parms->imp_rc = SC_READ_RXS_CTRS(0x01);
 		goto idt_sc_read_rxs_ctr_exit;
-	};
+	}
 
 	if (NULL == in_parms->dev_ctrs->p_ctrs) {
 		out_parms->imp_rc = SC_READ_RXS_CTRS(0x02);
 		goto idt_sc_read_rxs_ctr_exit;
-	};
+	}
 
 	if (!in_parms->dev_ctrs->num_p_ctrs ||
 		(in_parms->dev_ctrs->num_p_ctrs > IDT_MAX_PORTS) ||
 		(in_parms->dev_ctrs->num_p_ctrs < in_parms->dev_ctrs->valid_p_ctrs)) {
 		out_parms->imp_rc = SC_READ_RXS_CTRS(0x03);
 		goto idt_sc_read_rxs_ctr_exit;
-	};
+	}
 
 	if (((RIO_ALL_PORTS == in_parms->ptl.num_ports) && (in_parms->dev_ctrs->num_p_ctrs < NUM_PORTS(dev_info))) ||
 		((RIO_ALL_PORTS != in_parms->ptl.num_ports) && (in_parms->dev_ctrs->num_p_ctrs < in_parms->ptl.num_ports))) {
 		out_parms->imp_rc = SC_READ_RXS_CTRS(0x04);
 		goto idt_sc_read_rxs_ctr_exit;
-	};
+	}
 
 	rc = DARrioGetPortList(dev_info, &in_parms->ptl, &good_ptl);
 	if (RIO_SUCCESS != rc) {
 		out_parms->imp_rc = SC_READ_RXS_CTRS(0x10);
 		goto idt_sc_read_rxs_ctr_exit;
-	};
+	}
 
 	for (srch_i = 0; srch_i < NUM_PORTS(dev_info); srch_i++)
 		p_to_i[srch_i] = RXS2448_MAX_PORTS;
@@ -165,7 +165,7 @@ uint32_t idt_rxs_sc_read_ctrs( DAR_DEV_INFO_t           *dev_info,
 					rc = RIO_ERR_INVALID_PARAMETER;
 					out_parms->imp_rc = SC_READ_RXS_CTRS(0x50 + port_num);
 					goto idt_sc_read_rxs_ctr_exit;
-				};
+				}
 
 				for (cntr = 0; cntr < RXS_NUM_PERF_CTRS; cntr++) {
 					if (idt_sc_disabled != in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc) {
@@ -175,7 +175,7 @@ uint32_t idt_rxs_sc_read_ctrs( DAR_DEV_INFO_t           *dev_info,
                                                         rc = RIO_ERR_INVALID_PARAMETER;
                                                         out_parms->imp_rc = SC_READ_RXS_CTRS(0x70 + cntr);
                                                         goto idt_sc_read_rxs_ctr_exit;
-                                                };
+                                                }
 						if (0x00000001 & (ctl_reg >> 7))
 							in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].tx = true;
 						else
@@ -218,18 +218,18 @@ uint32_t idt_rxs_sc_read_ctrs( DAR_DEV_INFO_t           *dev_info,
                                                         rc = RIO_ERR_INVALID_PARAMETER;
                                                         out_parms->imp_rc = SC_READ_RXS_CTRS(0x71 + cntr);
                                                         goto idt_sc_read_rxs_ctr_exit;
-                                                };
+                                                }
                                                 in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].total += in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].last_inc; 
-					};
-				};
-			};
-		};
+					}
+				}
+			}
+		}
 		if (!found) {
 			rc = RIO_ERR_INVALID_PARAMETER;
 			out_parms->imp_rc = SC_READ_RXS_CTRS(0x90 + srch_p);
 			goto idt_sc_read_rxs_ctr_exit;
-		};
-	};
+		}
+	}
 	rc = RIO_SUCCESS;
 
 idt_sc_read_rxs_ctr_exit:
@@ -263,44 +263,44 @@ uint32_t idt_rxs_sc_cfg_ctr( DAR_DEV_INFO_t           *dev_info,
 	if (NULL == in_parms->dev_ctrs) {
 		out_parms->imp_rc = SC_CFG_RXS_CTRS(0x01);
 		goto idt_sc_cfg_rxs_ctr_exit;
-	};
+	}
 
 	if (NULL == in_parms->dev_ctrs->p_ctrs) {
 		out_parms->imp_rc = SC_CFG_RXS_CTRS(0x02);
 		goto idt_sc_cfg_rxs_ctr_exit;
-	};
+	}
 
 	if (!in_parms->dev_ctrs->num_p_ctrs ||
 		(in_parms->dev_ctrs->num_p_ctrs > IDT_MAX_PORTS) ||
 		(in_parms->dev_ctrs->num_p_ctrs < in_parms->dev_ctrs->valid_p_ctrs)) {
 		out_parms->imp_rc = SC_CFG_RXS_CTRS(0x03);
 		goto idt_sc_cfg_rxs_ctr_exit;
-	};
+	}
 
 	if (((RIO_ALL_PORTS == in_parms->ptl.num_ports) && (in_parms->dev_ctrs->num_p_ctrs < NUM_PORTS(dev_info))) ||
 		((RIO_ALL_PORTS != in_parms->ptl.num_ports) && (in_parms->dev_ctrs->num_p_ctrs < in_parms->ptl.num_ports))) {
 		out_parms->imp_rc = SC_CFG_RXS_CTRS(0x04);
 		goto idt_sc_cfg_rxs_ctr_exit;
-	};
+	}
 
 	rc = DARrioGetPortList(dev_info, &in_parms->ptl, &good_ptl);
 	if (RIO_SUCCESS != rc) {
 		out_parms->imp_rc = SC_CFG_RXS_CTRS(0x10);
 		goto idt_sc_cfg_rxs_ctr_exit;
-	};
+	}
 
 	if ((in_parms->dev_ctrs->num_p_ctrs   < good_ptl.num_ports) ||
 		(in_parms->dev_ctrs->valid_p_ctrs < good_ptl.num_ports)) {
 		rc = RIO_ERR_INVALID_PARAMETER;
 		out_parms->imp_rc = SC_CFG_RXS_CTRS(0x05);
 		goto idt_sc_cfg_rxs_ctr_exit;
-	};
+	}
 
 	rc = DARRegWrite(dev_info, RXS_RIO_PCNTR_CTL, RXS_RIO_PCNTR_CTL_CNTR_FRZ);
 	if (RIO_SUCCESS != rc) {
 		out_parms->imp_rc = SC_CFG_RXS_CTRS(0x07);
 		goto idt_sc_cfg_rxs_ctr_exit;
-	};
+	}
 
 	reg_mask = SECOND_BYTE_MASK;
 	// Create SC_CTL
@@ -326,8 +326,8 @@ uint32_t idt_rxs_sc_cfg_ctr( DAR_DEV_INFO_t           *dev_info,
 		case idt_sc_disabled      :  new_ctl |= RXS_RIO_SPX_PCNTR_CTL_SEL_DISABLED;         break;
 		default: out_parms->imp_rc = SC_CFG_RXS_CTRS(0x30);
 			goto idt_sc_cfg_rxs_ctr_exit;
-		};
-	};	
+		}
+	}	
 
 	for (srch_i = 0; srch_i < NUM_PORTS(dev_info); srch_i++)
 		p_to_i[srch_i] = RXS2448_MAX_PORTS;
@@ -341,13 +341,13 @@ uint32_t idt_rxs_sc_cfg_ctr( DAR_DEV_INFO_t           *dev_info,
 			if (RIO_SUCCESS != rc) {
 				out_parms->imp_rc = SC_CFG_RXS_CTRS(0x06);
 				goto idt_sc_cfg_rxs_ctr_exit;
-			};
+			}
 		}
 		else {
 			// To config counters, performance counter control should be enabled.
 			// The paramater is zero.
 			goto idt_sc_cfg_rxs_ctr_exit;
-		};
+		}
 
 		for (srch_i = 0; srch_i < in_parms->dev_ctrs->valid_p_ctrs; srch_i++) {
 			if (in_parms->dev_ctrs->p_ctrs[srch_i].pnum == port_num) {
@@ -364,14 +364,14 @@ uint32_t idt_rxs_sc_cfg_ctr( DAR_DEV_INFO_t           *dev_info,
 					rc = RIO_ERR_INVALID_PARAMETER;
 					out_parms->imp_rc = SC_CFG_RXS_CTRS(0x40 + port_num);
 					goto idt_sc_cfg_rxs_ctr_exit;
-				};
+				}
 
 				// Always program the control value...
 				rc = DARRegRead(dev_info, RXS_RIO_SPX_PCNTR_CTL(port_num, in_parms->ctr_idx), &ctl_reg);
 				if (RIO_SUCCESS != rc) {
 					out_parms->imp_rc = SC_CFG_RXS_CTRS(0x50);
 					goto idt_sc_cfg_rxs_ctr_exit;
-				};
+				}
 				new_ctl_reg = ctl_reg & reg_mask;
 				new_ctl_reg |= new_ctl;
 
@@ -401,16 +401,16 @@ uint32_t idt_rxs_sc_cfg_ctr( DAR_DEV_INFO_t           *dev_info,
 					if (RIO_SUCCESS != rc) {
 						out_parms->imp_rc = SC_CFG_RXS_CTRS(0x53);
 						goto idt_sc_cfg_rxs_ctr_exit;
-					};
-				};
-			};
-		};
+					}
+				}
+			}
+		}
 		if (!found) {
 			rc = RIO_ERR_INVALID_PARAMETER;
 			out_parms->imp_rc = SC_CFG_RXS_CTRS(0x59);
 			goto idt_sc_cfg_rxs_ctr_exit;
-		};
-	};
+		}
+	}
 
 	rc = RIO_SUCCESS;
 
@@ -419,7 +419,7 @@ idt_sc_cfg_rxs_ctr_exit:
 	rc = DARRegWrite(dev_info, RXS_RIO_PCNTR_CTL, 0x00);
 	if (RIO_SUCCESS != rc) {
 		out_parms->imp_rc = SC_CFG_RXS_CTRS(0x08);
-	};
+	}
 
 	return rc;
 }
@@ -438,17 +438,23 @@ uint32_t idt_rxs_program_mc_masks ( DAR_DEV_INFO_t        *dev_info,
     uint32_t base_addr, mask_mask;
    
 
-    if (IDT_RXS2448_RIO_DEVICE_ID == DEV_CODE(dev_info)) {
-       mask_mask = RXS2448_RIO_BC_MC_X_S_CSR_SET;
-    } else {
-       mask_mask = RXS1632_RIO_BC_MC_X_S_CSR_SET;
-    };
+    switch (DEV_CODE(dev_info)) {
+       case IDT_RXS2448_RIO_DEVICE_ID:
+          mask_mask = RXS2448_RIO_BC_MC_X_S_CSR_SET;
+       break;
+       case IDT_RXS1632_RIO_DEVICE_ID:
+          mask_mask = RXS1632_RIO_BC_MC_X_S_CSR_SET;
+       break;
+       default:
+          *imp_rc = IDT_RXS_PROGRAM_MC_MASKS(0x01);
+          goto idt_rxs_program_mc_masks_exit;
+    }
 
     if (RIO_ALL_PORTS == in_parms->set_on_port) {
        base_addr = RXS_RIO_SPX_MC_Y_S_CSR(0, 0);
     } else {
        base_addr = RXS_RIO_SPX_MC_Y_S_CSR(in_parms->set_on_port, 0);
-    };
+    }
 
     for (mask_num = 0; mask_num < NUM_MC_MASKS(dev_info); mask_num++) {
        if (in_parms->rt->mc_masks[mask_num].changed || set_all) {
@@ -456,20 +462,20 @@ uint32_t idt_rxs_program_mc_masks ( DAR_DEV_INFO_t        *dev_info,
              rc = RIO_ERR_INVALID_PARAMETER;
              *imp_rc = IDT_RXS_PROGRAM_MC_MASKS(3);
              goto idt_rxs_program_mc_masks_exit; 
-          };
+          }
           rc = DARRegWrite( dev_info, MC_MASK_ADDR(base_addr, mask_num), 
                             in_parms->rt->mc_masks[mask_num].mc_mask & mask_mask );
           if (RIO_SUCCESS != rc) {
              *imp_rc = IDT_RXS_PROGRAM_MC_MASKS(4);
              goto idt_rxs_program_mc_masks_exit; 
-          };
+          }
 	  in_parms->rt->mc_masks[mask_num].changed = false;
-       };
-    };
+       }
+    }
         
 idt_rxs_program_mc_masks_exit: 
     return rc;
-};
+}
 
 #define DEV_RTE_ADDR(b,n) ((b)+(4*n))
 #define DOM_RTE_ADDR(b,n) ((b)+(4*n))
@@ -489,7 +495,7 @@ uint32_t idt_rxs_program_rte_entries ( DAR_DEV_INFO_t        *dev_info,
     if (RIO_SUCCESS != rc) {
        *imp_rc = IDT_RXS_PROGRAM_RTE_ENTRIES(0x10);
        goto idt_rxs_program_rte_entries_exit; 
-    };
+    }
 
     if (RIO_ALL_PORTS == in_parms->set_on_port) {
        dev_rte_base = RXS_RIO_BC_L2_GX_ENTRYY_CSR(0, 0);
@@ -497,63 +503,60 @@ uint32_t idt_rxs_program_rte_entries ( DAR_DEV_INFO_t        *dev_info,
     } else {
        dev_rte_base = RXS_RIO_SPX_L2_GY_ENTRYZ_CSR(in_parms->set_on_port, 0, 0);
        dom_rte_base = RXS_RIO_SPX_L1_GY_ENTRYZ_CSR(in_parms->set_on_port, 0, 0);
-    };
+    } 
     
     for (rte_num = 0; rte_num < IDT_DAR_RT_DOM_TABLE_SIZE; rte_num++) {
        if (in_parms->rt->dom_table[rte_num].changed || set_all) {
           // Validate value to be programmed.
           if (in_parms->rt->dom_table[rte_num].rte_val >= NUM_PORTS(dev_info)) {
 	     // Domain table can be a port number, use device table, use default route, or drop.
-	     if ((in_parms->rt->dom_table[rte_num].rte_val != IDT_DSF_RT_USE_DEVICE_TABLE    ) && //TODO: we have to chack out rte_val with RXS values, so we need to change init_rt 
-	         (in_parms->rt->dom_table[rte_num].rte_val != IDT_DSF_RT_USE_DEFAULT_ROUTE   ) && // to support RXS routing values, like
-	         (in_parms->rt->dom_table[rte_num].rte_val != IDT_DSF_RT_NO_ROUTE            ) &&
-                 (in_parms->rt->dom_table[rte_num].rte_val != IDT_RXS_DSF_RT_NO_ROUTE        ) &&
-                 (in_parms->rt->dom_table[rte_num].rte_val != IDT_RXS_DSF_RT_USE_PACKET_ROUTE) ) { //IDT_RXS_DSF_RT_USE_PACKET_ROUTE or IDT_RXS_DSF_RT_NO_ROUTEIDT_RXS_DSF_RT_NO_ROUTE
+	     if ((in_parms->rt->dom_table[rte_num].rte_val != IDT_DSF_RT_USE_DEVICE_TABLE    ) &&
+	         (in_parms->rt->dom_table[rte_num].rte_val != IDT_DSF_RT_USE_DEFAULT_ROUTE   ) &&
+	         (in_parms->rt->dom_table[rte_num].rte_val != IDT_DSF_RT_NO_ROUTE            ) ) {
                 rc = RIO_ERR_INVALID_PARAMETER;
                 *imp_rc = IDT_RXS_PROGRAM_RTE_ENTRIES(1);
                 goto idt_rxs_program_rte_entries_exit; 
-             };
-          };
+             } 
+          } 
 
           rc = DARRegWrite( dev_info, DOM_RTE_ADDR(dom_rte_base, rte_num), 
                             (uint32_t)(in_parms->rt->dom_table[rte_num].rte_val) );
           if (RIO_SUCCESS != rc) {
              *imp_rc = IDT_RXS_PROGRAM_RTE_ENTRIES(2);
              goto idt_rxs_program_rte_entries_exit; 
-          };
+          } 
 	  in_parms->rt->dom_table[rte_num].changed = false;
-       };
-    };
+       } 
+    } 
         
     for (rte_num = 0; rte_num < IDT_DAR_RT_DEV_TABLE_SIZE; rte_num++) {
        if (in_parms->rt->dev_table[rte_num].changed || set_all) {
 	  // Validate value to be programmed.
           if (in_parms->rt->dev_table[rte_num].rte_val >= NUM_PORTS(dev_info)) {
 	     // Device table can be a port number, a multicast mask, use default route, or drop.
-	     if ((IDT_RXS_MC_MASK_IDX_FROM_ROUTE(in_parms->rt->dev_table[rte_num].rte_val)     //TODO: same as above
+	     if ((MC_MASK_IDX_FROM_ROUTE(in_parms->rt->dev_table[rte_num].rte_val)
 				                           == IDT_DSF_BAD_MC_MASK         ) &&
 	         (in_parms->rt->dev_table[rte_num].rte_val != IDT_DSF_RT_USE_DEFAULT_ROUTE) &&
-	         (in_parms->rt->dev_table[rte_num].rte_val != IDT_DSF_RT_NO_ROUTE         ) &&
-                 (in_parms->rt->dom_table[rte_num].rte_val != IDT_RXS_DSF_RT_NO_ROUTE     ) ) {
+	         (in_parms->rt->dev_table[rte_num].rte_val != IDT_DSF_RT_NO_ROUTE         ) ) {
                 rc = RIO_ERR_INVALID_PARAMETER;
                 *imp_rc = IDT_RXS_PROGRAM_RTE_ENTRIES(3);
                 goto idt_rxs_program_rte_entries_exit; 
-             };
-          };
+             } 
+          } 
 
           rc = DARRegWrite( dev_info, DEV_RTE_ADDR(dev_rte_base, rte_num),
                             (uint32_t)(in_parms->rt->dev_table[rte_num].rte_val) );
           if (RIO_SUCCESS != rc) {
              *imp_rc = IDT_RXS_PROGRAM_RTE_ENTRIES(4);
              goto idt_rxs_program_rte_entries_exit; 
-          };
+          } 
           in_parms->rt->dev_table[rte_num].changed = false;
-       };
-    };
+       } 
+    } 
         
 idt_rxs_program_rte_entries_exit: 
     return rc;
-};
+}
 
 uint32_t idt_rxs_rt_set_common( DAR_DEV_INFO_t        *dev_info, 
                                 idt_rt_set_all_in_t   *in_parms, 
@@ -591,7 +594,7 @@ uint32_t idt_rxs_rt_set_common( DAR_DEV_INFO_t        *dev_info,
 idt_rxs_rt_set_common_exit:
 
     return rc;
-};
+}
 
 /* This function sets the routing table hardware to match every entry
  * in the routing table state structure. 
@@ -633,19 +636,19 @@ uint32_t idt_rxs_rt_change_rte( DAR_DEV_INFO_t           *dev_info,
    if (!in_parms->rt) {
       out_parms->imp_rc = RT_CHANGE_RTE(1);
       goto idt_rxs_rt_change_rte_exit;
-   };
+   } 
 
    // Validate rte_value 
-   if ( (IDT_RXS_DSF_RT_NO_ROUTE         != in_parms->rte_value) &&
-        (in_parms->rte_value             >= NUM_PORTS(dev_info))) {
+   if ( (IDT_DSF_RT_NO_ROUTE         != in_parms->rte_value) &&
+        (in_parms->rte_value         >= NUM_PORTS(dev_info))) {
       out_parms->imp_rc = RT_CHANGE_RTE(2);
       goto idt_rxs_rt_change_rte_exit;
    }
 
-   if ( (IDT_RXS_DSF_RT_USE_PACKET_ROUTE  == in_parms->rte_value) && (!in_parms->dom_entry)) {
+   if ( (IDT_DSF_RT_USE_DEVICE_TABLE == in_parms->rte_value) && (!in_parms->dom_entry)) {
       out_parms->imp_rc = RT_CHANGE_RTE(3);
       goto idt_rxs_rt_change_rte_exit;
-   };
+   } 
 
    rc = RIO_SUCCESS;
 
@@ -661,15 +664,15 @@ uint32_t idt_rxs_rt_change_rte( DAR_DEV_INFO_t           *dev_info,
       if (  !in_parms->rt->dom_table[in_parms->idx].changed ) {
          if (in_parms->rt->dom_table[in_parms->idx].rte_val  != in_parms->rte_value)
              in_parms->rt->dom_table[in_parms->idx].changed = true;
-      };
+      } 
       in_parms->rt->dom_table[in_parms->idx].rte_val = in_parms->rte_value;
    } else {
       if (  !in_parms->rt->dev_table[in_parms->idx].changed ) {
          if (in_parms->rt->dev_table[in_parms->idx].rte_val  != in_parms->rte_value)
              in_parms->rt->dev_table[in_parms->idx].changed = true;
-      };
+      } 
       in_parms->rt->dev_table[in_parms->idx].rte_val = in_parms->rte_value;
-   };
+   } 
 
 idt_rxs_rt_change_rte_exit:
    return rc;
@@ -696,7 +699,7 @@ uint32_t idt_rxs_rt_initialize( DAR_DEV_INFO_t           *dev_info,
     }
 
     if ( (in_parms->default_route_table_port >= NUM_PORTS(dev_info)) &&
-         !((IDT_RXS_DSF_RT_NO_ROUTE          == in_parms->default_route_table_port)) )
+         !((IDT_DSF_RT_NO_ROUTE              == in_parms->default_route_table_port)) )
     {
         out_parms->imp_rc = RT_INITIALIZE(2);
         goto idt_rxs_rt_initialize_exit;
@@ -728,31 +731,31 @@ uint32_t idt_rxs_rt_initialize( DAR_DEV_INFO_t           *dev_info,
     {
         all_in.rt->dev_table[destID].changed = true ;
         all_in.rt->dev_table[destID].rte_val = in_parms->default_route_table_port;
-    };
+    } 
     
     all_in.rt->dom_table[0].changed = true ;
-    all_in.rt->dom_table[0].rte_val = IDT_RXS_DSF_RT_USE_PACKET_ROUTE;
+    all_in.rt->dom_table[0].rte_val = IDT_DSF_RT_USE_DEVICE_TABLE;
 
     for (destID = 1; destID < IDT_DAR_RT_DOM_TABLE_SIZE; destID++)
     {
         all_in.rt->dom_table[destID].changed = true ;
         all_in.rt->dom_table[destID].rte_val = in_parms->default_route_table_port;
-    };
+    } 
     
     // Configure initialization of multicast masks and associations as necessary. 
-    for (mc_idx = 0; mc_idx < IDT_RXS_DSF_MAX_MC_MASK; mc_idx++) 
+    for (mc_idx = 0; mc_idx < IDT_DSF_MAX_MC_MASK; mc_idx++) 
     {
        all_in.rt->mc_masks[mc_idx].mc_destID = 0;
        all_in.rt->mc_masks[mc_idx].tt        = tt_dev8;
        all_in.rt->mc_masks[mc_idx].mc_mask   = 0;
        all_in.rt->mc_masks[mc_idx].in_use    = false;
        all_in.rt->mc_masks[mc_idx].allocd    = false;
-       if ((mc_idx < IDT_RXS_MAX_MC_MASKS) && (mc_idx < IDT_RXS_DSF_MAX_MC_MASK)) {
+       if ((mc_idx < IDT_RXS_MAX_MC_MASKS) && (mc_idx < IDT_DSF_MAX_MC_MASK)) {
           all_in.rt->mc_masks[mc_idx].changed   = true ;
        } else {
           all_in.rt->mc_masks[mc_idx].changed   = false ;
-       };
-    };
+       } 
+    } 
 
     if (in_parms->update_hw) {
        rc = idt_rxs_rt_set_changed(dev_info, &all_in, &all_out );
@@ -794,7 +797,7 @@ uint32_t idt_rxs_pc_get_config( DAR_DEV_INFO_t           *dev_info,
 	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
 	uint32_t port_idx, idx;
 	bool   misconfigured = false;
-	uint32_t plmCtl, spxCtl, spxCtl2;
+	uint32_t plmCtl, spxCtl, spxCtl2, plmPol, errStat;
 	int32_t  lane_num;
 	struct DAR_ptl good_ptl;
 
@@ -805,7 +808,7 @@ uint32_t idt_rxs_pc_get_config( DAR_DEV_INFO_t           *dev_info,
 	if (RIO_SUCCESS != rc) {
 		out_parms->imp_rc = PC_SET_CONFIG(0x1);
 		goto idt_rxs_pc_get_config_exit;
-	};
+	} 
 
 	out_parms->num_ports = good_ptl.num_ports;
 	for (port_idx = 0; port_idx < good_ptl.num_ports; port_idx++)
@@ -819,17 +822,7 @@ uint32_t idt_rxs_pc_get_config( DAR_DEV_INFO_t           *dev_info,
 		goto idt_rxs_pc_get_config_exit;
 	}
 	out_parms->lrto = lrto >> 8;
-	};
-
-	// Always get LOG_RTO
-	{ uint32_t log_rto;
-	rc = DARRegRead(dev_info, RXS_RIO_SR_RSP_TO, &log_rto);
-	if (RIO_SUCCESS != rc) {
-		out_parms->imp_rc = PC_SET_CONFIG(0x3);
-		goto idt_rxs_pc_get_config_exit;
-	}
-	out_parms->log_rto = ((log_rto >> 8) * 188) / 100;
-	}
+	} 
 
 	for (port_idx = 0; port_idx < out_parms->num_ports; port_idx++)
 	{
@@ -846,14 +839,14 @@ uint32_t idt_rxs_pc_get_config( DAR_DEV_INFO_t           *dev_info,
 		for (lane_num = 0; lane_num < IDT_PC_MAX_LANES; lane_num++) {
 			out_parms->pc[port_idx].tx_linvert[lane_num] = false;
 			out_parms->pc[port_idx].rx_linvert[lane_num] = false;
-		};
+		} 
 
 		// Check that RapidIO transmitter is enabled...
 		rc = DARRegRead(dev_info, RXS_RIO_SPX_CTL(port_idx), &spxCtl);
 		if (RIO_SUCCESS != rc) {
 			out_parms->imp_rc = PC_GET_CONFIG(8);
 			goto idt_rxs_pc_get_config_exit;
-		};
+		} 
 
 		out_parms->pc[port_idx].xmitter_disable =
 			(spxCtl & RXS_RIO_SPX_CTL_PORT_DIS) ? true : false;
@@ -865,7 +858,7 @@ uint32_t idt_rxs_pc_get_config( DAR_DEV_INFO_t           *dev_info,
 		{
 			out_parms->imp_rc = PC_GET_CONFIG(0x10);
 			goto idt_rxs_pc_get_config_exit;
-		};
+		} 
 		switch (spxCtl & RIO_SPX_CTL_PTW_OVER) {
 		case RIO_SPX_CTL_PTW_OVER_4x_NO_2X:
 		case RIO_SPX_CTL_PTW_OVER_NONE_2:
@@ -878,14 +871,14 @@ uint32_t idt_rxs_pc_get_config( DAR_DEV_INFO_t           *dev_info,
 		case RIO_SPX_CTL_PTW_OVER_2x_NO_4X: out_parms->pc[port_idx].pw = idt_pc_pw_2x;
 			break;
 		default: out_parms->pc[port_idx].pw = idt_pc_pw_last;
-		};
+		} 
 
 		// Determine configured port speed...
 		rc = DARRegRead(dev_info, RXS_RIO_SPX_CTL2(port_idx), &spxCtl2);
 		if (RIO_SUCCESS != rc) {
 			out_parms->imp_rc = PC_GET_CONFIG(0x11);
 			goto idt_rxs_pc_get_config_exit;
-		};
+		} 
 
 		out_parms->pc[port_idx].ls = idt_pc_ls_last;
 		misconfigured = false;
@@ -903,10 +896,10 @@ uint32_t idt_rxs_pc_get_config( DAR_DEV_INFO_t           *dev_info,
 					}
 					else {
 						out_parms->pc[port_idx].ls = rxs_ls_check[idx].ls;
-					};
-				};
-			};
-		};
+					} 
+				} 
+			} 
+		} 
 
 		out_parms->pc[port_idx].port_lockout =
 			(spxCtl & RXS_RIO_SPX_CTL_PORT_LOCKOUT) ? true : false;
@@ -917,20 +910,47 @@ uint32_t idt_rxs_pc_get_config( DAR_DEV_INFO_t           *dev_info,
 
 		// Check for lane swapping & inversion
 		// LANE SWAPPING AND INVERSION NOT SUPPORTED
-		rc = DARRegRead(dev_info, RXS_RIO_PLM_SP0_IMP_SPEC_CTL, &plmCtl);
+		rc = DARRegRead(dev_info, RXS_RIO_PLM_SPX_IMP_SPEC_CTL(port_idx), &plmCtl);
 		if (RIO_SUCCESS != rc) {
 			out_parms->imp_rc = PC_GET_CONFIG(0x20);
 			goto idt_rxs_pc_get_config_exit;
-		};
+		} 
 
-		if (plmCtl & RXS_RIO_PLM_SP0_IMP_SPEC_CTL_SWAP_RX) {
+		if (plmCtl & RXS_RIO_PLM_SPX_IMP_SPEC_CTL_SWAP_RX) {
 			out_parms->pc[port_idx].rx_lswap = true;
-		};
+		} 
 
-		if (plmCtl & RXS_RIO_PLM_SP0_IMP_SPEC_CTL_SWAP_TX) {
+		if (plmCtl & RXS_RIO_PLM_SPX_IMP_SPEC_CTL_SWAP_TX) {
 			out_parms->pc[port_idx].tx_lswap = true;
-		};
-	};
+		}
+
+                rc = DARRegRead(dev_info, RXS_RIO_SPX_ERR_STAT(port_idx), &errStat);
+                if (RIO_SUCCESS != rc) {
+                        out_parms->imp_rc = PC_GET_CONFIG(0x30);
+                        goto idt_rxs_pc_get_config_exit;
+                }
+
+                out_parms->pc[port_idx].port_available = (errStat & RXS_RIO_SPX_ERR_STAT_PORT_UNAVL ? true : false);
+                out_parms->pc[port_idx].port_available = (errStat & RXS_RIO_SPX_ERR_STAT_PORT_W_DIS ? true : false);
+
+                rc = DARRegRead(dev_info, RXS_PLM_SPX_POL_CTL(port_idx), &plmPol);
+                if (RIO_SUCCESS != rc) {
+                        out_parms->imp_rc = PC_GET_CONFIG(0x40);
+                        goto idt_rxs_pc_get_config_exit;
+                } 
+
+		out_parms->pc[port_idx].tx_linvert[3] = (plmPol & RXS_PLM_SPX_POL_CTL_TX3_POL ? true : false);
+		out_parms->pc[port_idx].rx_linvert[3] = (plmPol & RXS_PLM_SPX_POL_CTL_RX3_POL ? true : false);
+
+                out_parms->pc[port_idx].tx_linvert[2] = (plmPol & RXS_PLM_SPX_POL_CTL_TX2_POL ? true : false);
+                out_parms->pc[port_idx].rx_linvert[2] = (plmPol & RXS_PLM_SPX_POL_CTL_RX2_POL ? true : false);
+
+                out_parms->pc[port_idx].tx_linvert[1] = (plmPol & RXS_PLM_SPX_POL_CTL_TX1_POL ? true : false);
+                out_parms->pc[port_idx].rx_linvert[1] = (plmPol & RXS_PLM_SPX_POL_CTL_RX1_POL ? true : false);
+
+                out_parms->pc[port_idx].tx_linvert[0] = (plmPol & RXS_PLM_SPX_POL_CTL_TX0_POL ? true : false);
+                out_parms->pc[port_idx].rx_linvert[0] = (plmPol & RXS_PLM_SPX_POL_CTL_RX0_POL ? true : false);		
+	} 
 
 idt_rxs_pc_get_config_exit:
 	return rc;
@@ -952,7 +972,7 @@ uint32_t idt_rxs_pc_get_status( DAR_DEV_INFO_t           *dev_info,
 	if (RIO_SUCCESS != rc) {
 		out_parms->imp_rc = PC_GET_uint32_t(1);
 		goto idt_rxs_pc_get_status_exit;
-	};
+	}
 
 	out_parms->num_ports = good_ptl.num_ports;
 	for (port_idx = 0; port_idx < good_ptl.num_ports; port_idx++)
@@ -970,13 +990,13 @@ uint32_t idt_rxs_pc_get_status( DAR_DEV_INFO_t           *dev_info,
 		if (RIO_SUCCESS != rc) {
 			out_parms->imp_rc = PC_GET_uint32_t(0x30 + port_idx);
 			goto idt_rxs_pc_get_status_exit;
-		};
+		}
 
 		rc = DARRegRead(dev_info, RXS_RIO_SPX_CTL(port_idx), &spxCtl);
 		if (RIO_SUCCESS != rc) {
 			out_parms->imp_rc = PC_GET_uint32_t(0x40 + port_idx);
 			goto idt_rxs_pc_get_status_exit;
-		};
+		}
 
 		out_parms->ps[port_idx].port_ok =
 			(errStat & RXS_RIO_SPX_ERR_STAT_PORT_OK) ? true : false;
@@ -1005,9 +1025,9 @@ uint32_t idt_rxs_pc_get_status( DAR_DEV_INFO_t           *dev_info,
 			case RIO_SPX_CTL_PTW_INIT_4x: out_parms->ps[port_idx].pw = idt_pc_pw_4x;
 				break;
 			default:  out_parms->ps[port_idx].pw = idt_pc_pw_last;
-			};
-		};
-	};
+			}
+		}
+	}
 
 idt_rxs_pc_get_status_exit:
 	return rc;
@@ -1032,7 +1052,7 @@ uint32_t idt_rxs_check_port_for_discard( DAR_DEV_INFO_t     *dev_info,
       out_parms->reason_for_discard = idt_rt_disc_probe_abort;
       out_parms->imp_rc = RT_PROBE(1);
       goto idt_rxs_check_port_for_discard_exit;
-   };
+   }
 
    cfg_in.ptl.num_ports = 1;
    cfg_in.ptl.pnums[0] = port;
@@ -1041,7 +1061,7 @@ uint32_t idt_rxs_check_port_for_discard( DAR_DEV_INFO_t     *dev_info,
       out_parms->reason_for_discard = idt_rt_disc_probe_abort;
       out_parms->imp_rc = RT_PROBE(2);
       goto idt_rxs_check_port_for_discard_exit;
-   };
+   }
 
    stat_in.ptl.num_ports = 1;
    stat_in.ptl.pnums[0] = port;
@@ -1050,7 +1070,7 @@ uint32_t idt_rxs_check_port_for_discard( DAR_DEV_INFO_t     *dev_info,
       out_parms->reason_for_discard = idt_rt_disc_probe_abort;
       out_parms->imp_rc = RT_PROBE(3);
       goto idt_rxs_check_port_for_discard_exit;
-   };
+   }
 
    if (!cfg_out.pc[0].port_available) {
       out_parms->reason_for_discard = (dflt_rt)?idt_rt_disc_dflt_pt_unavail:idt_rt_disc_port_unavail;
@@ -1064,7 +1084,7 @@ uint32_t idt_rxs_check_port_for_discard( DAR_DEV_INFO_t     *dev_info,
 		                                      idt_rt_disc_port_lkout_or_dis;
              } else {
                 out_parms->reason_for_discard = (dflt_rt)?idt_rt_disc_dflt_pt_no_lp:idt_rt_disc_port_no_lp;
-	     };
+	     }
 	  } else {
              if (stat_out.ps[0].port_error) {
                 out_parms->reason_for_discard = (dflt_rt)?idt_rt_disc_dflt_pt_fail:idt_rt_disc_port_fail;
@@ -1078,12 +1098,12 @@ uint32_t idt_rxs_check_port_for_discard( DAR_DEV_INFO_t     *dev_info,
                       out_parms->reason_for_discard = idt_rt_disc_probe_abort;
                       out_parms->imp_rc = RT_PROBE(4);
                       goto idt_rxs_check_port_for_discard_exit;
-                   };
+                   }
             
                   if ( (RIO_SPX_CTL_INP_EN | RIO_SPX_CTL_OTP_EN) != 
                       ((RIO_SPX_CTL_INP_EN | RIO_SPX_CTL_OTP_EN) & ctlData)) {
                      out_parms->reason_for_discard = (dflt_rt)?idt_rt_disc_dflt_pt_in_out_dis:idt_rt_disc_port_in_out_dis;
-                  };
+                  }
                }
             }
          }
@@ -1115,7 +1135,7 @@ void idt_rxs_check_multicast_routing ( DAR_DEV_INFO_t     *dev_info,
             mc_mask = 0x00FF;
 	 } else {
             mc_mask = 0xFFFF;
-	 };
+	 }
 
          if ((in_parms->destID & mc_mask) == (in_parms->rt->mc_masks[mc_idx].mc_destID & mc_mask)) {
             if (found) {
@@ -1124,7 +1144,7 @@ void idt_rxs_check_multicast_routing ( DAR_DEV_INFO_t     *dev_info,
 	       break;
 	    } else {
 	       found = true;
-               out_parms->routing_table_value = mc_idx + IDT_RXS_DSF_FIRST_MC_MASK;
+               out_parms->routing_table_value = mc_idx + IDT_DSF_FIRST_MC_MASK;
 	       for (bit = 0; bit < NUM_PORTS(dev_info); bit++)
 	          out_parms->mcast_ports[bit] = ((uint32_t)(1 << bit) & in_parms->rt->mc_masks[mc_idx].mc_mask)?true:false;
 	       if (in_parms->rt->mc_masks[mc_idx].mc_mask) {
@@ -1133,14 +1153,14 @@ void idt_rxs_check_multicast_routing ( DAR_DEV_INFO_t     *dev_info,
 	          } else {
                      out_parms->reason_for_discard = idt_rt_disc_not;
 		     out_parms->valid_route        = true;
-		  };
+		  }
 	       } else {
                   out_parms->reason_for_discard     = idt_rt_disc_mc_empty;
-	       };
-	    };
-         };
-      };
-   };
+	       }
+	    }
+         }
+      }
+   }
 
    return;
 }
@@ -1158,12 +1178,12 @@ void idt_rxs_check_unicast_routing( DAR_DEV_INFO_t     *dev_info,
     if (tt_dev16 == in_parms->tt) {
        idx = (uint8_t)((in_parms->destID & (uint16_t)(0xFF00)) >> 8);
        rte = in_parms->rt->dom_table[idx].rte_val;
-    };
+    }
 
-    if ((tt_dev8 == in_parms->tt) || (IDT_RXS_DSF_RT_USE_PACKET_ROUTE == rte)) {
+    if ((tt_dev8 == in_parms->tt) || (IDT_DSF_RT_USE_DEVICE_TABLE == rte)) {
        idx = (uint8_t)(in_parms->destID & 0x00FF) ;
        rte = in_parms->rt->dev_table[idx].rte_val;
-    };
+    }
 
     out_parms->routing_table_value = rte;
     out_parms->valid_route         = true;
@@ -1206,7 +1226,7 @@ uint32_t idt_rxs_rt_probe( DAR_DEV_INFO_t      *dev_info,
     if ( RIO_SUCCESS != rc ) {
        out_parms->imp_rc = RT_PROBE(0x12);
        goto idt_RXS_rt_probe_exit;
-    };
+    }
     out_parms->time_to_live_active = (regVal & RXS_RIO_PKT_TIME_LIVE_PKT_TIME_LIVE)?true:false;
 
     rc = RIO_SUCCESS;
@@ -1235,102 +1255,6 @@ uint32_t idt_rxs_rt_probe( DAR_DEV_INFO_t      *dev_info,
     
 idt_RXS_rt_probe_exit:
     return rc;
-}   
-
-uint32_t idt_rxs_rt_alloc_mc_mask( DAR_DEV_INFO_t              *dev_info, 
-                                   idt_rt_alloc_mc_mask_in_t   *in_parms, 
-                                   idt_rt_alloc_mc_mask_out_t  *out_parms )
-{
-   uint32_t rc = RIO_ERR_INVALID_PARAMETER;
-   uint8_t  mc_idx;
-
-   NULL_CHECK;
-
-   if (!in_parms->rt) {
-      out_parms->imp_rc = RT_ALLOC_MC_MASK(1);
-      goto idt_rxs_rt_alloc_mc_mask_exit;
-   };
-
-   for (mc_idx = 0; mc_idx < NUM_MC_MASKS(dev_info); mc_idx++) 
-   {
-      if (!in_parms->rt->mc_masks[mc_idx].in_use &&
-          !in_parms->rt->mc_masks[mc_idx].allocd   ) 
-      {
-         out_parms->mc_mask_rte = IDT_RXS_DSF_FIRST_MC_MASK + mc_idx;
-         out_parms->imp_rc = RIO_SUCCESS;
-         in_parms->rt->mc_masks[mc_idx].allocd = true;
-         rc = RIO_SUCCESS;
-         break;
-      };
-   };
-   
-   if (RIO_SUCCESS != rc) {
-      out_parms->imp_rc      = RT_ALLOC_MC_MASK(2);
-      out_parms->mc_mask_rte = IDT_DSF_BAD_MC_MASK;
-      rc = RIO_ERR_INSUFFICIENT_RESOURCES;
-   };
-
-idt_rxs_rt_alloc_mc_mask_exit:
-   return rc;
-} 
-
-uint32_t idt_rxs_rt_dealloc_mc_mask( DAR_DEV_INFO_t                *dev_info,
-                                     idt_rt_dealloc_mc_mask_in_t   *in_parms,
-                                     idt_rt_dealloc_mc_mask_out_t  *out_parms )
-{
-   uint32_t rc = RIO_ERR_INVALID_PARAMETER;
-   uint8_t  mc_idx;
-   uint16_t dev_rte, dom_rte;
-
-   out_parms->imp_rc = RIO_SUCCESS;
-
-   NULL_CHECK;
-
-   if (!in_parms->rt) {
-      out_parms->imp_rc = RT_DEALLOC_MC_MASK(1);
-      goto idt_rxs_rt_dealloc_mc_mask_exit;
-   };
-
-   mc_idx = in_parms->mc_mask_rte - IDT_RXS_DSF_FIRST_MC_MASK;
-
-   if (mc_idx >= IDT_RXS_DSF_MAX_MC_MASK) {
-      out_parms->imp_rc = RT_DEALLOC_MC_MASK(2);
-      goto idt_rxs_rt_dealloc_mc_mask_exit;
-   };
-
-   rc = RIO_SUCCESS;
-
-   for (dev_rte = 0; dev_rte < IDT_DAR_RT_DOM_TABLE_SIZE; dev_rte++) {
-      if (in_parms->rt->dev_table[dev_rte].rte_val == in_parms->mc_mask_rte) {
-         in_parms->rt->dev_table[dev_rte].changed = true;
-         in_parms->rt->dev_table[dev_rte].rte_val = IDT_RXS_DSF_RT_NO_ROUTE;
-      };
-   };
-
-   for (dom_rte = 0; dom_rte < IDT_DAR_RT_DOM_TABLE_SIZE; dom_rte++) {
-      if (in_parms->rt->dom_table[dom_rte].rte_val == in_parms->mc_mask_rte) {
-         in_parms->rt->dom_table[dom_rte].changed = true;
-         in_parms->rt->dom_table[dom_rte].rte_val = IDT_RXS_DSF_RT_NO_ROUTE;
-      };
-   };
-
-   if (in_parms->rt->mc_masks[mc_idx].in_use) {
-      dev_rte = in_parms->rt->mc_masks[mc_idx].mc_destID & 0x00FF;
-      in_parms->rt->dev_table[dev_rte].changed = true;
-      in_parms->rt->dev_table[dev_rte].rte_val = IDT_RXS_DSF_RT_NO_ROUTE;
-   };
-
-   if ((in_parms->rt->mc_masks[mc_idx].in_use) || (in_parms->rt->mc_masks[mc_idx].allocd)) {
-      in_parms->rt->mc_masks[mc_idx].mc_destID = 0;
-      in_parms->rt->mc_masks[mc_idx].tt        = tt_dev8;
-      in_parms->rt->mc_masks[mc_idx].mc_mask   = 0;
-      in_parms->rt->mc_masks[mc_idx].in_use    = false;
-      in_parms->rt->mc_masks[mc_idx].allocd    = false;
-      in_parms->rt->mc_masks[mc_idx].changed   = true;
-   };
-
-idt_rxs_rt_dealloc_mc_mask_exit:
-   return rc;
 }
 
 uint32_t idt_rxs_read_mc_masks( DAR_DEV_INFO_t            *dev_info,
@@ -1359,26 +1283,26 @@ uint32_t idt_rxs_read_mc_masks( DAR_DEV_INFO_t            *dev_info,
 	   break;
    default:
 	   goto idt_rxs_read_mc_masks_exit;
-   };
+   }
 
    d_in_parm.rt = rt;
-   for (mask_idx = NUM_MC_MASKS(dev_info); mask_idx < IDT_RXS_DSF_MAX_MC_MASK; mask_idx++ )
+   for (mask_idx = NUM_MC_MASKS(dev_info); mask_idx < IDT_DSF_MAX_MC_MASK; mask_idx++ )
    {
-      d_in_parm.mc_mask_rte = IDT_RXS_DSF_FIRST_MC_MASK + mask_idx;
-      rc = idt_rxs_rt_dealloc_mc_mask( dev_info, &d_in_parm, &d_out_parm );
+      d_in_parm.mc_mask_rte = IDT_DSF_FIRST_MC_MASK + mask_idx;
+      rc = IDT_DSF_rt_dealloc_mc_mask( dev_info, &d_in_parm, &d_out_parm );
       if (RIO_SUCCESS != rc) 
       {
          *imp_rc = d_out_parm.imp_rc;
          goto idt_rxs_read_mc_masks_exit;
-      };
-   };
+      }
+   }
 
    for (mask_idx = 0; mask_idx < NUM_MC_MASKS(dev_info); mask_idx++)  {
       rc = DARRegRead(dev_info, RXS_RIO_SPX_MC_Y_S_CSR(pnum, mask_idx), &reg_val);
       if (RIO_SUCCESS != rc) {
          *imp_rc = IDT_RXS_READ_MC_MASKS(1);
          goto idt_rxs_read_mc_masks_exit;
-      };
+      }
 
       rt->mc_masks[mask_idx].allocd    = false;
       rt->mc_masks[mask_idx].changed   = false;
@@ -1386,7 +1310,7 @@ uint32_t idt_rxs_read_mc_masks( DAR_DEV_INFO_t            *dev_info,
       rt->mc_masks[mask_idx].in_use    = false;
       rt->mc_masks[mask_idx].mc_destID = 0x0;
       rt->mc_masks[mask_idx].mc_mask   = reg_val & port_mask;
-   };
+   }
 
 idt_rxs_read_mc_masks_exit:
    return rc;
@@ -1395,36 +1319,63 @@ idt_rxs_read_mc_masks_exit:
 // Make sure that we're not orphaning a multicast mask...
 
 uint32_t idt_rxs_tidy_routing_table( DAR_DEV_INFO_t  *dev_info, 
-                                     uint8_t          dev_idx, 
+                                     uint8_t          idx, 
                                      idt_rt_state_t  *rt,
-                                     uint32_t        *fail_pt )
+                                     uint32_t        *fail_pt,
+                                     bool             is_dev_table )
 {
    uint32_t rc = RIO_SUCCESS;
-   uint16_t srch_idx;
+   uint16_t srch_idx, dev_idx, dom_idx;
    bool found_one = false;
 
-   if ((rt->dev_table[dev_idx].rte_val >= IDT_RXS_DSF_FIRST_MC_MASK) && 
-       (rt->dev_table[dev_idx].rte_val <  IDT_RXS_DSF_BAD_MC_MASK  )) {
-      for (srch_idx = 0; (srch_idx < IDT_DAR_RT_DEV_TABLE_SIZE) && !found_one; srch_idx++) {
-	 if (dev_idx == srch_idx)
-            continue;
-         if (rt->dev_table[dev_idx].rte_val == rt->dev_table[srch_idx].rte_val)
-            found_one = true;
-      };
+   if (is_dev_table) {
+      dev_idx = idx;
+      if ((rt->dev_table[dev_idx].rte_val >= IDT_DSF_FIRST_MC_MASK) &&
+          (rt->dev_table[dev_idx].rte_val < IDT_DSF_BAD_MC_MASK)) {
+         for (srch_idx = 0; (srch_idx < IDT_DAR_RT_DEV_TABLE_SIZE) && !found_one; srch_idx++) {
+             if (dev_idx == srch_idx)
+                continue;
+             if (rt->dev_table[dev_idx].rte_val == rt->dev_table[srch_idx].rte_val)
+                found_one = true;
+         }
 
-      if (!found_one) {
-         idt_rt_dealloc_mc_mask_in_t  in_parms;
-         idt_rt_dealloc_mc_mask_out_t out_parms;
-	 in_parms.rt = rt;
-	 in_parms.mc_mask_rte = rt->dev_table[dev_idx].rte_val;
-         rc = idt_rxs_rt_dealloc_mc_mask( dev_info, &in_parms, &out_parms );
-	 if (RIO_SUCCESS != rc) {
-	    *fail_pt = out_parms.imp_rc;
-	 };
-      };
-   };
+         if (!found_one) {
+            idt_rt_dealloc_mc_mask_in_t  in_parms;
+            idt_rt_dealloc_mc_mask_out_t out_parms;
+            in_parms.rt = rt;
+            in_parms.mc_mask_rte = rt->dev_table[dev_idx].rte_val;
+            rc = IDT_DSF_rt_dealloc_mc_mask(dev_info, &in_parms, &out_parms);
+            if (RIO_SUCCESS != rc) {
+               *fail_pt = out_parms.imp_rc;
+            }
+         }
+      }
+   }
+   else {
+      dom_idx = idx;
+      if ((rt->dom_table[dom_idx].rte_val >= IDT_DSF_FIRST_MC_MASK) &&
+          (rt->dom_table[dom_idx].rte_val < IDT_DSF_BAD_MC_MASK)) {
+         for (srch_idx = 0; (srch_idx < IDT_DAR_RT_DEV_TABLE_SIZE) && !found_one; srch_idx++) {
+             if (dom_idx == srch_idx)
+                continue;
+             if (rt->dom_table[dom_idx].rte_val == rt->dom_table[srch_idx].rte_val)
+                found_one = true;
+         }
+
+         if (!found_one) {
+            idt_rt_dealloc_mc_mask_in_t  in_parms;
+            idt_rt_dealloc_mc_mask_out_t out_parms;
+            in_parms.rt = rt;
+            in_parms.mc_mask_rte = rt->dom_table[dom_idx].rte_val;
+            rc = IDT_DSF_rt_dealloc_mc_mask(dev_info, &in_parms, &out_parms);
+            if (RIO_SUCCESS != rc) {
+               *fail_pt = out_parms.imp_rc;
+            }
+         }
+      }
+   }
    return rc;
-};
+}
 
 /* This function updates an idt_rt_state_t structure to
  * change a multicast mask value, and tracks changes.
@@ -1462,17 +1413,17 @@ uint32_t idt_rxs_rt_change_mc_mask( DAR_DEV_INFO_t               *dev_info,
       d_in_parm.mc_mask_rte = in_parms->mc_mask_rte;
       d_in_parm.rt          = in_parms->rt;
 
-      rc = idt_rxs_rt_dealloc_mc_mask( dev_info, &d_in_parm, &d_out_parm );
+      rc = IDT_DSF_rt_dealloc_mc_mask( dev_info, &d_in_parm, &d_out_parm );
       if (RIO_SUCCESS != rc) {
 	 out_parms->imp_rc = d_out_parm.imp_rc;
-      };
+      }
       goto idt_rxs_rt_change_mc_mask_exit;
-   };
+   }
 
    // Allow requests to change masks not supported by RXS family
    // but there's nothing to do...
 
-   chg_idx = IDT_RXS_MC_MASK_IDX_FROM_ROUTE(in_parms->mc_mask_rte);
+   chg_idx = MC_MASK_IDX_FROM_ROUTE(in_parms->mc_mask_rte);
    
    if (chg_idx >= NUM_MC_MASKS(dev_info)) {
       rc = RIO_ERR_INVALID_PARAMETER;
@@ -1485,27 +1436,31 @@ uint32_t idt_rxs_rt_change_mc_mask( DAR_DEV_INFO_t               *dev_info,
       if ((in_parms->rt->mc_masks[chg_idx].mc_mask != in_parms->mc_info.mc_mask) ||
           (in_parms->rt->mc_masks[chg_idx].in_use  != in_parms->mc_info.in_use ))  {
          in_parms->rt->mc_masks[chg_idx].changed = true;
-      };
-   };
+      }
+   }
 
    // Note: The multicast mask must be in use now.  We must make sure that
    // the routing tables are set appropriately.
    dom_idx = (in_parms->mc_info.mc_destID & 0xFF00) >> 8;
    if ((tt_dev16 == in_parms->mc_info.tt) && (dom_idx) 
-       && (IDT_RXS_DSF_RT_NO_ROUTE != in_parms->rt->dom_table[dom_idx].rte_val)) {
-      in_parms->rt->dom_table[dom_idx].rte_val = IDT_RXS_DSF_RT_USE_PACKET_ROUTE;
+       && (in_parms->mc_mask_rte != in_parms->rt->dom_table[dom_idx].rte_val)) {
+      rc = idt_rxs_tidy_routing_table(dev_info, dom_idx, in_parms->rt, &out_parms->imp_rc, false);
+      if (RIO_SUCCESS != rc)
+         goto idt_rxs_rt_change_mc_mask_exit; 
+
+      in_parms->rt->dom_table[dom_idx].rte_val = in_parms->mc_mask_rte;
       in_parms->rt->dom_table[dom_idx].changed = true;
-   };
+   }
 
    dev_idx = (in_parms->mc_info.mc_destID & 0x00FF);
    if (in_parms->mc_mask_rte != in_parms->rt->dev_table[dev_idx].rte_val) {
-      rc = idt_rxs_tidy_routing_table(dev_info, dev_idx, in_parms->rt, &out_parms->imp_rc);
+      rc = idt_rxs_tidy_routing_table(dev_info, dev_idx, in_parms->rt, &out_parms->imp_rc, true);
       if (RIO_SUCCESS != rc) 
          goto idt_rxs_rt_change_mc_mask_exit;
 
       in_parms->rt->dev_table[dev_idx].rte_val = in_parms->mc_mask_rte;
       in_parms->rt->dev_table[dev_idx].changed = true;
-   };
+   }
 	 
    in_parms->rt->mc_masks[chg_idx].in_use    = true                       ;
    in_parms->rt->mc_masks[chg_idx].mc_destID = in_parms->mc_info.mc_destID;
@@ -1532,15 +1487,15 @@ uint32_t idt_rxs_read_rte_entries( DAR_DEV_INFO_t            *dev_info,
    if (RIO_SUCCESS != rc) {
       *imp_rc = IDT_RXS_READ_RTE_ENTRIES(1);
       goto idt_rxs_read_rte_entries_exit;
-   };
+   }
 
    rt->default_route = (uint8_t)(rte_val & RXS_RIO_ROUTE_DFLT_PORT_DEFAULT_OUT_PORT);
    if ( rt->default_route >= NUM_PORTS(dev_info)) {
-      rt->default_route = IDT_RXS_DSF_RT_NO_ROUTE;
+      rt->default_route = IDT_DSF_RT_NO_ROUTE;
    }
 
    // Read all of the domain routing table entries.
-   rt->dom_table[0].rte_val = IDT_RXS_DSF_RT_USE_PACKET_ROUTE;
+   rt->dom_table[0].rte_val = IDT_DSF_RT_USE_DEVICE_TABLE;
    rt->dom_table[0].changed = false;
    first_mc_destID = 0;
 
@@ -1557,24 +1512,24 @@ uint32_t idt_rxs_read_rte_entries( DAR_DEV_INFO_t            *dev_info,
       rte_val &= RXS_RIO_BC_L1_GX_ENTRYY_CSR_ROUTING_VALUE;
       rt->dom_table[destID].rte_val = (uint8_t)(rte_val);
 
-      if (IDT_RXS_DSF_RT_USE_PACKET_ROUTE == rte_val) {
+      if (IDT_DSF_RT_USE_DEVICE_TABLE == rte_val) {
          if (!found_one) {
             first_mc_destID = (uint16_t)(destID) << 8;
             found_one = true;
-         };
+         }
       } else {
-        if ((IDT_RXS_DSF_RT_NO_ROUTE          != rte_val) &&
+        if ((IDT_DSF_RT_NO_ROUTE          != rte_val) &&
             (NUM_PORTS(dev_info)          <= rte_val) ) { 
-            rt->dom_table[destID].rte_val = IDT_RXS_DSF_RT_NO_ROUTE;
-        };
-      };
-   };
+            rt->dom_table[destID].rte_val = IDT_DSF_RT_NO_ROUTE;
+        }
+      }
+   }
    
    // Read all of the device routing table entries.
    // Update multicast entries as we go...
    for (destID = 0; destID < IDT_DAR_RT_DEV_TABLE_SIZE; destID++)
    {
-      uint8_t mask_idx;
+      uint32_t mask_idx;
 
       rt->dev_table[destID].changed = false;
       rc = DARRegRead(dev_info, RXS_RIO_BC_L2_GX_ENTRYY_CSR(pnum, destID), &rte_val);
@@ -1585,21 +1540,21 @@ uint32_t idt_rxs_read_rte_entries( DAR_DEV_INFO_t            *dev_info,
 
       rte_val &= RXS_RIO_BC_L2_GX_ENTRYY_CSR_ROUTING_VALUE;
 
-      rt->dev_table[destID].rte_val = (uint8_t)(rte_val);
+      rt->dev_table[destID].rte_val = (uint32_t)(rte_val);
 
-      mask_idx = IDT_RXS_MC_MASK_IDX_FROM_ROUTE(rte_val);
+      mask_idx = MC_MASK_IDX_FROM_ROUTE(rte_val);
       if ((IDT_DSF_BAD_MC_MASK != mask_idx) && !(rt->mc_masks[mask_idx].in_use)) {
          rt->mc_masks[mask_idx].tt        = tt_dev16;
          rt->mc_masks[mask_idx].in_use    = true;
          rt->mc_masks[mask_idx].mc_destID = first_mc_destID + destID;
-      };
+      }
          
-      if (  ((rte_val >= NUM_PORTS(dev_info)) && (rte_val < IDT_RXS_DSF_FIRST_MC_MASK))        ||
-            ((rte_val >= IDT_RXS_DSF_BAD_MC_MASK) && (IDT_RXS_DSF_RT_NO_ROUTE          != rte_val) 
+      if (  ((rte_val >= NUM_PORTS(dev_info)) && (rte_val < IDT_DSF_FIRST_MC_MASK))    ||
+            ((rte_val >= IDT_DSF_BAD_MC_MASK) && (IDT_DSF_RT_NO_ROUTE         != rte_val) 
                                              /*&& (IDT_DSF_RT_USE_DEFAULT_ROUTE != rte_val)*/) ) {
-         rt->dev_table[destID].rte_val = IDT_RXS_DSF_RT_NO_ROUTE;
-      };
-   };
+         rt->dev_table[destID].rte_val = IDT_DSF_RT_NO_ROUTE;
+      }
+   }
    
 idt_rxs_read_rte_entries_exit:
    return rc;
@@ -1644,15 +1599,6 @@ uint32_t idt_rxs_rioSetEnumBound( DAR_DEV_INFO_t *dev_info,
 			          int             enum_bnd_val )
 {
 	if (NULL != dev_info || !ptl || enum_bnd_val)
-		return RIO_SUCCESS;
-
-	return RIO_SUCCESS;
-}
-
-uint32_t idt_rxs_rioSetAddrMode( DAR_DEV_INFO_t *dev_info,
-                                 RIO_PE_ADDR_T   addr_mode )
-{
-	if (NULL != dev_info || addr_mode)
 		return RIO_SUCCESS;
 
 	return RIO_SUCCESS;
@@ -1733,24 +1679,23 @@ uint32_t bind_rxs_DAR_support(void)
 	DAR_info.rioDeviceSupported = idt_rxs_DeviceSupported;
 
 	DAR_info.rioSetEnumBound = idt_rxs_rioSetEnumBound;
-	DAR_info.rioSetAddrMode = idt_rxs_rioSetAddrMode;
 
 	DARDB_Bind_Driver(&DAR_info);
 
 	return RIO_SUCCESS;
 }
 
-/* Routine to bind in all RXS specific Device Specific Function routines.
- * Supports RXS2448
+/* Routine to bind in all RXSs specific Device Specific Function routines.
+ * Supports RXSs
  */
 
-uint32_t bind_rxs2448_DSF_support(void)
+uint32_t bind_rxs_DSF_support(void)
 {
 	IDT_DSF_DB_t idt_driver;
 
 	IDT_DSF_init_driver(&idt_driver);
 
-	idt_driver.dev_type = IDT_RXS2448_RIO_DEVICE_ID;
+	idt_driver.dev_type = IDT_RXSx_RIO_DEVICE_ID;
 
 	idt_driver.idt_pc_get_config = idt_rxs_pc_get_config;
 	idt_driver.idt_pc_get_status = idt_rxs_pc_get_status;
@@ -1762,8 +1707,8 @@ uint32_t bind_rxs2448_DSF_support(void)
 	idt_driver.idt_rt_set_all = idt_rxs_rt_set_all;
         idt_driver.idt_rt_set_changed = idt_rxs_rt_set_changed;
         idt_driver.idt_rt_change_rte = idt_rxs_rt_change_rte;
-        idt_driver.idt_rt_alloc_mc_mask = idt_rxs_rt_alloc_mc_mask;
-        idt_driver.idt_rt_dealloc_mc_mask = idt_rxs_rt_dealloc_mc_mask;
+        idt_driver.idt_rt_alloc_mc_mask = IDT_DSF_rt_alloc_mc_mask;
+        idt_driver.idt_rt_dealloc_mc_mask = IDT_DSF_rt_dealloc_mc_mask;
         idt_driver.idt_rt_change_mc_mask = idt_rxs_rt_change_mc_mask;
 
         idt_driver.idt_sc_init_dev_ctrs = idt_rxs_sc_init_dev_ctrs;
@@ -1777,42 +1722,6 @@ uint32_t bind_rxs2448_DSF_support(void)
 	return RIO_SUCCESS;
 }
 
-/* Routine to bind in all RXS specific Device Specific Function routines.
- * Supports RXS1632
- */
-
-uint32_t bind_rxs1632_DSF_support(void)
-{
-        IDT_DSF_DB_t idt_driver;
-
-        IDT_DSF_init_driver(&idt_driver);
-
-        idt_driver.dev_type = IDT_RXS1632_RIO_DEVICE_ID;
-
-        idt_driver.idt_pc_get_config = idt_rxs_pc_get_config;
-        idt_driver.idt_pc_get_status = idt_rxs_pc_get_status;
-        idt_driver.idt_pc_dev_reset_config = idt_rxs_pc_dev_reset_config;
-
-	idt_driver.idt_rt_initialize = idt_rxs_rt_initialize;
-	idt_driver.idt_rt_probe = idt_rxs_rt_probe;
-        idt_driver.idt_rt_probe_all = idt_rxs_rt_probe_all;
-        idt_driver.idt_rt_set_all = idt_rxs_rt_set_all;
-        idt_driver.idt_rt_set_changed = idt_rxs_rt_set_changed;
-        idt_driver.idt_rt_change_rte = idt_rxs_rt_change_rte;
-        idt_driver.idt_rt_alloc_mc_mask = idt_rxs_rt_alloc_mc_mask;
-        idt_driver.idt_rt_dealloc_mc_mask = idt_rxs_rt_dealloc_mc_mask;
-        idt_driver.idt_rt_change_mc_mask = idt_rxs_rt_change_mc_mask;
-
-        idt_driver.idt_sc_init_dev_ctrs = idt_rxs_sc_init_dev_ctrs;
-        idt_driver.idt_sc_read_ctrs = idt_rxs_sc_read_ctrs;
-
-        idt_driver.idt_em_dev_rpt_ctl = idt_rxs_em_dev_rpt_ctl;
-        idt_driver.idt_em_cfg_pw = idt_rxs_em_cfg_pw;
-
-        IDT_DSF_bind_driver(&idt_driver, &RXS_driver_handle);
-
-        return RIO_SUCCESS;
-}
 
 #ifdef __cplusplus
 }

@@ -42,9 +42,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "IDT_Port_Config_API.h"
 #include "DAR_Utilities.h"
 #include "IDT_Error_Management_API.h"
-#include "IDT_RXS2448.h"
-//#include "IDT_Routing_Table_Config_API.h"
-#include "IDT_RXS_Routing_Table_Config_API.h"
+#include "IDT_RXS2448.h""
 
 
 #define RXS_NUM_PERF_CTRS        8
@@ -55,17 +53,14 @@ extern "C" {
 #endif
 
 
-/* Routine to bind in all RXS2448 specific DAR support routines.
+/* Routine to bind in all RXSs specific DAR support routines.
  * */
 uint32_t bind_rxs_DAR_support( void );
 
-/* Routine to bind in all RXS2448 specific Device Specific Function routines.
+/* Routine to bind in all RXSs specific Device Specific Function routines.
  * */
-uint32_t bind_rxs2448_DSF_support( void );
+uint32_t bind_rxs_DSF_support( void );
 
-/* Routine to bind in all RXS1632 specific Device Specific Function routines.
- *  * */
-uint32_t bind_rxs1632_DSF_support( void );
 
 #ifdef __cplusplus
 }

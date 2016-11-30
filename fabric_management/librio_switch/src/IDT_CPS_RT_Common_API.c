@@ -460,7 +460,7 @@ uint32_t read_rte_entries( DAR_DEV_INFO_t            *dev_info,
    //
    for (destID = 0; destID < IDT_DAR_RT_DEV_TABLE_SIZE; destID++)
    {
-      uint8_t mask_idx;
+      uint32_t mask_idx;
 
       rt->dev_table[destID].changed = false;
 

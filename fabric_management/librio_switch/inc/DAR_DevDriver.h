@@ -116,6 +116,12 @@ typedef struct DAR_DEV_INFO_t_TAG
                               */
     uint32_t    extFPtrForVOQ;  /* RO: ID  0x0B: Virtual Output Queueing
                               */
+    uint32_t    extFPtrForRT;  /* RO: ID  0x0E: Routing Tablet
+                              */
+    uint32_t    extFPtrForTS;  /* RO: ID  0x0F: Timestamp Synchronization
+                              */
+    uint32_t    extFPtrForMISC;  /* RO: ID  0x10: Miscellaneous Register Block
+                              */
     /* Values of RapidIO Standard Registers, useful for understanding device
            capabilities without reading registers.
     */

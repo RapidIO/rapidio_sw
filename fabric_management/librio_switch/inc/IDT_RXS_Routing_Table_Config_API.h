@@ -34,22 +34,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef __IDT_RXS_ROUTING_TABLE_CONFIG_API_H__
 #define __IDT_RXS_ROUTING_TABLE_CONFIG_API_H__
 
-//#include "IDT_Routing_Table_Config_API.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#define IDT_RXS_DSF_RT_NO_ROUTE                   0x300
-#define IDT_RXS_DSF_RT_USE_PACKET_ROUTE           0x301
-
-#define IDT_RXS_DSF_FIRST_MC_MASK                 0x0100
-#define IDT_RXS_DSF_MAX_MC_MASK                   0x00FF
-#define IDT_RXS_DSF_BAD_MC_MASK                   (IDT_RXS_DSF_FIRST_MC_MASK+IDT_RXS_DSF_MAX_MC_MASK)
-
-#define IDT_RXS_MC_MASK_IDX_FROM_ROUTE(x)         (uint32_t)(((x >= IDT_RXS_DSF_FIRST_MC_MASK) && (x < IDT_RXS_DSF_BAD_MC_MASK))?(x - IDT_RXS_DSF_FIRST_MC_MASK):IDT_RXS_DSF_BAD_MC_MASK)
-#define IDT_RXS_MC_MASK_ROUTE_FROM_IDX(x)         (uint32_t)((x < IDT_RXS_DSF_MAX_MC_MASK)?(IDT_RXS_DSF_FIRST_MC_MASK + x):IDT_RXS_DSF_BAD_MC_MASK)
-
 
 #define IDT_RXS_MAX_MC_MASKS                      0xFF
 
