@@ -78,6 +78,7 @@ struct app_state {
 };
 
 struct fmd_state {
+	int rlogin_alive;
 	riocp_pe_handle *mp_h;
 	struct fmd_opt_vals *opts;
 	int fmd_rw;

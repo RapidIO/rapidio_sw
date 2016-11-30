@@ -105,6 +105,8 @@ int CLIStatusCmd(struct cli_env *env, int argc, char **argv)
 	if (0)
 		argv[0][0] = argc;
 
+	LOGMSG(env, "Rlogin  Alive: %1d Skt %5d\n\n", fmd->rlogin_alive,
+		fmd->opts->cli_port_num); 
 	for (i = 0; i < FMD_MAX_APPS; i++) {
 		if (app_st.apps[i].alloced)
 			app_cnt++;

@@ -60,12 +60,12 @@ void splashScreen(struct cli_env *env, char *app_name)
 	char *dash_ends = (char *)
 		"---                                                    ---\n";
 	int dash_len = strlen(dash) - 7;
+	int app_name_len = (int)((dash_len + strlen(app_name))/2); 
+	int app_name_rem = dash_len - app_name_len;
 
         LOGMSG(env, dash);
         LOGMSG(env, dash_ends);
-	LOGMSG(env, "---%*s%*s---\n",
-		(int)((dash_len + strlen(app_name))/2), app_name,
-		(int)((dash_len - strlen(app_name))/2), " ");
+	LOGMSG(env, "---%*s%*s---\n", app_name_len, app_name, app_name_rem, "");
         LOGMSG(env, dash_ends);
 	LOGMSG(env, dash);
 	LOGMSG(env, "---         Version: %2s.%2s (%11s-%8s)      ---\n",

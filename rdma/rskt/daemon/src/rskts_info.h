@@ -152,15 +152,7 @@ struct console_globals {
 
 	/* Globals for remote CLI sessions */
 	int cli_alive;
-	pthread_t cli_thread;
 	int cli_portno;
-	int cli_sess_num;
-
-	int cli_fd;
-	struct sockaddr_in cli_addr;
-	int cli_sess_fd;
-	struct sockaddr_in sess_addr;
-	socklen_t sess_addr_len;
 };
 
 struct lib_accepting {

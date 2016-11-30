@@ -176,6 +176,19 @@ struct dmn_globals {
 
 extern struct dmn_globals dmn;
 
+struct console_globals {
+        int all_must_die;
+        /* Globals for console run by RSKT Daemon */
+        pthread_t cons_thread;
+        sem_t cons_owner;
+        int cons_alive;
+
+        /* Globals for remote CLI sessions */
+        int cli_alive;
+        int cli_portno;
+};
+
+extern struct console_globals cli;
 #ifdef __cplusplus
 }
 #endif

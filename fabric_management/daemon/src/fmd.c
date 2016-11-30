@@ -118,42 +118,9 @@ void sig_handler(int signo)
 	};
 };
 
-pthread_t poll_thread, cli_session_thread, console_thread;
+pthread_t poll_thread, console_thread;
 
 sem_t cons_owner;
-
-void set_prompt(struct cli_env *e)
-{
-	riocp_pe_handle pe_h;
-	ct_t comptag = 0;
-	const char *name = NULL;
-	uint16_t pe_did = 0;
-	struct cfg_dev cfg_dev;
-
-	if (NULL == e) {
-		return;
-	}
-
-	if (NULL == e->h) {
-		SAFE_STRNCPY(e->prompt, "HUNINIT> ", sizeof(e->prompt));
-		return;
-	}
-
-	pe_h = (riocp_pe_handle)(e->h);
-
-	if (riocp_pe_get_comptag(pe_h, &comptag)) {
-		comptag = 0xFFFFFFFF;
-	}
-	pe_did = comptag & 0x0000FFFF;
-
-	if (cfg_find_dev_by_ct(comptag, &cfg_dev)) {
-		name = riocp_pe_handle_get_device_str(pe_h);
-	} else {
-		name = (char *)cfg_dev.name;
-	}
-
-	snprintf(e->prompt, PROMPTLEN,  "%s.%03x> ", name, pe_did);
-}
 
 void *poll_loop( void *poll_interval ) 
 {
@@ -180,95 +147,26 @@ void *poll_loop( void *poll_interval )
 	return poll_interval;
 }
 
-void *cli_session( void *sock_num )
-{
-     int sockfd, newsockfd = -1, portno;
-     socklen_t clilen;
-     char buffer[256] = {0};
-     struct sockaddr_in serv_addr, cli_addr;
-     int n;
-     int one = 1;
-	int session_num = 0;
-        char my_name[16] = {0};
-
-        snprintf(my_name, 15, "ETH_CLI_SESS");
-        pthread_setname_np(cli_session_thread, my_name);
-
-        pthread_detach(cli_session_thread);
-
-     portno = *(int *)(sock_num);
-	free(sock_num);
-
-     sockfd = socket(AF_INET, SOCK_STREAM, 0);
-     	if (sockfd < 0) {
-        	CRIT("ERROR opening socket");
-		goto fail;
-	}
-     bzero((char *) &serv_addr, sizeof(serv_addr));
-     serv_addr.sin_family = AF_INET;
-     serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-     serv_addr.sin_port = htons(portno);
-     setsockopt (sockfd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof (one));
-     setsockopt (sockfd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof (one));
-     if (bind(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) {
-        	CRIT("ERROR on binding");
-		goto fail;
-	}
-
-	INFO("\nFMD bound to socket %d\n", portno);
-	sem_post(&cons_owner);
-	while (strncmp(buffer, "done", 4)) {
-		struct cli_env env;
-
-		init_cli_env(&env);
-		env.h = mport_pe;
-		set_prompt( &env );
-
-		listen(sockfd,5);
-		clilen = sizeof(cli_addr);
-		env.sess_socket = accept(sockfd, 
-				(struct sockaddr *) &cli_addr, 
-				&clilen);
-		if (env.sess_socket < 0) {
-			CRIT("ERROR on accept");
-			goto fail;
-		};
-		INFO("\nStarting session %d\n", session_num);
-		cli_terminal( &env );
-		INFO("\nFinishing session %d\n", session_num);
-		close(env.sess_socket);
-		session_num++;
-	};
-fail:
-	INFO("\nRIO_DEMON CLI Thread Exiting\n");
-	if (newsockfd >=0)
-		close(newsockfd);
-     	close(sockfd);
-	pthread_exit( (void *)(&n) );
-}
-
 void spawn_threads(struct fmd_opt_vals *cfg)
 {
 	int  poll_ret, cli_ret, cons_ret;
-	int *pass_sock_num;
 	int *pass_poll_interval;
 	int *pass_cons_ret;
 	int ret;
+	struct remote_login_parms *rlp = (struct remote_login_parms *)
+				malloc(sizeof(struct remote_login_parms));
 
 	sem_init(&cons_owner, 0, 0);
-	pass_sock_num = (int *)(calloc(1, sizeof(int)));
 	pass_poll_interval = (int *)(calloc(2, sizeof(int)));
 	pass_cons_ret = (int *)(calloc(1, sizeof(int))); /// \todo MEMLEAK
-	if (!pass_sock_num || !pass_poll_interval || !pass_cons_ret) {
+	if (!pass_poll_interval || !pass_cons_ret) {
 		free(pass_cons_ret);
 		free(pass_poll_interval);
-		free(pass_sock_num);
 
 		CRIT("Error - Out of memory\n");
 		exit(EXIT_FAILURE);
 	}
 
-	*pass_sock_num = cfg->cli_port_num;
 	pass_poll_interval[0] = cfg->mast_interval;
 	pass_poll_interval[1] = cfg->run_cons;
 	*pass_cons_ret = cfg->run_cons;
@@ -289,10 +187,15 @@ void spawn_threads(struct fmd_opt_vals *cfg)
 		exit(EXIT_FAILURE);
 	}
  
-	cli_ret = pthread_create( &cli_session_thread, NULL, 
-		cli_session, (void*)(pass_sock_num));
+	rlp->portno = fmd->opts->cli_port_num;
+	SAFE_STRNCPY(rlp->thr_name, "FMD_RLOGIN", sizeof(rlp->thr_name));
+	rlp->status = &fmd->rlogin_alive;
+	*rlp->status = 0;
+
+	cli_ret = pthread_create( &remote_login_thread, NULL, remote_login,
+								(void*)(rlp));
 	if(cli_ret) {
-		CRIT("Error - cli_session_thread rc: %d\n",cli_ret);
+		CRIT("Error - remote_login_thread rc: %d", cli_ret);
 		exit(EXIT_FAILURE);
 	}
 
@@ -300,7 +203,7 @@ void spawn_threads(struct fmd_opt_vals *cfg)
 		struct cli_env t_env;
 
 		init_cli_env(&t_env);
-		splashScreen(&t_env, (char *)"FMD Command Line Interface");
+		splashScreen(&t_env, (char *)"FMD  Command Line Interface");
 		cons_ret = pthread_create( &console_thread, NULL, 
 			console, (void *)((char *)"FMD > "));
 		if(cons_ret) {
@@ -311,7 +214,7 @@ void spawn_threads(struct fmd_opt_vals *cfg)
 			cons_ret);
 	};
 	INFO("pthread_create() for poll_loop returns: %d\n",poll_ret);
-	INFO("pthread_create() for cli_session_thread returns: %d\n",cli_ret);
+	INFO("pthread_create() for remote_login_thread returns: %d\n",cli_ret);
  
 	ret = start_fmd_app_handler(cfg->app_port_num, 50,
 					cfg->dd_fn, cfg->dd_mtx_fn); 
@@ -685,6 +588,7 @@ int main(int argc, char *argv[])
 	signal(SIGHUP, sig_handler);
 	signal(SIGTERM, sig_handler);
 	signal(SIGUSR1, sig_handler);
+	signal(SIGPIPE, sig_handler);
 
 	rdma_log_init("fmd.log", 1);
 
@@ -730,12 +634,13 @@ int main(int argc, char *argv[])
 	if (!fmd->opts->init_and_quit) {
 		spawn_threads(fmd->opts);
 
-		pthread_join(cli_session_thread, NULL);
 		if (fmd->opts->run_cons)
 			pthread_join(console_thread, NULL);
-	};
-	halt_app_handler();
-	cleanup_app_handler();
+	}
+
+	while (1) {
+		sched_yield();
+	}
 
 dd_cleanup:
 	fmd_dd_cleanup(opts->dd_mtx_fn, &fmd->dd_mtx_fd, &fmd->dd_mtx,

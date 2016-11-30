@@ -74,8 +74,8 @@ int CLIConnectCmd(struct cli_env *UNUSED(env), int UNUSED(argc), char **argv)
 	int sockfd, portno, n;
 	struct sockaddr_in serv_addr;
 	struct hostent *server;
-	char tx_buffer[256];
-	char rx_buffer[256];
+	char tx_buffer[1024];
+	char rx_buffer[1024];
 	int one = 1;
 	int zero = 0;
 	uint8_t session_over = 0;

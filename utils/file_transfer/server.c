@@ -217,11 +217,9 @@ exit:
 	return;
 }
 
-pthread_t conn_thread, cli_session_thread, console_thread;
+pthread_t conn_thread, console_thread;
 int cli_session_portno;
 int cli_session_alive;
-
-sem_t cons_owner;
 
 void set_prompt(struct cli_env *e)
 {
@@ -924,104 +922,24 @@ close_mport:
 	return rc;
 };
 
-void *cli_session( void *sock_num )
-{
-	int sockfd, newsockfd = -1, portno;
-	socklen_t clilen;
-	struct sockaddr_in serv_addr, cli_addr;
-	char buffer[256];
-	int one = 1;
-	int session_num = 0;
-	char thr_name[16] = {0};
-
-	snprintf(thr_name, 15, "CLI_SESS");
-	pthread_setname_np(cli_session_thread, thr_name);
-
-	portno = *(int *)(sock_num);
-	cli_session_portno = portno;
-
-	free(sock_num);
-
-	sockfd = socket(AF_INET, SOCK_STREAM, 0);
-	if (sockfd < 0) {
-		CRIT("ERROR opening socket");
-		goto fail;
-	}
-	bzero((char *) &serv_addr, sizeof(serv_addr));
-	serv_addr.sin_family = AF_INET;
-	serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-	serv_addr.sin_port = htons(portno);
-	setsockopt (sockfd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof (one));
-	setsockopt (sockfd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof (one));
-	if (bind(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr))<0) {
-		CRIT("ERROR on binding port %d", cli_session_portno);
-		goto fail;
-	}
-
-	INFO("\nSERVER Remote CLI bound to socket %d\n", portno);
-	sem_post(&cons_owner);
-	cli_session_alive = 1;
-	while (!all_must_die && strncmp(buffer, "done", 4)) {
-		struct cli_env env;
-
-		env.script = NULL;
-		env.fout = NULL;
-		bzero(env.output, BUFLEN);
-		bzero(env.input, BUFLEN);
-		env.DebugLevel = 0;
-		env.progressState = 0;
-		env.sess_socket = -1;
-		env.h = NULL;
-		bzero(env.prompt, PROMPTLEN+1);
-		set_prompt( &env );
-
-		listen(sockfd,5);
-		clilen = sizeof(cli_addr);
-		env.sess_socket = accept(sockfd, 
-				(struct sockaddr *) &cli_addr, 
-				&clilen);
-		if (env.sess_socket < 0) {
-			CRIT("ERROR on accept");
-			goto fail;
-		};
-		printf("\nStarting session %d\n", session_num);
-		cli_terminal( &env );
-		printf("\nFinishing session %d\n", session_num);
-		close(env.sess_socket);
-		session_num++;
-	};
-fail:
-	cli_session_alive = 0;
-	if (debug)
-		printf("\nSERVER REMOTE CLI Thread Exiting\n");
-	if (newsockfd >=0)
-		close(newsockfd);
-     	close(sockfd);
-
-	pthread_exit(0);
-}
-
 int spawned_threads;
 void fxfr_server_shutdown_cli(struct cli_env *env);
 
 void spawn_threads(int cons_skt, int xfer_skt, int run_cons)
 {
 	int  conn_ret, cli_ret, cons_ret = 0;
-	int *pass_sock_num, *conn_loop_rc;
+	int *conn_loop_rc;
 	int i;
+	struct remote_login_parms *rlp = (struct remote_login_parms *)
+				malloc(sizeof(struct remote_login_parms));
 
 	all_must_die = 0;
 	conn_loop_alive = 0;
-	cli_session_alive = 0;
 	spawned_threads = 1;
 
 	cli_init_base(fxfr_server_shutdown_cli);
 	bind_server_cmds();
 	liblog_bind_cli_cmds();
-
-	sem_init(&cons_owner, 0, 0);
-
-	cli_session_portno = 0;
 
 	/* Prepare and start console thread */
 	if (run_cons) {
@@ -1072,7 +990,7 @@ void spawn_threads(int cons_skt, int xfer_skt, int run_cons)
 
 		pass_idx = (int *)(malloc(sizeof(int)));
 		if (NULL == pass_idx) {
-			fprintf(stderr,"Error - cli_session_thread could not allocate pass_idx\n");
+			fprintf(stderr,"Error - could not allocate pass_idx\n");
 			exit(EXIT_FAILURE);
 		}
 
@@ -1086,25 +1004,25 @@ void spawn_threads(int cons_skt, int xfer_skt, int run_cons)
 		rx_bufs[i].thr_valid = 1;
 	};
 
-	/* Start cli_session_thread, enabling remote debug over Ethernet */
-	pass_sock_num = (int *)(malloc(sizeof(int)));
-	if (NULL == pass_sock_num) {
-		fprintf(stderr,"Error - cli_session_thread could not allocate pass_sock_num\n");
-		exit(EXIT_FAILURE);
-	}
-	*pass_sock_num = cons_skt;
+	/* Start remote_login_thread, enabling remote debug over Ethernet */
 
-	cli_ret = pthread_create( &cli_session_thread, NULL, cli_session, 
-				(void *)(pass_sock_num));
+	rlp->portno = cons_skt;
+	cli_session_portno = cons_skt;
+	SAFE_STRNCPY(rlp->thr_name, "FXFR_SVR_RLOG", sizeof(rlp->thr_name));
+	rlp->status = &cli_session_alive;
+	*rlp->status = 0;
+
+	cli_ret = pthread_create( &remote_login_thread, NULL, remote_login, 
+				(void *)(rlp));
 	if(cli_ret) {
-		fprintf(stderr,"Error - cli_session_thread rc: %d\n",cli_ret);
+		fprintf(stderr,"Error - remote_login_thread rc: %d\n",cli_ret);
 		exit(EXIT_FAILURE);
 	}
 
 	if (debug) {
 		printf("pthread_create() for conn_loop returns: %d\n",
 			conn_ret);
-		printf("pthread_create() for cli_session_thread returns: %d\n",
+		printf("pthread_create() for remote_login_thread returns: %d\n",
 			cli_ret);
 		if (run_cons) 
 			printf("pthread_create() for console returns: %d\n", 
@@ -1118,8 +1036,6 @@ void fxfr_server_shutdown(void) {
 	if (!all_must_die && spawned_threads) {
 		if (conn_loop_alive)
 			pthread_kill(conn_thread, SIGHUP);
-		if (cli_session_alive)
-			pthread_kill(cli_session_thread, SIGHUP);
 	};
 
 	all_must_die = 1;
@@ -1147,9 +1063,10 @@ void sig_handler(int signo)
 	printf("\nRx Signal %x\n", signo);
 	if ((signo == SIGINT) || (signo == SIGHUP) || (signo == SIGTERM)) {
 		printf("Shutting down\n");
-		exit(0);
 		fxfr_server_shutdown();
+		exit(0);
 	};
+	return;
 };
 
 int main(int argc, char *argv[])
@@ -1166,6 +1083,7 @@ int main(int argc, char *argv[])
 	signal(SIGHUP, sig_handler);
 	signal(SIGTERM, sig_handler);
 	signal(SIGUSR1, sig_handler);
+	signal(SIGPIPE, sig_handler);
 
 	parse_options(argc, argv, &cons_skt, &print_help, &mport_num, &run_cons,
 		&win_size, &num_buffs, &xfer_skt);   
@@ -1196,8 +1114,6 @@ int main(int argc, char *argv[])
 	if (run_cons)
 		pthread_join(console_thread, NULL);
  
-	/* pthread_join(cli_session_thread, NULL); */
-
 	if (mp_h_valid) {
 		riomp_mgmt_mport_destroy_handle(&mp_h);
 		mp_h_valid = 0;

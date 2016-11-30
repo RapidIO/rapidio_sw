@@ -33,8 +33,14 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdio.h>
 #include <string.h>
 #include <pthread.h>
+#include <sys/ioctl.h>
+#include <sys/types.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
+#include <unistd.h>
 
 #include "libcli.h"
+#include "string_util.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -83,6 +89,7 @@ void* console_rc(void* cons_parm_v)
 
 	pthread_exit(NULL);
 } /* console_rc */
+
 #ifdef __cplusplus
 }
 #endif

@@ -45,10 +45,44 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "libcli.h"
 #include "riocp_pe_internal.h"
 #include "pe_mpdrv_private.h"
+#include "string_util.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+void set_prompt(struct cli_env *e)
+{
+	riocp_pe_handle pe_h;
+	ct_t comptag = 0;
+	const char *name = NULL;
+	uint16_t pe_did = 0;
+	struct cfg_dev cfg_dev;
+
+	if (NULL == e) {
+		return;
+	}
+
+	if (NULL == e->h) {
+		SAFE_STRNCPY(e->prompt, "HUNINIT> ", sizeof(e->prompt));
+		return;
+	}
+
+	pe_h = (riocp_pe_handle)(e->h);
+
+	if (riocp_pe_get_comptag(pe_h, &comptag)) {
+		comptag = 0xFFFFFFFF;
+	}
+	pe_did = comptag & 0x0000FFFF;
+
+	if (cfg_find_dev_by_ct(comptag, &cfg_dev)) {
+		name = riocp_pe_handle_get_device_str(pe_h);
+	} else {
+		name = (char *)cfg_dev.name;
+	}
+
+	snprintf(e->prompt, PROMPTLEN,  "%s.%03x >", name, pe_did);
+}
 
 // Globals used by repeatable commands
 static uint32_t store_address;

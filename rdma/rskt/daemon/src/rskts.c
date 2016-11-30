@@ -98,8 +98,6 @@ struct rskt_server_info {
 
 struct rskt_server_info rskts;
 
-#define DFLT_SVR_E_CLI_SKT 3434
-
 void print_server_help(void)
 {
 	printf("rskt_server is a test application which loops back messages\n");
@@ -123,7 +121,7 @@ void print_server_help(void)
 	printf("-e <e_skt>  : Remote console connectivity over Ethernet"
                                 			" uses <e_skt>.\n");
         printf("         The default <e_skt> value is %d.\n",
-                                                        DFLT_SVR_E_CLI_SKT);
+                                                        RSKTS_DFLT_CLI_SKT);
         printf("         Note: There must be a space between \"-c\""
                                                         " and <e_skt>.\n");
 };
@@ -135,7 +133,7 @@ int parse_options(int argc, char *argv[], struct server_controls *ctrls)
 	ctrls->test = 0;
 	ctrls->rsktlib_mp = DFLT_DMN_LSKT_MPORT;
 	ctrls->rsktlib_portno = RSKT_DFLT_APP_PORT_NUM;
-	ctrls->remcli_portno = DFLT_SVR_E_CLI_SKT;
+	ctrls->remcli_portno = RSKTS_DFLT_CLI_SKT;
 	rskts.debug = 1;
 	ctrls->print_help = 0;
 
@@ -326,8 +324,8 @@ int RSKTSStatusCmd(struct cli_env *env, int argc, char **argv)
 			rskts.lib.mpnum, rskts.lib.pause_reqs,
 			rskts.lib.max_reqs, rskts.lib.num_reqs);
 
-	LOGMSG(env, "Cli Lp %5d %8d                 %3d\n", rskts.cli.cli_alive,
-			rskts.cli.cli_portno, rskts.cli.cli_sess_num);
+	LOGMSG(env, "Cli Lp %5d %8d\n", rskts.cli.cli_alive,
+			rskts.cli.cli_portno);
 
 	LOGMSG(env, "Cons   %5d\n\n", rskts.cli.cons_alive);
 
@@ -401,98 +399,17 @@ void *console(void *cons_parm)
 	pthread_exit(cons_parm);
 };
 
-void *cli_session( void *sock_num )
-{
-	char buffer[256];
-	int one = 1;
-	struct console_globals *cli = &rskts.cli;
-
-	cli->cli_portno = *(int *)(sock_num);
-
-	free(sock_num);
-
-	cli->cli_fd = socket(AF_INET, SOCK_STREAM, 0);
-	if (cli->cli_fd < 0) {
-		perror("RSKTD Remote CLI ERROR opening socket");
-		goto fail;
-	}
-	bzero((char *) &cli->cli_addr, sizeof(cli->cli_addr));
-	cli->cli_addr.sin_family = AF_INET;
-	cli->cli_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-	cli->cli_addr.sin_port = htons(cli->cli_portno);
-	setsockopt (cli->cli_fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof (one));
-	setsockopt (cli->cli_fd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof (one));
-	if (bind(cli->cli_fd, (struct sockaddr *) &cli->cli_addr, 
-						sizeof(cli->cli_addr)) < 0) {
-		perror("\nRSKTD Remote CLI ERROR on binding");
-		goto fail;
-	}
-
-	if (rskts.debug) {
-		printf("\nRSKTD Remote CLI bound to socket %d\n", 
-		cli->cli_portno);
-	};
-	sem_post(&cli->cons_owner);
-	cli->cli_alive = 1;
-	while (!rskts.all_must_die && strncmp(buffer, "done", 4)) {
-		struct cli_env env;
-
-		env.script = NULL;
-		env.fout = NULL;
-		bzero(env.output, BUFLEN);
-		bzero(env.input, BUFLEN);
-		env.DebugLevel = 0;
-		env.progressState = 0;
-		env.sess_socket = -1;
-		env.h = NULL;
-		bzero(env.prompt, PROMPTLEN+1);
-		set_prompt( &env );
-
-		listen(cli->cli_fd,5);
-		cli->sess_addr_len = sizeof(cli->sess_addr);
-		env.sess_socket = -1;
-		cli->cli_sess_fd = accept(cli->cli_fd, 
-				(struct sockaddr *) &cli->sess_addr, 
-				&cli->sess_addr_len);
-		if (cli->cli_sess_fd < 0) {
-			perror("ERROR on accept");
-			goto fail;
-		};
-		env.sess_socket = cli->cli_sess_fd;
-		printf("\nRSKTD Starting session %d\n", cli->cli_sess_num);
-		cli_terminal( &env );
-		printf("\nRSKTD Finishing session %d\n", cli->cli_sess_num);
-		close(cli->cli_sess_fd);
-		cli->cli_sess_fd = -1;
-		cli->cli_sess_num++;
-	};
-fail:
-	cli->cli_alive = 0;
-	if (rskts.debug)
-		printf("\nRSKTD REMOTE CLI Thread Exiting\n");
-
-	if (cli->cli_sess_fd > 0) {
-		close(cli->cli_sess_fd);
-		cli->cli_sess_fd = 0;
-	}
-	if (cli->cli_fd > 0) {
-		close(cli->cli_fd);
-		cli->cli_fd = 0;
-	};
-
-	pthread_exit(0);
-}
-
 void spawn_threads()
 {
         int  cli_ret, console_ret = 0, rc;
-        int *pass_sock_num, *pass_console_ret;
+        int *pass_console_ret;
+	struct remote_login_parms *rlp = (struct remote_login_parms *)
+			malloc(sizeof(struct remote_login_parms));
 
         rskts.all_must_die = 0;
         sem_init(&rskts.cli.cons_owner, 0, 0);
 
         rskts.cli.cli_portno = 0;
-        rskts.cli.cli_alive = 0;
         rskts.cli.cons_alive = 0;
 
         /* Prepare and start console thread */
@@ -509,18 +426,15 @@ void spawn_threads()
 		exit(EXIT_FAILURE);
 	};
 
-        /* Start cli_session_thread, enabling remote debug over Ethernet */
-        pass_sock_num = (int *)(malloc(sizeof(int)));
-        if (NULL == pass_sock_num) {
-                fprintf(stderr, "Error - cli_session_thread creation\n");
-                exit(EXIT_FAILURE);
-        }
-        *pass_sock_num = rskts.ctrls.remcli_portno;
+        /* Start remote_login_thread, enabling remote debug over Ethernet */
+	rlp->portno = rskts.ctrls.remcli_portno;
+	SAFE_STRNCPY(rlp->thr_name, "RSKTS_RCLI", sizeof(rlp->thr_name));
+	rlp->status = &rskts.cli.cli_alive;
 
-        cli_ret = pthread_create( &rskts.cli.cli_thread, NULL, cli_session,
-                                (void *)(pass_sock_num));
+        cli_ret = pthread_create( &remote_login_thread, NULL, remote_login,
+                                (void *)(rlp));
         if(cli_ret) {
-                fprintf(stderr, "Error - cli_session_thread rc: %d\n",cli_ret);
+                fprintf(stderr, "Error - remote_login_thread rc: %d\n",cli_ret);
                 exit(EXIT_FAILURE);
         }
         librskt_test_init(rskts.ctrls.test);
@@ -534,11 +448,6 @@ void spawn_threads()
  
 void rskt_server_shutdown(void)
 {
-	if (!all_must_die) {
-		if (rskts.cli.cli_alive)
-			pthread_kill(rskts.cli.cli_thread, SIGHUP);
-	};
-
 	all_must_die = 1;
 	
         if (rskts.lib.fd > 0) {
@@ -550,15 +459,6 @@ void rskt_server_shutdown(void)
                 if (-1 == unlink(rskts.lib.addr.sun_path))
                         perror("ERROR on l_conn unlink");
                 rskts.lib.addr.sun_path[0] = 0;
-        };
-
-        if (rskts.cli.cli_sess_fd > 0) {
-                close(rskts.cli.cli_sess_fd);
-                rskts.cli.cli_sess_fd = 0;
-        };
-        if (rskts.cli.cli_fd > 0) {
-                close(rskts.cli.cli_fd);
-                rskts.cli.cli_fd = 0;
         };
 };
 
@@ -575,8 +475,9 @@ void sig_handler(int signo)
 	if ((signo == SIGINT) || (signo == SIGHUP) || (signo == SIGTERM)) {
 		printf("Shutting down\n");
 		rskt_server_shutdown();
+        	exit(0);
 	};
-        exit(0);
+	return;
 };
 
 int main(int argc, char *argv[])
@@ -600,6 +501,7 @@ int main(int argc, char *argv[])
 	signal(SIGHUP, sig_handler);
 	signal(SIGTERM, sig_handler);
 	signal(SIGUSR1, sig_handler);
+	signal(SIGPIPE, sig_handler);
 
 	spawn_threads();
 

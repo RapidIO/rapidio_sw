@@ -347,26 +347,6 @@ void set_prompt(struct cli_env *e)
         };
 };
 
-struct console_globals {
-	int all_must_die;
-        /* Globals for console run by RSKT Daemon */
-        pthread_t cons_thread;
-        sem_t cons_owner;
-        int cons_alive;
-
-        /* Globals for remote CLI sessions */
-        int cli_alive;
-        pthread_t cli_thread;
-        int cli_portno;
-        int cli_sess_num;
-
-        int cli_fd;
-        struct sockaddr_in cli_addr;
-        int cli_sess_fd;
-        struct sockaddr_in sess_addr;
-        socklen_t sess_addr_len;
-};
-
 struct console_globals cli;
 
 void rskt_daemon_shutdown(void);
@@ -376,94 +356,11 @@ void quit_command_customization(struct cli_env *UNUSED_PARM(env))
 	rskt_daemon_shutdown();
 };
 	
-void *cli_session(void *rc_ptr)
-{
-	char buffer[256];
-	int one = 1;
-
-	cli.cli_portno = ctrls.e_cli_skt;
-
-	cli.cli_fd = socket(AF_INET, SOCK_STREAM, 0);
-	if (cli.cli_fd < 0) {
-		ERR("RSKTD Remote CLI ERROR opening socket: %s\n", strerror(errno));
-		goto fail;
-	}
-	bzero((char *) &cli.cli_addr, sizeof(cli.cli_addr));
-	cli.cli_addr.sin_family = AF_INET;
-	cli.cli_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-	cli.cli_addr.sin_port = htons(cli.cli_portno);
-	setsockopt (cli.cli_fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof (one));
-	setsockopt (cli.cli_fd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof (one));
-	INFO("Binding socket on %s:%d\n", inet_ntoa(cli.cli_addr.sin_addr),
-					cli.cli_portno);
-	if (bind(cli.cli_fd, (struct sockaddr *) &cli.cli_addr, 
-						sizeof(cli.cli_addr)) < 0) {
-		ERR("RSKTD Remote CLI ERROR on binding: %s\n", strerror(errno));
-		goto fail;
-	}
-
-	if (ctrls.debug) {
-		printf("\nRSKTD Remote CLI bound to socket %d\n", 
-		cli.cli_portno);
-	};
-	sem_post(&cli.cons_owner);
-	cli.cli_alive = 1;
-	while (!cli.all_must_die && strncmp(buffer, "done", 4)) {
-		struct cli_env env;
-
-		env.script = NULL;
-		env.fout = NULL;
-		bzero(env.output, BUFLEN);
-		bzero(env.input, BUFLEN);
-		env.DebugLevel = 0;
-		env.progressState = 0;
-		env.sess_socket = -1;
-		env.h = NULL;
-		bzero(env.prompt, PROMPTLEN+1);
-		set_prompt( &env );
-
-		listen(cli.cli_fd,5);
-		cli.sess_addr_len = sizeof(cli.sess_addr);
-		env.sess_socket = -1;
-		cli.cli_sess_fd = accept(cli.cli_fd, 
-				(struct sockaddr *) &cli.sess_addr, 
-				&cli.sess_addr_len);
-		if (cli.cli_sess_fd < 0) {
-			if (cli.cli_fd > 0) {
-				ERR("ERROR on accept: %s\n", strerror(errno));
-			}
-			goto fail;
-		};
-		env.sess_socket = cli.cli_sess_fd;
-		INFO("\nRSKTD Starting session %d\n", cli.cli_sess_num);
-		cli_terminal( &env );
-		INFO("\nRSKTD Finishing session %d\n", cli.cli_sess_num);
-		if (cli.cli_sess_fd > 0)
-			close(cli.cli_sess_fd);
-		cli.cli_sess_fd = -1;
-		cli.cli_sess_num++;
-	};
-fail:
-	cli.cli_alive = 0;
-	if (ctrls.debug)
-		INFO("RSKTD REMOTE CLI Thread Exiting\n");
-
-	if (cli.cli_sess_fd > 0) {
-		close(cli.cli_sess_fd);
-		cli.cli_sess_fd = -1;
-	};
-	if (cli.cli_fd > 0) {
-		close(cli.cli_fd);
-		cli.cli_fd = 0;
-	};
-
-	*(int *)(rc_ptr) = cli.cli_portno;
-	pthread_exit(rc_ptr);
-}
-
 void spawn_threads(void)
 {
 	int  cli_ret = 0, console_ret = 0;
+	struct remote_login_parms *rlp = (struct remote_login_parms *)
+				malloc(sizeof(struct remote_login_parms));
 
 	sem_init(&cli.cons_owner, 0, 0);
 
@@ -498,16 +395,19 @@ void spawn_threads(void)
 	};
 
 
-	/* Start cli_session_thread, enabling remote debug over Ethernet */
+	/* Start remote_login_thread, enabling remote debug over Ethernet */
+	rlp->portno = ctrls.e_cli_skt;
+	SAFE_STRNCPY(rlp->thr_name, "RSKTD_RCLI", sizeof(rlp->thr_name));
+	rlp->status = &cli.cli_alive;
 
-	cli_ret = pthread_create( &cli.cli_thread, NULL, cli_session, 
-				NULL);
+	cli_ret = pthread_create( &remote_login_thread, NULL, remote_login, 
+								(void *)(rlp));
 	if(cli_ret) {
-		CRIT("Failed to create cli_thread: %s\n", strerror(cli_ret));
+		CRIT("Failed to create remote_login_thread: %s\n",
+							strerror(cli_ret));
 		exit(EXIT_FAILURE);
 	}
 	INFO("CLI thread started\n");
-	pthread_detach(cli.cli_thread);
 
 	if (spawn_daemon_threads(&ctrls)) {
 		CRIT("spawn_daemon_threads FAILED");
@@ -519,21 +419,6 @@ void rskt_daemon_shutdown(void)
 {
 	DBG("ENTER\n");
 	kill_daemon_threads();
-
-	if (!cli.all_must_die && cli.cli_alive) {
-		cli.all_must_die = 1;
-		INFO("Killing CLI thread\n");
-		pthread_kill(cli.cli_thread, SIGUSR1);
-	};
-
-	if (cli.cli_sess_fd > 0) {
-		close(cli.cli_sess_fd);
-		cli.cli_sess_fd = 0;
-	};
-     	if (cli.cli_fd > 0) {
-     		close(cli.cli_fd);
-		cli.cli_fd = 0;
-	};
      	DBG("EXIT\n");
 };
 
@@ -544,11 +429,17 @@ void sig_handler(int signo)
 		INFO("Shutting down\n");
 		rskt_daemon_shutdown();
 		exit(1);
-	};
+	}
 
-	if (signo == SIGUSR1)	/* pthread_kill() */
+	if (signo == SIGUSR1) {
 		/* Ignore signal */
 		return;
+	}
+
+	if (signo == SIGPIPE) {
+		/* Ignore signal */
+		return;
+	}
 };
 
 int main(int argc, char *argv[])
@@ -561,6 +452,7 @@ int main(int argc, char *argv[])
 	signal(SIGHUP, sig_handler);
 	signal(SIGTERM, sig_handler);
 	signal(SIGUSR1, sig_handler);
+	signal(SIGPIPE, sig_handler);
 
 	rdma_log_init("rsktd_log.txt", 1);
 

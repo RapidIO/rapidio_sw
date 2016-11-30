@@ -67,8 +67,8 @@ int CLIConnectCmd(struct cli_env *UNUSED(env), int UNUSED(argc), char **argv)
 	int sockfd, portno, n;
 	struct sockaddr_in serv_addr;
 	struct hostent *server;
-	char tx_buffer[256];
-	char rx_buffer[256];
+	char tx_buffer[1024];
+	char rx_buffer[1024];
 	int one = 1;
 	int zero = 0;
 	uint8_t session_over = 0;
@@ -103,11 +103,11 @@ int CLIConnectCmd(struct cli_env *UNUSED(env), int UNUSED(argc), char **argv)
 	};
 
 	bzero(rx_buffer,256);
-	n = read(sockfd,rx_buffer,255);
+	n = read(sockfd,rx_buffer,1024);
 	while (rx_buffer[n-2] != '\n') {
 		printf("%s", rx_buffer);
 		bzero((char *) &tx_buffer, sizeof(tx_buffer));
-		if (NULL == fgets(tx_buffer,255,stdin)) {
+		if (NULL == fgets(tx_buffer,1024,stdin)) {
 			printf("\nERROR reading fromsocket\n");
 			goto cleanup;
 		}
@@ -127,7 +127,7 @@ int CLIConnectCmd(struct cli_env *UNUSED(env), int UNUSED(argc), char **argv)
 			goto cleanup;
 		};
 		bzero(rx_buffer,256);
-		n = read(sockfd,rx_buffer,255);
+		n = read(sockfd,rx_buffer,1024);
 		if (n < 0) {
 			printf("ERROR reading from socket");
 			goto cleanup;
@@ -135,7 +135,7 @@ int CLIConnectCmd(struct cli_env *UNUSED(env), int UNUSED(argc), char **argv)
 		while (rx_buffer[n-2] != '>') {
 			printf("%s",rx_buffer);
 			bzero((char *) &rx_buffer, sizeof(rx_buffer));
-			n = read(sockfd,rx_buffer,255);
+			n = read(sockfd,rx_buffer,1024);
 			if (n < 0) {
 				printf("ERROR reading from socket");
 				goto cleanup;

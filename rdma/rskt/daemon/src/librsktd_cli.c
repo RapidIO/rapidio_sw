@@ -112,14 +112,15 @@ void print_ms_status(struct cli_env *env, int start_ms, int end_ms)
 	}
 }
 
-
 void print_loop_status(struct cli_env *env)
 {
 	LOGMSG(env, "        Alive Socket # BkLg MP Pse Max Reqs Name\n");
-	LOGMSG(env, "SpConn %5d 0x%8d     %2d\n", dmn.speer_conn_alive,
+	LOGMSG(env, "RLConn %5d 0d%8d\n", cli.cli_alive,
+			ctrls.e_cli_skt);
+	LOGMSG(env, "SpConn %5d 0d%8d     %2d\n", dmn.speer_conn_alive,
 			dmn.cm_skt, dmn.mpnum);
 
-	LOGMSG(env, "LibCon %5d 0x%8d %4d %2d %s\n", lib_st.lib_conn_loop_alive,
+	LOGMSG(env, "LibCon %5d 0d%8d %4d %2d %s\n", lib_st.lib_conn_loop_alive,
 			lib_st.port, lib_st.bklg, lib_st.mpnum,
 			lib_st.addr.sun_path);
 

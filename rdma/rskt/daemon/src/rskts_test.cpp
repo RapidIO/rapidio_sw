@@ -77,7 +77,8 @@ void sig_handler(int sig)
 		puts("SIGSEGV: Segmentation fault");
 	break;
 
-	case SIGUSR1:	/* pthread_kill() */
+	case SIGPIPE:
+	case SIGUSR1:
 	/* Ignore signal */
 	return;
 
@@ -418,87 +419,6 @@ void *console(void *cons_parm)
 	pthread_exit(cons_parm);
 } /* console() */
 
-void *cli_session( void *sock_num )
-{
-	char buffer[256];
-	int one = 1;
-	struct console_globals *cli = &rskts_test_cli;
-
-	cli->cli_portno = *(int *)(sock_num);
-
-	free(sock_num);
-
-	cli->cli_fd = socket(AF_INET, SOCK_STREAM, 0);
-	if (cli->cli_fd < 0) {
-        	perror("RSKTD Remote CLI ERROR opening socket");
-		goto fail;
-	}
-	bzero((char *) &cli->cli_addr, sizeof(cli->cli_addr));
-	cli->cli_addr.sin_family = AF_INET;
-	cli->cli_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-	cli->cli_addr.sin_port = htons(cli->cli_portno);
-	setsockopt (cli->cli_fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof (one));
-	setsockopt (cli->cli_fd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof (one));
-	if (bind(cli->cli_fd, (struct sockaddr *) &cli->cli_addr,
-						sizeof(cli->cli_addr)) < 0) {
-        	perror("\nRSKTD Remote CLI ERROR on binding");
-		goto fail;
-	}
-
-	printf("\nRSKTD Remote CLI bound to socket %d\n", cli->cli_portno);
-
-	sem_post(&cli->cons_owner);
-	cli->cli_alive = 1;
-	while (!all_must_die && strncmp(buffer, "done", 4)) {
-		struct cli_env env;
-
-		env.script = NULL;
-		env.fout = NULL;
-		bzero(env.output, BUFLEN);
-		bzero(env.input, BUFLEN);
-		env.DebugLevel = 0;
-		env.progressState = 0;
-		env.sess_socket = -1;
-		env.h = NULL;
-		bzero(env.prompt, PROMPTLEN+1);
-		set_prompt( &env );
-
-		listen(cli->cli_fd,5);
-		cli->sess_addr_len = sizeof(cli->sess_addr);
-		env.sess_socket = -1;
-		cli->cli_sess_fd = accept(cli->cli_fd,
-				(struct sockaddr *) &cli->sess_addr,
-				&cli->sess_addr_len);
-		if (cli->cli_sess_fd < 0) {
-			perror("ERROR on accept");
-			goto fail;
-		};
-		env.sess_socket = cli->cli_sess_fd;
-		printf("\nRSKTD Starting session %d\n", cli->cli_sess_num);
-		cli_terminal( &env );
-		printf("\nRSKTD Finishing session %d\n", cli->cli_sess_num);
-		close(cli->cli_sess_fd);
-		cli->cli_sess_fd = -1;
-		cli->cli_sess_num++;
-	};
-fail:
-	cli->cli_alive = 0;
-	printf("\nRSKTD REMOTE CLI Thread Exiting\n");
-
-	if (cli->cli_sess_fd > 0) {
-		close(cli->cli_sess_fd);
-		cli->cli_sess_fd = 0;
-	};
-     	if (cli->cli_fd > 0) {
-     		close(cli->cli_fd);
-		cli->cli_fd = 0;
-	};
-
-	sock_num = malloc(sizeof(int));
-	*(int *)(sock_num) = cli->cli_portno;
-	pthread_exit(sock_num);
-}
-
 void rskts_console_cleanup(struct cli_env *env)
 {
 	(void)env;
@@ -509,6 +429,8 @@ void spawn_threads()
 {
         int  cli_ret, console_ret = 0, rc;
         int *pass_sock_num, *pass_console_ret;
+	struct remote_login_parms *rlp = (struct remote_login_parms *)
+				malloc(sizeof(struct remote_login_parms));
 
         all_must_die = 0;
         sem_init(&rskts_test_cli.cons_owner, 0, 0);
@@ -527,14 +449,15 @@ void spawn_threads()
 		exit(EXIT_FAILURE);
 	};
 
-        /* Start cli_session_thread, enabling remote debug over Ethernet */
-        pass_sock_num = (int *)(malloc(sizeof(int)));
-        *pass_sock_num = 1221;
+        /* Start remote_login_thread, enabling remote debug over Ethernet */
+	rlp->portno = RSKTS_DFLT_CLI_SKT;
+	SAFE_STRNCPY(rlp->thr_name, "RSKTS_RCLI", sizeof(rlp->thr_name));
+	rlp->status = &rskts.cli.cli_alive;
 
-        cli_ret = pthread_create( &rskts_test_cli.cli_thread, NULL, cli_session,
-                                (void *)(pass_sock_num));
+        cli_ret = pthread_create( &remote_login_thread, NULL, remote_login,
+                                (void *)(rlp));
         if(cli_ret) {
-                fprintf(stderr, "Error - cli_session_thread rc: %d\n",cli_ret);
+                fprintf(stderr, "Error - remote_login_thread rc: %d\n",cli_ret);
                 exit(EXIT_FAILURE);
         }
 #if 0	/* FIXME: Do we need this? */
@@ -563,6 +486,7 @@ int main(int argc, char *argv[])
 	sigaction(SIGABRT, &sig_action, NULL);
 	sigaction(SIGUSR1, &sig_action, NULL);
 	sigaction(SIGSEGV, &sig_action, NULL);
+	sigaction(SIGPIPE, &sig_action, NULL);
 
 	/* Must specify at least 1 argument (the socket number) */
 	if (argc < 2) {

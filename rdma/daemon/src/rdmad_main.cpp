@@ -55,6 +55,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rdmad_tx_engine.h"
 #include "rdmad_rx_engine.h"
 #include "rdmad_msg_processor.h"
+#include "string_util.h"
 
 using std::shared_ptr;
 using std::make_shared;
@@ -85,7 +86,6 @@ static ms_owners owners;
 /* POSIX Threads */
 static 	pthread_t console_thread;
 static	pthread_t prov_thread;
-static	pthread_t cli_session_thread;
 
 static unique_ptr<unix_server> app_conn_server;
 
@@ -334,6 +334,10 @@ static void sig_handler(int sig)
 	/* Ignore signal */
 	return;
 
+	case SIGPIPE:
+	/* Ignore signal */
+	return;
+
 	default:
 		printf("UNKNOWN SIGNAL (%d)\n", sig);
 	}
@@ -359,6 +363,8 @@ int main (int argc, char **argv)
 	int c;
 	int rc;
 	int cons_ret;
+	struct remote_login_parms *rlp = (struct remote_login_parms *)
+				malloc(sizeof(struct remote_login_parms));
 	constexpr auto CONSOLE_FAILURE = 2;
 	constexpr auto OUT_KILL_CONSOLE_THREAD = 4;
 	constexpr auto OUT_CLOSE_PORT = 5;
@@ -440,6 +446,7 @@ int main (int argc, char **argv)
 		sigaction(SIGABRT, &sig_action, NULL);
 		sigaction(SIGUSR1, &sig_action, NULL);
 		sigaction(SIGSEGV, &sig_action, NULL);
+		sigaction(SIGPIPE, &sig_action, NULL);
 
 		/* Open mport */
 		rc = riomp_mgmt_mport_create_handle(peer.mport_id, 0, &peer.mport_hnd);
@@ -505,10 +512,14 @@ int main (int argc, char **argv)
 		}
 
 		/* Create remote CLI terminal thread */
-		rc = pthread_create(&cli_session_thread, NULL, cli_session,
-						(void*)(&peer.cons_skt));
+		rlp->portno = peer.cons_skt;
+		SAFE_STRNCPY(rlp->thr_name, "RDMAD_RCLI", sizeof(rlp->thr_name));
+		rlp->status = NULL;
+		rc = pthread_create(&remote_login_thread, NULL, remote_login,
+						(void*)(rlp));
 		if(rc) {
-			CRIT("Failed to create cli_session_thread: %s\n", strerror(errno));
+			CRIT("Failed to create remote_login_thread: %s\n",
+							strerror(errno));
 			throw OUT_KILL_FM_THREAD;
 		}
 
