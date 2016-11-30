@@ -43,7 +43,7 @@ static int riocp_pe_test_dump_pe(riocp_pe_handle pe)
 	if (ret)
 		return ret;
 
-	ret = riocp_pe_maint_read(pe, 0x6c, &comptag);
+	ret = riocp_pe_maint_read(pe, RIO_COMPTAG, &comptag);
 	if (ret)
 		return ret;
 
@@ -85,7 +85,7 @@ static int discover(riocp_pe_handle root, riocp_pe_handle node)
 	if (ret)
 		goto err;
 
-	ret = riocp_pe_maint_read(node, 0x6c, &comptag);
+	ret = riocp_pe_maint_read(node, RIO_COMPTAG, &comptag);
 	if (ret)
 		goto err;
 
@@ -135,7 +135,7 @@ static int riocp_pe_test_discover()
 	riocp_pe_handle sw;
 
 	if (is_host) {
-		ret = riocp_pe_maint_read(mport, 0x6c, &comptag);
+		ret = riocp_pe_maint_read(mport, RIO_COMPTAG, &comptag);
 		if (ret) {
 			goto err;
 		}
@@ -182,10 +182,10 @@ static int riocp_pe_test_lookup(int argc, char **argv)
 	}
 
 	token = strtok(pathstring, ",");
-	port = (uint8_t)strtoul(token,hopcount NULL, 10);
+	port = (uint8_t)strtoul(token, NULL, 10);
 
 	if (is_host) {
-		ret = riocp_pe_maint_read(mport, 0x6c, &comptag);
+		ret = riocp_pe_maint_read(mport, RIO_COMPTAG, &comptag);
 		if (ret) {
 			return -1;
 		}
@@ -265,7 +265,7 @@ static int riocp_pe_test_connected()
 	if (ret)
 		return ret;
 
-	ret = riocp_pe_maint_read(pe, 0x6c, &comptag);
+	ret = riocp_pe_maint_read(pe, RIO_COMPTAG, &comptag);
 	if (ret) {
 		return ret;
 	}
@@ -361,7 +361,7 @@ int main(int argc, char **argv)
 		return -1;
 	}
 
-	ret = riocp_pe_maint_read(mport, 0x6c, &comptag);
+	ret = riocp_pe_maint_read(mport, RIO_COMPTAG, &comptag);
 	if (ret) {
 		fprintf(stderr, "Cannot get component tag: %s\n", strerror(-ret));
 		return -1;
