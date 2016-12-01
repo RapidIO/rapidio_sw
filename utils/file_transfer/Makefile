@@ -42,10 +42,6 @@ CXXFLAGS+=-D$(DEBUG_CTL) -DRDMA_LL=$(LOG_LEVEL)
 CXXFLAGS+=-I. -I./file_xfer_lib/inc -I./libcdev/inc -I./libfxfr/inc
 CXXFLAGS+=-I$(FMDDIR)/librio_switch/inc -I$(FMDDIR)/libdid/inc -I$(FMDDIR)/libct/inc
 
-REMDBG_DEPS=
-
-REMDBG_OBJS= remdbg.o
-
 CLIENT_DEPS=
 
 CLIENT_OBJS= client.o
@@ -78,13 +74,8 @@ rftp: $(CLIENT_OBJS)
 	$(LIBS_RPATH) $(LIBRARIES) \
 	-D__CLI_LINUX__ -I./libfxfr/inc
 
-remdbg: $(REMDBG_OBJS)
-	$(CXX) $(CXXFLAGS) -o $@ $^ -L$(LOCAL_LIBRARY_DIR) -L$(COMMON_LIBS_DIR) \
-	$(LIBS_RPATH) -lfxfr -lcli -llog -lrt \
-	-D__CLI_LINUX__ 
-
-all: $(LIB_DEPS) libfxfr fxfr_server rftp remdbg
+all: $(LIB_DEPS) libfxfr fxfr_server rftp
 
 clean:
-	rm -f *.o *~ *.exe core $(LOCAL_LIBRARY_DIR)/*.a fxfr rftp fxfr_server remdbg libs_a/*
+	rm -f *.o *~ *.exe core $(LOCAL_LIBRARY_DIR)/*.a fxfr rftp fxfr_server libs_a/*
 	$(MAKE) clean -C libfxfr

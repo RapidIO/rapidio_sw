@@ -123,11 +123,10 @@ void *remote_login(void *remote_login_parm)
 			break;
 		};
 		init_cli_env(env);
-		snprintf(env->prompt, sizeof(env->prompt), "%s%d>",
-				sess->thr_name, session_num);
-
 		snprintf(sess->thr_name, sizeof(sess->thr_name), "%s%d",
-				my_name, session_num);
+							my_name, session_num);
+		snprintf(env->prompt, sizeof(env->prompt), "%s> ",
+								sess->thr_name);
 		sess->e = env;
 		sess->sess_num = session_num;
 

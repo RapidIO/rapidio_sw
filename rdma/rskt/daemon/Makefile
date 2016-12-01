@@ -80,13 +80,10 @@ RSKTD_OBJECTS = src/rsktd.o src/librsktd_cli.o
 RSKTS_SOURCE = src/rskts.c
 RSKTS_OBJECTS = src/rskts.o
 
-REMDBG_SOURCE = src/remdbg.c
-REMDBG_OBJECTS = src/remdbg.o
-
 LIBRARIES = -lrskt -lrdma -lriocp_pe -lmport \
 	-llist -llog -lfmdd -ldd -lcli -lrt -ldl 
 
-all: rsktd rskts remdbg 
+all: rsktd rskts 
 
 # The RDMA Sockets Daemon
 rsktd:  $(RSKTLIB_OBJECTS) $(RSKTD_OBJECTS) src/*.h
@@ -103,13 +100,5 @@ rskts:  $(RSKTLIB_OBJECTS) $(RSKTS_OBJECTS) src/*.h
 	-o $@ $(RSKTLIB_OBJECTS) $(RSKTS_OBJECTS) \
 	$(LIB_DIRS) $(LIBRARIES) $(TST_LIBS)
 
-# The Remote Debug shellsrc/librsktd_cli.c 
-remdbg:  $(RSKTLIB_OBJECTS) $(REMDBG_OBJECTS) src/*.h
-	@echo ---------- Building remote debug CLI ...
-	$(CXX) $(CXXFLAGS) -L$(COMMONLIB) \
-	$(LIBS_RPATH) \
-	-o $@ $(RSKTLIB_OBJECTS) $(REMDBG_OBJECTS) \
-	$(LIB_DIRS) $(LIBRARIES) $(TST_LIBS)
-
 clean:
-	rm -f *.o src/*.o *~ *.exe core rsktd remdbg rskts rskt_server rskt_client
+	rm -f *.o src/*.o *~ *.exe core rsktd rskts rskt_server rskt_client

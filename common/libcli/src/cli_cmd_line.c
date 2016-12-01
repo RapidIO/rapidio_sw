@@ -44,8 +44,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 
+#include "string_util.h"
 #include "cli_cmd_db.h"
 #include "cli_cmd_line.h"
+#include "cli_rem_conn.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -81,9 +83,16 @@ void logMsg(struct cli_env *env)
 	uint8_t  use_skt = (env->sess_socket >= 0)?TRUE:FALSE;
 	
 	if (use_skt) {
-		if (write(env->sess_socket, env->output, strlen(env->output)))
-			bzero(env->output, BUFLEN-1);
-		bzero(env->output, BUFLEN);
+		int n = write(env->sess_socket, env->output,
+							strlen(env->output));
+		unsigned int bytes_sent = n;
+
+		while ((n >= 0) && (bytes_sent < strlen(env->output))) {
+			n = write(env->sess_socket, env->output,
+							strlen(env->output));
+			bytes_sent += n;
+		};
+		memset(env->output, 0, sizeof(env->output));
 	} else {
 		printf("%s", env->output);
 	}
@@ -147,6 +156,27 @@ int process_command(struct cli_env *env, char *input)
 	return exitStat;
 }
 
+int process_skt_inp(struct cli_env *env, char *cmd, char *inp, int *len)
+{
+	char *cmd_off;
+	char *prev_cmd_off = inp;
+	int errorStat = 0;
+
+	cmd_off = strchr(inp, '\n');
+	while ((NULL != cmd_off) && !errorStat) {
+		memcpy(&cmd[*len], prev_cmd_off, cmd_off - prev_cmd_off);
+		errorStat |= process_command(env, cmd);
+		memset(cmd, 0, BUFLEN);
+		prev_cmd_off = cmd_off + 1;
+		cmd_off = strchr(prev_cmd_off, '\n');
+	};
+	*len = strlen(prev_cmd_off);
+	if (*len > 0) {
+		SAFE_STRNCPY(cmd, prev_cmd_off, *len);
+	};
+	return errorStat;
+};
+
 int cli_terminal(struct cli_env *env)
 {
 	/* State variables */
@@ -156,35 +186,36 @@ int cli_terminal(struct cli_env *env)
 	int   lastChar = 0;
 #endif
 
-	char  skt_inp[BUFLEN];
+	char  inp[BUFLEN], cmd[BUFLEN];
+	int cmdlen = 0;
 	unsigned int  errorStat = 0;
 	int  use_skt = (env->sess_socket >= 0)?TRUE:FALSE;
 	int one = 1;
-	int zero = 0;
 
+	if (use_skt) {
+		setsockopt (env->sess_socket, IPPROTO_TCP, TCP_NODELAY,
+							&one, sizeof (one));
+	}
+	memset(cmd, 0, sizeof(cmd));
 	while (!errorStat) {
 		env->output[0] = '\0';
 
 		if (use_skt) {
-     setsockopt (env->sess_socket, IPPROTO_TCP, TCP_CORK, &one, sizeof (one));
-			lastChar = write(env->sess_socket, env->prompt, 
-				strlen(env->prompt));
+			char buff[BUFLEN] = {0};
+
+			snprintf(buff, sizeof(buff), "%s\n", env->prompt);
+			lastChar = write(env->sess_socket, buff, strlen(buff));
 			if (lastChar < 0) {
 				errorStat = 2;
 				goto exit;
 			};
-     setsockopt (env->sess_socket, IPPROTO_TCP, TCP_CORK, &zero, sizeof (zero));
-			bzero(skt_inp,BUFLEN);
-			lastChar = read(env->sess_socket, skt_inp, BUFLEN);
+			memset(inp, 0, sizeof(inp));
+			lastChar = read(env->sess_socket, inp, sizeof(inp));
 			if (lastChar < 0) {
 				errorStat = 2;
-			} else {
-				if (skt_inp[lastChar - 1] == '\n')
-					skt_inp[lastChar - 1] = '\0';
-     setsockopt (env->sess_socket, IPPROTO_TCP, TCP_CORK, &one, sizeof (one));
-				errorStat = process_command(env, skt_inp);
-     setsockopt (env->sess_socket, IPPROTO_TCP, TCP_CORK, &zero, sizeof (zero));
+				goto exit;
 			};
+			errorStat = process_skt_inp(env, cmd, inp, &cmdlen);
 		} else {
 			fflush(stdin);
 #ifdef USE_READLINE
@@ -227,9 +258,6 @@ int cli_terminal(struct cli_env *env)
 	}
 
 exit:
-	if (use_skt)
-     		setsockopt (env->sess_socket, IPPROTO_TCP, TCP_CORK, 
-					&zero, sizeof (zero));
 	return errorStat;  /* no error */
 }
 
@@ -647,7 +675,8 @@ struct cli_cmd *cmd_line_cmds[] = {
 &CLIScriptPath,
 &CLIEcho,
 &CLIQuit,
-&CLISet
+&CLISet,
+&CLIConnect
 };
 
 int bind_cli_cmd_line_cmds(void)

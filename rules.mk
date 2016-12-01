@@ -70,7 +70,7 @@ ifneq ($(DEBUG_CTL), NDEBUG)
  OPTFLAGS = -ggdb -Og
 endif
 
-SOVER?=0.5
+SOVER?=0.6
 
 HERE := $(shell pwd)
 
