@@ -639,7 +639,9 @@ uint32_t idt_rxs_rt_change_rte( DAR_DEV_INFO_t           *dev_info,
    } 
 
    // Validate rte_value 
-   if ( (IDT_DSF_RT_NO_ROUTE         != in_parms->rte_value) &&
+   if ( //(IDT_DSF_RT_USE_DEVICE_TABLE  != in_parms->rte_value) &&
+        (IDT_DSF_RT_USE_DEFAULT_ROUTE != in_parms->rte_value) &&
+        (IDT_DSF_RT_NO_ROUTE         != in_parms->rte_value) &&
         (in_parms->rte_value         >= NUM_PORTS(dev_info))) {
       out_parms->imp_rc = RT_CHANGE_RTE(2);
       goto idt_rxs_rt_change_rte_exit;
@@ -699,7 +701,8 @@ uint32_t idt_rxs_rt_initialize( DAR_DEV_INFO_t           *dev_info,
     }
 
     if ( (in_parms->default_route_table_port >= NUM_PORTS(dev_info)) &&
-         !((IDT_DSF_RT_NO_ROUTE              == in_parms->default_route_table_port)) )
+         !((IDT_DSF_RT_USE_DEFAULT_ROUTE == in_parms->default_route_table_port) ||
+           (IDT_DSF_RT_NO_ROUTE              == in_parms->default_route_table_port)) )
     {
         out_parms->imp_rc = RT_INITIALIZE(2);
         goto idt_rxs_rt_initialize_exit;
@@ -1518,7 +1521,8 @@ uint32_t idt_rxs_read_rte_entries( DAR_DEV_INFO_t            *dev_info,
             found_one = true;
          }
       } else {
-        if ((IDT_DSF_RT_NO_ROUTE          != rte_val) &&
+        if ((IDT_DSF_RT_USE_DEFAULT_ROUTE != rte_val) &&
+            (IDT_DSF_RT_NO_ROUTE          != rte_val) &&
             (NUM_PORTS(dev_info)          <= rte_val) ) { 
             rt->dom_table[destID].rte_val = IDT_DSF_RT_NO_ROUTE;
         }
@@ -1551,7 +1555,7 @@ uint32_t idt_rxs_read_rte_entries( DAR_DEV_INFO_t            *dev_info,
          
       if (  ((rte_val >= NUM_PORTS(dev_info)) && (rte_val < IDT_DSF_FIRST_MC_MASK))    ||
             ((rte_val >= IDT_DSF_BAD_MC_MASK) && (IDT_DSF_RT_NO_ROUTE         != rte_val) 
-                                             /*&& (IDT_DSF_RT_USE_DEFAULT_ROUTE != rte_val)*/) ) {
+                                              && (IDT_DSF_RT_USE_DEFAULT_ROUTE != rte_val)) ) {
          rt->dev_table[destID].rte_val = IDT_DSF_RT_NO_ROUTE;
       }
    }

@@ -109,8 +109,8 @@ extern "C" {
 
 /* For RXSs */
 #define IDT_DSF_RT_USE_DEVICE_TABLE                 0x0301
-#define IDT_DSF_RT_USE_DEFAULT_ROUTE                0xDE
-#define IDT_DSF_RT_NO_ROUTE                         0x0300
+#define IDT_DSF_RT_USE_DEFAULT_ROUTE                0x0300
+#define IDT_DSF_RT_NO_ROUTE                         0x0301
 
 #define IDT_DSF_FIRST_MC_MASK                       0x0100
 #define IDT_DSF_MAX_MC_MASK                         0x00FF
@@ -230,7 +230,7 @@ typedef struct idt_rt_probe_out_t_TAG
                          //        defined by the routing_table_value.
                          // false: Packets will be discarded as 
                          //        indicated by reason_for_discard.
-    uint8_t  routing_table_value; // Encoded routing table value read
+    uint32_t  routing_table_value; // Encoded routing table value read
     uint8_t  default_route;       // When routing_table_value is 
                                 //    IDT_DSF_RT_USE_DEFAULT_ROUTE,
                                 //    this field contains the value of 
