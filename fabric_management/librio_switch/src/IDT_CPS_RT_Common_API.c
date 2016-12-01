@@ -62,32 +62,12 @@ extern "C" {
 // model.  The routing table routines are therefore implemented in this 
 // file for both switch families.
 
-uint32_t rt_port_translate_CPS_STD(uint8_t *port_num)
-{
-    uint32_t rc = RIO_ERR_INVALID_PARAMETER;
-    uint8_t port_ratio;
-
-    port_ratio = RIO_RTE_PT_LAST / (CPS_RTE_PT_LAST + 1);
-    if (*port_num > CPS_RTE_PT_LAST) {
-       *port_num = CPS_RTE_PT_0 + (*port_num % port_ratio);
-    }
-
-    rc = RIO_SUCCESS;
-
-    return rc;
-}
-
 uint32_t rt_mc_mask_translate_CPS_STD( uint32_t *mc_mask )
 {
     uint32_t rc = RIO_ERR_INVALID_PARAMETER;
-    uint32_t mask_ratio;
 
-    mask_ratio = (RIO_RTE_MC_LAST - RIO_RTE_MC_0) / CPS_MAX_MC_MASK;
-    if (*mc_mask >= RIO_RTE_MC_0 && *mc_mask <= RIO_RTE_MC_LAST) {
-       *mc_mask = CPS_FIRST_MC_MASK + (uint32_t)((*mc_mask - RIO_RTE_MC_0) / mask_ratio);
-    }
-    else if (*mc_mask >= CPS_FIRST_MC_MASK && *mc_mask <= CPS_LAST_MC_MASK) {
-            *mc_mask = RIO_RTE_MC_0 + ((*mc_mask - CPS_FIRST_MC_MASK) * mask_ratio);
+    if (*mc_mask >= CPS_FIRST_MC_MASK && *mc_mask <= CPS_LAST_MC_MASK) {
+            *mc_mask += RIO_RTE_MC_0;
     }
     else {
          goto rt_mc_mask_translate_CPS_STD_exit;
@@ -440,28 +420,9 @@ uint32_t read_mc_masks( DAR_DEV_INFO_t            *dev_info,
    idt_rt_dealloc_mc_mask_in_t  d_in_parm;
    idt_rt_dealloc_mc_mask_out_t d_out_parm;
 
-   rc = rt_port_translate_CPS_STD(&pnum);
-   if (RIO_SUCCESS != rc) {
-      *imp_rc = READ_MC_MASKS(0x01);
-      goto read_mc_masks_exit;
-   }
-
    d_in_parm.rt = rt;
-
-   rc = rt_rte_translate_CPS_STD(&d_in_parm.rt->default_route);
-   if (RIO_SUCCESS != rc) {
-      *imp_rc = READ_MC_MASKS(0x02);
-      goto read_mc_masks_exit;
-   }
-
    for (mask_idx = NUM_MC_MASKS(dev_info); mask_idx < IDT_DSF_MAX_MC_MASK; mask_idx++ ) 
    {
-      rc = rt_mc_mask_translate_CPS_STD(&mask_idx);
-      if (RIO_SUCCESS != rc) {
-         *imp_rc = READ_MC_MASKS(0x03);
-         goto read_mc_masks_exit;
-      }
-
       d_in_parm.mc_mask_rte = IDT_DSF_FIRST_MC_MASK + mask_idx;
       rc = IDT_DSF_rt_dealloc_mc_mask( dev_info, &d_in_parm, &d_out_parm );
       if (RIO_SUCCESS != rc) 
@@ -472,15 +433,9 @@ uint32_t read_mc_masks( DAR_DEV_INFO_t            *dev_info,
    };
 
    for (mask_idx = 0; mask_idx < NUM_MC_MASKS(dev_info); mask_idx++)  {
-      rc = rt_mc_mask_translate_CPS_STD(&mask_idx);
-      if (RIO_SUCCESS != rc) {
-         *imp_rc = READ_MC_MASKS(0x04);
-         goto read_mc_masks_exit;
-      }
-
       rc = DARRegRead( dev_info, CPS1848_PORT_X_MCAST_MASK_Y(pnum, mask_idx), &reg_val);
       if (RIO_SUCCESS != rc) {
-         *imp_rc = READ_MC_MASKS(0x05);
+         *imp_rc = READ_MC_MASKS(0x01);
          goto read_mc_masks_exit;
       };
 
@@ -515,12 +470,6 @@ uint32_t read_rte_entries( DAR_DEV_INFO_t            *dev_info,
       goto read_rte_entries_exit;
    };
 
-   rc = rt_rte_translate_CPS_STD(&rte_val);
-   if (RIO_SUCCESS != rc) {
-      *imp_rc = READ_RTE_ENTRIES(0x02);
-      goto read_rte_entries_exit;  
-   }
-
    rt->default_route = (uint8_t)(rte_val & CPS1848_RTE_DEFAULT_PORT_CSR_DEFAULT_PORT);
    if ( rt->default_route >= NUM_PORTS(dev_info)) {
       rt->default_route = IDT_DSF_RT_NO_ROUTE;
@@ -537,12 +486,6 @@ uint32_t read_rte_entries( DAR_DEV_INFO_t            *dev_info,
    rt->dom_table[0].changed = false;
    first_mc_destID = 0;
 
-   rc = rt_port_translate_CPS_STD(&pnum);
-   if (RIO_SUCCESS != rc) {
-      *imp_rc = READ_RTE_ENTRIES(0x03);
-      goto read_rte_entries_exit;
-   }
-
    for (destID = 1; destID < IDT_DAR_RT_DOM_TABLE_SIZE; destID++)
    {
       rt->dom_table[destID].changed = false;
@@ -554,14 +497,13 @@ uint32_t read_rte_entries( DAR_DEV_INFO_t            *dev_info,
          goto read_rte_entries_exit;
       }
 
+      rte_val &= CPS1848_PORT_X_DOM_RTE_TABLE_Y_PORT;
       rc = rt_rte_translate_CPS_STD(&rte_val);
       if (RIO_SUCCESS != rc) {
          *imp_rc = READ_RTE_ENTRIES(0x05);
          goto read_rte_entries_exit;
       }
-
-      rte_val &= CPS1848_PORT_X_DOM_RTE_TABLE_Y_PORT;
-      rt->dom_table[destID].rte_val = (uint8_t)(rte_val);
+      rt->dom_table[destID].rte_val = (uint32_t)(rte_val);
 
       if (IDT_DSF_RT_USE_DEVICE_TABLE == rte_val) {
 	 if (!found_one) {
@@ -592,15 +534,13 @@ uint32_t read_rte_entries( DAR_DEV_INFO_t            *dev_info,
          goto read_rte_entries_exit;
       }
 
+      rte_val &= CPS1848_PORT_X_DEV_RTE_TABLE_Y_PORT;
       rc = rt_rte_translate_CPS_STD(&rte_val);
       if (RIO_SUCCESS != rc) {
-         *imp_rc = READ_RTE_ENTRIES(0x06);
+         *imp_rc = READ_RTE_ENTRIES(0x09);
          goto read_rte_entries_exit;
       }
-
-      rte_val &= CPS1848_PORT_X_DEV_RTE_TABLE_Y_PORT;
-
-      rt->dev_table[destID].rte_val = (uint8_t)(rte_val);
+      rt->dev_table[destID].rte_val = (uint32_t)(rte_val);
 
       mask_idx = MC_MASK_IDX_FROM_ROUTE(rte_val);
       if ((IDT_DSF_BAD_MC_MASK != mask_idx) && !(rt->mc_masks[mask_idx].in_use)) {
@@ -672,13 +612,6 @@ uint32_t CPS_program_mc_masks ( DAR_DEV_INFO_t        *dev_info,
     // are all the same.
     uint32_t mask_num;
     uint32_t base_addr, mask_mask;
-   
-    rc = rt_port_translate_CPS_STD(&in_parms->set_on_port);
-    if (RIO_SUCCESS != rc) {
-       *imp_rc = PROGRAM_MC_MASKS(0x01);
-       goto CPS_program_mc_masks_exit;
-    }
-
 
     if (IDT_CPS1848_DEV_ID == DEV_CODE(dev_info)) {
        mask_mask = CPS1848_BCAST__MCAST_MASK_X_PORT_MASK;
@@ -693,12 +626,6 @@ uint32_t CPS_program_mc_masks ( DAR_DEV_INFO_t        *dev_info,
     };
 
     for (mask_num = 0; mask_num < NUM_MC_MASKS(dev_info); mask_num++) {
-       rc = rt_mc_mask_translate_CPS_STD(&mask_num);
-       if (RIO_SUCCESS != rc) {
-          *imp_rc = PROGRAM_MC_MASKS(0x02);
-          goto CPS_program_mc_masks_exit;
-       }
-
        if (in_parms->rt->mc_masks[mask_num].changed || set_all) {
 	  if ( in_parms->rt->mc_masks[mask_num].mc_mask & ~mask_mask ) {
              rc = RIO_ERR_INVALID_PARAMETER;
@@ -733,18 +660,6 @@ uint32_t CPS_program_rte_entries ( DAR_DEV_INFO_t        *dev_info,
     // are all the same.
     uint16_t rte_num;
     uint32_t dev_rte_base, dom_rte_base;
-   
-    rc = rt_port_translate_CPS_STD(&in_parms->set_on_port);
-    if (RIO_SUCCESS != rc) {
-       *imp_rc = PROGRAM_RTE_ENTRIES(0x05);
-       goto CPS_program_rte_entries_exit;
-    }
-
-    rc = rt_rte_translate_CPS_STD(&in_parms->rt->default_route);
-    if (RIO_SUCCESS != rc) {
-       *imp_rc = PROGRAM_RTE_ENTRIES(0x06);
-       goto CPS_program_rte_entries_exit;
-    }
 
     rc = DARRegWrite( dev_info, CPS1848_RTE_DEFAULT_PORT_CSR, in_parms->rt->default_route );
     if (RIO_SUCCESS != rc) {
