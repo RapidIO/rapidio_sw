@@ -129,45 +129,6 @@ uint32_t rt_rte_translate_CPS_STD( uint32_t *rte_value )
 rt_rte_translate_CPS_STD_exit:
     return rc;
 }
-/*
-uint32_t rt_default_route_translate_CPS_STD( uint32_t *default_route )
-{
-    uint32_t rc = RIO_ERR_INVALID_PARAMETER;
-
-    if (*default_route == RIO_RTE_DFLT_PORT) {
-       *default_route = CPS_RT_USE_DEFAULT_ROUTE;
-    }
-    else if (*default_route == CPS_RT_USE_DEFAULT_ROUTE) {
-            *default_route = RIO_RTE_DFLT_PORT;
-    }
-    else {
-         goto rt_default_route_translate_CPS_STD_exit;
-    }
-    rc = RIO_SUCCESS;
-
-rt_default_route_translate_CPS_STD_exit:
-    return rc;
-}
-
-uint32_t rt_drop_route_translate_CPS_STD( uint32_t *drop )
-{
-    uint32_t rc = RIO_ERR_INVALID_PARAMETER;
-
-    if (*drop == RIO_RTE_DROP) {
-       *drop = CPS_RT_NO_ROUTE;
-    }
-    else if (*drop == CPS_RT_NO_ROUTE) {
-            *drop = RIO_RTE_DROP;
-    }
-    else {
-         goto rt_drop_route_translate_CPS_STD_exit;
-    }
-
-    rc = RIO_SUCCESS;
-
-rt_drop_route_translate_CPS_STD_exit:
-    return rc;
-}*/
 
 /* initializes the routing table hardware and/or routing table state structure.
 */
