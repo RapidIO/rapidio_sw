@@ -36,6 +36,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
+#include "rio_ecosystem.h"
 
 #ifdef UNIT_TESTING
 #include <stdarg.h>
@@ -107,13 +108,59 @@ idt_sc_init_rxs_ctr_exit:
 
 /* Reads enabled counters on selected ports
  */
+uint32_t rxs_read_ctrs(DAR_DEV_INFO_t           *dev_info,
+			idt_sc_read_ctrs_in_t    *in_parms,
+			idt_sc_read_ctrs_out_t   *out_parms,
+			int			srch_i,
+			rio_port_t		port_num)
+{
+	int cntr;
+	uint32_t count;
+	uint64_t l_c; // last counter value
+	uint64_t c_c; // current counter value
+	uint64_t tot; // new total counter value
+	idt_sc_ctr_val_t *counter;
+	uint32_t rc = !RIO_SUCCESS;
+
+	for (cntr = 0; cntr < RXS_NUM_PERF_CTRS; cntr++) {
+		counter = &in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr];
+		if (idt_sc_disabled == counter->sc) {
+			continue;
+		}
+
+		rc = DARRegRead(dev_info,
+			RXS_RIO_SPX_PCNTR_CNT(port_num, cntr), &count);
+		if (RIO_SUCCESS != rc) {
+			out_parms->imp_rc = SC_READ_RXS_CTRS(0x71 + cntr);
+			goto exit;
+		}
+		c_c = count;
+		l_c = counter->total & (uint64_t)0x00000000FFFFFFFF;
+		tot = counter->total & (uint64_t)0xFFFFFFFF00000000;
+		tot |= c_c;
+
+		// If the counter has wrapped, increment tot by 1.
+		//
+		// Note: if c_c and l_c are equal, assume that the
+		// counter has not changed since it was last read.
+		if (l_c > c_c) {
+			tot += (uint64_t)0x0000000100000000;
+			c_c |= (uint64_t)0x0000000100000000;
+		}
+		counter->last_inc = c_c - l_c;
+		counter->total = tot;
+	}
+	rc = RIO_SUCCESS;
+exit:
+	return rc;
+};
 
 uint32_t idt_rxs_sc_read_ctrs( DAR_DEV_INFO_t           *dev_info,
                                idt_sc_read_ctrs_in_t    *in_parms,
                                idt_sc_read_ctrs_out_t   *out_parms )
 {
-	uint32_t rc = RIO_ERR_INVALID_PARAMETER, ctl_reg;
-	uint8_t p_to_i[RXS2448_MAX_PORTS], srch_i, srch_p, port_num, cntr;
+	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+	uint8_t srch_i, srch_p, port_num;
 	bool found;
 	struct DAR_ptl good_ptl;
 
@@ -121,35 +168,32 @@ uint32_t idt_rxs_sc_read_ctrs( DAR_DEV_INFO_t           *dev_info,
 
 	if (NULL == in_parms->dev_ctrs) {
 		out_parms->imp_rc = SC_READ_RXS_CTRS(0x01);
-		goto idt_sc_read_rxs_ctr_exit;
+		goto exit;
 	}
 
 	if (NULL == in_parms->dev_ctrs->p_ctrs) {
 		out_parms->imp_rc = SC_READ_RXS_CTRS(0x02);
-		goto idt_sc_read_rxs_ctr_exit;
+		goto exit;
 	}
 
 	if (!in_parms->dev_ctrs->num_p_ctrs ||
 		(in_parms->dev_ctrs->num_p_ctrs > IDT_MAX_PORTS) ||
 		(in_parms->dev_ctrs->num_p_ctrs < in_parms->dev_ctrs->valid_p_ctrs)) {
 		out_parms->imp_rc = SC_READ_RXS_CTRS(0x03);
-		goto idt_sc_read_rxs_ctr_exit;
+		goto exit;
 	}
 
 	if (((RIO_ALL_PORTS == in_parms->ptl.num_ports) && (in_parms->dev_ctrs->num_p_ctrs < NUM_PORTS(dev_info))) ||
 		((RIO_ALL_PORTS != in_parms->ptl.num_ports) && (in_parms->dev_ctrs->num_p_ctrs < in_parms->ptl.num_ports))) {
 		out_parms->imp_rc = SC_READ_RXS_CTRS(0x04);
-		goto idt_sc_read_rxs_ctr_exit;
+		goto exit;
 	}
 
 	rc = DARrioGetPortList(dev_info, &in_parms->ptl, &good_ptl);
 	if (RIO_SUCCESS != rc) {
 		out_parms->imp_rc = SC_READ_RXS_CTRS(0x10);
-		goto idt_sc_read_rxs_ctr_exit;
+		goto exit;
 	}
-
-	for (srch_i = 0; srch_i < NUM_PORTS(dev_info); srch_i++)
-		p_to_i[srch_i] = RXS2448_MAX_PORTS;
 
 	for (srch_p = 0; srch_p < good_ptl.num_ports; srch_p++) {
 		port_num = good_ptl.pnums[srch_p];
@@ -157,93 +201,24 @@ uint32_t idt_rxs_sc_read_ctrs( DAR_DEV_INFO_t           *dev_info,
 		for (srch_i = 0; srch_i < in_parms->dev_ctrs->valid_p_ctrs; srch_i++) {
 			if (in_parms->dev_ctrs->p_ctrs[srch_i].pnum == port_num) {
 				found = true;
-				if ((RXS2448_MAX_PORTS == p_to_i[port_num]) &&
-					(RXS_NUM_PERF_CTRS == in_parms->dev_ctrs->p_ctrs[srch_i].ctrs_cnt)) {
-					p_to_i[port_num] = srch_i;
-				}
-				else {
-					rc = RIO_ERR_INVALID_PARAMETER;
-					out_parms->imp_rc = SC_READ_RXS_CTRS(0x50 + port_num);
-					goto idt_sc_read_rxs_ctr_exit;
-				}
-
-				for (cntr = 0; cntr < RXS_NUM_PERF_CTRS; cntr++) {
-					if (idt_sc_disabled != in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc) {
-
-						rc = DARRegRead(dev_info, RXS_RIO_SPX_PCNTR_CTL(port_num, cntr), &ctl_reg);
-                                                if (RIO_SUCCESS != rc) {
-                                                        rc = RIO_ERR_INVALID_PARAMETER;
-                                                        out_parms->imp_rc = SC_READ_RXS_CTRS(0x70 + cntr);
-                                                        goto idt_sc_read_rxs_ctr_exit;
-                                                }
-						if (0x00000001 & (ctl_reg >> 7))
-							in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].tx = true;
-						else
-							in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].tx = false;
-						switch (ctl_reg & RXS_RIO_SPX_PCNTR_CTL_SEL) {
-						case RXS_RIO_SPX_PCNTR_CTL_SEL_RIO_PKT:
-							in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc = idt_sc_rio_pkt;
-						break;
-                                                case RXS_RIO_SPX_PCNTR_CTL_SEL_FAB_PKT:
-                                                        in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc = idt_sc_fab_pkt;
-                                                break;
-                                                case RXS_RIO_SPX_PCNTR_CTL_SEL_RIO_PKTCNTR:
-                                                        in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc = idt_sc_rio_pcntr;
-                                                break;
-                                                case RXS_RIO_SPX_PCNTR_CTL_SEL_FAB_PKTCNTR:
-                                                        in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc = idt_sc_fab_pcntr;
-                                                break;
-                                                case RXS_RIO_SPX_PCNTR_CTL_SEL_RIO_TTL_PKTCNTR:
-                                                        in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc = idt_sc_rio_ttl_pcntr;
-                                                break;
-                                                case RXS_RIO_SPX_PCNTR_CTL_SEL_RETRIES:
-                                                        in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc = idt_sc_retries;
-                                                break;
-                                                case RXS_RIO_SPX_PCNTR_CTL_SEL_PNA:
-                                                        in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc = idt_sc_pna;
-                                                break;
-                                                case RXS_RIO_SPX_PCNTR_CTL_SEL_PKT_DROP:
-                                                        in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc = idt_sc_pkt_drop;
-                                                break;
-						case RXS_RIO_SPX_PCNTR_CTL_SEL_DISABLED:
-							in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc = idt_sc_disabled;
-						break;
-						default:
-                                                        in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc = idt_sc_last;
-						break;
-						}
-
-						rc = DARRegRead(dev_info, RXS_RIO_SPX_PCNTR_CNT(port_num, cntr), &in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].last_inc);
-                                                if (RIO_SUCCESS != rc) {
-                                                        rc = RIO_ERR_INVALID_PARAMETER;
-                                                        out_parms->imp_rc = SC_READ_RXS_CTRS(0x71 + cntr);
-                                                        goto idt_sc_read_rxs_ctr_exit;
-                                                }
-                                                in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].total += in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].last_inc; 
-					}
+				rc = rxs_read_ctrs(dev_info, in_parms,
+					out_parms, srch_i, port_num);
+				if (RIO_SUCCESS != rc) {
+					goto exit;
 				}
 			}
 		}
 		if (!found) {
 			rc = RIO_ERR_INVALID_PARAMETER;
 			out_parms->imp_rc = SC_READ_RXS_CTRS(0x90 + srch_p);
-			goto idt_sc_read_rxs_ctr_exit;
+			goto exit;
 		}
 	}
 	rc = RIO_SUCCESS;
 
-idt_sc_read_rxs_ctr_exit:
+exit:
 	return rc;
 }
-
-#define PRIO_MASK (RXS_RIO_SPX_PCNTR_CTL_PRIO0  | \
-		   RXS_RIO_SPX_PCNTR_CTL_PRIO0C | \
-                   RXS_RIO_SPX_PCNTR_CTL_PRIO1  | \
-		   RXS_RIO_SPX_PCNTR_CTL_PRIO1C | \
-		   RXS_RIO_SPX_PCNTR_CTL_PRIO2  | \
-		   RXS_RIO_SPX_PCNTR_CTL_PRIO2C | \
-		   RXS_RIO_SPX_PCNTR_CTL_PRIO3  | \
-		   RXS_RIO_SPX_PCNTR_CTL_PRIO3C)
 
 /* Configure counters on selected ports of a
  * RXS device.
@@ -253,174 +228,204 @@ uint32_t idt_rxs_sc_cfg_ctr( DAR_DEV_INFO_t           *dev_info,
                              idt_sc_cfg_rxs_ctr_out_t *out_parms )
 {
 	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
-	uint32_t new_ctl = 0, ctl_reg, new_ctl_reg, reg_mask;
-	uint8_t p_to_i[RXS2448_MAX_PORTS], srch_i, srch_p, port_num;
+	uint32_t new_ctl = 0, ctl_reg;
+	rio_port_t s_i, srch_p, pt;
 	bool found;
 	struct DAR_ptl good_ptl;
+	bool srio = true;
+	uint8_t c_i = in_parms->ctr_idx;
 
 	out_parms->imp_rc = RIO_SUCCESS;
 
 	if (NULL == in_parms->dev_ctrs) {
 		out_parms->imp_rc = SC_CFG_RXS_CTRS(0x01);
-		goto idt_sc_cfg_rxs_ctr_exit;
+		goto exit;
 	}
 
 	if (NULL == in_parms->dev_ctrs->p_ctrs) {
 		out_parms->imp_rc = SC_CFG_RXS_CTRS(0x02);
-		goto idt_sc_cfg_rxs_ctr_exit;
+		goto exit;
 	}
 
 	if (!in_parms->dev_ctrs->num_p_ctrs ||
 		(in_parms->dev_ctrs->num_p_ctrs > IDT_MAX_PORTS) ||
 		(in_parms->dev_ctrs->num_p_ctrs < in_parms->dev_ctrs->valid_p_ctrs)) {
 		out_parms->imp_rc = SC_CFG_RXS_CTRS(0x03);
-		goto idt_sc_cfg_rxs_ctr_exit;
+		goto exit;
 	}
 
 	if (((RIO_ALL_PORTS == in_parms->ptl.num_ports) && (in_parms->dev_ctrs->num_p_ctrs < NUM_PORTS(dev_info))) ||
 		((RIO_ALL_PORTS != in_parms->ptl.num_ports) && (in_parms->dev_ctrs->num_p_ctrs < in_parms->ptl.num_ports))) {
 		out_parms->imp_rc = SC_CFG_RXS_CTRS(0x04);
-		goto idt_sc_cfg_rxs_ctr_exit;
+		goto exit;
 	}
 
 	rc = DARrioGetPortList(dev_info, &in_parms->ptl, &good_ptl);
 	if (RIO_SUCCESS != rc) {
 		out_parms->imp_rc = SC_CFG_RXS_CTRS(0x10);
-		goto idt_sc_cfg_rxs_ctr_exit;
+		goto exit;
 	}
 
 	if ((in_parms->dev_ctrs->num_p_ctrs   < good_ptl.num_ports) ||
 		(in_parms->dev_ctrs->valid_p_ctrs < good_ptl.num_ports)) {
 		rc = RIO_ERR_INVALID_PARAMETER;
 		out_parms->imp_rc = SC_CFG_RXS_CTRS(0x05);
-		goto idt_sc_cfg_rxs_ctr_exit;
+		goto exit;
 	}
 
-	rc = DARRegWrite(dev_info, RXS_RIO_PCNTR_CTL, RXS_RIO_PCNTR_CTL_CNTR_FRZ);
-	if (RIO_SUCCESS != rc) {
-		out_parms->imp_rc = SC_CFG_RXS_CTRS(0x07);
-		goto idt_sc_cfg_rxs_ctr_exit;
-	}
-
-	reg_mask = SECOND_BYTE_MASK;
 	// Create SC_CTL
-	if (idt_sc_disabled != in_parms->ctr_type) {
-	new_ctl = ((uint32_t)(in_parms->prio_mask) << 8) & PRIO_MASK;
-	// It is a programming error to have an empty priority mask when counting
-	// packets or packet data...
-		if (!new_ctl) {
-			out_parms->imp_rc = SC_CFG_RXS_CTRS(0x20);
-			goto idt_sc_cfg_rxs_ctr_exit;
-		};
+	new_ctl = ((uint32_t)(in_parms->prio_mask) << 8);
+	new_ctl &= RXS_RIO_SPC_PCNTR_CTL_PRIO;
+	new_ctl |= (in_parms->tx) ? RXS_RIO_SPX_PCNTR_CTL_TX : 0;
 		
-		new_ctl |= (in_parms->tx) ? RXS_RIO_SPX_PCNTR_CTL_TX : 0;
-		switch (in_parms->ctr_type) {
-		case idt_sc_rio_pkt       :                                                         break;
-		case idt_sc_fab_pkt       :  new_ctl |= RXS_RIO_SPX_PCNTR_CTL_SEL_FAB_PKT;          break;
-		case idt_sc_rio_pcntr     :  new_ctl |= RXS_RIO_SPX_PCNTR_CTL_SEL_RIO_PKTCNTR;      break;
-		case idt_sc_fab_pcntr     :  new_ctl |= RXS_RIO_SPX_PCNTR_CTL_SEL_FAB_PKTCNTR;      break;
-		case idt_sc_rio_ttl_pcntr :  new_ctl |= RXS_RIO_SPX_PCNTR_CTL_SEL_RIO_TTL_PKTCNTR;  break;
-		case idt_sc_retries       :  new_ctl |= RXS_RIO_SPX_PCNTR_CTL_SEL_RETRIES;          break;
-		case idt_sc_pna           :  new_ctl |= RXS_RIO_SPX_PCNTR_CTL_SEL_PNA;              break;
-		case idt_sc_pkt_drop      :  new_ctl |= RXS_RIO_SPX_PCNTR_CTL_SEL_PKT_DROP;         break;
-		case idt_sc_disabled      :  new_ctl |= RXS_RIO_SPX_PCNTR_CTL_SEL_DISABLED;         break;
-		default: out_parms->imp_rc = SC_CFG_RXS_CTRS(0x30);
-			goto idt_sc_cfg_rxs_ctr_exit;
+	switch (in_parms->ctr_type) {
+	case idt_sc_rio_pkt:
+		new_ctl |= RXS_RIO_SPX_PCNTR_CTL_SEL_RIO_PKT;
+		break;
+	case idt_sc_fab_pkt:
+		new_ctl |= RXS_RIO_SPX_PCNTR_CTL_SEL_FAB_PKT;
+		srio = false;
+		// Fabric packet counts are prioirty specific.
+		// Report a programming error if the priority mask is 0.
+		if (!in_parms->prio_mask) {
+			rc = RIO_ERR_INVALID_PARAMETER;
+			out_parms->imp_rc = SC_CFG_RXS_CTRS(0x31);
+			goto exit;
 		}
+		break;
+	case idt_sc_rio_pcntr:
+		new_ctl |= RXS_RIO_SPX_PCNTR_CTL_SEL_RIO_PAYLOAD;
+		break;
+	case idt_sc_fab_pcntr:
+		new_ctl |= RXS_RIO_SPX_PCNTR_CTL_SEL_FAB_PAYLOAD;
+		srio = false;
+		// Fabric packet data counts are prioirty specific.
+		// Report a programming error if the priority mask is 0.
+		if (!in_parms->prio_mask) {
+			rc = RIO_ERR_INVALID_PARAMETER;
+			out_parms->imp_rc = SC_CFG_RXS_CTRS(0x32);
+			goto exit;
+		}
+		break;
+	case idt_sc_rio_ttl_pcntr:
+		// Count of the total number of code-groups/codewords 
+		// transmitted on the RapidIO interface per lane.
+		// Hardware does not support count for RX (!TX).
+		new_ctl |= RXS_RIO_SPX_PCNTR_CTL_SEL_RIO_TTL_PKTCNTR;
+		if (!in_parms->tx) {
+			rc = RIO_ERR_INVALID_PARAMETER;
+			out_parms->imp_rc = SC_CFG_RXS_CTRS(0x33);
+			goto exit;
+		}
+		break;
+	case idt_sc_retries:
+		new_ctl |= RXS_RIO_SPX_PCNTR_CTL_SEL_RETRIES;
+		break;
+	case idt_sc_pna:
+		new_ctl |= RXS_RIO_SPX_PCNTR_CTL_SEL_PNA;
+		break;
+	case idt_sc_pkt_drop:
+		new_ctl |= RXS_RIO_SPX_PCNTR_CTL_SEL_PKT_DROP;
+		// Packet drop counts are prioirty specific.
+		// Report a programming error if the priority mask is 0.
+		if (!in_parms->prio_mask) {
+			rc = RIO_ERR_INVALID_PARAMETER;
+			out_parms->imp_rc = SC_CFG_RXS_CTRS(0x34);
+			goto exit;
+		}
+		break;
+	case idt_sc_disabled:
+		new_ctl |= RXS_RIO_SPX_PCNTR_CTL_SEL_DISABLED;
+		break;
+	default: rc = RIO_ERR_INVALID_PARAMETER;
+		out_parms->imp_rc = SC_CFG_RXS_CTRS(0x35);
+		goto exit;
 	}	
 
-	for (srch_i = 0; srch_i < NUM_PORTS(dev_info); srch_i++)
-		p_to_i[srch_i] = RXS2448_MAX_PORTS;
-
 	for (srch_p = 0; srch_p < good_ptl.num_ports; srch_p++) {
-		port_num = good_ptl.pnums[srch_p];
+		pt = good_ptl.pnums[srch_p];
 		found = false;
 
-		if (in_parms->ctr_en == RXS_RIO_PCNTR_CTL_CNTR_FRZ) {
-			rc = DARRegWrite(dev_info, RXS_RIO_SPX_PCNTR_EN(port_num), in_parms->ctr_en);
+		// Enable counters for each port before programming the counter
+		// control value.
+		if (in_parms->ctr_en) {
+			rc = DARRegWrite(dev_info,
+					RXS_RIO_SPX_PCNTR_EN(pt),
+					RXS_RIO_SPX_PCNTR_EN_ENABLE);
 			if (RIO_SUCCESS != rc) {
-				out_parms->imp_rc = SC_CFG_RXS_CTRS(0x06);
-				goto idt_sc_cfg_rxs_ctr_exit;
+				out_parms->imp_rc = SC_CFG_RXS_CTRS(0x40);
+				goto exit;
 			}
 		}
-		else {
-			// To config counters, performance counter control should be enabled.
-			// The paramater is zero.
-			goto idt_sc_cfg_rxs_ctr_exit;
-		}
-
-		for (srch_i = 0; srch_i < in_parms->dev_ctrs->valid_p_ctrs; srch_i++) {
-			if (in_parms->dev_ctrs->p_ctrs[srch_i].pnum == port_num) {
-				found = true;
-				// If the port hasn't previously been programmed and the counter structure is
-				// correctly initialized, keep going...
-				if ((IDT_MAX_PORTS == p_to_i[port_num]) &&
-					(RXS_NUM_PERF_CTRS == in_parms->dev_ctrs->p_ctrs[srch_i].ctrs_cnt)) {
-					p_to_i[port_num] = srch_i;
-				}
-				else {
-					// Port number appears multiple times in the list,
-					// or number of performance counters is incorrect/uninitialized...
-					rc = RIO_ERR_INVALID_PARAMETER;
-					out_parms->imp_rc = SC_CFG_RXS_CTRS(0x40 + port_num);
-					goto idt_sc_cfg_rxs_ctr_exit;
-				}
-
-				// Always program the control value...
-				rc = DARRegRead(dev_info, RXS_RIO_SPX_PCNTR_CTL(port_num, in_parms->ctr_idx), &ctl_reg);
-				if (RIO_SUCCESS != rc) {
-					out_parms->imp_rc = SC_CFG_RXS_CTRS(0x50);
-					goto idt_sc_cfg_rxs_ctr_exit;
-				}
-				new_ctl_reg = ctl_reg & reg_mask;
-				new_ctl_reg |= new_ctl;
-
-				// Performing this count, Count of the total number of code-groups/codewords 
-				// transmitted on the RapidIO interface per lane, with TX = 0 is invalid.
-				if (in_parms->ctr_type == idt_sc_rio_ttl_pcntr && !in_parms->tx) {
-					out_parms->imp_rc = SC_CFG_RXS_CTRS(0x51);
-					goto idt_sc_cfg_rxs_ctr_exit;
-				}
 	
-				rc = DARRegWrite(dev_info, RXS_RIO_SPX_PCNTR_CTL(port_num, in_parms->ctr_idx), new_ctl_reg);
-				if (RIO_SUCCESS != rc) {
-					out_parms->imp_rc = SC_CFG_RXS_CTRS(0x52);
-					goto idt_sc_cfg_rxs_ctr_exit;
-				};
+		for (s_i = 0; s_i < in_parms->dev_ctrs->valid_p_ctrs; s_i++) {
+			if (in_parms->dev_ctrs->p_ctrs[s_i].pnum != pt) {
+				continue;
+			};
+			idt_sc_ctr_val_t *ctr_p;
+			ctr_p = &in_parms->dev_ctrs->p_ctrs[s_i].ctrs[c_i];
+			found = true;
+			// Always program the control value...
+			rc = DARRegRead(dev_info,
+					RXS_RIO_SPX_PCNTR_CTL(pt, c_i),
+					&ctl_reg);
+			if (RIO_SUCCESS != rc) {
+				out_parms->imp_rc = SC_CFG_RXS_CTRS(0x41);
+				goto exit;
+			}
 
-				if ((in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[in_parms->ctr_idx].sc != in_parms->ctr_type) ||
-					(in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[in_parms->ctr_idx].tx != in_parms->tx) ||
-					(ctl_reg != new_ctl_reg)) {
-					// If the counted value has changed in the structure or in hardware, 
-					// zero the counters and zero hardware counters
-					in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[in_parms->ctr_idx].sc = in_parms->ctr_type;
-					in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[in_parms->ctr_idx].tx = in_parms->tx;
-					in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[in_parms->ctr_idx].total = 0;
-					in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[in_parms->ctr_idx].last_inc = 0;
-					rc = DARRegRead(dev_info, RXS_RIO_SPX_PCNTR_CNT(port_num, in_parms->ctr_idx), &ctl_reg);
-					if (RIO_SUCCESS != rc) {
-						out_parms->imp_rc = SC_CFG_RXS_CTRS(0x53);
-						goto idt_sc_cfg_rxs_ctr_exit;
-					}
+			rc = DARRegWrite(dev_info,
+					RXS_RIO_SPX_PCNTR_CTL(pt, c_i),
+					new_ctl);
+			if (RIO_SUCCESS != rc) {
+				out_parms->imp_rc = SC_CFG_RXS_CTRS(0x42);
+				goto exit;
+			};
+
+			if (ctl_reg != new_ctl) {
+				// If the counted value has changed,
+				// update the control structure and
+				// zero the hw & sw  counters
+				ctr_p->sc = in_parms->ctr_type;
+				ctr_p->tx = in_parms->tx;
+				ctr_p->srio = srio;
+				ctr_p->total = 0;
+				ctr_p->last_inc = 0;
+				rc = DARRegWrite(dev_info,
+						RXS_RIO_SPX_PCNTR_CNT(pt, c_i),
+						0);
+				if (RIO_SUCCESS != rc) {
+					out_parms->imp_rc =
+						SC_CFG_RXS_CTRS(0x43);
+					goto exit;
 				}
 			}
 		}
 		if (!found) {
 			rc = RIO_ERR_INVALID_PARAMETER;
-			out_parms->imp_rc = SC_CFG_RXS_CTRS(0x59);
-			goto idt_sc_cfg_rxs_ctr_exit;
+			out_parms->imp_rc = SC_CFG_RXS_CTRS(0x44);
+			goto exit;
+		}
+		// Disable counters for each port after programming the counter
+		// control value.
+		if (!in_parms->ctr_en) {
+			idt_sc_ctr_val_t init_val = INIT_IDT_SC_CTR_VAL;
+			int cntr_i;
+
+			rc = DARRegWrite(dev_info, RXS_RIO_SPX_PCNTR_EN(pt), 0);
+			if (RIO_SUCCESS != rc) {
+				out_parms->imp_rc = SC_CFG_RXS_CTRS(0x60);
+				goto exit;
+			}
+			for (cntr_i = 0; cntr_i < RXS_NUM_PERF_CTRS; cntr_i++) {
+				in_parms->dev_ctrs->p_ctrs[s_i].ctrs[cntr_i] =
+					init_val;
+			}
 		}
 	}
 
 	rc = RIO_SUCCESS;
-
-idt_sc_cfg_rxs_ctr_exit:
-
-	rc = DARRegWrite(dev_info, RXS_RIO_PCNTR_CTL, 0x00);
-	if (RIO_SUCCESS != rc) {
-		out_parms->imp_rc = SC_CFG_RXS_CTRS(0x08);
-	}
-
+exit:
 	return rc;
 }
 

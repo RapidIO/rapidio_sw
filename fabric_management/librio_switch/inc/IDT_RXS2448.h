@@ -427,11 +427,19 @@ extern "C" {
 #define RXS_RIO_SPX_PCNTR_CTL_PRIO2C                          (0x00002000)
 #define RXS_RIO_SPX_PCNTR_CTL_PRIO3                           (0x00004000)
 #define RXS_RIO_SPX_PCNTR_CTL_PRIO3C                          (0x00008000)
+#define RXS_RIO_SPC_PCNTR_CTL_PRIO RXS_RIO_SPX_PCNTR_CTL_PRIO0 | \
+				RXS_RIO_SPX_PCNTR_CTL_PRIO0C | \
+				RXS_RIO_SPX_PCNTR_CTL_PRIO1  | \
+				RXS_RIO_SPX_PCNTR_CTL_PRIO1C | \
+				RXS_RIO_SPX_PCNTR_CTL_PRIO2 | \
+				RXS_RIO_SPX_PCNTR_CTL_PRIO2C | \
+				RXS_RIO_SPX_PCNTR_CTL_PRIO3 | \
+				RXS_RIO_SPX_PCNTR_CTL_PRIO3C
 #define RXS_RIO_SPX_PCNTR_CTL_SEL                             (0x0000007F)
 #define RXS_RIO_SPX_PCNTR_CTL_SEL_RIO_PKT                     (0x00000000)
 #define RXS_RIO_SPX_PCNTR_CTL_SEL_FAB_PKT                     (0x00000001)
-#define RXS_RIO_SPX_PCNTR_CTL_SEL_RIO_PKTCNTR                 (0x00000002)
-#define RXS_RIO_SPX_PCNTR_CTL_SEL_FAB_PKTCNTR                 (0x00000003)
+#define RXS_RIO_SPX_PCNTR_CTL_SEL_RIO_PAYLOAD                 (0x00000002)
+#define RXS_RIO_SPX_PCNTR_CTL_SEL_FAB_PAYLOAD                 (0x00000003)
 #define RXS_RIO_SPX_PCNTR_CTL_SEL_RIO_TTL_PKTCNTR             (0x00000007)
 #define RXS_RIO_SPX_PCNTR_CTL_SEL_RETRIES                     (0x00000008)
 #define RXS_RIO_SPX_PCNTR_CTL_SEL_PNA                         (0x00000009)

@@ -215,16 +215,14 @@ typedef struct idt_sc_cfg_cps_trace_out_t_TAG
 
 typedef struct idt_sc_cfg_rxs_ctr_in_t_TAG
 {
-	struct DAR_ptl         ptl;        // Port list
-	uint8_t                ctr_idx;    // Index of the RXS counter to be configured.  Range 0-7.
-	uint8_t                prio_mask;  // Priority of packets to be counted.  Not used for control symbol counters.
-                                           // Uses IDT_SC_TSI57X_PRIO_MASK_x constant definitions.
-        uint32_t               ctr_en;     // Enable access to the performance counters.
-        // bool	               ctr_frz     // Freeze/Clear all debug counters in all RXS2448 ports.
-	bool                   tx;         // Determines direction for the counter.  !tx = rx.
-        idt_sc_ctr_t           ctr_type;   // Valid counter type, valid range from idt_sc_disabled to idt_sc_uc_4b_data
-        idt_sc_dev_ctrs_t     *dev_ctrs;   // Device counters data type, initialized by idt_sc_init_dev_ctrs
-} idt_sc_cfg_rxs_ctr_in_t;                 // RXS2448 or RXS1632
+	struct DAR_ptl ptl; // Port list.  
+	uint8_t ctr_idx; // Index of the RXS counter [0..7] to be configured.
+	uint8_t prio_mask; // Priority of packets to be counted.
+        bool	ctr_en; // Enable/disable port counters
+	bool	tx; // Determines direction for the counter.  !tx = rx.
+        idt_sc_ctr_t ctr_type; // What to count
+        idt_sc_dev_ctrs_t *dev_ctrs; // Initialized by idt_sc_init_dev_ctrs
+} idt_sc_cfg_rxs_ctr_in_t;
 
 typedef struct idt_sc_cfg_rxs_ctr_out_t_TAG
 {
