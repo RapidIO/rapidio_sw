@@ -32,13 +32,20 @@
 TOPDIR?=$(shell pwd)/..
 include $(TOPDIR)/rules.mk
 
-all: libcmocka libcli liblist liblog libtime_utils \
+all: libcmocka libset libcli liblist liblog libtime_utils \
 	libmport libunit_test librsvdmem samples
 
 libcmocka: FORCE
 	$(MAKE) -C libcmocka
 	mkdir -p libs_so
 	(cd libcmocka; tar cf - libcmocka.so*) | (cd libs_so; tar xvf -)
+
+libset: FORCE libcmocka
+	$(MAKE) all -C libset
+	mkdir -p libs_a
+	mkdir -p libs_so
+	cp libset/libset.a libs_a/
+	(cd libset; tar cf - libset.so*) | (cd libs_so; tar xvf -)
 
 libcli: FORCE libcmocka liblog
 	$(MAKE) all -C libcli
@@ -96,6 +103,7 @@ FORCE:
 
 clean:
 	$(MAKE) clean -C libcmocka
+	$(MAKE) clean -C libset
 	$(MAKE) clean -C libcli
 	$(MAKE) clean -C liblist
 	$(MAKE) clean -C liblog
