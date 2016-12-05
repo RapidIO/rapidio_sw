@@ -23,11 +23,10 @@
 #include "inc/riocp_pe.h"
 #include "inc/riocp_pe_internal.h"
 
+#include "rio_standard.h"
 #include "lock.h"
 #include "maint.h"
-// #include "switch.h"
 #include "handle.h"
-#include "rio_regs.h"
 #include "driver.h"
 
 #ifdef __cplusplus
@@ -42,14 +41,12 @@ extern "C" {
  * @retval 0 When read/write was successfull or skipped
  * @retval -EIO When read/write was unsuccessfull
  */
-#define MAX_HOPCOUNT 0xFF
-
 int riocp_pe_maint_set_anyid_route(struct riocp_pe *pe)
 {
 	int32_t i;
 	int ret = 0;
 	struct riocp_pe *ith_pe = pe->mport->peers[0].peer;
-	struct riocp_pe *pes[MAX_HOPCOUNT];
+	struct riocp_pe *pes[HC_MP];
 
 	if (!RIOCP_PE_IS_HOST(pe))
 		return 0;
@@ -64,7 +61,7 @@ int riocp_pe_maint_set_anyid_route(struct riocp_pe *pe)
 	for (i = 0; i < pe->hopcount; i++) {
 		pes[i] = ith_pe;
 
-		ret = riocp_pe_lock_set(ith_pe->mport, ANY_ID, i);
+		ret = riocp_pe_lock_set(ith_pe->mport, ANY_ID, (hc_t)i);
 		if (ret) {
 			RIOCP_TRACE("Could not set lock at hopcount %u\n",
 				i);
@@ -77,7 +74,7 @@ int riocp_pe_maint_set_anyid_route(struct riocp_pe *pe)
 
 		RIOCP_TRACE("switch[hop: %d] ANY_ID -> port %d programmed\n",
 			i, pe->address[i]);
-		if (i + 1 < pe->hopcount)
+		if (((hc_t)i) + 1 < pe->hopcount)
 			ith_pe = ith_pe->peers[pe->address[i]].peer;
 	}
 
@@ -161,7 +158,7 @@ int riocp_pe_maint_unset_anyid_route(struct riocp_pe *pe)
 	int32_t i;
 	int ret = 0;
 	struct riocp_pe *ith_pe = pe->mport->peers[0].peer;
-	struct riocp_pe *pes[MAX_HOPCOUNT];
+	struct riocp_pe *pes[HC_MP];
 
 	if (!RIOCP_PE_IS_HOST(pe))
 		return 0;
@@ -177,7 +174,7 @@ int riocp_pe_maint_unset_anyid_route(struct riocp_pe *pe)
 
 	for (i = 0; i < pe->hopcount; i++) {
 		pes[i] = ith_pe;
-		if (i + 1 < pe->hopcount)
+		if (((hc_t)i) + 1 < pe->hopcount)
 			ith_pe = ith_pe->peers[pe->address[i]].peer;
 	};
 
@@ -187,7 +184,7 @@ int riocp_pe_maint_unset_anyid_route(struct riocp_pe *pe)
 	*/
 	for (i = pe->hopcount - 1; i >= 0; i--) {
 
-		ret = riocp_pe_lock_clear(pes[i], ANY_ID, i);
+		ret = riocp_pe_lock_clear(pes[i], ANY_ID, (hc_t)i);
 		if (ret) {
 			RIOCP_TRACE("Could not clear lock at hopcount %u\n",
 				i);

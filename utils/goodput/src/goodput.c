@@ -128,6 +128,7 @@ int main(int argc, char *argv[])
 	int mport_num = 0;
 
 	char* rc_script = NULL;
+	struct cli_env t_env;
 
 	signal(SIGINT, sig_handler);
 	signal(SIGHUP, sig_handler);
@@ -158,15 +159,16 @@ int main(int argc, char *argv[])
 		init_worker_info(&wkr[i], 1);
 
 	riomp_sock_mbox_init();
-        cli_init_base(goodput_thread_shutdown);
-        bind_goodput_cmds();
+	cli_init_base(goodput_thread_shutdown);
+	bind_goodput_cmds();
 	liblog_bind_cli_cmds();
 
 	char script_path[10] = {0};
 	snprintf(script_path, sizeof(script_path), "mport%d", mport_num);
 	set_script_path(script_path);
 
-	splashScreen((char *)"Goodput Evaluation Application");
+	init_cli_env(&t_env);
+	splashScreen(&t_env, (char *)"Goodput Evaluation Application");
 
 	ConsoleRc_t crc;
 	crc.prompt = (char *)"GoodPut> ";

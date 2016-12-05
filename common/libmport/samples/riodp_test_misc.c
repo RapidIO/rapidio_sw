@@ -70,14 +70,14 @@
 #include <unistd.h>
 #include <getopt.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
+#include "rio_ecosystem.h"
 #include <rapidio_mport_dma.h>
 #include <rapidio_mport_mgmt.h>
 #include <rapidio_mport_sock.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 static int debug = 0;
 
@@ -145,26 +145,31 @@ int main(int argc, char** argv)
 	struct riomp_mgmt_mport_properties prop;
 	riomp_mport_t mport_hnd;
 	uint32_t tgt_destid = 0;
-	uint32_t tgt_hc = 0xff;
+	hc_t tgt_hc = HC_MP;
 	uint32_t tgt_remote = 0, tgt_write = 0, do_query = 0;
 	uint32_t offset = 0;
 	uint32_t op_size = sizeof(uint32_t);
 	uint32_t data = 0;
+	uint32_t tmp;
 	int rc = EXIT_SUCCESS;
 
-	/** - Parse command line options, if any */
-	while (1) {
-		option = getopt_long_only(argc, argv,
-				"wdhqH:D:O:M:S:V:", options, NULL);
+	/** Parse command line options, if any */
+	while (-1 != (option = getopt_long_only(argc, argv,
+			"wdhqH:D:O:M:S:V:", options, NULL))) {
+
 		switch (option) {
-		case -1 :
-			break;
 		case 'D':
 			tgt_destid = (uint32_t)strtoul(optarg, NULL, 0);
 			tgt_remote = 1;
 			break;
 		case 'H':
-			tgt_hc = (uint32_t)strtoul(optarg, NULL, 0);
+			tmp = (uint32_t)strtoul(optarg, NULL, 0);
+			if (tmp > HC_MP) {
+				printf("hop count must be between 0 and %u\n",
+				HC_MP);
+				exit(EXIT_FAILURE);
+			}
+			tgt_hc = (hc_t)tmp;
 			break;
 		case 'O':
 			offset = (uint32_t)strtoul(optarg, NULL, 0);
@@ -197,8 +202,7 @@ int main(int argc, char** argv)
 	/** - Create handle for selected mport */
 	rc = riomp_mgmt_mport_create_handle(mport_id, 0, &mport_hnd);
 	if (rc < 0) {
-		printf("DMA Test: unable to open mport%d device err=%d\n",
-			mport_id, rc);
+		printf("Unable to open mport%d device err=%d\n", mport_id, rc);
 		exit(EXIT_FAILURE);
 	}
 

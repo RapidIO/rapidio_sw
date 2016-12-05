@@ -52,6 +52,7 @@
 #include <linux/rio_mport_cdev.h>
 
 #include "string_util.h"
+#include "rio_ecosystem.h"
 #include "ct.h"
 #include "rio_misc.h"
 #include "rapidio_mport_mgmt.h"
@@ -68,6 +69,7 @@ struct rapidio_mport_mailbox {
 	int fd;
 	uint8_t mport_id;
 };
+
 
 void* riomp_mgmt_mport_get_stats(struct rapidio_mport_handle* hnd)
 {
@@ -666,7 +668,7 @@ int riomp_mgmt_lcfg_write(riomp_mport_t mport_handle, uint32_t offset, uint32_t 
 /*
  * Maintenance read from target RapidIO device register
  */
-int riomp_mgmt_rcfg_read(riomp_mport_t mport_handle, uint32_t destid, uint32_t hc, uint32_t offset,
+int riomp_mgmt_rcfg_read(riomp_mport_t mport_handle, uint32_t destid, hc_t hc, uint32_t offset,
 		     uint32_t size, uint32_t *data)
 {
 	struct rio_mport_maint_io mt;
@@ -690,7 +692,7 @@ int riomp_mgmt_rcfg_read(riomp_mport_t mport_handle, uint32_t destid, uint32_t h
 /*
  * Maintenance write to target RapidIO device register
  */
-int riomp_mgmt_rcfg_write(riomp_mport_t mport_handle, uint32_t destid, uint32_t hc, uint32_t offset,
+int riomp_mgmt_rcfg_write(riomp_mport_t mport_handle, uint32_t destid, hc_t hc, uint32_t offset,
 		      uint32_t size, uint32_t data)
 {
 	struct rio_mport_maint_io mt;
@@ -915,7 +917,7 @@ int riomp_mgmt_destid_set(riomp_mport_t mport_handle, uint16_t destid)
 /*
  * Create a new kernel device object
  */
-int riomp_mgmt_device_add(riomp_mport_t mport_handle, uint16_t destid, uint8_t hc, ct_t ctag,
+int riomp_mgmt_device_add(riomp_mport_t mport_handle, uint16_t destid, hc_t hc, ct_t ctag,
 		    const char *name)
 {
 	struct rio_rdev_info dev;
@@ -943,7 +945,7 @@ int riomp_mgmt_device_add(riomp_mport_t mport_handle, uint16_t destid, uint8_t h
 /*
  * Delete existing kernel device object
  */
-int riomp_mgmt_device_del(riomp_mport_t mport_handle, uint16_t destid, uint8_t hc, ct_t ctag,
+int riomp_mgmt_device_del(riomp_mport_t mport_handle, uint16_t destid, hc_t hc, ct_t ctag,
 			  const char *name)
 {
 	struct rio_rdev_info dev;

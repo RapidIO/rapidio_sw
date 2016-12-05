@@ -50,9 +50,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sys/types.h>
 #include <netinet/in.h>
 
+#include "rio_ecosystem.h"
 #include "ct.h"
 #include "did.h"
-#include "rio_ecosystem.h"
 #include "fmd_dd.h"
 #include "cfg.h"
 #include "cfg_private.h"
@@ -101,7 +101,7 @@ int init_cfg_ptr(char *dd_mtx_fn, char *dd_fn)
 		cfg->mport_info[i].op_mode = -1;
 		cfg->mport_info[i].mem_sz = CFG_MEM_SZ_DEFAULT;
 		for (j = 0; j < CFG_DEVID_MAX; j++) {
-			cfg->mport_info[i].devids[j].hc = 0xFF;
+			cfg->mport_info[i].devids[j].hc = HC_MP;
 		};
 		cfg->mport_info[i].ep_pnum = -1;
 	};
@@ -116,7 +116,7 @@ int init_cfg_ptr(char *dd_mtx_fn, char *dd_fn)
 			cfg->eps[i].ports[j].rio.op_pw = idt_pc_pw_last;
 			cfg->eps[i].ports[j].rio.ls = idt_pc_ls_last;
 			for (k = 0; k < CFG_DEVID_MAX; k++) {
-				cfg->eps[i].ports[j].devids[k].hc = 0xff;
+				cfg->eps[i].ports[j].devids[k].hc = HC_MP;
 			}
 			cfg->eps[i].ports[j].conn_end = -1;
 		};
@@ -674,10 +674,11 @@ fail:
 int parse_ep_devids(struct int_cfg_parms *cfg, struct dev_id *devids)
 {
 	uint32_t devid_sz, done = 0;
+	uint32_t tmp;
 
 	for (devid_sz = 0; devid_sz < 3; devid_sz++) {
 		devids[devid_sz].valid = 0;
-		devids[devid_sz].hc = 255;
+		devids[devid_sz].hc = HC_MP;
 		devids[devid_sz].devid = 0;
 	};
 
@@ -689,8 +690,12 @@ int parse_ep_devids(struct int_cfg_parms *cfg, struct dev_id *devids)
 			case 2: // dev32
 				if (get_hex_int(cfg, &devids[devid_sz].devid))
 					goto fail;
-				if (get_dec_int(cfg, &devids[devid_sz].hc))
+				if (get_dec_int(cfg, &tmp))
 					goto fail;
+				if (tmp > HC_MP)
+					goto fail;
+				devids[devid_sz].hc = (hc_t)tmp;
+
 				devids[devid_sz].valid = 1;
 				break;
 			case 3: // END
@@ -1090,12 +1095,13 @@ int parse_switch(struct int_cfg_parms *cfg)
 	uint32_t rt_sz = 0;
 	uint32_t destid, destid1;
 	uint32_t rtv;
+	uint32_t tmp;
 	idt_rt_state_t *rt = NULL;
 
 	if (cfg->sw_cnt >= CFG_MAX_SW) {
 		parse_err(cfg, (char *)"Too many switches.");
 		goto fail;
-	};
+	}
 	i = cfg->sw_cnt;
 
 	if (get_string(cfg, &cfg->sws[i].dev_type))
@@ -1106,8 +1112,11 @@ int parse_switch(struct int_cfg_parms *cfg)
 		goto fail;
 	if (get_hex_int(cfg, &cfg->sws[i].did))
 		goto fail;
-	if (get_dec_int(cfg, &cfg->sws[i].hc))
+	if (get_dec_int(cfg, &tmp))
 		goto fail;
+	if (tmp > HC_MP)
+		goto fail;
+	cfg->sws[i].hc = tmp;
 	if (get_hex_int(cfg, &cfg->sws[i].ct))
 		goto fail;
 

@@ -130,6 +130,7 @@ int main(int argc, char *argv[])
 	char* rc_script = NULL;
 
 	int mport_num = 0;
+	struct cli_env t_env;
 
 	signal(SIGINT, sig_handler);
 	signal(SIGHUP, sig_handler);
@@ -165,7 +166,9 @@ int main(int argc, char *argv[])
 	cli_init_base(goodput_thread_shutdown);
 	bind_goodput_cmds();
 	liblog_bind_cli_cmds();
-	splashScreen((char *)"UMDd/SHM");
+
+	init_cli_env(&t_env);
+	splashScreen(&t_env, (char *)"UMDd/SHM");
 
 	ConsoleRc_t crc;
 	crc.prompt = (char *)"UMDd> ";

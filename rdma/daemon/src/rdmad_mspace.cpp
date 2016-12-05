@@ -586,30 +586,24 @@ set<uint16_t> mspace::get_rem_destids()
 /* Debugging */
 void mspace::dump_info(struct cli_env *env)
 {
-	sprintf(env->output, "%34s %08X %08X %016" PRIx64 " %08X\n",
-				name.c_str(), msoid, msid, rio_addr, size);
-	logMsg(env);
-	sprintf(env->output, "destids: ");
-	logMsg(env);
+	LOGMSG(env, "%34s %08X %08X %016" PRIx64 " %08X\n", name.c_str(), msoid,
+			msid, rio_addr, size);
+	LOGMSG(env, "destids: ");
 
 	set<uint16_t> rem_destids = get_rem_destids();
 	for (auto& destid : rem_destids) {
-		sprintf(env->output, "%u ", destid);
-		logMsg(env);
+		LOGMSG(env, "%u ", destid);
 	}
 
-	sprintf(env->output, "\n");
-	logMsg(env);
+	LOGMSG(env, "\n");
 } /* dump_info() */
 
 void mspace::dump_info_msubs_only(struct cli_env *env)
 {
-	sprintf(env->output, "%8s %16s %8s %8s %16s\n", "msubid", "rio_addr",
-	                "size", "msid", "phys_addr");
-	logMsg(env);
-	sprintf(env->output, "%8s %16s %8s %8s %16s\n", "------", "--------",
-	                "----", "----", "---------");
-	logMsg(env);
+	LOGMSG(env, "%8s %16s %8s %8s %16s\n", "msubid", "rio_addr", "size",
+			"msid", "phys_addr");
+	LOGMSG(env, "%8s %16s %8s %8s %16s\n", "------", "--------", "----",
+			"----", "---------");
 
 	/* Called from dump_info_with_msubs --> no mutex locking needed here */
 	for (auto& msub : msubspaces)
@@ -620,16 +614,14 @@ void mspace::dump_info_with_msubs(struct cli_env *env)
 {
 	dump_info(env);
 
-	lock_guard<mutex> msubspaces_lock(msubspaces_mutex);
+	lock_guard < mutex > msubspaces_lock(msubspaces_mutex);
 	if (msubspaces.size()) {
 		dump_info_msubs_only(env);
 	} else {
-		sprintf(env->output, "No subspaces in above memory space\n");
-		logMsg(env);
+		LOGMSG(env, "No subspaces in above memory space\n");
 	}
 
-	sprintf(env->output, "\n"); /* Extra line */
-	logMsg(env);
+	LOGMSG(env, "\n"); /* Extra line */
 } /* dump_info_with_msubs() */
 
 /* For creating a memory sub-space */

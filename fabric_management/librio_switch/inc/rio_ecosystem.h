@@ -54,6 +54,16 @@ typedef uint32_t rio_dev32_t; /* Also supports dev8 & dev16 */
 
 typedef uint32_t rio_mc_mask_t; /* Biggest mask available */
 
+typedef uint8_t hc_t; /* hopcount */
+
+// The hopcount is initially set to 0xff, it can roll to 0 and from
+// then on it does not exceed the max value of 0xfe
+#define HC_MP ((hc_t)0x0ff)
+#define HC_MAX ((hc_t)0x0fe)
+#define HC_INCR(dest, src) { \
+	dest = (hc_t)((src + 1) == HC_MP ? HC_MAX : ((src + 1) & HC_MP)); \
+}
+
 #define RIO_SW_PORT_INF_PORT_MAX ((RIO_SW_PORT_INF_T)(24))
 #define RIO_SW_PORT_INF_LANE_MAX ((RIO_SW_PORT_INF_T)(48))
 
@@ -190,6 +200,9 @@ static const struct riocp_pe_dev_id riocp_pe_device_ids[] = {
         {RIO_VEND_FREESCALE, 0x0408, "P4040E"},
         {RIO_VEND_FREESCALE, 0x0409, "P4040"},
         {RIO_VEND_FREESCALE, 0x0420, "P5020E"},
+	{RIO_VEND_FREESCALE, 0x0421, "P5020"},
+	{RIO_VEND_FREESCALE, 0x0428, "P5010E"},
+	{RIO_VEND_FREESCALE, 0x0429, "P5010"},
         {RIO_VEND_FREESCALE, 0x1810, "MSC8151, MSC8152, MSC8154, MSC8251, MSC8252 or MSC8254"},
         {RIO_VEND_FREESCALE, 0x1812, "MSC8154E"},
         {RIO_VEND_FREESCALE, 0x1818, "MSC8156 or MSC8256"},

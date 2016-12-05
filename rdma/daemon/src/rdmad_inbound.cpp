@@ -101,10 +101,10 @@ inbound::~inbound()
 
 void inbound::dump_info(struct cli_env *env)
 {
-	sprintf(env->output, "%8s %16s %16s %16s\n", "Win num", "Win size", "RIO Addr", "PCIe Addr");
-	logMsg(env);
-	sprintf(env->output, "%8s %16s %16s %16s\n", "-------", "--------", "--------", "---------");
-	logMsg(env);
+	LOGMSG(env, "%8s %16s %16s %16s\n", "Win num", "Win size", "RIO Addr",
+			"PCIe Addr");
+	LOGMSG(env, "%8s %16s %16s %16s\n", "-------", "--------", "--------",
+			"---------");
 
 	lock_guard<mutex> ibwins_lock(ibwins_mutex);
 	for (auto& ibwin : ibwins)

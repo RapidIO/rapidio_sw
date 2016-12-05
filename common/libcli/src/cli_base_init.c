@@ -42,9 +42,8 @@ extern void (*cons_cleanup)(struct cli_env *env);
 
 void default_cons_cleanup(struct cli_env *env)
 {
-	sprintf(env->output, "No additional cleanup performed.\n");
-	logMsg(env);
-};
+	LOGMSG(env, "No additional cleanup performed.\n");
+}
 
 int cli_init_base(void (*console_cleanup)(struct cli_env *env))
 {

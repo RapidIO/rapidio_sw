@@ -62,6 +62,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <rapidio_mport_sock.h>
 
 #include "string_util.h"
+#include "rio_ecosystem.h"
 #include "fmd.h"
 #include "cfg.h"
 #include "libcli.h"
@@ -97,7 +98,7 @@ int send_slave_hello_message(void)
 	slv->s2m->hello_rq.did = htonl((regs.my_destID & RIO_DEVID_DEV8) >> 16);
 	slv->s2m->hello_rq.did_sz = htonl(FMD_DEV08);
 	slv->s2m->hello_rq.ct = htonl(regs.comptag);
-	slv->s2m->hello_rq.hc = htonl(0xFF);
+	slv->s2m->hello_rq.hc = htonl(HC_MP);
 
 	slv->tx_buff_used = 1;
 	slv->tx_rc |= riomp_sock_send(slv->skt_h, slv->tx_buff,
@@ -111,7 +112,7 @@ fail:
 	return 1;
 }
 
-int add_device_to_dd(ct_t ct, uint32_t did, uint32_t did_sz, uint32_t hc,
+int add_device_to_dd(ct_t ct, uint32_t did, uint32_t did_sz, hc_t hc,
 		uint32_t is_mast_pt, uint32_t flag, char *name)
 {
 	uint32_t idx, found_one = 0;
@@ -253,7 +254,7 @@ void slave_process_mod(void)
 
 			rc = riomp_mgmt_device_add(p_acc->maint,
 					ntohl(slv->m2s->mod_rq.did), 
-					ntohl(slv->m2s->mod_rq.hc), 
+					ntohl(slv->m2s->mod_rq.hc),
 					ntohl(slv->m2s->mod_rq.ct),
 					(const char *)slv->m2s->mod_rq.name);
 		}

@@ -179,20 +179,17 @@ void ibwin::free()
 
 void ibwin::dump_info(struct cli_env *env)
 {
-	sprintf(env->output, "%8d %16" PRIx64 " %16" PRIx64 " %16" PRIx64 "\n",
-			win_num, size, rio_addr, phys_addr);
-	logMsg(env);
+	LOGMSG(env, "%8d %16" PRIx64 " %16" PRIx64 " %16" PRIx64 "\n", win_num,
+			size, rio_addr, phys_addr);
 } /* dump_info() */
 
 void ibwin::print_mspace_header(struct cli_env *env)
 {
-	sprintf(env->output, "\n%8s %8u %16s %8s %8s %16s %8s\n", "Window", win_num, "Name",
-				"msoid", "msid", "rio_addr", "size");
-	logMsg(env);
-	sprintf(env->output, "%8s %8s %16s %8s %8s %16s %8s\n", "-------", "-------",
-				"----------------", "--------", "--------",
-				"----------------", "--------");
-	logMsg(env);
+	LOGMSG(env, "\n%8s %8u %16s %8s %8s %16s %8s\n", "Window", win_num,
+			"Name", "msoid", "msid", "rio_addr", "size");
+	LOGMSG(env, "%8s %8s %16s %8s %8s %16s %8s\n", "-------", "-------",
+			"----------------", "--------", "--------",
+			"----------------", "--------");
 } /* print_mspace_header() */
 
 void ibwin::dump_mspace_info(struct cli_env *env)

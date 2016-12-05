@@ -44,8 +44,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 
+#include "string_util.h"
 #include "cli_cmd_db.h"
 #include "cli_cmd_line.h"
+#include "cli_rem_conn.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -53,19 +55,25 @@ extern "C" {
 
 void (*cons_cleanup)(struct cli_env *env);
 
-void splashScreen(char *app_name)
+void splashScreen(struct cli_env *env, char *app_name)
 {
-        printf("-----------------------------------------------------------\n");
-        printf("---      %s     ---\n", app_name);
-
-	printf("-----------------------------------------------------------\n");
-	printf("---            Version: %2s.%2s (%s-%s)      ---\n",
-                CLI_VERSION_YR, CLI_VERSION_MO, __DATE__, __TIME__);
-        printf("-----------------------------------------------------------\n");
-        printf("\t\tRapidIO Trade Association\n");
-        printf("\t\tCopyright 2015\n");
-
-        fflush(stdout);
+	char *dash = (char *)
+			"----------------------------------------------------------";
+	char *dash_ends = (char *)
+			"---                                                    ---";
+	int dash_len = strlen(dash) - 6;
+	int app_name_len = (int)((dash_len + strlen(app_name))/2); 
+	int app_name_rem = dash_len - app_name_len;
+	LOGMSG(env, "%s\n", dash);
+	LOGMSG(env, "%s\n", dash_ends);
+	LOGMSG(env, "---%*s%*s---\n", app_name_len, app_name, app_name_rem, "");
+	LOGMSG(env, "%s\n", dash_ends);
+	LOGMSG(env, "%s\n", dash);
+	LOGMSG(env, "---         Version: %2s.%2s (%11s-%8s)      ---\n",
+			CLI_VERSION_YR, CLI_VERSION_MO, __DATE__, __TIME__);
+	LOGMSG(env, "%s\n", dash);
+	LOGMSG(env, "            RapidIO Trade Association\n");
+	LOGMSG(env, "            Copyright 2016\n");
 };
 
 const char *delimiter = " ,\t\n";   /* Input token delimiter */
@@ -75,9 +83,16 @@ void logMsg(struct cli_env *env)
 	uint8_t  use_skt = (env->sess_socket >= 0)?TRUE:FALSE;
 	
 	if (use_skt) {
-		if (write(env->sess_socket, env->output, strlen(env->output)))
-			bzero(env->output, BUFLEN-1);
-		bzero(env->output, BUFLEN);
+		int n = write(env->sess_socket, env->output,
+							strlen(env->output));
+		unsigned int bytes_sent = n;
+
+		while ((n >= 0) && (bytes_sent < strlen(env->output))) {
+			n = write(env->sess_socket, env->output,
+							strlen(env->output));
+			bytes_sent += n;
+		};
+		memset(env->output, 0, sizeof(env->output));
 	} else {
 		printf("%s", env->output);
 	}
@@ -90,42 +105,38 @@ int process_command(struct cli_env *env, char *input)
 	char *cmd;
 	int rc;
 	struct cli_cmd* cmd_p = NULL;
-	int   argc = 0;
+	int argc = 0;
 	char* argv[30] = {NULL};
-	int   exitStat = 0;
+	int exitStat = 0;
 	char* status = NULL;
 
 	if (env->fout != NULL)
-		fprintf((FILE *) env->fout, "%s", input); /* Log command file */
+		fprintf((FILE *)env->fout, "%s", input); /* Log command file */
 
 	cmd = strtok_r(input, delimiter, &status);/* Tokenize input array */
 
-	if ((cmd    != NULL) && (cmd[0] != '/') && (cmd[0] != '\n') &&
-	    (cmd[0] != '\r')) {
+	if ((cmd != NULL) && (cmd[0] != '/') && (cmd[0] != '\n')
+			&& (cmd[0] != '\r')) {
 		rc = find_cmd(cmd, &cmd_p);
 
 		if (rc == -1) {
-			sprintf(env->output,
-			"Unknown command: Type '?' for a list of commands\n");
-			logMsg(env);
+			LOGMSG(env,
+					"Unknown command: Type '?' for a list of commands\n");
 		} else if (rc == -2) {
-			sprintf(env->output,
-			"Ambiguous command: Type '?' for command usage\n");
-			logMsg(env);
+			LOGMSG(env,
+					"Ambiguous command: Type '?' for command usage\n");
 		} else if (!rc && (cmd_p->func != NULL)) {
 			argc = 0;
 			while ((argv[argc] = strtok_r(NULL, delimiter, &status))
-					 != NULL)
+					!= NULL)
 				argc++;
 
 			if (argc < cmd_p->min_parms) {
-				sprintf(env->output,
-				"FAILED: Need %d parameters for command \"%s\"",
-					   cmd_p->min_parms, cmd_p->name);
-				logMsg(env);
-				sprintf(env->output,
-				"\n%s not executed.\nHelp:\n", cmd_p->name);
-				logMsg(env);
+				LOGMSG(env,
+						"FAILED: Need %d parameters for command \"%s\"",
+						cmd_p->min_parms, cmd_p->name);
+				LOGMSG(env, "\n%s not executed.\nHelp:\n",
+						cmd_p->name);
 				cli_print_help(env, cmd_p);
 			} else {
 				exitStat = (cmd_p->func(env, argc, argv));
@@ -145,6 +156,27 @@ int process_command(struct cli_env *env, char *input)
 	return exitStat;
 }
 
+int process_skt_inp(struct cli_env *env, char *cmd, char *inp, int *len)
+{
+	char *cmd_off;
+	char *prev_cmd_off = inp;
+	int errorStat = 0;
+
+	cmd_off = strchr(inp, '\n');
+	while ((NULL != cmd_off) && !errorStat) {
+		memcpy(&cmd[*len], prev_cmd_off, cmd_off - prev_cmd_off);
+		errorStat |= process_command(env, cmd);
+		memset(cmd, 0, BUFLEN);
+		prev_cmd_off = cmd_off + 1;
+		cmd_off = strchr(prev_cmd_off, '\n');
+	};
+	*len = strlen(prev_cmd_off);
+	if (*len > 0) {
+		SAFE_STRNCPY(cmd, prev_cmd_off, *len);
+	};
+	return errorStat;
+};
+
 int cli_terminal(struct cli_env *env)
 {
 	/* State variables */
@@ -154,35 +186,36 @@ int cli_terminal(struct cli_env *env)
 	int   lastChar = 0;
 #endif
 
-	char  skt_inp[BUFLEN];
+	char  inp[BUFLEN], cmd[BUFLEN];
+	int cmdlen = 0;
 	unsigned int  errorStat = 0;
 	int  use_skt = (env->sess_socket >= 0)?TRUE:FALSE;
 	int one = 1;
-	int zero = 0;
 
+	if (use_skt) {
+		setsockopt (env->sess_socket, IPPROTO_TCP, TCP_NODELAY,
+							&one, sizeof (one));
+	}
+	memset(cmd, 0, sizeof(cmd));
 	while (!errorStat) {
 		env->output[0] = '\0';
 
 		if (use_skt) {
-     setsockopt (env->sess_socket, IPPROTO_TCP, TCP_CORK, &one, sizeof (one));
-			lastChar = write(env->sess_socket, env->prompt, 
-				strlen(env->prompt));
+			char buff[BUFLEN] = {0};
+
+			snprintf(buff, sizeof(buff), "%s\n", env->prompt);
+			lastChar = write(env->sess_socket, buff, strlen(buff));
 			if (lastChar < 0) {
 				errorStat = 2;
 				goto exit;
 			};
-     setsockopt (env->sess_socket, IPPROTO_TCP, TCP_CORK, &zero, sizeof (zero));
-			bzero(skt_inp,BUFLEN);
-			lastChar = read(env->sess_socket, skt_inp, BUFLEN);
+			memset(inp, 0, sizeof(inp));
+			lastChar = read(env->sess_socket, inp, sizeof(inp));
 			if (lastChar < 0) {
 				errorStat = 2;
-			} else {
-				if (skt_inp[lastChar - 1] == '\n')
-					skt_inp[lastChar - 1] = '\0';
-     setsockopt (env->sess_socket, IPPROTO_TCP, TCP_CORK, &one, sizeof (one));
-				errorStat = process_command(env, skt_inp);
-     setsockopt (env->sess_socket, IPPROTO_TCP, TCP_CORK, &zero, sizeof (zero));
+				goto exit;
 			};
+			errorStat = process_skt_inp(env, cmd, inp, &cmdlen);
 		} else {
 			fflush(stdin);
 #ifdef USE_READLINE
@@ -225,9 +258,6 @@ int cli_terminal(struct cli_env *env)
 	}
 
 exit:
-	if (use_skt)
-     		setsockopt (env->sess_socket, IPPROTO_TCP, TCP_CORK, 
-					&zero, sizeof (zero));
 	return errorStat;  /* no error */
 }
 
@@ -261,7 +291,8 @@ int cli_script(struct cli_env *env, char *script, int verbose)
 	fin = fopen(script, "re");
 	if (fin == NULL) {
 		sprintf(&temp_env.output[0],
-			"\t/*Error: cannot open file named \"%s\"/\n", script);
+				"\t/*Error: cannot open file named \"%s\"/\n",
+				script);
 		logMsg(&temp_env);
 		end = TRUE;
 	}
@@ -269,18 +300,17 @@ int cli_script(struct cli_env *env, char *script, int verbose)
 	while (!end && !errorStat) {
 		/* Initialize all local variables and flush streams */
 		fflush(stdin);
-		temp_env.output[0] = '\0';
 
-		if (fgets(input, BUFLEN-1, fin) == NULL) {
+		if (fgets(input, BUFLEN - 1, fin) == NULL) {
 			end = TRUE;
 			break;
 		} else if (verbose) {
 			sprintf(&temp_env.output[0], "%s\n", input);
 			logMsg(&temp_env);
-		};
+		}
 
 		errorStat = process_command(&temp_env, input);
-	};
+	}
 
 	if (fin != NULL)
 		fclose(fin);
@@ -293,8 +323,7 @@ int CLIDebugCmd(struct cli_env *env, int argc, char **argv)
 	if (argc) {
 		env->DebugLevel = getHex(argv[0], 0);
 	};
-	sprintf(env->output, "Debug level: %d\n", env->DebugLevel);
-	logMsg(env);
+	LOGMSG(env, "Debug level: %d\n", env->DebugLevel);
 	return 0;
 }
 
@@ -330,9 +359,7 @@ int CLIOpenLogFileCmd(struct cli_env *env, int argc, char **argv)
 	int errorStat = 0;
 
 	if (argc > 1) {
-		sprintf(env->output, "FAILED: Extra parms ignored: \"%s\"\n",
-					   argv[1]);
-				logMsg(env);
+		LOGMSG(env, "FAILED: Extra parms ignored: \"%s\"\n", argv[1]);
 		cli_print_help(env, &CLIOpenLogFile);
 		goto exit;
 	};
@@ -348,14 +375,12 @@ int CLIOpenLogFileCmd(struct cli_env *env, int argc, char **argv)
 
 	env->fout = fopen(argv[0], "we"); /* Open log file for writing */
 	if (env->fout == NULL) {
-		sprintf(env->output,
-			"\t/*FAILED: Log file \"%s\" could not be opened*/\n",
-			argv[0]);
-		logMsg(env);
+		LOGMSG(env,
+				"\t/*FAILED: Log file \"%s\" could not be opened*/\n",
+				argv[0]);
 		errorStat = 1;
 	} else {
-		sprintf(env->output, "\t/*Log file %s opened*/\n", argv[0]);
-		logMsg(env);
+		LOGMSG(env, "\t/*Log file %s opened*/\n", argv[0]);
 	}
 exit:
 	return errorStat;
@@ -380,19 +405,15 @@ int CLICloseLogFileCmd(struct cli_env *env, int argc, char **argv)
 	int errorStat = 0;
 
 	if (argc > 1) {
-		sprintf(env->output, "FAILED: Extra parms ignored: \"%s\"\n",
-					   argv[1]);
-				logMsg(env);
+		LOGMSG(env, "FAILED: Extra parms ignored: \"%s\"\n", argv[1]);
 		cli_print_help(env, &CLICloseLogFile);
 		goto exit;
 	};
 
 	if (env->fout == NULL) {
-		sprintf(env->output, "\t/*FAILED: No log file to close */\n");
-		logMsg(env);
+		LOGMSG(env, "\t/*FAILED: No log file to close */\n");
 	} else {
-		sprintf(env->output, "\t/*Log file closed*/\n");
-		logMsg(env);
+		LOGMSG(env, "\t/*Log file closed*/\n");
 		fclose(env->fout); /* Finish writes to file before closing */
 		env->fout = NULL;
 	}
@@ -413,30 +434,24 @@ int CLIScriptCmd(struct cli_env *env, int argc, char **argv)
 
 	if (argc > 1) {
 		verbose = getHex(argv[0], 0);
-	};
+	}
 
-	sprintf(env->output, "\tPrefix: \"%s\"\n", script_path);
-	logMsg(env);
-	sprintf(env->output, "\tScript: \"%s\"\n", argv[0]);
-	logMsg(env);
+	LOGMSG(env, "\tPrefix: \"%s\"\n", script_path);
+	LOGMSG(env, "\tScript: \"%s\"\n", argv[0]);
 
-	memset(full_script_name, 0, 2*SCRIPT_PATH_SIZE);
-	if (argv[0][0] == '.' || argv[0][0] == '/' || argv[0][0] == '\\')
-		snprintf(full_script_name, 2*SCRIPT_PATH_SIZE - 1, "%s",
-			argv[0]);
-	else
-		snprintf(full_script_name, 2*SCRIPT_PATH_SIZE - 1, "%s%s",
-			script_path, argv[0]);
+	memset(full_script_name, 0, 2 * SCRIPT_PATH_SIZE);
+	if (argv[0][0] == '.' || argv[0][0] == '/' || argv[0][0] == '\\') {
+		snprintf(full_script_name, 2 * SCRIPT_PATH_SIZE - 1, "%s",
+				argv[0]);
+	} else {
+		snprintf(full_script_name, 2 * SCRIPT_PATH_SIZE - 1, "%s%s",
+				script_path, argv[0]);
+	}
 
-	sprintf(env->output, "\tFile  : \"%s\"\n", full_script_name);
-	logMsg(env);
-
+	LOGMSG(env, "\tFile  : \"%s\"\n", full_script_name);
 	errorStat = cli_script(env, full_script_name, verbose);
 
-	env->output[0] = '\0';
-	sprintf(env->output, "script %s completed, status %x\n",
-		argv[0], errorStat);
-	logMsg(env);
+	LOGMSG(env, "script %s completed, status %x\n", argv[0], errorStat);
 
 	return errorStat;
 }
@@ -485,16 +500,14 @@ int CLIScriptPathCmd(struct cli_env *env, int argc, char **argv)
 
 	if (argc) {
 		if (set_script_path(argv[0])) {
-			sprintf(env->output,
-			"FAILED: Maximum path length is %d characters\n",
-				SCRIPT_PATH_LEN);
-			logMsg(env);
+			LOGMSG(env,
+					"FAILED: Maximum path length is %d characters\n",
+					SCRIPT_PATH_LEN);
 			goto exit;
 		};
 	}
 
-	sprintf(env->output, "\tPrefix: \"%s\"\n", script_path);
-	logMsg(env);
+	LOGMSG(env, "\tPrefix: \"%s\"\n", script_path);
 exit:
 	return errorStat;
 }
@@ -527,9 +540,7 @@ ATTR_NONE
 int CLIQuitCmd(struct cli_env *env, int argc, char **argv)
 {
 	if (argc) {
-		sprintf(env->output, "FAILED: Extra parms ignored: \"%s\"\n",
-					   argv[0]);
-				logMsg(env);
+		LOGMSG(env, "FAILED: Extra parms ignored: \"%s\"\n", argv[0]);
 		cli_print_help(env, &CLIQuit);
 		goto exit;
 	};
@@ -546,11 +557,9 @@ int CLIEchoCmd(struct cli_env *env, int argc, char **argv)
 	int i;
 
 	for (i = 0; i < argc; i++) {
-		sprintf(env->output, "%s ", argv[i]);
-		logMsg(env);
+		LOGMSG(env, "%s ", argv[i]);
 	};
-	sprintf(env->output, "\n");
-	logMsg(env);
+	LOGMSG(env, "\n");
 
 	return 0;
 }
@@ -572,7 +581,7 @@ int SetCmd(struct cli_env *env, int argc, char **argv)
 {
         if(argc == 0) {
                 if (SET_VARS.size() == 0) {
-			sprintf(env->output, "\nNo env vars\n"); logMsg(env);
+			LOGMSG(env, "\nNo env vars\n");
 			return 0;
 		}
 
@@ -584,7 +593,7 @@ int SetCmd(struct cli_env *env, int argc, char **argv)
                         ss << "\n\t" << it->first << "=" << it->second;
                 }
 
-                sprintf(env->output, "\nEnv vars: %s\n", ss.str().c_str()); logMsg(env);
+                LOGMSG(env, "\nEnv vars: %s\n", ss.str().c_str());
                 goto exit;
         }
 
@@ -666,7 +675,8 @@ struct cli_cmd *cmd_line_cmds[] = {
 &CLIScriptPath,
 &CLIEcho,
 &CLIQuit,
-&CLISet
+&CLISet,
+&CLIConnect
 };
 
 int bind_cli_cmd_line_cmds(void)

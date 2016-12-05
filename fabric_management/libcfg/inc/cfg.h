@@ -67,7 +67,7 @@ extern "C" {
 
 struct dev_id {
         uint32_t devid;
-        uint32_t hc;
+        hc_t hc;
         uint32_t valid;
 };
 
@@ -110,7 +110,7 @@ struct cfg_dev {
 	int port_cnt; /* Number of ports on device */
 	uint32_t did_sz; /* CFG_DEVID_MAX if all are supported */
 	uint32_t did; /* Device ID used to access the device */
-	uint32_t hc; /* Hopcount used to access the device */
+	hc_t hc; /* Hopcount used to access the device */
 	ct_t ct; /* Component tag value */
 	uint32_t is_sw; /* 0 - endpint, 1 - switch */
 	struct cfg_ep_port ep_pt;

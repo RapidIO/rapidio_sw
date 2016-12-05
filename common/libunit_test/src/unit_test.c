@@ -107,6 +107,7 @@ void run_unit_test_cli(char *title_str, char *prompt_str)
 {
 	int rc = EXIT_FAILURE;
 	char prompt[25];
+	struct cli_env t_env;
 
 	if ((NULL == title_str) || (NULL == prompt_str))
 		return;
@@ -118,7 +119,8 @@ void run_unit_test_cli(char *title_str, char *prompt_str)
 
         cli_init_base(unit_test_thread_shutdown);
         bind_unit_test_thread_cli_cmds();
-	splashScreen(title_str);
+	init_cli_env(&t_env);
+	splashScreen(&t_env, title_str);
 
 	snprintf(prompt, 24, "%10s >", prompt_str);
 

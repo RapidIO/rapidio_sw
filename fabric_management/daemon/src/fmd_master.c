@@ -62,6 +62,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <rapidio_mport_sock.h>
 
 #include "string_util.h"
+#include "rio_ecosystem.h"
 #include "libcli.h"
 #include "fmd.h"
 #include "cfg.h"
@@ -121,7 +122,7 @@ void send_add_dev_msg(struct fmd_peer *peer, struct fmd_dd_dev_info *dev)
 	peer->m2s->mod_rq.op = htonl(FMD_P_OP_ADD);
 	peer->m2s->mod_rq.did = htonl(dev->destID);
 	peer->m2s->mod_rq.did_sz = htonl(dev->destID_sz);
-	peer->m2s->mod_rq.hc = htonl(0xff);
+	peer->m2s->mod_rq.hc = htonl(HC_MP);
 	peer->m2s->mod_rq.ct = htonl(dev->ct);
 	peer->m2s->mod_rq.is_mp = 0;
 
@@ -294,7 +295,7 @@ void master_process_hello_peer(struct fmd_peer *peer)
 		peer->m2s->hello_rsp.ct = htonl(peer_pe->comptag);
 		peer->m2s->hello_rsp.hc = htonl(0);
 		add_to_list = 1;
-		peer->p_hc = 0xFF;
+		peer->p_hc = HC_MP;
 	};
 	peer->tx_buff_used = 1;
 	peer->tx_rc = riomp_sock_send(peer->cm_skt_h, peer->tx_buff,

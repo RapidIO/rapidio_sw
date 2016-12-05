@@ -14,10 +14,10 @@
 extern "C" {
 #endif
 
-int riocp_pe_lock_read(struct riocp_pe *pe, uint32_t destid, uint8_t hopcount, uint32_t *lock);
-int riocp_pe_lock_write(struct riocp_pe *pe, uint32_t destid, uint8_t hopcount, uint32_t lock);
-int riocp_pe_lock_set(struct riocp_pe *mport, uint32_t destid, uint8_t hopcount);
-int riocp_pe_lock_clear(struct riocp_pe *mport, uint32_t destid, uint8_t hopcount);
+int riocp_pe_lock_read(struct riocp_pe *pe, uint32_t destid, hc_t hopcount, uint32_t *lock);
+int riocp_pe_lock_write(struct riocp_pe *pe, uint32_t destid, hc_t hopcount, uint32_t lock);
+int riocp_pe_lock_set(struct riocp_pe *mport, uint32_t destid, hc_t hopcount);
+int riocp_pe_lock_clear(struct riocp_pe *mport, uint32_t destid, hc_t hopcount);
 
 #ifdef __cplusplus
 }

@@ -38,13 +38,14 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <string.h>
 #include <stdlib.h>
 
-//#include "riocp_pe_internal.h"
+#include "rio_ecosystem.h"
 #include "fmd.h"
 #include "fmd_dev_rw_cli.h"
 #include "liblog.h"
 #include "libcli.h"
 #include "riocp_pe_internal.h"
 #include "pe_mpdrv_private.h"
+#include "string_util.h"
 
 #include "rio_standard.h"
 #include "IDT_RXS2448.h"
@@ -55,6 +56,39 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+void set_prompt(struct cli_env *e)
+{
+	riocp_pe_handle pe_h;
+	ct_t comptag = 0;
+	const char *name = NULL;
+	uint16_t pe_did = 0;
+	struct cfg_dev cfg_dev;
+
+	if (NULL == e) {
+		return;
+	}
+
+	if (NULL == e->h) {
+		SAFE_STRNCPY(e->prompt, "HUNINIT> ", sizeof(e->prompt));
+		return;
+	}
+
+	pe_h = (riocp_pe_handle)(e->h);
+
+	if (riocp_pe_get_comptag(pe_h, &comptag)) {
+		comptag = 0xFFFFFFFF;
+	}
+	pe_did = comptag & 0x0000FFFF;
+
+	if (cfg_find_dev_by_ct(comptag, &cfg_dev)) {
+		name = riocp_pe_handle_get_device_str(pe_h);
+	} else {
+		name = (char *)cfg_dev.name;
+	}
+
+	snprintf(e->prompt, PROMPTLEN,  "%s.%03x >", name, pe_did);
+}
 
 // Globals used by repeatable commands
 static uint32_t store_address;
@@ -67,33 +101,31 @@ static uint32_t mstore_numbytes;
 static uint32_t mstore_numacc;
 static uint32_t mstore_data;
 static uint32_t mstore_did;
-static uint32_t mstore_hc;
+static hc_t mstore_hc;
 
 static idt_sc_read_ctrs_in_t  sc_in;
 static idt_sc_read_ctrs_in_t  empty_sc_in;
 
 void aligningAddress(struct cli_env *env, uint32_t address)
 {
-	sprintf(env->output,
-		"\nNote: Converting address 0x%08x to multiple of %d bytes\n",
-		address, 4);
-	logMsg(env);
-};
+	LOGMSG(env,
+			"\nNote: Converting address 0x%08x to multiple of %d bytes\n",
+			address, 4);
+}
 
 void failedReading(struct cli_env *env, uint32_t address, uint32_t rc)
 {
-	sprintf(env->output,
-		"\nFAILED reading, Address 0x%08x, rc 0x%08x\n", address, rc);
-	logMsg(env);
-};
+	LOGMSG(env, "\nFAILED reading, Address 0x%08x, rc 0x%08x\n", address,
+			rc);
+}
 
-void failedWrite(struct cli_env *env, uint32_t address, uint32_t data, uint32_t rc)
+void failedWrite(struct cli_env *env, uint32_t address, uint32_t data,
+		uint32_t rc)
 {
-	sprintf(env->output,
-		"\nFAILED writing, Address 0x%08x, Data 0x%08x, rc = 0x%08x\n",
-	address, data, rc);
-	logMsg(env);
-};
+	LOGMSG(env,
+			"\nFAILED writing, Address 0x%08x, Data 0x%08x, rc = 0x%08x\n",
+			address, data, rc);
+}
 
 int mport_read(riocp_pe_handle pe_h, uint32_t offset, uint32_t *data)
 {
@@ -125,22 +157,20 @@ int CLIDevSelCmd(struct cli_env *env, int argc, char **argv)
 
 	rc = riocp_mport_get_pe_list(mport_pe, &pes_count, &pes);
 	if (rc) {
-		sprintf(env->output, "\nCould not get PE list\n");
-		logMsg(env);
+		LOGMSG(env, "\nCould not get PE list\n");
 		goto exit;
 	}
 
 	if (argc) {
 		// selecting a device - set the prompt
 		for (i = 0; i < pes_count; i++) {
-			if (!strcmp(pes[i]->sysfs_name, argv[0]) &&
-				(strlen(pes[i]->sysfs_name) == strlen(argv[0]))) {
+			if (!strcmp(pes[i]->sysfs_name, argv[0])
+					&& (strlen(pes[i]->sysfs_name)
+							== strlen(argv[0]))) {
 				env->h = pes[i];
 				set_prompt(env);
-				sprintf(env->output, 
-					"\nFound device named \"%s\"\n",
-					argv[0]);
-				logMsg(env);
+				LOGMSG(env, "\nFound device named \"%s\"\n",
+						argv[0]);
 				goto exit;
 			};
 		};
@@ -150,19 +180,15 @@ int CLIDevSelCmd(struct cli_env *env, int argc, char **argv)
 		for (i = 0; i < pes_count; i++) {
 			rc = riocp_pe_get_comptag(pes[i], &pe_ct);
 			if (rc) {
-				sprintf(env->output,
-					"\nFailed reading CT: %d\n", rc);
-				logMsg(env);
+				LOGMSG(env, "\nFailed reading CT: %d\n", rc);
 				goto exit;
 			}
 			if (comptag == pe_ct) {
 				sc_in = empty_sc_in;
 				env->h = pes[i];
 				set_prompt(env);
-				sprintf(env->output, 
-					"\nFound device for CT 0x%08x\n",
-					pe_ct);
-				logMsg(env);
+				LOGMSG(env, "\nFound device for CT 0x%08x\n",
+						pe_ct);
 				goto exit;
 			};
 		};
@@ -171,37 +197,32 @@ int CLIDevSelCmd(struct cli_env *env, int argc, char **argv)
 	if (NULL != env->h) {
 		rc = riocp_pe_get_comptag((riocp_pe_handle)env->h, &comptag);
 		if (rc) {
-			sprintf(env->output, "\nFailed reading CT: %d\n", rc);
-			logMsg(env);
+			LOGMSG(env, "\nFailed reading CT: %d\n", rc);
 			goto exit;
 		}
 	}
 
 	if (!pes_count) {
-		sprintf(env->output, "\nNo PEs discovered!\n");
-		logMsg(env);
+		LOGMSG(env, "\nNo PEs discovered!\n");
 		goto exit;
 	}
 	
-	sprintf(env->output,
-	"\n  CompTag -->Sysfs Name<-- ----------->> Vendor <<-------------------  Device\n");
-	logMsg(env);
+	LOGMSG(env,
+			"\n  CompTag -->Sysfs Name<-- ----------->> Vendor <<-------------------  Device\n");
 	for (i = 0; i < pes_count; i++) {
 		pe_ct = pes[i]->comptag;
 		sysfs_name = riocp_pe_get_sysfs_name(pes[i]);
 		dev_name = riocp_pe_get_device_name(pes[i]);
 		vend_name = riocp_pe_get_vendor_name(pes[i]);
 
-		sprintf(env->output, "%s%08x %16s %42s %10s\n",
-			(pe_ct == comptag)?"*":" ",
-			pe_ct, sysfs_name, vend_name, dev_name);
-		logMsg(env);
+		LOGMSG(env, "%s%08x %16s %42s %10s\n",
+				(pe_ct == comptag) ? "*" : " ", pe_ct,
+				sysfs_name, vend_name, dev_name);
 	}
 exit:
 	rc = riocp_mport_free_pe_list(&pes);
 	if (rc) {
-		sprintf(env->output, "\nFailed freeing PE list %d\n", rc);
-		logMsg(env);
+		LOGMSG(env, "\nFailed freeing PE list %d\n", rc);
 	}
 	return 0;
 }
@@ -231,11 +252,10 @@ int CLIRegReadCmd(struct cli_env *env, int argc, char **argv)
 	uint32_t data, prevRead;
 	uint32_t numReads = 1, i;
 	int rc;
-        riocp_pe_handle pe_h = (riocp_pe_handle)(env->h);
+	riocp_pe_handle pe_h = (riocp_pe_handle)(env->h);
 
 	if (NULL == pe_h) {
-		sprintf(env->output, "\nNo Device Selected...\n");
-		logMsg(env);
+		LOGMSG(env, "\nNo Device Selected...\n");
 		goto exit;
 	};
 
@@ -263,14 +283,10 @@ int CLIRegReadCmd(struct cli_env *env, int argc, char **argv)
 			goto exit;
 		}
 		if (!i) {
-			sprintf(env->output, "\t0x%08x\t0x%08x\n",
-				address, data);
-			logMsg(env);
+			LOGMSG(env, "\t0x%08x\t0x%08x\n", address, data);
 		} else if (data != prevRead) {
-			sprintf(env->output,
-				"\t0x%08x\t0x%08x (iteration 0x%x)*\n",
-				address, data, i);
-			logMsg(env);
+			LOGMSG(env, "\t0x%08x\t0x%08x (iteration 0x%x)*\n",
+					address, data, i);
 		}
 		prevRead = data;
 	}
@@ -305,8 +321,7 @@ int CLIRegWriteCmd(struct cli_env *env, int argc, char **argv)
         riocp_pe_handle pe_h = (riocp_pe_handle)(env->h);
 
 	if (NULL == pe_h) {
-		sprintf(env->output, "\nNo Device Selected...\n");
-		logMsg(env);
+		LOGMSG(env, "\nNo Device Selected...\n");
 		goto exit;
 	};
 
@@ -338,8 +353,7 @@ int CLIRegWriteCmd(struct cli_env *env, int argc, char **argv)
 		failedReading(env, address, rc);
 		goto exit;
 	} else {
-		sprintf(env->output, "\nRead back %08x\n", data);
-		logMsg(env);
+		LOGMSG(env, "\nRead back %08x\n", data);
 	}
 
 exit:
@@ -373,8 +387,7 @@ int CLIRegReWriteCmd(struct cli_env *env, int argc, char **argv)
         riocp_pe_handle pe_h = (riocp_pe_handle)(env->h);
 
 	if (NULL == pe_h) {
-		sprintf(env->output, "\nNo Device Selected...\n");
-		logMsg(env);
+		LOGMSG(env, "\nNo Device Selected...\n");
 		goto exit;
 	};
 
@@ -409,8 +422,7 @@ int CLIRegReWriteCmd(struct cli_env *env, int argc, char **argv)
 		failedReading(env, address, rc);
 		goto exit;
 	} else {
-		sprintf(env->output, "\nRead back 0x%08x\n", data);
-		logMsg(env);
+		LOGMSG(env, "\nRead back 0x%08x\n", data);
 	}
 exit:
 	return errorStat;
@@ -441,11 +453,10 @@ int CLIRegWriteNoReadbackCmd(struct cli_env *env, int argc, char **argv)
 	uint32_t address;
 	uint32_t data;
 	uint32_t rc;
-        riocp_pe_handle pe_h = (riocp_pe_handle)(env->h);
+	riocp_pe_handle pe_h = (riocp_pe_handle)(env->h);
 
 	if (NULL == pe_h) {
-		sprintf(env->output, "\nNo Device Selected...\n");
-		logMsg(env);
+		LOGMSG(env, "\nNo Device Selected...\n");
 		goto exit;
 	};
 
@@ -471,8 +482,7 @@ int CLIRegWriteNoReadbackCmd(struct cli_env *env, int argc, char **argv)
 		failedWrite(env, address, data, rc);
 		goto exit;
 	} else {
-		sprintf(env->output, "\nWrite successful\n");
-		logMsg(env);
+		LOGMSG(env, "\nWrite successful\n");
 	}
 exit:
 	return errorStat;
@@ -497,11 +507,10 @@ int expect(struct cli_env *env, int argc, char **argv, int inverse)
 	uint32_t address;
 	uint32_t data, expdata;
 	uint32_t rc;
-        riocp_pe_handle pe_h = (riocp_pe_handle)(env->h);
+	riocp_pe_handle pe_h = (riocp_pe_handle)(env->h);
 
 	if (NULL == pe_h) {
-		sprintf(env->output, "\nNo Device Selected...\n");
-		logMsg(env);
+		LOGMSG(env, "\nNo Device Selected...\n");
 		goto exit;
 	};
 
@@ -526,17 +535,16 @@ int expect(struct cli_env *env, int argc, char **argv, int inverse)
 		goto exit;
 	};
 
-	if (((data == expdata) && (!inverse)) ||
-	    ((data != expdata) &&  (inverse))) {
-		sprintf(env->output,
-		"\nPASSED: Address: 0x%08x Data 0x%08x ExpData 0x%08x\n",
-		address, data, expdata);
+	if (((data == expdata) && (!inverse))
+			|| ((data != expdata) && (inverse))) {
+		LOGMSG(env,
+				"\nPASSED: Address: 0x%08x Data 0x%08x ExpData 0x%08x\n",
+				address, data, expdata);
 	} else {
-		sprintf(env->output,
-		"\nFAILED: Address: 0x%08x Data 0x%08x ExpData 0x%08x\n",
-		address, data, expdata);
+		LOGMSG(env,
+				"\nFAILED: Address: 0x%08x Data 0x%08x ExpData 0x%08x\n",
+				address, data, expdata);
 	}
-	logMsg(env);
 exit:
 	return errorStat;
 }
@@ -600,11 +608,10 @@ int CLIRegDumpCmd(struct cli_env *env, int argc, char **argv)
 	uint32_t i;
 	uint32_t rc;
 	static uint32_t store_address, store_numbytes;
-        riocp_pe_handle pe_h = (riocp_pe_handle)(env->h);
+	riocp_pe_handle pe_h = (riocp_pe_handle)(env->h);
 
 	if (NULL == pe_h) {
-		sprintf(env->output, "\nNo Device Selected...\n");
-		logMsg(env);
+		LOGMSG(env, "\nNo Device Selected...\n");
 		goto exit;
 	};
 
@@ -630,13 +637,10 @@ int CLIRegDumpCmd(struct cli_env *env, int argc, char **argv)
 	 */
 
 
-	sprintf(env->output, "\nAddress  00____03 04____07 08____0B 0C____0F");
-	logMsg(env);
-	sprintf(env->output, "\n%8x", address & 0xFFFFFFF0);
-	logMsg(env);
+	LOGMSG(env, "\nAddress  00____03 04____07 08____0B 0C____0F");
+	LOGMSG(env, "\n%8x", address & 0xFFFFFFF0);
 	for (i = 0; i < (address & 0xF); i += 4) {
-		sprintf(env->output, "         ");
-		logMsg(env);
+		LOGMSG(env, "         ");
 	};
 	for (i = 0; i < numbytes; i += 4) {
 		rc = mport_read(pe_h, address + i, &data);
@@ -644,17 +648,12 @@ int CLIRegDumpCmd(struct cli_env *env, int argc, char **argv)
 			failedReading(env, address, rc);
 			goto exit;
 		}
-		sprintf(env->output, " %08x", data);
-		logMsg(env);
-		if ((0xC == ((address + i) & 0xF)) &&
-			((i + 4) < numbytes)) {
-			sprintf(env->output, "\n%8x",
-				(address+i+4) & 0xFFFFFFF0);
-			logMsg(env);
+		LOGMSG(env, " %08x", data);
+		if ((0xC == ((address + i) & 0xF)) && ((i + 4) < numbytes)) {
+			LOGMSG(env, "\n%8x", (address + i + 4) & 0xFFFFFFF0);
 		};
 	};
-	sprintf(env->output, "\n");
-	logMsg(env);
+	LOGMSG(env, "\n");
 
 	/* store data for continuous dump command */
 	store_address = address + numbytes;
@@ -684,26 +683,32 @@ int CLIMRegReadCmd(struct cli_env *env, int argc, char **argv)
 	uint32_t data, prevRead;
 	uint32_t numReads = 1, i;
 	uint32_t did;
-	uint32_t hc;
+	uint32_t tmp;
+	hc_t hc;
 	int rc;
 
 	if (argc) {
 		address = getHex(argv[0], 0);
 		if(argc > 2) {
-			did = getHex(argv[1], 0);
-			hc = getHex(argv[2], 0);
+			did = (uint32_t)getHex(argv[1], 0);
+			tmp = (uint32_t)getHex(argv[2], 0);
+			if (tmp > HC_MP) {
+				goto exit;
+			}
+			hc = tmp;
 		} else {
 			did = mstore_did;
 			hc = mstore_hc;
 		};
 		
 		if(argc > 3)
-			numReads = getHex(argv[3], 1);
+			numReads = (uint32_t)getHex(argv[3], 1);
 
 		if ((address % 4) != 0) {
 			aligningAddress(env, address);
 			address = address - (address % 4);
 		}
+
 		mstore_address = address;
 		mstore_numacc = numReads;
 		mstore_did = did;
@@ -724,14 +729,10 @@ int CLIMRegReadCmd(struct cli_env *env, int argc, char **argv)
 			goto exit;
 		}
 		if (!i) {
-			sprintf(env->output, "\t0x%08x\t0x%08x\n",
-				address, data);
-			logMsg(env);
+			LOGMSG(env, "\t0x%08x\t0x%08x\n", address, data);
 		} else if (data != prevRead) {
-			sprintf(env->output,
-				"\t0x%08x\t0x%08x (iteration 0x%x)*\n",
-				address, data, i);
-			logMsg(env);
+			LOGMSG(env, "\t0x%08x\t0x%08x (iteration 0x%x)*\n",
+					address, data, i);
 		}
 		prevRead = data;
 	}
@@ -757,30 +758,39 @@ ATTR_RPT
 };
 
 int CLIMRegWriteCmd(struct cli_env *env, int argc, char **argv)
-
 {
 	int errorStat = 0;
 	uint32_t address;
 	uint32_t did;
-	uint32_t hc;
+	hc_t hc;
+	uint32_t tmp;
 	uint32_t data;
 	uint32_t rc;
 
 	if (argc) {
-		address = getHex(argv[0], 0);
-		data    = getHex(argv[1], 0);
+		address = (uint32_t)getHex(argv[0], 0);
+		data    = (uint32_t)getHex(argv[1], 0);
+
 		if (argc > 3) {
-			did = getHex(argv[2], 0);
-			hc = getHex(argv[3], 0);
+			did = (uint32_t)getHex(argv[2], 0);
+			tmp = (uint32_t)getHex(argv[3], 0);
+			if (tmp > HC_MP) {
+				goto exit;
+			}
+			hc = tmp;
+
+
 		} else {
 			did = mstore_did;
 			hc = mstore_hc;
-		};
+		}
+
 		if ((address % 4) != 0) {
 			/*ensure that the address is a multiple of n bytes*/
 			aligningAddress(env, address);
 			address = address - (address % 4);
-		};
+		}
+
 		mstore_address = address;
 		mstore_data    = data;
 		mstore_did     = did;
@@ -810,8 +820,7 @@ int CLIMRegWriteCmd(struct cli_env *env, int argc, char **argv)
 		failedReading(env, address, rc);
 		goto exit;
 	} else {
-		sprintf(env->output, "\nRead back %08x\n", data);
-		logMsg(env);
+		LOGMSG(env, "\nRead back %08x\n", data);
 	}
 
 exit:
@@ -1453,7 +1462,7 @@ void fmd_bind_dev_rw_cmds(void)
 
 	mstore_address = 0;
 	mstore_did = 0;
-	mstore_hc = 0xFF;
+	mstore_hc = HC_MP;
 	mstore_numbytes = 4;
 	mstore_numacc = 1;
 	mstore_data = 0;

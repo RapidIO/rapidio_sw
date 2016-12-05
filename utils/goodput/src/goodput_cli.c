@@ -97,21 +97,17 @@ int check_idx(struct cli_env *env, int idx, int want_halted)
 	int rc = 1;
 
 	if ((idx < 0) || (idx >= MAX_WORKERS)) {
-		sprintf(env->output, "\nIndex must be 0 to %d...\n",
-								MAX_WORKERS);
-        	logMsg(env);
+		LOGMSG(env, "\nIndex must be 0 to %d...\n", MAX_WORKERS);
 		goto exit;
 	};
 
 	if (want_halted && (2 != wkr[idx].stat)) {
-		sprintf(env->output, "\nWorker not halted...\n");
-        	logMsg(env);
+		LOGMSG(env, "\nWorker not halted...\n");
 		goto exit;
 	};
 
 	if (!want_halted && (2 == wkr[idx].stat)) {
-		sprintf(env->output, "\nWorker halted...\n");
-        	logMsg(env);
+		LOGMSG(env, "\nWorker halted...\n");
 		goto exit;
 	};
 	rc = 0;
@@ -127,10 +123,8 @@ int get_cpu(struct cli_env *env, char *dec_parm, int *cpu)
 
 	const int MAX_GOODPUT_CPU = getCPUCount() - 1;
 
-	if ((*cpu  < -1) || (*cpu > MAX_GOODPUT_CPU)) {
-		sprintf(env->output, "\nCPU must be 0 to %d...\n",
-			MAX_GOODPUT_CPU);
-        	logMsg(env);
+	if ((*cpu < -1) || (*cpu > MAX_GOODPUT_CPU)) {
+		LOGMSG(env, "\nCPU must be 0 to %d...\n", MAX_GOODPUT_CPU);
 		goto exit;
 	};
 
@@ -153,15 +147,12 @@ int ThreadCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 	new_dma = getDecParm(argv[2], 0);
 
 	if ((idx < 0) || (idx >= MAX_WORKERS)) {
-		sprintf(env->output, "\nIndex must be 0 to %d...\n",
-								MAX_WORKERS);
-        	logMsg(env);
+		LOGMSG(env, "\nIndex must be 0 to %d...\n", MAX_WORKERS);
 		goto exit;
 	};
 
 	if (wkr[idx].stat) {
-		sprintf(env->output, "\nWorker %d already running...\n", idx);
-        	logMsg(env);
+		LOGMSG(env, "\nWorker %d already running...\n", idx);
 		goto exit;
 	};
 
@@ -196,9 +187,7 @@ int KillCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 		end_idx = st_idx;
 
 		if ((st_idx < 0) || (st_idx >= MAX_WORKERS)) {
-			sprintf(env->output, "\nIndex must be 0 to %d...\n",
-								MAX_WORKERS);
-        		logMsg(env);
+			LOGMSG(env, "\nIndex must be 0 to %d...\n", MAX_WORKERS);
 			goto exit;
 		};
 	};
@@ -230,9 +219,7 @@ int HaltCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 		end_idx = st_idx;
 
 		if (st_idx >= MAX_WORKERS) {
-			sprintf(env->output, "\nIndex must be 0 to %d...\n",
-								MAX_WORKERS);
-        		logMsg(env);
+			LOGMSG(env, "\nIndex must be 0 to %d...\n", MAX_WORKERS);
 			goto exit;
 		};
 	};
@@ -269,9 +256,7 @@ int MoveCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 		goto exit;
 
 	if ((idx < 0) || (idx >= MAX_WORKERS)) {
-		sprintf(env->output, "\nIndex must be 0 to %d...\n",
-								MAX_WORKERS);
-        	logMsg(env);
+		LOGMSG(env, "\nIndex must be 0 to %d...\n", MAX_WORKERS);
 		goto exit;
 	};
 
@@ -318,32 +303,28 @@ int WaitCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 	};
 
 	if ((idx < 0) || (idx >= MAX_WORKERS)) {
-		sprintf(env->output, "\nIndex must be 0 to %d...\n",
-								MAX_WORKERS);
-        	logMsg(env);
+		LOGMSG(env, "\nIndex must be 0 to %d...\n", MAX_WORKERS);
 		goto exit;
-	};
+	}
 
 	if ((state < 0) || (state > 2)) {
-		sprintf(env->output,
-			"\nState must be 0|d|D, 1|r|R , or 2|h|H\n");
-        	logMsg(env);
+		LOGMSG(env, "\nState must be 0|d|D, 1|r|R , or 2|h|H\n");
 		goto exit;
-	};
+	}
 
 	while ((wkr[idx].stat != state) && limit--)
-        	nanosleep(&ten_usec, NULL);
+		nanosleep(&ten_usec, NULL);
 
-	if (wkr[idx].stat == state)
-		sprintf(env->output, "\nPassed, Worker %d is now %s\n",
-			idx, THREAD_STR(wkr[idx].stat));
-	else
-		sprintf(env->output, "\nFAILED, Worker %d is now %s\n",
-			idx, THREAD_STR(wkr[idx].stat));
-        logMsg(env);
+	if (wkr[idx].stat == state) {
+		LOGMSG(env, "\nPassed, Worker %d is now %s\n", idx,
+				THREAD_STR(wkr[idx].stat));
+	} else {
+		LOGMSG(env, "\nFAILED, Worker %d is now %s\n", idx,
+				THREAD_STR(wkr[idx].stat));
+	}
 
 exit:
-        return 0;
+	return 0;
 };
 
 struct cli_cmd Wait = {
@@ -362,8 +343,7 @@ int SleepCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 {
 	float sec = GetFloatParm(argv[0], 0);
 	if(sec > 0) {
-		sprintf(env->output, "\nSleeping %f sec...\n", sec);
-        	logMsg(env);
+		LOGMSG(env, "\nSleeping %f sec...\n", sec);
 		const long usec = sec * 1000000;
 		usleep(usec);
 	}
@@ -399,10 +379,8 @@ int IBAllocCmd(struct cli_env *env, int argc, char **argv)
 		int rc;
 		rc = get_rsvd_phys_mem(argv[3], &ib_phys_addr, &ib_size);
 		if (rc) {
-			sprintf(env->output,
-				"\nNo rerved memory found for keyword %s",
-				argv[3]);
-        		logMsg(env);
+			LOGMSG(env, "\nNo rerved memory found for keyword %s",
+					argv[3]);
 			goto exit;
 		};
 		check = false;
@@ -413,20 +391,17 @@ int IBAllocCmd(struct cli_env *env, int argc, char **argv)
 	if (check_idx(env, idx, 1))
 		goto exit;
 
-	if (check && ((ib_size < FOUR_KB) || (ib_size > 4*SIXTEEN_MB))) {
-		sprintf(env->output, "\nIbwin size range: 0x%x to 0x%x\n",
-			FOUR_KB, 4*SIXTEEN_MB);
-        	logMsg(env);
+	if (check && ((ib_size < FOUR_KB) || (ib_size > 4 * SIXTEEN_MB))) {
+		LOGMSG(env, "\nIbwin size range: 0x%x to 0x%x\n", FOUR_KB,
+				4*SIXTEEN_MB);
 		goto exit;
 	};
 	if ((ib_size - 1) & ib_size) {
-		sprintf(env->output, "\nIbwin size must be a power of 2.\n");
-        	logMsg(env);
+		LOGMSG(env, "\nIbwin size must be a power of 2.\n");
 		goto exit;
 	};
-	if ((ib_rio_addr != RIO_ANY_ADDR) && ((ib_size - 1) & ib_rio_addr)) {
-		sprintf(env->output, "\nIbwin address not aligned with size\n");
-        	logMsg(env);
+	if ((ib_rio_addr != RIO_ANY_ADDR ) && ((ib_size - 1) & ib_rio_addr)) {
+		LOGMSG(env, "\nIbwin address not aligned with size\n");
 		goto exit;
 	};
 
@@ -485,52 +460,47 @@ ATTR_NONE
 
 int IBCheckCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 {
-        int idx = GetDecParm(argv[0], 0);
-        uint64_t ib_size = GetHex(argv[1], 0);
+	int idx = GetDecParm(argv[0], 0);
+	uint64_t ib_size = GetHex(argv[1], 0);
 
-        if (check_idx(env, idx, 1))
-                goto exit;
+	if (check_idx(env, idx, 1))
+		goto exit;
 
-        if ((ib_size < FOUR_KB) || (ib_size > 4*SIXTEEN_MB)) {
-                sprintf(env->output, "\nIbwin size range: 0x%x to 0x%x\n",
-                        FOUR_KB, 4*SIXTEEN_MB);
-                logMsg(env);
-                goto exit;
-        }
-        if ((ib_size - 1) & ib_size) {
-                sprintf(env->output, "\nIbwin size must be a power of 2.\n");
-                logMsg(env);
-                goto exit;
-        }
+	if ((ib_size < FOUR_KB) || (ib_size > 4 * SIXTEEN_MB)) {
+		LOGMSG(env, "\nIbwin size range: 0x%x to 0x%x\n", FOUR_KB,
+				4*SIXTEEN_MB);
+		goto exit;
+	}
+	if ((ib_size - 1) & ib_size) {
+		LOGMSG(env, "\nIbwin size must be a power of 2.\n");
+		goto exit;
+	}
 
-	if (! (wkr[idx].stat == 1 || wkr[idx].stat == 2)) {
-		sprintf(env->output, "\nThread %d not halted or running.\n", idx);
-        	logMsg(env);
+	if (!(wkr[idx].stat == 1 || wkr[idx].stat == 2)) {
+		LOGMSG(env, "\nThread %d not halted or running.\n", idx);
 		goto exit;
 	}
 
 	if (wkr[idx].ib_byte_cnt != ib_size) {
-                sprintf(env->output, "\nIbwin of thread %d of size 0x%lx does not match requested size 0x%lx\n",
-			idx, wkr[idx].ib_byte_cnt, ib_size);
-                logMsg(env);
-                abort();
+		LOGMSG(env,
+				"\nIbwin of thread %d of size 0x%lx does not match requested size 0x%lx\n",
+				idx, wkr[idx].ib_byte_cnt, ib_size);
+		abort();
 	}
 	if (!wkr[idx].ib_valid) {
-                sprintf(env->output, "\nIbwin of thread %d is NOT valid.\n", idx);
-                logMsg(env);
-                abort();
+		LOGMSG(env, "\nIbwin of thread %d is NOT valid.\n", idx);
+		abort();
 	}
 	if (wkr[idx].ib_ptr == NULL) {
-                sprintf(env->output, "\nIbwin of thread %d has NULL ib_ptr.\n", idx);
-                logMsg(env);
-                abort();
+		LOGMSG(env, "\nIbwin of thread %d has NULL ib_ptr.\n", idx);
+		abort();
 	}
 
 	wkr[idx].action = no_action;
 	sem_post(&wkr[idx].run);
 
 exit:
-        return 0;
+	return 0;
 };
 
 struct cli_cmd IBCheck = {
@@ -715,17 +685,16 @@ int CPUOccSetCmd(struct cli_env *env, int UNUSED(argc), char **UNUSED(argv))
 
 	if (cpu_occ_set(&old_tot_jifis, &old_proc_kern_jifis,
 			&old_proc_user_jifis)) {
-		sprintf(env->output, "\nFAILED: Could not get proc info \n");
-        	logMsg(env);
+		LOGMSG(env, "\nFAILED: Could not get proc info \n");
 		goto exit;
-	};
-	sprintf(env->output, "\nSet CPU Occ measurement start point\n");
-        logMsg(env);
+	}
+	LOGMSG(env, "\nSet CPU Occ measurement start point\n");
 
 	cpu_occ_valid = 1;
+
 exit:
-        return 0;
-};
+	return 0;
+}
 
 struct cli_cmd CPUOccSet = {
 "oset",
@@ -749,36 +718,30 @@ int CPUOccDisplayCmd(struct cli_env *env, int UNUSED(argc), char **UNUSED(argv))
 		cpus = 1;
 
 	if (!cpu_occ_valid) {
-		sprintf(env->output,
-			"\nFAILED: CPU OCC measurement start not set\n");
-        	logMsg(env);
+		LOGMSG(env, "\nFAILED: CPU OCC measurement start not set\n");
 		goto exit;
 	};
 
 	if (cpu_occ_set(&new_tot_jifis, &new_proc_kern_jifis,
 			&new_proc_user_jifis)) {
-		sprintf(env->output, "\nFAILED: Could not get proc info \n");
-        	logMsg(env);
+		LOGMSG(env, "\nFAILED: Could not get proc info \n");
 		goto exit;
 	};
 
-
-	cpu_occ_pct = (((float)(new_proc_kern_jifis + new_proc_user_jifis -
-				 old_proc_kern_jifis - old_proc_user_jifis)) /
-		((float)(new_tot_jifis - old_tot_jifis))) * 100.0 * cpus;
+	cpu_occ_pct = (((float)(new_proc_kern_jifis + new_proc_user_jifis
+			- old_proc_kern_jifis - old_proc_user_jifis))
+			/ ((float)(new_tot_jifis - old_tot_jifis))) * 100.0
+			* cpus;
 	sprintf(pctg, "%4.2f", cpu_occ_pct);
 
-	sprintf(env->output, "\n-Kernel- ProcUser ProcKern CPU_Occ\n");
-        logMsg(env);
-	sprintf(env->output, "%8ld %8ld %8ld %7s\n",
-		new_tot_jifis - old_tot_jifis,
-		new_proc_user_jifis - old_proc_user_jifis,
-		new_proc_kern_jifis - old_proc_kern_jifis,
-		pctg);
-        logMsg(env);
+	LOGMSG(env, "\n-Kernel- ProcUser ProcKern CPU_Occ\n");
+	LOGMSG(env, "%8ld %8ld %8ld %7s\n", new_tot_jifis - old_tot_jifis,
+			new_proc_user_jifis - old_proc_user_jifis,
+			new_proc_kern_jifis - old_proc_kern_jifis, pctg);
+
 exit:
-        return 0;
-};
+	return 0;
+}
 
 struct cli_cmd CPUOccDisplay = {
 "odisp",
@@ -818,9 +781,7 @@ int obdio_cmd(struct cli_env *env, int UNUSED(argc), char **argv, enum req_type 
 		
 	if (direct_io_tx_lat == action) {
 		if (!wkr[idx].ib_valid || (NULL == wkr[idx].ib_ptr)) {
-			sprintf(env->output,
-				"\nNo mapped inbound window present\n");
-        		logMsg(env);
+			LOGMSG(env, "\nNo mapped inbound window present\n");
 			goto exit;
 		};
 	};
@@ -1087,8 +1048,7 @@ int dmaTxLatCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 		goto exit;
 
 	if (wr && (!wkr[idx].ib_valid || (NULL == wkr[idx].ib_ptr))) {
-		sprintf(env->output, "\nNo mapped inbound window present\n");
-        	logMsg(env);
+		LOGMSG(env, "\nNo mapped inbound window present\n");
 		goto exit;
 	};
 
@@ -1153,8 +1113,7 @@ int dmaRxLatCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 		goto exit;
 
 	if (!rio_addr || !bytes) {
-		sprintf(env->output, "\nrio_addr and bytes cannot be 0.\n");
-        	logMsg(env);
+		LOGMSG(env, "\nrio_addr and bytes cannot be 0.\n");
 		goto exit;
 	};
 
@@ -1222,8 +1181,7 @@ int msg_tx_cmd(struct cli_env *env, int UNUSED(argc), char **argv, enum req_type
 		goto exit;
 
 	if (!sock_num) {
-		sprintf(env->output, "\nSock_num must not be 0.\n");
-        	logMsg(env);
+		LOGMSG(env, "\nSock_num must not be 0.\n");
 		goto exit;
 	};
 
@@ -1301,8 +1259,7 @@ int msgRxCmdExt(struct cli_env *env, int UNUSED(argc), char **argv, req_type act
 		goto exit;
 
 	if (!sock_num) {
-		sprintf(env->output, "\nSock_num must not be 0.\n");
-		logMsg(env);
+		LOGMSG(env, "\nSock_num must not be 0.\n");
 		goto exit;
 	};
 
@@ -1353,8 +1310,7 @@ int msgRxCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 		goto exit;
 
 	if (!sock_num) {
-		sprintf(env->output, "\nSock_num must not be 0.\n");
-		logMsg(env);
+		LOGMSG(env, "\nSock_num must not be 0.\n");
 		goto exit;
 	};
 
@@ -1440,11 +1396,10 @@ int GoodputCmd(struct cli_env *env, int argc, char **UNUSED(argv))
 
 #ifdef USER_MODE_DRIVER
 #if 0
-	sprintf(env->output,
-        "\ncsv,Worker#,STS size,DMA Write Size (hex),Ticks/Packet,uS/Pkt,Total Pkts,Thruput (Mbyte/s)\n");
-        logMsg(env);
+	LOGMSG(env,
+			"\ncsv,Worker#,STS size,DMA Write Size (hex),Ticks/Packet,uS/Pkt,Total Pkts,Thruput (Mbyte/s)\n");
 
-        const int MHz = getCPUMHz();
+	const int MHz = getCPUMHz();
 
 	for (i = 0; i < MAX_WORKERS; i++) {
 		if(wkr[i].tick_count == 0) continue;
@@ -1458,16 +1413,14 @@ int GoodputCmd(struct cli_env *env, int argc, char **UNUSED(argv))
 
 		double thruput = TOTAL_SIZE_MEG / dTtotalSec;
 
-		sprintf(env->output, "csv,%d,0x%x,%x,%lf,%lf,%llu,%lf\n",
-                        i, wkr[i].umd_sts_entries, wkr[i].acc_size,
-			dT, dTus, wkr[i].tick_count, thruput);
-        	logMsg(env);
+		LOGMSG(env, "csv,%d,0x%x,%x,%lf,%lf,%llu,%lf\n",
+				i, wkr[i].umd_sts_entries, wkr[i].acc_size,
+				dT, dTus, wkr[i].tick_count, thruput);
 	}
 #endif
 #endif
-	sprintf(env->output,
-        "\n W STS <<<<--Data-->>>> --MBps-- -Gbps- Messages  Link_Occ\n");
-        logMsg(env);
+	LOGMSG(env,
+			"\n W STS <<<<--Data-->>>> --MBps-- -Gbps- Messages  Link_Occ\n");
 
 	for (i = 0; i < MAX_WORKERS; i++) {
 		struct timespec elapsed;
@@ -1494,10 +1447,9 @@ int GoodputCmd(struct cli_env *env, int argc, char **UNUSED(argv))
 		sprintf(Gbps_str, "%2.3f", Gbps);
 		sprintf(link_occ_str, "%2.3f", link_occ);
 
-		sprintf(env->output, "%2d %3s %16lx %8s %6s %9.0f  %6s\n",
-			i,  THREAD_STR(wkr[i].stat),
-			byte_cnt, MBps_str, Gbps_str, Msgpersec, link_occ_str);
-        	logMsg(env);
+		LOGMSG(env, "%2d %3s %16lx %8s %6s %9.0f  %6s\n", i,
+				THREAD_STR(wkr[i].stat), byte_cnt, MBps_str,
+				Gbps_str, Msgpersec, link_occ_str);
 
 		if (byte_cnt) {
 			tot_byte_cnt += byte_cnt;
@@ -1523,13 +1475,12 @@ int GoodputCmd(struct cli_env *env, int argc, char **UNUSED(argv))
 	sprintf(MBps_str, "%4.3f", tot_MBps);
 	sprintf(Gbps_str, "%2.3f", tot_Gbps);
 	link_occ = tot_Gbps/0.95;
+
 	sprintf(link_occ_str, "%2.3f", link_occ);
+	LOGMSG(env, "Total  %16lx %8s %6s %9.0f  %6s\n", tot_byte_cnt, MBps_str,
+			Gbps_str, tot_Msgpersec, link_occ_str);
 
-	sprintf(env->output, "Total  %16lx %8s %6s %9.0f  %6s\n",
-		tot_byte_cnt, MBps_str, Gbps_str, tot_Msgpersec, link_occ_str);
-        logMsg(env);
-
-        return 0;
+	return 0;
 };
 
 struct cli_cmd Goodput = {
@@ -1554,9 +1505,8 @@ int LatCmd(struct cli_env *env, int argc, char **argv)
 	if (0)
 		argv[0][0] = argc;
 
-	sprintf(env->output,
-        "\n W STS <<<<-Count-->>>> <<<<Min uSec>>>> <<<<Avg uSec>>>> <<<<Max uSec>>>>\n");
-        logMsg(env);
+	LOGMSG(env,
+			"\n W STS <<<<-Count-->>>> <<<<Min uSec>>>> <<<<Avg uSec>>>> <<<<Max uSec>>>>\n");
 
 	for (i = 0; i < MAX_WORKERS; i++) {
 		uint64_t tot_nsec;
@@ -1583,11 +1533,9 @@ int LatCmd(struct cli_env *env, int argc, char **argv)
 		sprintf(max_lat_str, "%4.3f",
 			(float)(wkr[i].max_iter_time.tv_nsec/divisor)/1000.0); 
 
-		sprintf(env->output, "%2d %3s %16ld %16s %16s %16s\n",
-			i,  THREAD_STR(wkr[i].stat),
-			wkr[i].perf_iter_cnt,
-			min_lat_str, avg_lat_str, max_lat_str);
-        	logMsg(env);
+		LOGMSG(env, "%2d %3s %16ld %16s %16s %16s\n", i,
+				THREAD_STR(wkr[i].stat), wkr[i].perf_iter_cnt,
+				min_lat_str, avg_lat_str, max_lat_str);
 	};
 
         return 0;
@@ -1620,8 +1568,7 @@ static inline void display_cpu(struct cli_env *env, int cpu)
 {
 	std::stringstream ss;
 	display_cpu_ss(ss, cpu);
-	sprintf(env->output, "%s", ss.str().c_str());
-	logMsg(env);
+	LOGMSG(env, "%s", ss.str().c_str());
 };
 
 extern "C"
@@ -1653,8 +1600,7 @@ void display_gen_status(struct cli_env *env)
 {
 	std::stringstream ss;
 	display_gen_status_ss(ss);
-	sprintf(env->output, "%s", ss.str().c_str());
-	logMsg(env);
+	LOGMSG(env, "%s", ss.str().c_str());
 };
 
 extern "C"
@@ -1685,24 +1631,21 @@ void display_ibwin_status(struct cli_env *env)
 {
 	std::stringstream ss;
 	display_ibwin_status_ss(ss);
-	sprintf(env->output, "%s", ss.str().c_str());
-	logMsg(env);
+	LOGMSG(env, "%s", ss.str().c_str());
 };
 
 void display_msg_status(struct cli_env *env)
 {
 	int i;
 
-	sprintf(env->output,
+	LOGMSG(env,
 	"\n W STS CPU RUN ACTION  MODE MB ACC CON Msg_Size SockNum TX RX\n");
-	logMsg(env);
 
 	for (i = 0; i < MAX_WORKERS; i++) {
-		sprintf(env->output, "%2d %3s ", i, THREAD_STR(wkr[i].stat));
-		logMsg(env);
+		LOGMSG(env, "%2d %3s ", i, THREAD_STR(wkr[i].stat));
 		display_cpu(env, wkr[i].wkr_thr.cpu_req);
 		display_cpu(env, wkr[i].wkr_thr.cpu_run);
-		sprintf(env->output,
+		LOGMSG(env,
 			"%7s %4s %2d %3d %3d %8d %7d %2d %2d\n",
 			ACTION_STR(wkr[i].action), 
 			MODE_STR(wkr[i].action_mode), 
@@ -1711,7 +1654,6 @@ void display_msg_status(struct cli_env *env)
 			wkr[i].sock_num, (NULL != wkr[i].sock_tx_buf),
 			(NULL != wkr[i].sock_rx_buf)
 		);
-		logMsg(env);
 	};
 };
 
@@ -1736,8 +1678,7 @@ int StatusCmd(struct cli_env *env, int argc, char **argv)
 			display_gen_status(env);
 			break;
 		default:
-			sprintf(env->output, "Unknown option \"%c\"\n", argv[0][0]);
-			logMsg(env);
+			LOGMSG(env, "Unknown option \"%c\"\n", argv[0][0]);
 			return 0;
 	};
 
@@ -1782,21 +1723,17 @@ int DumpCmd(struct cli_env *env, int argc, char **argv)
 	};
 
 	if ((idx < 0) || (idx >= MAX_WORKERS)) {
-		sprintf(env->output, "\nIndex must be 0 to %d...\n",
-							MAX_WORKERS);
-        	logMsg(env);
+		LOGMSG(env, "\nIndex must be 0 to %d...\n", MAX_WORKERS);
 		goto exit;
 	};
 
 	if (!wkr[idx].ib_valid || (NULL == wkr[idx].ib_ptr)) {
-		sprintf(env->output, "\nNo mapped inbound window present\n");
-        	logMsg(env);
+		LOGMSG(env, "\nNo mapped inbound window present\n");
 		goto exit;
 	};
 
 	if ((base_offset + size) > wkr[idx].ib_byte_cnt) {
-		sprintf(env->output, "\nOffset + size exceeds window bytes\n");
-        	logMsg(env);
+		LOGMSG(env, "\nOffset + size exceeds window bytes\n");
 		goto exit;
 	}
 
@@ -1804,21 +1741,17 @@ int DumpCmd(struct cli_env *env, int argc, char **argv)
 	dump_base_offset = base_offset;
 	dump_size = size;
 
-        sprintf(env->output,
+        LOGMSG(env,
                 "  Offset 00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F");
-        logMsg(env);
         for (offset = 0; offset < size; offset++) {
                 if (!(offset & 0xF)) {
-                        sprintf(env->output,"\n%8lx", base_offset + offset);
-                        logMsg(env);
-                };
-                sprintf(env->output, " %2x", 
+                        LOGMSG(env,"\n%8lx", base_offset + offset);
+                }
+                LOGMSG(env, " %2x",
 			*(volatile uint8_t * volatile)(
 			(uint8_t *)wkr[idx].ib_ptr + base_offset + offset));
-                logMsg(env);
         };
-        sprintf(env->output, "\n");
-        logMsg(env);
+        LOGMSG(env, "\n");
 exit:
         return 0;
 };
@@ -1849,21 +1782,17 @@ int FillCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 	data = getHex(argv[3], 0);
 
 	if ((idx < 0) || (idx >= MAX_WORKERS)) {
-		sprintf(env->output, "\nIndex must be 0 to %d...\n",
-							MAX_WORKERS);
-        	logMsg(env);
+		LOGMSG(env, "\nIndex must be 0 to %d...\n", MAX_WORKERS);
 		goto exit;
 	};
 
 	if (!wkr[idx].ib_valid || (NULL == wkr[idx].ib_ptr)) {
-		sprintf(env->output, "\nNo mapped inbound window present\n");
-        	logMsg(env);
+		LOGMSG(env, "\nNo mapped inbound window present\n");
 		goto exit;
 	};
 
 	if ((base_offset + size) > wkr[idx].ib_byte_cnt) {
-		sprintf(env->output, "\nOffset + size exceeds window bytes\n");
-        	logMsg(env);
+		LOGMSG(env, "\nOffset + size exceeds window bytes\n");
 		goto exit;
 	}
 
@@ -1907,68 +1836,57 @@ int MpdevsCmd(struct cli_env *env, int UNUSED(argc), char **UNUSED(argv))
 
         ret = riomp_mgmt_get_mport_list(&mport_list, &number_of_mports);
         if (ret) {
-                sprintf(env->output, "riomp_mgmt_get_mport_list ERR %d:%s\n",
+                LOGMSG(env, "riomp_mgmt_get_mport_list ERR %d:%s\n",
 			ret, strerror(ret));
-        	logMsg(env);
 		goto exit;
         }
 
-        sprintf(env->output, "\nAvailable %d local mport(s):\n",
-			number_of_mports);
-        logMsg(env);
+        LOGMSG(env, "\nAvailable %d local mport(s):\n", number_of_mports);
 
         if (number_of_mports > RIODP_MAX_MPORTS) {
-                sprintf(env->output, 
+                LOGMSG(env,
 			"WARNING: Only %d out of %d have been retrieved\n",
                         RIODP_MAX_MPORTS, number_of_mports);
-        	logMsg(env);
         }
 
         list_ptr = mport_list;
         for (i = 0; i < number_of_mports; i++, list_ptr++) {
                 mport_id = *list_ptr >> 16;
-                sprintf(env->output, "+++ mport_id: %u dest_id: %u\n",
+                LOGMSG(env, "+++ mport_id: %u dest_id: %u\n",
                                 mport_id, *list_ptr & 0xffff);
-        	logMsg(env);
 
                 /* Display EPs for this MPORT */
 
                 ret = riomp_mgmt_get_ep_list(mport_id, &ep_list, &number_of_eps);
                 if (ret) {
-                        sprintf(env->output, 
+                        LOGMSG(env,
 				"ERR: riodp_ep_get_list() ERR %d: %s\n",
 				ret, strerror(ret));
-        		logMsg(env);
                         break;
                 }
 
                 printf("\t%u Endpoints (dest_ID): ", number_of_eps);
                 for (ep = 0; ep < number_of_eps; ep++) {
-                        sprintf(env->output, "%u ", *(ep_list + ep));
-        		logMsg(env);
+                        LOGMSG(env, "%u ", *(ep_list + ep));
 		}
-                sprintf(env->output, "\n");
-        	logMsg(env);
+                LOGMSG(env, "\n");
 
                 ret = riomp_mgmt_free_ep_list(&ep_list);
                 if (ret) {
-                        sprintf(env->output, 
+                        LOGMSG(env,
 				"ERR: riodp_ep_free_list() ERR %d: %s\n",
 				ret, strerror(ret));
-        		logMsg(env);
 		};
 
         }
 
-	sprintf(env->output, "\n");
-        logMsg(env);
+	LOGMSG(env, "\n");
 
         ret = riomp_mgmt_free_mport_list(&mport_list);
         if (ret) {
-                sprintf(env->output,
+                LOGMSG(env,
 			"ERR: riodp_ep_free_list() ERR %d: %s\n",
 			ret, strerror(ret));
-        	logMsg(env);
 	};
 exit:
         return 0;
@@ -2010,8 +1928,7 @@ int UTimeCmd(struct cli_env *env, int argc, char **argv)
 		ts_p = &wkr[idx].meas_ts;
 		break;
 	default:
-                sprintf(env->output, "FAILED: <type> not 'd', 'f' or 'm'.\n");
-        	logMsg(env);
+                LOGMSG(env, "FAILED: <type> not 'd', 'f' or 'm'.\n");
 		goto exit;
 	};
 		
@@ -2025,31 +1942,26 @@ int UTimeCmd(struct cli_env *env, int argc, char **argv)
 			st_i = GetDecParm(argv[3], 0);
 			end_i = GetDecParm(argv[4], 0);
 		} else {
-                	sprintf(env->output,
+                	LOGMSG(env,
 				"\nFAILED: Must enter two idexes\n");
-        		logMsg(env);
 			goto exit;
 		};
 
 		if ((end_i < st_i) || (st_i < 0) || (end_i >= MAX_TIMESTAMPS)) {
-                	sprintf(env->output, "FAILED: Index range 0 to %d.\n",
+                	LOGMSG(env, "FAILED: Index range 0 to %d.\n",
 				MAX_TIMESTAMPS-1);
-        		logMsg(env);
 			goto exit;
 		};
 
 		if (ts_p->ts_idx < MAX_TIMESTAMPS - 1) {
-                	sprintf(env->output,
+                	LOGMSG(env,
 				"\nWARNING: Last valid timestamp is %d\n",
 				ts_p->ts_idx);
-        		logMsg(env);
 		};
 		diff = time_difference(ts_p->ts_val[st_i], ts_p->ts_val[end_i]);
-                sprintf(env->output, "\n---->> Sec<<---- Nsec---MMMuuuNNN\n");
-        	logMsg(env);
-                sprintf(env->output, "%16ld %16ld\n",
+                LOGMSG(env, "\n---->> Sec<<---- Nsec---MMMuuuNNN\n");
+                LOGMSG(env, "%16ld %16ld\n",
 				diff.tv_sec, diff.tv_nsec);
-        	logMsg(env);
 		break;
 
 	case 'p':
@@ -2060,28 +1972,24 @@ int UTimeCmd(struct cli_env *env, int argc, char **argv)
 			end_i = GetDecParm(argv[4], 0);
 
 		if ((end_i < st_i) || (st_i < 0) || (end_i >= MAX_TIMESTAMPS)) {
-                	sprintf(env->output, "FAILED: Index range 0 to %d.\n",
+                	LOGMSG(env, "FAILED: Index range 0 to %d.\n",
 				MAX_TIMESTAMPS-1);
-        		logMsg(env);
 			goto exit;
 		};
 
 		if (ts_p->ts_idx < MAX_TIMESTAMPS - 1) {
-                	sprintf(env->output,
+                	LOGMSG(env,
 				"\nWARNING: Last valid timestamp is %d\n",
 				ts_p->ts_idx);
-        		logMsg(env);
 		};
 
-                sprintf(env->output,
+                LOGMSG(env,
 			"\n Idx ---->> Sec<<---- Nsec---mmmuuunnn Marker\n");
-        	logMsg(env);
 		for (idx = st_i; idx <= end_i; idx++) {
-                	sprintf(env->output, "%4d %16ld %16ld %d\n", idx,
+                	LOGMSG(env, "%4d %16ld %16ld %d\n", idx,
 				ts_p->ts_val[idx].tv_sec, 
 				ts_p->ts_val[idx].tv_nsec,
 				ts_p->ts_mkr[idx]);
-        		logMsg(env);
 		};
 		break;
 			
@@ -2100,39 +2008,31 @@ int UTimeCmd(struct cli_env *env, int argc, char **argv)
 			if ((uint64_t)diff.tv_nsec < lim)
 				continue;
 			if (!got_one) {
-                		sprintf(env->output,
+                		LOGMSG(env,
 				"\n Idx ---->> Sec<<---- Nsec---MMMuuuNNN Marker\n");
-        			logMsg(env);
 				got_one = 1;
 			};
-                	sprintf(env->output, "%4d %16ld %16ld %d -> %d\n", idx,
+                	LOGMSG(env, "%4d %16ld %16ld %d -> %d\n", idx,
 				diff.tv_sec, diff.tv_nsec, 
 				ts_p->ts_mkr[idx], ts_p->ts_mkr[idx+1]);
-        		logMsg(env);
 		};
 
 		if (!got_one) {
-                	sprintf(env->output,
+                	LOGMSG(env,
 				"\nNo delays found bigger than %ld\n", lim);
-        		logMsg(env);
 		};
-                sprintf(env->output,
+                LOGMSG(env,
 			"\n==== ---->> Sec<<---- Nsec---MMMuuuNNN\n");
-        	logMsg(env);
-                sprintf(env->output, "Min: %16ld %16ld\n", 
+                LOGMSG(env, "Min: %16ld %16ld\n",
 				min.tv_sec, min.tv_nsec);
-        	logMsg(env);
 		diff = time_div(tot, end_i - st_i);
-                sprintf(env->output, "Avg: %16ld %16ld\n",
+                LOGMSG(env, "Avg: %16ld %16ld\n",
 				diff.tv_sec, diff.tv_nsec);
-        	logMsg(env);
-                sprintf(env->output, "Max: %16ld %16ld\n",
+                LOGMSG(env, "Max: %16ld %16ld\n",
 				max.tv_sec, max.tv_nsec);
-        	logMsg(env);
 		break;
 	default:
-                sprintf(env->output, "FAILED: <cmd> not 's','p' or 'l'.\n");
-        	logMsg(env);
+                LOGMSG(env, "FAILED: <cmd> not 's','p' or 'l'.\n");
 	};
 exit:
         return 0;
@@ -2181,16 +2081,14 @@ int UCalCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 	hash = GetDecParm(argv[n++], 0);
 	
 	if ((chan < 1) || (chan > 7)) {
-                sprintf(env->output, "Chan %d illegal, must be 1 to 7\n", chan);
-        	logMsg(env);
+                LOGMSG(env, "Chan %d illegal, must be 1 to 7\n", chan);
 		goto exit;
 	};
 
 	if ((map_sz < 32) || (map_sz > 0x800000) || (map_sz & (map_sz-1))) {
-                sprintf(env->output,
+                LOGMSG(env,
 			"Bad Buff %x, must be power of 2, 0x20 to 0x%x\n",
 			map_sz, MAX_UMD_BUF_COUNT);
-        	logMsg(env);
 		goto exit;
 	};
 
@@ -2257,39 +2155,34 @@ int UDMACmd(struct cli_env *env, int UNUSED(argc), char **argv)
 		goto exit;
 
 	if ((chan < 1) || (chan > 7)) {
-                sprintf(env->output, "Chan %d illegal, must be 1 to 7\n", chan);
-        	logMsg(env);
+                LOGMSG(env, "Chan %d illegal, must be 1 to 7\n", chan);
 		goto exit;
 	};
 
 	if ((buff < 32) || (buff > 0x800000) || (buff & (buff-1)) ||
 			(buff > MAX_UMD_BUF_COUNT)) {
-                sprintf(env->output,
+                LOGMSG(env,
 			"Bad Buff %x, must be power of 2, 0x20 to 0x%x\n",
 			buff, MAX_UMD_BUF_COUNT);
-        	logMsg(env);
 		goto exit;
 	};
 
 	if ((sts < 32) || (sts > 0x800000) || (sts & (sts-1))) {
-                sprintf(env->output,
+                LOGMSG(env,
 			"Bad Buff %x, must be power of 2, 0x20 to 0x80000\n",
 			sts);
-        	logMsg(env);
 		goto exit;
 	};
 
 	if (!rio_addr || !acc_sz || !bytes) {
-                sprintf(env->output,
+                LOGMSG(env,
 			"Addr, bytes and acc_size must be non-zero\n");
-        	logMsg(env);
 		goto exit;
 	};
 
 	if ((trans < 0) || (trans > 5)) {
-                sprintf(env->output,
+                LOGMSG(env,
 			"Illegal trans %d, must be between 0 and 5\n", trans);
-        	logMsg(env);
 		goto exit;
 	};
 
@@ -2365,8 +2258,7 @@ int UDMALatTxRxCmd(const char cmd, struct cli_env *env, int UNUSED(argc), char *
 	trans    = GetDecParm(argv[n++], 0);
 
 	if (cmd != 'R' && cmd != 'T') {
-                sprintf(env->output, "Command '%c' illegal, this should never happen\n", cmd);
-        	logMsg(env);
+                LOGMSG(env, "Command '%c' illegal, this should never happen\n", cmd);
 		goto exit;
 	};
 
@@ -2374,50 +2266,43 @@ int UDMALatTxRxCmd(const char cmd, struct cli_env *env, int UNUSED(argc), char *
 		goto exit;
 
 	if ((chan < 1) || (chan > 7)) {
-                sprintf(env->output, "Chan %d illegal, must be 1 to 7\n", chan);
-        	logMsg(env);
+                LOGMSG(env, "Chan %d illegal, must be 1 to 7\n", chan);
 		goto exit;
 	};
 
 	if ((buff < 32) || (buff > 0x800000) || (buff & (buff-1)) ||
 			(buff > MAX_UMD_BUF_COUNT)) {
-                sprintf(env->output,
+                LOGMSG(env,
 			"Bad Buff %x, must be power of 2, 0x20 to 0x%x\n",
 			buff, MAX_UMD_BUF_COUNT);
-        	logMsg(env);
 		goto exit;
 	};
 
 	if ((sts < 32) || (sts > 0x800000) || (sts & (sts-1))) {
-                sprintf(env->output,
+                LOGMSG(env,
 			"Bad Buff %x, must be power of 2, 0x20 to 0x80000\n",
 			sts);
-        	logMsg(env);
 		goto exit;
 	};
 
 	if (!rio_addr || !acc_sz) {
-                sprintf(env->output,
+                LOGMSG(env,
 			"Addr and acc_size must be non-zero\n");
-        	logMsg(env);
 		goto exit;
 	};
 
 	if ((trans < 1) || (trans > 5)) {
-                sprintf(env->output,
+                LOGMSG(env,
 			"Illegal trans %d, must be between 1 and 5 (NREAD=0 disallowed)\n", trans);
-        	logMsg(env);
 		goto exit;
 	};
 
 	if (! wkr[idx].ib_valid) {
-		sprintf(env->output, "IBwin not allocated for this worker thread!\n");
-		logMsg(env);
+		LOGMSG(env, "IBwin not allocated for this worker thread!\n");
 		goto exit;
 	}
 	if (wkr[idx].ib_byte_cnt < acc_sz) {
-		sprintf(env->output, "IBwin too small (0x%" PRIx64 ") must be at least 0x%" PRIx32 "\n", wkr[idx].ib_byte_cnt, acc_sz);
-		logMsg(env);
+		LOGMSG(env, "IBwin too small (0x%" PRIx64 ") must be at least 0x%" PRIx32 "\n", wkr[idx].ib_byte_cnt, acc_sz);
 		goto exit;
 	}
 
@@ -2516,32 +2401,27 @@ int UDMALatNREAD(struct cli_env *env, int UNUSED(argc), char **argv)
 		goto exit;
 
 	if ((chan < 1) || (chan > 7)) {
-                sprintf(env->output, "Chan %d illegal, must be 1 to 7\n", chan);
-        	logMsg(env);
+                LOGMSG(env, "Chan %d illegal, must be 1 to 7\n", chan);
 		goto exit;
 	};
 
 	if ((buff < 32) || (buff > 0x800000) || (buff & (buff-1)) ||
 			(buff > MAX_UMD_BUF_COUNT)) {
-                sprintf(env->output,
+                LOGMSG(env,
 			"Bad Buff %x, must be power of 2, 0x20 to 0x%x\n",
 			buff, MAX_UMD_BUF_COUNT);
-        	logMsg(env);
 		goto exit;
 	};
 
 	if ((sts < 32) || (sts > 0x800000) || (sts & (sts-1))) {
-                sprintf(env->output,
+                LOGMSG(env,
 			"Bad Buff %x, must be power of 2, 0x20 to 0x80000\n",
 			sts);
-        	logMsg(env);
 		goto exit;
 	};
 
 	if (!rio_addr || !acc_sz) {
-                sprintf(env->output,
-			"Addr and acc_size must be non-zero\n");
-        	logMsg(env);
+                LOGMSG(env, "Addr and acc_size must be non-zero\n");
 		goto exit;
 	};
 
@@ -2596,8 +2476,7 @@ int UMDDDDCmd(struct cli_env *env, int argc, char **argv)
 {
 	int idx = argc > 0? GetDecParm(argv[0], 0): 0;
 	if (idx < 0 || idx >= MAX_WORKERS) {
-                sprintf(env->output, "Bad idx %d\n", idx);
-        	logMsg(env);
+		LOGMSG(env, "Bad idx %d\n", idx);
 		goto exit;
 	}
 	UMD_DD(&wkr[idx]);
@@ -2624,8 +2503,7 @@ int UMDTestCmd(struct cli_env *env, int argc, char **argv)
         int did = argc > 1? GetDecParm(argv[1], 666): 666;
 
         if (idx < 0 || idx >= MAX_WORKERS) {
-                sprintf(env->output, "Bad idx %d\n", idx);
-                logMsg(env);
+                LOGMSG(env, "Bad idx %d\n", idx);
                 goto exit;
         }
 
@@ -2651,21 +2529,18 @@ int UMDDDWWWCmd(struct cli_env *env, int argc, char **argv)
 {
         const int idx = GetDecParm(argv[0], -1);
         if (idx < 0 || idx >= MAX_WORKERS) {
-                sprintf(env->output, "Bad idx %d\n", idx);
-                logMsg(env);
+                LOGMSG(env, "Bad idx %d\n", idx);
                 return 0;
         }
 
         const int dmatunidx = argc > 0? GetDecParm(argv[1], 0): 0;
         if (dmatunidx < 0 || dmatunidx >= MAX_WORKERS) {
-                sprintf(env->output, "Bad dmatunidx %d\n", dmatunidx);
-                logMsg(env);
+                LOGMSG(env, "Bad dmatunidx %d\n", dmatunidx);
                 return 0;
         }
 
 	if (idx == dmatunidx) {
-                sprintf(env->output, "Bad dmatunidx %d != idx %d\n", dmatunidx, idx);
-                logMsg(env);
+                LOGMSG(env, "Bad dmatunidx %d != idx %d\n", dmatunidx, idx);
                 return 0;
         }
 
@@ -2704,8 +2579,7 @@ int UMDDDDDCmd(struct cli_env *env, int argc, char **argv)
 {
         int idx = argc > 0? GetDecParm(argv[0], 0): 0;
         if (idx < 0 || idx >= MAX_WORKERS) {
-                sprintf(env->output, "Bad idx %d\n", idx);
-                logMsg(env);
+                LOGMSG(env, "Bad idx %d\n", idx);
                 goto exit;
         }
         UMD_DDD(&wkr[idx]);
@@ -2759,56 +2633,47 @@ int UDMACmdTun(struct cli_env *env, int argc, char **argv)
                 goto exit;
 
         if ((chan < 1) || (chan > 7)) {
-                sprintf(env->output, "Chan_1 %d illegal, must be 1 to 7\n", chan);
-                logMsg(env);
+                LOGMSG(env, "Chan_1 %d illegal, must be 1 to 7\n", chan);
                 goto exit;
         };
         if ((chan_n < 1) || (chan_n > 7)) {
-                sprintf(env->output, "Chan_n %d illegal, must be 1 to 7\n", chan);
-                logMsg(env);
+                LOGMSG(env, "Chan_n %d illegal, must be 1 to 7\n", chan);
                 goto exit;
         };
 	if (chan > chan_n) {
-                sprintf(env->output, "Chan {%d...%d} range illegal\n", chan, chan_n);
-                logMsg(env);
+                LOGMSG(env, "Chan {%d...%d} range illegal\n", chan, chan_n);
                 goto exit;
         };
         if ((chan2 < 1) || (chan2 > 7)) {
-                sprintf(env->output, "Chan2 %d illegal, must be 1 to 7\n", chan2);
-                logMsg(env);
+                LOGMSG(env, "Chan2 %d illegal, must be 1 to 7\n", chan2);
                 goto exit;
         };
 	if (chan2 >= chan && chan2 <= chan_n) {
-                sprintf(env->output, "Chan2 %d illegal, cannot be in {%d...%d} range\n", chan2, chan, chan_n);
-                logMsg(env);
+                LOGMSG(env, "Chan2 %d illegal, cannot be in {%d...%d} range\n", chan2, chan, chan_n);
                 goto exit;
         };
         if (chan == chan2) {
-                sprintf(env->output, "Must use different channels\n");
-                logMsg(env);
+                LOGMSG(env, "Must use different channels\n");
                 goto exit;
         };
 
         if ((buff < 32) || (buff > 0x800000) || (buff & (buff-1)) ||
                         (buff > MAX_UMD_BUF_COUNT)) {
-                sprintf(env->output,
+                LOGMSG(env,
                         "Bad Buff %x, must be power of 2, 0x20 to 0x%x\n",
                         buff, MAX_UMD_BUF_COUNT);
-                logMsg(env);
                 goto exit;
         };
 
         if ((sts < 32) || (sts > 0x800000) || (sts & (sts-1))) {
-                sprintf(env->output,
+                LOGMSG(env,
                         "Bad Buff %x, must be power of 2, 0x20 to 0x80000\n",
                         sts);
-                logMsg(env);
                 goto exit;
         };
 
 	if (mtu < 580 || mtu > 128*1024) {
-                sprintf(env->output, "MTU %d illegal, must be 580 to 128k\n", mtu);
-                logMsg(env);
+                LOGMSG(env, "MTU %d illegal, must be 580 to 128k\n", mtu);
                 goto exit;
         };
 
@@ -2893,8 +2758,7 @@ int UMSGCmd(const char cmd, struct cli_env *env, int UNUSED(argc), char **argv)
         txrx     = GetDecParm(argv[n++], 0);
 
         if (cmd != 'L' && cmd != 'T') {
-                sprintf(env->output, "Command '%c' illegal, this should never happen\n", cmd);
-                logMsg(env);
+                LOGMSG(env, "Command '%c' illegal, this should never happen\n", cmd);
                 goto exit;
         };
 
@@ -2902,19 +2766,16 @@ int UMSGCmd(const char cmd, struct cli_env *env, int UNUSED(argc), char **argv)
                 goto exit;
 
         if ((chan < 2) || (chan > 3)) {
-                sprintf(env->output, "Chan %d illegal, must be 2 to 3\n", chan);
-                logMsg(env);
+                LOGMSG(env, "Chan %d illegal, must be 2 to 3\n", chan);
                 goto exit;
         };
         if (cmd == 'T'){
 		if ((chan_to < 2) || (chan_to > 3)) {
-			sprintf(env->output, "Chan_to %d illegal, must be 2 to 3\n", chan);
-			logMsg(env);
+			LOGMSG(env, "Chan_to %d illegal, must be 2 to 3\n", chan);
 			goto exit;
 		}
 		if ((letter < 0) || (letter > 3)) {
-			sprintf(env->output, "Letter %d illegal, must be 0 to 3\n", letter);
-			logMsg(env);
+			LOGMSG(env, "Letter %d illegal, must be 0 to 3\n", letter);
 			goto exit;
 		}
         };
@@ -2922,34 +2783,30 @@ int UMSGCmd(const char cmd, struct cli_env *env, int UNUSED(argc), char **argv)
 
 	if ((buff < 32) || (buff > MAX_UMD_BUF_COUNT) || (buff & (buff-1)) ||
 			(buff > MAX_UMD_BUF_COUNT)) {
-                sprintf(env->output,
+                LOGMSG(env,
 			"Bad Buff %x, must be power of 2, 0x20 to 0x%x\n",
 			buff, MAX_UMD_BUF_COUNT);
-        	logMsg(env);
 		goto exit;
 	};
 
         if ((sts < 32) || (sts > 0x800000) || (sts & (sts-1))) {
-                sprintf(env->output,
+                LOGMSG(env,
                         "Bad STS %x, must be power of 2, 0x20 to 0x80000\n",
                         sts);
-                logMsg(env);
                 goto exit;
         };
 	if ((acc_sz < 1 || acc_sz > 4096) && txrx) {
-                sprintf(env->output,
+                LOGMSG(env,
                         "Bad acc_sz %d, must be 1..4096\n", acc_sz);
-                logMsg(env);
                 goto exit;
 	}
 
         if (mp_h_qresp_valid && (qresp.hdid == did) && txrx &&
 			(GetEnv((char *)"FORCE_DESTID") == NULL)) {
-                sprintf(env->output,
+                LOGMSG(env,
                 	"\n\tERROR: Testing against own desitd=%d."
                         "Set env FORCE_DESTID to disable this check.\n",
                         did);
-                logMsg(env);
                 goto exit;
         }
 
@@ -3032,25 +2889,22 @@ int UMSGCmdTun(struct cli_env *env, int UNUSED(argc), char **argv)
                 goto exit;
 
         if ((chan < 2) || (chan > 3)) {
-                sprintf(env->output, "Chan %d illegal, must be 2 to 3\n", chan);
-                logMsg(env);
+                LOGMSG(env, "Chan %d illegal, must be 2 to 3\n", chan);
                 goto exit;
         };
 
 	if ((buff < 32) || (buff > 0x800000) || (buff & (buff-1)) ||
 			(buff > MAX_UMD_BUF_COUNT)) {
-                sprintf(env->output,
+                LOGMSG(env,
 			"Bad Buff %x, must be power of 2, 0x20 to 0x%x\n",
 			buff, MAX_UMD_BUF_COUNT);
-        	logMsg(env);
 		goto exit;
 	};
 
         if ((sts < 32) || (sts > 0x800000) || (sts & (sts-1))) {
-                sprintf(env->output,
+                LOGMSG(env,
                         "Bad Buff %x, must be power of 2, 0x20 to 0x80000\n",
                         sts);
-                logMsg(env);
                 goto exit;
         };
 
@@ -3171,7 +3025,7 @@ int IsolcpuCmd(struct cli_env *env, int argc, char **argv)
 		strncat(clist, " ", 128);
 	}
 
-	sprintf(env->output, "\nIsolcpus: %s\n", clist); logMsg(env);
+	LOGMSG(env, "\nIsolcpus: %s\n", clist);
 
 	return 0;
 }
@@ -3209,8 +3063,7 @@ int EpWatchCmd(struct cli_env *env, int argc, char **argv)
                 goto exit;
 
 	if (idx == tundmathreadindex) {
-                sprintf(env->output, "Must use different worker threads!\n");
-                logMsg(env);
+                LOGMSG(env, "Must use different worker threads!\n");
                 goto exit;
 	}
 
@@ -3272,8 +3125,7 @@ int UMSGCmdWatch(struct cli_env *env, int UNUSED(argc), char **argv)
                 goto exit;
 
         if (idx == tundmathreadindex) {
-                sprintf(env->output, "Must use different worker threads!\n");
-                logMsg(env);
+                LOGMSG(env, "Must use different worker threads!\n");
                 goto exit;
         }
 
@@ -3285,25 +3137,22 @@ int UMSGCmdWatch(struct cli_env *env, int UNUSED(argc), char **argv)
                 goto exit;
 
         if ((chan < 2) || (chan > 3)) {
-                sprintf(env->output, "Chan %d illegal, must be 2 to 3\n", chan);
-                logMsg(env);
+                LOGMSG(env, "Chan %d illegal, must be 2 to 3\n", chan);
                 goto exit;
         };
 
         if ((buff < 32) || (buff > 0x800000) || (buff & (buff-1)) ||
                         (buff > MAX_UMD_BUF_COUNT)) {
-                sprintf(env->output,
+                LOGMSG(env,
                         "Bad Buff %x, must be power of 2, 0x20 to 0x%x\n",
                         buff, MAX_UMD_BUF_COUNT);
-                logMsg(env);
                 goto exit;
         };
 
         if ((sts < 32) || (sts > 0x800000) || (sts & (sts-1))) {
-                sprintf(env->output,
+                LOGMSG(env,
                         "Bad Buff %x, must be power of 2, 0x20 to 0x80000\n",
                         sts);
-                logMsg(env);
                 goto exit;
         };
 
@@ -3360,8 +3209,7 @@ int AFUCmdWatch(struct cli_env *env, int UNUSED(argc), char **argv)
         max_tag   = GetDecParm(argv[n++], 8);
 
 	if ((max_tag < 4) || (max_tag > 1024) || (max_tag & (max_tag-1))) {
-                sprintf(env->output, "Bad max_tag %x, must be power of 2, 4 to 1024\n", max_tag);
-                logMsg(env);
+                LOGMSG(env, "Bad max_tag %x, must be power of 2, 4 to 1024\n", max_tag);
                 goto exit;
         };
 
@@ -3406,11 +3254,10 @@ int TESTdmapackCmd(struct cli_env *UNUSED(env), int UNUSED(argc), char **UNUSED(
 {
 #if 0
 	if (test_packing()) {
-		sprintf(env->output, "\ntest_packing FAILED...\n");
+		LOGMSG(env, "\ntest_packing FAILED...\n");
 	} else {
-		sprintf(env->output, "\ntest_packing Passed...\n");
-	};
-        logMsg(env);
+		LOGMSG(env, "\ntest_packing Passed...\n");
+	}
 #endif
         return 0;
 }

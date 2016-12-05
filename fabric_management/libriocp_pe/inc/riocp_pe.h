@@ -11,6 +11,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 
+#include "rio_ecosystem.h"
 #include "did.h"
 #include "ct.h"
 
@@ -163,10 +164,10 @@ struct riocp_reg_rw_driver {
 	int RIOCP_WU (* reg_wr)(struct riocp_pe *pe,
 			uint32_t offset, uint32_t val);
 	int RIOCP_WU (* raw_reg_rd)(struct riocp_pe *pe, 
-			uint32_t did, uint8_t hc,
+			uint32_t did, hc_t hc,
 			uint32_t addr, uint32_t *val);
 	int RIOCP_WU (* raw_reg_wr)(struct riocp_pe *pe,
-			uint32_t did, uint8_t hc,
+			uint32_t did, hc_t hc,
 			uint32_t addr, uint32_t val);
 };
 

@@ -21,6 +21,8 @@
 #include <fcntl.h>
 #include <dirent.h>
 
+#include "rio_ecosystem.h"
+#include "rio_standard.h"
 #include "did.h"
 #include "riocp_pe.h"
 #include "riocp_pe_internal.h"
@@ -29,8 +31,6 @@
 #include "maint.h"
 #include "handle.h"
 #include "comptag.h"
-#include "rio_regs.h"
-#include "rio_devs.h"
 #include "driver.h"
 #include "liblog.h"
 
@@ -362,7 +362,7 @@ int RIOCP_SO_ATTR riocp_pe_discover(riocp_pe_handle pe,
 	riocp_pe_handle *peer, char *name)
 {
 	struct riocp_pe *p = NULL;
-	uint8_t hopcount = 0;
+	hc_t hopcount;
 	ct_t comptag = 0;
 	uint32_t destid;
 	unsigned int i;
@@ -393,11 +393,8 @@ int RIOCP_SO_ATTR riocp_pe_discover(riocp_pe_handle pe,
 			return -ENODEV;
 		}
 	}
-	if (!RIOCP_PE_IS_MPORT(pe))
-		hopcount = pe->hopcount + 1;
 
 	destid = ANY_ID;
-
 	if (RIOCP_PE_IS_MPORT(pe))
 		goto found;
 
@@ -453,9 +450,12 @@ found_unlock_pe:
 found:
 	RIOCP_TRACE("Found peer d: %u (0x%08x) -> Port %d\n", destid, destid, _port);
 
+	// initialize the hopcount
+	HC_INCR(hopcount, pe->hopcount);
+
 	/* Read comptag */
 	ret = riocp_drv_raw_reg_rd(pe->mport, destid,
-		hopcount, RIO_COMPONENT_TAG_CSR, &comptag);
+		hopcount, RIO_COMPTAG, &comptag);
 	if (ret) {
 		RIOCP_ERROR("Found not working route d: %u, h: %u\n", destid, hopcount);
 		return -EIO;
@@ -541,7 +541,7 @@ int RIOCP_SO_ATTR riocp_pe_probe(riocp_pe_handle pe,
 	uint32_t val;
 	struct riocp_pe *p = NULL; // Temporary handle pointer
 	struct riocp_pe *temp_p = NULL; // Temporary handle pointer
-	uint8_t hopcount = 0;
+	hc_t hopcount;
 	ct_t comptag = 0;
 	did_t did;
 	uint8_t sw_port = 0;
@@ -562,9 +562,9 @@ int RIOCP_SO_ATTR riocp_pe_probe(riocp_pe_handle pe,
 	if (NULL == comptag_in) {
 		return -EINVAL;
 	}
-	if (!RIOCP_PE_IS_MPORT(pe)) {
-		hopcount = pe->hopcount + 1;
-	}
+
+	// initialize the hopcount
+	HC_INCR(hopcount, pe->hopcount);
 
 	RIOCP_TRACE("Probe on PE 0x%08x (hopcount %u, port %u)\n",
 		pe->comptag, hopcount, port);
@@ -604,13 +604,13 @@ int RIOCP_SO_ATTR riocp_pe_probe(riocp_pe_handle pe,
 
 	/* Read component tag on peer */
 	ret = riocp_drv_raw_reg_rd(temp_p, ANY_ID, hopcount,
-					RIO_COMPONENT_TAG_CSR, &comptag);
+					RIO_COMPTAG, &comptag);
 	if (ret) {
 		/* TODO try second time when failed, the ANY_ID route seems to be programmed correctly
 			at this point but the route was not working previous read */
 		RIOCP_WARN("Trying reading again component tag on h: %u\n", hopcount);
 		ret = riocp_drv_raw_reg_rd(temp_p, ANY_ID, hopcount, 
-					RIO_COMPONENT_TAG_CSR, &comptag);
+					RIO_COMPTAG, &comptag);
 		if (ret) {
 			RIOCP_ERROR("Retry read comptag failed on h: %u\n", hopcount);
 			free(temp_p);
@@ -631,7 +631,7 @@ int RIOCP_SO_ATTR riocp_pe_probe(riocp_pe_handle pe,
 	if (force_ct && (*comptag_in != comptag)) {
 		comptag = *comptag_in;
 		ret = riocp_drv_raw_reg_wr(temp_p, ANY_ID, hopcount,
-				RIO_COMPONENT_TAG_CSR, comptag);
+				RIO_COMPTAG, comptag);
 		if (ret) {
 			RIOCP_ERROR("Update comptag failed on h: %u\n",
 					 hopcount);
@@ -713,12 +713,12 @@ int RIOCP_SO_ATTR riocp_pe_probe(riocp_pe_handle pe,
 
 		if (RIOCP_PE_IS_SWITCH(p->cap)) {
 			ret = riocp_drv_raw_reg_rd(p, ANY_ID, hopcount,
-							RIO_SWP_INFO_CAR, &val);
+							RIO_SW_PORT_INF, &val);
 			if (ret) {
 				RIOCP_ERROR("Could not read switch port info CAR at hc %u\n", hopcount);
 				goto err;
 			}
-			sw_port = RIO_GET_PORT_NUM(val);
+			sw_port = RIO_ACCESS_PORT(val);
 
 			ret = riocp_pe_add_peer(pe, p, port, sw_port);
 			if (ret) {
@@ -1036,7 +1036,7 @@ int RIOCP_SO_ATTR riocp_pe_lock(riocp_pe_handle pe, int flags)
 
 	/* Check if already locked by mport destid, this also
 		makes sure the anyid route is programmed */
-	if (riocp_pe_maint_read(pe, RIO_HOST_DID_LOCK_CSR, &lock))
+	if (riocp_pe_maint_read(pe, RIO_HOST_LOCK, &lock))
 		return -EIO;
 
 	lock = lock & RIO_HOST_LOCK_BASE_ID_MASK;
@@ -1091,7 +1091,7 @@ int RIOCP_SO_ATTR riocp_pe_unlock(riocp_pe_handle pe)
 		return -EINVAL;
 
 	/* Read lock, to program the anyid route for host handles */
-	if (riocp_pe_maint_read(pe, RIO_HOST_DID_LOCK_CSR, &lock))
+	if (riocp_pe_maint_read(pe, RIO_HOST_LOCK, &lock))
 		return -EIO;
 
 	RIOCP_DEBUG("[ct: 0x%08x] current lock: 0x%08x\n", pe->comptag, lock);
@@ -1121,7 +1121,7 @@ int RIOCP_SO_ATTR riocp_pe_get_destid(riocp_pe_handle pe,
 		return -EINVAL;
 	if (RIOCP_PE_IS_SWITCH(pe->cap) && !RIOCP_PE_IS_MPORT(pe))
 		return -ENOSYS;
-	if (riocp_pe_maint_read(pe, RIO_DID_CSR, &_destid))
+	if (riocp_pe_maint_read(pe, RIO_DEVID, &_destid))
 		return -EIO;
 
 	*destid = RIO_DID_GET_BASE_DEVICE_ID(_destid);
@@ -1167,7 +1167,7 @@ int RIOCP_SO_ATTR riocp_pe_set_destid(riocp_pe_handle pe,
 		return -ENOSYS;
 	}
 
-	ret = riocp_pe_maint_write(pe, RIO_DID_CSR, 
+	ret = riocp_pe_maint_write(pe, RIO_DEVID,
 			(destid << 16) & 0x00ff0000);
 	if (ret)
 		return ret;
@@ -1367,7 +1367,7 @@ int RIOCP_SO_ATTR riocp_pe_update_comptag(riocp_pe_handle pe,
 
 	RIOCP_TRACE("Changing ct %x to %x\n", pe->comptag, new_ct);
 	
-	ret = riocp_pe_maint_write(pe, RIO_COMPONENT_TAG_CSR, new_ct);
+	ret = riocp_pe_maint_write(pe, RIO_COMPTAG, new_ct);
 	if (ret) {
 		RIOCP_ERROR("Unable to write PE %p component tag\n", pe);
 		return ret;
@@ -1378,7 +1378,7 @@ int RIOCP_SO_ATTR riocp_pe_update_comptag(riocp_pe_handle pe,
 
 	RIOCP_TRACE("Changed pe ct to %x\n", pe->comptag);
 
-	ret = riocp_pe_maint_read(pe, RIO_COMPONENT_TAG_CSR, &ct);
+	ret = riocp_pe_maint_read(pe, RIO_COMPTAG, &ct);
 	if (ret) {
 		RIOCP_ERROR("Unable to read PE %p component tag", pe);
 		return ret;
@@ -1425,7 +1425,7 @@ int RIOCP_SO_ATTR riocp_pe_get_comptag(riocp_pe_handle pe,
                 (the ANY_ID route is not set to this pe). We return for agent
                 handles always the cached PE handle value */
         if (RIOCP_PE_IS_HOST(pe)) {
-                ret = riocp_pe_maint_read(pe, RIO_COMPONENT_TAG_CSR, &ct);
+                ret = riocp_pe_maint_read(pe, RIO_COMPTAG, &ct);
                 if (ret) {
                         RIOCP_ERROR("Unable to read component tag");
                         return ret;

@@ -66,22 +66,23 @@
 #include <signal.h>
 #include <pthread.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include "string_util.h"
+#include "rio_ecosystem.h"
 #include "ct.h"
 #include "rapidio_mport_dma.h"
 #include "rapidio_mport_mgmt.h"
 #include "rapidio_mport_sock.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /// Max device name size in characters.
 #define RIODP_MAX_DEV_NAME_SZ 20
 
 static riomp_mport_t mport_hnd;
 static uint16_t tgt_destid;
-static uint8_t tgt_hop;
+static hc_t tgt_hop;
 static ct_t comptag = 0;
 
 static char dev_name[RIODP_MAX_DEV_NAME_SZ + 1];
@@ -102,7 +103,7 @@ void test_create(void)
 	int ret;
 
 	ret = riomp_mgmt_device_add(mport_hnd, tgt_destid, tgt_hop, comptag,
-			       (*dev_name == '\0')?NULL:dev_name);
+			       (*dev_name == '\0') ? NULL : dev_name);
 	if(ret)
 		printf("Failed to create device object, err=%d\n", ret);
 }
@@ -182,14 +183,11 @@ int main(int argc, char** argv)
 	int rc = EXIT_SUCCESS;
 	int err;
 
-	/** - Parse command line options */
-	while (1) {
-		option = getopt_long_only(argc, argv,
-				"dhcM:D:H:T:N:", options, NULL);
+	/** Parse command line options, if any */
+	while (-1 != (option = getopt_long_only(argc, argv,
+			"dhcM:D:H:T:N:", options, NULL))) {
+
 		switch (option) {
-		case -1 :
-			break;
-			/* Data Transfer Mode options*/
 		case 'M':
 			mport_id = (uint32_t)strtoul(optarg, NULL, 0);
 			break;

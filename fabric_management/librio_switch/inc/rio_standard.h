@@ -84,6 +84,11 @@ extern "C" {
 #define RIO_ASSY_INF_EFB_PTR                             (0x0000ffff)
 #define RIO_ASSY_INF_ASSY_REV                            (0xffff0000)
 
+/* Device Id helper macros*/
+#define RIO_HOST_LOCK_BASE_ID_MASK 0x0000ffff
+#define RIO_DID_GET_BASE_DEVICE_ID(did) (did >> 16) /* Get base device id */
+#define RIO_DID_UNSET 0x00ffffff /* Base Device ID when PE is initialized */
+
 /* RIO_PROC_ELEM_FEAT : Register Bits Masks Definitions */
 typedef uint32_t RIO_PE_FEAT_T;
 typedef uint32_t RIO_PE_ADDR_T;
@@ -332,12 +337,26 @@ typedef uint32_t pe_rt_val;
 #define RIO_EFB_T_MISC  (0x0010)  /* Miscellaneous Register Block */
 
 #define RIO_EFB_GET_NEXT(x) ((x & RIO_EFB_NEXT) >> 16)
+#define RIO_EFB_ID(x) (x & RIO_EFB_T)
+
+/* [VI] LP/Serial EP Devices, RapidIO Spec ver 1.3 and above */
+#define RIO_EFB_SER_EP_ID_V13P          (0x0001)
+/* [VI] LP/Serial EP Recovery Devices, RapidIO Spec ver 1.3 and above */
+#define RIO_EFB_SER_EP_REC_ID_V13P      (0x0002)
+/* [VI] LP/Serial EP Free Devices, RapidIO Spec ver 1.3 and above */
+#define RIO_EFB_SER_EP_FREE_ID_V13P     (0x0003)
+#define RIO_EFB_SER_EP_ID               (0x0004) /* [VI] LP/Serial EP Devices */
+#define RIO_EFB_SER_EP_REC_ID           (0x0005) /* [VI] LP/Serial EP Recovery Devices */
+#define RIO_EFB_SER_EP_FREE_ID          (0x0006) /* [VI] LP/Serial EP Free Devices */
+#define RIO_EFB_SER_EP_FREC_ID          (0x0009) /* [VI] LP/Serial EP Free Recovery Devices */
+
+#define RIO_PEF_EXT_FEATURES            (0x00000008) /* [I] EFT_PTR valid */
 
 /* LP-Serial Port Extended Features Block Register Addresses
  * 
  * Parameter meaning:
  * b - base address of the extended features block,
- * t - type of the extende features block          
+ * t - type of the extended features block
  * p - the port number for per-port registers.
  *
  * Note: Depending on the block type encoded in the header register,
@@ -517,6 +536,11 @@ typedef uint32_t RIO_SPX_ERR_STAT_T;
 #define RIO_SPX_ERR_STAT_CLR_ALL   RIO_SPX_ERR_STAT_MASK
 
 #define RIO_PORT_OK(x) ((x & RIO_SPX_ERR_STAT_OK)?1:0)
+
+#define RIO_PORT_N_CTL_CSR(x)       (0x005c + x*0x20)
+#define RIO_PORT_GEN_CTL_CSR        (0x003c)
+#define RIO_PORT_N_ERR_STS_CSR(x)   (0x0058 + x*0x20)
+
 
 /* RIO_SPX_CTL : Register Bits Masks Definitions */
 #define RIO_SPX_CTL_PTYP            (0x00000001)
@@ -887,7 +911,7 @@ typedef uint32_t RIO_SPX_ERR_STAT_T;
  *
  * FOR ROUTING TABLE ENTRY (RTE) VALUES, MASKS and MACROS, SEE RIO_RTE
  *
- * All registers that accepte RTE, and each routing table entry in the 
+ * All registers that accept RTE, and each routing table entry in the
  * routing table groups, accepts these values.
  *
  * Multicast mask register values are defined below.

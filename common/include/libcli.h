@@ -50,6 +50,11 @@ extern "C" {
 #define CLI_VERSION_YR "15"
 #define CLI_VERSION_MO "01"
 
+/* Send string to one/all of the many output streams supported by cli_env */
+#define LOGMSG(env, format, ...) \
+	sprintf(env->output, format, ##__VA_ARGS__); \
+	logMsg(env);
+
 struct cli_cmd;
 
 struct cli_env {
@@ -76,6 +81,8 @@ struct cli_env {
 				 	 */
 	struct cli_cmd *cmd_prev; /* store last valid command */
 };
+
+void init_cli_env(struct cli_env *env);
 
 #define ATTR_NONE  0x0
 #define ATTR_RPT   0x1
@@ -141,9 +148,9 @@ extern const char *delimiter;
 
 /* Display routines for start of a console or cli_terminal call */
 /* NOTE: These messages are sent to stdout */
-extern void splashScreen(char *app_name);
+extern void splashScreen(struct cli_env *env, char *app_name);
 
-/* Send string to one/all of the many output streams supported by cli_env */
+/* Use LOGMSG */
 extern void logMsg(struct cli_env *env);
 
 /* Command processing:
@@ -178,6 +185,31 @@ typedef struct {
  */
 void* console_rc(void *cons_parm);
 
+/** \brief remote_login starts a thread which listens to the specified TCP
+ * port number.  Connections to the port number start a new thread with a CLI
+ * session.  Note that "quit" will kill the calling process.  There is no
+ * mutext between commands, so register reads/writes in different CLI sessions
+ * may collide.  
+ *
+ * portno - TCP socket number remote_login binds/listens/accepts on.
+ * thr_name - Name for the remote_login pthread.
+ *          - The name of the threads managing individual connections is
+ *            'thr_name(session #)'.  This is used when naming threads, as well
+ *            as part of the splash screen for each session.
+ *          - The prompt for each thread managing an individual connection is
+ *            the name of the thread with a '>' appended.
+ */
+
+struct remote_login_parms {
+	int portno; /* Bind to this TCP Socket number  */
+	char thr_name[16]; /* Thread name */
+	int *status; /* Status bool, set to 1 when listening and 0 when not */
+};
+
+extern pthread_t remote_login_thread;
+
+void* remote_login(void *remote_login_parm);
+	
 #ifdef __cplusplus
 }
 #endif

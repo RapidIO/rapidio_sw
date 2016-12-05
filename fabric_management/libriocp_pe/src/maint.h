@@ -25,9 +25,9 @@ int riocp_pe_maint_write_local(struct riocp_pe *mport, uint32_t offset, uint32_t
 int riocp_pe_maint_read_local(struct riocp_pe *mport, uint32_t offset, uint32_t *val);
 
 int riocp_pe_maint_write_remote(struct riocp_pe *mport, uint32_t destid,
-		uint8_t hopcount, uint32_t offset, uint32_t val);
+		hc_t hopcount, uint32_t offset, uint32_t val);
 int riocp_pe_maint_read_remote(struct riocp_pe *mport, uint32_t destid,
-		uint8_t hopcount, uint32_t offset, uint32_t *val);
+		hc_t hopcount, uint32_t offset, uint32_t *val);
 */
 
 

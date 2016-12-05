@@ -80,16 +80,15 @@ int CLIDDLCheckCTCmd(struct cli_env *env, int argc, char **argv)
 	ct = getHex(argv[0], 0);
 	flag = getHex(argv[1], 1);
 
-	sprintf(env->output, "\nChecking ct %8x flag %x\n", ct, flag);
-	logMsg(env);
+	LOGMSG(env, "\nChecking ct %8x flag %x\n", ct, flag);
 
 	rc = fmdd_check_ct(ddl_h_cli, ct, flag);
 
-	sprintf(env->output, "Return code was      : 0x%8x\n", rc);
-	logMsg(env);
+	LOGMSG(env, "Return code was      : 0x%8x\n", rc);
 
 	return 0;
-};
+}
+;
 
 struct cli_cmd CLIDDLCheckCT = {
 (char *)"ddlct",
@@ -121,17 +120,13 @@ int CLIDDLCheckDIDCmd(struct cli_env *env, int argc, char **argv)
 	did = getHex(argv[0], 0);
 	flag = getHex(argv[1], 0);
 
-	sprintf(env->output, "\nChecking Device ID : 0x%x Flag 0x%x\n",
-		did, flag);
-	logMsg(env);
-
+	LOGMSG(env, "\nChecking Device ID : 0x%x Flag 0x%x\n", did, flag);
 	rc = fmdd_check_did(ddl_h_cli, did, flag);
-
-	sprintf(env->output,   "Return code was    : 0x%x\n", rc);
-	logMsg(env);
+	LOGMSG(env, "Return code was    : 0x%x\n", rc);
 
 	return 0;
-};
+}
+;
 
 struct cli_cmd CLIDDLCheckDID = {
 (char *)"ddldid",
@@ -162,28 +157,23 @@ int CLIDDListCmd(struct cli_env *env, int argc, char **argv)
 
 	rc = fmdd_get_did_list(ddl_h_cli, &did_list_sz, &did_list);
 
-	sprintf(env->output, "\nfmdd_get_did_list returned : %d\n", rc);
-	logMsg(env);
-
 	// did_list can be null on success
+	LOGMSG(env, "\nfmdd_get_did_list returned : %d\n", rc);
 	if (rc) {
 		goto exit;
 	}
 
-	sprintf(env->output, "\nNumber of device IDs: %d\n", did_list_sz);
-	logMsg(env);
+	LOGMSG(env, "\nNumber of device IDs: %d\n", did_list_sz);
 
 	// klocwork analysis led to paranoid NULL check
 	if ((!did_list_sz) || (NULL == did_list)) {
 		goto exit;
 	}
 
-	sprintf(env->output, "\nIdx ---DID--\n");
-	logMsg(env);
+	LOGMSG(env, "\nIdx ---DID--\n");
 
 	for (i = 0; i < did_list_sz; i++) {
-		sprintf(env->output, "%d %8x\n", did_list_sz, did_list[i]);
-		logMsg(env);
+		LOGMSG(env, "%d %8x\n", did_list_sz, did_list[i]);
 	}
 exit:
 	free(did_list);

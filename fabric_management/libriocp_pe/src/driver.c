@@ -13,14 +13,11 @@
 #include <stdlib.h>
 #include <stdbool.h>
 
-#include "did.h"
-#include "ct.h"
 #include "inc/riocp_pe.h"
 #include "inc/riocp_pe_internal.h"
 
 #include "maint.h"
 #include "driver.h"
-#include "rio_regs.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -42,7 +39,7 @@ int riocp_pe_port_clear_enumerated(struct riocp_pe *pe, uint8_t port)
         if (ret)
                 return ret;
 
-        val &= ~RIO_PORT_N_CTL_ENUM_B;
+        val &= ~RIO_SPX_CTL_ENUM_B;
         ret = riocp_pe_maint_write(pe, offset, val);
 
         return ret;
@@ -86,7 +83,7 @@ int riocp_pe_switch_port_is_enumerated(struct riocp_pe *sw, uint8_t port)
 	if (ret)
 		return ret;
 
-	return (val & RIO_PORT_N_CTL_ENUM_B) ? 1 : 0;
+	return (val & RIO_SPX_CTL_ENUM_B) ? 1 : 0;
 }
 
 /**
@@ -105,7 +102,7 @@ int riocp_pe_switch_port_set_enumerated(struct riocp_pe *sw, uint8_t port)
 	if (ret)
 		return ret;
 
-	val |= RIO_PORT_N_CTL_ENUM_B;
+	val |= RIO_SPX_CTL_ENUM_B;
 	ret = riocp_pe_maint_write(sw, offset, val);
 
 	return ret;
@@ -423,7 +420,7 @@ int RIOCP_WU riocp_drv_reg_wr(struct riocp_pe *pe, uint32_t offset, uint32_t val
 		return -ENOSYS;
 }
 
-int RIOCP_WU riocp_drv_raw_reg_rd(struct riocp_pe *pe, uint32_t did, uint8_t hc,
+int RIOCP_WU riocp_drv_raw_reg_rd(struct riocp_pe *pe, uint32_t did, hc_t hc,
                         uint32_t offset, uint32_t *val)
 {
 	if (RIOCP_PE_IS_HOST(pe) || RIOCP_PE_IS_MPORT(pe))
@@ -433,7 +430,7 @@ int RIOCP_WU riocp_drv_raw_reg_rd(struct riocp_pe *pe, uint32_t did, uint8_t hc,
 		return -ENOSYS;
 };
 
-int RIOCP_WU riocp_drv_raw_reg_wr(struct riocp_pe *pe, uint32_t did, uint8_t hc,
+int RIOCP_WU riocp_drv_raw_reg_wr(struct riocp_pe *pe, uint32_t did, hc_t hc,
                         uint32_t offset, uint32_t val)
 {
 	if (RIOCP_PE_IS_HOST(pe) || RIOCP_PE_IS_MPORT(pe))

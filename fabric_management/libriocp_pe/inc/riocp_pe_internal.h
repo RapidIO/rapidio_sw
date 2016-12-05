@@ -117,7 +117,7 @@ struct riocp_pe {
 	uint32_t version;			/**< Internal handle revision */
 	const char *dev_name;			/**< Name of device type */
 	char sysfs_name[FMD_MAX_NAME+1];	/**< SysFS Name of device */
-	uint8_t hopcount;			/**< RapidIO hopcount */
+	hc_t hopcount;				/**< RapidIO hopcount */
 	uint32_t destid;			/**< RapidIO destination ID */
 	ct_t comptag;				/**< RapidIO component tag */
 	uint8_t *address;			/**< RapidIO address used to access this PE */

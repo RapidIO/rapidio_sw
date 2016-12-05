@@ -60,7 +60,7 @@ RDMAD_CFLAGS = $(CXXFLAGS) -Wall -Wextra \
 		-flto \
 		-DRDMA_LL=$(level) -DBE_STRICT \
 		-I$(COMMONDIR)/libcli/inc \
-		-I$(FMDDIR)/libdid/inc -I$(FMDDIR)/libct/inc \
+		-I$(FMDDIR)/librio_switch/inc -I$(FMDDIR)/libdid/inc -I$(FMDDIR)/libct/inc \
 		-Idaemon/inc -Idaemon/src -I. -Isrc -Iinc
 
 RDMAD_SOURCES = daemon/src/rdmad_main.cpp \
@@ -77,13 +77,11 @@ RDMAD_SOURCES = daemon/src/rdmad_main.cpp \
 		daemon/src/rdmad_d2d_dispatch.cpp \
 		daemon/src/rdmad_actions.cpp
 
-REMDBG_SOURCES	= daemon/src/remdbg.c
-
 # RDMA Library flags, sources and objects
 RDMALIB_STATIC_CFLAGS = -Wall -Wextra -Werror -std=c++11 -c $(OPTFLAGS) \
 		-Idaemon/inc \
 		-Iinc -I$(TOPDIR)/include -I$(COMMONINC) \
-		-I$(FMDDIR)/libdid/inc -I$(FMDDIR)/libct/inc \
+		-I$(FMDDIR)/librio_switch/inc -I$(FMDDIR)/libdid/inc -I$(FMDDIR)/libct/inc \
 		-DRDMA_LL=$(level) $(OPTFLAGS) \
 		$(LIB_DIRS) \
 		-llog -lmport
@@ -95,7 +93,7 @@ RDMALIB_SOURCES = lib/src/librdma.cpp \
 RDMALIB_OBJS    = librdma.o librdma_db.o librdma_dispatch.o
 
 # ------------------------------!!! All targets ------------------------------!!!!
-all: librdma.a rdmad rsktd test samples rrdma
+all: librdma.a rdmad rsktd test samples 
 
 test: rdmad librdma.a
 	$(MAKE) all -C test
@@ -126,16 +124,8 @@ rdmad: $(MPORTLIB_PATH)/$(MPORTLIB) $(RDMAD_SOURCES) daemon/inc/*.h $(COMMONDIR)
 	-ltime_utils -lmport -lcli -llog -lfmdd -ldd -lriocp_pe -pthread \
 	-lrsvdmem $(TST_LIBS)
 
-# Remote debug
-rrdma:  $(REMDBG_SOURCES)
-	@echo ---------- Building remote debug CLI ...
-	$(CXX) $(RDMAD_CFLAGS) -L$(MPORT_DIR) $(LIB_DIRS) \
-	$(LIBS_RPATH) \
-	-o $@ $(REMDBG_SOURCES) \
-	-lcli -lrt -ldl -ltime_utils -lmport -llog -pthread
-
 clean:
-	rm -f rdmad rrdma *.o librdma.a librdma.so *.i $(INCLUDE_DIR)/libs_a/librdma.a
+	rm -f rdmad *.o librdma.a librdma.so *.i $(INCLUDE_DIR)/libs_a/librdma.a
 	$(MAKE) clean -C rskt
 	$(MAKE) clean -C samples
 	$(MAKE) clean -C test

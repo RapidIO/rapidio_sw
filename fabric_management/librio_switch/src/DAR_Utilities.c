@@ -1630,7 +1630,7 @@ uint32_t DAR_pkt_fields_to_bytes ( DAR_pkt_fields_t *fields_in,
 
                     /* Add Hop Count */
                     bytes_out->pkt_data[bytes_out->num_chars++] = 
-                            (uint8_t)(fields_in->trans.hopcount & 0xFF);
+                            fields_in->trans.hopcount;
 
                     /* Add Address */
                     if (rio_addr_21 != fields_in->log_rw.pkt_addr_size)
