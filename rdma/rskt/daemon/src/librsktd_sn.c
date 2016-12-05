@@ -104,11 +104,9 @@ int RSKTSniCmd(struct cli_env *env, int argc, char **argv)
 	if (argc)
 		max_skt_num = getDecParm(argv[0], RSKTD_MAX_SKT_NUM);
 
-	sprintf(env->output, "max_skt_num = %d\n", max_skt_num);
-	logMsg(env);
+	LOGMSG(env, "max_skt_num = %d\n", max_skt_num);
 	rsktd_sn_init(max_skt_num);
-	sprintf(env->output, "max_skt = %d\n", max_skt);
-	logMsg(env);
+	LOGMSG(env, "max_skt = %d\n", max_skt);
 	return 0;
 };
 
@@ -135,12 +133,9 @@ int RSKTSngCmd(struct cli_env *env, int argc, char **argv)
 	else
 		rsktd_sng_skt++;
 
-	sprintf(env->output, "Socket = %d\n", rsktd_sng_skt);
-	logMsg(env);
+	LOGMSG(env, "Socket = %d\n", rsktd_sng_skt);
 	st = rsktd_sn_get(rsktd_sng_skt);
-	sprintf(env->output, "State = %d:\"%s\"\n", 
-		(uint32_t)st, SKT_STATE_STR(st));
-	logMsg(env);
+	LOGMSG(env, "State = %d:\"%s\"\n", (uint32_t )st, SKT_STATE_STR(st));
 	return 0;
 };
 
@@ -171,17 +166,12 @@ int RSKTSnsCmd(struct cli_env *env, int argc, char **argv)
 		rsktd_sns_st = (enum rskt_state)getDecParm(argv[1], 
 						(uint32_t)rskt_max_state);
 
-	sprintf(env->output, "Socket = %d\n", rsktd_sns_skt);
-	logMsg(env);
+	LOGMSG(env, "Socket = %d\n", rsktd_sns_skt);
 	st = rsktd_sn_get(rsktd_sns_skt);
-	sprintf(env->output, "State B4 = %d:\"%s\"\n", 
-		(uint32_t)st, SKT_STATE_STR(st));
-	logMsg(env);
+	LOGMSG(env, "State B4 = %d:\"%s\"\n", (uint32_t )st, SKT_STATE_STR(st));
 	rsktd_sn_set(rsktd_sns_skt, rsktd_sns_st);
 	st = rsktd_sn_get(rsktd_sns_skt);
-	sprintf(env->output, "State Aft= %d:\"%s\"\n", 
-		(uint32_t)st, SKT_STATE_STR(st));
-	logMsg(env);
+	LOGMSG(env, "State Aft= %d:\"%s\"\n", (uint32_t )st, SKT_STATE_STR(st));
 	return 0;
 };
 
@@ -207,14 +197,12 @@ int RSKTDSnfCmd(struct cli_env *env, int argc, char **argv)
 	if (argc) 
 		rsktd_snf_skt = getDecParm(argv[0], RSKTD_MAX_SKT_NUM);
 
-	sprintf(env->output, "Socket = %d\n", rsktd_snf_skt);
-	logMsg(env);
+	LOGMSG(env, "Socket = %d\n", rsktd_snf_skt);
 	next_alloced_free_sn = rsktd_snf_skt;
 	skt_num = rsktd_sn_find_free();
 	st = rsktd_sn_get(skt_num);
-	sprintf(env->output, "Free Skt= %d : %d:\"%s\"\n", skt_num,
-		(int)st, SKT_STATE_STR(st));
-	logMsg(env);
+	LOGMSG(env, "Free Skt= %d : %d:\"%s\"\n", skt_num, (int )st,
+			SKT_STATE_STR(st));
 
 	rsktd_snf_skt = skt_num + 1;
 
@@ -253,23 +241,21 @@ int RSKTDSndCmd(struct cli_env *env, int argc, char **argv)
 
 	rsktd_snd_skt -= (rsktd_snd_skt % 10);
 
-	sprintf(env->output, "Index      0      1      2      3      4      5      6      7      8      9");
-	logMsg(env);
+	LOGMSG(env,
+			"Index      0      1      2      3      4      5      6      7      8      9");
 	for (i = 0; i < rsktd_snd_cnt; i++) {
 		int skt_num = i + rsktd_snd_skt;
 		if (!(i % 10)) {
-			sprintf(env->output, "\n%5d", skt_num);
-			logMsg(env);
-		};
+			LOGMSG(env, "\n%5d", skt_num);
+		}
 		st = rsktd_sn_get(skt_num);
-		if ((rsktd_snd_st == rskt_max_state) || (rsktd_snd_st == st))
-			sprintf(env->output, "%7s", SKT_STATE_STR(st));
-		else
-			sprintf(env->output, "       ");
-		logMsg(env);
-	};
-	sprintf(env->output, "\n");
-	logMsg(env);
+		if ((rsktd_snd_st == rskt_max_state) || (rsktd_snd_st == st)) {
+			LOGMSG(env, "%7s", SKT_STATE_STR(st));
+		} else {
+			LOGMSG(env, "       ");
+		}
+	}
+	LOGMSG(env, "\n");
 
 	rsktd_snd_skt += rsktd_snd_cnt;
 

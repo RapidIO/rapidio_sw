@@ -34,6 +34,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define __DAR_UTILITIES_H__
 
 #include "stdint.h"
+#include "rio_ecosystem.h"
 #include "DAR_DevDriver.h"
 
 #ifdef __cplusplus
@@ -363,24 +364,19 @@ typedef struct DAR_pkt_trans_hdr_t_TAG
 {
     /* Transport layer fields
     */
-    rio_TT_code  tt_code;   /* TT code, as per enum above
-                            */
-    uint32_t       destID;    /* 8/16 bits, depending on tt_code value.
-                            */
-    uint32_t       srcID;     /* Both destID and srcID are the same size.
-                            */
-    uint32_t       hopcount;  /* Only Valid for Maintenance packets.
-                               Max value 255
-                            */
+    rio_TT_code tt_code;   /* TT code, as per enum above */
+    uint32_t destID;    /* 8/16 bits, depending on tt_code value. */
+    uint32_t srcID;     /* Both destID and srcID are the same size. */
+    hc_t hopcount;  /* Only Valid for Maintenance packets. Max value 255 */
 } DAR_pkt_trans_hdr_t;
 
 typedef struct DAR_pkt_trans_mask_t_TAG
 {
-    uint8_t        tt_m;      // Mask value for TT     field.  2 bits. 
+	uint8_t        tt_m;      // Mask value for TT     field.  2 bits.
 	rio_TT_code  tt_code;   // TT code, determines how many bits of destID/srcID mask are used
 	uint32_t       destID_m;  // Mask value for DestID field.  8, 16, or 32 bits
 	uint32_t       srcID_m;   // Mask value for SrcID  field.  8, 16, or 32 bits
-	uint8_t        hc_m;      // Mask value for hopcount field.  8 bits.  Only used for Maintenance packets.
+	hc_t        hc_m;      // Mask value for hopcount field.  8 bits.  Only used for Maintenance packets.
 } DAR_pkt_trans_mask_t;
 
 

@@ -92,43 +92,34 @@ int CLIDDDumpCmd(struct cli_env *env, int argc, char **argv)
 		goto exit;
 	};
 
-	sprintf(env->output, "\nTime %lld.%.9ld ChgIdx: 0x%8x\n", 
-		(long long)cli_dd->chg_time.tv_sec,
-		cli_dd->chg_time.tv_nsec,  cli_dd->chg_idx);
-	logMsg(env);
-	sprintf(env->output, "fmd_dd: md_ct %x num_devs %d\n", 
-		cli_dd->md_ct, cli_dd->num_devs);
-	logMsg(env);
-	if (cli_dd->num_devs > 0)  {
-		sprintf(env->output, 
-			"Idx ---CT--- -destID- SZ HC MP FL Name\n");
-		logMsg(env);
+	LOGMSG(env, "\nTime %lld.%.9ld ChgIdx: 0x%8x\n",
+			(long long )cli_dd->chg_time.tv_sec,
+			cli_dd->chg_time.tv_nsec, cli_dd->chg_idx);
+	LOGMSG(env, "fmd_dd: md_ct %x num_devs %d\n", cli_dd->md_ct,
+			cli_dd->num_devs);
+	if (cli_dd->num_devs > 0) {
+		LOGMSG(env, "Idx ---CT--- -destID- SZ HC MP FL Name\n");
 		for (i = 0; (i < cli_dd->num_devs) && (i < FMD_MAX_DEVS); i++) {
-			sprintf(env->output,
-				"%3d %8x %8x %2x %2x %2s %2x %30s\n",
-				i, cli_dd->devs[i].ct, 
-				cli_dd->devs[i].destID, 
-				cli_dd->devs[i].destID_sz, 
-				cli_dd->devs[i].hc,
-				cli_dd->devs[i].is_mast_pt?"MP":"..",
-				cli_dd->devs[i].flag,
-				cli_dd->devs[i].name);
-			logMsg(env);
+			LOGMSG(env, "%3d %8x %8x %2x %2x %2s %2x %30s\n", i,
+					cli_dd->devs[i].ct,
+					cli_dd->devs[i].destID,
+					cli_dd->devs[i].destID_sz,
+					cli_dd->devs[i].hc,
+					cli_dd->devs[i].is_mast_pt ?
+							"MP" : "..",
+					cli_dd->devs[i].flag,
+					cli_dd->devs[i].name);
 		};
 	};
 
 	if (NULL == cli_dd_mtx) {
-		sprintf(env->output, 
-			"\nDevice Directory Mutex not available.\n");
-		logMsg(env);
+		LOGMSG(env, "\nDevice Directory Mutex not available.\n");
 		goto exit;
 	};
 
-	sprintf(env->output, 
-			"Mutex: mtx_ref_cnt %x dd_ref_cnt %x init_done %x\n",
+	LOGMSG(env, "Mutex: mtx_ref_cnt %x dd_ref_cnt %x init_done %x\n",
 			cli_dd_mtx->mtx_ref_cnt, cli_dd_mtx->dd_ref_cnt,
-			cli_dd_mtx->init_done );
-	logMsg(env);
+			cli_dd_mtx->init_done);
 
 	found = 0;
 	for (i = 0; i < FMD_MAX_APPS; i++) {
@@ -136,19 +127,15 @@ int CLIDDDumpCmd(struct cli_env *env, int argc, char **argv)
 			continue;
 
 		if (!found) {
-			sprintf(env->output, "\nIdx --Proc-- Waiting\n");
-			logMsg(env);
+			LOGMSG(env, "\nIdx --Proc-- Waiting\n");
 			found = 1;
 		};
-		
-		sprintf(env->output, "%3d %8d %d\n", i,
-			cli_dd_mtx->dd_ev[i].proc,
-			cli_dd_mtx->dd_ev[i].waiting);
-		logMsg(env);
+
+		LOGMSG(env, "%3d %8d %d\n", i, cli_dd_mtx->dd_ev[i].proc,
+				cli_dd_mtx->dd_ev[i].waiting);
 	};
 	if (!found) {
-		sprintf(env->output, "\nNo applications connected.\n");
-		logMsg(env);
+		LOGMSG(env, "\nNo applications connected.\n");
 	};
 		
 exit:
@@ -173,11 +160,11 @@ int CLIDDIncCmd(struct cli_env *env, int argc, char **argv)
 		argv[0][0] = argc;
 
 	fmd_dd_incr_chg_idx(cli_dd, 1);
-	sprintf(env->output, "\nIncrement idx value: 0x%8x\n", 
-		fmd_dd_get_chg_idx(cli_dd));
-	logMsg(env);
+	LOGMSG(env, "\nIncrement idx value: 0x%8x\n",
+			fmd_dd_get_chg_idx(cli_dd));
 	return 0;
-};
+}
+;
 
 struct cli_cmd CLIDDInc = {
 (char *)"inc",
@@ -194,49 +181,40 @@ extern struct cli_cmd CLIClean;
 int CLICleanCmd(struct cli_env *env, int argc, char **argv)
 {
 
-	if ((NULL == cli_dd) || (NULL == cli_dd_mtx) ||
-	(NULL == cli_dd_fn) || (NULL == cli_dd_mtx_fn)) {
-		sprintf(env->output, "\nState pointer is null.\n");
+	if ((NULL == cli_dd) || (NULL == cli_dd_mtx) || (NULL == cli_dd_fn)
+			|| (NULL == cli_dd_mtx_fn)) {
+		LOGMSG(env, "\nState pointer is null.\n");
 		goto exit;
-	};  
+	};
 	argv[0] = NULL;
 	if (argc) {
-		sprintf(env->output, "\nFreeing Mutex, current state:\n");
-		logMsg(env);
+		LOGMSG(env, "\nFreeing Mutex, current state:\n");
 		if (NULL == cli_dd_mtx) {
-			sprintf(env->output, "\ndd_mtx is NULL\n");
+			LOGMSG(env, "\ndd_mtx is NULL\n");
 		} else {
-			sprintf(env->output, "dd_ref_cnt   : %x\n",
-				cli_dd_mtx->dd_ref_cnt);
-			logMsg(env);
-			sprintf(env->output, "mtx_ref_cnt: %x\n",
-				cli_dd_mtx->mtx_ref_cnt);
-			logMsg(env);
-			sprintf(env->output, "init_done : %x\n",
-				cli_dd_mtx->init_done);
+			LOGMSG(env, "dd_ref_cnt   : %x\n",
+					cli_dd_mtx->dd_ref_cnt);
+			LOGMSG(env, "mtx_ref_cnt: %x\n",
+					cli_dd_mtx->mtx_ref_cnt);
+			LOGMSG(env, "init_done : %x\n", cli_dd_mtx->init_done);
 		};
 		shm_unlink(cli_dd_mtx_fn);
 	} else {
-		sprintf(env->output, "\nFreeing dd, current state:\n");
-		logMsg(env);
+		LOGMSG(env, "\nFreeing dd, current state:\n");
 		if (NULL == cli_dd) {
-			sprintf(env->output, "\ndd is NULL\n");
+			LOGMSG(env, "\ndd is NULL\n");
 		} else {
-			sprintf(env->output, "dd_ref_cnt   : %x\n",
-				cli_dd_mtx->dd_ref_cnt);
-			logMsg(env);
-			sprintf(env->output, "mtx_ref_cnt: %x\n",
-				cli_dd_mtx->mtx_ref_cnt);
-			logMsg(env);
-			sprintf(env->output, "init_done : %x\n",
-				cli_dd_mtx->init_done);
+			LOGMSG(env, "dd_ref_cnt   : %x\n",
+					cli_dd_mtx->dd_ref_cnt);
+			LOGMSG(env, "mtx_ref_cnt: %x\n",
+					cli_dd_mtx->mtx_ref_cnt);
+			LOGMSG(env, "init_done : %x\n", cli_dd_mtx->init_done);
 		};
 		shm_unlink(cli_dd_fn);
 	};
-exit:
-	logMsg(env);
-	return 0;
-};
+	exit: return 0;
+}
+;
 
 struct cli_cmd CLIClean = {
 (char *)"clean",

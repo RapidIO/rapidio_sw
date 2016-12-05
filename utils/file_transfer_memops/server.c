@@ -234,7 +234,7 @@ exit:
 	return;
 }
 
-pthread_t conn_thread, cli_session_thread, console_thread;
+pthread_t conn_thread, console_thread;
 int cli_session_portno;
 int cli_session_alive;
 
@@ -299,46 +299,31 @@ int FXStatusCmd(struct cli_env *env, int argc, char **argv)
 	};
 
 	
-	sprintf(env->output, 
-	"\nWin V   RapidIO Addr    Size    Memory Space PHYS TV D C RC\n");
-        logMsg(env);
+	LOGMSG(env,
+			"\nWin V   RapidIO Addr    Size    Memory Space PHYS TV D C RC\n");
 	for (idx = st_idx; idx < max_idx; idx++) {
-		sprintf(env->output, 
-			"%2d  %1d %16lx %8lx  %16lx  %1d %1d %1d %8x\n",
-				idx,
-				ibwins[idx].valid,
-				(long unsigned int)ibwins[idx].rio_base,
-				(long unsigned int)ibwins[idx].length,
-				(long unsigned int)ibwins[idx].handle,
-				ibwins[idx].thr_valid,
-				ibwins[idx].debug,
-				ibwins[idx].completed,
-				ibwins[idx].rc);
-		logMsg(env);
+		LOGMSG(env, "%2d  %1d %16lx %8lx  %16lx  %1d %1d %1d %8x\n",
+				idx, ibwins[idx].valid,
+				(long unsigned int )ibwins[idx].rio_base,
+				(long unsigned int )ibwins[idx].length,
+				(long unsigned int )ibwins[idx].handle,
+				ibwins[idx].thr_valid, ibwins[idx].debug,
+				ibwins[idx].completed, ibwins[idx].rc);
 	}
-	sprintf(env->output, "\nall_must_die status : %d\n", all_must_die);
-        logMsg(env);
-	sprintf(env->output, "XFER Socket #       : %d\n", conn_skt_num);
-        logMsg(env);
-	sprintf(env->output, "XFER conn_loop_alive: %d\n", conn_loop_alive);
-        logMsg(env);
-	sprintf(env->output, "Pending conn reqs   : %s\n", 
-			(conn_reqs.head)?"AVAILABLE":"None");
-        logMsg(env);
-	sprintf(env->output, "\nCLI Sessions Alive : %d\n", cli_session_alive);
-        logMsg(env);
-	sprintf(env->output, "CLI Socket #       : %d\n", cli_session_portno);
-        logMsg(env);
-	sprintf(env->output, "\nServer mport       : %d\n", mp_h_mport_num);
-        logMsg(env);
-	sprintf(env->output, "Server destID      : %x\n", qresp.hdid);
-        logMsg(env);
+	LOGMSG(env, "\nall_must_die status : %d\n", all_must_die);
+	LOGMSG(env, "XFER Socket #       : %d\n", conn_skt_num);
+	LOGMSG(env, "XFER conn_loop_alive: %d\n", conn_loop_alive);
+	LOGMSG(env, "Pending conn reqs   : %s\n",
+			(conn_reqs.head) ? "AVAILABLE" : "None");
+	LOGMSG(env, "\nCLI Sessions Alive : %d\n", cli_session_alive);
+	LOGMSG(env, "CLI Socket #       : %d\n", cli_session_portno);
+	LOGMSG(env, "\nServer mport       : %d\n", mp_h_mport_num);
+	LOGMSG(env, "Server destID      : %x\n", qresp.hdid);
 
 	return 0;
 
 show_help:
-	sprintf(env->output, "\nFAILED: Extra parms or invalid values\n");
-        logMsg(env);
+	LOGMSG(env, "\nFAILED: Extra parms or invalid values\n");
 	cli_print_help(env, &FXStatus);
 
 	return 0;
@@ -362,9 +347,7 @@ void fxfr_server_shutdown(void);
 int FXShutdownCmd(struct cli_env *env, int UNUSED(argc), char **UNUSED(argv))
 {
 	fxfr_server_shutdown();
-	sprintf(env->output, "Shutdown initiated...\n"); 
-	logMsg(env);
-
+	LOGMSG(env, "Shutdown initiated...\n");
 	return 0;
 };
 
@@ -382,17 +365,14 @@ ATTR_NONE
 int FXMpdevsCmd(struct cli_env *env, int argc, char **argv)
 {
 	if (argc) {
-                sprintf(env->output,
-			"FAILED: Extra parameters ignored: %s\n", argv[0]);
-		logMsg(env);
-	};
+		LOGMSG(env, "FAILED: Extra parameters ignored: %s\n", argv[0]);
+	}
 
-        std::vector<uint32_t> mport_list;
-        if (! MportMgmt::get_mport_list(mport_list)) {
-                sprintf(env->output,
-			"ERR: riomp_mport_get_mport_list() ERR\n");
-		logMsg(env);
-                return 0;
+	std
+	::vector<uint32_t> mport_list;
+	if (! MportMgmt::get_mport_list(mport_list)) {
+		LOGMSG(env, "ERR: riomp_mport_get_mport_list() ERR\n");
+		return 0;
 	}
 
 	const int number_of_mports = mport_list.size();
@@ -402,36 +382,27 @@ int FXMpdevsCmd(struct cli_env *env, int argc, char **argv)
         for (int i = 0; i < number_of_mports; i++) {
                 const int mport_id = mport_list[i];
 
-                sprintf(env->output, "+++ mport_id: %u\n", mport_id);
-		logMsg(env);
+                LOGMSG(env, "+++ mport_id: %u\n", mport_id);
 
                 /* Display EPs for this MPORT */
 
 		std::vector<uint32_t> ep_list;
                 if (! MportMgmt::get_ep_list(mport_id, ep_list)) {
-                	sprintf(env->output,
-                        	"ERR: riomp_ep_get_list() ERR\n");
-			logMsg(env);
+                	LOGMSG(env, "ERR: riomp_ep_get_list() ERR\n");
                         break;
                 }
 
 		const int number_of_eps = ep_list.size();
 
-                sprintf(env->output, "\t%u Endpoints (dest_ID): ", 
-			number_of_eps);
-		logMsg(env);
+		LOGMSG(env, "\t%u Endpoints (dest_ID): ", number_of_eps);
                 for (int ep = 0; ep < number_of_eps; ep++) {
-                	sprintf(env->output, "%u ", ep_list[i]);
-			logMsg(env);
+                	LOGMSG(env, "%u ", ep_list[i]);
 		}
 
-                sprintf(env->output, "\n");
-		logMsg(env);
+                LOGMSG(env, "\n");
         }
 
-	sprintf(env->output, "\n");
-	logMsg(env);
-
+        LOGMSG(env, "\n");
 	return 0;
 }
 
@@ -448,20 +419,14 @@ ATTR_NONE
 
 void print_file_xfer_status(struct cli_env *env)
 {
-	sprintf(env->output, "\nFile transfer status: %s\n", 
-		pause_file_xfer_conn?"PAUSED":"running");
-	logMsg(env);
+	LOGMSG(env, "\nFile transfer status: %s\n",
+			pause_file_xfer_conn ? "PAUSED" : "running");
 
 	if (pause_file_xfer_conn) {
-		sprintf(env->output, "Maximum Q length: %d\n",
-			max_file_xfer_queue);
-		logMsg(env);
-		
-		sprintf(env->output, "Current Q length: %d\n",
-			num_conn_reqs);
-		logMsg(env);
-	};
-};
+		LOGMSG(env, "Maximum Q length: %d\n", max_file_xfer_queue);
+		LOGMSG(env, "Current Q length: %d\n", num_conn_reqs);
+	}
+}
 		
 void batch_start_connections(void)
 {
@@ -817,95 +782,20 @@ close_mport:
 	return rc;
 };
 
-void *cli_session( void *sock_num )
-{
-	int sockfd, newsockfd = -1, portno;
-	socklen_t clilen;
-	struct sockaddr_in serv_addr, cli_addr;
-	char buffer[256];
-	int one = 1;
-	int session_num = 0;
-
-	portno = *(int *)(sock_num);
-	cli_session_portno = portno;
-
-	free(sock_num);
-
-	sockfd = socket(AF_INET, SOCK_STREAM, 0);
-	if (sockfd < 0) {
-        	CRIT("ERROR opening socket");
-		goto fail;
-	}
-	bzero((char *) &serv_addr, sizeof(serv_addr));
-	serv_addr.sin_family = AF_INET;
-	serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-	serv_addr.sin_port = htons(portno);
-	setsockopt (sockfd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof (one));
-	setsockopt (sockfd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof (one));
-	if (bind(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr))<0) {
-        	CRIT("ERROR on binding port %d", cli_session_portno);
-		goto fail;
-	}
-
-	INFO("\nSERVER Remote CLI bound to socket %d\n", portno);
-	sem_post(&cons_owner);
-	cli_session_alive = 1;
-	while (!all_must_die && strncmp(buffer, "done", 4)) {
-		struct cli_env env;
-
-		env.script = NULL;
-		env.fout = NULL;
-		bzero(env.output, BUFLEN);
-		bzero(env.input, BUFLEN);
-		env.DebugLevel = 0;
-		env.progressState = 0;
-		env.sess_socket = -1;
-		env.h = NULL;
-		bzero(env.prompt, PROMPTLEN+1);
-		set_prompt( &env );
-
-		listen(sockfd,5);
-		clilen = sizeof(cli_addr);
-		env.sess_socket = accept(sockfd, 
-				(struct sockaddr *) &cli_addr, 
-				&clilen);
-		if (env.sess_socket < 0) {
-			CRIT("ERROR on accept");
-			goto fail;
-		};
-		printf("\nStarting session %d\n", session_num);
-		cli_terminal( &env );
-		printf("\nFinishing session %d\n", session_num);
-		close(env.sess_socket);
-		session_num++;
-	};
-fail:
-	cli_session_alive = 0;
-	if (debug)
-		printf("\nSERVER REMOTE CLI Thread Exiting\n");
-	if (newsockfd >=0)
-		close(newsockfd);
-     	close(sockfd);
-
-	sock_num = malloc(sizeof(int));
-	if (NULL != sock_num) {
-		*(int *)(sock_num) = portno;
-	}
-	pthread_exit(sock_num);
-}
-
 int spawned_threads;
 void fxfr_server_shutdown_cli(struct cli_env *env);
 
 void spawn_threads(int cons_skt, int xfer_skt, int run_cons)
 {
 	int  conn_ret, cli_ret, cons_ret = 0;
-	int *pass_sock_num, *conn_loop_rc;
+	int *conn_loop_rc;
 	int i;
+	struct cli_env t_env;
+	struct remote_login_parms *rlp = (struct remote_login_parms *)
+			malloc(sizeof(struct remote_login_parms));
 
 	all_must_die = 0;
 	conn_loop_alive = 0;
-	cli_session_alive = 0;
 	spawned_threads = 1;
 
 	cli_init_base(fxfr_server_shutdown_cli);
@@ -914,11 +804,10 @@ void spawn_threads(int cons_skt, int xfer_skt, int run_cons)
 
 	sem_init(&cons_owner, 0, 0);
 
-	cli_session_portno = 0;
-
 	/* Prepare and start console thread */
 	if (run_cons) {
-		splashScreen((char *)
+		init_cli_env(&t_env);
+		splashScreen(&t_env, (char *)
 			"RTA File Transfer Server Command Line Interface");
 
 		cons_ret = pthread_create( &console_thread, NULL, 
@@ -959,7 +848,7 @@ void spawn_threads(int cons_skt, int xfer_skt, int run_cons)
 
 		pass_idx = (int *)(malloc(sizeof(int)));
 		if (NULL == pass_idx) {
-			fprintf(stderr,"Error - cli_session_thread could not allocate pass_idx\n");
+			fprintf(stderr,"Error - could not allocate pass_idx\n");
 			exit(EXIT_FAILURE);
 		}
 
@@ -973,25 +862,23 @@ void spawn_threads(int cons_skt, int xfer_skt, int run_cons)
 		ibwins[i].thr_valid = 1;
 	};
 
-	/* Start cli_session_thread, enabling remote debug over Ethernet */
-	pass_sock_num = (int *)(malloc(sizeof(int)));
-	if (NULL == pass_sock_num) {
-		fprintf(stderr,"Error - cli_session_thread could not allocate pass_sock_num\n");
-		exit(EXIT_FAILURE);
-	}
-	*pass_sock_num = cons_skt;
+	/* Start remote_login_thread, enabling remote debug over Ethernet */
+	rlp->portno = cons_skt;
+	cli_session_portno = rlp->portno;
+	SAFE_STRNCPY(rlp->thr_name, "MFXFRrCLI", sizeof(rlp->thr_name));
+	rlp->status = &cli_session_alive; 
 
-	cli_ret = pthread_create( &cli_session_thread, NULL, cli_session, 
-				(void *)(pass_sock_num));
+	cli_ret = pthread_create( &remote_login_thread, NULL, remote_login, 
+				(void *)(rlp));
 	if(cli_ret) {
-		fprintf(stderr,"Error - cli_session_thread rc: %d\n",cli_ret);
+		fprintf(stderr,"Error - remote_login_thread rc: %d\n",cli_ret);
 		exit(EXIT_FAILURE);
 	}
 
 	if (debug) {
 		printf("pthread_create() for conn_loop returns: %d\n",
 			conn_ret);
-		printf("pthread_create() for cli_session_thread returns: %d\n",
+		printf("pthread_create() for remote_login_thread returns: %d\n",
 			cli_ret);
 		if (run_cons) 
 			printf("pthread_create() for console returns: %d\n", 
@@ -1005,8 +892,6 @@ void fxfr_server_shutdown(void) {
 	if (!all_must_die && spawned_threads) {
 		if (conn_loop_alive)
 			pthread_kill(conn_thread, SIGHUP);
-		if (cli_session_alive)
-			pthread_kill(cli_session_thread, SIGHUP);
 	};
 
 	all_must_die = 1;
@@ -1035,7 +920,9 @@ void sig_handler(int signo)
 	if ((signo == SIGINT) || (signo == SIGHUP) || (signo == SIGTERM)) {
 		printf("Shutting down\n");
 		fxfr_server_shutdown();
+		exit(0);
 	};
+	return;
 };
 
 int main(int argc, char *argv[])
@@ -1053,6 +940,7 @@ int main(int argc, char *argv[])
 	signal(SIGHUP, sig_handler);
 	signal(SIGTERM, sig_handler);
 	signal(SIGUSR1, sig_handler);
+	signal(SIGPIPE, sig_handler);
 
 	parse_options(argc, argv, &cons_skt, &print_help, &mport_num, &run_cons,
 		&win_size, &num_win, &xfer_skt, &rio_base);   
@@ -1083,8 +971,6 @@ int main(int argc, char *argv[])
 	if (run_cons)
 		pthread_join(console_thread, NULL);
  
-	/* pthread_join(cli_session_thread, NULL); */
-
 	if (mp_h_valid) {
 		delete memops; memops = NULL;
 		mp_h_valid = 0;

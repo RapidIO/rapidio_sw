@@ -72,12 +72,8 @@ int LogLevelCmd(struct cli_env *env, int argc, char **argv)
 		g_level = temp;
 	};
 
-	sprintf(env->output, "\nCompiled log level %d: %s\n", RDMA_LL, 
-		LOG_STR(RDMA_LL));
-	logMsg(env);
-	sprintf(env->output, "Current  log level %d: %s\n", g_level, 
-		LOG_STR(g_level));
-	logMsg(env);
+	LOGMSG(env, "\nCompiled log level %d: %s\n", RDMA_LL, LOG_STR(RDMA_LL));
+	LOGMSG(env, "Current  log level %d: %s\n", g_level, LOG_STR(g_level));
 
 	return 0;
 };
@@ -107,7 +103,7 @@ ATTR_NONE
  */
 int DispLevelCmd(struct cli_env *env, int argc, char **argv)
 {
-        uint8_t temp;
+	uint8_t temp;
 
 	if (argc) {
 		temp = getHex(argv[0], 0);
@@ -118,12 +114,9 @@ int DispLevelCmd(struct cli_env *env, int argc, char **argv)
 		g_disp_level = temp;
 	};
 
-	sprintf(env->output, "\nCompiled log level %d: %s\n", RDMA_LL,
-		LOG_STR(RDMA_LL));
-	logMsg(env);
-	sprintf(env->output, "Current DISPLAY log level %d: %s\n", g_disp_level,
-		LOG_STR(g_disp_level));
-	logMsg(env);
+	LOGMSG(env, "\nCompiled log level %d: %s\n", RDMA_LL, LOG_STR(RDMA_LL));
+	LOGMSG(env, "Current DISPLAY log level %d: %s\n", g_disp_level,
+			LOG_STR(g_disp_level));
 
 	return 0;
 };

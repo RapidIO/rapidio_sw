@@ -107,13 +107,15 @@ uint32_t SRIO_API_WriteRegFunc(DAR_DEV_INFO_t *d_info,
 		acc_p = (struct mpsw_drv_pe_acc_info *)(d_info->accessInfo);
 	};
 
-	if (RIOCP_PE_IS_MPORT(pe_h))
-		rc = riomp_mgmt_lcfg_write(acc_p->maint, offset, sizeof(writedata), writedata)?
-						RIO_ERR_ACCESS:RIO_SUCCESS;
-	else
-		rc = riomp_mgmt_rcfg_write(acc_p->maint, pe_h->destid, pe_h->hopcount, offset,
-				      sizeof(writedata), writedata)?
-						RIO_ERR_ACCESS:RIO_SUCCESS;
+	if (RIOCP_PE_IS_MPORT(pe_h)) {
+		rc = riomp_mgmt_lcfg_write(acc_p->maint, offset,
+				sizeof(writedata), writedata) ?
+		RIO_ERR_ACCESS : RIO_SUCCESS;
+	} else {
+		rc = riomp_mgmt_rcfg_write(acc_p->maint, pe_h->destid,
+				pe_h->hopcount, offset, sizeof(writedata),
+				writedata) ? RIO_ERR_ACCESS : RIO_SUCCESS;
+	}
 exit:
 	return rc;
 };

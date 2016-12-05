@@ -352,12 +352,10 @@ int main(int argc, char** argv)
 	char *program = argv[0];
 	int rc = EXIT_SUCCESS;
 
-	/** - Parse command line options, if any */
-	while (1) {
-		option = getopt_long_only(argc, argv,
-				"hiM:R:S:L:", options, NULL);
-		if (option == -1)
-			break;
+	/** Parse command line options, if any */
+	while (-1 != (option = getopt_long_only(argc, argv,
+			"hiM:R:S:L:", options, NULL))) {
+
 		switch (option) {
 		case 'S':
 			ibwin_size = (uint32_t)strtoul(optarg, NULL, 0);

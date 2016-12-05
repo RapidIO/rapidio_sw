@@ -25,12 +25,12 @@
 #include "inc/riocp_pe.h"
 #include "inc/riocp_pe_internal.h"
 
+#include "rio_ecosystem.h"
+#include "rio_standard.h"
 #include "handle.h"
 #include "comptag.h"
 #include "llist.h"
 #include "pe.h"
-#include "rio_regs.h"
-#include "rio_devs.h"
 #include "driver.h"
 
 #ifdef __cplusplus
@@ -294,7 +294,7 @@ static void riocp_pe_handle_destroy(struct riocp_pe **handle)
  * @param destid     RapidIO destination id for new PE
  * @param port       RapidIO port
  */
-int riocp_pe_handle_create_pe(struct riocp_pe *pe, struct riocp_pe **handle, uint8_t hopcount,
+int riocp_pe_handle_create_pe(struct riocp_pe *pe, struct riocp_pe **handle, hc_t hopcount,
 	uint32_t destid, uint8_t port, ct_t *comptag_in, char *name)
 {
 	struct riocp_pe *h = NULL;
@@ -394,7 +394,7 @@ int riocp_pe_handle_create_pe(struct riocp_pe *pe, struct riocp_pe **handle, uin
 		}
 
 		if (!RIOCP_PE_IS_SWITCH(h->cap)) {
-			ret = riocp_pe_maint_write(h, RIO_DID_CSR, RIO_DID_UNSET);
+			ret = riocp_pe_maint_write(h, RIO_DEVID, RIO_DID_UNSET);
 			if (ret) {
 				RIOCP_ERROR("Could not write destid\n");
 				ret = -EIO;
@@ -496,7 +496,7 @@ int riocp_pe_handle_create_mport(uint8_t mport, bool is_host,
 
 	/* Initialize handle attributes */
 	h->version        = RIOCP_PE_HANDLE_REV;
-	h->hopcount       = 0xFF;
+	h->hopcount       = HC_MP;
 	h->mport          = h;
 	h->minfo->ref     = 1; /* Initialize reference count */
 	h->minfo->id      = mport;
@@ -521,7 +521,7 @@ int riocp_pe_handle_create_mport(uint8_t mport, bool is_host,
 
 	ret = riocp_pe_read_capabilities(h);
 	if (ret) {
-		RIOCP_ERROR("Could not read capabilties\n");
+		RIOCP_ERROR("Could not read capabilities\n");
 		goto err;
 	}
 

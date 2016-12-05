@@ -52,6 +52,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <netinet/in.h>
 
 #include "string_util.h"
+#include "rio_ecosystem.h"
 #include "liblog.h"
 #include "pe_mpdrv_private.h"
 #include "riocp_pe_internal.h"
@@ -122,7 +123,7 @@ int mpsw_drv_reg_wr(struct riocp_pe  *pe, uint32_t offset, uint32_t val)
 	return 0;
 }
 
-int mpsw_drv_raw_reg_wr(struct riocp_pe *pe, uint32_t did, uint8_t hc,
+int mpsw_drv_raw_reg_wr(struct riocp_pe *pe, uint32_t did, hc_t hc,
 				uint32_t addr, uint32_t val)
 {
 	int rc;
@@ -144,7 +145,7 @@ int mpsw_drv_raw_reg_wr(struct riocp_pe *pe, uint32_t did, uint8_t hc,
 	return rc;
 }
 
-int mpsw_drv_raw_reg_rd(struct riocp_pe *pe, uint32_t did, uint8_t hc,
+int mpsw_drv_raw_reg_rd(struct riocp_pe *pe, uint32_t did, hc_t hc,
 				uint32_t addr, uint32_t *val)
 {
 	int rc;
@@ -174,6 +175,7 @@ int mpsw_mport_dev_add(struct riocp_pe *pe, char *name)
 	struct mpsw_drv_private_data *p_dat = NULL;
 	char dev_fn[MPSW_MAX_DEV_FN+1] = {0};
 
+	SAFE_STRNCPY(pe->sysfs_name, name, sizeof(pe->sysfs_name));
 
 	if (RIOCP_PE_IS_MPORT(pe))
 		return 0;
@@ -188,7 +190,6 @@ int mpsw_mport_dev_add(struct riocp_pe *pe, char *name)
 	if ((!p_acc->maint_valid) || (NULL == name))
 		return -EINVAL;
 
-	SAFE_STRNCPY(pe->sysfs_name, name, sizeof(pe->sysfs_name));
 	memset(dev_fn, 0, sizeof(dev_fn));
 	snprintf(dev_fn, sizeof(dev_fn)-1, "%s%s", MPSW_DFLT_DEV_DIR, name);
 

@@ -34,6 +34,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 #include <stdint.h>
+#include "rio_ecosystem.h"
 #include "did.h"
 #include "ct.h"
 
@@ -58,7 +59,7 @@ struct fmd_p_hello {
 	uint32_t did;
 	uint32_t did_sz;
 	ct_t ct;
-	uint32_t hc;
+	hc_t hc;
 };
 
 typedef struct fmd_p_hello fmd_s_hello_req;
@@ -74,7 +75,7 @@ struct fmd_m_peer_mod_req {
 	uint32_t op;
 	uint32_t did;
 	uint32_t did_sz;
-	uint32_t hc;
+	hc_t hc;
 	ct_t ct;
 	uint32_t is_mp;
 	uint32_t flag;
@@ -84,7 +85,7 @@ struct fmd_m_peer_mod_req {
 struct fmd_s_peer_mod_resp {
 	uint32_t did;
 	uint32_t did_sz;
-	uint32_t hc;
+	hc_t hc;
 	ct_t ct;
 	uint32_t is_mp;
 	uint32_t flag;

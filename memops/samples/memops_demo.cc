@@ -176,13 +176,11 @@ int main(int argc, char* argv[])
 	int ret = 0;
 	int n = 1;
 
-	/** - Parse parameters */
-        while (1) {
-                option = getopt_long_only(argc, argv,
-                                "hsafMSUd:A:", options, NULL);
-                if (option == -1)
-                        break;
-                switch (option) {
+	/** Parse command line options, if any */
+	while (-1 != (option = getopt_long_only(argc, argv,
+			"hsafMSUd:A:", options, NULL))) {
+
+		switch (option) {
 		case 's': sync = RIO_DIRECTIO_TRANSFER_SYNC;
 			timeout = 0;
 			sync_str = "SYNC(inft)";
@@ -193,24 +191,24 @@ int main(int argc, char* argv[])
 		case 'f': sync = RIO_DIRECTIO_TRANSFER_FAF;
 			sync_str = "FAF";
 			break;
-                case 'M':
-                        m = 0;
-                        break;
-                case 'S':
-                        m = 1;
-                        break;
-                case 'U':
-                        m = 2;
-                        break;
-                case 'A':
-                        rio_addr = (uint64_t)strtoull(optarg, NULL, 16);
-                        break;
-                case 'd':
-                        did = (uint16_t)strtoul(optarg, NULL, 0);
-                        break;
-                case 'h':
+		case 'M':
+			m = 0;
+			break;
+		case 'S':
+			m = 1;
+			break;
+		case 'U':
+			m = 2;
+			break;
+		case 'A':
+			rio_addr = (uint64_t)strtoull(optarg, NULL, 16);
+			break;
+		case 'd':
+			did = (uint16_t)strtoul(optarg, NULL, 0);
+			break;
+		case 'h':
 			usage_and_exit(argv[0]);
-                        break;
+			break;
 		default: fprintf(stderr, "Invalid option %s\n", argv[n]);
 			usage_and_exit(argv[0]);
 			break;

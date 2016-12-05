@@ -42,6 +42,7 @@ extern "C" {
 #endif
 
 #include <stdint.h>
+#include "rio_ecosystem.h"
 #include "ct.h"
 
 /** @brief max number of RIO mports supported by platform */
@@ -295,7 +296,7 @@ int riomp_mgmt_lcfg_write(riomp_mport_t mport_handle, uint32_t offset, uint32_t 
  * @retval 0 on success
  * @retval -errno on error
  */
-int riomp_mgmt_rcfg_read(riomp_mport_t mport_handle, uint32_t destid, uint32_t hc, uint32_t offset, uint32_t size, uint32_t *data);
+int riomp_mgmt_rcfg_read(riomp_mport_t mport_handle, uint32_t destid, hc_t hc, uint32_t offset, uint32_t size, uint32_t *data);
 
 /**
  * @brief write mport local CSR register
@@ -310,7 +311,7 @@ int riomp_mgmt_rcfg_read(riomp_mport_t mport_handle, uint32_t destid, uint32_t h
  * @retval 0 on success
  * @retval -errno on error
  */
-int riomp_mgmt_rcfg_write(riomp_mport_t mport_handle, uint32_t destid, uint32_t hc, uint32_t offset, uint32_t size, uint32_t data);
+int riomp_mgmt_rcfg_write(riomp_mport_t mport_handle, uint32_t destid, hc_t hc, uint32_t offset, uint32_t size, uint32_t data);
 
 /**
  * @brief enable a range of doorbell events
@@ -424,7 +425,7 @@ int riomp_mgmt_send_event(riomp_mport_t mport_handle, struct riomp_mgmt_event *e
  * @retval 0 on success
  * @retval -errno on error
  */
-int riomp_mgmt_device_add(riomp_mport_t mport_handle, uint16_t destid, uint8_t hc, ct_t ctag, const char *name);
+int riomp_mgmt_device_add(riomp_mport_t mport_handle, uint16_t destid, hc_t hc, ct_t ctag, const char *name);
 
 /**
  * @brief delete kernel object
@@ -438,7 +439,7 @@ int riomp_mgmt_device_add(riomp_mport_t mport_handle, uint16_t destid, uint8_t h
  * @retval 0 on success
  * @retval -errno on error
  */
-int riomp_mgmt_device_del(riomp_mport_t mport_handle, uint16_t destid, uint8_t hc, ct_t ctag, const char *name);
+int riomp_mgmt_device_del(riomp_mport_t mport_handle, uint16_t destid, hc_t hc, ct_t ctag, const char *name);
 
 #ifdef __cplusplus
 }

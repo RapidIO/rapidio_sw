@@ -37,6 +37,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <pthread.h>
 #include <stdint.h>
 
+#include "rio_ecosystem.h"
 #include "fmd_slave.h"
 #include "liblist.h"
 #include "fmd_state.h"
@@ -58,7 +59,7 @@ struct fmd_peer {
 	uint32_t p_did;
 	uint32_t p_did_sz;
 	uint32_t p_ct;
-	uint32_t p_hc;
+	hc_t p_hc;
 	struct l_item_t *li; /* Position of this peer in the fmp.peers list */
 
 	pthread_t rx_thr; /* Thread listening for responses */

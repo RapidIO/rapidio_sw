@@ -260,11 +260,10 @@ int main(int argc, char** argv)
 	struct sigaction action;
 	int rc = EXIT_SUCCESS;
 
-	while (1) {
-		option = getopt_long_only(argc, argv,
-				"rdhnD:I:M:S:E:", options, NULL);
-		if (option == -1)
-			break;
+	/** Parse command line options, if any */
+	while (-1 != (option = getopt_long_only(argc, argv,
+			"rdhnD:I:M:S:E:", options, NULL))) {
+
 		switch (option) {
 		case 'D':
 			rio_destid = (uint32_t)strtoul(optarg, NULL, 0);

@@ -91,10 +91,8 @@ ms_owners::ms_owners()
 
 void ms_owners::dump_info(struct cli_env *env)
 {
-	sprintf(env->output, "%8s %32s %8s\n", "msoid", "name", "MSIDs owned by mso");
-	logMsg(env);
-	sprintf(env->output, "%8s %32s %8s\n", "-----", "----", "------------------");
-	logMsg(env);
+	LOGMSG(env, "%8s %32s %8s\n", "msoid", "name", "MSIDs owned by mso");
+	LOGMSG(env, "%8s %32s %8s\n", "-----", "----", "------------------");
 
 	lock_guard<mutex> owners_lock(owners_mutex);
 

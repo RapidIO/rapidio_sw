@@ -11,8 +11,8 @@
 
 #include "inc/riocp_pe_internal.h"
 
+#include "rio_standard.h"
 #include "driver.h"
-#include "rio_regs.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -21,13 +21,13 @@ extern "C" {
 /**
  * Write lock at hopcount, destid. Make sure the route is programmed!
  */
-int riocp_pe_lock_read(struct riocp_pe *pe, uint32_t destid, uint8_t hopcount, uint32_t *lock)
+int riocp_pe_lock_read(struct riocp_pe *pe, uint32_t destid, hc_t hopcount, uint32_t *lock)
 {
 	int ret;
 	uint32_t _lock;
 
 	ret = riocp_drv_raw_reg_rd(pe, destid, hopcount,
-						RIO_HOST_DID_LOCK_CSR, &_lock);
+						RIO_HOST_LOCK, &_lock);
 	if (ret)
 		return -EIO;
 
@@ -39,12 +39,12 @@ int riocp_pe_lock_read(struct riocp_pe *pe, uint32_t destid, uint8_t hopcount, u
 /**
  * Read lock at hopcount, destid. Make sure the route is programmed!
  */
-int riocp_pe_lock_write(struct riocp_pe *pe, uint32_t destid, uint8_t hopcount, uint32_t lock)
+int riocp_pe_lock_write(struct riocp_pe *pe, uint32_t destid, hc_t hopcount, uint32_t lock)
 {
 	int ret;
 
 	ret = riocp_drv_raw_reg_wr(pe, destid, hopcount,
-						RIO_HOST_DID_LOCK_CSR, lock);
+						RIO_HOST_LOCK, lock);
 	if (ret)
 		return -EIO;
 
@@ -54,7 +54,7 @@ int riocp_pe_lock_write(struct riocp_pe *pe, uint32_t destid, uint8_t hopcount, 
 /**
  * Set the lock: read, verify, write, read and verify
  */
-int riocp_pe_lock_set(struct riocp_pe *mport, uint32_t destid, uint8_t hopcount)
+int riocp_pe_lock_set(struct riocp_pe *mport, uint32_t destid, hc_t hopcount)
 {
 	int ret;
 	uint32_t lock;
@@ -100,7 +100,7 @@ int riocp_pe_lock_set(struct riocp_pe *mport, uint32_t destid, uint8_t hopcount)
 /**
  * Clear the lock: write, read and verify
  */
-int riocp_pe_lock_clear(struct riocp_pe *mport, uint32_t destid, uint8_t hopcount)
+int riocp_pe_lock_clear(struct riocp_pe *mport, uint32_t destid, hc_t hopcount)
 {
 	int ret;
 	uint32_t lock;

@@ -45,9 +45,7 @@ struct cli_cmd *cmds[MAX_CMDS];
 
 int cli_print_help(struct cli_env *env, struct cli_cmd *cmd)
 {
-	sprintf(env->output, "\n%s : %s\n", cmd->name, cmd->longHelp);
-	logMsg(env);
-
+	LOGMSG(env, "\n%s : %s\n", cmd->name, cmd->longHelp);
 	return 0;
 };
 
@@ -131,14 +129,12 @@ int CLIHelpCmd(struct cli_env *env, int argc, char **argv)
 	struct cli_cmd *cmd_ptr;
 
 	if (!argc) {
-		sprintf(env->output, "\nCommands:\n");
-		logMsg(env);
+		LOGMSG(env, "\nCommands:\n");
 
 		/* display list of commands in the database */
 		for (idx = 0; idx < num_valid_cmds; idx++) {
-			sprintf(env->output, "%10s : %s\n",
-				cmds[idx]->name, cmds[idx]->shortHelp);
-			logMsg(env);
+			LOGMSG(env, "%10s : %s\n", cmds[idx]->name,
+					cmds[idx]->shortHelp);
 		};
 	} else {
 		idx = find_cmd(argv[0], &cmd_ptr);
@@ -147,24 +143,17 @@ int CLIHelpCmd(struct cli_env *env, int argc, char **argv)
 			cli_print_help(env, cmd_ptr);
 			break;
 		case -1:
-			sprintf(env->output, "\nCommand \"%s\" not found.\n",
-				argv[0]);
-			logMsg(env);
+			LOGMSG(env, "\nCommand \"%s\" not found.\n", argv[0]);
 			break;
 		case -2:
-			sprintf(env->output,
-				"\n\"%s\" ambiguous, use a longer name.\n",
-				argv[0]);
-			logMsg(env);
+			LOGMSG(env, "\n\"%s\" ambiguous, use a longer name.\n",
+					argv[0]);
 			break;
 		default:
 			/* Should never get here... */
-			sprintf(env->output,
-				"\nInvalid return from find_cmd: 0x%08x\n",
-				idx);
-			logMsg(env);
-			sprintf(env->output, "Help command is broken...\n");
-			logMsg(env);
+			LOGMSG(env, "\nInvalid return from find_cmd: 0x%08x\n",
+					idx);
+			LOGMSG(env, "Help command is broken...\n");
 			break;
 		};
 	};
