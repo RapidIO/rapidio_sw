@@ -869,7 +869,7 @@ static void cps1xxx_dump_event_log(struct riocp_pe *sw)
 				for(i=0;i<EVENT_SOURCE_COUNT;i++)
 					if(event_source_set[i].id == evt_src)
 						break;
-				if(evt_src >= 0x40 || evt_src <= 0x6f) {
+				if(evt_src >= 0x40 && evt_src <= 0x6f) {
 					/* lane event */
 					uint32_t lane_status_0, port_ops, port;
 
@@ -1183,9 +1183,7 @@ static int cps1xxx_arm_port(struct riocp_pe *sw, uint8_t port)
 	/** FIXME temporary disable port interrupts to IPMC
 		because probably the carrier gets in M7 communication lost state
 	*/
-#if 0
-	result |= CPS1xxx_OPS_PORT_PW_EN | CPS1xxx_OPS_PORT_INT_EN;
-#endif
+	result &= ~(CPS1xxx_OPS_LT_LOG_EN | CPS1xxx_OPS_LANE_LOG_EN | CPS1xxx_OPS_PORT_LOG_EN | CPS1xxx_OPS_TRACE_PW_EN | CPS1xxx_OPS_PORT_PW_EN | CPS1xxx_OPS_PORT_INT_EN);
 #ifdef CONFIG_PORTWRITE_ENABLE
 	result |= CPS1xxx_OPS_PORT_PW_EN;
 #endif
