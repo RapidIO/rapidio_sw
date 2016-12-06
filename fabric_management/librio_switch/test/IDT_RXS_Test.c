@@ -100,7 +100,7 @@ static void rxs_test_setup(void)
 	mock_dev_info.swRtInfo = 255;
 	mock_dev_info.srcOps = 4;
 	mock_dev_info.dstOps = 0;
-	mock_dev_info.swMcastInfo = 0;
+	mock_dev_info.swMcastInfo = IDT_DSF_MAX_MC_MASK;
 	for (idx = 0; idx < MAX_DAR_PORTS; idx++) {
 		mock_dev_info.ctl1_reg[idx] = 0;
         }
@@ -753,6 +753,7 @@ void rxs_cfg_dev_ctrs_test_per_port(void **state)
 
 	// Initialize counters for all ports...
         rxs_init_ctrs(&init_in);
+
         assert_int_equal(RIO_SUCCESS,
 			idt_rxs_sc_init_dev_ctrs(&mock_dev_info,
 					&init_in, &init_out));
@@ -1126,12 +1127,12 @@ static void rxs_init_mock_rt(idt_rt_state_t *rt)
         }
 }
 
-void rxs_init_rt_test(void **state)
+void rxs_init_rt_test_success(void **state)
 {
         idt_rt_initialize_in_t      mock_init_in;
         idt_rt_initialize_out_t     mock_init_out;
         idt_rt_state_t              rt;
-        uint32_t temp;
+        uint32_t temp, idx;
         uint8_t port = 0;
 
         rxs_init_mock_rt(&rt);
@@ -1145,15 +1146,41 @@ void rxs_init_rt_test(void **state)
         assert_int_equal(RIO_SUCCESS, idt_rxs_rt_initialize(&mock_dev_info, &mock_init_in, &mock_init_out));
         assert_int_equal(RIO_SUCCESS, mock_init_out.imp_rc);
 
+        //Check initialze values
+        assert_int_equal(0, mock_init_in.default_route);
+        assert_int_equal(0, mock_init_in.set_on_port);
+        assert_int_equal(IDT_DSF_RT_NO_ROUTE, mock_init_in.default_route_table_port);
+        assert_true(!mock_init_in.update_hw);
+        assert_int_equal(0, mock_init_in.rt->default_route);
+
+        //Check device and domin tables
+        for (idx = 0; idx < IDT_DAR_RT_DEV_TABLE_SIZE; idx++) {
+            assert_int_equal(IDT_DSF_RT_NO_ROUTE, mock_init_in.rt->dev_table[idx].rte_val);
+            assert_true(mock_init_in.rt->dev_table[idx].changed);
+            assert_int_equal(IDT_DSF_RT_NO_ROUTE, mock_init_in.rt->dom_table[idx].rte_val);
+            assert_true(mock_init_in.rt->dom_table[idx].changed);
+        }
+
+        //Check mc mask table
+        for (idx = 0; idx < IDT_DSF_MAX_MC_MASK; idx++) 
+        {
+            assert_int_equal(0, mock_init_in.rt->mc_masks[idx].mc_destID);
+            assert_int_equal(tt_dev8, mock_init_in.rt->mc_masks[idx].tt);
+            assert_int_equal(0, mock_init_in.rt->mc_masks[idx].mc_mask);
+            assert_true(!mock_init_in.rt->mc_masks[idx].in_use);
+            assert_true(!mock_init_in.rt->mc_masks[idx].allocd);
+            assert_true(mock_init_in.rt->mc_masks[idx].changed);
+        } 
+
         (void)state; // unused
 }
 
-void rxs_init_setport_rt_test(void **state)
+void rxs_init_rt_setport_test_success(void **state)
 {
         idt_rt_initialize_in_t      mock_init_in;
         idt_rt_initialize_out_t     mock_init_out;
         idt_rt_state_t              rt;
-        uint32_t temp;
+        uint32_t temp, idx;
         uint32_t port = RIO_ALL_PORTS;
 
         rxs_init_mock_rt(&rt);
@@ -1166,6 +1193,454 @@ void rxs_init_setport_rt_test(void **state)
 
         assert_int_equal(RIO_SUCCESS, idt_rxs_rt_initialize(&mock_dev_info, &mock_init_in, &mock_init_out));
         assert_int_equal(RIO_SUCCESS, mock_init_out.imp_rc);
+
+        //Check initialze values
+        assert_int_equal(0, mock_init_in.default_route);
+        assert_int_equal(RIO_ALL_PORTS, mock_init_in.set_on_port);
+        assert_int_equal(IDT_DSF_RT_NO_ROUTE, mock_init_in.default_route_table_port);
+        assert_true(!mock_init_in.update_hw);
+        assert_int_equal(0, mock_init_in.rt->default_route);
+
+        //Check device and domin tables
+        for (idx = 0; idx < IDT_DAR_RT_DEV_TABLE_SIZE; idx++) {
+            assert_int_equal(IDT_DSF_RT_NO_ROUTE, mock_init_in.rt->dev_table[idx].rte_val);
+            assert_true(mock_init_in.rt->dev_table[idx].changed);
+            assert_int_equal(IDT_DSF_RT_NO_ROUTE, mock_init_in.rt->dom_table[idx].rte_val);
+            assert_true(mock_init_in.rt->dom_table[idx].changed);
+        }
+
+        //Check mc mask table
+        for (idx = 0; idx < IDT_DSF_MAX_MC_MASK; idx++)
+        {
+            assert_int_equal(0, mock_init_in.rt->mc_masks[idx].mc_destID);
+            assert_int_equal(tt_dev8, mock_init_in.rt->mc_masks[idx].tt);
+            assert_int_equal(0, mock_init_in.rt->mc_masks[idx].mc_mask);
+            assert_true(!mock_init_in.rt->mc_masks[idx].in_use);
+            assert_true(!mock_init_in.rt->mc_masks[idx].allocd);
+            assert_true(mock_init_in.rt->mc_masks[idx].changed);
+        }
+
+        (void)state; // unused
+}
+
+void rxs_init_rt_null_test_success(void **state)
+{
+        idt_rt_initialize_in_t      mock_init_in;
+        idt_rt_initialize_out_t     mock_init_out;
+
+        uint32_t temp;//, idx;
+        uint8_t port = 0;
+
+        assert_int_equal(RIO_SUCCESS, DARRegRead(&mock_dev_info, RXS_RIO_ROUTE_DFLT_PORT, &temp));
+        mock_init_in.set_on_port = port;
+        mock_init_in.default_route = (uint8_t)(temp & RXS_RIO_ROUTE_DFLT_PORT_DEFAULT_OUT_PORT);
+        mock_init_in.default_route_table_port = IDT_DSF_RT_NO_ROUTE;
+        mock_init_in.update_hw = false;
+        mock_init_in.rt        = NULL;
+
+        assert_int_equal(RIO_SUCCESS, idt_rxs_rt_initialize(&mock_dev_info, &mock_init_in, &mock_init_out));
+        assert_int_equal(RIO_SUCCESS, mock_init_out.imp_rc);
+
+        //Check initialze values
+        assert_int_equal(0, mock_init_in.default_route);
+        assert_int_equal(0, mock_init_in.set_on_port);
+        assert_int_equal(IDT_DSF_RT_NO_ROUTE, mock_init_in.default_route_table_port);
+        assert_true(!mock_init_in.update_hw);
+        assert_null(mock_init_in.rt);
+
+        (void)state; // unused
+}
+
+void rxs_init_rt_test_update_hw(void **state)
+{
+        idt_rt_initialize_in_t      mock_init_in;
+        idt_rt_initialize_out_t     mock_init_out;
+        idt_rt_state_t              rt;
+        uint32_t temp, idx;
+        uint8_t port = 0;
+
+        rxs_init_mock_rt(&rt);
+        assert_int_equal(RIO_SUCCESS, DARRegRead(&mock_dev_info, RXS_RIO_ROUTE_DFLT_PORT, &temp));
+        mock_init_in.set_on_port = port;
+        mock_init_in.default_route = (uint8_t)(temp & RXS_RIO_ROUTE_DFLT_PORT_DEFAULT_OUT_PORT);
+        mock_init_in.default_route_table_port = IDT_DSF_RT_NO_ROUTE;
+        mock_init_in.update_hw = true;
+        mock_init_in.rt        = &rt;
+
+        assert_int_equal(RIO_SUCCESS, idt_rxs_rt_initialize(&mock_dev_info, &mock_init_in, &mock_init_out));
+        assert_int_equal(RIO_SUCCESS, mock_init_out.imp_rc);
+
+        //Check initialze values
+        assert_int_equal(0, mock_init_in.default_route);
+        assert_int_equal(0, mock_init_in.set_on_port);
+        assert_int_equal(IDT_DSF_RT_NO_ROUTE, mock_init_in.default_route_table_port);
+        assert_true(mock_init_in.update_hw);
+        assert_int_equal(0, mock_init_in.rt->default_route);
+
+        //Check device and domin tables
+        for (idx = 0; idx < IDT_DAR_RT_DEV_TABLE_SIZE; idx++) {
+            assert_int_equal(IDT_DSF_RT_NO_ROUTE, mock_init_in.rt->dev_table[idx].rte_val);
+            assert_true(!mock_init_in.rt->dev_table[idx].changed);
+            assert_int_equal(IDT_DSF_RT_NO_ROUTE, mock_init_in.rt->dom_table[idx].rte_val);
+            assert_true(!mock_init_in.rt->dom_table[idx].changed);
+        }
+
+        //Check mc mask table
+        for (idx = 0; idx < IDT_DSF_MAX_MC_MASK; idx++)
+        {
+            assert_int_equal(0, mock_init_in.rt->mc_masks[idx].mc_destID);
+            assert_int_equal(tt_dev8, mock_init_in.rt->mc_masks[idx].tt);
+            assert_int_equal(0, mock_init_in.rt->mc_masks[idx].mc_mask);
+            assert_true(!mock_init_in.rt->mc_masks[idx].in_use);
+            assert_true(!mock_init_in.rt->mc_masks[idx].allocd);
+            assert_true(!mock_init_in.rt->mc_masks[idx].changed);
+        }
+
+        (void)state; // unused
+}
+
+#define DEV_RTE_ADDR(b,n) ((b)+(4*n))
+#define DOM_RTE_ADDR(b,n) ((b)+(4*n))
+
+static void rxs_reg_dev_dom(uint32_t port, uint32_t rte_num, uint32_t *dom_out, uint32_t *dev_out)
+{
+        uint32_t dev_rte_base, dom_rte_base;
+
+        if (RIO_ALL_PORTS == port) {
+           dev_rte_base = RXS_RIO_BC_L2_GX_ENTRYY_CSR(0, 0);
+           dom_rte_base = RXS_RIO_BC_L1_GX_ENTRYY_CSR(0, 0);
+        } else {
+           dev_rte_base = RXS_RIO_SPX_L2_GY_ENTRYZ_CSR(port, 0, 0);
+           dom_rte_base = RXS_RIO_SPX_L1_GY_ENTRYZ_CSR(port, 0, 0);
+        }
+
+        assert_int_equal(RIO_SUCCESS, DARRegRead(&mock_dev_info, DOM_RTE_ADDR(dom_rte_base, rte_num), dom_out));
+        assert_int_equal(RIO_SUCCESS, DARRegRead(&mock_dev_info, DEV_RTE_ADDR(dev_rte_base, rte_num), dev_out));
+}
+
+#define MC_MASK_ADDR(b,m)     ((b)+(8*m))
+
+static void rxs_reg_mc_mask(uint32_t port, uint32_t mc_mask_num, uint32_t *mc_mask_out)
+{
+        uint32_t base_mask_addr;
+
+        if (RIO_ALL_PORTS == port) {
+           base_mask_addr = RXS_RIO_SPX_MC_Y_S_CSR(0, 0);
+        } else {
+           base_mask_addr = RXS_RIO_SPX_MC_Y_S_CSR(port, 0);
+        }
+
+        assert_int_equal(RIO_SUCCESS, DARRegRead(&mock_dev_info, MC_MASK_ADDR(base_mask_addr, mc_mask_num), mc_mask_out));
+}
+
+void rxs_init_rt_test_all_port_rte(void **state)
+{
+        idt_rt_initialize_in_t      mock_init_in;
+        idt_rt_initialize_out_t     mock_init_out;
+        idt_rt_state_t              rt;
+        uint32_t dom_out, dev_out;
+        uint32_t temp, idx;
+        uint8_t port = RIO_ALL_PORTS;
+
+        rxs_init_mock_rt(&rt);
+        assert_int_equal(RIO_SUCCESS, DARRegRead(&mock_dev_info, RXS_RIO_ROUTE_DFLT_PORT, &temp));
+        mock_init_in.set_on_port = port;
+        mock_init_in.default_route = (uint8_t)(temp & RXS_RIO_ROUTE_DFLT_PORT_DEFAULT_OUT_PORT);
+        mock_init_in.default_route_table_port = IDT_DSF_RT_USE_DEFAULT_ROUTE;
+        mock_init_in.update_hw = true;
+        mock_init_in.rt        = &rt;
+
+        assert_int_equal(RIO_SUCCESS, idt_rxs_rt_initialize(&mock_dev_info, &mock_init_in, &mock_init_out));
+        assert_int_equal(RIO_SUCCESS, mock_init_out.imp_rc);
+
+        //Check initialze values
+        assert_int_equal(0, mock_init_in.default_route);
+        assert_int_equal(0xFF, mock_init_in.set_on_port);
+        assert_int_equal(IDT_DSF_RT_USE_DEFAULT_ROUTE, mock_init_in.default_route_table_port);
+        assert_true(mock_init_in.update_hw);
+        assert_int_equal(0, mock_init_in.rt->default_route);
+
+        //Check device and domin tables
+        for (idx = 0; idx < IDT_DAR_RT_DEV_TABLE_SIZE; idx++) {
+            assert_int_equal(IDT_DSF_RT_USE_DEFAULT_ROUTE, mock_init_in.rt->dev_table[idx].rte_val);
+            assert_true(!mock_init_in.rt->dev_table[idx].changed);
+        }
+
+        assert_int_equal(IDT_DSF_RT_USE_DEVICE_TABLE, mock_init_in.rt->dom_table[0].rte_val);
+        assert_true(!mock_init_in.rt->dom_table[0].changed);
+        for (idx = 1; idx < IDT_DAR_RT_DEV_TABLE_SIZE; idx++) {
+            assert_int_equal(IDT_DSF_RT_USE_DEFAULT_ROUTE, mock_init_in.rt->dom_table[idx].rte_val);
+            assert_true(!mock_init_in.rt->dom_table[idx].changed);
+        }
+
+        //Check mc mask table
+        for (idx = 0; idx < IDT_DSF_MAX_MC_MASK; idx++)
+        {
+            assert_int_equal(0, mock_init_in.rt->mc_masks[idx].mc_destID);
+            assert_int_equal(tt_dev8, mock_init_in.rt->mc_masks[idx].tt);
+            assert_int_equal(0, mock_init_in.rt->mc_masks[idx].mc_mask);
+            assert_true(!mock_init_in.rt->mc_masks[idx].in_use);
+            assert_true(!mock_init_in.rt->mc_masks[idx].allocd);
+            assert_true(!mock_init_in.rt->mc_masks[idx].changed);
+        }
+
+        //Try to read device and domin values
+        rxs_reg_dev_dom(mock_init_in.set_on_port, 0, &dom_out, &dev_out);
+        assert_int_equal(0x301, dom_out);
+        assert_int_equal(0x300, dev_out);
+        for (idx = 1; idx < IDT_DAR_RT_DEV_TABLE_SIZE; idx++) {
+            rxs_reg_dev_dom(mock_init_in.set_on_port, idx, &dom_out, &dev_out);
+            assert_int_equal(0x300, dom_out);
+            assert_int_equal(0x300, dev_out);
+        }
+
+        (void)state; // unused
+}
+
+void rxs_init_rt_test_port_rte(void **state)
+{
+        idt_rt_initialize_in_t      mock_init_in;
+        idt_rt_initialize_out_t     mock_init_out;
+        idt_rt_state_t              rt;
+        uint32_t dom_out, dev_out;
+        uint32_t temp, idx;
+        uint8_t port = 0;
+
+        rxs_init_mock_rt(&rt);
+        assert_int_equal(RIO_SUCCESS, DARRegRead(&mock_dev_info, RXS_RIO_ROUTE_DFLT_PORT, &temp));
+        mock_init_in.set_on_port = port;
+        mock_init_in.default_route = (uint8_t)(temp & RXS_RIO_ROUTE_DFLT_PORT_DEFAULT_OUT_PORT);
+        mock_init_in.default_route_table_port = IDT_DSF_RT_NO_ROUTE;
+        mock_init_in.update_hw = true;
+        mock_init_in.rt        = &rt;
+
+        assert_int_equal(RIO_SUCCESS, idt_rxs_rt_initialize(&mock_dev_info, &mock_init_in, &mock_init_out));
+        assert_int_equal(RIO_SUCCESS, mock_init_out.imp_rc);
+
+        //Check initialze values
+        assert_int_equal(0, mock_init_in.default_route);
+        assert_int_equal(0, mock_init_in.set_on_port);
+        assert_int_equal(IDT_DSF_RT_NO_ROUTE, mock_init_in.default_route_table_port);
+        assert_true(mock_init_in.update_hw);
+        assert_int_equal(0, mock_init_in.rt->default_route);
+
+        //Check device and domin tables
+        for (idx = 0; idx < IDT_DAR_RT_DEV_TABLE_SIZE; idx++) {
+            assert_int_equal(IDT_DSF_RT_NO_ROUTE, mock_init_in.rt->dev_table[idx].rte_val);
+            assert_true(!mock_init_in.rt->dev_table[idx].changed);
+            assert_int_equal(IDT_DSF_RT_NO_ROUTE, mock_init_in.rt->dom_table[idx].rte_val);
+            assert_true(!mock_init_in.rt->dom_table[idx].changed);
+        }
+
+        //Check mc mask table
+        for (idx = 0; idx < IDT_DSF_MAX_MC_MASK; idx++)
+        {
+            assert_int_equal(0, mock_init_in.rt->mc_masks[idx].mc_destID);
+            assert_int_equal(tt_dev8, mock_init_in.rt->mc_masks[idx].tt);
+            assert_int_equal(0, mock_init_in.rt->mc_masks[idx].mc_mask);
+            assert_true(!mock_init_in.rt->mc_masks[idx].in_use);
+            assert_true(!mock_init_in.rt->mc_masks[idx].allocd);
+            assert_true(!mock_init_in.rt->mc_masks[idx].changed);
+        }
+
+        //Try to read device and domin values 
+        for (idx = 0; idx < IDT_DAR_RT_DEV_TABLE_SIZE; idx++) {
+            rxs_reg_dev_dom(mock_init_in.set_on_port, idx, &dom_out, &dev_out);
+            assert_int_equal(0x301, dom_out);
+            assert_int_equal(0x301, dev_out);
+        }
+
+        (void)state; // unused
+}
+
+void rxs_init_rt_test_all_port_mc_mask(void **state)
+{
+        idt_rt_initialize_in_t      mock_init_in;
+        idt_rt_initialize_out_t     mock_init_out;
+        idt_rt_state_t              rt;
+        uint32_t mc_mask_out;
+        uint32_t temp, idx;
+        uint8_t port = RIO_ALL_PORTS;
+
+        rxs_init_mock_rt(&rt);
+        assert_int_equal(RIO_SUCCESS, DARRegRead(&mock_dev_info, RXS_RIO_ROUTE_DFLT_PORT, &temp));
+        mock_init_in.set_on_port = port;
+        mock_init_in.default_route = (uint8_t)(temp & RXS_RIO_ROUTE_DFLT_PORT_DEFAULT_OUT_PORT);
+        mock_init_in.default_route_table_port = IDT_DSF_RT_USE_DEFAULT_ROUTE;
+        mock_init_in.update_hw = true;
+        mock_init_in.rt        = &rt;
+
+        assert_int_equal(RIO_SUCCESS, idt_rxs_rt_initialize(&mock_dev_info, &mock_init_in, &mock_init_out));
+        assert_int_equal(RIO_SUCCESS, mock_init_out.imp_rc);
+
+        //Check initialze values
+        assert_int_equal(0, mock_init_in.default_route);
+        assert_int_equal(0xFF, mock_init_in.set_on_port);
+        assert_int_equal(IDT_DSF_RT_USE_DEFAULT_ROUTE, mock_init_in.default_route_table_port);
+        assert_true(mock_init_in.update_hw);
+        assert_int_equal(0, mock_init_in.rt->default_route);
+
+        //Check device and domin tables
+        for (idx = 0; idx < IDT_DAR_RT_DEV_TABLE_SIZE; idx++) {
+            assert_int_equal(IDT_DSF_RT_USE_DEFAULT_ROUTE, mock_init_in.rt->dev_table[idx].rte_val);
+            assert_true(!mock_init_in.rt->dev_table[idx].changed);
+        }
+
+        assert_int_equal(IDT_DSF_RT_USE_DEVICE_TABLE, mock_init_in.rt->dom_table[0].rte_val);
+        assert_true(!mock_init_in.rt->dom_table[0].changed);
+        for (idx = 1; idx < IDT_DAR_RT_DEV_TABLE_SIZE; idx++) {
+            assert_int_equal(IDT_DSF_RT_USE_DEFAULT_ROUTE, mock_init_in.rt->dom_table[idx].rte_val);
+            assert_true(!mock_init_in.rt->dom_table[idx].changed);
+        }
+
+        //Check mc mask table
+        for (idx = 0; idx < IDT_DSF_MAX_MC_MASK; idx++)
+        {
+            assert_int_equal(0, mock_init_in.rt->mc_masks[idx].mc_destID);
+            assert_int_equal(tt_dev8, mock_init_in.rt->mc_masks[idx].tt);
+            assert_int_equal(0, mock_init_in.rt->mc_masks[idx].mc_mask);
+            assert_true(!mock_init_in.rt->mc_masks[idx].in_use);
+            assert_true(!mock_init_in.rt->mc_masks[idx].allocd);
+            assert_true(!mock_init_in.rt->mc_masks[idx].changed);
+        }
+
+        //Try to read mc values
+        for (idx = 0; idx < IDT_DSF_MAX_MC_MASK; idx++) {
+            rxs_reg_mc_mask(mock_init_in.set_on_port, idx, &mc_mask_out);
+            assert_int_equal(0, mc_mask_out);
+        }
+
+        (void)state; // unused
+}
+
+void rxs_init_rt_test_port_mc_mask(void **state)
+{
+        idt_rt_initialize_in_t      mock_init_in;
+        idt_rt_initialize_out_t     mock_init_out;
+        idt_rt_state_t              rt;
+        uint32_t mc_mask_out;
+        uint32_t temp, idx;
+        uint8_t port = 0;
+
+        rxs_init_mock_rt(&rt);
+        assert_int_equal(RIO_SUCCESS, DARRegRead(&mock_dev_info, RXS_RIO_ROUTE_DFLT_PORT, &temp));
+        mock_init_in.set_on_port = port;
+        mock_init_in.default_route = (uint8_t)(temp & RXS_RIO_ROUTE_DFLT_PORT_DEFAULT_OUT_PORT);
+        mock_init_in.default_route_table_port = IDT_DSF_RT_USE_DEFAULT_ROUTE;
+        mock_init_in.update_hw = true;
+        mock_init_in.rt        = &rt;
+
+        assert_int_equal(RIO_SUCCESS, idt_rxs_rt_initialize(&mock_dev_info, &mock_init_in, &mock_init_out));
+        assert_int_equal(RIO_SUCCESS, mock_init_out.imp_rc);
+
+        //Check initialze values
+        assert_int_equal(0, mock_init_in.default_route);
+        assert_int_equal(0, mock_init_in.set_on_port);
+        assert_int_equal(IDT_DSF_RT_USE_DEFAULT_ROUTE, mock_init_in.default_route_table_port);
+        assert_true(mock_init_in.update_hw);
+        assert_int_equal(0, mock_init_in.rt->default_route);
+
+        //Check device and domin tables
+        for (idx = 0; idx < IDT_DAR_RT_DEV_TABLE_SIZE; idx++) {
+            assert_int_equal(IDT_DSF_RT_USE_DEFAULT_ROUTE, mock_init_in.rt->dev_table[idx].rte_val);
+            assert_true(!mock_init_in.rt->dev_table[idx].changed);
+        }
+
+        assert_int_equal(IDT_DSF_RT_USE_DEVICE_TABLE, mock_init_in.rt->dom_table[0].rte_val);
+        assert_true(!mock_init_in.rt->dom_table[0].changed);
+        for (idx = 1; idx < IDT_DAR_RT_DEV_TABLE_SIZE; idx++) {
+            assert_int_equal(IDT_DSF_RT_USE_DEFAULT_ROUTE, mock_init_in.rt->dom_table[idx].rte_val);
+            assert_true(!mock_init_in.rt->dom_table[idx].changed);
+        }
+
+        //Check mc mask table
+        for (idx = 0; idx < IDT_DSF_MAX_MC_MASK; idx++)
+        {
+            assert_int_equal(0, mock_init_in.rt->mc_masks[idx].mc_destID);
+            assert_int_equal(tt_dev8, mock_init_in.rt->mc_masks[idx].tt);
+            assert_int_equal(0, mock_init_in.rt->mc_masks[idx].mc_mask);
+            assert_true(!mock_init_in.rt->mc_masks[idx].in_use);
+            assert_true(!mock_init_in.rt->mc_masks[idx].allocd);
+            assert_true(!mock_init_in.rt->mc_masks[idx].changed);
+        }
+
+        //Try to read mc vakues
+        for (idx = 0; idx < IDT_DSF_MAX_MC_MASK; idx++) {
+            rxs_reg_mc_mask(mock_init_in.set_on_port, idx, &mc_mask_out);
+            assert_int_equal(0, mc_mask_out);
+        }
+
+        (void)state; // unused
+}
+
+void rxs_init_rt_test_bad_default_route(void **state)
+{
+        idt_rt_initialize_in_t      mock_init_in;
+        idt_rt_initialize_out_t     mock_init_out;
+        idt_rt_state_t              rt;
+        uint32_t temp;
+        uint8_t port = 0;
+
+        rxs_init_mock_rt(&rt);
+        assert_int_equal(RIO_SUCCESS, DARRegRead(&mock_dev_info, RXS_RIO_ROUTE_DFLT_PORT, &temp));
+        mock_init_in.set_on_port = port;
+        mock_init_in.default_route = IDT_DSF_RT_USE_DEFAULT_ROUTE;
+        mock_init_in.default_route_table_port = IDT_DSF_RT_NO_ROUTE;
+        mock_init_in.update_hw = false;
+        mock_init_in.rt        = &rt;
+
+        assert_int_not_equal(RIO_SUCCESS, idt_rxs_rt_initialize(&mock_dev_info, &mock_init_in, &mock_init_out));
+        assert_int_not_equal(RIO_SUCCESS, mock_init_out.imp_rc);
+
+        assert_int_equal(IDT_DSF_RT_USE_DEFAULT_ROUTE, mock_init_in.default_route);
+
+        (void)state; // unused
+}
+
+void rxs_init_rt_test_bad_default_route_table(void **state)
+{
+        idt_rt_initialize_in_t      mock_init_in;
+        idt_rt_initialize_out_t     mock_init_out;
+        idt_rt_state_t              rt;
+        uint32_t temp;
+        uint8_t port = 0;
+
+        rxs_init_mock_rt(&rt);
+        assert_int_equal(RIO_SUCCESS, DARRegRead(&mock_dev_info, RXS_RIO_ROUTE_DFLT_PORT, &temp));
+        mock_init_in.set_on_port = port;
+        mock_init_in.default_route = (uint8_t)(temp & RXS_RIO_ROUTE_DFLT_PORT_DEFAULT_OUT_PORT);
+        mock_init_in.default_route_table_port = RXS2448_MAX_PORTS + 1;
+        mock_init_in.update_hw = false;
+        mock_init_in.rt        = &rt;
+
+        assert_int_not_equal(RIO_SUCCESS, idt_rxs_rt_initialize(&mock_dev_info, &mock_init_in, &mock_init_out));
+        assert_int_not_equal(RIO_SUCCESS, mock_init_out.imp_rc);
+
+        assert_int_equal(RXS2448_MAX_PORTS+1, mock_init_in.default_route_table_port);
+
+        (void)state; // unused
+}
+
+void rxs_init_rt_test_bad_port(void **state)
+{
+        idt_rt_initialize_in_t      mock_init_in;
+        idt_rt_initialize_out_t     mock_init_out;
+        idt_rt_state_t              rt;
+        uint32_t temp;
+        uint8_t port = RXS2448_MAX_PORTS + 1;
+
+        rxs_init_mock_rt(&rt);
+        assert_int_equal(RIO_SUCCESS, DARRegRead(&mock_dev_info, RXS_RIO_ROUTE_DFLT_PORT, &temp));
+        mock_init_in.set_on_port = port;
+        mock_init_in.default_route = (uint8_t)(temp & RXS_RIO_ROUTE_DFLT_PORT_DEFAULT_OUT_PORT);
+        mock_init_in.default_route_table_port = IDT_DSF_RT_NO_ROUTE;
+        mock_init_in.update_hw = false;
+        mock_init_in.rt        = &rt;
+
+        assert_int_not_equal(RIO_SUCCESS, idt_rxs_rt_initialize(&mock_dev_info, &mock_init_in, &mock_init_out));
+        assert_int_not_equal(RIO_SUCCESS, mock_init_out.imp_rc);
+
+        assert_int_equal(RXS2448_MAX_PORTS+1, mock_init_in.set_on_port);
 
         (void)state; // unused
 }
@@ -1990,8 +2465,18 @@ int main(int argc, char** argv)
                 cmocka_unit_test_setup_teardown(rxs_init_read_dev_ctrs_test, setup, NULL),
 		cmocka_unit_test_setup_teardown(rxs_init_cfg_read_dev_ctrs_test, setup, NULL),
 
-                cmocka_unit_test_setup_teardown(rxs_init_rt_test, setup, NULL),
-                cmocka_unit_test_setup_teardown(rxs_init_setport_rt_test, setup, NULL),
+                cmocka_unit_test_setup_teardown(rxs_init_rt_test_success, setup, NULL),
+                cmocka_unit_test_setup_teardown(rxs_init_rt_setport_test_success, setup, NULL),
+                cmocka_unit_test_setup_teardown(rxs_init_rt_null_test_success, setup, NULL),
+                cmocka_unit_test_setup_teardown(rxs_init_rt_test_update_hw, setup, NULL),
+                cmocka_unit_test_setup_teardown(rxs_init_rt_test_all_port_rte, setup, NULL),
+                cmocka_unit_test_setup_teardown(rxs_init_rt_test_port_rte, setup, NULL),
+                cmocka_unit_test_setup_teardown(rxs_init_rt_test_all_port_mc_mask, setup, NULL),
+                cmocka_unit_test_setup_teardown(rxs_init_rt_test_port_mc_mask, setup, NULL),
+                cmocka_unit_test_setup_teardown(rxs_init_rt_test_bad_default_route, setup, NULL),
+                cmocka_unit_test_setup_teardown(rxs_init_rt_test_bad_default_route_table, setup, NULL),
+                cmocka_unit_test_setup_teardown(rxs_init_rt_test_bad_port, setup, NULL),
+
                 cmocka_unit_test_setup_teardown(rxs_set_all_rt_test, setup, NULL),
                 cmocka_unit_test_setup_teardown(rxs_set_all_setport_rt_test, setup, NULL),
                 cmocka_unit_test_setup_teardown(rxs_set_all_rt_null_test, setup, NULL),
