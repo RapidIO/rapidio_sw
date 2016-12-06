@@ -45,7 +45,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "IDT_RXS_API.h"
 #include "IDT_RXS2448.h"
 #include "IDT_RXS_Routing_Table_Config_API.h"
-#include "IDT_RXS_Test.h"
 #include "src/IDT_RXS_API.c"
 #include "rio_ecosystem.h"
 
@@ -79,14 +78,15 @@ static idt_sc_p_ctrs_val_t *pp_ctrs = (idt_sc_p_ctrs_val_t *)malloc((MAX_DAR_POR
  */
 static void rxs_test_setup(void)
 {
-        uint8_t idx, pnum;
+	uint8_t idx, pnum;
+	idt_sc_ctr_val_t init = INIT_IDT_SC_CTR_VAL;
 
 	mock_dev_info.db_h = 3670020;
 	mock_dev_info.privateData = 0x0;
-        mock_dev_info.accessInfo = 0x0;
+	mock_dev_info.accessInfo = 0x0;
 	strcpy(mock_dev_info.name, "RXS2448");
 	mock_dev_info.dsf_h = 0x80E50005;
-        mock_dev_info.extFPtrForPort = 0;
+	mock_dev_info.extFPtrForPort = 0;
 	mock_dev_info.extFPtrPortType = 0;
 	mock_dev_info.extFPtrForLane = 12288;
 	mock_dev_info.extFPtrForErr = 0;
@@ -103,25 +103,21 @@ static void rxs_test_setup(void)
 	mock_dev_info.swMcastInfo = 0;
 	for (idx = 0; idx < MAX_DAR_PORTS; idx++) {
 		mock_dev_info.ctl1_reg[idx] = 0;
-        }
+	}
 
 	for (idx = 0; idx < MAX_DAR_SCRPAD_IDX; idx++) {
 		mock_dev_info.scratchpad[idx] = 0;
-        }
+	}
 
 	mock_dev_ctrs->num_p_ctrs = MAX_DAR_PORTS;
 	mock_dev_ctrs->valid_p_ctrs = MAX_DAR_PORTS;
 
-        for (pnum = 0; pnum < MAX_DAR_PORTS; pnum++) { 
-            pp_ctrs[pnum].pnum = pnum;
-            pp_ctrs[pnum].ctrs_cnt = RXS_NUM_PERF_CTRS;
-            for (idx = 0; idx < IDT_MAX_SC; idx++) {
-                pp_ctrs[pnum].ctrs[idx].total = 0;
-                pp_ctrs[pnum].ctrs[idx].last_inc = 0;
-                pp_ctrs[pnum].ctrs[idx].sc = idt_sc_disabled;
-                pp_ctrs[pnum].ctrs[idx].tx = false;
-                pp_ctrs[pnum].ctrs[idx].srio = true;
-           }
+	for (pnum = 0; pnum < MAX_DAR_PORTS; pnum++) { 
+		pp_ctrs[pnum].pnum = pnum;
+		pp_ctrs[pnum].ctrs_cnt = RXS_NUM_PERF_CTRS;
+		for (idx = 0; idx < IDT_MAX_SC; idx++) {
+			pp_ctrs[pnum].ctrs[idx] = init;
+		}
        }
        mock_dev_ctrs->p_ctrs = pp_ctrs;
 }
@@ -130,7 +126,7 @@ static void rxs_test_setup(void)
  */
 static void init_mock_rxs_reg(void) 
 {
-        // idx is always should be less tahn UPB_DAR_REG.
+        // idx is always should be less than UPB_DAR_REG.
         uint32_t idx = 0, port, cntr, idev, grp;
 
         // initialize RXS_RIO_SPX_PCNTR_CTL
