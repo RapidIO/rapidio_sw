@@ -108,7 +108,7 @@ extern "C" {
 #define IDT_DSF_MAX_MC_MASK                         0x28*/
 
 /* For RXSs */
-#define IDT_DSF_RT_USE_DEVICE_TABLE                 0x0301
+#define IDT_DSF_RT_USE_DEVICE_TABLE                 0x0200
 #define IDT_DSF_RT_USE_DEFAULT_ROUTE                0x0300
 #define IDT_DSF_RT_NO_ROUTE                         0x0301
 
