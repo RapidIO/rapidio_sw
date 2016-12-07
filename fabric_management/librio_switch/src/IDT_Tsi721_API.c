@@ -1592,265 +1592,187 @@ uint32_t idt_tsi721_em_create_events( DAR_DEV_INFO_t              *dev_info,
     return RIO_ERR_FEATURE_NOT_SUPPORTED;
 };
 
-#define TSI721_NUM_PERF_CTRS         17
-uint32_t idt_tsi721_sc_init_dev_ctrs (
-    DAR_DEV_INFO_t             *dev_info,
-    idt_sc_init_dev_ctrs_in_t  *in_parms,
-    idt_sc_init_dev_ctrs_out_t *out_parms)
-{
-    uint32_t rc = RIO_ERR_INVALID_PARAMETER;
-    uint8_t idx, cntr_i;
-    idt_sc_ctr_val_t init_val = INIT_IDT_SC_CTR_VAL;
-    struct DAR_ptl good_ptl;
-
-    out_parms->imp_rc = RIO_SUCCESS;
-
-    if (NULL == in_parms->dev_ctrs) {
-        out_parms->imp_rc = SC_INIT_DEV_CTRS(0x01);
-        goto idt_tsi721_sc_init_dev_ctrs_exit;
-    }
-
-    if (NULL == in_parms->dev_ctrs->p_ctrs) {
-        out_parms->imp_rc = SC_INIT_DEV_CTRS(0x02);
-        goto idt_tsi721_sc_init_dev_ctrs_exit;
-    };
-
-    if (!in_parms->dev_ctrs->num_p_ctrs ||
-        (in_parms->dev_ctrs->num_p_ctrs > IDT_MAX_PORTS) ||
-        (in_parms->dev_ctrs->num_p_ctrs < in_parms->dev_ctrs->valid_p_ctrs)) {
-        out_parms->imp_rc = SC_INIT_DEV_CTRS(0x03);
-        goto idt_tsi721_sc_init_dev_ctrs_exit;
-    };
-
-    rc = DARrioGetPortList(dev_info, &in_parms->ptl, &good_ptl);
-    if (RIO_SUCCESS != rc) {
-        out_parms->imp_rc = SC_INIT_DEV_CTRS(0x10);
-        goto idt_tsi721_sc_init_dev_ctrs_exit;
-    };
-
-    in_parms->dev_ctrs->valid_p_ctrs = good_ptl.num_ports;
-    for (idx = 0; idx < good_ptl.num_ports; idx++) {
-         in_parms->dev_ctrs->p_ctrs[idx].pnum = good_ptl.pnums[idx];
-         in_parms->dev_ctrs->p_ctrs[idx].ctrs_cnt = TSI721_NUM_PERF_CTRS;
-         for (cntr_i = 0; cntr_i < TSI721_NUM_PERF_CTRS; cntr_i++) {
-              in_parms->dev_ctrs->p_ctrs[idx].ctrs[cntr_i] = init_val;
-         };
-    };
-
-    rc = RIO_SUCCESS;
-
-idt_tsi721_sc_init_dev_ctrs_exit:
-    return rc;
+struct tsi721_dev_ctr {
+	idt_sc_ctr_t	ctr_t;
+	bool		split;	// Two counters, one register
+	bool		tx;	// Transmit (true), or receive (false)
+	bool		srio;	// RapidIO, or other interface
+	uint32_t	os;     // Register offset
 };
 
-/*
-* Reads enabled counters on selected ports
-* */
+#define TSI721_SPLIT_2ND_CTR 0
 
-uint32_t idt_tsi721_sc_read_dev_ctrs(DAR_DEV_INFO_t  *dev_info,
+const struct tsi721_dev_ctr tsi721_dev_ctrs[] = {
+//   Enum counter               SPLIT  TX     SRIO   OFFSET
+    {idt_pcie_rv, 		false, false, false, TSI721_CPL_SMSG_CNT},
+    {idt_pcie_tx_tlp_mer,	false, true , false, TSI721_TXTLP_SMSG_CNT},
+    {idt_pcie_rx_dma,		false, false, false, TSI721_CPL_BDMA_CNT},
+    {idt_pcie_tx_tlp_dma,	false, true , false, TSI721_TXTLP_BDMA_CNT},
+    {idt_pcie_rx_tlp,		false, false, false, TSI721_RXTLP_BRG_CNT},
+    {idt_pcie_bd_tlp,		false, true , false, TSI721_TXTLP_BRG_CNT},
+    {idt_rio_tx_mer,		false, true , true , TSI721_TXPKT_SMSG_CNT},
+    {idt_rio_rx_mer, 		false, false, true , TSI721_RXPKT_SMSG_CNT},
+    {idt_rio_tx_retries,	false, true , true , TSI721_RETRY_GEN_CNT},
+    {idt_rio_rx_retries,	false, false, true , TSI721_RETRY_RX_CNT},
+    {idt_rio_tx_dma,		false, true , true , TSI721_TXPKT_BDMA_CNT},
+    {idt_rio_rx_dma,		false, false, true , TSI721_RXRSP_BDMA_CNT},
+    {idt_rio_tx_bd,		false, true , true , TSI721_TXPKT_BRG_CNT},
+    {idt_rio_rx_bd,		false, false, true , TSI721_RXPKT_BRG_CNT},
+    {idt_rio_rx_bd_err,		false, false, true , TSI721_BRG_PKT_ERR_CNT},
+	// The following 6 counters are 'split':  One counter register
+	// holds two 16 bit counts.  The "total" count is always the most 
+	// significant 16 bits of the counter, and the first counter 
+	// specified in this list.  
+    {idt_rio_odb_tot,	    	true , true , true , TSI721_ODB_CNTX(0)},
+    {idt_rio_odb_ok,	    	true , false, true , TSI721_SPLIT_2ND_CTR},
+    {idt_rio_odb_tot,  		true , true , true , TSI721_ODB_CNTX(1)},
+    {idt_rio_odb_ok,	    	true , false, true , TSI721_SPLIT_2ND_CTR},
+    {idt_rio_odb_tot,  		true , true , true , TSI721_ODB_CNTX(2)},
+    {idt_rio_odb_ok,	    	true , false, true , TSI721_SPLIT_2ND_CTR},
+    {idt_rio_odb_tot,  		true , true , true , TSI721_ODB_CNTX(3)},
+    {idt_rio_odb_ok,	    	true , false, true , TSI721_SPLIT_2ND_CTR},
+    {idt_rio_odb_tot,  		true , true , true , TSI721_ODB_CNTX(4)},
+    {idt_rio_odb_ok,	    	true , false, true , TSI721_SPLIT_2ND_CTR},
+    {idt_rio_odb_tot,  		true , true , true , TSI721_ODB_CNTX(5)},
+    {idt_rio_odb_ok,	    	true , false, true , TSI721_SPLIT_2ND_CTR},
+    {idt_rio_odb_tot,  		true , true , true , TSI721_ODB_CNTX(6)},
+    {idt_rio_odb_ok,	    	true , false, true , TSI721_SPLIT_2ND_CTR},
+    {idt_rio_odb_tot,  		true , true , true , TSI721_ODB_CNTX(7)},
+    {idt_rio_odb_ok,	    	true , false, true , TSI721_SPLIT_2ND_CTR},
+    {idt_pcie_nwr_tot,		true , true , true , TSI721_NWR_CNT},
+    {idt_pcie_nwr_ok,		true , false, true , TSI721_SPLIT_2ND_CTR},
+    {idt_rio_mwr_tot,		true , true , true , TSI721_MWR_CNT},
+    {idt_rio_mwr_ok,		true , false, true , TSI721_SPLIT_2ND_CTR},
+    {idt_sc_disabled,		false, false, false, 0}
+};
+
+#define TSI721_NUM_PERF_CTRS (sizeof(tsi721_dev_ctrs) / \
+			sizeof(struct tsi721_dev_ctr))
+
+uint32_t idt_tsi721_sc_init_dev_ctrs (
+	 DAR_DEV_INFO_t				 *dev_info,
+	 idt_sc_init_dev_ctrs_in_t  *in_parms,
+	 idt_sc_init_dev_ctrs_out_t *out_parms)
+{
+	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+	uint8_t cntr_i;
+	idt_sc_ctr_val_t init_val = INIT_IDT_SC_CTR_VAL;
+	struct DAR_ptl good_ptl;
+	idt_sc_ctr_val_t *ctrs;
+
+	out_parms->imp_rc = RIO_SUCCESS;
+
+	if (NULL == in_parms->dev_ctrs) {
+		  out_parms->imp_rc = SC_INIT_DEV_CTRS(0x01);
+		  goto exit;
+	}
+
+	if (NULL == in_parms->dev_ctrs->p_ctrs) {
+		out_parms->imp_rc = SC_INIT_DEV_CTRS(0x02);
+		goto exit;
+	};
+
+	if (!in_parms->dev_ctrs->num_p_ctrs ||
+			(in_parms->dev_ctrs->num_p_ctrs > IDT_MAX_PORTS) ||
+			(in_parms->dev_ctrs->num_p_ctrs <
+			in_parms->dev_ctrs->valid_p_ctrs)) {
+		out_parms->imp_rc = SC_INIT_DEV_CTRS(0x03);
+		goto exit;
+	};
+
+	rc = DARrioGetPortList(dev_info, &in_parms->ptl, &good_ptl);
+	if ((RIO_SUCCESS != rc) || (TSI721_MAX_PORTS != good_ptl.num_ports)) {
+		rc = RIO_ERR_INVALID_PARAMETER;
+		out_parms->imp_rc = SC_INIT_DEV_CTRS(0x10);	
+		goto exit;
+	};
+
+	ctrs = &in_parms->dev_ctrs->p_ctrs[0].ctrs[0];
+	in_parms->dev_ctrs->valid_p_ctrs = TSI721_MAX_PORTS;
+	in_parms->dev_ctrs->p_ctrs[0].pnum = 0;
+	in_parms->dev_ctrs->p_ctrs[0].ctrs_cnt = TSI721_NUM_PERF_CTRS;
+	for (cntr_i = 0; cntr_i < TSI721_NUM_PERF_CTRS; cntr_i++) {
+		ctrs[cntr_i] = init_val;
+		ctrs[cntr_i].sc = tsi721_dev_ctrs[cntr_i].ctr_t;
+		ctrs[cntr_i].tx = tsi721_dev_ctrs[cntr_i].tx;
+		ctrs[cntr_i].srio = tsi721_dev_ctrs[cntr_i].srio;
+	};
+
+	rc = RIO_SUCCESS;
+exit:
+	return rc;
+};
+
+uint32_t idt_tsi721_sc_read_ctrs(DAR_DEV_INFO_t  *dev_info,
                             idt_sc_read_ctrs_in_t    *in_parms,
                             idt_sc_read_ctrs_out_t   *out_parms)
 {
 	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
-	uint8_t p_to_i[IDT_MAX_PORTS], srch_i, srch_p, port_num, cntr;
-	bool found;
+	uint8_t cntr;
 	struct DAR_ptl good_ptl;
+	idt_sc_ctr_val_t *ctrs;
 
 	out_parms->imp_rc = RIO_SUCCESS;
 
 	if (NULL == in_parms->dev_ctrs) {
 		out_parms->imp_rc = SC_READ_CTRS(0x01);
-		goto idt_tsi721_sc_read_dev_ctrs_exit;
+		goto exit;
 	};
 
 	if (NULL == in_parms->dev_ctrs->p_ctrs) {
 		out_parms->imp_rc = SC_READ_CTRS(0x02);
-		goto idt_tsi721_sc_read_dev_ctrs_exit;
+		goto exit;
 	};
 
 	if (!in_parms->dev_ctrs->num_p_ctrs ||
 		(in_parms->dev_ctrs->num_p_ctrs > IDT_MAX_PORTS) ||
 		(in_parms->dev_ctrs->num_p_ctrs < in_parms->dev_ctrs->valid_p_ctrs)) {
 		out_parms->imp_rc = SC_READ_CTRS(0x03);
-		goto idt_tsi721_sc_read_dev_ctrs_exit;
+		goto exit;
 	};
 
 	if (((RIO_ALL_PORTS == in_parms->ptl.num_ports) && (in_parms->dev_ctrs->num_p_ctrs < NUM_PORTS(dev_info))) ||
 		((RIO_ALL_PORTS != in_parms->ptl.num_ports) && (in_parms->dev_ctrs->num_p_ctrs < in_parms->ptl.num_ports))) {
 		out_parms->imp_rc = SC_READ_CTRS(0x04);
-		goto idt_tsi721_sc_read_dev_ctrs_exit;
+		goto exit;
 	};
 
 	rc = DARrioGetPortList(dev_info, &in_parms->ptl, &good_ptl);
-	if (RIO_SUCCESS != rc) {
+	if ((RIO_SUCCESS != rc) || (TSI721_MAX_PORTS != good_ptl.num_ports)) {
+		rc = RIO_ERR_INVALID_PARAMETER;
 		out_parms->imp_rc = SC_READ_CTRS(0x10);
-		goto idt_tsi721_sc_read_dev_ctrs_exit;
+		goto exit;
 	};
 
-	for (srch_i = 0; srch_i < NUM_PORTS(dev_info); srch_i++)
-		p_to_i[srch_i] = IDT_MAX_PORTS;
-
-	for (srch_p = 0; srch_p < good_ptl.num_ports; srch_p++) {
-		port_num = good_ptl.pnums[srch_p];
-		found = false;
-		for (srch_i = 0; srch_i < in_parms->dev_ctrs->valid_p_ctrs; srch_i++) {
-			if (in_parms->dev_ctrs->p_ctrs[srch_i].pnum == port_num) {
-				found = true;
-				if ((IDT_MAX_PORTS == p_to_i[port_num]) &&
-					(TSI721_NUM_PERF_CTRS == in_parms->dev_ctrs->p_ctrs[srch_i].ctrs_cnt)) {
-					p_to_i[port_num] = srch_i;
-				}
-				else {
-					rc = RIO_ERR_INVALID_PARAMETER;
-					out_parms->imp_rc = SC_READ_CTRS(0x50 + port_num);
-					goto idt_tsi721_sc_read_dev_ctrs_exit;
-				};
-
-				for (cntr = 0; cntr < TSI721_NUM_PERF_CTRS; cntr++) {
-					if (idt_sc_disabled != in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc) {
-
-						switch (in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc) {
-						case idt_pcie_rv:
-							rc = DARRegRead(dev_info, TSI721_CPL_SMSG_CNT, &in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].last_inc);
-							if (RIO_SUCCESS != rc) {
-								out_parms->imp_rc = SC_READ_CTRS(0x10);
-								goto idt_tsi721_sc_read_dev_ctrs_exit;
-							};
-						break;
-                                                case idt_pcie_st_tlp_mer:
-                                                        rc = DARRegRead(dev_info, TSI721_TXTLP_SMSG_CNT, &in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].last_inc);
-                                                        if (RIO_SUCCESS != rc) {
-                                                                out_parms->imp_rc = SC_READ_CTRS(0x10);
-                                                                goto idt_tsi721_sc_read_dev_ctrs_exit;
-                                                        };
-                                                break;
-                                                case idt_pcie_rv_dma:
-                                                        rc = DARRegRead(dev_info, TSI721_CPL_BDMA_CNT, &in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].last_inc);
-                                                        if (RIO_SUCCESS != rc) {
-                                                                out_parms->imp_rc = SC_READ_CTRS(0x10);
-                                                                goto idt_tsi721_sc_read_dev_ctrs_exit;
-                                                        };
-                                                break;
-                                                case idt_pcie_st_tlp_dma:
-                                                        rc = DARRegRead(dev_info, TSI721_TXTLP_BDMA_CNT, &in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].last_inc);
-                                                        if (RIO_SUCCESS != rc) {
-                                                                out_parms->imp_rc = SC_READ_CTRS(0x10);
-                                                                goto idt_tsi721_sc_read_dev_ctrs_exit;
-                                                        };
-                                                break;
-                                                case idt_pcie_rv_tlp:
-                                                        rc = DARRegRead(dev_info, TSI721_RXTLP_BRG_CNT, &in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].last_inc);
-                                                        if (RIO_SUCCESS != rc) {
-                                                                out_parms->imp_rc = SC_READ_CTRS(0x10);
-                                                                goto idt_tsi721_sc_read_dev_ctrs_exit;
-                                                        };
-                                                break;
-                                                case idt_pcie_bd_tlp:
-                                                        rc = DARRegRead(dev_info, TSI721_TXTLP_BRG_CNT, &in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].last_inc);
-                                                        if (RIO_SUCCESS != rc) {
-                                                                out_parms->imp_rc = SC_READ_CTRS(0x10);
-                                                                goto idt_tsi721_sc_read_dev_ctrs_exit;
-                                                        };
-                                                break;
-                                                case idt_pcie_nwrite_r:
-                                                        rc = DARRegRead(dev_info, TSI721_NWR_CNT, &in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].last_inc);
-                                                        if (RIO_SUCCESS != rc) {
-                                                                out_parms->imp_rc = SC_READ_CTRS(0x10);
-                                                                goto idt_tsi721_sc_read_dev_ctrs_exit;
-                                                        };
-							in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].last_inc &= TSI721_MWR_CNT_MW_TOT_CNT;
-                                                break;
-                                                case idt_rio_st_mer:
-                                                        rc = DARRegRead(dev_info, TSI721_TXPKT_SMSG_CNT, &in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].last_inc);
-                                                        if (RIO_SUCCESS != rc) {
-                                                                out_parms->imp_rc = SC_READ_CTRS(0x10);
-                                                                goto idt_tsi721_sc_read_dev_ctrs_exit;
-                                                        };
-                                                break;
-						case idt_rio_rv_mer:
-							rc = DARRegRead(dev_info, TSI721_RXPKT_SMSG_CNT, &in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].last_inc);
-                                                        if (RIO_SUCCESS != rc) {
-                                                                out_parms->imp_rc = SC_READ_CTRS(0x10);
-                                                                goto idt_tsi721_sc_read_dev_ctrs_exit;
-                                                        };
-						break;
-                                                case idt_rio_st_retries:
-                                                        rc = DARRegRead(dev_info, TSI721_RETRY_GEN_CNT, &in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].last_inc);
-                                                        if (RIO_SUCCESS != rc) {
-                                                                out_parms->imp_rc = SC_READ_CTRS(0x10);
-                                                                goto idt_tsi721_sc_read_dev_ctrs_exit;
-                                                        };
-                                                break;
-                                                case idt_rio_rv_retries:
-                                                        rc = DARRegRead(dev_info, TSI721_RETRY_RX_CNT, &in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].last_inc);
-                                                        if (RIO_SUCCESS != rc) {
-                                                                out_parms->imp_rc = SC_READ_CTRS(0x10);
-                                                                goto idt_tsi721_sc_read_dev_ctrs_exit;
-                                                        };
-                                                break;
-                                                case idt_rio_st_dma:
-                                                        rc = DARRegRead(dev_info, TSI721_TXPKT_BDMA_CNT, &in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].last_inc);
-                                                        if (RIO_SUCCESS != rc) {
-                                                                out_parms->imp_rc = SC_READ_CTRS(0x10);
-                                                                goto idt_tsi721_sc_read_dev_ctrs_exit;
-                                                        };
-                                                break;
-                                                case idt_rio_rv_dma:
-                                                        rc = DARRegRead(dev_info, TSI721_RXRSP_BDMA_CNT, &in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].last_inc);
-                                                        if (RIO_SUCCESS != rc) {
-                                                                out_parms->imp_rc = SC_READ_CTRS(0x10);
-                                                                goto idt_tsi721_sc_read_dev_ctrs_exit;
-                                                        };
-                                                break;
-                                                case idt_rio_st_bd:
-                                                        rc = DARRegRead(dev_info, TSI721_TXPKT_BRG_CNT, &in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].last_inc);
-                                                        if (RIO_SUCCESS != rc) {
-                                                                out_parms->imp_rc = SC_READ_CTRS(0x10);
-                                                                goto idt_tsi721_sc_read_dev_ctrs_exit;
-                                                        };
-                                                break;
-                                                case idt_rio_rv_bd:
-                                                        rc = DARRegRead(dev_info, TSI721_RXPKT_BRG_CNT, &in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].last_inc);
-                                                        if (RIO_SUCCESS != rc) {
-                                                                out_parms->imp_rc = SC_READ_CTRS(0x10);
-                                                                goto idt_tsi721_sc_read_dev_ctrs_exit;
-                                                        };
-                                                break;
-                                                case idt_rio_rv_bd_err:
-                                                        rc = DARRegRead(dev_info, TSI721_BRG_PKT_ERR_CNT, &in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].last_inc);
-                                                        if (RIO_SUCCESS != rc) {
-                                                                out_parms->imp_rc = SC_READ_CTRS(0x10);
-                                                                goto idt_tsi721_sc_read_dev_ctrs_exit;
-                                                        };
-                                                break;
-                                                case idt_rio_mint_write:
-                                                        rc = DARRegRead(dev_info, TSI721_MWR_CNT, &in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].last_inc);
-                                                        if (RIO_SUCCESS != rc) {
-                                                                out_parms->imp_rc = SC_READ_CTRS(0x10);
-                                                                goto idt_tsi721_sc_read_dev_ctrs_exit;
-                                                        };
-							in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].last_inc &= TSI721_NWR_CNT_NW_TOT_CNT;
-                                                break;
-                                                default:
-                                                        out_parms->imp_rc = SC_READ_CTRS(0x10);
-                                                        goto idt_tsi721_sc_read_dev_ctrs_exit;
-                                                break;
-						}
-
-                                                in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].total += in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].last_inc;
-					};
-				};
-			};
+	// There's only one port, and one set of counters...
+	ctrs = &in_parms->dev_ctrs->p_ctrs[0].ctrs[0];
+	for (cntr = 0; cntr < TSI721_NUM_PERF_CTRS; cntr++) {
+		uint32_t cnt, split_cnt;
+		if (tsi721_dev_ctrs[cntr].split && !tsi721_dev_ctrs[cntr].os) {
+			continue;
 		};
-		if (!found) {
-			rc = RIO_ERR_INVALID_PARAMETER;
-			out_parms->imp_rc = SC_READ_CTRS(0x90 + srch_p);
-			goto idt_tsi721_sc_read_dev_ctrs_exit;
+
+		rc = DARRegRead(dev_info, tsi721_dev_ctrs[cntr].os, &cnt);
+		if (RIO_SUCCESS != rc) {
+			out_parms->imp_rc = SC_READ_CTRS(0x20 + cntr);
+			goto exit;
 		};
+
+		if (!tsi721_dev_ctrs[cntr].split) {
+			ctrs[cntr].last_inc = cnt;
+			ctrs[cntr].total += cnt;
+			continue;
+		};
+		split_cnt = (cnt & TSI721_MWR_CNT_MW_TOT_CNT) >> 16;
+		cnt &= TSI721_MWR_CNT_MW_OK_CNT;
+		ctrs[cntr].last_inc = split_cnt;
+		ctrs[cntr].total += split_cnt;
+		ctrs[cntr + 1].last_inc = cnt;
+		ctrs[cntr + 1].total += cnt;
 	};
+
 	rc = RIO_SUCCESS;
-
-idt_tsi721_sc_read_dev_ctrs_exit:
+exit:
 	return rc;
 }
 
@@ -1898,7 +1820,7 @@ uint32_t bind_tsi721_DSF_support( void )
     idt_driver.idt_em_create_events= idt_tsi721_em_create_events;
 
     idt_driver.idt_sc_init_dev_ctrs= idt_tsi721_sc_init_dev_ctrs;
-    idt_driver.idt_sc_read_ctrs    = idt_tsi721_sc_read_dev_ctrs;
+    idt_driver.idt_sc_read_ctrs    = idt_tsi721_sc_read_ctrs;
 
     IDT_DSF_bind_driver( &idt_driver, &Tsi721_driver_handle);
 

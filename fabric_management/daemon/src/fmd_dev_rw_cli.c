@@ -927,9 +927,9 @@ int CLICountReadCmd(struct cli_env *env, int argc, char **argv)
                         for (cntr = 0; cntr < sc_init_in.dev_ctrs->p_ctrs[0].ctrs_cnt; cntr++) {
                                 sc_in.dev_ctrs->p_ctrs[srch_i].ctrs[cntr].tx = true;
                                 sc_in.dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc = (idt_sc_ctr_t)((uint8_t)(idt_pcie_rv)+(uint8_t)cntr);
-                                if ((cntr % 2 == 0 && sc_in.dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc != idt_pcie_nwrite_r &&
-                                        sc_in.dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc != idt_rio_mint_write) ||
-                                        sc_in.dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc == idt_rio_rv_bd_err)
+                                if ((cntr % 2 == 0 && sc_in.dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc != idt_pcie_nwr_tot &&
+                                        sc_in.dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc != idt_rio_mwr_tot) ||
+                                        sc_in.dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc == idt_rio_rx_bd_err)
                                         sc_in.dev_ctrs->p_ctrs[srch_i].ctrs[cntr].tx = false;
                         }
                 }
@@ -1054,9 +1054,9 @@ int CLICountDisplayCmd(struct cli_env *env, int argc, char **argv)
                         for (cntr = 0; cntr < sc_init_in.dev_ctrs->p_ctrs[0].ctrs_cnt; cntr++) {
 				sc_in.dev_ctrs->p_ctrs[srch_i].ctrs[cntr].tx = true;
 				sc_in.dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc = (idt_sc_ctr_t)((uint8_t)(idt_pcie_rv)+(uint8_t)cntr);
-				if ((cntr % 2 == 0 && sc_in.dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc != idt_pcie_nwrite_r && 
-					sc_in.dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc != idt_rio_mint_write) || 
-					sc_in.dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc == idt_rio_rv_bd_err)
+				if ((cntr % 2 == 0 && sc_in.dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc != idt_pcie_nwr_tot && 
+					sc_in.dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc != idt_rio_mwr_tot) || 
+					sc_in.dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc == idt_rio_rx_bd_err)
 					sc_in.dev_ctrs->p_ctrs[srch_i].ctrs[cntr].tx = false;
 			}
 		}

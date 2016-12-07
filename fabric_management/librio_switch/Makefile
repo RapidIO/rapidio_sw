@@ -9,7 +9,7 @@ include $(TOPDIR)/rules.mk
 NAME:=switch_api
 HEADERS:=inc
 TARGETS:=lib$(NAME).a
-TEST_TARGETS:=$(NAME)_test
+TEST_TARGET:=$(NAME)_test
 
 LOG_LEVEL?=4
 DEBUG?=DEBUG
@@ -26,17 +26,18 @@ LDFLAGS+=-lcmocka
 
 OBJECTS:=$(patsubst src/%.c,src/%.o,$(wildcard src/*.c)) 
 TEST_OBJECTS:=$(patsubst test/%.c,test/%.o,$(wildcard test/*.c))
+TEST_TARGETS:=$(patsubst test/%.c,test/%,$(wildcard test/*.c))
 
 .PHONY: all clean test
 
 
 ifdef TEST
-all: $(TARGETS) $(TEST_TARGETS)
+all: $(TARGETS) $(TEST_TARGET)
 else
 all: $(TARGETS)
 endif
 
-test: $(TEST_TARGETS)
+test: $(TEST_TARGET)
 
 %.a: $(OBJECTS)
 	@echo ---------- Building $@
@@ -49,13 +50,15 @@ src/%.o: src/%.c
 
 test/%.o: test/%.c
 	@echo ---------- Building $@
-	$(CXX) -c $(CFLAGS) $< -o $@ \
-	$(TST_INCS)
+	$(CXX) -c $(CFLAGS) $(TST_INCS) $< -o $@
+	
 
-$(TEST_TARGETS): $(TEST_OBJECTS)
+test/%: test/%.o
 	@echo ---------- Building $@
 	$(CXX) -o $@ $< $(LDFLAGS) \
 	$(TST_LIBS)
+
+$(TEST_TARGET): $(TEST_TARGETS)
 
 clean:
 	rm -f $(TARGETS) $(OBJECTS) \

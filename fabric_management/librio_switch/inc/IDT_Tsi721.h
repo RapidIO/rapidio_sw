@@ -1244,6 +1244,9 @@ extern "C" {
 /* TSI721 : S-RIO Register address offset definitions */
 /******************************************************/
 
+#define TSI721_MAX_PORTS 1
+#define TSI721_MAX_LANES 4
+
 #define TSI721_RIO_DEV_ID                                          (0x00000000)
 #define TSI721_RIO_DEV_INFO                                        (0x00000004)
 #define TSI721_RIO_ASBLY_ID                                        (0x00000008)

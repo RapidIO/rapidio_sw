@@ -45,7 +45,7 @@ extern "C" {
    Generic structure which contains the parameters which describe the
    configuration of a port.
 */
-#define IDT_MAX_SC 32
+#define IDT_MAX_SC 40
 
 typedef enum idt_sc_ctr_t_TAG
 {
@@ -80,22 +80,26 @@ typedef enum idt_sc_ctr_t_TAG
     idt_sc_rio_ttl_pcntr,   // Count of the total number of code-groups/codewords transmitted on the RapidIO interface per lane
 
     idt_pcie_rv,            // Received Completion Count for Messaging Engine Register.
-    idt_pcie_st_tlp_mer,    // Sent TLP Count of Messaging Engine Register
-    idt_pcie_rv_dma,        // Received Completion Count for Block DMA Engine Register
-    idt_pcie_st_tlp_dma,    // Sent TLP Count of Block DMA Engine Register
-    idt_pcie_rv_tlp,        // Received Bridging TLP Count Register
+    idt_pcie_tx_tlp_mer,    // Sent TLP Count of Messaging Engine Register
+    idt_pcie_rx_dma,        // Received Completion Count for Block DMA Engine Register
+    idt_pcie_tx_tlp_dma,    // Sent TLP Count of Block DMA Engine Register
+    idt_pcie_rx_tlp,        // Received Bridging TLP Count Register
     idt_pcie_bd_tlp,        // Sent Bridging TLP Count Register
-    idt_pcie_nwrite_r,      // NWRITE_R Count Register
-    idt_rio_st_mer,         // Sent Packet Count of Messaging Engine Register
-    idt_rio_rv_mer,         // Received Packet Count for Messaging Engine Register
-    idt_rio_st_retries,     // Generated Message Segment Retry Count Register
-    idt_rio_rv_retries,     // Received Retry Message Response Count Register
-    idt_rio_st_dma,         // Sent Packet Count of Block DMA Engine Register
-    idt_rio_rv_dma,         // Received Response Count for Block DMA Engine Register
-    idt_rio_st_bd,          // Sent Bridging Packet Count Register
-    idt_rio_rv_bd,          // Received Bridging Packet Count Register
-    idt_rio_rv_bd_err,      // Received Bridging Packet Error Count Register
-    idt_rio_mint_write,     // Maintenance Write Count Register
+    idt_pcie_nwr_tot,       // NWRITE_R Total Count Register
+    idt_pcie_nwr_ok,	    // NWRITE_R RX OK Count Register
+    idt_rio_odb_tot,        // Total outbound doorbells total sent
+    idt_rio_odb_ok,         // Total outbound doorbells responses OK
+    idt_rio_tx_mer,         // Sent Packet Count of Messaging Engine Register
+    idt_rio_rx_mer,         // Received Packet Count for Messaging Engine Register
+    idt_rio_tx_retries,     // Generated Message Segment Retry Count Register
+    idt_rio_rx_retries,     // Received Retry Message Response Count Register
+    idt_rio_tx_dma,         // Sent Packet Count of Block DMA Engine Register
+    idt_rio_rx_dma,         // Received Response Count for Block DMA Engine Register
+    idt_rio_tx_bd,          // Sent Bridging Packet Count Register
+    idt_rio_rx_bd,          // Received Bridging Packet Count Register
+    idt_rio_rx_bd_err,      // Received Bridging Packet Error Count Register
+    idt_rio_mwr_tot,        // Maintenance Write Total Count Register 
+    idt_rio_mwr_ok,         // Maintenance Write OK Count Register
 
     idt_sc_last             // Last index for enumerated type
 } idt_sc_ctr_t;
