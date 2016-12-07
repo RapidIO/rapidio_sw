@@ -452,7 +452,7 @@ uint32_t idt_rxs_program_mc_masks ( DAR_DEV_INFO_t        *dev_info,
        break;
        default:
           *imp_rc = IDT_RXS_PROGRAM_MC_MASKS(0x01);
-          goto idt_rxs_program_mc_masks_exit;
+          goto exit;
     }
 
     if (RIO_ALL_PORTS == in_parms->set_on_port) {
@@ -466,19 +466,19 @@ uint32_t idt_rxs_program_mc_masks ( DAR_DEV_INFO_t        *dev_info,
 	  if ( in_parms->rt->mc_masks[mask_num].mc_mask & ~mask_mask ) {
              rc = RIO_ERR_INVALID_PARAMETER;
              *imp_rc = IDT_RXS_PROGRAM_MC_MASKS(3);
-             goto idt_rxs_program_mc_masks_exit; 
+             goto exit; 
           }
           rc = DARRegWrite( dev_info, MC_MASK_ADDR(base_addr, mask_num), 
                             in_parms->rt->mc_masks[mask_num].mc_mask & mask_mask );
           if (RIO_SUCCESS != rc) {
              *imp_rc = IDT_RXS_PROGRAM_MC_MASKS(4);
-             goto idt_rxs_program_mc_masks_exit; 
+             goto exit; 
           }
 	  in_parms->rt->mc_masks[mask_num].changed = false;
        }
     }
         
-idt_rxs_program_mc_masks_exit: 
+exit: 
     return rc;
 }
 
@@ -499,7 +499,7 @@ uint32_t idt_rxs_program_rte_entries ( DAR_DEV_INFO_t        *dev_info,
     rc = DARRegWrite( dev_info, RXS_RIO_ROUTE_DFLT_PORT, in_parms->rt->default_route );
     if (RIO_SUCCESS != rc) {
        *imp_rc = IDT_RXS_PROGRAM_RTE_ENTRIES(0x10);
-       goto idt_rxs_program_rte_entries_exit; 
+       goto exit; 
     }
 
     if (RIO_ALL_PORTS == in_parms->set_on_port) {
@@ -520,7 +520,7 @@ uint32_t idt_rxs_program_rte_entries ( DAR_DEV_INFO_t        *dev_info,
 	         (in_parms->rt->dom_table[rte_num].rte_val != IDT_DSF_RT_NO_ROUTE            ) ) {
                 rc = RIO_ERR_INVALID_PARAMETER;
                 *imp_rc = IDT_RXS_PROGRAM_RTE_ENTRIES(1);
-                goto idt_rxs_program_rte_entries_exit; 
+                goto exit; 
              } 
           } 
 
@@ -528,7 +528,7 @@ uint32_t idt_rxs_program_rte_entries ( DAR_DEV_INFO_t        *dev_info,
                             (uint32_t)(in_parms->rt->dom_table[rte_num].rte_val) );
           if (RIO_SUCCESS != rc) {
              *imp_rc = IDT_RXS_PROGRAM_RTE_ENTRIES(2);
-             goto idt_rxs_program_rte_entries_exit; 
+             goto exit; 
           } 
 	  in_parms->rt->dom_table[rte_num].changed = false;
        } 
@@ -545,7 +545,7 @@ uint32_t idt_rxs_program_rte_entries ( DAR_DEV_INFO_t        *dev_info,
 	         (in_parms->rt->dev_table[rte_num].rte_val != IDT_DSF_RT_NO_ROUTE         ) ) {
                 rc = RIO_ERR_INVALID_PARAMETER;
                 *imp_rc = IDT_RXS_PROGRAM_RTE_ENTRIES(3);
-                goto idt_rxs_program_rte_entries_exit; 
+                goto exit; 
              } 
           } 
 
@@ -553,13 +553,13 @@ uint32_t idt_rxs_program_rte_entries ( DAR_DEV_INFO_t        *dev_info,
                             (uint32_t)(in_parms->rt->dev_table[rte_num].rte_val) );
           if (RIO_SUCCESS != rc) {
              *imp_rc = IDT_RXS_PROGRAM_RTE_ENTRIES(4);
-             goto idt_rxs_program_rte_entries_exit; 
+             goto exit; 
           } 
           in_parms->rt->dev_table[rte_num].changed = false;
        } 
     } 
         
-idt_rxs_program_rte_entries_exit: 
+exit: 
     return rc;
 }
 
@@ -577,26 +577,26 @@ uint32_t idt_rxs_rt_set_common( DAR_DEV_INFO_t        *dev_info,
          ( !in_parms->rt) ) 
     {
         out_parms->imp_rc = IDT_RXS_RTE_SET_COMMON(1);
-        goto idt_rxs_rt_set_common_exit;
+        goto exit;
     }
 
     if ((NUM_PORTS(dev_info) <= in_parms->rt->default_route) &&
         !(IDT_DSF_RT_NO_ROUTE == in_parms->rt->default_route))   {
         out_parms->imp_rc = IDT_RXS_RTE_SET_COMMON(2);
-        goto idt_rxs_rt_set_common_exit;
+        goto exit;
     }
 
     out_parms->imp_rc = RIO_SUCCESS;
     rc = idt_rxs_program_mc_masks( dev_info, in_parms, set_all, &out_parms->imp_rc );
     if (RIO_SUCCESS != rc) {
-       goto idt_rxs_rt_set_common_exit;
+       goto exit;
     }
 
     rc = idt_rxs_program_rte_entries( dev_info, in_parms, set_all, &out_parms->imp_rc );
     if (RIO_SUCCESS != rc) 
-       goto idt_rxs_rt_set_common_exit;
+       goto exit;
 
-idt_rxs_rt_set_common_exit:
+exit:
 
     return rc;
 }
@@ -640,7 +640,7 @@ uint32_t idt_rxs_rt_change_rte( DAR_DEV_INFO_t           *dev_info,
 
    if (!in_parms->rt) {
       out_parms->imp_rc = RT_CHANGE_RTE(1);
-      goto idt_rxs_rt_change_rte_exit;
+      goto exit;
    } 
 
    // Validate rte_value 
@@ -649,12 +649,12 @@ uint32_t idt_rxs_rt_change_rte( DAR_DEV_INFO_t           *dev_info,
         (IDT_DSF_RT_NO_ROUTE         != in_parms->rte_value) &&
         (in_parms->rte_value         >= NUM_PORTS(dev_info))) {
       out_parms->imp_rc = RT_CHANGE_RTE(2);
-      goto idt_rxs_rt_change_rte_exit;
+      goto exit;
    }
 
    if ( (IDT_DSF_RT_USE_DEVICE_TABLE == in_parms->rte_value) && (!in_parms->dom_entry)) {
       out_parms->imp_rc = RT_CHANGE_RTE(3);
-      goto idt_rxs_rt_change_rte_exit;
+      goto exit;
    } 
 
    rc = RIO_SUCCESS;
@@ -664,7 +664,7 @@ uint32_t idt_rxs_rt_change_rte( DAR_DEV_INFO_t           *dev_info,
    // as this is the behavior required by the RXS RIO Domain register.
 
    if (in_parms->dom_entry && !in_parms->idx)
-      goto idt_rxs_rt_change_rte_exit;
+      goto exit;
 
    // If the entry has not already been changed, see if it is being changed
    if (in_parms->dom_entry) {
@@ -681,7 +681,7 @@ uint32_t idt_rxs_rt_change_rte( DAR_DEV_INFO_t           *dev_info,
       in_parms->rt->dev_table[in_parms->idx].rte_val = in_parms->rte_value;
    } 
 
-idt_rxs_rt_change_rte_exit:
+exit:
    return rc;
 }
 
@@ -702,7 +702,7 @@ uint32_t idt_rxs_rt_initialize( DAR_DEV_INFO_t           *dev_info,
         !(IDT_DSF_RT_NO_ROUTE == in_parms->default_route)  )
     {
         out_parms->imp_rc = RT_INITIALIZE(1);
-        goto idt_rxs_rt_initialize_exit;
+        goto exit;
     }
 
     if ( (in_parms->default_route_table_port >= NUM_PORTS(dev_info)) &&
@@ -710,14 +710,14 @@ uint32_t idt_rxs_rt_initialize( DAR_DEV_INFO_t           *dev_info,
            (IDT_DSF_RT_NO_ROUTE              == in_parms->default_route_table_port)) )
     {
         out_parms->imp_rc = RT_INITIALIZE(2);
-        goto idt_rxs_rt_initialize_exit;
+        goto exit;
     }
 
     if ( (in_parms->set_on_port >= NUM_PORTS(dev_info)  )  &&
         !(RIO_ALL_PORTS         == in_parms->set_on_port))
     {
         out_parms->imp_rc = RT_INITIALIZE(3);
-        goto idt_rxs_rt_initialize_exit;
+        goto exit;
     }
 
     out_parms->imp_rc = RIO_SUCCESS;
@@ -775,7 +775,7 @@ uint32_t idt_rxs_rt_initialize( DAR_DEV_INFO_t           *dev_info,
         out_parms->imp_rc = all_out.imp_rc;
     }
 
-idt_rxs_rt_initialize_exit:
+exit:
 
     return rc;
 }
@@ -815,7 +815,7 @@ uint32_t idt_rxs_pc_get_config( DAR_DEV_INFO_t           *dev_info,
 	rc = DARrioGetPortList(dev_info, &in_parms->ptl, &good_ptl);
 	if (RIO_SUCCESS != rc) {
 		out_parms->imp_rc = PC_SET_CONFIG(0x1);
-		goto idt_rxs_pc_get_config_exit;
+		goto exit;
 	} 
 
 	out_parms->num_ports = good_ptl.num_ports;
@@ -827,7 +827,7 @@ uint32_t idt_rxs_pc_get_config( DAR_DEV_INFO_t           *dev_info,
 	rc = DARRegRead(dev_info, RXS_RIO_SP_LT_CTL, &lrto);
 	if (RIO_SUCCESS != rc) {
 		out_parms->imp_rc = PC_SET_CONFIG(0x2);
-		goto idt_rxs_pc_get_config_exit;
+		goto exit;
 	}
 	out_parms->lrto = lrto >> 8;
 	} 
@@ -853,7 +853,7 @@ uint32_t idt_rxs_pc_get_config( DAR_DEV_INFO_t           *dev_info,
 		rc = DARRegRead(dev_info, RXS_RIO_SPX_CTL(port_idx), &spxCtl);
 		if (RIO_SUCCESS != rc) {
 			out_parms->imp_rc = PC_GET_CONFIG(8);
-			goto idt_rxs_pc_get_config_exit;
+			goto exit;
 		} 
 
 		out_parms->pc[port_idx].xmitter_disable =
@@ -865,7 +865,7 @@ uint32_t idt_rxs_pc_get_config( DAR_DEV_INFO_t           *dev_info,
 		if (RIO_SUCCESS != rc)
 		{
 			out_parms->imp_rc = PC_GET_CONFIG(0x10);
-			goto idt_rxs_pc_get_config_exit;
+			goto exit;
 		} 
 		switch (spxCtl & RIO_SPX_CTL_PTW_OVER) {
 		case RIO_SPX_CTL_PTW_OVER_4x_NO_2X:
@@ -885,7 +885,7 @@ uint32_t idt_rxs_pc_get_config( DAR_DEV_INFO_t           *dev_info,
 		rc = DARRegRead(dev_info, RXS_RIO_SPX_CTL2(port_idx), &spxCtl2);
 		if (RIO_SUCCESS != rc) {
 			out_parms->imp_rc = PC_GET_CONFIG(0x11);
-			goto idt_rxs_pc_get_config_exit;
+			goto exit;
 		} 
 
 		out_parms->pc[port_idx].ls = idt_pc_ls_last;
@@ -921,7 +921,7 @@ uint32_t idt_rxs_pc_get_config( DAR_DEV_INFO_t           *dev_info,
 		rc = DARRegRead(dev_info, RXS_RIO_PLM_SPX_IMP_SPEC_CTL(port_idx), &plmCtl);
 		if (RIO_SUCCESS != rc) {
 			out_parms->imp_rc = PC_GET_CONFIG(0x20);
-			goto idt_rxs_pc_get_config_exit;
+			goto exit;
 		} 
 
 		if (plmCtl & RXS_RIO_PLM_SPX_IMP_SPEC_CTL_SWAP_RX) {
@@ -935,7 +935,7 @@ uint32_t idt_rxs_pc_get_config( DAR_DEV_INFO_t           *dev_info,
                 rc = DARRegRead(dev_info, RXS_RIO_SPX_ERR_STAT(port_idx), &errStat);
                 if (RIO_SUCCESS != rc) {
                         out_parms->imp_rc = PC_GET_CONFIG(0x30);
-                        goto idt_rxs_pc_get_config_exit;
+                        goto exit;
                 }
 
                 out_parms->pc[port_idx].port_available = (errStat & RXS_RIO_SPX_ERR_STAT_PORT_UNAVL ? true : false);
@@ -944,7 +944,7 @@ uint32_t idt_rxs_pc_get_config( DAR_DEV_INFO_t           *dev_info,
                 rc = DARRegRead(dev_info, RXS_PLM_SPX_POL_CTL(port_idx), &plmPol);
                 if (RIO_SUCCESS != rc) {
                         out_parms->imp_rc = PC_GET_CONFIG(0x40);
-                        goto idt_rxs_pc_get_config_exit;
+                        goto exit;
                 } 
 
 		out_parms->pc[port_idx].tx_linvert[3] = (plmPol & RXS_PLM_SPX_POL_CTL_TX3_POL ? true : false);
@@ -960,7 +960,7 @@ uint32_t idt_rxs_pc_get_config( DAR_DEV_INFO_t           *dev_info,
                 out_parms->pc[port_idx].rx_linvert[0] = (plmPol & RXS_PLM_SPX_POL_CTL_RX0_POL ? true : false);		
 	} 
 
-idt_rxs_pc_get_config_exit:
+exit:
 	return rc;
 }
 
@@ -979,7 +979,7 @@ uint32_t idt_rxs_pc_get_status( DAR_DEV_INFO_t           *dev_info,
 	rc = DARrioGetPortList(dev_info, &in_parms->ptl, &good_ptl);
 	if (RIO_SUCCESS != rc) {
 		out_parms->imp_rc = PC_GET_uint32_t(1);
-		goto idt_rxs_pc_get_status_exit;
+		goto exit;
 	}
 
 	out_parms->num_ports = good_ptl.num_ports;
@@ -997,13 +997,13 @@ uint32_t idt_rxs_pc_get_status( DAR_DEV_INFO_t           *dev_info,
 		rc = DARRegRead(dev_info, RXS_RIO_SPX_ERR_STAT(port_idx), &errStat);
 		if (RIO_SUCCESS != rc) {
 			out_parms->imp_rc = PC_GET_uint32_t(0x30 + port_idx);
-			goto idt_rxs_pc_get_status_exit;
+			goto exit;
 		}
 
 		rc = DARRegRead(dev_info, RXS_RIO_SPX_CTL(port_idx), &spxCtl);
 		if (RIO_SUCCESS != rc) {
 			out_parms->imp_rc = PC_GET_uint32_t(0x40 + port_idx);
-			goto idt_rxs_pc_get_status_exit;
+			goto exit;
 		}
 
 		out_parms->ps[port_idx].port_ok =
@@ -1037,7 +1037,7 @@ uint32_t idt_rxs_pc_get_status( DAR_DEV_INFO_t           *dev_info,
 		}
 	}
 
-idt_rxs_pc_get_status_exit:
+exit:
 	return rc;
 }
 
@@ -1059,7 +1059,7 @@ uint32_t idt_rxs_check_port_for_discard( DAR_DEV_INFO_t     *dev_info,
    if (NUM_PORTS(dev_info) <= port) {
       out_parms->reason_for_discard = idt_rt_disc_probe_abort;
       out_parms->imp_rc = RT_PROBE(1);
-      goto idt_rxs_check_port_for_discard_exit;
+      goto exit;
    }
 
    cfg_in.ptl.num_ports = 1;
@@ -1068,7 +1068,7 @@ uint32_t idt_rxs_check_port_for_discard( DAR_DEV_INFO_t     *dev_info,
    if (RIO_SUCCESS != rc) {
       out_parms->reason_for_discard = idt_rt_disc_probe_abort;
       out_parms->imp_rc = RT_PROBE(2);
-      goto idt_rxs_check_port_for_discard_exit;
+      goto exit;
    }
 
    stat_in.ptl.num_ports = 1;
@@ -1077,7 +1077,7 @@ uint32_t idt_rxs_check_port_for_discard( DAR_DEV_INFO_t     *dev_info,
    if (RIO_SUCCESS != rc) {
       out_parms->reason_for_discard = idt_rt_disc_probe_abort;
       out_parms->imp_rc = RT_PROBE(3);
-      goto idt_rxs_check_port_for_discard_exit;
+      goto exit;
    }
 
    if (!cfg_out.pc[0].port_available) {
@@ -1105,7 +1105,7 @@ uint32_t idt_rxs_check_port_for_discard( DAR_DEV_INFO_t     *dev_info,
                    if (RIO_SUCCESS != rc) {
                       out_parms->reason_for_discard = idt_rt_disc_probe_abort;
                       out_parms->imp_rc = RT_PROBE(4);
-                      goto idt_rxs_check_port_for_discard_exit;
+                      goto exit;
                    }
             
                   if ( (RIO_SPX_CTL_INP_EN | RIO_SPX_CTL_OTP_EN) != 
@@ -1120,7 +1120,7 @@ uint32_t idt_rxs_check_port_for_discard( DAR_DEV_INFO_t     *dev_info,
 
    rc = RIO_SUCCESS;
 
-idt_rxs_check_port_for_discard_exit:
+exit:
 
     if (idt_rt_disc_not != out_parms->reason_for_discard)
        out_parms->valid_route = false;
@@ -1227,13 +1227,13 @@ uint32_t idt_rxs_rt_probe( DAR_DEV_INFO_t      *dev_info,
             (RIO_ALL_PORTS       != in_parms->probe_on_port))  ||
            ( !in_parms->rt           ) ) {
        out_parms->imp_rc = RT_PROBE(0x11);
-       goto idt_RXS_rt_probe_exit;
+       goto exit;
     }
         
     rc = DARRegRead( dev_info, RXS_RIO_PKT_TIME_LIVE, &regVal ) ;
     if ( RIO_SUCCESS != rc ) {
        out_parms->imp_rc = RT_PROBE(0x12);
-       goto idt_RXS_rt_probe_exit;
+       goto exit;
     }
     out_parms->time_to_live_active = (regVal & RXS_RIO_PKT_TIME_LIVE_PKT_TIME_LIVE)?true:false;
 
@@ -1244,7 +1244,7 @@ uint32_t idt_rxs_rt_probe( DAR_DEV_INFO_t      *dev_info,
 
     /* Done if hit in multicast masks. */
     if (RIO_ALL_PORTS != out_parms->routing_table_value) 
-       goto idt_RXS_rt_probe_exit; 
+       goto exit; 
 
     /*  Determine routing table value for the specified destination ID.
      *  If out_parms->valid_route is true 
@@ -1261,7 +1261,7 @@ uint32_t idt_rxs_rt_probe( DAR_DEV_INFO_t      *dev_info,
        rc = idt_rxs_check_port_for_discard( dev_info, in_parms, out_parms );
     }
     
-idt_RXS_rt_probe_exit:
+exit:
     return rc;
 }
 
@@ -1280,7 +1280,7 @@ uint32_t idt_rxs_read_mc_masks( DAR_DEV_INFO_t            *dev_info,
    uint32_t dev_id = (dev_info->devID & RXS_RIO_DEV_IDENT_DEVI) >> 16;
 
    if (RXS_RIO_DEVICE_VENDOR != vend_id)
-	   goto idt_rxs_read_mc_masks_exit;
+	   goto exit;
 
    switch (dev_id) {
    case IDT_RXS2448_RIO_DEVICE_ID:
@@ -1290,7 +1290,7 @@ uint32_t idt_rxs_read_mc_masks( DAR_DEV_INFO_t            *dev_info,
 	   port_mask = RXS1632_RIO_SPX_MC_Y_S_CSR_SET;
 	   break;
    default:
-	   goto idt_rxs_read_mc_masks_exit;
+	   goto exit;
    }
 
    d_in_parm.rt = rt;
@@ -1301,7 +1301,7 @@ uint32_t idt_rxs_read_mc_masks( DAR_DEV_INFO_t            *dev_info,
       if (RIO_SUCCESS != rc) 
       {
          *imp_rc = d_out_parm.imp_rc;
-         goto idt_rxs_read_mc_masks_exit;
+         goto exit;
       }
    }
 
@@ -1309,7 +1309,7 @@ uint32_t idt_rxs_read_mc_masks( DAR_DEV_INFO_t            *dev_info,
       rc = DARRegRead(dev_info, RXS_RIO_SPX_MC_Y_S_CSR(pnum, mask_idx), &reg_val);
       if (RIO_SUCCESS != rc) {
          *imp_rc = IDT_RXS_READ_MC_MASKS(1);
-         goto idt_rxs_read_mc_masks_exit;
+         goto exit;
       }
 
       rt->mc_masks[mask_idx].allocd    = false;
@@ -1320,7 +1320,7 @@ uint32_t idt_rxs_read_mc_masks( DAR_DEV_INFO_t            *dev_info,
       rt->mc_masks[mask_idx].mc_mask   = reg_val & port_mask;
    }
 
-idt_rxs_read_mc_masks_exit:
+exit:
    return rc;
 }
 
@@ -1401,7 +1401,7 @@ uint32_t idt_rxs_rt_change_mc_mask( DAR_DEV_INFO_t               *dev_info,
 
    if (!in_parms->rt) {
       out_parms->imp_rc = CHANGE_MC_MASK(1);
-      goto idt_rxs_rt_change_mc_mask_exit;
+      goto exit;
    }
 
    // Check destination ID value against tt, and that the multicast mask
@@ -1411,7 +1411,7 @@ uint32_t idt_rxs_rt_change_mc_mask( DAR_DEV_INFO_t               *dev_info,
          (tt_dev8 == in_parms->mc_info.tt                     )) ||
         (in_parms->mc_info.mc_mask & illegal_ports             )) {
       out_parms->imp_rc = CHANGE_MC_MASK(2);
-      goto idt_rxs_rt_change_mc_mask_exit;
+      goto exit;
    }
  
    if (!in_parms->mc_info.in_use) {
@@ -1425,7 +1425,7 @@ uint32_t idt_rxs_rt_change_mc_mask( DAR_DEV_INFO_t               *dev_info,
       if (RIO_SUCCESS != rc) {
 	 out_parms->imp_rc = d_out_parm.imp_rc;
       }
-      goto idt_rxs_rt_change_mc_mask_exit;
+      goto exit;
    }
 
    // Allow requests to change masks not supported by RXS family
@@ -1436,7 +1436,7 @@ uint32_t idt_rxs_rt_change_mc_mask( DAR_DEV_INFO_t               *dev_info,
    if (chg_idx >= NUM_MC_MASKS(dev_info)) {
       rc = RIO_ERR_INVALID_PARAMETER;
       out_parms->imp_rc = CHANGE_MC_MASK(3);
-      goto idt_rxs_rt_change_mc_mask_exit;
+      goto exit;
    }
 
    // If entry has not already been changed, see if it is being changed
@@ -1454,7 +1454,7 @@ uint32_t idt_rxs_rt_change_mc_mask( DAR_DEV_INFO_t               *dev_info,
        && (in_parms->mc_mask_rte != in_parms->rt->dom_table[dom_idx].rte_val)) {
       rc = idt_rxs_tidy_routing_table(dev_info, dom_idx, in_parms->rt, &out_parms->imp_rc, false);
       if (RIO_SUCCESS != rc)
-         goto idt_rxs_rt_change_mc_mask_exit; 
+         goto exit; 
 
       in_parms->rt->dom_table[dom_idx].rte_val = in_parms->mc_mask_rte;
       in_parms->rt->dom_table[dom_idx].changed = true;
@@ -1464,7 +1464,7 @@ uint32_t idt_rxs_rt_change_mc_mask( DAR_DEV_INFO_t               *dev_info,
    if (in_parms->mc_mask_rte != in_parms->rt->dev_table[dev_idx].rte_val) {
       rc = idt_rxs_tidy_routing_table(dev_info, dev_idx, in_parms->rt, &out_parms->imp_rc, true);
       if (RIO_SUCCESS != rc) 
-         goto idt_rxs_rt_change_mc_mask_exit;
+         goto exit;
 
       in_parms->rt->dev_table[dev_idx].rte_val = in_parms->mc_mask_rte;
       in_parms->rt->dev_table[dev_idx].changed = true;
@@ -1476,7 +1476,7 @@ uint32_t idt_rxs_rt_change_mc_mask( DAR_DEV_INFO_t               *dev_info,
    in_parms->rt->mc_masks[chg_idx].mc_mask   = (in_parms->mc_info.mc_mask & avail_ports);
 
    rc = RIO_SUCCESS;
-idt_rxs_rt_change_mc_mask_exit:
+exit:
    return rc;
 }
 
@@ -1494,7 +1494,7 @@ uint32_t idt_rxs_read_rte_entries( DAR_DEV_INFO_t            *dev_info,
    rc = DARRegRead(dev_info, RXS_RIO_ROUTE_DFLT_PORT, &rte_val);
    if (RIO_SUCCESS != rc) {
       *imp_rc = IDT_RXS_READ_RTE_ENTRIES(1);
-      goto idt_rxs_read_rte_entries_exit;
+      goto exit;
    }
 
    rt->default_route = (uint8_t)(rte_val & RXS_RIO_ROUTE_DFLT_PORT_DEFAULT_OUT_PORT);
@@ -1515,7 +1515,7 @@ uint32_t idt_rxs_read_rte_entries( DAR_DEV_INFO_t            *dev_info,
       rc = DARRegRead(dev_info, RXS_RIO_SPX_L1_GY_ENTRYZ_CSR(pnum, 0, destID), &rte_val);
       if (RIO_SUCCESS != rc) {
          *imp_rc = IDT_RXS_READ_RTE_ENTRIES(4);
-         goto idt_rxs_read_rte_entries_exit;
+         goto exit;
       }
       rte_val &= RXS_RIO_BC_L1_GX_ENTRYY_CSR_ROUTING_VALUE;
       rt->dom_table[destID].rte_val = (uint8_t)(rte_val);
@@ -1544,7 +1544,7 @@ uint32_t idt_rxs_read_rte_entries( DAR_DEV_INFO_t            *dev_info,
       rc = DARRegRead(dev_info, RXS_RIO_BC_L2_GX_ENTRYY_CSR(pnum, destID), &rte_val);
       if (RIO_SUCCESS != rc) {
          *imp_rc = IDT_RXS_READ_RTE_ENTRIES(8);
-         goto idt_rxs_read_rte_entries_exit;
+         goto exit;
       }
 
       rte_val &= RXS_RIO_BC_L2_GX_ENTRYY_CSR_ROUTING_VALUE;
@@ -1565,7 +1565,7 @@ uint32_t idt_rxs_read_rte_entries( DAR_DEV_INFO_t            *dev_info,
       }
    }
    
-idt_rxs_read_rte_entries_exit:
+exit:
    return rc;
 }
 
@@ -1588,18 +1588,18 @@ uint32_t idt_rxs_rt_probe_all( DAR_DEV_INFO_t          *dev_info,
          ( !in_parms->rt) ) 
     {
         out_parms->imp_rc = RT_PROBE_ALL(1);
-        goto idt_rxs_rt_probe_all_exit;
+        goto exit;
     }
 
     probe_port = (RIO_ALL_PORTS == in_parms->probe_on_port)?0:in_parms->probe_on_port;
 
     rc = idt_rxs_read_mc_masks( dev_info, probe_port, in_parms->rt, &out_parms->imp_rc );
     if (RIO_SUCCESS != rc)
-       goto idt_rxs_rt_probe_all_exit;
+       goto exit;
     
     rc = idt_rxs_read_rte_entries( dev_info, probe_port, in_parms->rt, &out_parms->imp_rc );
 
-idt_rxs_rt_probe_all_exit:
+exit:
     return rc;
 }
 
