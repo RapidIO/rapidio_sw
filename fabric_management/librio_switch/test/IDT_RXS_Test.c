@@ -58,7 +58,7 @@ typedef struct mock_dar_reg_t_TAG
 	uint32_t data;
 } mock_dar_reg_t;
 
-#define NUM_DAR_REG ((((RXS2448_MAX_PORTS)*(RXS_NUM_PERF_CTRS))*2)+ \
+#define NUM_DAR_REG ((((RXS2448_MAX_PORTS)*(RXS2448_MAX_SC))*2)+ \
                      (RXS2448_MAX_PORTS*6)+4+ \
                      ((RXS2448_MAX_PORTS)*IDT_DAR_RT_DEV_TABLE_SIZE)+ \
                      (RXS_MAX_L2_GROUP*IDT_DAR_RT_DEV_TABLE_SIZE)+ \
@@ -114,7 +114,7 @@ static void rxs_test_setup(void)
 
 	for (pnum = 0; pnum < MAX_DAR_PORTS; pnum++) { 
 		pp_ctrs[pnum].pnum = pnum;
-		pp_ctrs[pnum].ctrs_cnt = RXS_NUM_PERF_CTRS;
+		pp_ctrs[pnum].ctrs_cnt = RXS2448_MAX_SC;
 		for (idx = 0; idx < IDT_MAX_SC; idx++) {
 			pp_ctrs[pnum].ctrs[idx] = init;
 		}
@@ -131,7 +131,7 @@ static void init_mock_rxs_reg(void)
 
         // initialize RXS_RIO_SPX_PCNTR_CTL
         for (port = 0; port < RXS2448_MAX_PORTS; port++) {
-            for (cntr = 0; cntr < RXS_NUM_PERF_CTRS; cntr++) {
+            for (cntr = 0; cntr < RXS2448_MAX_SC; cntr++) {
                 mock_dar_reg[idx].offset = RXS_RIO_SPX_PCNTR_CTL(port, cntr);
                 mock_dar_reg[idx].data = 0x02;
                 idx++;
@@ -140,7 +140,7 @@ static void init_mock_rxs_reg(void)
 
         // Initialize RXS_RIO_SPX_PCNTR_CNTR
         for (port = 0; port < RXS2448_MAX_PORTS; port++) {
-            for (cntr = 0; cntr < RXS_NUM_PERF_CTRS; cntr++) {
+            for (cntr = 0; cntr < RXS2448_MAX_SC; cntr++) {
                 mock_dar_reg[idx].offset = RXS_RIO_SPX_PCNTR_CNT(port, cntr);
                 mock_dar_reg[idx].data = 0x10;
                 idx++;
@@ -331,7 +331,7 @@ static int teardown(void **state)
 void assumptions_test(void **state)
 {
 	// verify constants
-        assert_int_equal(8, RXS_NUM_PERF_CTRS);
+        assert_int_equal(8, RXS2448_MAX_SC);
         assert_int_equal(24, RXS2448_MAX_PORTS);
         assert_int_equal(48, RXS2448_MAX_LANES);
 
@@ -394,9 +394,9 @@ void rxs_init_dev_ctrs_test_success(void **state)
         assert_int_equal(24, mock_sc_in.dev_ctrs->valid_p_ctrs);
 	for (i = 0; i < 24; i++) {
 		assert_int_equal(i, mock_sc_in.dev_ctrs->p_ctrs[i].pnum);
-		assert_int_equal(RXS_NUM_PERF_CTRS,
+		assert_int_equal(RXS2448_MAX_SC,
 			mock_sc_in.dev_ctrs->p_ctrs[i].ctrs_cnt);
-		for (j = 0; j < RXS_NUM_PERF_CTRS; j++) {
+		for (j = 0; j < RXS2448_MAX_SC; j++) {
 			assert_int_equal(0,
 				mock_sc_in.dev_ctrs->p_ctrs[i].ctrs[j].total);
 			assert_int_equal(0,
@@ -516,17 +516,17 @@ void rxs_init_dev_ctrs_test_good_ptl(void **state)
         assert_int_equal(RIO_SUCCESS, mock_sc_out.imp_rc);
         assert_int_equal(3, mock_sc_in.dev_ctrs->valid_p_ctrs);
         assert_int_equal(1, mock_sc_in.dev_ctrs->p_ctrs[0].pnum);
-        assert_int_equal(RXS_NUM_PERF_CTRS,
+        assert_int_equal(RXS2448_MAX_SC,
 			mock_sc_in.dev_ctrs->p_ctrs[0].ctrs_cnt);
         assert_int_equal(3, mock_sc_in.dev_ctrs->p_ctrs[1].pnum);
-        assert_int_equal(RXS_NUM_PERF_CTRS,
+        assert_int_equal(RXS2448_MAX_SC,
 			mock_sc_in.dev_ctrs->p_ctrs[1].ctrs_cnt);
         assert_int_equal(23, mock_sc_in.dev_ctrs->p_ctrs[2].pnum);
-        assert_int_equal(RXS_NUM_PERF_CTRS,
+        assert_int_equal(RXS2448_MAX_SC,
 			mock_sc_in.dev_ctrs->p_ctrs[2].ctrs_cnt);
 
 	for (i = 0; i < 3; i++) {
-		for (j = 0; j < RXS_NUM_PERF_CTRS; j++) {
+		for (j = 0; j < RXS2448_MAX_SC; j++) {
 			assert_int_equal(0,
 				mock_sc_in.dev_ctrs->p_ctrs[i].ctrs[j].total);
 			assert_int_equal(0,
@@ -683,7 +683,7 @@ void test_rxs_cfg_dev_ctr(idt_sc_cfg_rxs_ctr_in_t *mock_sc_in, int sc_cfg)
 		mock_sc_out.imp_rc = RIO_SUCCESS;
 
 		assert_int_not_equal(RIO_SUCCESS,
-				idt_rxs_sc_cfg_ctr(&mock_dev_info, mock_sc_in,
+				idt_sc_cfg_rxs_ctr(&mock_dev_info, mock_sc_in,
 				&mock_sc_out));
 		assert_int_not_equal(RIO_SUCCESS, mock_sc_out.imp_rc);
 		return;
@@ -692,7 +692,7 @@ void test_rxs_cfg_dev_ctr(idt_sc_cfg_rxs_ctr_in_t *mock_sc_in, int sc_cfg)
 	// If something is expected to work, do exhaustive checking
 	mock_sc_out.imp_rc = !RIO_SUCCESS;
 
-	assert_int_equal(RIO_SUCCESS, idt_rxs_sc_cfg_ctr(&mock_dev_info,
+	assert_int_equal(RIO_SUCCESS, idt_sc_cfg_rxs_ctr(&mock_dev_info,
 						mock_sc_in, &mock_sc_out));
 	assert_int_equal(RIO_SUCCESS, mock_sc_out.imp_rc);
 
@@ -765,7 +765,7 @@ void rxs_cfg_dev_ctrs_test_per_port(void **state)
 			mock_sc_in.ptl.pnums[0] < RXS2448_MAX_PORTS; 
 			mock_sc_in.ptl.pnums[0]++) {
 		for (mock_sc_in.ctr_idx = 0;
-				mock_sc_in.ctr_idx < RXS_NUM_PERF_CTRS;
+				mock_sc_in.ctr_idx < RXS2448_MAX_SC;
 				++mock_sc_in.ctr_idx) {
 			for (val = 0; val < MAX_SC_CFG_VAL; val++) {
         			mock_sc_in.prio_mask = FIRST_BYTE_MASK;
@@ -796,7 +796,7 @@ void rxs_cfg_dev_ctrs_test_all_ports(void **state)
         mock_sc_in.ctr_en = true;
 
         for (mock_sc_in.ctr_idx = 0;
-			mock_sc_in.ctr_idx < RXS_NUM_PERF_CTRS;
+			mock_sc_in.ctr_idx < RXS2448_MAX_SC;
 			++mock_sc_in.ctr_idx) {
 		for (val = 0; val < MAX_SC_CFG_VAL; val++) {
         		mock_sc_in.prio_mask = FIRST_BYTE_MASK;
@@ -825,7 +825,7 @@ void rxs_cfg_dev_ctrs_test_default(void **state)
         mock_sc_in.ctr_en = true;
 
         for (mock_sc_in.ctr_idx = 0;
-			mock_sc_in.ctr_idx < RXS_NUM_PERF_CTRS;
+			mock_sc_in.ctr_idx < RXS2448_MAX_SC;
 			++mock_sc_in.ctr_idx) {
         	mock_sc_in.prio_mask = FIRST_BYTE_MASK;
 		test_rxs_cfg_dev_ctr(&mock_sc_in, mock_sc_in.ctr_idx);
@@ -841,7 +841,7 @@ static void rxs_init_read_ctrs(idt_sc_read_ctrs_in_t *parms_in)
 	parms_in->ptl.num_ports = RIO_ALL_PORTS;
 	parms_in->dev_ctrs = mock_dev_ctrs;
         for (srch_i = 0; srch_i < parms_in->dev_ctrs->valid_p_ctrs; srch_i++) {
-		for (cntr = 0; cntr < RXS_NUM_PERF_CTRS; cntr++) {
+		for (cntr = 0; cntr < RXS2448_MAX_SC; cntr++) {
 			parms_in->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].tx = true;
 			switch (cntr) {
 			case 0: parms_in->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc = idt_sc_rio_pkt;
@@ -891,7 +891,7 @@ void rxs_read_dev_ctrs_test(void **state)
 
 	// Set up counter registers
 	for (port = 0; port < RXS2448_MAX_PORTS; port++) {
-		for (ctr_idx = 0; ctr_idx < RXS_NUM_PERF_CTRS; ctr_idx++) {
+		for (ctr_idx = 0; ctr_idx < RXS2448_MAX_SC; ctr_idx++) {
 			// Set non-zero counter value for the port
 			idx = find_offset(RXS_RIO_SPX_PCNTR_CNT(port, ctr_idx));
 			assert_int_not_equal(idx, UPB_DAR_REG);
@@ -906,7 +906,7 @@ void rxs_read_dev_ctrs_test(void **state)
 
 	// Check counter values... 
 	for (port = 0; port < RXS2448_MAX_PORTS; port++) {
-		for (ctr_idx = 0; ctr_idx < RXS_NUM_PERF_CTRS; ctr_idx++) {
+		for (ctr_idx = 0; ctr_idx < RXS2448_MAX_SC; ctr_idx++) {
 			// Check the counter value for the port...
 			idx = find_offset(RXS_RIO_SPX_PCNTR_CNT(port, ctr_idx));
 			assert_int_not_equal(idx, UPB_DAR_REG);
@@ -927,7 +927,7 @@ void rxs_read_dev_ctrs_test(void **state)
 
 	// Increment counter registers
 	for (port = 0; port < RXS2448_MAX_PORTS; port++) {
-		for (ctr_idx = 0; ctr_idx < RXS_NUM_PERF_CTRS; ctr_idx++) {
+		for (ctr_idx = 0; ctr_idx < RXS2448_MAX_SC; ctr_idx++) {
 			// Set non-zero counter value for the port
 			idx = find_offset(RXS_RIO_SPX_PCNTR_CNT(port, ctr_idx));
 			assert_int_not_equal(idx, UPB_DAR_REG);
@@ -942,7 +942,7 @@ void rxs_read_dev_ctrs_test(void **state)
 
 	// Check counter values... 
 	for (port = 0; port < RXS2448_MAX_PORTS; port++) {
-		for (ctr_idx = 0; ctr_idx < RXS_NUM_PERF_CTRS; ctr_idx++) {
+		for (ctr_idx = 0; ctr_idx < RXS2448_MAX_SC; ctr_idx++) {
 			// Check the counter value for the port...
 			idx = find_offset(RXS_RIO_SPX_PCNTR_CNT(port, ctr_idx));
 			assert_int_not_equal(idx, UPB_DAR_REG);
@@ -964,7 +964,7 @@ void rxs_read_dev_ctrs_test(void **state)
 
 	// Decrement counter registers, check for wrap around handling...
 	for (port = 0; port < RXS2448_MAX_PORTS; port++) {
-		for (ctr_idx = 0; ctr_idx < RXS_NUM_PERF_CTRS; ctr_idx++) {
+		for (ctr_idx = 0; ctr_idx < RXS2448_MAX_SC; ctr_idx++) {
 			// Set non-zero counter value for the port
 			idx = find_offset(RXS_RIO_SPX_PCNTR_CNT(port, ctr_idx));
 			assert_int_not_equal(idx, UPB_DAR_REG);
@@ -979,7 +979,7 @@ void rxs_read_dev_ctrs_test(void **state)
 
 	// Check counter values... 
 	for (port = 0; port < RXS2448_MAX_PORTS; port++) {
-		for (ctr_idx = 0; ctr_idx < RXS_NUM_PERF_CTRS; ctr_idx++) {
+		for (ctr_idx = 0; ctr_idx < RXS2448_MAX_SC; ctr_idx++) {
 			uint64_t base = (uint64_t)0x100000000;
 			// Check the counter value for the port...
 			idx = find_offset(RXS_RIO_SPX_PCNTR_CNT(port, ctr_idx));

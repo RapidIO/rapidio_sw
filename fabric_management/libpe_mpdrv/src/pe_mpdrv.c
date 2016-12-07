@@ -59,6 +59,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "comptag.h"
 #include "IDT_Statistics_Counter_API.h"
 #include "cfg.h"
+#include "tsi578.h"
+#include "IDT_RXS2448.h"
 #include "rapidio_mport_mgmt.h"
 
 #ifdef __cplusplus
@@ -402,6 +404,110 @@ fail:
         return 1;
 }
 
+struct sc_cfg_t {
+	idt_sc_ctr_t ctr_t;
+	bool		tx;
+}; 
+
+struct sc_cfg_t tsi_sc_cfg[Tsi578_NUM_PERF_CTRS] = {
+	{idt_sc_uc_pkts, true},
+	{idt_sc_uc_pkts, false},
+	{idt_sc_uc_4b_data, true},
+	{idt_sc_uc_4b_data, false},
+	{idt_sc_retries, true},
+	{idt_sc_retries, false}
+};
+
+struct sc_cfg_t rxs_sc_cfg[RXS2448_MAX_SC] = {
+	{idt_sc_fab_pkt, true},
+	{idt_sc_fab_pkt, false},
+	{idt_sc_fab_pcntr, true},
+	{idt_sc_fab_pcntr, false},
+	{idt_sc_retries, true},
+	{idt_sc_retries, false},
+	{idt_sc_pkt_drop, false},
+	{idt_sc_rio_ttl_pcntr, true}
+};
+
+uint32_t idt_sc_config_dev_ctrs(DAR_DEV_INFO_t *dev_h,
+			struct mpsw_drv_private_data *priv)
+{
+	uint32_t rc = RIO_SUCCESS;
+	unsigned int idx;
+	idt_sc_cfg_tsi57x_ctr_in_t tsi_in;
+	idt_sc_cfg_tsi57x_ctr_out_t tsi_out;
+	idt_sc_cfg_cps_ctrs_in_t cps_in;
+	idt_sc_cfg_cps_ctrs_out_t cps_out;
+	idt_sc_cfg_rxs_ctr_in_t rxs_in;
+	idt_sc_cfg_rxs_ctr_out_t rxs_out;
+
+	switch(VEND_CODE(dev_h)) {
+	case RIO_VEND_IDT:
+		switch(DEV_CODE(dev_h)) {
+		case RIO_DEVI_IDT_CPS1848:
+		case RIO_DEVI_IDT_CPS1432:
+		case RIO_DEVI_IDT_CPS1616:
+		case RIO_DEVI_IDT_SPS1616:// Enable counters on all ports.
+			cps_in.ptl.num_ports = RIO_ALL_PORTS;
+			cps_in.enable_ctrs = true;
+			cps_in.dev_ctrs = &priv->st.sc_dev;
+			rc = idt_sc_cfg_cps_ctrs(dev_h, &cps_in, &cps_out);
+			if (rc) {
+				goto exit;
+			};
+			break;
+
+		case RIO_DEVI_IDT_RXS2448:
+		case RIO_DEVI_IDT_RXS1632:
+			rxs_in.ptl.num_ports = RIO_ALL_PORTS;
+			rxs_in.prio_mask = SC_PRIO_MASK_ALL;
+			rxs_in.ctr_en = true;
+			rxs_in.dev_ctrs = &priv->st.sc_dev;
+			for (idx = 0; idx < RXS2448_MAX_SC; idx++) {
+				rxs_in.ctr_idx = idx;
+				rxs_in.tx = rxs_sc_cfg[idx].tx;
+				rxs_in.ctr_type = rxs_sc_cfg[idx].ctr_t;
+				rc = idt_sc_cfg_rxs_ctr(dev_h, &rxs_in, 
+							&rxs_out);
+				if (rc) {
+					goto exit;
+				};
+			};
+
+		case RIO_DEVI_IDT_TSI721: // No configuration required.
+			break;
+
+		default: break;
+		}
+		break;
+	case RIO_VEND_TUNDRA:
+		switch(DEV_CODE(dev_h)) {
+		case RIO_DEVI_TSI572:
+		case RIO_DEVI_TSI574:
+		case RIO_DEVI_TSI577:
+		case RIO_DEVI_TSI578:
+			tsi_in.ptl.num_ports = RIO_ALL_PORTS;
+			tsi_in.prio_mask = SC_PRIO_MASK_G1_ALL;
+			tsi_in.dev_ctrs = &priv->st.sc_dev;
+			for (idx = 0; idx < Tsi578_NUM_PERF_CTRS; idx++) {
+				tsi_in.tx = tsi_sc_cfg[idx].tx;
+				tsi_in.ctr_type = tsi_sc_cfg[idx].ctr_t;
+				rc = idt_sc_cfg_tsi57x_ctr(dev_h, &tsi_in, 
+							&tsi_out);
+				if (rc) {
+					goto exit;
+				};
+			};
+			break;			
+		default: break;
+		}
+		break;
+	default: break;
+	};
+exit:
+	return rc;
+}
+
 int mpsw_drv_get_mport_regs(int mp_num, struct mport_regs *regs);
 
 // NOTE: generic_device_init is called when the
@@ -575,7 +681,8 @@ int generic_device_init(struct riocp_pe *pe, uint32_t *ct)
 		}
 	}
 
-	/* Initialize performance counter structure */
+	// Initialize performance counter structure, and 
+	// set default hardware performance counter configuration
 	sc_in.ptl.num_ports = RIO_ALL_PORTS;
 	sc_in.dev_ctrs = &priv->st.sc_dev;
 	priv->st.sc_dev.num_p_ctrs   = IDT_MAX_PORTS;
@@ -585,7 +692,10 @@ int generic_device_init(struct riocp_pe *pe, uint32_t *ct)
 	rc = idt_sc_init_dev_ctrs(dev_h, &sc_in, &sc_out);
 	if (RIO_SUCCESS != rc)
 		goto exit;
-
+	rc = idt_sc_config_dev_ctrs(dev_h, priv);
+	if (RIO_SUCCESS != rc) {
+		goto exit;
+	};
 	if (RIOCP_PE_IS_MPORT(pe)) {
 		rst_in.rst = idt_pc_rst_ignore;
 	} else {

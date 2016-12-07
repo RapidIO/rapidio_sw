@@ -61,48 +61,65 @@ extern "C" {
 // CPS Gen1 and Gen2 switches have exactly the same Routing Table programming
 // model.  The routing table routines are therefore implemented in this 
 // file for both switch families.
-uint32_t rt_rte_translate_std_to_CPS(uint32_t cps_in, uint32_t *std_out) 
+//
+uint32_t rt_rte_translate_std_to_CPS(DAR_DEV_INFO_t *dev_info,
+				uint32_t std_in, uint32_t *cps_out) 
 {
-    uint32_t rc = RIO_ERR_INVALID_PARAMETER;
 
-    if (cps_in >= RIO_RTE_LVL_G0 && cps_in <= RIO_RTE_LVL_GLAST) {
-       *std_out = CPS_RT_USE_DEVICE_TABLE;
-    } 
-    else if (cps_in == RIO_RTE_DFLT_PORT) {
-       *std_out = CPS_RT_USE_DEFAULT_ROUTE;
-    }
-    else if (cps_in == RIO_RTE_DROP) {
-       *std_out = CPS_RT_NO_ROUTE;
-    }
-    else {
-         goto rt_rte_translate_std_to_cps_exit;
-    }
-    rc = RIO_SUCCESS;
+	switch(std_in) {
+	case RIO_RTE_DFLT_PORT: *cps_out = CPS_RT_USE_DEFAULT_ROUTE;
+				goto success;
+ 	case RIO_RTE_DROP: *cps_out = CPS_RT_NO_ROUTE;
+				goto success;
+	case RIO_RTE_LVL_G0: *cps_out = CPS_RT_USE_DEVICE_TABLE;
+				goto success;
+	default:
+		if (RIO_RTV_IS_PORT(std_in)) {
+			if (RIO_RTV_GET_PORT(std_in) < NUM_PORTS(dev_info)) {
+				*cps_out = std_in;
+				goto success;
+			}
+		}
+		if (RIO_RTV_IS_MC_MSK(std_in)) {
+			if (RIO_RTV_GET_MC_MSK(std_in) < IDT_CPS_MAX_MC_MASK) {
+				*cps_out =
+					CPS_MC_PORT(RIO_RTV_GET_MC_MSK(std_in));
+				goto success;
+			}
+		}
+		break;
+	}
+	return RIO_ERR_INVALID_PARAMETER;
 
-rt_rte_translate_std_to_cps_exit:
-    return rc;
+success:
+	return RIO_SUCCESS;
 }
 
-uint32_t rt_rte_translate_CPS_to_std(uint32_t cps_in, uint32_t *std_out)
+uint32_t rt_rte_translate_CPS_to_std(DAR_DEV_INFO_t *dev_info,
+				uint32_t cps_in, uint32_t *std_out)
 {
-    uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+	switch(cps_in) {
+	case CPS_RT_USE_DEFAULT_ROUTE: *std_out = RIO_RTE_DFLT_PORT;
+				goto success;
+ 	case CPS_RT_NO_ROUTE: *std_out = RIO_RTE_DROP;
+				goto success;
+	case CPS_RT_USE_DEVICE_TABLE: *std_out = RIO_RTE_LVL_G0;
+				goto success;
+	default:
+		if (cps_in < NUM_PORTS(dev_info)) {
+			*std_out = RIO_RTV_PORT(cps_in);
+			goto success;
+		}
+		if (IS_CPS_MC_PORT(cps_in)) {
+			*std_out = RIO_RTV_MC_MSK(IS_CPS_MC_MASK_NO(cps_in));
+			goto success;
+		};
+		break;
+	}
+	return RIO_ERR_INVALID_PARAMETER;
 
-    if (cps_in == CPS_RT_USE_DEVICE_TABLE) {
-       *std_out = RIO_RTE_LVL_G0;
-    }
-    else if (cps_in == CPS_RT_USE_DEFAULT_ROUTE) {
-       *std_out = RIO_RTE_DFLT_PORT;
-    }
-    else if (cps_in == CPS_RT_NO_ROUTE) {
-       *std_out = RIO_RTE_DROP;
-    }
-    else {
-         goto rt_rte_translate_cps_to_std_exit;
-    }
-    rc = RIO_SUCCESS;
-
-rt_rte_translate_cps_to_std_exit:
-    return rc;
+success:
+	return RIO_SUCCESS;
 }
 
 /* initializes the routing table hardware and/or routing table state structure.
@@ -493,7 +510,7 @@ uint32_t read_rte_entries( DAR_DEV_INFO_t            *dev_info,
       }
 
       rte_val &= CPS1848_PORT_X_DOM_RTE_TABLE_Y_PORT;
-      rc = rt_rte_translate_CPS_to_std(rte_val, &rte_val);
+      rc = rt_rte_translate_CPS_to_std(dev_info, rte_val, &rte_val);
       if (RIO_SUCCESS != rc) {
          *imp_rc = READ_RTE_ENTRIES(0x05);
          goto read_rte_entries_exit;
@@ -530,7 +547,7 @@ uint32_t read_rte_entries( DAR_DEV_INFO_t            *dev_info,
       }
 
       rte_val &= CPS1848_PORT_X_DEV_RTE_TABLE_Y_PORT;
-      rc = rt_rte_translate_CPS_to_std(rte_val, &rte_val);
+      rc = rt_rte_translate_CPS_to_std(dev_info, rte_val, &rte_val);
       if (RIO_SUCCESS != rc) {
          *imp_rc = READ_RTE_ENTRIES(0x09);
          goto read_rte_entries_exit;
@@ -654,14 +671,15 @@ uint32_t CPS_program_rte_entries ( DAR_DEV_INFO_t        *dev_info,
     // Note that the base address for CPS1848, CPS1432, CPS1616, SPS1616
     // are all the same.
     uint16_t rte_num;
-    uint32_t dev_rte_base, dom_rte_base;
+    uint32_t dev_rte_base, dom_rte_base, cps_val;
 
-    rc = rt_rte_translate_std_to_CPS(in_parms->rt->default_route, &in_parms->rt->default_route);
+    rc = rt_rte_translate_std_to_CPS(dev_info, in_parms->rt->default_route,
+						&cps_val);
     if (RIO_SUCCESS != rc) {
         *imp_rc = PROGRAM_RTE_ENTRIES(0x06);
         goto CPS_program_rte_entries_exit;
     }
-    rc = DARRegWrite( dev_info, CPS1848_RTE_DEFAULT_PORT_CSR, in_parms->rt->default_route );
+    rc = DARRegWrite(dev_info, CPS1848_RTE_DEFAULT_PORT_CSR, cps_val);
     if (RIO_SUCCESS != rc) {
        *imp_rc = PROGRAM_RTE_ENTRIES(0x10);
        goto CPS_program_rte_entries_exit; 
@@ -698,14 +716,15 @@ uint32_t CPS_program_rte_entries ( DAR_DEV_INFO_t        *dev_info,
                 goto CPS_program_rte_entries_exit; 
              };
           };
-          rc = rt_rte_translate_std_to_CPS(in_parms->rt->dom_table[rte_num].rte_val, &in_parms->rt->dom_table[rte_num].rte_val);
+          rc = rt_rte_translate_std_to_CPS(dev_info,
+			in_parms->rt->dom_table[rte_num].rte_val, &cps_val);
           if (RIO_SUCCESS != rc) {
              *imp_rc = PROGRAM_RTE_ENTRIES(0x07);
              goto CPS_program_rte_entries_exit;
           }
 
-          rc = DARRegWrite( dev_info, DOM_RTE_ADDR(dom_rte_base, rte_num), 
-                            (uint32_t)(in_parms->rt->dom_table[rte_num].rte_val) );
+          rc = DARRegWrite( dev_info, DOM_RTE_ADDR(dom_rte_base, rte_num),
+								cps_val);
           if (RIO_SUCCESS != rc) {
              *imp_rc = PROGRAM_RTE_ENTRIES(2);
              goto CPS_program_rte_entries_exit; 
@@ -728,14 +747,15 @@ uint32_t CPS_program_rte_entries ( DAR_DEV_INFO_t        *dev_info,
                 goto CPS_program_rte_entries_exit; 
              };
           };
-          rc = rt_rte_translate_std_to_CPS(in_parms->rt->dev_table[rte_num].rte_val, &in_parms->rt->dev_table[rte_num].rte_val);
+          rc = rt_rte_translate_std_to_CPS(dev_info,
+			in_parms->rt->dev_table[rte_num].rte_val, &cps_val);
           if (RIO_SUCCESS != rc) {
              *imp_rc = PROGRAM_RTE_ENTRIES(0x08);
              goto CPS_program_rte_entries_exit;
           }
 
-          rc = DARRegWrite( dev_info, DEV_RTE_ADDR(dev_rte_base, rte_num), 
-                            (uint32_t)(in_parms->rt->dev_table[rte_num].rte_val) );
+          rc = DARRegWrite( dev_info, DEV_RTE_ADDR(dev_rte_base, rte_num),
+								cps_val);
           if (RIO_SUCCESS != rc) {
              *imp_rc = PROGRAM_RTE_ENTRIES(4);
              goto CPS_program_rte_entries_exit; 

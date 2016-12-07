@@ -112,6 +112,26 @@ extern char *sc_names[(uint8_t)(idt_sc_last)+2];
 #define DIR_SRIO true
 #define DIR_FAB  !DIR_SRIO
 
+typedef uint8_t prio_mask_g1_t;
+// Gen1 definitions for priority
+#define SC_PRIO_MASK_G1_0	((prio_mask_g1_t)(0x01))
+#define SC_PRIO_MASK_G1_1	((prio_mask_g1_t)(0x02))
+#define SC_PRIO_MASK_G1_2	((prio_mask_g1_t)(0x04))
+#define SC_PRIO_MASK_G1_3	((prio_mask_g1_t)(0x08))
+#define SC_PRIO_MASK_G1_ALL	((prio_mask_g1_t)(0x0F))
+
+typedef uint8_t prio_mask_t;
+// Gen2 and beyond definitions for priority
+#define SC_PRIO_MASK_0	((prio_mask_t)(0x01))
+#define SC_PRIO_MASK_0C	((prio_mask_t)(0x02))
+#define SC_PRIO_MASK_1	((prio_mask_t)(0x04))
+#define SC_PRIO_MASK_1C	((prio_mask_t)(0x08))
+#define SC_PRIO_MASK_2	((prio_mask_t)(0x10))
+#define SC_PRIO_MASK_2C	((prio_mask_t)(0x20))
+#define SC_PRIO_MASK_3	((prio_mask_t)(0x40))
+#define SC_PRIO_MASK_3C	((prio_mask_t)(0x80))
+#define SC_PRIO_MASK_ALL ((prio_mask_t)(0xFF))
+
 typedef struct idt_sc_ctr_val_t_TAG
 {
     long long    total;    // Accumulated counter value since counter was 
@@ -173,8 +193,10 @@ typedef struct idt_sc_cfg_tsi57x_ctr_in_t_TAG
 {
    struct DAR_ptl         ptl;        // Port list
    uint8_t                  ctr_idx;    // Index of the Tsi57x counter to be configured.  Range 0-5.
-   uint8_t                  prio_mask;  // Priority of packets to be counted.  Not used for control symbol counters.
-                                      //    Uses IDT_SC_TSI57X_PRIO_MASK_x constant definitions.
+   prio_mask_g1_t        prio_mask;  // Priority of packets to be counted.
+					// Not used for control symbol counters.
+                                      // Uses SC_PRIO_MASK_G1_x constant
+                                      // definitions.
    bool                   tx;         // Determines direction for the counter.  !tx = rx.
    idt_sc_ctr_t           ctr_type;   // Valid counter type, valid range from idt_sc_disabled to idt_sc_uc_4b_data
    idt_sc_dev_ctrs_t     *dev_ctrs;   // Device counters data type, initialized by idt_sc_init_dev_ctrs
@@ -221,7 +243,7 @@ typedef struct idt_sc_cfg_rxs_ctr_in_t_TAG
 {
 	struct DAR_ptl ptl; // Port list.  
 	uint8_t ctr_idx; // Index of the RXS counter [0..7] to be configured.
-	uint8_t prio_mask; // Priority of packets to be counted.
+	prio_mask_t  prio_mask; // Packet priority, use SC_PRIO_MASK_x consts
         bool	ctr_en; // Enable/disable port counters
 	bool	tx; // Determines direction for the counter.  !tx = rx.
         idt_sc_ctr_t ctr_type; // What to count
@@ -292,7 +314,7 @@ extern uint32_t idt_sc_cfg_cps_ctrs(
     idt_sc_cfg_cps_ctrs_out_t *out_parms
 );
 
-extern uint32_t idt_rxs_sc_cfg_ctr(
+extern uint32_t idt_sc_cfg_rxs_ctr(
     DAR_DEV_INFO_t            *dev_info,
     idt_sc_cfg_rxs_ctr_in_t  *in_parms,
     idt_sc_cfg_rxs_ctr_out_t *out_parms

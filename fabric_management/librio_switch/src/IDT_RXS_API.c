@@ -94,8 +94,8 @@ uint32_t idt_rxs_sc_init_dev_ctrs( DAR_DEV_INFO_t             *dev_info,
 	in_parms->dev_ctrs->valid_p_ctrs = good_ptl.num_ports;
 	for (idx = 0; idx < good_ptl.num_ports; idx++) {
 		in_parms->dev_ctrs->p_ctrs[idx].pnum = good_ptl.pnums[idx];
-		in_parms->dev_ctrs->p_ctrs[idx].ctrs_cnt = RXS_NUM_PERF_CTRS;
-		for (cntr_i = 0; cntr_i < RXS_NUM_PERF_CTRS; cntr_i++) {
+		in_parms->dev_ctrs->p_ctrs[idx].ctrs_cnt = RXS2448_MAX_SC;
+		for (cntr_i = 0; cntr_i < RXS2448_MAX_SC; cntr_i++) {
 			in_parms->dev_ctrs->p_ctrs[idx].ctrs[cntr_i] = init_val;
 		};
 	};
@@ -122,7 +122,7 @@ uint32_t rxs_read_ctrs(DAR_DEV_INFO_t           *dev_info,
 	idt_sc_ctr_val_t *counter;
 	uint32_t rc = !RIO_SUCCESS;
 
-	for (cntr = 0; cntr < RXS_NUM_PERF_CTRS; cntr++) {
+	for (cntr = 0; cntr < RXS2448_MAX_SC; cntr++) {
 		counter = &in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr];
 		if (idt_sc_disabled == counter->sc) {
 			continue;
@@ -223,7 +223,7 @@ exit:
 /* Configure counters on selected ports of a
  * RXS device.
  */
-uint32_t idt_rxs_sc_cfg_ctr( DAR_DEV_INFO_t           *dev_info,
+uint32_t idt_sc_cfg_rxs_ctr( DAR_DEV_INFO_t           *dev_info,
                              idt_sc_cfg_rxs_ctr_in_t  *in_parms,
                              idt_sc_cfg_rxs_ctr_out_t *out_parms )
 {
@@ -417,7 +417,7 @@ uint32_t idt_rxs_sc_cfg_ctr( DAR_DEV_INFO_t           *dev_info,
 				out_parms->imp_rc = SC_CFG_RXS_CTRS(0x60);
 				goto exit;
 			}
-			for (cntr_i = 0; cntr_i < RXS_NUM_PERF_CTRS; cntr_i++) {
+			for (cntr_i = 0; cntr_i < RXS2448_MAX_SC; cntr_i++) {
 				in_parms->dev_ctrs->p_ctrs[s_i].ctrs[cntr_i] =
 					init_val;
 			}

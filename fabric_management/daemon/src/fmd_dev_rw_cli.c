@@ -877,7 +877,7 @@ int CLICountReadCmd(struct cli_env *env, int argc, char **argv)
                 NULL == sc_in.dev_ctrs)
         {
 		for (srch_i = 0; srch_i < sc_in.dev_ctrs->valid_p_ctrs; srch_i++) {
-                	for (cntr = 0; cntr < RXS_NUM_PERF_CTRS; cntr++) {
+                	for (cntr = 0; cntr < RXS2448_MAX_SC; cntr++) {
                         	sc_in.dev_ctrs->p_ctrs[srch_i].ctrs[cntr].tx = true;
                         	switch (cntr) {
                                 	case 0:
@@ -937,10 +937,6 @@ int CLICountReadCmd(struct cli_env *env, int argc, char **argv)
 	else if (NULL == sc_in.dev_ctrs)
         {
                 sc_init_in.ptl.num_ports = RIO_ALL_PORTS;
-                sc_init_in.dev_ctrs = &priv->st.sc_dev;
-                priv->st.sc_dev.num_p_ctrs   = IDT_MAX_PORTS;
-                priv->st.sc_dev.valid_p_ctrs = 0;
-                priv->st.sc_dev.p_ctrs       = priv->st.sc;
                 rc = idt_sc_init_dev_ctrs(dev_h, &sc_init_in, &sc_init_out);
                 if (RIO_SUCCESS != rc)
                         goto exit;
@@ -1004,7 +1000,7 @@ int CLICountDisplayCmd(struct cli_env *env, int argc, char **argv)
 		sc_in.ptl.num_ports = RIO_ALL_PORTS;
         	sc_in.dev_ctrs = &priv->st.sc_dev;
 		for (srch_i = 0; srch_i < sc_in.dev_ctrs->valid_p_ctrs; srch_i++) {
-                	for (cntr = 0; cntr < RXS_NUM_PERF_CTRS; cntr++) {
+                	for (cntr = 0; cntr < RXS2448_MAX_SC; cntr++) {
 				sc_in.dev_ctrs->p_ctrs[srch_i].ctrs[cntr].tx = true;
 				switch (cntr) {
 					case 0:
@@ -1171,7 +1167,7 @@ int CLICountCfgCmd(struct cli_env *env, int argc, char **argv)
 	if (IDT_RXS2448_RIO_DEVICE_ID == ((dev_h->devID & RIO_DEV_IDENT_DEVI) >> 16) ||
                 IDT_RXS1632_RIO_DEVICE_ID == ((dev_h->devID & RIO_DEV_IDENT_DEVI) >> 16))
         {
-		for (sc_rxs_in.ctr_idx = 0; sc_rxs_in.ctr_idx < RXS_NUM_PERF_CTRS; ++sc_rxs_in.ctr_idx) {
+		for (sc_rxs_in.ctr_idx = 0; sc_rxs_in.ctr_idx < RXS2448_MAX_SC; ++sc_rxs_in.ctr_idx) {
 			sc_rxs_in.ptl.num_ports = RIO_ALL_PORTS;
        			sc_rxs_in.dev_ctrs = &priv->st.sc_dev; 
         		sc_rxs_in.tx = tx;
@@ -1211,7 +1207,7 @@ int CLICountCfgCmd(struct cli_env *env, int argc, char **argv)
                                 break;
                  	}
 
-			rc = idt_rxs_sc_cfg_ctr(dev_h, &sc_rxs_in, &sc_rxs_out);
+			rc = idt_sc_cfg_rxs_ctr(dev_h, &sc_rxs_in, &sc_rxs_out);
 			if (RIO_SUCCESS != rc)
                 		goto exit;
 		}

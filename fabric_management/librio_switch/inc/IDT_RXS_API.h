@@ -44,10 +44,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "IDT_Error_Management_API.h"
 #include "IDT_RXS2448.h"
 
-
-#define RXS_NUM_PERF_CTRS        8
-
-
 #ifdef __cplusplus
 extern "C" {
 #endif
