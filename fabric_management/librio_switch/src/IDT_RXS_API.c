@@ -644,7 +644,7 @@ uint32_t idt_rxs_rt_change_rte( DAR_DEV_INFO_t           *dev_info,
    } 
 
    // Validate rte_value 
-   if ( //(IDT_DSF_RT_USE_DEVICE_TABLE  != in_parms->rte_value) &&
+   if ( (IDT_DSF_RT_USE_DEVICE_TABLE  != in_parms->rte_value) &&
         (IDT_DSF_RT_USE_DEFAULT_ROUTE != in_parms->rte_value) &&
         (IDT_DSF_RT_NO_ROUTE         != in_parms->rte_value) &&
         (in_parms->rte_value         >= NUM_PORTS(dev_info))) {
