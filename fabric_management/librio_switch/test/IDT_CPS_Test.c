@@ -83,15 +83,15 @@ static void cps_test_setup(void)
 	mock_dev_info.extFPtrForErr = 0;
 	mock_dev_info.extFPtrForVC = 0;
 	mock_dev_info.extFPtrForVOQ = 0;
-	mock_dev_info.devID = 0x80E60038;
+	mock_dev_info.devID = 0x03740038;
 	mock_dev_info.devInfo = 0;
 	mock_dev_info.assyInfo = 256;
-	mock_dev_info.features = 402658623;
+	mock_dev_info.features = 0x18000779;
 	mock_dev_info.swPortInfo = 0x1201;
 	mock_dev_info.swRtInfo = 0xFF;
 	mock_dev_info.srcOps = 4;
 	mock_dev_info.dstOps = 0;
-	mock_dev_info.swMcastInfo = IDT_DSF_MAX_MC_MASK;
+	mock_dev_info.swMcastInfo = 0x00FF0028;;
 	for (idx = 0; idx < MAX_DAR_PORTS; idx++) {
 		mock_dev_info.ctl1_reg[idx] = 0;
 	}
@@ -186,6 +186,8 @@ static int teardown(void **state)
 
 void assumptions_test(void **state)
 {
+	const char *name;
+
 	// verify constants
         assert_int_equal(0, CPS_RTE_PT_0);
         assert_int_equal(0x12, CPS_RTE_PT_LAST);
@@ -196,6 +198,23 @@ void assumptions_test(void **state)
         assert_int_equal(0xDE, CPS_RT_USE_DEFAULT_ROUTE);
         assert_int_equal(0xDF, CPS_RT_NO_ROUTE);
 
+        // Verify that names array is correctly defined
+        assert_string_equal("Disabled__", SC_NAME(idt_sc_disabled));
+        assert_string_equal("Enabled___", SC_NAME(idt_sc_enabled));
+
+	assert_string_equal("PktAcc__CS", SC_NAME(idt_sc_pa));
+	assert_string_equal("PktNotA_CS", SC_NAME(idt_sc_pna));
+	assert_string_equal("Retry___CS", SC_NAME(idt_sc_retries));
+	assert_string_equal("ALL____PKT", SC_NAME(idt_sc_pkt));
+	assert_string_equal("Drop___PKT", SC_NAME(idt_sc_pkt_drop));
+	assert_string_equal("DropTTLPKT", SC_NAME(idt_sc_pkt_drop_ttl));
+
+        assert_string_equal("Last______", SC_NAME(idt_sc_last));
+        assert_string_equal("Invalid___", SC_NAME(idt_sc_last + 1));
+	
+        assert_int_equal(RIO_SUCCESS, idt_sc_other_if_names(
+                                &mock_dev_info, &name));
+        assert_string_equal("FABRIC", name);
 	(void)state; // unused
 }
 
@@ -246,7 +265,7 @@ void macros_test(void **state)
 	assert_int_equal(RIO_RTE_BAD, RIO_RTV_LVL_GRP(0x100));
 	assert_int_equal(RIO_RTE_BAD, RIO_RTV_LVL_GRP(0x197));
 	assert_int_equal(RIO_RTE_BAD, RIO_RTV_LVL_GRP(0x305));
-	
+
 	(void)state; // unused
 }
 
@@ -362,8 +381,9 @@ int main(int argc, char** argv)
 	argc++; // not used
 
 	const struct CMUnitTest tests[] = {
-		cmocka_unit_test(assumptions_test),
                 cmocka_unit_test(macros_test),
+                cmocka_unit_test_setup_teardown(
+			assumptions_test, setup, NULL),
                 cmocka_unit_test_setup_teardown(
 			rt_rte_translate_CPS_to_std_test, setup, teardown),
 	};

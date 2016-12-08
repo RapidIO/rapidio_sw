@@ -30,56 +30,105 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
-#include <IDT_DSF_DB_Private.h>
-#include <IDT_Statistics_Counter_API.h>
+#include <cstddef>
+#include "DAR_DevDriver.h"
+#include "IDT_DSF_DB_Private.h"
+#include "IDT_Statistics_Counter_API.h"
+#include "rio_standard.h"
+#include "rio_ecosystem.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 char *sc_names[(uint8_t)(idt_sc_last)+2] = {
-    (char *)"Disabled  ",
-    (char *)"Enabled   ",
-    (char *)"UnicastReq",
-    (char *)"UnicastPkt",
-    (char *)"Retry   CS",
-    (char *)"All     CS",
-    (char *)"UC 4B Data",
-    (char *)"MltcastPkt",
-    (char *)"MECS    CS",
-    (char *)"MC 4B Data",
-    (char *)"PktAcc  CS",
-    (char *)"ALL    Pkt",
-    (char *)"PktNotA CS",
-    (char *)"CPB    Pkt",
-    (char *)"Drop   Pkt",
-    (char *)"DropTTLPkt",
-    (char *)"RIO    PKT",
-    (char *)"FAB    PKT",
-    (char *)"RIO PKTCTR",
-    (char *)"FAB PKTCTR",
-    (char *)"RIO TTLPKT",
-    (char *)"CPL   SMSG",
-    (char *)"TLP   SMSG",
-    (char *)"CPL   BDMA",
-    (char *)"TLP   BDMA",
-    (char *)"TLP    BRG",
-    (char *)"TLP    BRG",
-    (char *)"PCIE NWRTR",
-    (char *)"PKT   SMSG",
-    (char *)"PKT   SMSG",
-    (char *)"RETRY  GEN",
-    (char *)"RETRY  RES",
-    (char *)"PKT   BDMA",
-    (char *)"RSP   BDMA",
-    (char *)"PKT    BRG",
-    (char *)"PKT    BRG",
-    (char *)"BRG PKTERR",
-    (char *)"MAINT  NWR",
-    (char *)"Last      ",
-    (char *)"Invalid   "
+    (char *)"Disabled__",
+    (char *)"Enabled___",
+    (char *)"UC_REQ_PKT", // Tsi57x start
+    (char *)"UC_ALL_PKT",
+    (char *)"Retry___CS",
+    (char *)"All_____CS",
+    (char *)"UC_4B_Data",
+    (char *)"MCast__PKT",
+    (char *)"MECS____CS",
+    (char *)"MC_4B_Data", // Tsi57x end
+    (char *)"PktAcc__CS", // CPS1848 start
+    (char *)"ALL____PKT",
+    (char *)"PktNotA_CS",
+    (char *)"Drop___PKT",
+    (char *)"DropTTLPKT", // CPS1848 end
+    (char *)"FAB____PKT", // RXS start
+    (char *)"8B_DAT_PKT",
+    (char *)"8B_DAT_PKT",
+    (char *)"RAW_BWIDTH", // RXS end
+    (char *)"PCI_M__PKT",
+    (char *)"PCI_M__PKT",
+    (char *)"PCI__D_PKT",
+    (char *)"PCI__D_PKT",
+    (char *)"PCI_BG_PKT",
+    (char *)"PCI_BG_PKT",
+    (char *)"NWR____PKT",
+    (char *)"NWR_OK_PKT",
+    (char *)"DB_____PKT",
+    (char *)"DB__OK_PKT",
+    (char *)"MSG____PKT",
+    (char *)"MSG____PKT",
+    (char *)"MSG_RTYPKT",
+    (char *)"MSG_RTYPKT",
+    (char *)"DMA____PKT",
+    (char *)"DMA____PKT",
+    (char *)"BRG____PKT",
+    (char *)"BRG____PKT",
+    (char *)"BRG_ERRPKT",
+    (char *)"MWR____PKT",
+    (char *)"MWR_OK_PKT",
+    (char *)"Last______",
+    (char *)"Invalid___"
 };
 
+const char *sc_other_if_names_PCIe = (char *)"PCIExp";
+const char *sc_other_if_names_FABRIC = (char *)"FABRIC";
+const char *sc_other_if_names_Invalid = (char *)"INVALID";
+const char *sc_other_if_names_UNKNOWN = (char *)"UNKNOWN";
+
+uint32_t idt_sc_other_if_names(DAR_DEV_INFO_t *dev_h, const char **name)
+{
+	if ((NULL == dev_h) || (NULL == name)) {
+		return RIO_ERR_NULL_PARM_PTR;
+	};
+
+	*name = sc_other_if_names_Invalid;
+	switch(VEND_CODE(dev_h)) {
+	case RIO_VEND_IDT:
+		switch(DEV_CODE(dev_h)) {
+		case RIO_DEVI_IDT_CPS1848:
+		case RIO_DEVI_IDT_CPS1432:
+		case RIO_DEVI_IDT_CPS1616:
+		case RIO_DEVI_IDT_SPS1616:
+		case RIO_DEVI_IDT_RXS2448:
+		case RIO_DEVI_IDT_RXS1632:
+			*name = sc_other_if_names_FABRIC;
+			break;
+
+		case RIO_DEVI_IDT_TSI721: // No configuration required.
+			*name = sc_other_if_names_PCIe;
+			break;
+
+		default: *name = sc_other_if_names_UNKNOWN;
+			return RIO_ERR_NO_DEVICE_SUPPORT;
+		}
+		break;
+	case RIO_VEND_TUNDRA:
+		*name = sc_other_if_names_Invalid;
+		return RIO_ERR_NO_DEVICE_SUPPORT;
+	default: *name = sc_other_if_names_UNKNOWN;
+		return RIO_ERR_NO_DEVICE_SUPPORT;
+	};
+	return RIO_SUCCESS;
+}
+
+	
+	
 /* User function calls for a routing table configuration */
 uint32_t idt_sc_init_dev_ctrs (
     DAR_DEV_INFO_t             *dev_info,

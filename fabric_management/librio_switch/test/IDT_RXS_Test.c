@@ -330,11 +330,32 @@ static int teardown(void **state)
 
 void assumptions_test(void **state)
 {
+	const char *name;
+
 	// verify constants
         assert_int_equal(8, RXS2448_MAX_SC);
         assert_int_equal(24, RXS2448_MAX_PORTS);
         assert_int_equal(48, RXS2448_MAX_LANES);
 
+	// Verify that names array is correctly defined
+        assert_string_equal("Disabled__", SC_NAME(idt_sc_disabled));
+        assert_string_equal("Enabled___", SC_NAME(idt_sc_enabled));
+
+        assert_string_equal("ALL____PKT", SC_NAME(idt_sc_pkt));
+        assert_string_equal("FAB____PKT", SC_NAME(idt_sc_fab_pkt));
+        assert_string_equal("8B_DAT_PKT", SC_NAME(idt_sc_rio_pload));
+        assert_string_equal("8B_DAT_PKT", SC_NAME(idt_sc_fab_pload));
+        assert_string_equal("RAW_BWIDTH", SC_NAME(idt_sc_rio_bwidth));
+        assert_string_equal("Retry___CS", SC_NAME(idt_sc_retries));
+        assert_string_equal("PktNotA_CS", SC_NAME(idt_sc_pna));
+        assert_string_equal("Drop___PKT", SC_NAME(idt_sc_pkt_drop));
+
+        assert_string_equal("Last______", SC_NAME(idt_sc_last));
+        assert_string_equal("Invalid___", SC_NAME(idt_sc_last + 1));
+
+        assert_int_equal(RIO_SUCCESS, idt_sc_other_if_names(
+                                &mock_dev_info, &name));
+        assert_string_equal("FABRIC", name);
 	(void)state; // unused
 }
 
@@ -562,10 +583,10 @@ void test_rxs_cfg_dev_ctr(idt_sc_cfg_rxs_ctr_in_t *mock_sc_in, int sc_cfg)
 	// counters, used by other packet counter tests...
 	mock_sc_in->tx = tx;
 	switch (sc_cfg) {
-	case 0: mock_sc_in->ctr_type = idt_sc_rio_pkt;
+	case 0: mock_sc_in->ctr_type = idt_sc_pkt;
 		reg_val = RXS_RIO_SPX_PCNTR_CTL_SEL_RIO_PKT;
 		break;
-	case 1: mock_sc_in->ctr_type = idt_sc_rio_pkt;
+	case 1: mock_sc_in->ctr_type = idt_sc_pkt;
 		mock_sc_in->tx = !mock_sc_in->tx;
 		reg_val = RXS_RIO_SPX_PCNTR_CTL_SEL_RIO_PKT;
 		break;
@@ -578,24 +599,24 @@ void test_rxs_cfg_dev_ctr(idt_sc_cfg_rxs_ctr_in_t *mock_sc_in, int sc_cfg)
 		reg_val = RXS_RIO_SPX_PCNTR_CTL_SEL_FAB_PKT;
 		srio = false;
 		break;
-	case 4: mock_sc_in->ctr_type = idt_sc_rio_pcntr;
+	case 4: mock_sc_in->ctr_type = idt_sc_rio_pload;
 		reg_val = RXS_RIO_SPX_PCNTR_CTL_SEL_RIO_PAYLOAD;
 		break;
-	case 5: mock_sc_in->ctr_type = idt_sc_rio_pcntr;
+	case 5: mock_sc_in->ctr_type = idt_sc_rio_pload;
 		mock_sc_in->tx = !mock_sc_in->tx;
 		reg_val = RXS_RIO_SPX_PCNTR_CTL_SEL_RIO_PAYLOAD;
 		break;
-	case 6: mock_sc_in->ctr_type = idt_sc_rio_ttl_pcntr;
+	case 6: mock_sc_in->ctr_type = idt_sc_rio_bwidth;
 		reg_val = RXS_RIO_SPX_PCNTR_CTL_SEL_RIO_TTL_PKTCNTR;
 		break;
 	case 7: mock_sc_in->ctr_type = idt_sc_disabled;
 		reg_val = RXS_RIO_SPX_PCNTR_CTL_SEL_DISABLED;
 		break;
-	case 8: mock_sc_in->ctr_type = idt_sc_fab_pcntr;
+	case 8: mock_sc_in->ctr_type = idt_sc_fab_pload;
 		reg_val = RXS_RIO_SPX_PCNTR_CTL_SEL_FAB_PAYLOAD;
 		srio = false;
 		break;
-	case 9: mock_sc_in->ctr_type = idt_sc_fab_pcntr;
+	case 9: mock_sc_in->ctr_type = idt_sc_fab_pload;
 		mock_sc_in->tx = !mock_sc_in->tx;
 		reg_val = RXS_RIO_SPX_PCNTR_CTL_SEL_FAB_PAYLOAD;
 		srio = false;
@@ -626,13 +647,13 @@ void test_rxs_cfg_dev_ctr(idt_sc_cfg_rxs_ctr_in_t *mock_sc_in, int sc_cfg)
 		mock_sc_in->prio_mask = 0;
 		expect_fail = true;
 		break;
-	case 17: mock_sc_in->ctr_type = idt_sc_rio_ttl_pcntr;
+	case 17: mock_sc_in->ctr_type = idt_sc_rio_bwidth;
 		reg_val = RXS_RIO_SPX_PCNTR_CTL_SEL_FAB_PAYLOAD;
 		mock_sc_in->tx = !mock_sc_in->tx;
 		mock_sc_in->prio_mask = 0;
 		expect_fail = true;
 		break;
-	case 18: mock_sc_in->ctr_type = idt_sc_fab_pcntr;
+	case 18: mock_sc_in->ctr_type = idt_sc_fab_pload;
 		reg_val = RXS_RIO_SPX_PCNTR_CTL_SEL_FAB_PAYLOAD;
 		mock_sc_in->prio_mask = 0;
 		expect_fail = true;
@@ -844,19 +865,19 @@ static void rxs_init_read_ctrs(idt_sc_read_ctrs_in_t *parms_in)
 		for (cntr = 0; cntr < RXS2448_MAX_SC; cntr++) {
 			parms_in->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].tx = true;
 			switch (cntr) {
-			case 0: parms_in->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc = idt_sc_rio_pkt;
+			case 0: parms_in->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc = idt_sc_pkt;
 				break;
 			case 1:
 				parms_in->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc = idt_sc_fab_pkt;
 				break;
 			case 2:
-				parms_in->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc = idt_sc_rio_pcntr;
+				parms_in->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc = idt_sc_rio_pload;
 				break;
 			case 3:
-				parms_in->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc = idt_sc_fab_pcntr;
+				parms_in->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc = idt_sc_fab_pload;
 				break;
 			case 4:
-				parms_in->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc = idt_sc_rio_ttl_pcntr;
+				parms_in->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc = idt_sc_rio_bwidth;
 				break;
 			case 5:
 				parms_in->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc = idt_sc_retries;
@@ -2561,8 +2582,8 @@ int main(int argc, char** argv)
 	argc++; // not used
 
 	const struct CMUnitTest tests[] = {
-		cmocka_unit_test(assumptions_test),
                 cmocka_unit_test(macros_test),
+                cmocka_unit_test_setup_teardown(assumptions_test, setup, NULL),
                 cmocka_unit_test_setup_teardown(rxs_init_dev_ctrs_test_success, setup, NULL),
                 cmocka_unit_test_setup_teardown(rxs_init_dev_ctrs_test_bad_ptrs, setup, NULL),
                 cmocka_unit_test_setup_teardown(rxs_init_dev_ctrs_test_bad_p_ctrs, setup, NULL),

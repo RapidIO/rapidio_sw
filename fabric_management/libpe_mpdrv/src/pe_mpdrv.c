@@ -421,12 +421,12 @@ struct sc_cfg_t tsi_sc_cfg[Tsi578_NUM_PERF_CTRS] = {
 struct sc_cfg_t rxs_sc_cfg[RXS2448_MAX_SC] = {
 	{idt_sc_fab_pkt, true},
 	{idt_sc_fab_pkt, false},
-	{idt_sc_fab_pcntr, true},
-	{idt_sc_fab_pcntr, false},
+	{idt_sc_fab_pload, true},
+	{idt_sc_fab_pload, false},
 	{idt_sc_retries, true},
 	{idt_sc_retries, false},
 	{idt_sc_pkt_drop, false},
-	{idt_sc_rio_ttl_pcntr, true}
+	{idt_sc_rio_bwidth, true}
 };
 
 uint32_t idt_sc_config_dev_ctrs(DAR_DEV_INFO_t *dev_h,

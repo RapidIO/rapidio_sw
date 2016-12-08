@@ -279,7 +279,7 @@ uint32_t idt_sc_cfg_rxs_ctr( DAR_DEV_INFO_t           *dev_info,
 	new_ctl |= (in_parms->tx) ? RXS_RIO_SPX_PCNTR_CTL_TX : 0;
 		
 	switch (in_parms->ctr_type) {
-	case idt_sc_rio_pkt:
+	case idt_sc_pkt:
 		new_ctl |= RXS_RIO_SPX_PCNTR_CTL_SEL_RIO_PKT;
 		break;
 	case idt_sc_fab_pkt:
@@ -293,10 +293,10 @@ uint32_t idt_sc_cfg_rxs_ctr( DAR_DEV_INFO_t           *dev_info,
 			goto exit;
 		}
 		break;
-	case idt_sc_rio_pcntr:
+	case idt_sc_rio_pload:
 		new_ctl |= RXS_RIO_SPX_PCNTR_CTL_SEL_RIO_PAYLOAD;
 		break;
-	case idt_sc_fab_pcntr:
+	case idt_sc_fab_pload:
 		new_ctl |= RXS_RIO_SPX_PCNTR_CTL_SEL_FAB_PAYLOAD;
 		srio = false;
 		// Fabric packet data counts are prioirty specific.
@@ -307,7 +307,7 @@ uint32_t idt_sc_cfg_rxs_ctr( DAR_DEV_INFO_t           *dev_info,
 			goto exit;
 		}
 		break;
-	case idt_sc_rio_ttl_pcntr:
+	case idt_sc_rio_bwidth:
 		// Count of the total number of code-groups/codewords 
 		// transmitted on the RapidIO interface per lane.
 		// Hardware does not support count for RX (!TX).

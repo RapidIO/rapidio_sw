@@ -82,6 +82,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "fmd_app.h"
 #include "fmd_cli.h"
 #include "fmd_dev_rw_cli.h"
+#include "fmd_sc_cli.h"
 #include "fmd_dev_conf_cli.h"
 #include "fmd_master.h"
 #include "fmd_net.h"
@@ -178,6 +179,7 @@ void spawn_threads(struct fmd_opt_vals *cfg)
 	// fmd_bind_dbg_cmds();
 	fmd_bind_mgmt_dbg_cmds();
 	fmd_bind_dev_rw_cmds();
+	fmd_bind_dev_sc_cmds();
 	fmd_bind_dev_conf_cmds();
 
 	/* Create independent threads each of which will execute function */

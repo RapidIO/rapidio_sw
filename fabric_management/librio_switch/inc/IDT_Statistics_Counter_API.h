@@ -51,6 +51,7 @@ typedef enum idt_sc_ctr_t_TAG
 {
     idt_sc_disabled,        // The counter is disabled.
     idt_sc_enabled,         // The counter is enabled.
+			// START OF TSI57X SPECIFIC COUNTERS
     idt_sc_uc_req_pkts,     // Tsi57x Unicast request packets
                             //   Excludes response packets, maintenance packets,
 			    //   maintenance packets with hop count of 0,
@@ -66,46 +67,52 @@ typedef enum idt_sc_ctr_t_TAG
     idt_sc_mecs,            // Count of Multicast Event Control Symbols         
     idt_sc_mc_4b_data,      // Count of multiple of words (4 bytes) of packet data
                             //    for multicast packets.  Excludes unicast packets.
+			// END OF TSI57X SPECIFIC COUNTERS
     idt_sc_pa,              // CPS Packet acknowledgements count (TX or RX)
     idt_sc_pkt,             // CPS Packets count (TX or RX)
     idt_sc_pna,             // CPS Packet negative acknowledgements count (RX only)
-    idt_sc_cpb,             // CPS Packets from CrossPoint Buffer count (!srio, RX)
     idt_sc_pkt_drop,        // CPS Packets dropped count (TX or RX)
     idt_sc_pkt_drop_ttl,    // CPS RX Packets dropped count due to TTL (TX only)
 
-    idt_sc_rio_pkt,         // Number of packets received/transmitted on the RapidIO interface
+			// START OF RXS2448 SPECIFIC PERFORMANCE COUNTERS
     idt_sc_fab_pkt,         // Number of packets received/transmitted on the fabric
-    idt_sc_rio_pcntr,       // Count of packet payload received/transmitted on the RapidIO interface
-    idt_sc_fab_pcntr,       // Count of packet payload received/transmitted on the fabric
-    idt_sc_rio_ttl_pcntr,   // Count of the total number of code-groups/codewords transmitted on the RapidIO interface per lane
+    idt_sc_rio_pload,       // Count of packet payload received/transmitted on the RapidIO interface
+    idt_sc_fab_pload,       // Count of packet payload received/transmitted on the fabric
+    idt_sc_rio_bwidth,   // Count of the total number of code-groups/codewords
+			// transmitted on the RapidIO interface per lane
+			// END OF RXS2448 SPECIFIC PERFORMANCE COUNTERS
 
-    idt_pcie_rv,            // Received Completion Count for Messaging Engine Register.
-    idt_pcie_tx_tlp_mer,    // Sent TLP Count of Messaging Engine Register
-    idt_pcie_rx_dma,        // Received Completion Count for Block DMA Engine Register
-    idt_pcie_tx_tlp_dma,    // Sent TLP Count of Block DMA Engine Register
-    idt_pcie_rx_tlp,        // Received Bridging TLP Count Register
-    idt_pcie_bd_tlp,        // Sent Bridging TLP Count Register
-    idt_pcie_nwr_tot,       // NWRITE_R Total Count Register
-    idt_pcie_nwr_ok,	    // NWRITE_R RX OK Count Register
-    idt_rio_odb_tot,        // Total outbound doorbells total sent
-    idt_rio_odb_ok,         // Total outbound doorbells responses OK
-    idt_rio_tx_mer,         // Sent Packet Count of Messaging Engine Register
-    idt_rio_rx_mer,         // Received Packet Count for Messaging Engine Register
-    idt_rio_tx_retries,     // Generated Message Segment Retry Count Register
-    idt_rio_rx_retries,     // Received Retry Message Response Count Register
-    idt_rio_tx_dma,         // Sent Packet Count of Block DMA Engine Register
-    idt_rio_rx_dma,         // Received Response Count for Block DMA Engine Register
-    idt_rio_tx_bd,          // Sent Bridging Packet Count Register
-    idt_rio_rx_bd,          // Received Bridging Packet Count Register
-    idt_rio_rx_bd_err,      // Received Bridging Packet Error Count Register
-    idt_rio_mwr_tot,        // Maintenance Write Total Count Register 
-    idt_rio_mwr_ok,         // Maintenance Write OK Count Register
+			// START OF TSI721 PERFORMANCE COUNTERS
+    idt_sc_pcie_msg_rx,        // Received Completion Count for Messaging Engine Register.
+    idt_sc_pcie_msg_tx,        // Sent TLP Count of Messaging Engine Register
+    idt_sc_pcie_dma_rx,        // Received Completion Count for Block DMA Engine Register
+    idt_sc_pcie_dma_tx,        // Sent TLP Count of Block DMA Engine Register
+    idt_sc_pcie_brg_rx,        // Received Bridging TLP Count Register
+    idt_sc_pcie_brg_tx,        // Sent Bridging TLP Count Register
+    idt_sc_rio_nwr_tx,         // NWRITE_R Total Count Register
+    idt_sc_rio_nwr_ok_rx,	// NWRITE_R RX OK Count Register
+    idt_sc_rio_dbel_tx,        // Total outbound doorbells total sent
+    idt_sc_rio_dbel_ok_rx,     // Total outbound doorbells responses OK
+    idt_sc_rio_msg_tx,         // Sent Packet Count of Messaging Engine Register
+    idt_sc_rio_msg_rx,         // Received Packet Count for Messaging Engine Register
+    idt_sc_rio_msg_tx_rty,     // Generated Message Segment Retry Count Register
+    idt_sc_rio_msg_rx_rty,     // Received Retry Message Response Count Register
+    idt_sc_rio_dma_tx,         // Sent Packet Count of Block DMA Engine Register
+    idt_sc_rio_dma_rx,         // Received Response Count for Block DMA Engine Register
+    idt_sc_rio_brg_tx,          // Sent Bridging Packet Count Register
+    idt_sc_rio_brg_rx,          // Received Bridging Packet Count Register
+    idt_sc_rio_brg_rx_err,      // Received Bridging Packet Error Count Register
+    idt_sc_rio_mwr_tx,        // Maintenance Write Total Count Register 
+    idt_sc_rio_mwr_ok_rx,         // Maintenance Write OK Count Register
+			// END OF TSI721 PERFORMANCE COUNTERS
 
     idt_sc_last             // Last index for enumerated type
 } idt_sc_ctr_t;
 
 extern char *sc_names[(uint8_t)(idt_sc_last)+2];
 #define SC_NAME(x) ((x<=idt_sc_last)?sc_names[x]:sc_names[(uint8_t)(idt_sc_last)+1])
+
+extern uint32_t idt_sc_other_if_names(DAR_DEV_INFO_t *dev_h, const char **name);
 
 #define DIR_TX true
 #define DIR_RX !DIR_TX
