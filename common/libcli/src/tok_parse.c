@@ -258,7 +258,7 @@ int tok_parse_hc(char *token, uint8_t *hc, int base)
 	uint64_t value;
 	int rc;
 
-	if ((token == NULL) || (hc)) {
+	if ((token == NULL) || (hc == NULL)) {
 		return -1;
 	}
 
