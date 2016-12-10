@@ -168,8 +168,6 @@ void *rx_worker_thread_f(void *arg)
 		} else if (received_len == 0) {
 			WARN("'%s': Other side has disconnected\n", name.c_str());
 			break;
-		} else if (received_len < 0) {
-			assert(!"received_len < 0");
 		} else { /* received_len > 0. All is good */
 #ifdef EXTRA_DEBUG
 			DBG("msg[0] = 0x%" PRIX64 "\n", *(uint64_t *)msg);
