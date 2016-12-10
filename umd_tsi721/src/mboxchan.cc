@@ -134,11 +134,11 @@ void MboxChannel::init()
   pthread_spin_init(&m_tx_splock, PTHREAD_PROCESS_PRIVATE);
   pthread_spin_init(&m_bltx_splock, PTHREAD_PROCESS_PRIVATE);
 
-  memset(&m_num_ob_desc, 0, sizeof(m_num_ob_desc));
-  memset(&m_imsg_init,   0, sizeof(m_imsg_init));
-  memset(&m_imsg_ring,   0, sizeof(m_imsg_ring));
-  memset(&m_omsg_init,   0, sizeof(m_omsg_init));
-  memset(&m_omsg_ring,   0, sizeof(m_omsg_ring));
+  m_num_ob_desc = 0;
+  m_imsg_init = false;
+  m_imsg_ring = {};
+  m_omsg_init = false;
+  m_omsg_ring = {};
 
   m_restart_pending = 0;
 }

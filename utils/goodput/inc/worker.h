@@ -80,7 +80,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rdmaops.h"
 #include "mboxchan.h"
 #include "debug.h"
-#include "dmadesc.h"
 #include "local_endian.h"
 #include "mapfile.h"
 #include "mport.h"

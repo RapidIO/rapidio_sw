@@ -213,7 +213,7 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
   if ((opt.dtype == DTYPE1) && !m_mport->check_dma_buf(mem))
     return false;
 
-  struct dmadesc desc;
+  struct dmadesc desc = {};
   bool queued_T3 = false;
 
   WorkItem_t wk_end; memset(&wk_end, 0 , sizeof(wk_end));
@@ -421,7 +421,7 @@ bool DMAChannel::alloc_dmatxdesc(const uint32_t bd_cnt)
 #endif
 
   // Initialize DMA descriptors ring using added link descriptor 
-  struct dmadesc end_bd; memset(&end_bd, 0, sizeof(end_bd));
+  struct dmadesc end_bd = {};
   dmadesc_setdtype(end_bd, DTYPE3);
   dmadesc_setT3_nextptr(end_bd, (uint64_t)m_dmadesc.win_handle);
 
@@ -901,7 +901,7 @@ void DMAChannel::softRestart(const bool nuke_bds)
     ((uint8_t*)m_dmadesc.win_ptr + ((m_bd_num-1) * DMA_BUFF_DESCR_SIZE));
 
   // Initialize DMA descriptors ring using added link descriptor
-  struct dmadesc end_bd; memset(&end_bd, 0, sizeof(end_bd));
+  struct dmadesc end_bd = {};
   dmadesc_setdtype(end_bd, DTYPE3);
   dmadesc_setT3_nextptr(end_bd, (uint64_t)m_dmadesc.win_handle);
 

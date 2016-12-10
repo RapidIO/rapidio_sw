@@ -99,8 +99,6 @@ struct hw_dma_desc {
 } __attribute__((aligned(32)));
 
 struct dmadesc {
-  dmadesc() { memset(this, 0, sizeof(*this)); }
-
   inline int pack(hw_dma_desc* bd_ptr)
   {
     uint64_t rio_addr;
@@ -108,8 +106,8 @@ struct dmadesc {
 
     if (NULL == bd_ptr) return -1;
 
-    struct dmadesc* desc = this;
-    memset(bd_ptr, 0, sizeof(*bd_ptr));
+    struct dmadesc *desc = this;
+    *bd_ptr = {};
 
     switch (dtype) {
       case 3:
@@ -182,53 +180,53 @@ struct dmadesc {
   #define TSI721_DMAC_DPTRL_MASK  0xffffffe0
 #endif
 
-static inline void dmadesc_setdevid(struct dmadesc& desc, const uint16_t devid)
+static inline void dmadesc_setdevid(struct dmadesc &desc, const uint16_t devid)
 {
   desc.devid = devid;
 }
 
-static inline void dmadesc_setdtype(struct dmadesc& desc, const uint8_t type)
+static inline void dmadesc_setdtype(struct dmadesc &desc, const uint8_t type)
 {
   desc.dtype = type & 0x7;
 }
 
-static inline void dmadesc_setiof(struct dmadesc& desc, const uint8_t iof)
+static inline void dmadesc_setiof(struct dmadesc &desc, const uint8_t iof)
 {
   desc.iof = !! iof;
 }
-static inline void dmadesc_setcrf(struct dmadesc& desc, const uint8_t crf)
+static inline void dmadesc_setcrf(struct dmadesc &desc, const uint8_t crf)
 {
   desc.crf = !! crf;
 }
-static inline void dmadesc_setprio(struct dmadesc& desc, const uint8_t prio)
+static inline void dmadesc_setprio(struct dmadesc &desc, const uint8_t prio)
 {
   desc.prio = prio & 0x3;
 }
-static inline void dmadesc_setrtype(struct dmadesc& desc, const uint8_t rtype)
+static inline void dmadesc_setrtype(struct dmadesc &desc, const uint8_t rtype)
 {
   desc.rtype = rtype & 0xf;
 }
 
-static inline void dmadesc_set_raddr(struct dmadesc& desc, const uint8_t raddr_msb2, const uint64_t raddr_lsb64)
+static inline void dmadesc_set_raddr(struct dmadesc &desc, const uint8_t raddr_msb2, const uint64_t raddr_lsb64)
 {
   desc.raddr_msb2  = raddr_msb2 & 0x3;
   desc.raddr_lsb64 = raddr_lsb64;
 }
 
-static inline void dmadesc_set_tt(struct dmadesc& desc, const uint8_t tt)
+static inline void dmadesc_set_tt(struct dmadesc &desc, const uint8_t tt)
 {
   desc.tt = tt & 0x3;
 }
 
 /// T1
-static inline void dmadesc_setT1_bufptr(struct dmadesc& desc, const uint64_t bufptr)
+static inline void dmadesc_setT1_bufptr(struct dmadesc &desc, const uint64_t bufptr)
 {
   if(bufptr == 0)
     throw std::runtime_error("dmadesc_setT1_bufptr: NULL pointer!");
 
   desc.buffer_ptr = bufptr;
 }
-static inline void dmadesc_setT1_buflen(struct dmadesc& desc, const uint32_t buflen)
+static inline void dmadesc_setT1_buflen(struct dmadesc &desc, const uint32_t buflen)
 {
   if(buflen > SIXTYFOURMEG)
     throw std::runtime_error("dmadesc_setT1_buflen: data are too large!");
@@ -237,7 +235,7 @@ static inline void dmadesc_setT1_buflen(struct dmadesc& desc, const uint32_t buf
 }
 
 /// T2
-static inline void dmadesc_setT2_data(struct dmadesc& desc, const uint8_t* data, const uint32_t data_len)
+static inline void dmadesc_setT2_data(struct dmadesc &desc, const uint8_t* data, const uint32_t data_len)
 {
   if(data_len > 16)
     throw std::runtime_error("dmadesc_setT2_data: data are too large!");
@@ -248,7 +246,7 @@ static inline void dmadesc_setT2_data(struct dmadesc& desc, const uint8_t* data,
 }
 
 /// T3
-static inline void dmadesc_setT3_nextptr(struct dmadesc& desc, const uint64_t next)
+static inline void dmadesc_setT3_nextptr(struct dmadesc &desc, const uint64_t next)
 {
   if (!next)
         throw std::runtime_error("dmadesc_setT3_nextptr: 0 pointer!");
