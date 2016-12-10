@@ -148,6 +148,7 @@ int send_server_msg(struct buffer_info *info, int fail_abort, int abort_flag)
 		
 	memcpy(info->tx_msg->rx_file_name, 
 		info->file_name, MAX_FILE_NAME);
+	info->tx_msg->rx_file_name[MAX_FILE_NAME] = '\0';
 
 	if (info->debug) {
 		printf("	Server: Tx to Client\n");
