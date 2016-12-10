@@ -175,6 +175,10 @@ int mpsw_mport_dev_add(struct riocp_pe *pe, char *name)
 	struct mpsw_drv_private_data *p_dat = NULL;
 	char dev_fn[MPSW_MAX_DEV_FN+1] = {0};
 
+	if ((NULL == pe) || (NULL == name)) {
+		return -EINVAL;
+	}
+
 	SAFE_STRNCPY(pe->sysfs_name, name, sizeof(pe->sysfs_name));
 
 	if (RIOCP_PE_IS_MPORT(pe))
@@ -187,7 +191,7 @@ int mpsw_mport_dev_add(struct riocp_pe *pe, char *name)
 	p_acc = (struct mpsw_drv_pe_acc_info *)
 			pe->mport->minfo->private_data;
 
-	if ((!p_acc->maint_valid) || (NULL == name))
+	if (!p_acc->maint_valid)
 		return -EINVAL;
 
 	memset(dev_fn, 0, sizeof(dev_fn));
