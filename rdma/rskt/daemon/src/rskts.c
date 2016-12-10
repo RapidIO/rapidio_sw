@@ -417,16 +417,22 @@ void spawn_threads()
 {
         int  cli_ret, console_ret = 0, rc;
         int *pass_console_ret;
-	struct remote_login_parms *rlp = (struct remote_login_parms *)
-			malloc(sizeof(struct remote_login_parms));
+	struct remote_login_parms *rlp;
 
-        rskts.all_must_die = 0;
-        sem_init(&rskts.cli.cons_owner, 0, 0);
+	rlp = (struct remote_login_parms *)
+					malloc(sizeof(struct remote_login_parms));
+	if (NULL == rlp) {
+		printf("\nCould not allocate memory for login parameters\n");
+		exit(EXIT_FAILURE);
+	}
 
-        rskts.cli.cli_portno = 0;
-        rskts.cli.cons_alive = 0;
+	rskts.all_must_die = 0;
+	sem_init(&rskts.cli.cons_owner, 0, 0);
 
-        /* Prepare and start console thread */
+	rskts.cli.cli_portno = 0;
+	rskts.cli.cons_alive = 0;
+
+	/* Prepare and start console thread */
 	pass_console_ret = (int *)(malloc(sizeof(int)));
 	if (NULL == pass_console_ret) {
 		fprintf(stderr, "Error - console_thread creation\n");

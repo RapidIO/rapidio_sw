@@ -154,8 +154,14 @@ void spawn_threads(struct fmd_opt_vals *cfg)
 	int *pass_poll_interval;
 	int *pass_cons_ret;
 	int ret;
-	struct remote_login_parms *rlp = (struct remote_login_parms *)
-				malloc(sizeof(struct remote_login_parms));
+	struct remote_login_parms *rlp;
+
+	rlp = (struct remote_login_parms *)
+					malloc(sizeof(struct remote_login_parms));
+	if (NULL == rlp) {
+		printf("\nCould not allocate memory for login parameters\n");
+		exit(EXIT_FAILURE);
+	}
 
 	sem_init(&cons_owner, 0, 0);
 	pass_poll_interval = (int *)(calloc(2, sizeof(int)));

@@ -384,8 +384,14 @@ int main (int argc, char **argv)
 
 	int rc;
 	int cons_ret;
-	struct remote_login_parms *rlp = (struct remote_login_parms *)
-				malloc(sizeof(struct remote_login_parms));
+	struct remote_login_parms *rlp;
+
+	rlp = (struct remote_login_parms *)
+					malloc(sizeof(struct remote_login_parms));
+	if (NULL == rlp) {
+		printf("\nCould not allocate memory for login parameters\n");
+		exit(EXIT_FAILURE);
+	}
 
 	/* Do no show console if started in background mode (rdmad &) */
 	if (!foreground())

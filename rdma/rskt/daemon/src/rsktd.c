@@ -394,8 +394,14 @@ void quit_command_customization(struct cli_env *UNUSED_PARM(env))
 void spawn_threads(void)
 {
 	int  cli_ret = 0, console_ret = 0;
-	struct remote_login_parms *rlp = (struct remote_login_parms *)
-				malloc(sizeof(struct remote_login_parms));
+	struct remote_login_parms *rlp;
+
+	rlp = (struct remote_login_parms *)
+					malloc(sizeof(struct remote_login_parms));
+	if (NULL == rlp) {
+		printf("\nCould not allocate memory for login parameters\n");
+		exit(EXIT_FAILURE);
+	}
 
 	sem_init(&cli.cons_owner, 0, 0);
 

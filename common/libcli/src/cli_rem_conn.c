@@ -137,6 +137,10 @@ int CLIConnectCmd(struct cli_env *env, int argc, char **argv)
 	setsockopt (sockfd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof (one));
 
 	p = (struct connect_rx_parms *)malloc(sizeof(struct connect_rx_parms));
+	if (NULL == p) {
+		LOGMSG(env, "Could not allocate memory for connection parameters\n");
+		goto cleanup;
+	}
 	memcpy(&p->env, env, sizeof(p->env));
 	p->sockfd = sockfd;
 	snprintf(p->conn_rx_name, sizeof(p->conn_rx_name), "%s_%s",

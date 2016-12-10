@@ -963,8 +963,14 @@ void spawn_threads(int cons_skt, int xfer_skt, int run_cons)
 	int  conn_ret, cli_ret, cons_ret = 0;
 	int *conn_loop_rc;
 	int i;
-	struct remote_login_parms *rlp = (struct remote_login_parms *)
-				malloc(sizeof(struct remote_login_parms));
+	struct remote_login_parms *rlp;
+
+	rlp = (struct remote_login_parms *)
+					malloc(sizeof(struct remote_login_parms));
+	if (NULL == rlp) {
+		printf("\nCould not allocate memory for login parameters\n");
+		exit(EXIT_FAILURE);
+	}
 
 	all_must_die = 0;
 	conn_loop_alive = 0;
