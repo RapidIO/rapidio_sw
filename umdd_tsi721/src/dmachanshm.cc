@@ -914,7 +914,7 @@ int DMAChannelSHM::scanFIFO(WorkItem_t* completed_work, const int max_work, cons
   if(m_state->restart_pending && !force_scan) return 0;
 
 #if defined(UDMA_SIM_DEBUG) && defined(RDMA_LL)
-  if (7 <= g_level) { // DEBUG
+  if (RDMA_LL_DBG <= g_level) { // DEBUG
     std::string s;
     dumpBDs(s);
     XDBG("\n\tbl_busy_size=%d fifoRP=%u fifoWP=%u BD map before scan: %s\n",
@@ -1079,7 +1079,7 @@ int DMAChannelSHM::scanFIFO(WorkItem_t* completed_work, const int max_work, cons
       break;
 
 #if defined(UDMA_SIM_DEBUG) && defined(RDMA_LL)
-    if ((m_state->bl_busy_size == 0 || m_pending_work[idx].opt.dtype > 3) && 7 <= g_level) { // DEBUG
+    if ((m_state->bl_busy_size == 0 || m_pending_work[idx].opt.dtype > 3) && RDMA_LL_DBG <= g_level) { // DEBUG
       std::string s;
       dumpBDs(s);
       XDBG("\n\tAt 0BUG point idx=%d bd_idx=%d WP=%u RP=%u BD map: %s\n", idx, item.bd_idx, m_state->dma_wr, (m_sim? m_sim_dma_rp: getReadCount()), s.c_str());
@@ -1275,7 +1275,7 @@ int DMAChannelSHM::simFIFO(const int max_bd, const uint32_t fault_bmask)
   UNUSED_DBG(HW_END);
 
 #if defined(UDMA_SIM_DEBUG) && defined(RDMA_LL)
-  if (7 <= g_level) { // DEBUG
+  if (RDMA_LL_DBG <= g_level) { // DEBUG
     XDBG("START: DMA simRP=%d WP=%d simFifoWP=%d bl_busy_size=%d\n", m_sim_dma_rp, m_state->dma_wr, m_sim_fifo_wp, m_state->bl_busy_size);
 
     std::string s;
@@ -1416,7 +1416,7 @@ int DMAChannelSHM::cleanupBDQueue(bool multithreaded_fifo)
   const uint64_t fifo_scan_cnt = m_fifo_scan_cnt;
 
 #if defined(UDMA_SIM_DEBUG) && defined(RDMA_LL)
-  if (7 <= g_level) { // DEBUG
+  if (RDMA_LL_DBG <= g_level) { // DEBUG
     uint32_t rp = m_sim? m_sim_dma_rp: getReadCount();
 
     XDBG("DMA %sRP=%d WP=sw%d/hw%d m_state->bl_busy_size=%d\n",
@@ -1521,7 +1521,7 @@ int DMAChannelSHM::cleanupBDQueue(bool multithreaded_fifo)
   pthread_spin_unlock(&m_state->bl_splock);
 
 #if defined(UDMA_SIM_DEBUG) && defined(RDMA_LL)
-  if (7 <= g_level) { // DEBUG
+  if (RDMA_LL_DBG <= g_level) { // DEBUG
     std::string s;
     dumpBDs(s);
     XDBG("\n\tbl_busy_size=%d BD map after cleanup: %s\n", m_state->bl_busy_size, s.c_str());

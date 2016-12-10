@@ -41,9 +41,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define LOG_LINE_SIZE	512
 
 /* Log levels */
+#define RDMA_LL_OFF	 1
 #define RDMA_LL_CRIT	 2
 #define RDMA_LL_ERR	 3
-#define RDMA_LL_WARN     4
+#define RDMA_LL_WARN	 4
 #define RDMA_LL_HIGH	 5
 #define RDMA_LL_INFO	 6
 #define RDMA_LL_DBG	 7

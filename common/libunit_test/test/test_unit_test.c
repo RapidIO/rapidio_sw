@@ -761,7 +761,7 @@ int main(int argc, char *argv[])
 
 	rdma_log_init("test_unit_test.log", 1);
 
-	g_level = 5;
+	g_level = RDMA_LL_HIGH;
 
 	config_unit_test(&test_unit_test_drv);
 

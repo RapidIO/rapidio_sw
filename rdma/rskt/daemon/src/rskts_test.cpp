@@ -3,6 +3,7 @@
 #include <cstdio>
 #include <csignal>
 
+#include "tok_parse.h"
 #include "string_util.h"
 #include "ts_vector.h"
 #include "rapidio_mport_mgmt.h"
@@ -218,10 +219,10 @@ exit_run_server:
 
 
 
-void show_help()
+void usage(char *program)
 {
-	puts("Usage: rskts_test -s<socket_number>\n");
-} /* show_help() */
+	printf("Usage: %s -s<socket_number>\n", program);
+} /* usage() */
 
 void rskts_console_cleanup(struct cli_env *env);
 
@@ -472,8 +473,11 @@ void spawn_threads()
 }
 int main(int argc, char *argv[])
 {
-	char c;
-	int socket_number = -1;
+	int c;
+	char *program = argv[0];
+
+	uint16_t socket_number = 0;
+	bool socket_number_set = false;
 
 	/* Register signal handler */
 	struct sigaction sig_action;
@@ -491,33 +495,36 @@ int main(int argc, char *argv[])
 	/* Must specify at least 1 argument (the socket number) */
 	if (argc < 2) {
 		puts("Insufficient arguments. Must specify -s<socket_number>");
-		show_help();
-		exit(1);
+		usage(program);
+		exit(EXIT_FAILURE);
 	}
 
-	while ((c = getopt(argc, argv, "hs:")) != -1)
+	while (-1 != (c = getopt(argc, argv, "hs:")))
 		switch (c) {
-
-		case 'h':
-			show_help();
-			exit(1);
-			break;
 		case 's':
-			socket_number = (int)strtol(optarg, NULL, 10);
+			if (tok_parse_socket(optarg, &socket_number, 0)) {
+				printf(TOK_ERR_SOCKET_MSG_FMT, "Socket number");
+				exit (EXIT_FAILURE);
+			}
+			socket_number_set = true;
 			break;
+		case 'h':
+			usage(program);
+			exit(EXIT_SUCCESS);
 		case '?':
-			/* Invalid command line option */
-			show_help();
-			exit(1);
-			break;
 		default:
-			abort();
+			/* Invalid command line option */
+			if (isprint(optopt)) {
+				printf("Unknown option '-%c\n", optopt);
+			}
+			usage(program);
+			exit(EXIT_FAILURE);
 		}
 
-	if (socket_number == -1) {
+	if (!socket_number_set) {
 		puts("Error. Must specify -s<socket_number>");
-		show_help();
-		exit(1);
+		usage(program);
+		exit(EXIT_FAILURE);
 	}
 
 	/* Console & CLI threads */

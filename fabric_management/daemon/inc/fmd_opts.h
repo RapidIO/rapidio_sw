@@ -57,15 +57,15 @@ struct fmd_opt_vals {
 	int init_err;
 	int simple_init;	/* If asserted, do not init device directory */
 	int print_help;		/* If asserted, print help and exit */
-	int cli_port_num;	/* POSIX Socket for remote CLI session */
-	int app_port_num;	/* POSIX Socket for applications to connect */
+	uint16_t cli_port_num;	/* POSIX Socket for remote CLI session */
+	uint16_t app_port_num;	/* POSIX Socket for applications to connect */
 	int run_cons;		/* Run a console on this daemon. */
-	int log_level;		/* Starting log level */
-	uint32_t mast_mode;          /* 0 - FMD slave, 1 - FMD master */
-	int mast_interval;	/* Master FMD location information */
-	uint32_t mast_devid_sz; /* Master FMD location information */
-	uint32_t mast_devid;    /* Master FMD location information */
-	uint32_t mast_cm_port;  /* Master FMD location information */
+	uint32_t log_level;	/* Starting log level */
+	uint32_t mast_mode;	/* 0 - FMD slave, 1 - FMD master */
+	uint32_t mast_interval;	/* Master FMD location information */
+	uint32_t mast_devid_sz;	/* Master FMD location information */
+	uint32_t mast_devid;	/* Master FMD location information */
+	uint32_t mast_cm_port;	/* Master FMD location information */
 	char *fmd_cfg; /* FMD configuration file */
 	char *dd_fn; /* Device directory file name */
 	char *dd_mtx_fn; /* Device directory mutext file name */

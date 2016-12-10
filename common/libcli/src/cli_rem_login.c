@@ -104,7 +104,7 @@ void *remote_login(void *remote_login_parm)
 	s_addr.sin_addr.s_addr = htonl(INADDR_ANY);
 	s_addr.sin_port = htons(portno);
 	setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof (one));
-	setsockopt (sockfd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof (one));
+	setsockopt(sockfd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof (one));
 
 	if (bind(sockfd, (struct sockaddr *) &s_addr, sizeof(s_addr)) < 0) {
 		goto fail;
@@ -149,8 +149,10 @@ fail:
 	if (NULL != status) {
 		*status = 0;
 	}
-	if (env->sess_socket > 0) {
-		close(env->sess_socket);
+	if (NULL != env) {
+		if (env->sess_socket > 0) {
+			close(env->sess_socket);
+		}
 	}
 	free(env);
 	free(sess);

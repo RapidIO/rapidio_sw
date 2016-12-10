@@ -56,6 +56,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <netinet/tcp.h>
 
 #include "string_util.h"
+#include "tok_parse.h"
 #include "rio_misc.h"
 #include <rapidio_mport_mgmt.h>
 
@@ -111,9 +112,7 @@ void print_server_help(void)
         printf("           The default value is %d.\n", RSKT_DFLT_APP_PORT_NUM);
         printf("           The u_skt and Umport value must be correct for\n");
         printf("           the rskt library to operate correctly.\n");
-        printf("           Note: There must be a space between -u and"
-                                                        " <u_skt>.\n");
-	printf("-m<Umpnum>: Local mport associatedi wht the u_skt.\n");
+	printf("-m <Umpnum>: Local mport associatedi wht the u_skt.\n");
 	printf("                Default is %d\n", RSKT_SVR_DFLT_MP_NUM);
 	printf("                Maximum is %d\n", RSKT_SVR_MAX_MP_NUM);
         printf("           The u_skt and Umport value must be correct for\n");
@@ -122,13 +121,13 @@ void print_server_help(void)
                                 			" uses <e_skt>.\n");
         printf("         The default <e_skt> value is %d.\n",
                                                         RSKTS_DFLT_CLI_SKT);
-        printf("         Note: There must be a space between \"-c\""
-                                                        " and <e_skt>.\n");
 };
 
 int parse_options(int argc, char *argv[], struct server_controls *ctrls)
 {
 	int idx;
+	uint32_t tmp32;
+	uint16_t tmp16;
 
 	ctrls->test = 0;
 	ctrls->rsktlib_mp = DFLT_DMN_LSKT_MPORT;
@@ -145,50 +144,65 @@ int parse_options(int argc, char *argv[], struct server_controls *ctrls)
                         switch(argv[idx][1]) {
                         case '?':
                         case 'h':
-                        case 'H': ctrls->print_help = 1;
+                        case 'H':
+                        	ctrls->print_help = 1;
 				break;
-			case 'd': rskts.debug = 0;
+			case 'd':
+				rskts.debug = 0;
 				break;
-			case 't': ctrls->test = 1;
+			case 't':
+				ctrls->test = 1;
 				break;
-			case 'D': rskts.debug = 1;
+			case 'D':
+				rskts.debug = 1;
 				break;
-                        case 'm':
-                                if ((argv[idx][2] >= '0') &&
-                                    (argv[idx][2] <= ('0'+MAX_DMN_MPORT))) {
-                                        ctrls->rsktlib_mp = argv[idx][2] - '0';
-                                        break;
-                                };
-                                printf("\n<mport> invalid\n");
-                                ctrls->print_help = 1;
-                                goto exit;
-			case 'u': if (argc < (idx+1)) {
+			case 'm':
+				idx++;
+				if (argc < idx) {
+					printf("\n<mport> not specified\n");
+					ctrls->print_help = 1;
+					goto exit;
+				}
+				if (tok_parse_mport_id(argv[idx], &tmp32, 0)) {
+					printf("\n");
+					printf(TOK_ERR_MPORT_MSG_FMT);
+					ctrls->print_help = 1;
+					goto exit;
+				}
+				ctrls->rsktlib_mp = (int)tmp32;
+				break;
+			case 'u':
+				idx++;
+				if (argc < idx) {
 					printf("\n<u_skt> not specified\n");
 					ctrls->print_help = 1;
 					goto exit;
-				};
-				idx++;
-				ctrls->rsktlib_portno = (int)strtol(argv[idx], NULL, 10);
-				if (!ctrls->rsktlib_portno) {
-					printf("\n<u_skt> cannot be 0\n");
+				}
+				if (tok_parse_socket(argv[idx], &tmp16, 0)) {
+					printf("\n");
+					printf(TOK_ERR_SOCKET_MSG_FMT, "<u_skt>");
 					ctrls->print_help = 1;
 					goto exit;
-                                };
+				}
+				ctrls->rsktlib_portno = (int)tmp16;
 				break;
-			case 'e': if (argc < (idx+1)) {
+			case 'e':
+				idx++;
+				if (argc < idx) {
 					printf("\n<e_skt> not specified\n");
 					ctrls->print_help = 1;
 					goto exit;
-				};
-				idx++;
-				ctrls->remcli_portno = (int)strtol(argv[idx], NULL, 10);
-				if (!ctrls->remcli_portno) {
-					printf("\n<e_skt> cannot be 0\n");
+				}
+				if (tok_parse_socket(argv[idx], &tmp16, 0)) {
+					printf("\n");
+					printf(TOK_ERR_SOCKET_MSG_FMT, "<e_skt>");
 					ctrls->print_help = 1;
 					goto exit;
-                                };
+				}
+				ctrls->remcli_portno = (int)tmp16;
 				break;
-                        default: printf("\nUnknown parm: \"%s\"\n", argv[idx]);
+                        default:
+                        	printf("\nUnknown parm: \"%s\"\n", argv[idx]);
                                 ctrls->print_help = 1;
                         };
                 };

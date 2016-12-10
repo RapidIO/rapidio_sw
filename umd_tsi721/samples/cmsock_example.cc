@@ -65,6 +65,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <string>
 
+#include "tok_parse.h"
 #include "rio_misc.h"
 #include "mportcmsock.h"
 
@@ -80,10 +81,15 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 volatile int stop_req = 0;
 static void sig_term(int UNUSED_PARM(signo)) { stop_req = 1; }
 
-void usage_and_exit(const char* name)
+void usage(const char* program)
 {
-	fprintf(stderr, "usage: %s: <-c destid> or <-s>\n", name);
-	exit(0);
+	fprintf(stderr, "%s - Example program for messaging user mode driver\n", program);
+	fprintf(stderr, "Usage:\n");
+	fprintf(stderr, "  %s [options]\n", program);
+	fprintf(stderr, "Options are:\n");
+	fprintf(stderr, "  -c destid\n");
+	fprintf(stderr, "  -s\n");
+	fprintf(stderr, "\n");
 }
 
 char bufA[DATA_SZ], bufB[DATA_SZ];
@@ -117,9 +123,12 @@ inline std::string hexdump(const char* data, const int len)
 
 int main(int argc, char* argv[])
 {
+	int c = 0;
+	char *program = argv[0];
+
 	bool ret = 0;
 	int server = -1;
-	uint16_t destid = 0xFFFF;
+	uint32_t destid = 0;
 	int mportid = 0;
 	int rc = 0;
 
@@ -127,23 +136,44 @@ int main(int argc, char* argv[])
 	memset(bufB, 'B', sizeof(bufA));
 
 	/** - Parse input parameters */
-	int c = 0;
-	while ((c = getopt (argc, argv, "hsc:")) != -1) {
-		switch(c) {
-		case 'h': usage_and_exit(argv[0]);
+	while (-1 != (c = getopt(argc, argv, "hsc:"))) {
+		switch( c) {
+		case 's':
+			if (server != -1) {
+				usage(program);
+				exit(EXIT_FAILURE);
+			}
+			server = 1;
 			break;
-		case 's': server = 1;
+		case 'c':
+			if (server != -1) {
+				usage(program);
+				exit(EXIT_FAILURE);
+			}
+			server = 0;
+			if (tok_parse_did(optarg, &destid, 0)) {
+				printf(TOK_ERR_DID_MSG_FMT);
+				exit(EXIT_FAILURE);
+			}
 			break;
-		case 'c': server = 0;
-			destid = (uint16_t)strtoul(optarg, NULL, 10);
-			break;
-		default: exit(9);
-			break;
+		case 'h':
+			usage(program);
+			exit(EXIT_SUCCESS);
+		case '?':
+		default:
+			/* Invalid command line option */
+			if (isprint(optopt)) {
+				printf("Unknown option '-%c\n", optopt);
+			}
+			usage(program);
+			exit(EXIT_FAILURE);
 		}
 	}
 
-	if (server == -1)
-		usage_and_exit(argv[0]);
+	if (server == -1) {
+		usage(program);
+		exit(EXIT_FAILURE);
+	}
 
 	signal(SIGINT, sig_term);
 	signal(SIGTERM, sig_term);

@@ -11,6 +11,7 @@
 
 #include <riocp_pe.h>
 #include <riocp_pe_internal.h>
+#include "tok_parse.h"
 #include "driver.h"
 
 #define MAX_LOOKUP_HOPS 16
@@ -170,6 +171,7 @@ static int riocp_pe_test_mport_get_pe_list()
 static int riocp_pe_test_lookup(int argc, char **argv)
 {
 	int ret = 0;
+	uint32_t tmp;
 	uint8_t port = 0;
 	hc_t hopcount = 0;
 	ct_t comptag;
@@ -182,7 +184,11 @@ static int riocp_pe_test_lookup(int argc, char **argv)
 	}
 
 	token = strtok(pathstring, ",");
-	port = (uint8_t)strtoul(token, NULL, 10);
+	if (tok_parse_port_num(token, &tmp, 0)) {
+		fprintf(stderr, TOK_ERR_PORT_NUM_MSG_FMT);
+		return -1;
+	}
+	port = (uint8_t)(tmp & UINT8_MAX);
 
 	if (is_host) {
 		ret = riocp_pe_maint_read(mport, RIO_COMPTAG, &comptag);
@@ -207,7 +213,11 @@ static int riocp_pe_test_lookup(int argc, char **argv)
 
 	while ((token = strtok(NULL, ",")) && (token != NULL)
 			&& hopcount < MAX_LOOKUP_HOPS-1) {
-		port = strtoul(token, NULL, 10);
+		if (tok_parse_port_num(token, &tmp, 0)) {
+			fprintf(stderr, TOK_ERR_PORT_NUM_MSG_FMT);
+			return -1;
+		}
+		port = (uint8_t)(tmp & UINT8_MAX);
 
 		if (is_host) {
 			ret = riocp_pe_maint_read(path[hopcount], RIO_COMPTAG,
@@ -303,11 +313,18 @@ static int riocp_pe_test_connected()
 static int riocp_pe_test_set_destid(int argc, char **argv)
 {
 	int ret;
-	uint32_t destid = (uint32_t)strtoul(argv[3], NULL, 0);
+	uint32_t destid;
+
+	if (tok_parse_did(argv[3], &destid, 0)) {
+		fprintf(stderr, TOK_ERR_DID_MSG_FMT);
+		return -EINVAL;
+	}
+
 	if (argc < 4) {
 		usage(argv[0]);
 		return -EINVAL;
 	}
+
 	ret = riocp_pe_set_destid(mport, destid);
 	if (ret) {
 		fprintf(stderr, "error setting destid for mport: %s\n", strerror(-ret));

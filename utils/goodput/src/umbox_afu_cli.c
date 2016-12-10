@@ -6,6 +6,7 @@
 #include <sys/un.h>
 
 #include "string_util.h"
+#include "tok_parse.h"
 #include "umbox_afu.h"
 
 #define      CM_TAG   3
@@ -25,7 +26,11 @@ int main(int argc, char* argv[])
         return 1;
     }
 
-    const uint16_t destid = (uint16_t)strtoul(argv[1], NULL, 10);
+    const uint16_t destid = 0;
+    if (tok_parse_did(argv[1], &destid, 0)) {
+	    fprintf(stderr, TOK_ERR_DID_MSG_FMT);
+	    return 1;
+    }
 
     int is_server = 0;
     if (argc > 2 && tolower(argv[2][0]) == 's') is_server = 1;

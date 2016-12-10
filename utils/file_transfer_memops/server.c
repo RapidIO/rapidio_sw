@@ -55,6 +55,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <pthread.h>
 
 #include "string_util.h"
+#include "tok_parse.h"
 #include "rio_misc.h"
 #include "rapidio_mport_mgmt.h"
 #include "rapidio_mport_sock.h"
@@ -84,18 +85,14 @@ void print_server_help(void)
 	printf("-c <skt> : Supports remote console connectivity using"
 							" <skt>.\n");
 	printf("	 The default <skt> value is 4444.\n");
-	printf("	 Note: There must be a space between \"-c\""
-							" and <skt>.\n");
 	printf("-i <rio_ibwin_base>: Use <rio_ibwin_base> as the starting\n");
 	printf("	 RapidIO address for inbound RDMA windows.\n");
 	
 	printf("	 The default value is 0x%x.\n", TOTAL_TX_BUFF_SIZE); 
-	printf("	 Note: There must be a space between -i and \n");
-	printf("-m<mport>: Accept requests on <mport>. 0-9 is the range of\n");
+	printf("-m <mport>: Accept requests on <mport>. 0-%u is the range of\n",
+			RIO_MAX_MPORTS - 1);
 	printf("	 valid mport values.\n");
 	printf("	 The default mport value is 0. \n");
-	printf("	Note: There must not be a space between -m and"
-							" <mport>.\n");
 	printf("-n, -N: Disables the command line interface for this"
 							" server.\n");
 	printf("	 Note that a server command line can still be\n");
@@ -106,7 +103,7 @@ void print_server_help(void)
 	printf("	The default value is %d.\n", TOTAL_TX_BUFF_SIZE/1024);
 	printf("	The larger the window, the faster the transfer.\n");
 
-	printf("-W<ibwin_cnt>: Attempts to get <ibwin_cnt> inbound RDMA"
+	printf("-W <ibwin_cnt>: Attempts to get <ibwin_cnt> inbound RDMA"
 						" windows.\n");
 	printf("	 The default value is 1.\n");
 	printf("	 The maximum number of parallel file transfers is\n");
@@ -118,20 +115,21 @@ void print_server_help(void)
 	printf("	 The default value is 5555.\n");
 	printf("	 The cm_skt and mport value must be correct to\n");
 	printf("	 successfully connect .\n");
-	printf("	 Note: There must be a space between -X and"
-							" <cm_skt>.\n");
 };
+
 void parse_options(int argc, char *argv[], 
 		int *cons_skt,
 		int *print_help,
 		uint8_t *mport_num,
 		int *run_cons,
-		int *win_size,      
+		int *win_size,
 		int *num_win, 
 		int *xfer_skt,
-	       	uint64_t *ibwin_base )   
+		uint64_t *ibwin_base )
 {
 	int idx;
+	uint32_t tmp32;
+	uint16_t tmp16;
 
 	*cons_skt = 8754;
 	*print_help = 0;
@@ -148,89 +146,124 @@ void parse_options(int argc, char *argv[],
 
 		if ('-' == argv[idx][0]) {
 			switch(argv[idx][1]) {
-			case 'd': debug = 0;
+			case 'd':
+				debug = 0;
 				break;
-			case 'D': debug = 1;
+			case 'D':
+				debug = 1;
 				break;
 			case 'c': 
-			case 'C': if (argc < (idx+1)) {
-					  printf("\n<skt> not specified\n");
-					  *print_help = 1;
-					  goto exit;
-				} else {
-					idx++;
-					*cons_skt = (int)strtol(argv[idx], NULL, 10);
-				};
+			case 'C':
+				idx++;
+				if (argc < idx) {
+					printf("\n<skt> not specified\n");
+					*print_help = 1;
+					goto exit;
+				}
+				if (tok_parse_socket(argv[idx], &tmp16, 0)) {
+					printf("\n");
+					printf(TOK_ERR_SOCKET_MSG_FMT, "<skt>");
+					*print_help = 1;
+					goto exit;
+				}
+				*cons_skt = (int)tmp16;
 				break;
 			case '?': 
 			case 'h': 
-			case 'H': *print_help = 1;
-				  break;
+			case 'H':
+				*print_help = 1;
+				break;
 			case 'i': 
-			case 'I': if (argc < (idx+1)) {
-					  printf("\n<base> not specified\n");
-					  *print_help = 1;
-					  goto exit;
-				} else {
-					idx++;
-					*ibwin_base = (uint64_t)strtoull(argv[idx], NULL, 10);
-				};
+			case 'I':
+				idx++;
+				if (argc < idx) {
+					printf("\n<base> not specified\n");
+					*print_help = 1;
+					goto exit;
+				}
+				if (tok_parse_ll(argv[idx], ibwin_base, 0)) {
+					printf("\n");
+					printf(TOK_ERR_LL_HEX_MSG_FMT, "<base>");
+					*print_help = 1;
+					goto exit;
+				}
 				break;
 			case 'm': 
 			case 'M': 
-				if ((argv[idx][2] >= '0') && 
-				    (argv[idx][2] <= '9')) {
-					*mport_num = argv[idx][2] - '0';
-				} else {
-					printf("\n<mport> invalid\n");
+				idx++;
+				if (argc < idx) {
+					printf("\n<mport> not specified\n");
 					*print_help = 1;
 					goto exit;
-				};
+				}
+				if (tok_parse_mport_id(argv[idx], &tmp32, 0)) {
+					printf("\n");
+					printf(TOK_ERR_MPORT_MSG_FMT);
+					*print_help = 1;
+					goto exit;
+				}
+				*mport_num = (int)tmp32;
 				break;
 			case 'n': 
 			case 'N': *run_cons = 0;
 				  break;
 			case 's': 
-			case 'S': if (argc < (idx+1)) {
-					  printf("\n<size> not specified\n");
-					  *print_help = 1;
-					  goto exit;
-				};
+			case 'S':
 				idx++;
-				*win_size = (int)strtol(argv[idx], NULL, 10);
-				if (*win_size > (TOTAL_TX_BUFF_SIZE/1024)) {
-					printf("\n<size> exceeds max\n");
+				if (argc < idx) {
+					printf("\n<size> not specified\n");
 					*print_help = 1;
 					goto exit;
-				};
+				}
+				if (tok_parse_long(argv[idx], &tmp32, 0, TOTAL_TX_BUFF_SIZE/1024, 0)) {
+					printf("\n");
+					printf(TOK_ERR_LONG_HEX_MSG_FMT, "<size>", 0, TOTAL_TX_BUFF_SIZE/1024);
+					*print_help = 1;
+					goto exit;
+				}
+				*win_size = (int)tmp32;
 				break;
 			case 'w':
-			case 'W': if ((argv[idx][2] >= '0') && 
-				    (argv[idx][2] <= '9')) {
-					*num_win = argv[idx][2] - '0';
-				} else {
-					printf("\n<ibwin_cnt> invalid\n");
+			case 'W':
+				idx++;
+				if (argc < idx) {
+					printf("\n<ibwin_cnt> not specified\n");
 					*print_help = 1;
 					goto exit;
-				};
+				}
+				if (tok_parse_long(argv[idx], &tmp32, 0, 9, 0)) {
+					printf("\n");
+					printf(TOK_ERR_LONG_HEX_MSG_FMT, "<ibwin_cnt>", 0, 9);
+					*print_help = 1;
+					goto exit;
+				}
+				*num_win = (int)tmp32;
 				break;
 			case 'x': 
-			case 'X': if (argc < (idx+1)) {
+			case 'X':
+				idx++;
+				if (argc < idx) {
 					printf("\n<skt> not specified\n");
 					*print_help = 1;
 					goto exit;
-				} else {
-					idx++;
-					*xfer_skt = (int)strtol(argv[idx], NULL, 10);
-				};
-				  break;
-			default: printf("\nUnknown parm: \"%s\"\n", argv[idx]);
+				}
+				if (tok_parse_socket(argv[idx], &tmp16, 0)) {
+					printf("\n");
+					printf(TOK_ERR_SOCKET_MSG_FMT, "<skt>");
+					*print_help = 1;
+					goto exit;
+				}
+				*xfer_skt = (int)tmp16;
+				break;
+			default:
+				printf("\nUnknown parm: \"%s\"\n", argv[idx]);
 				*print_help = 1;
 			};
 		};
 	}
-	*win_size = *win_size * 1024;
+
 exit:
+	*win_size = *win_size * 1024;
 	return;
 }
 

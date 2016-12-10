@@ -38,16 +38,6 @@
  * \file riodp_test_buf.c
  * \brief User-space DMA/IBwin buffers mapping test program.
  * Test DMA buffer mapping by multiple processes        
- *
- * Usage:
- *   ./riodp_test_buf [options]
- *
- * Options are:
- * - -M mport_id | --mport mport_id : local mport device index (default=0)
- * - --i n: buffer allocation mode (i0 - common DMA, i1 - IBwin mapping)
- * - -S xxxx | --size xxxx : buffer size in bytes (default 0x200000)
- * - -R xxxx | --ibbase xxxx : inbound window base address in RapidIO address space
- * - --help (or -h)
  */
 
 #include <stdio.h>
@@ -62,15 +52,18 @@
 #include <stdint.h> /* For size_t */
 #include <unistd.h>
 #include <getopt.h>
+#include <ctype.h>
 #include <time.h>
 #include <signal.h>
+
+#include <rapidio_mport_mgmt.h>
+#include <rapidio_mport_dma.h>
+#include "tok_parse.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#include <rapidio_mport_mgmt.h>
-#include <rapidio_mport_dma.h>
 
 /** \def DEFAULT_IBWIN_SIZE
      \brief Default size of Inbound Window and corresponding data buffer.
@@ -84,6 +77,33 @@ extern "C" {
 
 static riomp_mport_t mport_hnd;
 static uint32_t ibwin_size = DEFAULT_IBWIN_SIZE;
+
+/**
+ * Prints the help message for this test, including a list of parameters
+ * \param[in] program File name used to execute this test
+ */
+void usage(char *program)
+{
+	printf("%s - test DMA buffer mapping by multiple processes\n",	program);
+	printf("Usage:\n");
+	printf("  %s [options]\n", program);
+	printf("Options are:\n");
+	printf("  -M mport_id\n");
+	printf("  --mport mport_id\n");
+	printf("    local mport device index (default 0)\n");
+	printf("  -i buffer allocation mode (0 - common DMA, 1 - IBwin mapping\n");
+	printf("  --help (or -h)\n");
+	printf("  -S xxxx\n");
+	printf("  --size xxxx\n");
+	printf("    buffer size in bytes (default 0x%x)\n", DEFAULT_IBWIN_SIZE);
+	printf("  -R xxxx\n");
+	printf("  --ibbase xxxx\n");
+	printf("    inbound window base address in RapidIO address space (default any address)\n");
+	printf("  -L xxxx\n");
+	printf("  --laddr xxxx\n");
+	printf("    physical address of reserved local memory to use (default any address)\n");
+	printf("\n");
+}
 
 /**
  * \brief Called by each child process to initialize each segment of
@@ -291,40 +311,6 @@ out:
 	return 0;
 }
 
-/**
- * \brief Called by main() to display help for this test
- *
- * \param[in] program File name used to execute this test
- *
- * \retval 0 means success
- * \retval Not 0 means failure
- *
- * Prints the help message for this test, including a list
- * of parameters
- *
- */
-void display_help(char *program)
-{
-	printf("%s - test DMA buffer mapping by multiple processes\n",	program);
-	printf("Usage:\n");
-	printf("  %s [options]\n", program);
-	printf("options are:\n");
-	printf("  -M mport_id\n");
-	printf("  --mport mport_id\n");
-	printf("    local mport device index (default=0)\n");
-	printf("  -i buffer allocation mode (0 - common DMA, 1 - IBwin mapping\n");
-	printf("  --help (or -h)\n");
-	printf("  -S xxxx\n");
-	printf("  --size xxxx\n");
-	printf("    buffer size in bytes (default 0x200000)\n");
-	printf("  -R xxxx\n");
-	printf("  --ibbase xxxx\n");
-	printf("    inbound window base address in RapidIO address space\n");
-	printf("  -L xxxx\n");
-	printf("  --laddr xxxx\n");
-	printf("    physical address of reserved local memory to use\n");
-	printf("\n");
-}
 
 /**
  * \brief Starting point for the test program
@@ -337,11 +323,16 @@ void display_help(char *program)
  */
 int main(int argc, char** argv)
 {
-	uint32_t mport_id = 0;
-	int option;
+	int c;
+	char *program = argv[0];
+
+	// command line parameters, all optional
 	int buf_mode = 0;
+	uint32_t mport_id = 0;
 	uint64_t rio_base = RIOMP_MAP_ANY_ADDR;
 	uint64_t loc_addr = RIOMP_MAP_ANY_ADDR;
+
+	// long parameter values
 	static const struct option options[] = {
 		{ "size",   required_argument, NULL, 'S' },
 		{ "ibbase", required_argument, NULL, 'R' },
@@ -349,35 +340,54 @@ int main(int argc, char** argv)
 		{ "laddr",  required_argument, NULL, 'L' },
 		{ "help",   no_argument, NULL, 'h' },
 	};
-	char *program = argv[0];
+
 	int rc = EXIT_SUCCESS;
 
 	/** Parse command line options, if any */
-	while (-1 != (option = getopt_long_only(argc, argv,
+	while (-1 != (c = getopt_long_only(argc, argv,
 			"hiM:R:S:L:", options, NULL))) {
-
-		switch (option) {
+		switch (c) {
 		case 'S':
-			ibwin_size = (uint32_t)strtoul(optarg, NULL, 0);
+			if (tok_parse_l(optarg, &ibwin_size, 0)) {
+				printf(TOK_ERR_L_HEX_MSG_FMT, "Buffer size");
+				exit (EXIT_FAILURE);
+			}
 			break;
 		case 'i':
 			/* 0 = common DMA buffer, 1 = IBwin mapped DMA buffer */
 			buf_mode = 1;
 			break;
 		case 'R':
-			rio_base = (uint64_t)strtoull(optarg, NULL, 0);
+			if (tok_parse_ll(optarg, &rio_base, 0)) {
+				printf(TOK_ERR_LL_HEX_MSG_FMT, "Base address");
+				exit (EXIT_FAILURE);
+			}
 			break;
 			/* Options common for all modes */
 		case 'L':
-			loc_addr = (uint64_t)strtoull(optarg, NULL, 0);
+			if (tok_parse_ll(optarg, &loc_addr, 0)) {
+				printf(TOK_ERR_LL_HEX_MSG_FMT,
+						"Physical address");
+				exit (EXIT_FAILURE);
+			}
 			break;
 		case 'M':
-			mport_id = (uint32_t)strtoul(optarg, NULL, 0);
+			if (tok_parse_mport_id(optarg, &mport_id, 0)) {
+				printf(TOK_ERR_MPORT_MSG_FMT);
+				exit (EXIT_FAILURE);
+			}
 			break;
 		case 'h':
-		default:
-			display_help(program);
+			usage(program);
 			exit(EXIT_SUCCESS);
+		case '?':
+		default:
+			/* Invalid command line option */
+			if (isprint(optopt)) {
+				printf("Unknown option '-%c\n", optopt);
+			}
+			usage(program);
+			exit(EXIT_FAILURE);
 		}
 	}
 

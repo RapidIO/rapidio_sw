@@ -6,7 +6,11 @@
 #include <time.h>
 #include <sys/time.h>
 #include <signal.h>
+#include <getopt.h>
+#include <ctype.h>
 
+#include "rio_standard.h"
+#include "tok_parse.h"
 #include "test_macros.h"
 
 #include "librdma.h"
@@ -305,15 +309,23 @@ void sig_handler(int sig)
 	exit(0);
 } /* sig_handler() */
 
+void usage(char* program)
+{
+	printf("%s -h -d<destid>\n", program);
+}
+
 int main(int argc, char *argv[])
 {
 	int c;
-	uint16_t destid = 0xFFFF;
+	char *program = argv[0];
+
+	uint32_t destid = RIO_LAST_DEV16;
+	bool have_destid = false;
 
 	/* Parse command-line parameters */
 	if (argc < 2) {
-		puts("rdmad -h -d<destid>");
-		exit(1);
+		usage(program);
+		exit(EXIT_FAILURE);
 	}
 
 	/* Register signal handler */
@@ -327,23 +339,33 @@ int main(int argc, char *argv[])
 	sigaction(SIGABRT, &sig_action, NULL);
 	sigaction(SIGUSR1, &sig_action, NULL);
 
-	while ((c = getopt(argc, argv, "hd:")) != -1)
-		switch (c) {
+	while (-1 != (c = getopt(argc, argv, "hd:"))) {
+		switch(c) {
 		case 'd':
-			destid = (uint16_t)strtoul(optarg, NULL, 10);
-		break;
+			if (tok_parse_did(optarg, &destid, 0)) {
+				printf(TOK_ERR_DID_MSG_FMT);
+				exit(EXIT_FAILURE);
+			}
+			have_destid = true;
+			break;
 		case 'h':
-			puts("rdmad -h -d<destid>");
-			exit(1);
-		break;
+			usage(program);
+			exit(EXIT_SUCCESS);
 		case '?':
-			/* Invalid command line option */
-			exit(1);
-		break;
-
 		default:
-			abort();
+			/* Invalid command line option */
+			if (isprint(optopt)) {
+				printf("Unknown option '-%c\n", optopt);
+			}
+			usage(program);
+			exit(EXIT_FAILURE);
 		}
+	}
+
+	if (!have_destid) {
+		usage(program);
+		exit(EXIT_FAILURE);
+	}
 
 	while (1) {
 		char ch;

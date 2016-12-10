@@ -74,7 +74,7 @@ samples/%.o: samples/%.c
 $(0)/%: $(0)/samples/%.o
 	@echo ---------- Building $@
 	$(CXX) -o $@ $< $(LDFLAGS) \
-	-ltime_utils -lpthread
+	-lcli -ltime_utils -lpthread
 
 clean:
 	rm -f $(TARGETS) lib$(NAME).so.$(SOVER) $(SAMPLE_TARGETS) $(OBJECTS) $(SAMPLE_OBJECTS) inc/*~ src/*~ *~

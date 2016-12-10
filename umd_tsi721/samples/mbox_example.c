@@ -54,6 +54,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -66,6 +67,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <signal.h>
 #include <errno.h>
 
+#include "string_util.h"
+#include "tok_parse.h"
 #include "rio_misc.h"
 #include "liblog.h"
 #include "mboxmgr_tsi721.h"
@@ -79,13 +82,11 @@ extern "C" {
 #define FOUR_KB_1 (FOUR_KB+1)
 #define MIN_MSG_SIZE 24
 
-#define HACK(x) #x
-#define STR(x) HACK(x)
-
 #ifdef MBOX_CLIENT
 #define OPTIONS_STR "hm:d:c:C:s:b:f:"
 #define HELP_STR \
-	"usage: \n" \
+	"%s - Example client for messaging user mode driver\n" \
+	"Usage: \n" \
 	"sudo ./client -m <mp> -d <did> -c <ch> -C <CH> -s <sz> -b <tx> -f <fin>\n" \
 		"mp  - MPORT aka device index -- usually 0\n" \
 		"did - RapidIO destid (8-bit) where the server is running\n" \
@@ -104,7 +105,8 @@ extern "C" {
 #else
 #define OPTIONS_STR "hm:c:b:f:"
 #define HELP_STR \
-	"usage:\n" \
+	"%s - Example server for messaging user mode driver\n" \
+	"Usage:\n" \
 	"sudo ./server -m <mp> -c <ch> -b <tx> -f <fin>\n" \
 		"mp  - MPORT aka device index -- usually 0\n" \
 		"ch  - MBOX channel for mp, values of 2 (default) or 3\n" \
@@ -121,15 +123,15 @@ extern "C" {
 
 struct worker {
 	volatile int stop_req;	///< Set by signal handler to halt execution
-	int mp_num;   ///< Mport index to use, usually 0 i.e. /dev/mport0
-	int mbox;     ///< Local mailbox 
-	int tgt_did;  ///< Server Destination ID 
-	int tgt_mbox; ///< Server Mailbox number, either 2 or 3
-	uint64_t msg_sz; ///< Message size, multiple of 8, 24 <= msg_sz <= 4096
+	uint32_t mp_num;   ///< Mport index to use, usually 0 i.e. /dev/mport0
+	uint16_t mbox;     ///< Local mailbox
+	uint32_t tgt_did;  ///< Server Destination ID
+	uint16_t tgt_mbox; ///< Server Mailbox number, either 2 or 3
+	uint32_t msg_sz; ///< Message size, multiple of 8, 24 <= msg_sz <= 4096
 	MboxChannelMgr* mch; ///< User Mode Driver Mailbox object
 	uint32_t	abort_reason; ///< Reason for hardware failure
-	int		sts_entries; ///< Number mailbox completions
-	int		tx_buf_cnt; ///< Number of mailbox transmit buffers
+	uint16_t	sts_entries; ///< Number mailbox completions
+	uint16_t	tx_buf_cnt; ///< Number of mailbox transmit buffers
 	MboxChannel::MboxOptions_t opt;  ///< Parameters for message TX
 	MboxChannel::MboxOptions_t rx_opt; ///< Parameters from message RX
 	MboxChannel::WorkItem_t *wi; ///< User Mode Driver work items
@@ -195,7 +197,7 @@ bool setup_mailbox(struct worker *info)
 	}
 
 	INFO("\n\t%s my_did=%u my_mbox=%d tgt_did=%u tgt_mbox=%d\n\t"
-		" msg_sz=%" PRIu64 " #buf=%d #fifo=%d\n",
+		" msg_sz=%" PRIu32 " #buf=%d #fifo=%d\n",
 			CLIENT?"CLIENT":"SERVER",
 			 info->mch->getDestId(), info->mbox,
 			 info->tgt_did, info->tgt_mbox,
@@ -537,11 +539,9 @@ exit:
  * \brief Called by main to display parameters/usage information and exit
  *
  */
-
-static void usage_and_exit()
+void usage(char *program)
 {
-	fprintf(stderr, HELP_STR);
-	exit(0);
+	fprintf(stderr, HELP_STR, program);
 }
 
 /**
@@ -556,7 +556,7 @@ static void usage_and_exit()
  *
  * Has logic for both server and client command line parameters, but only
  * the parameters defined in the server/client specific OPTIONS_STR 
- * constant ares upported.
+ * constant are supported.
  *
  * Displays usage information when -h is entered.
  *
@@ -565,48 +565,68 @@ static void usage_and_exit()
 void parse_options(struct worker *info, int argc, char* argv[])
 {
 	int c;
+	char *program = argv[0];
+
 	opterr = 0;
 
-	while ((c = getopt (argc, argv, OPTIONS_STR)) != -1) {
-		switch (c) {
-			case 'h': usage_and_exit(); 
-				break;
-			case 'm': info->mp_num = (int)strtol(optarg, NULL, 10);
-				if (info->mp_num < 0)
-					usage_and_exit();
-				break;
-			case 'd': info->tgt_did = (int)strtol(optarg, NULL, 10);
-				if (info->tgt_did < 0)
-					usage_and_exit();
-				break;
-			case 'c': info->mbox = (int)strtol(optarg, NULL, 10);
-				if ((info->mbox < 2) || (info->mbox > 3)) 
-					usage_and_exit();
-				break;
-			case 'C': info->tgt_mbox = (int)strtol(optarg, NULL, 10);
-				if ((info->tgt_mbox < 2) || (info->tgt_mbox > 3)) 
-					usage_and_exit();
-				break;
-			case 's': info->msg_sz = (uint64_t)strtoull(optarg, NULL, 10);
-				if ((info->msg_sz < 8) || (info->msg_sz > 4096)) 
-					usage_and_exit();
-				break;
-			case 'b': info->tx_buf_cnt = (int)strtol(optarg, NULL, 10);
-				if ((info->tx_buf_cnt < 32) ||
-					(info->tx_buf_cnt > 4096)) 
-					usage_and_exit();
-				break;
-			case 'f': info->sts_entries = (int)strtol(optarg, NULL, 10);
-				if ((info->sts_entries < 32) ||
-					(info->sts_entries > 4096)) 
-					usage_and_exit();
-				break;
-			default: ERR("\n\tUnknown argument '%c'.\n", c);
-				usage_and_exit();
-				break;
-		};
-	};
-};
+	while (-1 != (c = getopt(argc, argv, OPTIONS_STR))) {
+		switch( c) {
+		case 'm':
+			if (tok_parse_mport_id(optarg, &info->mp_num, 0)) {
+				printf(TOK_ERR_MPORT_MSG_FMT);
+				exit (EXIT_FAILURE);
+			}
+			break;
+		case 'd':
+			if (tok_parse_did(optarg, &info->tgt_did, 0)) {
+				printf(TOK_ERR_DID_MSG_FMT);
+				exit (EXIT_FAILURE);
+			}
+			break;
+		case 'c':
+			if (tok_parse_short(optarg, &info->mbox, 2, 3, 0)) {
+				printf(TOK_ERR_SHORT_MSG_FMT, "MBOX channel for mp", 2, 3);
+				exit (EXIT_FAILURE);
+			}
+			break;
+		case 'C':
+			if (tok_parse_short(optarg, &info->tgt_mbox, 2, 3, 0)) {
+				printf(TOK_ERR_SHORT_MSG_FMT, "MBOX channel for the server", 2, 3);
+				exit (EXIT_FAILURE);
+			}
+			break;
+		case 's':
+			if (tok_parse_long(optarg, &info->msg_sz, 8, 4096, 0)) {
+				printf(TOK_ERR_LONG_MSG_FMT, "Message size", 8, 4096);
+				exit(EXIT_FAILURE);
+			}
+			break;
+		case 'b':
+			if (tok_parse_short(optarg, &info->tx_buf_cnt, 32, 4096, 0)) {
+				printf(TOK_ERR_SHORT_MSG_FMT, "Maximum number of pending messages", 32, 4096);
+				exit(EXIT_FAILURE);
+			}
+			break;
+		case 'f':
+			if (tok_parse_short(optarg, &info->sts_entries, 32, 4096, 0)) {
+				printf(TOK_ERR_SHORT_MSG_FMT, "Maximum number of finished messages", 32, 4096);
+				exit(EXIT_FAILURE);
+			}
+			break;
+		case 'h':
+			usage(program);
+			exit(EXIT_SUCCESS);
+		case '?':
+		default:
+			/* Invalid command line option */
+			if (isprint(optopt)) {
+				printf("Unknown option '-%c\n", optopt);
+			}
+			usage(program);
+			exit(EXIT_FAILURE);
+		}
+	}
+}
 
 /**
  * \brief Signal handler for terminating the client/server

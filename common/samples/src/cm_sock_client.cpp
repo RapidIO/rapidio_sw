@@ -8,15 +8,29 @@
 #include <iostream>
 #include <memory>
 
+#include "tok_parse.h"
 #include "cm_sock.h"
 
 using namespace std;
 
-static int channel = CM_SOCK_DFLT_SVR_CM_PORT;
-static int mport_id = 0;
-static uint16_t destid = 0;
+static uint16_t channel = CM_SOCK_DFLT_SVR_CM_PORT;
+static uint32_t mport_id = 0;
+static uint32_t destid = 0;
 static cm_client *client;
 static bool shutting_down = false;
+
+void usage(char * program)
+{
+	printf("%s - client for demonstration\n", program);
+	printf("Usage:\n");
+	printf("  %s [options]\n", program);
+	printf("Options are:\n");
+	printf("    <channel> channel number on remote RapidIO device\n");
+	printf("    <destid> target RapidIO device destination ID\n");
+	printf("    <mport> local mport device index\n");
+	printf("\n");
+	printf("%s -c<channel> -d<destid> -m<mport_id>\n", program);
+}
 
 void sig_handler(int sig)
 {
@@ -25,39 +39,60 @@ void sig_handler(int sig)
 	exit(1);
 }
 
+
 int main(int argc, char *argv[])
 {
 	int c;
+	char *program = argv[0];
 
 	if (argc < 2) {
-		goto print_help;
+		usage(program);
+		exit(EXIT_FAILURE);
 	}
 
 	signal(SIGQUIT, sig_handler);
 	signal(SIGINT, sig_handler);
 	signal(SIGABRT, sig_handler);
 
-	while ((c = getopt(argc, argv, "c:d:hm:")) != -1) {
+	while (-1 != (c = getopt(argc, argv, "c:d:hm:"))) {
 		switch (c) {
 		case 'c':
-			channel = (int)strtol(optarg, NULL, 10);
+			if (tok_parse_socket(optarg, &channel, 0)) {
+				printf(TOK_ERR_SOCKET_MSG_FMT, "Channel number");
+				exit(EXIT_FAILURE);
+			}
 			break;
 		case 'd':
-			destid = (uint16_t)strtoul(optarg, NULL, 10);
+			if (tok_parse_did(optarg, &destid, 0)) {
+				printf(TOK_ERR_DID_MSG_FMT);
+				exit(EXIT_FAILURE);
+			}
 			break;
 		case 'm':
-			mport_id = (int)strtol(optarg, NULL, 10);
+			if (tok_parse_mport_id(optarg, &mport_id, 0)) {
+				printf(TOK_ERR_MPORT_MSG_FMT);
+				exit(EXIT_FAILURE);
+			}
 			break;
 		case 'h':
+			usage(program);
+			exit(EXIT_SUCCESS);
+		case '?':
 		default:
-			goto print_help;
+			/* Invalid command line option */
+			if (isprint(optopt)) {
+				printf("Unknown option '-%c\n", optopt);
+			}
+			usage(program);
+			exit(EXIT_FAILURE);
 		}
 	}
 
 	if (!destid) {
 		printf("\nMust specify destid!\n");
-		goto print_help;
-	};
+		usage(program);
+		exit(EXIT_FAILURE);
+	}
 
 	rdma_log_init("cm_sock_client", false);
 
@@ -109,8 +144,5 @@ out:
 	rdma_log_close();
 	delete client;
 	return 0;
-
-print_help:
-	printf("%s -c<channel> -d<destid> -m<mport_id\n", argv[0]);
-	return 1;
 }
+

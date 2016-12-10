@@ -486,7 +486,7 @@ int main(int argc, char *argv[])
 
 	rdma_log_init("cfg_test.log", 1);
 
-	g_level = 1;
+	g_level = RDMA_LL_OFF;
 
 	if (test_case_1()) {
 		printf("\nTest_case_1 FAILED.");

@@ -41,14 +41,6 @@
  * Listens for connection requests from remote peers and start a child process for new connection.
  * Each child process receives a message from a client and echoes it back to the sender. This echo loop
  * continues until the client closes connection (or server program is terminated by a signal).  
- *
- * Usage:
- *   ./riodp_test_server (loc_mport) (loc_channel) [debug] 
- *
- * Options are:
- * - loc_mport : local mport device index (default=0)
- * - loc_channel : local channel number to listen for connection requests
- * - debug : optional flag to enable debug information output
  */
 
 #include <stdio.h>
@@ -62,15 +54,15 @@
 #include <fcntl.h>
 #include <sys/ioctl.h>
 
+#include <rapidio_mport_mgmt.h>
+#include <rapidio_mport_sock.h>
+#include "rio_ecosystem.h"
+#include "tok_parse.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#include <rapidio_mport_mgmt.h>
-#include <rapidio_mport_sock.h>
-
-/// @cond
-#define RIODP_MAX_MPORTS 8 /* max number of RIO mports supported by platform */
 
 struct args {
 	uint32_t mport_id;
@@ -82,6 +74,18 @@ static volatile sig_atomic_t srv_exit;
 static volatile sig_atomic_t report_status;
 
 static int srv_debug;
+
+static void usage(char *program)
+{
+	printf("%s - library test server\n", program);
+	printf("Usage:\n");
+	printf("  %s [options]\n", program);
+	printf("Options are:\n");
+	printf("    <mport> mport device index\n");
+	printf("    <channel> channel number to listen for connection requests\n");
+	printf("    [debug] enable debug output\n");
+	printf("\n");
+}
 
 static void srv_sig_handler(int signum)
 {
@@ -98,17 +102,8 @@ static void srv_sig_handler(int signum)
 	}
 }
 
-static void usage(char *name)
-{
-	printf("riodp library test server\n");
-	printf("Usage:\n");
-	printf("    %s <local mport> <local channel> [debug]\n", name);
-}
-
 /**
- * \brief Called by main() to display available devices together with program usage information
- *
- * Performs the following steps:
+ * \brief Display available devices
  */
 void show_rio_devs(void)
 {
@@ -116,7 +111,7 @@ void show_rio_devs(void)
 	uint32_t *ep_list = NULL;
 	uint32_t *list_ptr;
 	uint32_t number_of_eps = 0;
-	uint8_t  number_of_mports = RIODP_MAX_MPORTS;
+	uint8_t  number_of_mports = RIO_MAX_MPORTS;
 	uint32_t ep = 0;
 	int i;
 	int mport_id;
@@ -130,9 +125,9 @@ void show_rio_devs(void)
 	}
 
 	printf("\nAvailable %d local mport(s):\n", number_of_mports);
-	if (number_of_mports > RIODP_MAX_MPORTS) {
+	if (number_of_mports > RIO_MAX_MPORTS) {
 		printf("WARNING: Only %d out of %d have been retrieved\n",
-			RIODP_MAX_MPORTS, number_of_mports);
+				RIO_MAX_MPORTS, number_of_mports);
 	}
 
 	/** - for each local mport display list of remote RapidIO devices */
@@ -256,11 +251,17 @@ int main(int argc, char** argv)
 	if (argc < 3) {
 		usage(argv[0]);
 		show_rio_devs();
-		return 0;
+		exit(EXIT_FAILURE);
 	}
 
-	arg.mport_id       = (uint32_t)strtoul(argv[1], NULL, 10);
-	arg.loc_channel    = (uint16_t)strtoul(argv[2], NULL, 10);
+	if (tok_parse_mport_id(argv[1], &arg.mport_id, 0)) {
+		printf(TOK_ERR_MPORT_MSG_FMT);
+		exit(EXIT_FAILURE);
+	}
+	if (tok_parse_socket(argv[2], &arg.loc_channel, 0)) {
+		printf(TOK_ERR_SOCKET_MSG_FMT, "Channel number");
+		exit(EXIT_FAILURE);
+	}
 
 	if (argc == 4) {
 		srv_debug = 1;

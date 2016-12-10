@@ -49,7 +49,7 @@ test/%.o: test/%.c
 $(TEST_TARGETS): $(TEST_OBJECTS)
 	@echo ---------- Building $@
 	$(CC) -o $@ $< $(LDFLAGS) \
-	$(TST_LIBS) -lct -ldid
+	$(TST_LIBS) -lct -ldid -lcli
 
 clean:
 	rm -f $(TARGETS) $(OBJECTS) \

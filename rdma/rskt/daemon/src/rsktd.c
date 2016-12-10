@@ -33,6 +33,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <stdarg.h>
 #include <semaphore.h>
 #include <pthread.h>
@@ -57,6 +58,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <arpa/inet.h>
 
 #include "string_util.h"
+#include "tok_parse.h"
 #include "rio_misc.h"
 #include "libcli.h"
 #include "librdma.h"
@@ -91,8 +93,6 @@ void print_daemon_help(void)
 							" uses <e_skt>.\n");
 	printf("	 The default <e_skt> value is %d.\n", 
 							RSKT_DFLT_CLI_SKT);
-	printf("	 Note: There must be a space between \"-c\""
-							" and <e_skt>.\n");
 	printf("-s <num_spaces>: Number of memory spaces to use\n");
 	printf("	 Default is %d.\n", DFLT_DMN_NUM_MS);
 	printf("	 Maximum is %d.\n", MAX_DMN_NUM_MS);
@@ -108,9 +108,7 @@ void print_daemon_help(void)
 	printf("	 The default value is %d.\n", RSKT_DFLT_APP_PORT_NUM);
 	printf("	 The u_skt and Umport value must be correct for\n");
 	printf("	 the rskt library to operate correctly.\n");
-	printf("	 Note: There must be a space between -u and"
-							" <u_skt>.\n");
-	printf("-m<Umport>: The local mport associated with the u_skt.\n");
+	printf("-m <Umport>: The local mport associated with the u_skt.\n");
 	printf("	 The default value is %d.\n", DFLT_DMN_LSKT_MPORT);
 	printf("	 The u_skt and Umport value must be correct for\n");
 	printf("	 the rskt library to operate correctly.\n");
@@ -118,7 +116,7 @@ void print_daemon_help(void)
 	printf("	 The default value is %d.\n", DFLT_DMN_LSKT_BACKLOG);
 	printf("	 The u_skt and Umport value must be correct for\n");
 	printf("	 the rskt library to operate correctly.\n");
-	printf("-l<loglv>: Current logging level to use.\n");
+	printf("-l <loglv>: Current logging level to use.\n");
 	printf("	   Default is set to match makefile RDMA_LL parm.\n");
 	printf("	   Current default value is %d\n", RDMA_LL);
 	printf("-C <cm_skt>: The RSKT daemon listens for connect requests\n");
@@ -126,9 +124,7 @@ void print_daemon_help(void)
 	printf("	 The default value is %d.\n", RSKT_DFLT_DMN_CM_PORT);
 	printf("	 The cm_skt and mport value must be correct to\n");
 	printf("	 successfully connect.\n");
-	printf("	 Note: There must be a space between -X and"
-							" <cm_skt>.\n");
-	printf("-M<Cmport>: The rskt daemon listens for remote connect requests\n");
+	printf("-M <Cmport>: The rskt daemon listens for remote connect requests\n");
 	printf("	 on this RapidIO mport.\n");
 	printf("	 Default value is %d.\n", DFLT_DMN_CM_CONN_MPORT);
 	printf("	 The cm_skt and Cmport value must be correct to\n");
@@ -141,6 +137,7 @@ void print_daemon_help(void)
 void parse_options(int argc, char *argv[])
 {
 	int idx;
+	uint16_t tmp;
 
 	ctrls.debug = 1;	/* For now */
 	ctrls.print_help = 0;
@@ -168,175 +165,213 @@ void parse_options(int argc, char *argv[])
 			switch(argv[idx][1]) {
 			case '?': 
 			case 'h': 
-			case 'H': ctrls.print_help = 1;
-				  break;
-			case 'd': ctrls.debug = 0;
+			case 'H':
+				ctrls.print_help = 1;
 				break;
-			case 'D': ctrls.debug = 1;
+			case 'd':
+				ctrls.debug = 0;
 				break;
-			case 't': ctrls.rsktd_uskt_tst = 1;
+			case 'D':
+				ctrls.debug = 1;
 				break;
-			case 'T': ctrls.rsktd_cskt_tst = 1;
+			case 't':
+				ctrls.rsktd_uskt_tst = 1;
 				break;
-			case 'N': ctrls.init_ms = 0;
+			case 'T':
+				ctrls.rsktd_cskt_tst = 1;
 				break;
-			case 'B': ctrls.run_cons = 0;
+			case 'N':
+				ctrls.init_ms = 0;
 				break;
-			case 'e': if (argc < (idx+1)) {
-					  printf("\n<e_skt> not specified\n");
-					  ctrls.print_help = 1;
-					  goto exit;
-				};
+			case 'B':
+				ctrls.run_cons = 0;
+				break;
+			case 'e':
 				idx++;
-				ctrls.e_cli_skt = (int)strtol(argv[idx], NULL, 10);
-				if (!ctrls.e_cli_skt) {
-					  printf("\n<e_skt> must not be 0\n");
-					  ctrls.print_help = 1;
-					  goto exit;
-				};
-				break;
-			case 's': if (argc < (idx+1)) {
-					  printf("\n<num_spaces> not specified\n");
-					  ctrls.print_help = 1;
-					  goto exit;
-				};
-				idx++;
-				ctrls.num_ms = (int)strtol(argv[idx], NULL, 10);
-				if (ctrls.num_ms > MAX_DMN_NUM_MS) {
-					  printf("\n<num_spaces> max is %d\n",
-						MAX_DMN_NUM_MS);
-					  ctrls.print_help = 1;
-					  goto exit;
-				};
-				break;
-			case 'S': if (argc < (idx+1)) {
-					  printf("\n<size> not specified\n");
-					  ctrls.print_help = 1;
-					  goto exit;
-				};
-				idx++;
-				ctrls.ms_size = (int)strtol(argv[idx], NULL, 10);
-				if ((128 != ctrls.ms_size) &&
-					(256 != ctrls.ms_size) &&
-					(512 != ctrls.ms_size) &&
-					(1024 != ctrls.ms_size) &&
-					(2048 != ctrls.ms_size)) {
-					printf("\nIllegal ms_size\n");
+				if (argc < idx) {
+					printf("\n<e_skt> not specified\n");
 					ctrls.print_help = 1;
 					goto exit;
-				};
+				}
+				if (tok_parse_socket(argv[idx], &ctrls.e_cli_skt, 0)) {
+					printf("\n");
+					printf(TOK_ERR_SOCKET_MSG_FMT, "<e_skt>");
+					ctrls.print_help = 1;
+					goto exit;
+				}
 				break;
-			case 'k': if (argc < (idx+1)) {
+			case 's':
+				idx++;
+				if (argc < idx) {
+					printf("\n<num_spaces> not specified\n");
+					ctrls.print_help = 1;
+					goto exit;
+				}
+				if (tok_parse_long(argv[idx], &ctrls.num_ms, 1, MAX_DMN_NUM_MS, 0)) {
+					printf("\n");
+					printf(TOK_ERR_LONG_MSG_FMT, "<num_spaces>", 1, MAX_DMN_NUM_MS);
+					ctrls.print_help = 1;
+					goto exit;
+				}
+				break;
+			case 'S':
+				idx++;
+				if (argc < idx) {
 					printf("\n<size> not specified\n");
 					ctrls.print_help = 1;
 					goto exit;
-				};
+				}
+				if (tok_parse_long(argv[idx], &ctrls.ms_size,
+						128, 2048, 0)) {
+					if ((128 != ctrls.ms_size)
+						&& (256 != ctrls.ms_size)
+						&& (512 != ctrls.ms_size)
+						&& (1024 != ctrls.ms_size)
+						&& (2048 != ctrls.ms_size)) {
+						printf("\nMemory space size must be one of 128, 256, 512, 1024 or 2048\n");
+						ctrls.print_help = 1;
+						goto exit;
+					}
+				}
+				break;
+			case 'k':
 				idx++;
-				ctrls.rskt_buff_size = (int)strtol(argv[idx], NULL, 10);
-				if ((2 != ctrls.rskt_buff_size) &&
-					(4 != ctrls.rskt_buff_size) &&
-					(8 != ctrls.rskt_buff_size) &&
-					(16 != ctrls.rskt_buff_size) &&
-					(32 != ctrls.rskt_buff_size) &&
-					(64 != ctrls.rskt_buff_size) &&
-					(128 != ctrls.rskt_buff_size)) {
-					printf("\nBad socket buffer size\n");
+				if (argc < idx) {
+					printf("\n<size> not specified\n");
 					ctrls.print_help = 1;
 					goto exit;
-				};
+				}
+				if (tok_parse_long(argv[idx], &ctrls.rskt_buff_size, 2, 128, 0)) {
+					if ((2 != ctrls.rskt_buff_size) &&
+						(4 != ctrls.rskt_buff_size) &&
+						(8 != ctrls.rskt_buff_size) &&
+						(16 != ctrls.rskt_buff_size) &&
+						(32 != ctrls.rskt_buff_size) &&
+						(64 != ctrls.rskt_buff_size) &&
+						(128 != ctrls.rskt_buff_size)) {
+						printf("\nSocket buffer size must be one of 2, 4, 8, 16, 32, 64 or 128\n");
+						ctrls.print_help = 1;
+						goto exit;
+					}
+				}
 				break;
-			case 'u': if (argc < (idx+1)) {
-					  printf("\n<u_skt> not specified\n");
-					  ctrls.print_help = 1;
-					  goto exit;
-				};
+			case 'u':
 				idx++;
-				ctrls.rsktd_uskt = (int)strtol(argv[idx], NULL, 10);
-				if (!ctrls.rsktd_uskt) {
-					  printf("\n<u_skt> must not be 0\n");
-					  ctrls.print_help = 1;
-					  goto exit;
-				};
+				if (argc < idx) {
+					printf("\n<u_skt> not specified\n");
+					ctrls.print_help = 1;
+					goto exit;
+				}
+				if (tok_parse_socket(argv[idx], &ctrls.rsktd_uskt, 0)) {
+					printf("\n");
+					printf(TOK_ERR_SOCKET_MSG_FMT, "<u_skt>");
+					ctrls.print_help = 1;
+					goto exit;
+				}
 				break;
 			case 'm': 
-				if ((argv[idx][2] >= '0') && 
-				    (argv[idx][2] <= ('0'+MAX_DMN_MPORT))) {
-					ctrls.rsktd_u_mp = argv[idx][2] - '0';
-					break;
-				};
-				printf("\n<mport> invalid\n");
-				ctrls.print_help = 1;
-				goto exit;
-			case 'K': if (argc < (idx+1)) {
-					  printf("\n<bklg> not specified\n");
-					  ctrls.print_help = 1;
-					  goto exit;
-				};
 				idx++;
-				ctrls.rsktd_u_bklg = (int)strtol(argv[idx], NULL, 10);
-				if (!ctrls.rsktd_u_bklg) {
-					  printf("\n<u_bklg> must not be 0\n");
-					  ctrls.print_help = 1;
-					  goto exit;
-				};
+				if (argc < idx) {
+					printf("\n<mport> not specified\n");
+					ctrls.print_help = 1;
+					goto exit;
+				}
+				if (tok_parse_mport_id(argv[idx], &ctrls.rsktd_u_mp, 0)) {
+					printf("\n");
+					printf(TOK_ERR_MPORT_MSG_FMT);
+					ctrls.print_help = 1;
+					goto exit;
+				}
 				break;
-			case 'l': if ((argv[idx][2] <'0') ||
-					(argv[idx][2] >'7')) {
-					  printf("\n<loglvl> not specified\n");
-					  ctrls.print_help = 1;
-					  goto exit;
-				};
-				ctrls.log_level = argv[idx][2] - '0';
-				break;
-			case 'C': if (argc < (idx+1)) {
-					  printf("\n<cm_skt> not specified\n");
-					  ctrls.print_help = 1;
-					  goto exit;
-				};
+			case 'K':
 				idx++;
-				ctrls.rsktd_cskt = (int)strtol(argv[idx], NULL, 10);
-				if (!ctrls.rsktd_cskt) {
-					  printf("\n<cm_skt> must not be 0\n");
-					  ctrls.print_help = 1;
-					  goto exit;
-				};
+				if (argc < idx) {
+					printf("\n<bklg> not specified\n");
+					ctrls.print_help = 1;
+					goto exit;
+				}
+				if (tok_parse_long(argv[idx], &ctrls.rsktd_u_bklg, 1, UINT32_MAX, 0)) {
+					printf("\n");
+					printf(TOK_ERR_LONG_MSG_FMT, "<u_bklg>", 1, UINT32_MAX);
+					ctrls.print_help = 1;
+					goto exit;
+				}
 				break;
-			case 'M': if ((argv[idx][2] >= '0') && 
-				    (argv[idx][2] <= ('0'+MAX_DMN_MPORT))) {
-					ctrls.rsktd_c_mp = argv[idx][2] - '0';
-					break;
-				};
-				printf("\n<Cmport> invalid\n");
-				ctrls.print_help = 1;
-				goto exit;
+			case 'l':
+				idx++;
+				if (argc < idx) {
+					printf("\n<loglvl> not specified\n");
+					ctrls.print_help = 1;
+					goto exit;
+				}
+				if (tok_parse_log_level(argv[idx], &ctrls.log_level, 0)) {
+					printf("\n");
+					printf(TOK_ERR_LOG_LEVEL_MSG_FMT);
+					ctrls.print_help = 1;
+					goto exit;
+				}
 				break;
-			case 'P': if (argc < (idx+3)) {
-					  printf("\nMissing peer parms\n");
-					  ctrls.print_help = 1;
-					  goto exit;
-				};
-				ctrls.peers[ctrls.num_peers].ct 
-					= (uint32_t)strtoul(argv[idx+1], NULL, 10);
-				ctrls.peers[ctrls.num_peers].cm_skt 
-					= (uint32_t)strtoul(argv[idx+2], NULL, 10);
-				idx+=2;
-				
-				if (!ctrls.peers[ctrls.num_peers].cm_skt) {
-					  printf("\nIllegal peer parms\n");
-					  ctrls.print_help = 1;
-					  goto exit;
-				};
+			case 'C':
+				idx++;
+				if (argc < idx) {
+					printf("\n<cm_skt> not specified\n");
+					ctrls.print_help = 1;
+					goto exit;
+				}
+				if (tok_parse_socket(argv[idx], &ctrls.rsktd_cskt, 0)) {
+					printf("\n");
+					printf(TOK_ERR_SOCKET_MSG_FMT, "<cm_skt>");
+					ctrls.print_help = 1;
+					goto exit;
+				}
+				break;
+			case 'M':
+				idx++;
+				if (argc < idx) {
+					printf("\n<Cmport> not specified\n");
+					ctrls.print_help = 1;
+					goto exit;
+				}
+				if (tok_parse_mport_id(argv[idx], &ctrls.rsktd_c_mp, 0)) {
+					printf("\n");
+					printf(TOK_ERR_MPORT_MSG_FMT);
+					ctrls.print_help = 1;
+					goto exit;
+				}
+				break;
+			case 'P':
+				if (argc < (idx + 2)) {
+					printf("\nMissing peer parms\n");
+					ctrls.print_help = 1;
+					goto exit;
+				}
+				idx++;
+				if (tok_parse_l(argv[idx], &ctrls.peers[ctrls.num_peers].ct, 0)) {
+					printf("\n");
+					printf(TOK_ERR_L_HEX_MSG_FMT, "component tag");
+					ctrls.print_help = 1;
+					goto exit;
+				}
+				idx++;
+				if (tok_parse_socket(argv[idx], &tmp, 0)) {
+					printf("\n");
+					printf(TOK_ERR_SOCKET_MSG_FMT, "Socket number");
+					ctrls.print_help = 1;
+					goto exit;
+				}
+				ctrls.peers[ctrls.num_peers].cm_skt = tmp;
 				ctrls.num_peers++;
 				break;
-			default: printf("\nUnknown parm: \"%s\"\n", argv[idx]);
+			default:
+				printf("\nUnknown parm: \"%s\"\n", argv[idx]);
 				ctrls.print_help = 1;
 			};
 		};
 	}
 
+exit:
 	ctrls.ms_size = ctrls.ms_size * 1024;
 	ctrls.rskt_buff_size = ctrls.rskt_buff_size * 1024;
-exit:
 	return;
 }
 

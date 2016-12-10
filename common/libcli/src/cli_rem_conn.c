@@ -49,6 +49,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 
+#include "tok_parse.h"
 #include "string_util.h"
 #include "rio_misc.h"
 #include "libcli.h"
@@ -89,7 +90,8 @@ void *conn_rx(void *parms)
 
 int CLIConnectCmd(struct cli_env *env, int argc, char **argv)
 {
-	int sockfd, portno, n;
+	int sockfd, n;
+	uint16_t sock_num;
 	struct sockaddr_in serv_addr;
 	struct hostent *server;
 	char tx_buffer[1024];
@@ -109,9 +111,13 @@ int CLIConnectCmd(struct cli_env *env, int argc, char **argv)
 		goto exit;
 	}
 
-	portno = (int)strtol(argv[1], NULL, 0);
+	if (tok_parse_socket(argv[1], &sock_num, 0)) {
+		LOGMSG(env, TOK_ERR_SOCKET_MSG_FMT, "Socket number");
+		goto exit;
+	}
+
 	LOGMSG(env, "\nAttempting connection to host \"%s\" socket %d.\n",
-		argv[0], portno);
+		argv[0], sock_num);
 	sockfd = socket(AF_INET, SOCK_STREAM, 0);
 	if (sockfd < 0) {
 		LOGMSG(env, "ERROR opening socket\n");
@@ -122,7 +128,7 @@ int CLIConnectCmd(struct cli_env *env, int argc, char **argv)
 	bcopy((char *)server->h_addr, (char *)&serv_addr.sin_addr.s_addr,
 		server->h_length);
 
-	serv_addr.sin_port = htons(portno);
+	serv_addr.sin_port = htons(sock_num);
 	if (connect(sockfd,(struct sockaddr *) &serv_addr, sizeof(serv_addr)) 
 									< 0) {
 	        LOGMSG(env, "ERROR connecting\n");
@@ -185,9 +191,6 @@ cleanup:
 exit:
 	return 0;
 };
-
-#define STR_HELPER(x) #x
-#define STR(x) STR_HELPER(x)
 
 struct cli_cmd CLIConnect = {
 "connect",

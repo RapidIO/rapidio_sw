@@ -632,11 +632,13 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	if (!fmd->opts->init_and_quit) {
-		spawn_threads(fmd->opts);
+	if (fmd->opts->init_and_quit) {
+		goto dd_cleanup;
+	}
+	spawn_threads(fmd->opts);
 
-		if (fmd->opts->run_cons)
-			pthread_join(console_thread, NULL);
+	if (fmd->opts->run_cons) {
+		pthread_join(console_thread, NULL);
 	}
 
 	while (1) {

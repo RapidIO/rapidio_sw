@@ -16,6 +16,7 @@
 #include <cstdlib>
 #include <cstdio>
 
+#include "tok_parse.h"
 #include "memory_supp.h"
 #include "librdma.h"
 #include "bat_common.h"
@@ -41,22 +42,22 @@ static 	int rc;
 FILE *log_fp;	/* Log file */
 vector<bat_connection *>	bat_connections; /* Connections to BAT servers */
 
-static void show_help(void)
+static void usage(char *program)
 {
-	puts("bat_client -c<first_channel> -n<num of channels> -d<destid> -t<test_case> -o<output-file> [-r<repetitions>] [-l] [-h]");
+	printf("%s -c<first_channel> -n<num of channels> -d<destid> -t<test_case> -o<output-file> [-r<repetitions>] [-m<mport_id] [-l] [-h]\n", program);
 	puts("-c First CM channel number by server app (creates/destroys..etc.)");
 	puts("-n Total number of CM channels used by server+user apps (opens/closes/accepts..etc.)");
 	puts("-d RapidIO destination ID for the node running bot the 'server' and 'user'");
 	puts("-t Test case to run");
-	puts("-r Repetitions to run the tests for (Optional. Default is 1)");
 	puts("-o Log filename for test results");
+	puts("-r Repetitions to run the tests for (Optional. Default is 1)");
+	puts("-m Mport identifier (Optional. Default is 0)");
+	puts("-l List all test cases");
+	puts("-h Help");
 	puts("\t If <test_case> is 'z', all tests are run");
 	puts("\t If <test_case> is 'z', <repetitions> is the number of times the tests are run");
 	puts("\t <repetitions> is ignored for all other cases");
-	puts("-l List all test cases");
-	puts("-m mport_id");
-	puts("-h Help");
-} /* show_help() */
+} /* usage() */
 
 static void sig_handler(int sig)
 {
@@ -66,13 +67,25 @@ static void sig_handler(int sig)
 
 int main(int argc, char *argv[])
 {
-	auto tc = 'a';
 	int c;
-	int first_channel = 2224;
-	int num_channels  = 1;
-	int repetitions   = 1;
-	int mport_id = BAT_MPORT_ID;
-	uint32_t destid;
+	char *program = argv[0];
+
+	// command line parameters
+	uint16_t first_channel = 2224;
+	uint16_t num_channels = 1;
+	uint32_t destid = 0;
+	auto tc = 'a';
+	uint32_t repetitions = 1;
+	uint32_t i;
+	uint32_t mport_id = BAT_MPORT_ID;
+
+	// mandatory command line parameters
+	bool have_first_channel = false;
+	bool have_num_channels = false;
+	bool have_destid = false;
+	bool have_tc = false;
+	bool have_logfile = false;
+
 	vector<unique_ptr<bat_connection> > connections;
 
 	/* Register signal handler */
@@ -88,9 +101,14 @@ int main(int argc, char *argv[])
 	sigaction(SIGSEGV, &sig_action, NULL);
 
 	/* List and help are special cases */
-	if (argc == 2) {
-		if (argv[1][1] == 'l') {
+	while (-1 != (c = getopt(argc, argv, "hl"))) {
+		switch (c) {
+		case 'h':
+			usage(program);
+			exit(EXIT_SUCCESS);
+		case 'l':
 			puts("List of test cases:");
+
 			/* New test cases */
 			puts("'a' Test duplicate mso creation");
 			puts("'b' Test duplicate ms creation");
@@ -124,59 +142,86 @@ int main(int argc, char *argv[])
 			puts("'7' Create mso+ms on one, open and DMA on another");
 			puts("'8' As 1 but use a buffer instead of loc_msub");
 			puts("'z' RUN ALL TESTS (with some exceptions)");
-			exit(1);
+			exit(EXIT_SUCCESS);
+		default:
+			break;
 		}
-		show_help();
-		exit(1);
 	}
 
 	/* Parse command-line parameters */
 	if (argc < 6) {
-		show_help();
-		exit(1);
+		usage(program);
+		exit(EXIT_FAILURE);
 	}
 
-	while ((c = getopt(argc, argv, "hld:o:c:t:n:r:")) != -1)
+	while (-1 != (c = getopt(argc, argv, "c:n:d:t:o:r:m:"))) {
 		switch (c) {
 		case 'c':
-			first_channel = (int)strtol(optarg, NULL, 10);
-			break;
-		case 'd':
-			destid = (uint32_t)strtoul(optarg, NULL, 10);
-			break;
-		case 'h':
-			show_help();
-			exit(1);
-			break;
-		case 'l':
-			break;
-		case 'm':
-			mport_id = (int)strtol(optarg, NULL, 10);
+			if (tok_parse_socket(optarg, &first_channel, 0)) {
+				printf(TOK_ERR_SOCKET_MSG_FMT, "CM channel number");
+				exit(EXIT_FAILURE);
+			}
+			have_first_channel = true;
 			break;
 		case 'n':
-			num_channels = (int)strtol(optarg, NULL, 10);
+			if (tok_parse_short(optarg, &num_channels, 0, 255, 0)) {
+				printf(TOK_ERR_S_HEX_MSG_FMT, "Number of channels");
+				exit(EXIT_FAILURE);
+			}
+			have_num_channels = true;
 			break;
-		case 'o':
-			strcpy(log_filename, optarg);
-			break;
-		case 'r':
-			repetitions = (int)strtol(optarg, NULL, 10);
-			printf("Tests will be run %d times!\n", repetitions);
+		case 'd':
+			if (tok_parse_did(optarg, &destid, 0)) {
+				printf(TOK_ERR_DID_MSG_FMT);
+				exit(EXIT_FAILURE);
+			}
+			have_destid = true;
 			break;
 		case 't':	/* test case */
 			tc = optarg[0];
+			have_tc = true;
+			break;
+		case 'o':
+			if (strncpy(log_filename, optarg, sizeof(log_filename))) {
+				have_logfile = true;
+				log_filename[sizeof(log_filename)-1] = '\0';
+			} else {
+				printf("Could not read log file name\n");
+				exit(EXIT_FAILURE);
+			}
+			break;
+		case 'r':
+			if (tok_parse_l(optarg, &repetitions, 0)) {
+				printf(TOK_ERR_L_HEX_MSG_FMT, "Number of repetitions");
+				exit(EXIT_FAILURE);
+			}
+			printf("Tests will be run %d times!\n", repetitions);
+			break;
+		case 'm':
+			if (tok_parse_mport_id(optarg, &mport_id, 0)) {
+				printf(TOK_ERR_MPORT_MSG_FMT);
+				exit(EXIT_FAILURE);
+			}
 			break;
 		case '?':
-			/* Invalid command line option */
-			exit(1);
-			break;
 		default:
-			abort();
+			/* Invalid command line option */
+			if (isprint(optopt)) {
+				printf("Unknown option '-%c\n", optopt);
+			}
+			usage(program);
+			exit(EXIT_FAILURE);
 		}
+	}
+
+	if (!(have_first_channel && have_num_channels && have_destid && have_tc && have_logfile)) {
+		usage(program);
+		exit(EXIT_FAILURE);
+	}
 
 	/* Connect to servers */
 	try {
-		for (auto i = 0 ; i < num_channels; i++ ) {
+		for (i = 0 ; i < num_channels; i++ ) {
 			stringstream conn_name;
 			conn_name << "conn_" << i;
 
@@ -331,7 +376,7 @@ int main(int argc, char *argv[])
 		bat_eot(1);
 		break;
 	case 'z':
-		for (auto i = 0; i < repetitions; i++) {
+		for (i = 0; i < repetitions; i++) {
 			/* Sequential test cases */
 			test_case_a();
 			test_case_b();

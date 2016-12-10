@@ -45,9 +45,6 @@ extern "C" {
 #include "rio_ecosystem.h"
 #include "ct.h"
 
-/** @brief max number of RIO mports supported by platform */
-#define RIODP_MAX_MPORTS 8
-
 /**
  * @brief RapidIO base address for inbound requests
  *

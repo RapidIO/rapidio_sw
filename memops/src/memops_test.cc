@@ -37,6 +37,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   #include "liblog.h"
 #endif
 
+#include "tok_parse.h"
 #include "memops.h"
 #include "memops_umd.h"
 
@@ -46,7 +47,7 @@ int timeout = 1000; // miliseconds
 
 void usage(const char* name)
 {
-  fprintf(stderr, "usage: %s [-A|-a|-F] -m<method> <destid> <hexrioaddr>\n" \
+  fprintf(stderr, "usage: %s [-A|-a|-F] -m<method> <destid> <rioaddr>\n" \
                   "\t\t-A async transaction, blocking forever\n" \
                   "\t\t-a async transaction, blocking %dms\n" \
                   "\t\t-F faf transaction\n" \
@@ -82,51 +83,76 @@ int main(int argc, char* argv[])
   int n = 1;
 
   if (argv[n][0] == '-') {
-    if (argc < 5 || strlen(argv[n]) < 2) usage(argv[0]);
+    if (argc < 5 || strlen(argv[n]) < 2) {
+	    usage(argv[0]);
+	    exit(EXIT_FAILURE);
+    }
 
     switch(argv[n][1]) {
       case 'A': sync = RIO_DIRECTIO_TRANSFER_ASYNC; timeout = 0; sync_str = "ASYNC(inft)"; break;
       case 'a': sync = RIO_DIRECTIO_TRANSFER_ASYNC; sync_str = "ASYNC(tmout)"; break;
       case 'F': sync = RIO_DIRECTIO_TRANSFER_FAF; sync_str = "FAF"; break;
-      default: fprintf(stderr, "%s: Invalid option %s\n", argv[0], argv[n]);
+      default: fprintf(stderr, "Invalid option %s\n", argv[n]);
                usage(argv[0]);
-               break;
+               exit(EXIT_FAILURE);
     }
     n++;
   }
 
   int m = -1;
   if (argv[n][0] == '-') {
-    if (strlen(argv[n]) < 3 || argv[n][1] != 'm') usage(argv[0]);
+    if (strlen(argv[n]) < 3 || argv[n][1] != 'm') {
+            fprintf(stderr, "Invalid option %s\n", argv[n]);
+            usage(argv[0]);
+            exit(EXIT_FAILURE);
+    }
     switch(argv[n][2]) {
       case 'm': m = 0; break;
       case 's': m = 1; break;
       case 'u': m = 2; break;
-      default: fprintf(stderr, "%s: Invalid HW access method %s\n", argv[0], argv[n]);
+      default: fprintf(stderr, "Invalid HW access method %s\n", argv[n]);
                usage(argv[0]);
-               break;
+               exit(EXIT_FAILURE);
     }
     n++;
   }
 
-  if (m < 0 || m > 2) usage(argv[0]);
+  if (-1 == m) {
+	  usage(argv[0]);
+	  exit(EXIT_FAILURE);
+  }
 
-  uint16_t did = (uint16_t)strtoul(argv[n++], NULL, 10);
+  uint32_t did;
+  if (tok_parse_did(argv[n++], &did, 0)) {
+	  fprintf(stderr, TOK_ERR_DID_MSG_FMT);
+	  usage(argv[0]);
+	  exit(EXIT_FAILURE);
+  }
 
   uint64_t rio_addr = 0;
-  sscanf(argv[n++], "%llx", &rio_addr);
+  if (tok_parse_ll(argv[n++], &rio_addr, 0)) {
+	  fprintf(stderr, TOK_ERR_LL_HEX_MSG_FMT, "rio address");
+	  usage(argv[0]);
+	  exit(EXIT_FAILURE);
+  }
 
 #ifdef RDMA_LL
   rdma_log_init("memops_test_log.txt", 1);
 #else
   if (DMAChannelSHM_has_logging()) {
     fprintf(stderr, "Selected version of UMDD_LIB (%s) has logging compiled ON and is called in a logging OFF binary!\n", getenv("UMDD_LIB"));
-    return 69;
+    exit(EXIT_FAILURE);
   }
 #endif
 
-  int chan = 7;
-  if (getenv("UMD_CHAN") != NULL) chan = (int)strtol(getenv("UMD_CHAN"), NULL, 10);
+  uint16_t chan = 7;
+  char *env_var = getenv("UMD_CHAN");
+  if (env_var != NULL) {
+	  if (tok_parse_long(env_var, &chan, 0, 7, 0)) {
+		  fprintf(stderr, TOK_ERR_LONG_MSG_FMT, "Environment variable \'UMD_CHAN\'", 0, 7);
+		  exit(EXIT_FAILURE);
+	  }
+  }
 
   RIOMemOpsIntf* mops = RIOMemOps_classFactory(met[m], 0, chan);
 
@@ -173,7 +199,8 @@ int main(int argc, char* argv[])
       int abort = mops->getAbortReason();
       fprintf(stderr, "NWRITE_R ABORTed with reason %d (%s)\n", abort, mops->abortReasonToStr(abort));
       mops->restartChannel();
-      ret = 41; goto done;
+      ret = 41;
+      goto done;
   }
 
   if (sync == RIO_DIRECTIO_TRANSFER_ASYNC) {
@@ -181,7 +208,8 @@ int main(int argc, char* argv[])
     if (!r) {
       int abort = mops->getAbortReason();
       fprintf(stderr, "NWRITE_R async wait failed after %dms with reason %d (%s)\n", timeout, abort, mops->abortReasonToStr(abort));
-      ret = 42; goto done;
+      ret = 42;
+      goto done;
     }
   }
 
@@ -200,7 +228,8 @@ int main(int argc, char* argv[])
       int abort = mops->getAbortReason();
       fprintf(stderr, "NREAD ABORTed with reason %d (%s)\n", abort, mops->abortReasonToStr(abort));
       mops->restartChannel();
-      ret = 41; goto done;
+      ret = 41;
+      goto done;
   }
 
   if (sync == RIO_DIRECTIO_TRANSFER_ASYNC) {
@@ -208,14 +237,16 @@ int main(int argc, char* argv[])
     if (!r) {
       int abort = mops->getAbortReason();
       fprintf(stderr, "NREAD async wait failed after %dms with reason %d (%s)\n", timeout, abort, mops->abortReasonToStr(abort));
-      ret = 42; goto done;
+      ret = 42;
+      goto done;
     }
   }
 
   printf("Mem-in:\n");
   for (int i = 0; i < TR_SZ; i++) {
     printf("%02x ", p[i]);
-    if (0 == ((i+1) % 32)) printf("\n");
+    if (0 == ((i+1) % 32))
+	    printf("\n");
   }
   printf("\n");
 

@@ -37,19 +37,6 @@
 /**
  * \file riodp_test_devs.c
  * \brief RapidIO kernel device object creation/removal test program.
- *
- * Usage:
- *   ./riodp_test_devs [options]
- *
- * Options are:
- * - -M mport_id | --mport mport_id : local mport device index (default=0)
- * - -c : create device using provided parameters (-D, -H, -T and -N)
- * - -d delete device using provided parameters (-D, -H, -T and -N)
- * - -D xxxx | --destid xxxx : destination ID of RapidIO device
- * - -H xxxx | --hop xxxx : hop count to RapidIO device (default 0xff)
- * - -T xxxx | --tag xxxx : component tag of RapidIO device
- * - -N (device_name) | --name (device_name) : RapidIO device name 
- * - --help (or -h)
  */
 
 #include <stdio.h>
@@ -62,6 +49,7 @@
 #include <stdint.h> /* For size_t */
 #include <unistd.h>
 #include <getopt.h>
+#include <ctype.h>
 #include <time.h>
 #include <signal.h>
 #include <pthread.h>
@@ -69,6 +57,7 @@
 #include "string_util.h"
 #include "rio_ecosystem.h"
 #include "ct.h"
+#include "tok_parse.h"
 #include "rapidio_mport_dma.h"
 #include "rapidio_mport_mgmt.h"
 #include "rapidio_mport_sock.h"
@@ -81,11 +70,38 @@ extern "C" {
 #define RIODP_MAX_DEV_NAME_SZ 20
 
 static riomp_mport_t mport_hnd;
-static uint16_t tgt_destid;
-static hc_t tgt_hop;
+static uint32_t tgt_destid;
+static hc_t tgt_hop = HC_MP;
 static ct_t comptag = 0;
 
 static char dev_name[RIODP_MAX_DEV_NAME_SZ + 1];
+
+static void usage(char *program)
+{
+	printf("%s - test device object creation/removal\n",	program);
+	printf("Usage:\n");
+	printf("  %s [options]\n", program);
+	printf("Options are:\n");
+	printf("  -M mport_id\n");
+	printf("  --mport mport_id\n");
+	printf("    local mport device index (default 0)\n");
+	printf("  -c create device using provided parameters (-D, -H, -T and -N)\n");
+	printf("  -d delete device using provided parameters (-D, -H, -T and -N)\n");
+	printf("  -D xxxx\n");
+	printf("  --destid xxxx\n");
+	printf("    destination ID of target RapidIO device (default 0)\n");
+	printf("  -H xxxx\n");
+	printf("  --hop xxxx\n");
+	printf("    hop count to target RapidIO device (default 0xff)\n");
+	printf("  -T xxxx\n");
+	printf("  --tag xxxx\n");
+	printf("    component tag of target RapidIO device (default unset)\n");
+	printf("  -N <device_name>\n");
+	printf("  --name <device_name>\n");
+	printf("    RapidIO device name (default the empty string)\n");
+	printf("  --help (or -h)\n");
+	printf("\n");
+}
 
 /**
  * \brief Called by main() when device object create operation is requested
@@ -125,33 +141,6 @@ void test_delete(void)
 		printf("Failed to delete device object, err=%d\n", ret);
 }
 
-static void display_help(char *program)
-{
-	printf("%s - test device object creation/removal\n",	program);
-	printf("Usage:\n");
-	printf("  %s [options]\n", program);
-	printf("available options:\n");
-	printf("  -M mport_id\n");
-	printf("  --mport mport_id\n");
-	printf("    local mport device index (default=0)\n");
-	printf("  -c create device using provided parameters (-D, -H, -T and -N)\n");
-	printf("  -d delete device using provided parameters (-D, -H, -T and -N)\n");
-	printf("  -D xxxx\n");
-	printf("  --destid xxxx\n");
-	printf("    destination ID of target RapidIO device\n");
-	printf("  -H xxxx\n");
-	printf("  --hop xxxx\n");
-	printf("    hop count to target RapidIO device (default 0xff)\n");
-	printf("  -T xxxx\n");
-	printf("  --tag xxxx\n");
-	printf("    component tag of target RapidIO device\n");
-	printf("  -N <device_name>\n");
-	printf("  --name <device_name>\n");
-	printf("    RapidIO device name\n");
-	printf("  --help (or -h)\n");
-	printf("\n");
-}
-
 /**
  * \brief Starting point for the test program
  *
@@ -163,8 +152,11 @@ static void display_help(char *program)
  */
 int main(int argc, char** argv)
 {
+	int c;
+	char *program = argv[0];
+
+	// command line parameters, all optional
 	uint32_t mport_id = 0;
-	int option;
 	int do_create = 0;
 	int do_delete = 0;
 	int discovered = 0;
@@ -178,27 +170,39 @@ int main(int argc, char** argv)
 		{ "debug",  no_argument, NULL, 'd' },
 		{ "help",   no_argument, NULL, 'h' },
 	};
-	char *program = argv[0];
+
 	struct riomp_mgmt_mport_properties prop;
 	int rc = EXIT_SUCCESS;
 	int err;
 
 	/** Parse command line options, if any */
-	while (-1 != (option = getopt_long_only(argc, argv,
-			"dhcM:D:H:T:N:", options, NULL))) {
-
-		switch (option) {
+	while (-1
+			!= (c = getopt_long_only(argc, argv, "dhcM:D:H:T:N:",
+					options, NULL))) {
+		switch (c) {
 		case 'M':
-			mport_id = (uint32_t)strtoul(optarg, NULL, 0);
+			if (tok_parse_mport_id(optarg, &mport_id, 0)) {
+				printf(TOK_ERR_MPORT_MSG_FMT);
+				exit(EXIT_FAILURE);
+			}
 			break;
 		case 'D':
-			tgt_destid = (uint16_t)strtoul(optarg, NULL, 0);
+			if (tok_parse_did(optarg, &tgt_destid, 0)) {
+				printf(TOK_ERR_DID_MSG_FMT);
+				exit(EXIT_FAILURE);
+			}
 			break;
 		case 'H':
-			tgt_hop = (uint8_t)strtoul(optarg, NULL, 0);
+			if (tok_parse_hc(optarg, &tgt_hop, 0)) {
+				printf(TOK_ERR_HC_MSG_FMT);
+				exit(EXIT_FAILURE);
+			}
 			break;
 		case 'T':
-			comptag = (ct_t)strtoul(optarg, NULL, 0);
+			if (tok_parse_ct(optarg, &comptag, 0)) {
+				printf(TOK_ERR_CT_MSG_FMT);
+				exit(EXIT_FAILURE);
+			}
 			break;
 		case 'N':
 			SAFE_STRNCPY(dev_name, optarg, sizeof(dev_name));
@@ -210,9 +214,16 @@ int main(int argc, char** argv)
 			do_delete = 1;
 			break;
 		case 'h':
-		default:
-			display_help(program);
+			usage(program);
 			exit(EXIT_SUCCESS);
+		case '?':
+		default:
+			/* Invalid command line option */
+			if (isprint(optopt)) {
+				printf("Unknown option '-%c\n", optopt);
+			}
+			usage(program);
+			exit(EXIT_FAILURE);
 		}
 	}
 
@@ -244,6 +255,7 @@ int main(int argc, char** argv)
 		printf("Using default configuration\n\n");
 	}
 
+	// TODO - Change to generic register formula, not constant 0x13c
 	err = riomp_mgmt_lcfg_read(mport_hnd, 0x13c, sizeof(uint32_t), &regval);
 	if (err) {
 		printf("Failed to read from PORT_GEN_CTL_CSR, err=%d\n", err);
@@ -257,9 +269,9 @@ int main(int argc, char** argv)
 		printf("ATTN: Port DISCOVERED flag is not set\n");
 	}
 
-	if (discovered && prop.hdid == 0xffff ) {
-		err = riomp_mgmt_lcfg_read(mport_hnd, 0x60, sizeof(uint32_t), &regval);
-		prop.hdid = (regval >> 16) & 0xff;
+	if (discovered && prop.hdid == RIO_LAST_DEV16 ) {
+		err = riomp_mgmt_lcfg_read(mport_hnd, RIO_DEVID, sizeof(uint32_t), &regval);
+		prop.hdid = (regval >> 16) & RIO_LAST_DEV8;
 		err = riomp_mgmt_destid_set(mport_hnd, prop.hdid);
 		if (err) {
 			printf("Failed to update local destID, err=%d\n", err);

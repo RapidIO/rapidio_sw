@@ -31,6 +31,9 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
+#include <ctype.h>
+#include <stdint.h>
+#include <cstdio>
 #include <string.h>
 #include <stdlib.h>
 #include <limits.h>
@@ -59,6 +62,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <netinet/in.h>
 // #endif
 
+#include "tok_parse.h"
 #include "fmd_dd.h"
 #include "cfg.h"
 #include "libcli.h"
@@ -72,23 +76,23 @@ extern "C" {
 void fmd_print_help(void)
 {
 	printf("\nThe RapidIO Fabric Management Daemon (\"FMD\") manages a\n");
-	printf("RapidIO fabric defined in a configuration file.\n");
+	printf("RapidIO fabric.\n");
 	printf("Options are:\n");
-	printf("-a, -A<port>: POSIX Ethernet socket for App connections.\n");
+	printf("-a, -A <port>: POSIX Ethernet socket for App connections.\n");
 	printf("       Default is %d\n", FMD_DFLT_APP_PORT_NUM);
-	printf("-c, -C<filename>: FMD configuration file name.\n");
+	printf("-c, -C <filename>: FMD configuration file name.\n");
 	printf("       Default is \"%s\"\n", FMD_DFLT_CFG_FN);
-	printf("-d, -D<filename>: Device directory Posix SM file name.\n");
+	printf("-d, -D <filename>: Device directory Posix SM file name.\n");
 	printf("       Default is \"%s\"\n", FMD_DFLT_DD_FN);
 	printf("-h, -H, -?: Print this message.\n");
-	printf("-i<interval>: Interval between Device Directory updates.\n");
+	printf("-i <interval>: Interval between Device Directory updates.\n");
 	printf("       Default is %d\n", FMD_DFLT_MAST_INTERVAL);
-	printf("-l, -L<level>: Set starting logging level.\n");
+	printf("-l, -L <level>: Set starting logging level.\n");
 	printf("       Default is %x\n",FMD_DFLT_LOG_LEVEL); 
-	printf("-m, -M<filename>: Device directory Mutex SM file name.\n");
+	printf("-m, -M <filename>: Device directory Mutex SM file name.\n");
 	printf("       Default is \"%s\"\n", FMD_DFLT_DD_MTX_FN);
 	printf("-n, -N: Do not start console CLI.\n");
-	printf("-p<port>: POSIX Ethernet socket for remote CLI.\n");
+	printf("-p <port>: POSIX Ethernet socket for remote CLI.\n");
 	printf("       Default is %d\n", FMD_DFLT_CLI_SKT);
 	printf("-s, -S: Simple initialization, do not populate device dir.\n");
 	printf("       Default is %d\n", FMD_DFLT_INIT_DD);
@@ -97,7 +101,7 @@ void fmd_print_help(void)
 
 struct fmd_opt_vals *fmd_parse_options(int argc, char *argv[])
 {
-	int idx;
+	int c;
 
 	char *dflt_fmd_cfg = (char *)FMD_DFLT_CFG_FN;
 	char *dflt_dd_fn = (char *)FMD_DFLT_DD_FN;
@@ -134,60 +138,86 @@ struct fmd_opt_vals *fmd_parse_options(int argc, char *argv[])
 		goto oom;
 	}
 
-	for (idx = 0; idx < argc; idx++) {
-		if (strnlen(argv[idx], 4) < 2)
-			continue;
+	while (-1 != (c = getopt(argc, argv, "hH?nNsSxXa:A:c:C:d:D:i:I:l:L:m:M:p:P:"))) {
+		switch (c) {
+		case 'a':
+		case 'A':
+			if (tok_parse_socket(optarg, &opts->app_port_num, 0)) {
+				printf(TOK_ERR_SOCKET_MSG_FMT, "App connection port");
+				exit(EXIT_FAILURE);
+			}
+			break;
+		case 'c':
+		case 'C':
+			if (get_v_str(&opts->fmd_cfg, optarg, 0)) {
+				printf("\nInvalid FMD configuration file name.\n");
+				exit(EXIT_FAILURE);
+			}
+			break;
+		case 'd':
+		case 'D':
+			if (get_v_str(&opts->dd_fn, optarg, 1)) {
+				printf("\nInvalid device directory file name.\n");
+				exit(EXIT_FAILURE);
+			}
+			break;
+		case 'h':
+		case 'H':
+			goto print_help;
 
-		if ('-' == argv[idx][0]) {
-			switch(argv[idx][1]) {
-			case 'a': 
-			case 'A': opts->app_port_num= (int)strtol(&argv[idx][2], NULL, 10);
-				  break;
-			case 'c': 
-			case 'C': if (get_v_str(&opts->fmd_cfg, 
-							&argv[idx][2],
-							0))
-					  goto print_help;
-				  break;
-			case 'd': 
-			case 'D': if (get_v_str(&opts->dd_fn,
-							&argv[idx][2],
-							1))
-					  goto print_help;
-				  break;
-			case '?': 
-			case 'h': 
-			case 'H': goto print_help;
+		case 'i':
+		case 'I':
+			if (tok_parse_l(optarg, &opts->mast_interval,
+								0)) {
+				printf(TOK_ERR_L_HEX_MSG_FMT, "Interval");
+				exit(EXIT_FAILURE);
+			}
+			break;
+		case 'l':
+		case 'L':
+			if (tok_parse_log_level(optarg,
+						&opts->log_level, 0)) {
+				printf(TOK_ERR_LOG_LEVEL_MSG_FMT);
+				exit(EXIT_FAILURE);
+			}
+			break;
+		case 'm':
+		case 'M':
+			if (get_v_str(&opts->dd_mtx_fn, optarg, 1)) {
+				printf("\nInvalid device directory mutex file name.\n");
+				exit(EXIT_FAILURE);
+			}
+			break;
+		case 'n':
+		case 'N':
+			opts->run_cons = 0;
+			break;
 
-			case 'i': 
-			case 'I': opts->mast_interval = (int)strtol(&argv[idx][2], NULL, 10);
-				  break;
-			case 'l': 
-			case 'L': opts->log_level = (int)strtol(&argv[idx][2], NULL, 10);
-				  break;
-			case 'm': 
-			case 'M': if (get_v_str(&opts->dd_mtx_fn,
-							&argv[idx][2],
-							1))
-					  goto print_help;
-				  break;
-			case 'n': 
-			case 'N': opts->run_cons = 0;
-				  break;
-
-			case 'p': 
-			case 'P': opts->cli_port_num= (int)strtol(&argv[idx][2], NULL, 10);
-				  break;
-			case 's': 
-			case 'S': opts->simple_init = 1;
-				  break;
-			case 'x': 
-			case 'X': opts->init_and_quit = 1;
-				  break;
-			default: printf("\nUnknown parm: \"%s\"\n", argv[idx]);
-				 goto print_help;
-			};
-		};
+		case 'p':
+		case 'P':
+			if (tok_parse_socket(optarg,
+					&opts->cli_port_num, 0)) {
+				printf(TOK_ERR_SOCKET_MSG_FMT, "Remote CLI port");
+				exit(EXIT_FAILURE);
+			}
+			break;
+		case 's':
+		case 'S':
+			opts->simple_init = 1;
+			break;
+		case 'x':
+		case 'X':
+			opts->init_and_quit = 1;
+			break;
+		case '?':
+		default:
+			/* Invalid command line option */
+			if (!isprint(optopt)) {
+				printf("Unknown option '-%c\n", optopt);
+			}
+			fmd_print_help();
+			exit(EXIT_FAILURE);
+		}
 	}
 	return opts;
 

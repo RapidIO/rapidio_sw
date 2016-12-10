@@ -62,14 +62,14 @@ struct peer_info
 	uint32_t destid;
 
 	/* MPORT */
-	int mport_id;
+	uint32_t mport_id;
 	riomp_mport_t mport_hnd;
 
 	/* Provisioning channel and mailbox */
 	uint16_t	prov_channel;
 
 	/* Daemon CLI connection */
-	int	cons_skt;	/* Console socket number, default 4444 */
+	uint16_t cons_skt;	/* Console socket number, default 4444 */
 	int	run_cons;	/* Run console on Daemon? */
 };
 

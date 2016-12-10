@@ -1058,7 +1058,7 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 
                 	finish_iter_stats(info);
 
-			if (7 <= g_level && results.size() > 0) { // DEBUG
+			if (RDMA_LL_DBG <= g_level && results.size() > 0) { // DEBUG
 				std::vector<DMAChannelSHM::NREAD_Result_t>::iterator it = results.begin();
 				for (; it != results.end(); it++) {
 					std::stringstream ss;
@@ -1078,7 +1078,7 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 				assert(t);
 				faults.push_back(t);
 			}
-			if (7 <= g_level && faults.size() > 0) {
+			if (RDMA_LL_DBG <= g_level && faults.size() > 0) {
 				std::vector<uint64_t>::iterator it = faults.begin();
 				for (; it != faults.end(); it++) INFO("Faulted ticket: %" PRIu64 "\n", *it);
 			}
@@ -1248,7 +1248,7 @@ void umd_dma_goodput_testbed(struct worker* info)
 			}
 		}
 
-		if (7 <= g_level && results.size() > 0) { // DEBUG
+		if (RDMA_LL_DBG <= g_level && results.size() > 0) { // DEBUG
 			std::vector<DMAChannelSHM::NREAD_Result_t>::iterator it = results.begin();
 			for (; it != results.end(); it++) {
 				std::stringstream ss;
@@ -1268,7 +1268,7 @@ void umd_dma_goodput_testbed(struct worker* info)
 			assert(t);
 			faults.push_back(t);
 		}
-		if (7 <= g_level && faults.size() > 0) {
+		if (RDMA_LL_DBG <= g_level && faults.size() > 0) {
 			std::vector<uint64_t>::iterator it = faults.begin();
 			for (; it != faults.end(); it++) INFO("Faulted ticket: %" PRIu64 "\n", *it);
 		}

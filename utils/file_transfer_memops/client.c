@@ -39,6 +39,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sys/time.h>
 
 #include "string_util.h"
+#include "tok_parse.h"
 #include "libfxfr.h"
 #include "rapidio_mport_sock.h"
 #include "rapidio_mport_mgmt.h"
@@ -104,8 +105,10 @@ int parse_options(int argc, char *argv[],
 		uint8_t *mport_num,
 		int *debug,
 		uint8_t *k_buffs
-	       	)   
+		)
 {
+	uint16_t tmp16;
+	uint32_t tmp32;
 	bzero(src_fs, sizeof(src_fs));
 	bzero(rem_fs, sizeof(rem_fs));
 	*src_name = src_fs;
@@ -122,20 +125,45 @@ int parse_options(int argc, char *argv[],
 	SAFE_STRNCPY(src_fs, argv[1], sizeof(src_fs));
 	SAFE_STRNCPY(rem_fs, argv[2], sizeof(rem_fs));
 
-	if (argc > 3)
-		*server_dest = (uint16_t)strtoul(argv[3], NULL, 10);
+	if (argc > 3) {
+		if (tok_parse_did(argv[3], &tmp32, 0)) {
+			printf(TOK_ERR_DID_MSG_FMT);
+			goto print_help;
+		}
+		*server_dest = (uint16_t)tmp32;
+	}
 
-	if (argc > 4)
-		*xfer_skt = (int)strtol(argv[4], NULL, 10);
+	if (argc > 4) {
+		if (tok_parse_socket(argv[4], &tmp16, 0)) {
+			printf(TOK_ERR_SOCKET_MSG_FMT, "Socket number");
+			goto print_help;
+		}
+		*xfer_skt = (int)tmp16;
+	}
 
-	if (argc > 5)
-		*mport_num = (uint8_t)strtoul(argv[5], NULL, 10);
+	if (argc > 5) {
+		if (tok_parse_mport_id(argv[5], &tmp32, 0)) {
+			printf(TOK_ERR_MPORT_MSG_FMT);
+			goto print_help;
+		}
+		*mport_num = (uint8_t)(tmp32 & UINT8_MAX);
+	}
 
-	if (argc > 6)
-		*debug = (int)strtol(argv[6], NULL, 10);
+	if (argc > 6) {
+		if (tok_parse_short(argv[6], &tmp16, 0, 1, 0)) {
+			printf(TOK_ERR_SHORT_HEX_MSG_FMT, "debug", 0, 1);
+			goto print_help;
+		}
+		*debug = (uint8_t)(tmp16 & UINT8_MAX);
+	}
 
-	if (argc > 7)
-		*k_buffs = (uint8_t)strtoul(argv[7], NULL, 10) ? 1:0;
+	if (argc > 7) {
+		if (tok_parse_short(argv[7], &tmp16, 0, 1, 0)) {
+			printf(TOK_ERR_SHORT_HEX_MSG_FMT, "k_buf", 0, 1);
+			goto print_help;
+		}
+		*k_buffs = (uint8_t)(tmp16 & UINT8_MAX);
+	}
 
 	return 0;
 

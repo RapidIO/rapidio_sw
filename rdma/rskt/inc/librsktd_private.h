@@ -68,20 +68,20 @@ struct control_list {
         int debug;
         int print_help; /* -H, -h, ? If true, display help and exit */
         int run_cons; /* -B If true, run a local console thread */
-	int log_level; /* -l<x> Sets default log level, 0 for silence */
-        int e_cli_skt; /* -e AF_INET socket for Ethernet remote console */
-        int num_ms; /* -s Number of memory spaces to allocate */
-        int ms_size; /* -S Size of each memory space */
-        int rskt_buff_size; /* -k Size of each rskt buffer */
+        uint32_t log_level; /* -l<x> Sets default log level, 0 for silence */
+        uint16_t e_cli_skt; /* -e AF_INET socket for Ethernet remote console */
+        uint32_t num_ms; /* -s Number of memory spaces to allocate */
+        uint32_t ms_size; /* -S Size of each memory space */
+        uint32_t rskt_buff_size; /* -k Size of each rskt buffer */
         int init_ms; /* -N If true, try to allocate memory spaces */
         int rsktd_uskt_tst; /* -t Test uskt mode */
-        int rsktd_uskt; /* -u RSKTD AF_LOCAL socket for rskt library conns */
-        int rsktd_u_mp; /* -m Local mport of RSKTD for rskt library conns */
-        int rsktd_u_bklg; /* -K Maximum backlog of connect requests */
+        uint16_t rsktd_uskt; /* -u RSKTD AF_LOCAL socket for rskt library conns */
+        uint32_t rsktd_u_mp; /* -m Local mport of RSKTD for rskt library conns */
+        uint32_t rsktd_u_bklg; /* -K Maximum backlog of connect requests */
         int rsktd_cskt_tst; /* -T Test uskt mode */
-        int rsktd_cskt; /* -C CM socket for RSKTD peer connections */
-        int rsktd_c_mp; /* -M Local mport of RSKTD peer connections */
-        int num_peers; /* Max valid index of peer rskt daemons */
+        uint16_t rsktd_cskt; /* -C CM socket for RSKTD peer connections */
+        uint32_t rsktd_c_mp; /* -M Local mport of RSKTD peer connections */
+        uint32_t num_peers; /* Max valid index of peer rskt daemons */
         struct peer_rsktd_addr peers[MAX_DMN_PEERS]; /* -P */
 };
 

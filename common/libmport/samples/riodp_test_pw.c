@@ -41,17 +41,6 @@
  * This program receives inbound RapidIO port-write messages according to specified
  * filtering options and displays contents of the message. This program demonstrates
  * reading port-write events in both: blocking and non-blocking modes.
- *
- * Usage:
- *   ./riodp_test_pw [options]
- *
- * Options are:
- * - -M mport_id | --mport mport_id : local mport device index (default=0)
- * - -m xxxx : mask (default 0xffffffff)
- * - -L xxxx : low filter value (default 0)
- * - -H xxxx : high filter value (default 0xffffffff)
- * - -n : run in non-blocking mode
- * - -h | --help : display usage information
  */
 
 #include <stdio.h>
@@ -65,21 +54,45 @@
 #include <stdint.h> /* For size_t */
 #include <unistd.h>
 #include <getopt.h>
+#include <ctype.h>
 #include <rapidio_mport_dma.h>
 #include <time.h>
 #include <signal.h>
+
+#include "tok_parse.h"
+#include <rapidio_mport_mgmt.h>
+#include <rapidio_mport_sock.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#include <rapidio_mport_mgmt.h>
-#include <rapidio_mport_sock.h>
-
 static int debug = 0;
 
 static volatile sig_atomic_t rcv_exit;
 static volatile sig_atomic_t report_status;
+
+
+static void usage(char *program)
+{
+	printf("%s - test RapidIO PortWrite events\n", program);
+	printf("Usage:\n");
+	printf("  %s [options]\n", program);
+	printf("options are:\n");
+	printf("  -M mport_id\n");
+	printf("  --mport mport_id\n");
+	printf("    local mport device index (default 0)\n");
+	printf("  -m xxxx\n");
+	printf("    mask (default 0xffffffff)\n");
+	printf("  -L xxxx\n");
+	printf("    low filter value (default 0)\n");
+	printf("  -H xxxx\n");
+	printf("    high filter value (default 0xffffffff)\n");
+	printf("  -n run in non-blocking mode\n");
+	printf("  --help (or -h)\n");
+	/*printf("  --debug (or -d)\n");*/
+	printf("\n");
+}
 
 static void db_sig_handler(int signum)
 {
@@ -171,26 +184,6 @@ int do_pwrcv_test(riomp_mport_t hnd, uint32_t mask, uint32_t low, uint32_t high)
 	return 0;
 }
 
-static void display_help(char *program)
-{
-	printf("%s - test RapidIO PortWrite events\n",	program);
-	printf("Usage:\n");
-	printf("  %s [options]\n", program);
-	printf("options are:\n");
-	printf("  -M mport_id\n");
-	printf("  --mport mport_id\n");
-	printf("    local mport device index (default=0)\n");
-	printf("  -m xxxx\n");
-	printf("    mask (default 0xffffffff)\n");
-	printf("  -L xxxx\n");
-	printf("    low filter value (default 0)\n");
-	printf("  -H xxxx\n");
-	printf("    high filter value (default 0xffffffff)\n");
-	printf("  -n run in non-blocking mode\n");
-	printf("  --help (or -h)\n");
-	/*printf("  --debug (or -d)\n");*/
-	printf("\n");
-}
 
 /**
  * \brief Starting point of the program
@@ -205,51 +198,74 @@ static void display_help(char *program)
  */
 int main(int argc, char** argv)
 {
+	int c;
+	char *program = argv[0];
+
+	// command line parameters
 	uint32_t mport_id = 0;
 	uint32_t pw_mask = 0xffffffff;
 	uint32_t pw_low = 0;
 	uint32_t pw_high = 0xffffffff;
-	riomp_mport_t mport_hnd;
 	int flags = 0;
-	int option;
 	static const struct option options[] = {
 		{ "mport",  required_argument, NULL, 'M' },
 		{ "debug",  no_argument, NULL, 'd' },
 		{ "help",   no_argument, NULL, 'h' },
 	};
-	char *program = argv[0];
+
 	struct riomp_mgmt_mport_properties prop;
+	riomp_mport_t mport_hnd;
 	unsigned int evt_mask;
 	int err;
 	int rc = EXIT_SUCCESS;
 
 	/** Parse command line options, if any */
-	while (-1 != (option = getopt_long_only(argc, argv,
+	while (-1 != (c = getopt_long_only(argc, argv,
 			"dhnm:M:L:H:", options, NULL))) {
-
-		switch (option) {
+		switch (c) {
 		case 'm':
-			pw_mask = (uint32_t)strtoul(optarg, NULL, 0);
+			if (tok_parse_l(optarg, &pw_mask, 0)) {
+				printf(TOK_ERR_L_HEX_MSG_FMT, "Mask");
+				return (EXIT_FAILURE);
+			}
 			break;
 		case 'n':
 			flags = O_NONBLOCK;
 			break;
 		case 'M':
-			mport_id = (uint32_t)strtoul(optarg, NULL, 0);
+			if (tok_parse_mport_id(optarg, &mport_id, 0)) {
+				printf(TOK_ERR_MPORT_MSG_FMT);
+				return (EXIT_FAILURE);
+			}
 			break;
 		case 'L':
-			pw_low = (uint32_t)strtoul(optarg, NULL, 0);
+			if (tok_parse_l(optarg, &pw_low, 0)) {
+				printf(TOK_ERR_L_HEX_MSG_FMT,
+						"Low filter value");
+				return (EXIT_FAILURE);
+			}
 			break;
 		case 'H':
-			pw_high = (uint32_t)strtoul(optarg, NULL, 0);
+			if (tok_parse_l(optarg, &pw_high, 0)) {
+				printf(TOK_ERR_L_HEX_MSG_FMT,
+						"High filter value");
+				return (EXIT_FAILURE);
+			}
 			break;
 		case 'd':
 			debug = 1;
 			break;
 		case 'h':
-		default:
-			display_help(program);
+			usage(program);
 			exit(EXIT_SUCCESS);
+		case '?':
+		default:
+			/* Invalid command line option */
+			if (isprint(optopt)) {
+				printf("Unknown option '-%c\n", optopt);
+			}
+			usage(program);
+			exit(EXIT_FAILURE);
 		}
 	}
 

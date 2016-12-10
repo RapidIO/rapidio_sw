@@ -41,6 +41,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sys/stat.h>
 #include <fcntl.h>
 
+#include "tok_parse.h"
 #include "rrmap_config.h"
 #include "rapidio_mport_dma.h"
 #include "libcli.h"
@@ -90,8 +91,6 @@ int get_phys_mem(const char *filename, char *parm_name, uint64_t *sa, uint64_t *
 	
 	while (!done) {
 		char *token;
-		char *a_token, *a_endptr;
-		char *s_token, *s_endptr;
 
 		// Read until line termination character
 		buff_bytes = read_a_line(fd, &buff[0], MEM_CFG_MAX_LINE_LEN);
@@ -109,7 +108,6 @@ int get_phys_mem(const char *filename, char *parm_name, uint64_t *sa, uint64_t *
 
 		/* Find parm_name on the line */
 		token = strtok_r(buff, delim, &saveptr);
-		
 		while ((NULL != token) && parm_idx(token, parm_name)) {
 			token = strtok_r(NULL, delim, &saveptr);
 		};
@@ -117,27 +115,25 @@ int get_phys_mem(const char *filename, char *parm_name, uint64_t *sa, uint64_t *
 			continue;
 		
 		/* Next token must be address. */
-		a_token = strtok_r(NULL, delim, &saveptr);
-		s_token = strtok_r(NULL, delim, &saveptr);
-		if ((NULL == a_token) || (NULL == s_token)) {
+		token = strtok_r(NULL, delim, &saveptr);
+		if (NULL == token) {
 			errno = EDOM;
 			goto fail;
-		};
-		*sa = (uint64_t)strtoull(a_token, &a_endptr, 0);
-		*sz = (uint64_t)strtoull(s_token, &s_endptr, 0);
+		}
+		if (tok_parse_ll(token, sa, 0)) {
+			errno = EDOM;
+			goto fail;
+		}
 
-		// Did not get to end of token, so there must be 
-		// invalid characters in the address and/or size.
-		// Fail.
-		if (('\0' != a_endptr[0]) || ('\0' != a_endptr[0])) {
+		token = strtok_r(NULL, delim, &saveptr);
+		if (NULL == token) {
 			errno = EDOM;
 			goto fail;
-		};
-
-		if (('\0' != s_endptr[0]) || ('\0' != s_endptr[0])) {
+		}
+		if (tok_parse_ll(token, sz, 0)) {
 			errno = EDOM;
 			goto fail;
-		};
+		}
 
 		/* Address must be aligned to size, or somethings busted. */
 		if ( (*sz - 1) & *sa) {

@@ -2446,7 +2446,7 @@ int main(int argc, char *argv[])
 	if (0)
 		argv[0][0] = argc;
 
-	g_level = 2;
+	g_level = RDMA_LL_CRIT;
 
 	assert(DMN_RESP_SZ >= sizeof(struct rsktd_resp_msg));
 	assert(DMN_REQ_SZ >= sizeof(struct rsktd_req_msg));

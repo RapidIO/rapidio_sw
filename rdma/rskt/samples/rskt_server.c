@@ -37,6 +37,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <unistd.h>
 #include <signal.h>
 #include <string.h>
+#include <getopt.h>
+#include <ctype.h>
 #include <errno.h>
 #include <pthread.h>
 
@@ -45,6 +47,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #endif
 #include <cinttypes>
 
+#include "tok_parse.h"
 #include "liblog.h"
 #include "rapidio_mport_mgmt.h"
 #include "librskt_private.h"
@@ -71,30 +74,16 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * For every successful accept, a separate thread
  * is created which receives data and echos it back to the sender. Once the
  * sender closes the connection, the thread terminates.
- *
- * Usage:  
- * rskt_server {-s (socket_number)} {-l (loglevel)} {-h}\
- * - socket_number : Socket number for clients to connect on, 1 to 65535.
- *  Default is 1234\n");
- * - loglevel : Log severity to display and capture. Values are:
- *   - 1 - No logs
- *   - 2 - critical
- *   - 3 - Errors and above
- *   - 4 - Warnings and above
- *   - 5 - High priority info and above
- *   - 6 - Information logs and above
- *   - 7 - Debug information and above
- * - -h Display usage inforamtion and exit.
  */
 
 /**
  * \brief Display usage inforamtion for rskt_server
  */
-void usage()
+void usage(char *program)
 {
-	printf("rskt_server [-s<socket_number>] [-l<loglevel>] [-h]\n");
+	printf("%s [-s<socket_number>] [-l<loglevel>] [-h]\n", program);
 	printf("-s<socket_number>: Socket number for clients to connect on\n");
-	printf("                   Default is 1234\n");
+	printf("                   Default is %u\n", RSKT_DEFAULT_SOCKET_NUMBER);
 	printf("-l<log level>    : Log severity to display and capture\n");
  	printf("                   1 - No logs\n");
  	printf("                   2 - critical\n");
@@ -283,33 +272,48 @@ void sig_handler(int sig)
 
 int main(int argc, char *argv[])
 {
-	rskt_h	listen_socket;
-	rskt_h	accept_socket;
-	int	socket_number = RSKT_DEFAULT_SOCKET_NUMBER;
+	int c;
+	char *program = argv[0];
+
+	uint16_t socket_number = RSKT_DEFAULT_SOCKET_NUMBER;
+
+	rskt_h listen_socket;
+	rskt_h accept_socket;
 	struct rskt_sockaddr sock_addr;
-	int	c;
-	int	rc;
+	struct sigaction sig_action;
+	int rc;
 
 	/** Parse command line parameters */
-	while ((c = getopt(argc, argv, "hs:l:")) != -1)
+	while (-1 != (c = getopt(argc, argv, "hs:l:"))) {
 		switch (c) {
-
-		default:
-		case 'h':
-			usage();
-			exit(1);
-			break;
 		case 's':
-			socket_number = (int)strtol(optarg, NULL, 10);
+			if (tok_parse_socket(optarg, &socket_number, 0)) {
+				printf(TOK_ERR_SOCKET_MSG_FMT, "Socket number");
+				exit(EXIT_FAILURE);
+			}
 			break;
 		case 'l':
-			g_level = (unsigned)strtoul(optarg, NULL, 10);
+			if (tok_parse_log_level(optarg, &g_level, 0)) {
+				printf(TOK_ERR_LOG_LEVEL_MSG_FMT);
+				exit(EXIT_FAILURE);
+			}
 			g_disp_level = g_level;
 			break;
+		case 'h':
+			usage(program);
+			exit(EXIT_SUCCESS);
+		case '?':
+		default:
+			/* Invalid command line option */
+			if (isprint(optopt)) {
+				printf("Unknown option '-%c\n", optopt);
+			}
+			usage(program);
+			exit(EXIT_FAILURE);
 		}
+	}
 
 	/** Register signal handler */
-	struct sigaction sig_action;
 	sig_action.sa_handler = sig_handler;
 	sigemptyset(&sig_action.sa_mask);
 	sig_action.sa_flags = 0;

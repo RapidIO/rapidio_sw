@@ -55,6 +55,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <netinet/tcp.h>
 #include <pthread.h>
 
+#include "tok_parse.h"
 #include "libcli.h"
 #include "liblog.h"
 #include "worker.h"
@@ -129,7 +130,7 @@ int main(int argc, char *argv[])
 
 	char* rc_script = NULL;
 
-	int mport_num = 0;
+	uint32_t mport_num = 0;
 	struct cli_env t_env;
 
 	signal(SIGINT, sig_handler);
@@ -137,8 +138,12 @@ int main(int argc, char *argv[])
 	signal(SIGTERM, sig_handler);
 	signal(SIGUSR1, sig_handler);
 
-	if (argc > 1)
-		mport_num = (int)strtol(argv[1], NULL, 10);
+	if (argc > 1) {
+		if (tok_parse_port_num(argv[1], &mport_num, 0)) {
+			printf(TOK_ERR_PORT_NUM_MSG_FMT);
+			exit(EXIT_FAILURE);
+		}
+	}
 
 	for(int n = 2; n < argc; n++) {
 		const char* arg = argv[n];

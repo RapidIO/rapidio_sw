@@ -122,7 +122,7 @@ bool RdmaOpsUMD::nread_mem_T2(const uint16_t destid, const uint64_t rio_addr, co
   }
 
 #ifdef UDMA_TUN_DEBUG_NREAD
-  if (7 <= g_level) {
+  if (RDMA_LL_DBG <= g_level) {
     std::stringstream ss;
     for(int i = 0; i < size; i++) {
       char tmp[9] = {0};

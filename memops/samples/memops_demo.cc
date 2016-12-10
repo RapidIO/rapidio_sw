@@ -99,6 +99,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdio.h>
 #include <getopt.h>
 
+#include "tok_parse.h"
 #include "rio_misc.h"
 #ifdef RDMA_LL
 	#include "liblog.h"
@@ -111,19 +112,18 @@ extern "C" bool DMAChannelSHM_has_logging();
 
 int timeout = 1000; // miliseconds
 
-void usage_and_exit(const char *name)
+void usage(const char *name)
 {
 	fprintf(stderr, " Usage:\n"
 	" %s (sync) (driver) -d destid -t addr\n"
-	" - sync is at least one of:\n"
+	" - sync is one of:\n"
 	"   -s sync transaction, wait forever until the transaction\n"
 	"      is complete\n"
 	"   -a async transaction, send transaction and wait separately\n"
 	"      for completion\n"
 	"   -f fire and forget transaction, do not check for completion\n"
-	"  Default is -A\n"
-	"  - Note: default is -A (sync)\n"
-	" - driver is at least one of:\n"
+	"   Default is -s\n"
+	" - driver is at one of:\n"
 	"   - -M libmport kernel mode driver\n"
 	"   - -S DMA User Mode Driver, share DMA channels between processes\n"
 	"   - -U DMA User Mode Driver, DMA channel dedicated to one process\n"
@@ -132,7 +132,7 @@ void usage_and_exit(const char *name)
 	"          If this parameter is not entered, memops_demo fails.\n"
 	" - addr - RapidIO address of an inbound window on the target device\n"
 	"          default is 0x200000000\n", name);
-	exit(0);
+
 }
 
 MEMOPSAccess_t met[] = {MEMOPS_MPORT, MEMOPS_UMDD, MEMOPS_UMD};
@@ -150,16 +150,18 @@ const char* met_str[] = {"mport", "UMDd/SHM", "UMD"};
 
 int main(int argc, char* argv[])
 {
+	int c;
+	char *program = argv[0];
+
+	// command line parameters
 	const char* sync_str = "SYNC";
-	const int TR_SZ = 256;
 	enum riomp_dma_directio_transfer_sync sync = RIO_DIRECTIO_TRANSFER_SYNC;
-	uint16_t did = 0xFFFF;
+	bool did_set = false;
+	uint32_t did = 0;
 	uint64_t rio_addr = 0x200000000;
-	int option;
-	int m = 0;
 	static const struct option options[] = {
 		{ "destid", required_argument, NULL, 'd' },
-		{ "addr"  , required_argument, NULL, 'a' },
+		{ "addr"  , required_argument, NULL, 'A' },
 		{ "sync"  , no_argument, NULL, 's' },
 		{ "async" , no_argument, NULL, 'a' },
 		{ "faf"   , no_argument, NULL, 'f' },
@@ -169,54 +171,109 @@ int main(int argc, char* argv[])
 		{ "help",   no_argument, NULL, 'h' },
 	};
 
-	if (argc < 4)
-		usage_and_exit(argv[0]);
-
-
+	const int TR_SZ = 256;
 	int ret = 0;
-	int n = 1;
+	int m = 0;
+	bool sync_set = false;
+	bool mode_set = false;
+
+	if (argc < 4) {
+		usage(program);
+		exit(EXIT_FAILURE);
+	}
 
 	/** Parse command line options, if any */
-	while (-1 != (option = getopt_long_only(argc, argv,
+	while (-1 != (c = getopt_long_only(argc, argv,
 			"hsafMSUd:A:", options, NULL))) {
-
-		switch (option) {
-		case 's': sync = RIO_DIRECTIO_TRANSFER_SYNC;
-			timeout = 0;
+		switch (c) {
+		case 's':
+			if (sync_set) {
+				printf(
+						"Only one of s, a or f may be specified\n");
+				exit(EXIT_FAILURE);
+			}
+			sync_set = true;
+			sync = RIO_DIRECTIO_TRANSFER_SYNC;
 			sync_str = "SYNC(inft)";
+			timeout = 0;
 			break;
-		case 'a': sync = RIO_DIRECTIO_TRANSFER_ASYNC;
+		case 'a':
+			if (sync_set) {
+				printf(
+						"Only one of s, a or f may be specified\n");
+				exit(EXIT_FAILURE);
+			}
+			sync_set = true;
+			sync = RIO_DIRECTIO_TRANSFER_ASYNC;
 			sync_str = "ASYNC(tmout)";
 			break;
-		case 'f': sync = RIO_DIRECTIO_TRANSFER_FAF;
+		case 'f':
+			if (sync_set) {
+				printf(
+						"Only one of s, a or f may be specified\n");
+				exit(EXIT_FAILURE);
+			}
+			sync_set = true;
+			sync = RIO_DIRECTIO_TRANSFER_FAF;
 			sync_str = "FAF";
 			break;
 		case 'M':
+			if (mode_set) {
+				printf(
+						"Only one of M, S or U may be specified\n");
+				exit(EXIT_FAILURE);
+			}
+			mode_set = true;
 			m = 0;
 			break;
 		case 'S':
+			if (mode_set) {
+				printf(
+						"Only one of M, S or U may be specified\n");
+				exit(EXIT_FAILURE);
+			}
+			mode_set = true;
 			m = 1;
 			break;
 		case 'U':
+			if (mode_set) {
+				printf(
+						"Only one of M, S or U may be specified\n");
+				exit(EXIT_FAILURE);
+			}
+			mode_set = true;
 			m = 2;
 			break;
 		case 'A':
-			rio_addr = (uint64_t)strtoull(optarg, NULL, 16);
+			if (tok_parse_ll(optarg, &rio_addr, 0)) {
+				printf(TOK_ERR_LL_HEX_MSG_FMT, "Base address");
+				exit(EXIT_FAILURE);
+			}
 			break;
 		case 'd':
-			did = (uint16_t)strtoul(optarg, NULL, 0);
+			if (tok_parse_did(optarg, &did, 0)) {
+				printf(TOK_ERR_DID_MSG_FMT);
+				exit(EXIT_FAILURE);
+			}
+			did_set= true;
 			break;
 		case 'h':
-			usage_and_exit(argv[0]);
-			break;
-		default: fprintf(stderr, "Invalid option %s\n", argv[n]);
-			usage_and_exit(argv[0]);
-			break;
+			usage(program);
+			exit(EXIT_SUCCESS);
+		case '?':
+		default:
+			/* Invalid command line option */
+			if (isprint(optopt)) {
+				printf("Unknown option '-%c\n", optopt);
+			}
+			usage(program);
+			exit(EXIT_FAILURE);
 		}
 	}
 
-	if (0xFFFF == did) {
-		usage_and_exit(argv[0]);
+	if (!did_set) {
+		usage(program);
+		exit(EXIT_FAILURE);
 	}
 
 #ifdef RDMA_LL
@@ -227,15 +284,18 @@ int main(int argc, char* argv[])
 		fprintf(stderr, "Selected version of UMDD_LIB (%s)"
 		" has logging compiled ON and is called in a logging"
 		" OFF binary!\n", NULL == umdd_lib ? "null" : umdd_lib);
-		return 69;
+		return 1;
 	}
 #endif
 
 	/** - Get UMD channel from UMD_CHAN environment variable */
-	int chan = 6;
+	uint32_t chan = 6;
 	char* umd_chan = getenv("UMD_CHAN");
 	if (umd_chan != NULL) {
-		chan = (int)strtol(umd_chan, NULL, 10);
+		if (tok_parse_long(umd_chan, &chan, 0, 7, 0)) {
+			printf(TOK_ERR_LONG_MSG_FMT, "Environment variable \'UMD_CHAN\'", 0, 7);
+			return 1;
+		}
 	}
 
 	/** - Create memory operation object */

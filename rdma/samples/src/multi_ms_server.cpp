@@ -38,9 +38,12 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <pthread.h>
 #include <semaphore.h>
 #include <signal.h>
+#include <getopt.h>
+#include <ctype.h>
 
 #include <vector>
 
+#include "tok_parse.h"
 #include "librdma.h"
 
 #include "multi_common.h"
@@ -152,15 +155,15 @@ void *ms_thread_f(void *arg)
 	pthread_exit(0);
 } /* ms_thread_f() */
 
-void show_help()
+void usage(char *program)
 {
-	puts("multi_ms_server -n<number of memory spaces> | -h");
+	printf("%s -n<number of memory spaces> | -h\n", program);
 	puts("-n Creates the specified number of memory spaces,");
 	puts("creates a subspace of 4K for each memory space, and");
 	puts("puts each of the memory spaces in 'accept' mode.");
 	puts("The memory spaces are names 'sspace1..sspacen");
 	puts("-h Displays this help message");
-} /* show_help() */
+} /* usage() */
 
 void sig_handler(int sig)
 {
@@ -174,7 +177,7 @@ void sig_handler(int sig)
 	/* Set global flag so threads would exit */
 	shutting_down = true;
 
-	/* Kil and wait for threads to terminate before killing process */
+	/* Kill and wait for threads to terminate before killing process */
 	for (auto it = begin(tid_list); it != end(tid_list); it++) {
 		pthread_kill(*it, SIGUSR1);
 		pthread_join(*it, NULL);
@@ -191,7 +194,10 @@ void sig_handler(int sig)
 int main(int argc, char *argv[])
 {
 	int c;
-	unsigned n = 1;
+	char *program = argv[0];
+
+	// command line parameters
+	uint16_t n = 1;
 
 	/* Register signal handler */
 	struct sigaction sig_action;
@@ -204,24 +210,25 @@ int main(int argc, char *argv[])
 	sigaction(SIGABRT, &sig_action, NULL);
 	sigaction(SIGUSR1, &sig_action, NULL);
 
-	while ((c = getopt(argc, argv, "hn:")) != -1)
+	while (-1 != (c = getopt(argc, argv, "hn:")))
 		switch (c) {
-
-		case 'h':
-			show_help();
-			exit(1);
-			break;
 		case 'n':
-			n = (unsigned)strtoul(optarg, NULL, 10);
-			printf("Creating %u memory spaces!\n", n);
+			if (tok_parse_short(optarg, &n, 1, 255, 0)) {
+				printf(TOK_ERR_SHORT_MSG_FMT, "Number of memory spaces", 1, 255);
+				exit(EXIT_FAILURE);
+			}
 			break;
-
+		case 'h':
+			usage(program);
+			exit(EXIT_SUCCESS);
 		case '?':
-			/* Invalid command line option */
-			exit(1);
-			break;
 		default:
-			abort();
+			/* Invalid command line option */
+			if (isprint(optopt)) {
+				printf("Unknown option '-%c\n", optopt);
+			}
+			usage(program);
+			exit(EXIT_FAILURE);
 		}
 
 	/* Create memory space owner */

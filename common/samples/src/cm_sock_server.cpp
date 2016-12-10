@@ -8,16 +8,28 @@
 #include <iostream>
 #include <memory>
 
+#include "tok_parse.h"
 #include "liblog.h"
 #include "cm_sock.h"
 
 using namespace std;
 
-static int channel = CM_SOCK_DFLT_SVR_CM_PORT;
-static int mport_id = 0;
+static uint16_t channel = CM_SOCK_DFLT_SVR_CM_PORT;
+static uint32_t mport_id = 0;
 static cm_server *server;
 static cm_server *other_server;
 static bool shutting_down = false;
+
+void usage(char *program)
+{
+	printf("%s - server for demonstration\n", program);
+	printf("Usage:\n");
+	printf("  %s [options]\n", program);
+	printf("Options are:\n");
+	printf("    <channel> channel number to listen for connection requests\n");
+	printf("    <mport> mport device index\n");
+	printf("\n");
+}
 
 void sig_handler(int sig)
 {
@@ -29,23 +41,37 @@ void sig_handler(int sig)
 int main(int argc, char *argv[])
 {
 	int c;
+	char *program = argv[0];
 
 	signal(SIGQUIT, sig_handler);
 	signal(SIGINT, sig_handler);
 	signal(SIGABRT, sig_handler);
 
-	while ((c = getopt(argc, argv, "hc:m:")) != -1) {
+	while (-1 != (c = getopt(argc, argv, "hc:m:"))) {
 		switch (c) {
-
 		case 'c':
-			channel = (int)strtol(optarg, NULL, 10);
+			if (tok_parse_socket(optarg, &channel, 0)) {
+				printf(TOK_ERR_SOCKET_MSG_FMT, "Channel number");
+				exit(EXIT_FAILURE);
+			}
 			break;
 		case 'm':
-			mport_id = (int)strtol(optarg, NULL, 10);
+			if (tok_parse_mport_id(optarg, &mport_id, 0)) {
+				printf(TOK_ERR_MPORT_MSG_FMT);
+				exit(EXIT_FAILURE);
+			}
 			break;
 		case 'h':
+			usage(program);
+			exit(EXIT_SUCCESS);
+		case '?':
 		default:
-			goto print_help;
+			/* Invalid command line option */
+			if (isprint(optopt)) {
+				printf("Unknown option '-%c\n", optopt);
+			}
+			usage(program);
+			exit(EXIT_FAILURE);
 		}
 	}
 
@@ -111,8 +137,4 @@ out:
 	delete other_server;
 
 	return 0;
-
-print_help:
-	printf("%s -c<channel> -m<mport_id\n", argv[0]);
-	return 1;
 }

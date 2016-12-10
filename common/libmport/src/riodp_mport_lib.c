@@ -166,7 +166,7 @@ int riomp_sock_mbox_init(void)
 /** \brief Get the list of Mports installed
  *
  * \param[out] dev_ids List of Mports installed (See Notes)
- * \param[in, out] number_of_mports Just set it to RIODP_MAX_MPORTS
+ * \param[in, out] number_of_mports Just set it to RIO_MAX_MPORTS
  * \note dev_ids is an array of ((mport_id << 16) | destid)
  * \note Free dev_ids via riomp_mgmt_free_mport_list.
  * \returns 0 if OK, negative on error

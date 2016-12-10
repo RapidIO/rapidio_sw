@@ -64,6 +64,9 @@ typedef uint8_t hc_t; /* hopcount */
 	dest = (hc_t)((src + 1) == HC_MP ? HC_MAX : ((src + 1) & HC_MP)); \
 }
 
+/** @brief max number of RIO mports supported by platform */
+#define RIO_MAX_MPORTS 8
+
 #define RIO_SW_PORT_INF_PORT_MAX ((RIO_SW_PORT_INF_T)(24))
 #define RIO_SW_PORT_INF_LANE_MAX ((RIO_SW_PORT_INF_T)(48))
 

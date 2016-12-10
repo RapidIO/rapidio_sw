@@ -63,6 +63,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <rapidio_mport_dma.h>
 
+#include "rio_ecosystem.h"
 #include "libcli.h"
 #include "librskt_private.h"
 #include "librdma.h"
@@ -1242,7 +1243,7 @@ int DMNWpeerCmd(struct cli_env *env, int argc, char **argv)
         uint32_t *ep_list = NULL;
         uint32_t *list_ptr;
         uint32_t number_of_eps = 0;
-        uint8_t  number_of_mports = RIODP_MAX_MPORTS;
+        uint8_t  number_of_mports = RIO_MAX_MPORTS;
         uint32_t ep = 0;
         int i;
         int mport_id;
@@ -1255,9 +1256,9 @@ int DMNWpeerCmd(struct cli_env *env, int argc, char **argv)
         }
 
         printf("\nAvailable %d local mport(s):\n", number_of_mports);
-        if (number_of_mports > RIODP_MAX_MPORTS) {
+        if (number_of_mports > RIO_MAX_MPORTS) {
                 printf("WARNING: Only %d out of %d have been retrieved\n",
-                        RIODP_MAX_MPORTS, number_of_mports);
+                		RIO_MAX_MPORTS, number_of_mports);
         }
 
         list_ptr = mport_list;

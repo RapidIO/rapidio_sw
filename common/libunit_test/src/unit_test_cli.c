@@ -36,6 +36,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sstream>
 #include <vector>
 
+#include "tok_parse.h"
 #include "string_util.h"
 #include "libunit_test.h"
 #include "libunit_test_priv.h"
@@ -113,9 +114,6 @@ int ThreadCmd(struct cli_env *env, int argc, char **argv)
 exit:
         return 0;
 };
-
-#define HACK(x) #x
-#define STR(x) HACK(x)
 
 struct cli_cmd Thread = {
 "thread",
@@ -420,14 +418,15 @@ void cpu_occ_parse_proc_line(char *file_line,
 
 	if (NULL == tok)
 		goto error;
-	
-	*proc_new_utime = (uint64_t)strtoull(tok, NULL, 10);
+	if (tok_parse_ll(tok, proc_new_utime, 0))
+		goto error;
 
 	tok = strtok_r(NULL, delim, &saveptr);
 	if (NULL == tok)
 		goto error;
+	if (tok_parse_ll(tok, proc_new_stime, 0))
+		goto error;
 
-	*proc_new_stime = (uint64_t)strtoull(tok, NULL, 10);
 	return;
 error:
 	ERR("\nFAILED: proc_line \"%s\"\n", fl_cpy);
@@ -450,44 +449,50 @@ void cpu_occ_parse_stat_line(char *file_line,
 	
 	/* Throw the first token away. */
 	tok = strtok_r(file_line, delim, &saveptr);
-
 	if (NULL == tok)
 		goto error;
 	
 	tok = strtok_r(NULL, delim, &saveptr);
 	if (NULL == tok)
 		goto error;
-	*p_user = (uint64_t)strtoull(tok, NULL, 10);
+	if (tok_parse_ll(tok, p_user, 0))
+		goto error;
 
 	tok = strtok_r(NULL, delim, &saveptr);
 	if (NULL == tok)
 		goto error;
-	*p_nice = (uint64_t)strtoull(tok, NULL, 10);
+	if (tok_parse_ll(tok, p_nice, 0))
+		goto error;
 
 	tok = strtok_r(NULL, delim, &saveptr);
 	if (NULL == tok)
 		goto error;
-	*p_system = (uint64_t)strtoull(tok, NULL, 10);
+	if (tok_parse_ll(tok, p_system, 0))
+		goto error;
 
 	tok = strtok_r(NULL, delim, &saveptr);
 	if (NULL == tok)
 		goto error;
-	*p_idle = (uint64_t)strtoull(tok, NULL, 10);
+	if (tok_parse_ll(tok, p_idle, 0))
+		goto error;
 
 	tok = strtok_r(NULL, delim, &saveptr);
 	if (NULL == tok)
 		goto error;
-	*p_iowait = (uint64_t)strtoull(tok, NULL, 10);
+	if (tok_parse_ll(tok, p_iowait, 0))
+		goto error;
 
 	tok = strtok_r(NULL, delim, &saveptr);
 	if (NULL == tok)
 		goto error;
-	*p_irq = (uint64_t)strtoull(tok, NULL, 10);
+	if (tok_parse_ll(tok, p_irq, 0))
+		goto error;
 
 	tok = strtok_r(NULL, delim, &saveptr);
 	if (NULL == tok)
 		goto error;
-	*p_softirq = (uint64_t)strtoull(tok, NULL, 10);
+	if (tok_parse_ll(tok, p_softirq, 0))
+		goto error;
 	
 	return;
 error:

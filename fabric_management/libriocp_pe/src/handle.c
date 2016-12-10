@@ -25,6 +25,7 @@
 #include "inc/riocp_pe.h"
 #include "inc/riocp_pe_internal.h"
 
+#include "tok_parse.h"
 #include "rio_ecosystem.h"
 #include "rio_standard.h"
 #include "handle.h"
@@ -48,6 +49,7 @@ int riocp_pe_handle_addr_aton(char *addr, uint8_t **address, size_t *address_len
 	unsigned int i = 0;
 	size_t _address_len = 0;
 	static uint8_t _address[255] = {0};
+	uint16_t val;
 	char *str = NULL;
 	char *saveptr1 = NULL;
 	char *token = NULL;
@@ -75,7 +77,10 @@ int riocp_pe_handle_addr_aton(char *addr, uint8_t **address, size_t *address_len
 		token = strtok_r(str, ",", &saveptr1);
 		if (token == NULL)
 			break;
-		_address[i] = (uint8_t)strtoul(token, NULL, 0);
+		if (tok_parse_short(token, &val, 0, UINT8_MAX, 0)) {
+			return -EINVAL;
+		}
+		_address[i] = (uint8_t)(val & UINT8_MAX);
 	}
 
 	*address = _address;

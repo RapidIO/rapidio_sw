@@ -2624,7 +2624,7 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 
                 	finish_iter_stats(info);
 
-			if (7 <= g_level) { // DEBUG
+			if (RDMA_LL_DBG <= g_level) { // DEBUG
 				std::stringstream ss;
 				for(int i = 0; i < 16; i++) {
 					char tmp[9] = {0};

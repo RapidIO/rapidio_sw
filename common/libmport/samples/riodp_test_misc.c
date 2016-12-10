@@ -41,21 +41,6 @@
  * The program performs access to registers of local (mport) and remote RapidIO devices.
  * If -q option is specified, it displays attribute/status information for selected local
  * mport device.
- *
- * Usage:
- *   ./riodp_test_misc [options]
- *
- * Options are:
- * - -M mport_id | --mport mport_id : local mport device index (default=0)
- * - -D xxxx | --destid xxxx : destination ID of target RapidIO device. If not specified access to local mport registers.
- * - -H xxxx | --hop xxxx : hop count target RapidIO device (default 0xff)
- * - -S xxxx | --size xxxx : data transfer size in bytes (default 4).
- * - -O xxxx | --offset xxxx : offset in register space (default=0).
- * - -w : perform write operation.
- * - -V xxxx | --data xxxx : 32-bit value to write into the device's register.
- * - -q : query mport attributes/status.
- * - -d | --debug : enable debug messages
- * - -h | --help : display usage information
  */
 
 #include <stdio.h>
@@ -69,8 +54,10 @@
 #include <stdint.h> /* For size_t */
 #include <unistd.h>
 #include <getopt.h>
+#include <ctype.h>
 
 #include "rio_ecosystem.h"
+#include "tok_parse.h"
 #include <rapidio_mport_dma.h>
 #include <rapidio_mport_mgmt.h>
 #include <rapidio_mport_sock.h>
@@ -81,7 +68,7 @@ extern "C" {
 
 static int debug = 0;
 
-static void display_help(char *program)
+static void usage(char *program)
 {
 	printf("%s - test register access operations to/from RapidIO device\n",
 		program);
@@ -90,27 +77,27 @@ static void display_help(char *program)
 	printf("Options are:\n");
 	printf("  -M mport_id\n");
 	printf("  --mport mport_id\n");
-	printf("    local mport device index (default=0)\n");
+	printf("    local mport device index (default 0)\n");
 	printf("  --debug (or -d)\n");
 	printf("  --help (or -h)\n");
 	printf("  -D xxxx\n");
 	printf("  --destid xxxx\n");
-	printf("    destination ID of target RapidIO device\n");
+	printf("    destination ID of target RapidIO device (default any)\n");
 	printf("    If not specified access to local mport registers\n");
 	printf("  -H xxxx\n");
 	printf("  --hop xxxx\n");
 	printf("    hop count target RapidIO device (default 0xff)\n");
 	printf("  -S xxxx\n");
 	printf("  --size xxxx\n");
-	printf("    data transfer size in bytes (default 4)\n");
+	printf("    data transfer size in bytes (default 4\n");
 	printf("  -O xxxx\n");
 	printf("  --offset xxxx\n");
-	printf("    offset in register space (default=0)\n");
+	printf("    offset in register space (default 0)\n");
 	printf("  -w\n");
 	printf("    perform write operation\n");
 	printf("  -V xxxx\n");
 	printf("  --data xxxx\n");
-	printf("    32-bit value to write into the device register\n");
+	printf("    32-bit value to write into the device register (default 0)\n");
 	printf("  -q\n");
 	printf("    query mport attributes\n");
 	printf("\n");
@@ -129,8 +116,18 @@ static void display_help(char *program)
  */
 int main(int argc, char** argv)
 {
+	int c;
+	char *program = argv[0];
+
+	// command line parameters
+	uint32_t tgt_destid = RIO_LAST_DEV8;
 	uint32_t mport_id = 0;
-	int option;
+	uint8_t tgt_hc = 0xff;
+	uint32_t tgt_remote = 0, tgt_write = 0, do_query = 0;
+	uint32_t op_size = 4; // sizeof(uint32_t);
+	uint32_t offset = 0;
+	uint32_t data = 0;
+
 	static const struct option options[] = {
 		{ "mport",  required_argument, NULL, 'M' },
 		{ "destid", required_argument, NULL, 'D' },
@@ -141,47 +138,54 @@ int main(int argc, char** argv)
 		{ "debug",  no_argument, NULL, 'd' },
 		{ "help",   no_argument, NULL, 'h' },
 	};
-	char *program = argv[0];
+
 	struct riomp_mgmt_mport_properties prop;
 	riomp_mport_t mport_hnd;
-	uint32_t tgt_destid = 0;
-	hc_t tgt_hc = HC_MP;
-	uint32_t tgt_remote = 0, tgt_write = 0, do_query = 0;
-	uint32_t offset = 0;
-	uint32_t op_size = sizeof(uint32_t);
-	uint32_t data = 0;
-	uint32_t tmp;
+
 	int rc = EXIT_SUCCESS;
 
 	/** Parse command line options, if any */
-	while (-1 != (option = getopt_long_only(argc, argv,
+	while (-1 != (c = getopt_long_only(argc, argv,
 			"wdhqH:D:O:M:S:V:", options, NULL))) {
-
-		switch (option) {
+		switch (c) {
 		case 'D':
-			tgt_destid = (uint32_t)strtoul(optarg, NULL, 0);
+			if (tok_parse_did(optarg, &tgt_destid, 0)) {
+				printf(TOK_ERR_DID_MSG_FMT);
+				return (EXIT_FAILURE);
+			}
 			tgt_remote = 1;
 			break;
 		case 'H':
-			tmp = (uint32_t)strtoul(optarg, NULL, 0);
-			if (tmp > HC_MP) {
-				printf("hop count must be between 0 and %u\n",
-				HC_MP);
-				exit(EXIT_FAILURE);
+			if (tok_parse_hc(optarg, &tgt_hc, 0)) {
+				printf(TOK_ERR_HC_MSG_FMT);
+				return (EXIT_FAILURE);
 			}
-			tgt_hc = (hc_t)tmp;
 			break;
 		case 'O':
-			offset = (uint32_t)strtoul(optarg, NULL, 0);
+			if (tok_parse_l(optarg, &offset, 0)) {
+				printf(TOK_ERR_L_HEX_MSG_FMT,
+						"Register space offset");
+				return (EXIT_FAILURE);
+			}
 			break;
 		case 'S':
-			op_size = (uint32_t)strtoul(optarg, NULL, 0);
+			if (tok_parse_l(optarg, &op_size, 0)) {
+				printf(TOK_ERR_L_HEX_MSG_FMT,
+						"Data transfer size");
+				return (EXIT_FAILURE);
+			}
 			break;
 		case 'M':
-			mport_id = (uint32_t)strtoul(optarg, NULL, 0);
+			if (tok_parse_mport_id(optarg, &mport_id, 0)) {
+				printf(TOK_ERR_MPORT_MSG_FMT);
+				return (EXIT_FAILURE);
+			}
 			break;
 		case 'V':
-			data = (uint32_t)strtoul(optarg, NULL, 0);
+			if (tok_parse_l(optarg, &data, 0)) {
+				printf(TOK_ERR_L_HEX_MSG_FMT, "Data value");
+				return (EXIT_FAILURE);
+			}
 			break;
 		case 'w':
 			tgt_write = 1;
@@ -193,9 +197,16 @@ int main(int argc, char** argv)
 			do_query = 1;
 			break;
 		case 'h':
-		default:
-			display_help(program);
+			usage(program);
 			exit(EXIT_SUCCESS);
+		case '?':
+		default:
+			/* Invalid command line option */
+			if (isprint(optopt)) {
+				printf("Unknown option '-%c\n", optopt);
+			}
+			usage(program);
+			exit(EXIT_FAILURE);
 		}
 	}
 

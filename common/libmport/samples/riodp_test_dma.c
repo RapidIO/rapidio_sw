@@ -37,35 +37,6 @@
  * must be created first. When started in inbound memory mode, riodp_test_dma
  * program will display RapidIO base address assigned to the inbound window.
  * This address should be used to define target address of DMA data transfers.
- *
- * Usage:
- *   ./riodp_test_dma [options]
- *
- * Options common for both modes:
- * - -M mport_id | --mport mport_id : local mport device index (default=0)
- * - -v : turn off buffer data verification
- * - -L xxxx | --laddr xxxx : physical address of reserved local memory
- * - --debug (or -d)
- * - --help (or -h)
- *
- * DMA Master mode options:
- * - -D xxxx | --destid xxxx : destination ID of target RapidIO device.
- * - -A xxxx | --taddr xxxx : memory address in target RapidIO device.
- * - -S xxxx | --size xxxx : data transfer size in bytes (default 0x100).
- * - -B xxxx : data buffer size (SRC and DST) in bytes (default 0x200000).
- * - -O xxxx | --offset xxxx : offset in local data src/dst buffers (default=0).
- * - -a n | --align n : data buffer address alignment.
- * - -T n | --repeat n : repeat test n times (default=1).
- * - -k : use coherent kernel space buffer allocation.
- * - -r : use random size and local buffer offset values.
- * - --faf : use FAF DMA transfer mode (default=SYNC).
- * - --async : use ASYNC DMA transfer mode (default=SYNC).
- *
- * Inbound Window mode options:
- * - -i : allocate and map inbound window (memory) using default parameters.
- * - -I xxxx | --ibwin xxxx : inbound window (memory) size in bytes.
- * - -R xxxx | --ibbase xxxx : inbound window base address in RapidIO address space.
- *
  */
 
 #include <stdio.h>
@@ -79,6 +50,7 @@
 #include <stdint.h> /* For size_t */
 #include <unistd.h>
 #include <getopt.h>
+#include <ctype.h>
 #include <time.h>
 #include <signal.h>
 #include <pthread.h>
@@ -87,7 +59,9 @@
 extern "C" {
 #endif
 
+#include "rio_standard.h"
 #include "rio_misc.h"
+#include "tok_parse.h"
 #include <rapidio_mport_dma.h>
 #include <rapidio_mport_mgmt.h>
 
@@ -134,14 +108,67 @@ static uint32_t max_size = 4096;
 #define DEFAULT_IBWIN_SIZE (2 * 1024 * 1024)
 
 static riomp_mport_t mport_hnd;
-static uint32_t tgt_destid;
+static uint32_t tgt_destid = RIO_LAST_DEV8;
 static uint64_t tgt_addr;
 static uint32_t offset = 0;
-static int align = 0;
-static uint32_t dma_size = 0;
-static uint32_t ibwin_size;
+static uint16_t align = 0;
+static uint32_t dma_size = 0x100;
+static uint32_t ibwin_size = DEFAULT_IBWIN_SIZE;
 static int debug = 0;
 static uint32_t tbuf_size = TEST_BUF_SIZE;
+
+static void usage(char *program)
+{
+	printf("%s - test DMA data transfers to/from RapidIO device\n", program);
+	printf("Usage:\n");
+	printf("  %s [options]\n", program);
+	printf("options are:\n");
+	printf("Common:\n");
+	printf("  -M mport_id\n");
+	printf("  --mport mport_id\n");
+	printf("    local mport device index (default 0)\n");
+	printf("  -L xxxx\n");
+	printf("  --laddr xxxx\n");
+	printf("    physical address of reserved local memory to use (default any address)\n");
+	printf("  -v turn off buffer data verification\n");
+	printf("  --debug (or -d)\n");
+	printf("  --help (or -h)\n");
+	printf("DMA test mode only:\n");
+	printf("  -D xxxx\n");
+	printf("  --destid xxxx\n");
+	printf("    destination ID of target RapidIO device (default any)\n");
+	printf("  -A xxxx\n");
+	printf("  --taddr xxxx\n");
+	printf("    memory address in target RapidIO device (default 0)\n");
+	printf("  -S xxxx\n");
+	printf("  --size xxxx\n");
+	printf("    data transfer size in bytes (default 0x100)\n");
+	printf("  -B xxxx\n");
+	printf("    data buffer size (SRC and DST) in bytes (default %u)\n", TEST_BUF_SIZE);
+	printf("  -O xxxx\n");
+	printf("  --offset xxxx\n");
+	printf("    offset in local data src/dst buffers (default 0)\n");
+	printf("  -a n\n");
+	printf("  --align n\n");
+	printf("    data buffer address alignment (default 0)\n");
+	printf("  -T n\n");
+	printf("  --repeat n\n");
+	printf("    repeat test n times (default 1)\n");
+	printf("  -k use coherent kernel space buffer allocation\n");
+	printf("  -r use random size and local buffer offset values\n");
+	printf("  --faf use FAF DMA transfer mode (default SYNC)\n");
+	printf("  --async use ASYNC DMA transfer mode (default SYNC)\n");
+	printf("Inbound Window mode only:\n");
+	printf("  -i\n");
+	printf("    allocate and map inbound window (memory) using default parameters\n");
+	printf("  -I xxxx\n");
+	printf("  --ibwin xxxx\n");
+	printf("    inbound window (memory) size in bytes (default %u)\n", DEFAULT_IBWIN_SIZE);
+	printf("  -R xxxx\n");
+	printf("  --ibbase xxxx\n");
+	printf("    inbound window base address in RapidIO address space (default any address)\n");
+	printf("\n");
+}
 
 static struct timespec timediff(struct timespec start, struct timespec end)
 {
@@ -643,59 +670,6 @@ out_src:
 	return ret;
 }
 
-static void display_help(char *program)
-{
-	printf("%s - test DMA data transfers to/from RapidIO device\n",	program);
-	printf("Usage:\n");
-	printf("  %s [options]\n", program);
-	printf("options are:\n");
-	printf("Common:\n");
-	printf("  -M mport_id\n");
-	printf("  --mport mport_id\n");
-	printf("    local mport device index (default=0)\n");
-	printf("  -L xxxx\n");
-	printf("  --laddr xxxx\n");
-	printf("    physical address of reserved local memory to use\n");
-	printf("  -v turn off buffer data verification\n");
-	printf("  --debug (or -d)\n");
-	printf("  --help (or -h)\n");
-	printf("DMA test mode only:\n");
-	printf("  -D xxxx\n");
-	printf("  --destid xxxx\n");
-	printf("    destination ID of target RapidIO device\n");
-	printf("  -A xxxx\n");
-	printf("  --taddr xxxx\n");
-	printf("    memory address in target RapidIO device\n");
-	printf("  -S xxxx\n");
-	printf("  --size xxxx\n");
-	printf("    data transfer size in bytes (default 0x100)\n");
-	printf("  -B xxxx\n");
-	printf("    data buffer size (SRC and DST) in bytes (default 0x200000)\n");
-	printf("  -O xxxx\n");
-	printf("  --offset xxxx\n");
-	printf("    offset in local data src/dst buffers (default=0)\n");
-	printf("  -a n\n");
-	printf("  --align n\n");
-	printf("    data buffer address alignment\n");
-	printf("  -T n\n");
-	printf("  --repeat n\n");
-	printf("    repeat test n times (default=1)\n");
-	printf("  -k use coherent kernel space buffer allocation\n");
-	printf("  -r use random size and local buffer offset values\n");
-	printf("  --faf use FAF DMA transfer mode (default=SYNC)\n");
-	printf("  --async use ASYNC DMA transfer mode (default=SYNC)\n");
-	printf("Inbound Window mode only:\n");
-	printf("  -i\n");
-	printf("    allocate and map inbound window (memory) using default parameters\n");
-	printf("  -I xxxx\n");
-	printf("  --ibwin xxxx\n");
-	printf("    inbound window (memory) size in bytes\n");
-	printf("  -R xxxx\n");
-	printf("  --ibbase xxxx\n");
-	printf("    inbound window base address in RapidIO address space\n");
-	printf("\n");
-}
-
 /**
  * \brief Starting point for the test program
  *
@@ -707,12 +681,14 @@ static void display_help(char *program)
  */
 int main(int argc, char** argv)
 {
+	int c;
+	char *program = argv[0];
+
 	uint32_t mport_id = 0;
-	int option;
 	int do_rand = 0;
 	int kbuf_mode = 0; /* 0 - user space buffer, 1 = kernel contiguous buffer */
 	int verify = 1;
-	unsigned int repeat = 1;
+	uint32_t repeat = 1;
 	uint64_t rio_base = RIOMP_MAP_ANY_ADDR;
 	uint64_t loc_addr = RIOMP_MAP_ANY_ADDR;
 	enum riomp_dma_directio_transfer_sync sync = RIO_DIRECTIO_TRANSFER_SYNC;
@@ -732,40 +708,69 @@ int main(int argc, char** argv)
 		{ "debug",  no_argument, NULL, 'd' },
 		{ "help",   no_argument, NULL, 'h' },
 	};
-	char *program = argv[0];
+
 	struct riomp_mgmt_mport_properties prop;
 	int has_dma = 1;
 	int rc = EXIT_SUCCESS;
 	int ret;
+	bool sync_set = false;
+	bool ibwin_set = false;
 
 	/** Parse command line options, if any */
-	while (-1 != (option = getopt_long_only(argc, argv,
-			"rvwdhika:A:D:I:O:M:R:S:T:B:L:", options, NULL))) {
-
-		switch (option) {
+	while (-1 != (c = getopt_long_only(argc, argv,
+			"rvdhikaFY:A:D:I:O:M:R:S:T:B:L:", options, NULL))) {
+		switch (c) {
 		case 'A':
-			tgt_addr = (uint64_t)strtoull(optarg, NULL, 0);
+			if (tok_parse_ll(optarg, &tgt_addr, 0)) {
+				printf(TOK_ERR_LL_HEX_MSG_FMT,
+						"Target address");
+				return (EXIT_FAILURE);
+			}
 			break;
 		case 'L':
-			loc_addr = (uint64_t)strtoull(optarg, NULL, 0);
+			if (tok_parse_ll(optarg, &loc_addr, 0)) {
+				printf(TOK_ERR_LL_HEX_MSG_FMT, "Local address");
+				return (EXIT_FAILURE);
+			}
 			break;
 		case 'a':
-			align = (int)strtol(optarg, NULL, 0);
+			if (tok_parse_s(optarg, &align, 0)) {
+				printf(TOK_ERR_S_HEX_MSG_FMT, "Data alignment");
+				return (EXIT_FAILURE);
+			}
 			break;
 		case 'D':
-			tgt_destid = (uint32_t)strtoul(optarg, NULL, 0);
+			if (tok_parse_did(optarg, &tgt_destid, 0)) {
+				printf(TOK_ERR_DID_MSG_FMT);
+				exit(EXIT_FAILURE);
+			}
 			break;
 		case 'O':
-			offset = (uint32_t)strtoul(optarg, NULL, 0);
+			if (tok_parse_l(optarg, &offset, 0)) {
+				printf(TOK_ERR_L_HEX_MSG_FMT, "Offset");
+				return (EXIT_FAILURE);
+			}
 			break;
 		case 'S':
-			dma_size = (uint32_t)strtoul(optarg, NULL, 0);
+			if (tok_parse_l(optarg, &dma_size, 0)) {
+				printf(TOK_ERR_L_HEX_MSG_FMT,
+						"Data transfer size");
+				return (EXIT_FAILURE);
+			}
 			break;
 		case 'B':
-			tbuf_size = (uint32_t)strtoul(optarg, NULL, 0);
+			if (tok_parse_l(optarg, &tbuf_size, 0)) {
+				printf(TOK_ERR_L_HEX_MSG_FMT,
+						"Data buffer size");
+				return (EXIT_FAILURE);
+			}
 			break;
 		case 'T':
-			repeat = (int)strtol(optarg, NULL, 0);
+			if (tok_parse_l(optarg, &repeat, 0)) {
+				printf(TOK_ERR_L_HEX_MSG_FMT,
+						"Number of repetitions");
+				return (EXIT_FAILURE);
+			}
 			break;
 		case 'k':
 			kbuf_mode = 1;
@@ -774,24 +779,63 @@ int main(int argc, char** argv)
 			do_rand = 1;
 			break;
 		case 'F':
+			if (sync_set) {
+				printf(
+						"Only one of \'faf\' or \'sync\' may be specified\n");
+				usage(program);
+				exit(EXIT_FAILURE);
+			}
+			sync_set = true;
 			sync = RIO_DIRECTIO_TRANSFER_FAF;
 			break;
 		case 'Y':
+			if (sync_set) {
+				printf(
+						"Only one of \'faf\' or \'sync\' may be specified\n");
+				usage(program);
+				exit(EXIT_FAILURE);
+			}
+			sync_set = true;
 			sync = RIO_DIRECTIO_TRANSFER_ASYNC;
 			break;
 			/* Inbound Memory (window) Mode options */
 		case 'I':
-			ibwin_size = (uint32_t)strtoul(optarg, NULL, 0);
+			if (ibwin_set) {
+				printf(
+						"Only one of \'-\' or \'ibwin\' may be specified\n");
+				usage(program);
+				exit(EXIT_FAILURE);
+			}
+			ibwin_set = true;
+			if (tok_parse_l(optarg, &ibwin_size, 0)) {
+				printf(TOK_ERR_L_HEX_MSG_FMT,
+						"Inbound window memory size");
+				return (EXIT_FAILURE);
+			}
 			break;
 		case 'i':
+			if (ibwin_set) {
+				printf(
+						"Only one of \'-\' or \'ibwin\' may be specified\n");
+				usage(program);
+				exit(EXIT_FAILURE);
+			}
+			ibwin_set = true;
 			ibwin_size = DEFAULT_IBWIN_SIZE;
 			break;
 		case 'R':
-			rio_base = (uint64_t)strtoull(optarg, NULL, 0);
+			if (tok_parse_ll(optarg, &rio_base, 0)) {
+				printf(TOK_ERR_LL_HEX_MSG_FMT,
+						"Inbound window base address");
+				return (EXIT_FAILURE);
+			}
 			break;
 			/* Options common for all modes */
 		case 'M':
-			mport_id = (uint32_t)strtoul(optarg, NULL, 0);
+			if (tok_parse_mport_id(optarg, &mport_id, 0)) {
+				printf(TOK_ERR_MPORT_MSG_FMT);
+				return (EXIT_FAILURE);
+			}
 			break;
 		case 'v':
 			verify = 0;
@@ -800,9 +844,16 @@ int main(int argc, char** argv)
 			debug = 1;
 			break;
 		case 'h':
-		default:
-			display_help(program);
+			usage(program);
 			exit(EXIT_SUCCESS);
+		case '?':
+		default:
+			/* Invalid command line option */
+			if (isprint(optopt)) {
+				printf("Unknown option '-%c\n", optopt);
+			}
+			usage(program);
+			exit(EXIT_FAILURE);
 		}
 	}
 

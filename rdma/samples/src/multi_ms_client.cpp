@@ -36,7 +36,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdlib.h>
 #include <unistd.h>
 #include <signal.h>
+#include <getopt.h>
+#include <ctype.h>
 
+#include "tok_parse.h"
+#include "rio_ecosystem.h"
 #include "librdma.h"
 
 #include "multi_common.h"
@@ -47,13 +51,13 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 static	mso_h	msoh;
 static bool shutting_down = false;
 
-void show_help()
+void usage(char *program)
 {
-	puts("multi_ms_client -d<destid>  -i<mspace number> -c<count>| -h");
+	printf("%s -d<destid>  -i<mspace number> -c<count>| -h\n", program);
 	puts("-d<destid>     Destination ID of server application owning memory space");
 	puts("-i<mspace number>   sspace1, sspace2...etc.");
 	puts("-c<count>	     Number of times to send DMA data to memory space");
-} /* show_help() */
+} /* usage() */
 
 int run_test(uint32_t destid, unsigned ms_number, unsigned count)
 {
@@ -187,54 +191,61 @@ void sig_handler(int sig)
 int main(int argc, char *argv[])
 {
 	int c;
-	unsigned i = 0;
+	char *program = argv[0];
+
 	unsigned count = 1;
+	uint16_t i = 0;
 	uint32_t destid = ~0;
+	bool have_destid = false;
 
 	/* At a minimum we need the 'destid' and memory space number 'i' */
 	if (argc < 3) {
-		show_help();
-		exit(1);
+		usage(program);
+		exit(EXIT_FAILURE);
 	}
 
-	while ((c = getopt(argc, argv, "hc:d:i:")) != -1)
+	while (-1 != (c = getopt(argc, argv, "hc:d:i:")) )
 		switch (c) {
-
 		case 'c':
-			count = (unsigned)strtoul(optarg, NULL, 10);
+			if (tok_parse_l(optarg, &count, 0)) {
+				printf(TOK_ERR_L_HEX_MSG_FMT, "Number of repetitions");
+				exit(EXIT_FAILURE);
+			}
 			break;
-
 		case 'd':
-			destid = (uint32_t)strtoul(optarg, NULL, 10);
+			if (tok_parse_did(optarg, &destid, 0)) {
+				printf(TOK_ERR_DID_MSG_FMT);
+				exit(EXIT_FAILURE);
+			}
+			have_destid = true;
 			break;
-
-		case 'h':
-			show_help();
-			exit(1);
-			break;
-
 		case 'i':
-			i = (unsigned)strtoul(optarg, NULL, 10);
+			if (tok_parse_short(optarg, &i, 1, 255, 0)) {
+				printf(TOK_ERR_SHORT_MSG_FMT, "Number of memory spaces", 1, 255);
+				exit(EXIT_FAILURE);
+			}
 			break;
-
+		case 'h':
+			usage(program);
+			exit(EXIT_SUCCESS);
 		case '?':
-			/* Invalid command line option */
-			exit(1);
-			break;
 		default:
-			abort();
+			/* Invalid command line option */
+			if (isprint(optopt)) {
+				printf("Unknown option '-%c\n", optopt);
+			}
+			usage(program);
+			exit(EXIT_FAILURE);
 		}
 
 	if (i < 1) {
 		printf("Invalid memory space index %u\n", i);
-		show_help();
-		exit(1);
+		exit(EXIT_FAILURE);
 	}
 
-	if (destid > 255) {
-		printf("Invalid destid 0x%X\n", destid);
-		show_help();
-		exit(1);
+	if (!have_destid) {
+		printf("Must specify a destid\n");
+		exit(EXIT_FAILURE);
 	}
 
 	/* Register signal handler */

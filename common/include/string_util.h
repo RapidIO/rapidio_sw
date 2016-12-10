@@ -57,6 +57,10 @@ extern "C" {
 	strncpy(dest, src, n); \
 	dest[n-1] = '\0';
 
+// substitution of constants into strings in define statements
+#define STR_HELPER(x) #x
+#define STR(x) STR_HELPER(x)
+
 #ifdef __cplusplus
 }
 #endif

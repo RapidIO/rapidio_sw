@@ -39,6 +39,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <thread>
 #include "memory_supp.h"
 
+#include "tok_parse.h"
 #include "liblog.h"
 #include "rapidio_mport_dma.h"
 #include "unix_sock.h"
@@ -358,13 +359,18 @@ static bool foreground(void)
 	return (tcgetpgrp(STDIN_FILENO) == getpgrp());
 }
 
+void usage(char *program)
+{
+	printf("%s -h -m<port> -l<loglv> -c<socket num>|-n\n", program);
+	puts("-h           Display this help message");
+	puts("-l<loglv>    Logging level, 1 means none");
+	puts("-m<mport>    Use specified master port number");
+	puts("-c<sock num> Socket number for remote console");
+	puts("-n	   Do not run console (background)");
+}
+
 int main (int argc, char **argv)
 {
-	int c;
-	int rc;
-	int cons_ret;
-	struct remote_login_parms *rlp = (struct remote_login_parms *)
-				malloc(sizeof(struct remote_login_parms));
 	constexpr auto CONSOLE_FAILURE = 2;
 	constexpr auto OUT_KILL_CONSOLE_THREAD = 4;
 	constexpr auto OUT_CLOSE_PORT = 5;
@@ -372,40 +378,55 @@ int main (int argc, char **argv)
 	constexpr auto OUT_KILL_PROV_THREAD = 7;
 	constexpr auto OUT_KILL_FM_THREAD = 8;
 
+	int c;
+	string tmp = "rdmad";
+	char *program = (char *)tmp.c_str();
+
+	int rc;
+	int cons_ret;
+	struct remote_login_parms *rlp = (struct remote_login_parms *)
+				malloc(sizeof(struct remote_login_parms));
+
 	/* Do no show console if started in background mode (rdmad &) */
 	if (!foreground())
 		peer.run_cons = 0;
 
 	/* Parse command-line parameters */
-	while ((c = getopt(argc, argv, "hnl:c:m:")) != -1)
+	while (-1 != (c = getopt(argc, argv, "hnl:c:m:")))
 		switch (c) {
 		case 'c':
-			peer.cons_skt = (int)strtol(optarg, NULL, 10);
-			break;
-		case 'h':
-			puts("rdmad -h -m<port> -l<loglv> -c<socket num>|-n");
-			puts("-h           Display this help message");
-			puts("-l<loglv>    Logging level, 0 means none");
-			puts("-m<mport>    Use specified master port number");
-			puts("-c<sock num> Socket number for remote console");
-			puts("-n	   Do not run console (background)");
-			exit(1);
+			if (tok_parse_socket(optarg, &peer.cons_skt, 0)) {
+				printf(TOK_ERR_SOCKET_MSG_FMT, "Socket number");
+				exit(EXIT_FAILURE);
+			}
 			break;
 		case 'm':
-			peer.mport_id = (int)strtol(optarg, NULL, 10);
+			if (tok_parse_mport_id(optarg, &peer.mport_id, 0)) {
+				printf(TOK_ERR_MPORT_MSG_FMT);
+				exit(EXIT_FAILURE);
+			}
 			break;
 		case 'l':
-			g_level = (unsigned)strtoul(optarg, NULL, 10);
+			if (tok_parse_log_level(optarg, &g_level, 0)) {
+				printf(TOK_ERR_LOG_LEVEL_MSG_FMT);
+				exit(EXIT_FAILURE);
+			}
+			g_disp_level = g_level;
 			break;
 		case 'n':	/* Same as doing "rdmad &" */
 			peer.run_cons = 0;
 			break;
+		case 'h':
+			usage(program);
+			exit(EXIT_SUCCESS);
 		case '?':
-			/* Invalid command line option */
-			exit(1);
-			break;
 		default:
-			abort(); /* Unexpected error */
+			/* Invalid command line option */
+			if (isprint(optopt)) {
+				printf("Unknown option '-%c\n", optopt);
+			}
+			usage(program);
+			exit(EXIT_FAILURE);
 		}
 
 	try {

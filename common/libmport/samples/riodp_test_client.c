@@ -40,15 +40,6 @@
  *
  * Sends a message to target RapidIO device, receives an echo response from it
  * and verifies response.
- *
- * Usage:
- *   ./riodp_test_client (loc_mport) (rem_destid) (rem_ch) (rep_num) 
- *
- * Options are:
- * - loc_mport : local mport device index (default=0)
- * - rem_destid : target RapidIO device destination ID
- * - rem_ch : channel number on remote RapidIO device
- * - rep_num : number of repetitions
  */
 
 #include <stdio.h>
@@ -62,33 +53,39 @@
 #include <rapidio_mport_dma.h>
 #include <sys/ioctl.h>
 
+#include "tok_parse.h"
+#include <rapidio_mport_mgmt.h>
+#include <rapidio_mport_sock.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#include <rapidio_mport_mgmt.h>
-#include <rapidio_mport_sock.h>
 
 /// @cond
 struct args {
 	uint32_t mport_id;	// local mport ID
-	uint16_t remote_destid;	// RapidIO device destination ID
+	uint32_t remote_destid;	// RapidIO device destination ID
 	uint16_t remote_channel;// remote channel number
 	uint32_t repeat;	// number of repetitions
 };
 /// @endcond
 
-static void usage(char *name)
+static void usage(char *program)
 {
-	printf("riodp library test client\n");
+	printf("%s - library test client\n", program);
 	printf("Usage:\n");
-	printf("    %s <loc_mport> <rem_destid> <rem_ch> <rep_num>\n", name);
+	printf("  %s [options]\n", program);
+	printf("Options are:\n");
+	printf("    <mport> local mport device index\n");
+	printf("    <destid> target RapidIO device destination ID\n");
+	printf("    <channel> channel number on remote RapidIO device\n");
+	printf("    <repetitions> number of repetitions (default 1)\n");
+	printf("\n");
 }
 
 /**
- * \brief Called by main() to display available devices
- *
- * Performs the following steps:
+ * \brief Display available devices
  */
 void show_rio_devs(void)
 {
@@ -96,7 +93,7 @@ void show_rio_devs(void)
 	uint32_t *ep_list = NULL;
 	uint32_t *list_ptr;
 	uint32_t number_of_eps = 0;
-	uint8_t  number_of_mports = RIODP_MAX_MPORTS;
+	uint8_t  number_of_mports = RIO_MAX_MPORTS;
 	uint32_t ep = 0;
 	int i;
 	int mport_id;
@@ -110,9 +107,9 @@ void show_rio_devs(void)
 	}
 
 	printf("\nAvailable %d local mport(s):\n", number_of_mports);
-	if (number_of_mports > RIODP_MAX_MPORTS) {
+	if (number_of_mports > RIO_MAX_MPORTS) {
 		printf("WARNING: Only %d out of %d have been retrieved\n",
-			RIODP_MAX_MPORTS, number_of_mports);
+				RIO_MAX_MPORTS, number_of_mports);
 	}
 
 	/** - for each local mport display list of remote RapidIO devices */
@@ -200,12 +197,25 @@ int main(int argc, char** argv)
 	if (argc < 5) {
 		usage(argv[0]);
 		show_rio_devs();
-		exit(1);
+		exit(EXIT_FAILURE);
 	}
-	arg.mport_id       = (uint32_t)strtoul(argv[1], NULL, 10);
-	arg.remote_destid  = (uint16_t)strtoul(argv[2], NULL, 10);
-	arg.remote_channel = (uint16_t)strtoul(argv[3], NULL, 10);
-	arg.repeat         = (uint32_t)strtoul(argv[4], NULL, 10);
+
+	if (tok_parse_mport_id(argv[1], &arg.mport_id, 0)) {
+		printf(TOK_ERR_MPORT_MSG_FMT);
+		exit(EXIT_FAILURE);
+	}
+	if (tok_parse_did(argv[2], &arg.remote_destid, 0)) {
+		printf(TOK_ERR_DID_MSG_FMT);
+		exit(EXIT_FAILURE);
+	}
+	if (tok_parse_socket(argv[3], &arg.remote_channel, 0)) {
+		printf(TOK_ERR_SOCKET_MSG_FMT, "Remote channel");
+		exit(EXIT_FAILURE);
+	}
+	if (tok_parse_l(argv[4], &arg.repeat, 0)) {
+		printf(TOK_ERR_L_HEX_MSG_FMT, "Number of repetitions");
+		exit(EXIT_FAILURE);
+	}
 
 	printf("Start CM_CLIENT (PID %d)\n", (int)getpid());
 

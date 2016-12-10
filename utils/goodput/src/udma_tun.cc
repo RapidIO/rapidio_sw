@@ -980,7 +980,7 @@ void umd_dma_goodput_tun_RDMAD(struct worker *info, const int min_bcasts, const 
 
     next_bcast = now + bcast_interval;
 
-    if (7 <= g_level) {
+    if (RDMA_LL_DBG <= g_level) {
       std::stringstream ss;
       for (int ip = 0; ip < peer_list.size(); ip++) ss << peer_list[ip] << " ";
       DBG("\n\tGot %zu peers to broadcast to [tx_fd=%d]: %s\n", peer_list.size(), info->umd_mbox_tx_fd, ss.str().c_str());
@@ -1748,7 +1748,7 @@ void umd_epwatch_demo(struct worker* info)
 #ifdef UDMA_TUN_DEBUG_IN
           const int N = nread / sizeof(struct inotify_event);
           struct inotify_event* in = (struct inotify_event*)buf;
-          for (int i = 0; 7 <= g_level && i < N; i++, in++) {
+          for (int i = 0; RDMA_LL_DBG <= g_level && i < N; i++, in++) {
             std::string s;
             decodeInotifyEvent(in, s);
             DBG("\n\tInotify event %d: %s\n", i, s.c_str());
@@ -1767,7 +1767,7 @@ void umd_epwatch_demo(struct worker* info)
           goto exit;
         }
 
-        if (first_time && 7 <= g_level && ep_count > 0) {
+        if (first_time && RDMA_LL_DBG <= g_level && ep_count > 0) {
           std::stringstream ss;
           for (int i = 0; i < ep_count; i++) ss << ep_list[i] << " ";
           DBG("\n\tMport %d EPs%s: %s\n", info->mp_num, (first_time? "(1st time)": ""), ss.str().c_str());

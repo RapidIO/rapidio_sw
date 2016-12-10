@@ -54,7 +54,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <netinet/tcp.h>
 #include <pthread.h>
 
+#include "rio_ecosystem.h"
 #include "string_util.h"
+#include "tok_parse.h"
 #include "rio_misc.h"
 #include "rapidio_mport_mgmt.h"
 #include "rapidio_mport_sock.h"
@@ -84,13 +86,10 @@ void print_server_help(void)
 	printf("-c <skt> : Supports remote console connectivity using"
 							" <skt>.\n");
 	printf("	 The default <skt> value is %d.\n", FXFR_DFLT_CLI_SKT);
-	printf("	 Note: There must be a space between \"-c\""
-							" and <skt>.\n");
-	printf("-m<mport>: Accept requests on <mport>. 0-9 is the range of\n");
-	printf("	 valid mport values.\n");
+	printf("-m <mport>: Accept requests on <mport>.\n");
+	printf("        0-%u is the range of valid mport values.\n",
+						RIO_MAX_MPORTS - 1);
 	printf("	 The default mport value is 0. \n");
-	printf("	Note: There must not be a space between -m and"
-							" <mport>.\n");
 	printf("-n, -N: Disables the command line interface for this"
 							" server.\n");
 	printf("	 Note that a server command line can still be\n");
@@ -101,21 +100,19 @@ void print_server_help(void)
 	printf("	The default value is %d.\n", TOTAL_TX_BUFF_SIZE/1024);
 	printf("	The larger the window, the faster the transfer.\n");
 
-	printf("-W<buffers>: Attempts to create <buffers> separate "
-					" buffers/file receive threads.\n");
+	printf("-W <buffers>: Attempts to create <buffers> separate \n");
+	printf("         buffers/file receive worker threads.\n");
 	printf("	 The default value is 1.\n");
 	printf("	 The maximum number of parallel file transfers is\n");
 	printf("	 equal to the number of buffers. The\n");
 	printf("	 server will continue to operate as long as it has\n");
 	printf("	 at least one buffer.\n");
-	printf("-X <cm_skt>: The server listens for file transfer requests\n");
-	printf("	 on RapidIO Channel Manager socket <cm_skt>.\n");
-	printf("	 The default value is 0x%x.\n", FXFR_DFLT_SVR_CM_PORT);
+	printf("-X <cm_skt>: Server RapidIO Channel Manager socket.\n");
+	printf("	 The default value is %d.\n", FXFR_DFLT_SVR_CM_PORT);
 	printf("	 The cm_skt and mport value must be correct to\n");
 	printf("	 successfully connect .\n");
-	printf("	 Note: There must be a space between -X and"
-							" <cm_skt>.\n");
 };
+
 void parse_options(int argc, char *argv[], 
 		int *cons_skt,
 		int *print_help,
@@ -126,6 +123,8 @@ void parse_options(int argc, char *argv[],
 		int *xfer_skt)
 {
 	int idx;
+	uint32_t tmp32;
+	uint16_t tmp16;
 
 	*cons_skt = FXFR_DFLT_CLI_SKT;
 	*print_help = 0;
@@ -141,79 +140,110 @@ void parse_options(int argc, char *argv[],
 
 		if ('-' == argv[idx][0]) {
 			switch(argv[idx][1]) {
-			case 'd': debug = 0;
+			case 'd':
+				debug = 0;
 				break;
-			case 'D': debug = 1;
+			case 'D':
+				debug = 1;
 				break;
 			case 'c': 
-			case 'C': if (argc < (idx+1)) {
+			case 'C':
+				idx++;
+				if (argc < idx) {
 					  printf("\n<skt> not specified\n");
 					  *print_help = 1;
 					  goto exit;
-				} else {
-					idx++;
-					*cons_skt = (int)strtol(argv[idx], NULL, 10);
-				};
+				}
+				if (tok_parse_socket(argv[idx], &tmp16, 0)) {
+					printf("\n");
+					printf(TOK_ERR_SOCKET_MSG_FMT, "<skt>");
+					*print_help = 1;
+					goto exit;
+				}
+				*cons_skt = (int)tmp16;
 				break;
 			case '?': 
 			case 'h': 
-			case 'H': *print_help = 1;
-				  break;
+			case 'H':
+				*print_help = 1;
+				break;
 			case 'm': 
 			case 'M': 
-				if ((argv[idx][2] >= '0') && 
-				    (argv[idx][2] <= '9')) {
-					*mport_num = argv[idx][2] - '0';
-				} else {
-					printf("\n<mport> invalid\n");
+				idx++;
+				if (argc < idx) {
+					printf("\n<mport> not specified\n");
 					*print_help = 1;
 					goto exit;
-				};
+				}
+				if (tok_parse_mport_id(argv[idx], &tmp32, 0)) {
+					printf("\n");
+					printf(TOK_ERR_MPORT_MSG_FMT);
+					*print_help = 1;
+					goto exit;
+				}
+				*mport_num = (int)tmp32;
 				break;
 			case 'n': 
-			case 'N': *run_cons = 0;
-				  break;
+			case 'N':
+				*run_cons = 0;
+				break;
 			case 's': 
-			case 'S': if (argc < (idx+1)) {
-					  printf("\n<size> not specified\n");
-					  *print_help = 1;
-					  goto exit;
-				};
+			case 'S':
 				idx++;
-				*win_size = (int)strtol(argv[idx], NULL, 10);
-				if (*win_size > (TOTAL_TX_BUFF_SIZE/1024)) {
-					printf("\n<size> exceeds max\n");
+				if (argc < idx) {
+					printf("\n<size> not specified\n");
 					*print_help = 1;
 					goto exit;
 				};
+				if (tok_parse_long(argv[idx], &tmp32, 0, TOTAL_TX_BUFF_SIZE/1024, 0)) {
+					printf("\n");
+					printf(TOK_ERR_LONG_HEX_MSG_FMT, "<size>", 0, TOTAL_TX_BUFF_SIZE/1024);
+					*print_help = 1;
+					goto exit;
+				}
+				*win_size = (int)tmp32;
 				break;
 			case 'w':
-			case 'W': if ((argv[idx][2] >= '0') && 
-				    (argv[idx][2] <= '9')) {
-					*num_buffs = (int)strtol(&argv[idx][2], NULL, 10);
-				} else {
-					printf("\n<buffers> invalid\n");
+			case 'W':
+				idx++;
+				if (argc < idx) {
+					printf("\n<buffers> not specified\n");
 					*print_help = 1;
 					goto exit;
-				};
+				}
+				if (tok_parse_long(argv[idx], &tmp32, 0, 9, 0)) {
+					printf("\n");
+					printf(TOK_ERR_LONG_HEX_MSG_FMT, "<buffers>", 0, 9);
+					*print_help = 1;
+					goto exit;
+				}
+				*num_buffs = (int)tmp32;
 				break;
 			case 'x': 
-			case 'X': if (argc < (idx+1)) {
+			case 'X':
+				idx++;
+				if (argc < idx) {
 					printf("\n<skt> not specified\n");
 					*print_help = 1;
 					goto exit;
-				} else {
-					idx++;
-					*xfer_skt = (int)strtol(argv[idx], NULL, 10);
-				};
-				  break;
-			default: printf("\nUnknown parm: \"%s\"\n", argv[idx]);
+				}
+				if (tok_parse_socket(argv[idx], &tmp16, 0)) {
+					printf("\n");
+					printf(TOK_ERR_SOCKET_MSG_FMT, "<skt>");
+					*print_help = 1;
+					goto exit;
+				}
+				*xfer_skt = (int)tmp16;
+				break;
+			default:
+				printf("\nUnknown parm: \"%s\"\n", argv[idx]);
 				*print_help = 1;
 			};
 		};
 	}
-	*win_size = *win_size * 1024;
+
 exit:
+	*win_size = *win_size * 1024;
 	return;
 }
 
@@ -292,14 +322,17 @@ int FXStatusCmd(struct cli_env *env, int argc, char **argv)
 				rx_bufs[idx].is_an_ibwin ? "Y" : "N");
 	}
 	LOGMSG(env, "\nall_must_die status : %d\n", all_must_die);
-	LOGMSG(env, "XFER Socket #       : %d\n", conn_skt_num);
-	LOGMSG(env, "XFER conn_loop_alive: %d\n", conn_loop_alive);
+	LOGMSG(env, "Server destID       : %d\n", qresp.hdid);
+	LOGMSG(env, "Server cm_skt       : %d\n", conn_skt_num);
+	LOGMSG(env, "Server Accept Lp OK : %d\n", conn_loop_alive);
 	LOGMSG(env, "Pending conn reqs   : %s\n",
 			(conn_reqs.head) ? "AVAILABLE" : "None");
-	LOGMSG(env, "\nCLI Sessions Alive : %d\n", cli_session_alive);
-	LOGMSG(env, "CLI Socket #       : %d\n", cli_session_portno);
-	LOGMSG(env, "\nServer mport       : %d\n", mp_h_mport_num);
-	LOGMSG(env, "Server destID      : %d\n", qresp.hdid);
+	LOGMSG(env, "\nCLI Sessions Alive : %d", cli_session_alive);
+	if (!cli_session_alive) {
+		LOGMSG(env, "  FAILED! MULTIPLE FXFR_SERVER PROCESSES?");
+	};
+	LOGMSG(env, "\nCLI Socket #       : %d", cli_session_portno);
+	LOGMSG(env, "\n\nServer mport       : %d\n", mp_h_mport_num);
 
 	return 0;
 
@@ -349,7 +382,7 @@ int FXMpdevsCmd(struct cli_env *env, int argc, char **argv)
 	uint32_t *ep_list = NULL;
 	uint32_t *list_ptr;
 	uint32_t number_of_eps = 0;
-	uint8_t  number_of_mports = RIODP_MAX_MPORTS;
+	uint8_t  number_of_mports = RIO_MAX_MPORTS;
 	uint32_t ep = 0;
 	int i;
 	int mport_id;
@@ -366,9 +399,9 @@ int FXMpdevsCmd(struct cli_env *env, int argc, char **argv)
 	}
 
 	printf("\nAvailable %d local mport(s):\n", number_of_mports);
-	if (number_of_mports > RIODP_MAX_MPORTS) {
+	if (number_of_mports > RIO_MAX_MPORTS) {
 		LOGMSG(env, "WARNING: Only %d out of %d have been retrieved\n",
-				RIODP_MAX_MPORTS, number_of_mports);
+				RIO_MAX_MPORTS, number_of_mports);
 	}
 
 	list_ptr = mport_list;
@@ -683,9 +716,9 @@ void *conn_loop(void *ret)
 			};
 		};
 
-		rc = riomp_sock_accept(conn_skt, new_socket, 0);
+		rc = riomp_sock_accept(conn_skt, new_socket, 1000);
 		if (rc) {
-			if ((errno == ETIME) || (errno == EINTR))
+			if ((errno == ETIME) || (errno == EINTR) || (errno == EAGAIN))
 				continue;
 			if (debug)
 				printf("conn_loop: riomp_accept() ERR %d\n",

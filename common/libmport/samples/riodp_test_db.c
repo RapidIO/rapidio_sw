@@ -37,28 +37,10 @@
 /**
  * \file riodp_test_db.c
  * \brief Test program that demonstrates sending and receiving RapidIO doorbells.
- *
- * To perform RapidIO doorbell exchange testing, receiving and sending instances of
- * this program must run simultaneously. For running both instances on the same machine
- * with only one mport device, RapidIO connection to a switch device is required to
- * provide loopback connection.
- *
- * Usage:
- *   ./riodp_test_buf [options]
- *
- * Options are:
- * - -D xxxx | --destid xxxx : destination ID of sending/receiving RapidIO device
- *     (defaults Rx:any, Tx:none)
- * - -M mport_id | --mport mport_id : local mport device index (default=0)
- * - -I xxxx : DoorBell Info field value (default 0x5a5a)
- * - -r : run in DB receiver mode
- * - -n : run receiver in non-blocking mode
- * - -S xxxx : start of doorbell range (default 0x5a5a)
- * - -E xxxx : end of doorbell range (default 0x5a5a)
- * - --help (or -h)
  */
 
 #include <stdio.h>
+#include <stdint.h>
 #include <string.h>
 #include <errno.h>
 #include <stdlib.h>
@@ -69,21 +51,52 @@
 #include <stdint.h> /* For size_t */
 #include <unistd.h>
 #include <getopt.h>
+#include <ctype.h>
 #include <time.h>
 #include <signal.h>
+
+#include "tok_parse.h"
+#include "rio_misc.h"
+#include <rapidio_mport_mgmt.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include "rio_misc.h"
-#include <rapidio_mport_mgmt.h>
 
 static int debug = 0;
 static int exit_no_dev;
 
 static volatile sig_atomic_t rcv_exit;
 static volatile sig_atomic_t report_status;
+
+static void usage(char *program)
+{
+	printf("%s - test RapidIO DoorBell exchange\n",	program);
+	printf("Usage:\n");
+	printf("  %s [options]\n", program);
+	printf("Options are:\n");
+	printf("  --help (or -h)\n");
+	printf("Sender:\n");
+	printf("  -D xxxx\n");
+	printf("  --destid xxxx\n");
+	printf("    destination ID of sending RapidIO device [mandatory]\n");
+	printf("  -M mport_id\n");
+	printf("  --mport mport_id\n");
+	printf("    local mport device index (default 0)\n");
+	printf("  -I xxxx\n");
+	printf("    DoorBell Info field value (default 0x5a5a)\n");
+	printf("Receiver:\n");
+	printf("  -D xxxx\n");
+	printf("  --destid xxxx\n");
+	printf("    destination ID of receiving RapidIO device (default any)\n");
+	printf("  -r run in DB receiver mode\n");
+	printf("  -n run receiver in non-blocking mode\n");
+	printf("  -S xxxx\n");
+	printf("    start of doorbell range (default 0x5a5a)\n");
+	printf("  -E xxxx\n");
+	printf("    end of doorbell range (default 0x5a5a)\n");
+	printf("\n");
+}
 
 static void db_sig_handler(int signum)
 {
@@ -190,34 +203,6 @@ int do_dbsnd_test(riomp_mport_t hnd, uint32_t rioid, uint16_t dbval)
 	return ret;
 }
 
-static void display_help(char *program)
-{
-	printf("%s - test RapidIO DoorBell exchange\n",	program);
-	printf("Usage:\n");
-	printf("  %s [options]\n", program);
-	printf("options are:\n");
-	printf("Common:\n");
-	printf("  -D xxxx\n");
-	printf("  --destid xxxx\n");
-	printf("    destination ID of sending/receiving RapidIO device\n");
-	printf("    (defaults Rx:any, Tx:none)\n");
-	printf("  --help (or -h)\n");
-	printf("Sender:\n");
-	printf("  -M mport_id\n");
-	printf("  --mport mport_id\n");
-	printf("    local mport device index (default=0)\n");
-	printf("  -I xxxx\n");
-	printf("    DoorBell Info field value (default 0x5a5a)\n");
-	printf("Receiver:\n");
-	printf("  -r run in DB receiver mode\n");
-	printf("  -n run receiver in non-blocking mode\n");
-	printf("  -S xxxx\n");
-	printf("    start of doorbell range (default 0x5a5a)\n");
-	printf("  -E xxxx\n");
-	printf("    end of doorbell range (default 0x5a5a)\n");
-	printf("\n");
-}
-
 static void test_sigaction(int UNUSED(sig), siginfo_t *siginfo, void *UNUSED(context))
 {
 	printf ("SIGIO info PID: %ld, UID: %ld CODE: 0x%x BAND: 0x%lx FD: %d\n",
@@ -240,33 +225,40 @@ static void test_sigaction(int UNUSED(sig), siginfo_t *siginfo, void *UNUSED(con
  */
 int main(int argc, char** argv)
 {
+	int c;
+	char *program = argv[0];
+
+	// command line parameters, all optional
 	uint32_t mport_id = 0;
-	uint32_t rio_destid = 0xffffffff;
+	uint32_t rio_destid = UINT32_MAX;
 	uint32_t db_info = 0x5a5a;
 	uint32_t db_start = 0x5a5a;
 	uint32_t db_end = 0x5a5a;
-	riomp_mport_t mport_hnd;
-	int flags = 0;
-	int option;
-	int do_dbrecv = 0;
+
 	static const struct option options[] = {
 		{ "destid", required_argument, NULL, 'D' },
 		{ "mport",  required_argument, NULL, 'M' },
 		{ "debug",  no_argument, NULL, 'd' },
 		{ "help",   no_argument, NULL, 'h' },
 	};
-	char *program = argv[0];
+
+	riomp_mport_t mport_hnd;
+	int flags = 0;
+	int do_dbrecv = 0;
+
 	struct riomp_mgmt_mport_properties prop;
 	struct sigaction action;
 	int rc = EXIT_SUCCESS;
 
 	/** Parse command line options, if any */
-	while (-1 != (option = getopt_long_only(argc, argv,
-			"rdhnD:I:M:S:E:", options, NULL))) {
-
-		switch (option) {
+	while (-1 != (c = getopt_long_only(argc, argv, "rdhnD:I:M:S:E:",
+			options, NULL))) {
+		switch (c) {
 		case 'D':
-			rio_destid = (uint32_t)strtoul(optarg, NULL, 0);
+			if (tok_parse_did(optarg, &rio_destid, 0)) {
+				printf(TOK_ERR_DID_MSG_FMT);
+				exit(EXIT_FAILURE);
+			}
 			break;
 		case 'r':
 			do_dbrecv = 1;
@@ -275,30 +267,53 @@ int main(int argc, char** argv)
 			flags = O_NONBLOCK;
 			break;
 		case 'I':
-			db_info = (uint32_t)strtoul(optarg, NULL, 0);
+			if (tok_parse_l(optarg, &db_info, 0)) {
+				printf(TOK_ERR_L_HEX_MSG_FMT, "DoorBell Info");
+				exit(EXIT_FAILURE);
+			}
 			break;
 		case 'M':
-			mport_id = (uint32_t)strtoul(optarg, NULL, 0);
+			if (tok_parse_mport_id(optarg, &mport_id, 0)) {
+				printf(TOK_ERR_MPORT_MSG_FMT);
+				exit(EXIT_FAILURE);
+			}
 			break;
 		case 'S':
-			db_start = (uint32_t)strtoul(optarg, NULL, 0);
+			if (tok_parse_l(optarg, &db_start, 0)) {
+				printf(TOK_ERR_L_HEX_MSG_FMT, "DoorBell start");
+				exit(EXIT_FAILURE);
+			}
 			break;
 		case 'E':
-			db_end = (uint32_t)strtoul(optarg, NULL, 0);
+			if (tok_parse_l(optarg, &db_end, 0)) {
+				printf(TOK_ERR_L_HEX_MSG_FMT, "DoorBell end");
+				exit(EXIT_FAILURE);
+			}
 			break;
 		case 'd':
 			debug = 1;
 			break;
 		case 'h':
-		default:
-			display_help(program);
+			usage(program);
 			exit(EXIT_SUCCESS);
+		case '?':
+		default:
+			/* Invalid command line option */
+			if (isprint(optopt)) {
+				printf("Unknown option '-%c\n", optopt);
+			}
+			usage(program);
+			exit(EXIT_FAILURE);
 		}
 	}
 
-	if (!do_dbrecv && rio_destid == 0xffffffff) {
-		printf("\tPlease specify RIO Target DestID to Send a DB\n");
-		exit(EXIT_SUCCESS);
+	// set default for receive if value not provided
+	if (do_dbrecv && (UINT32_MAX == rio_destid)) {
+		rio_destid = RIO_LAST_DEV8;
+	}
+	if (rio_destid > RIO_LAST_DEV8) {
+		printf("Please specify a %s destination Id\n",
+				do_dbrecv ? "receive" : "transmit");
 	}
 
 	memset(&action, 0, sizeof(action));

@@ -42,7 +42,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sstream>
 #include <vector>
 
+#include "rio_ecosystem.h"
 #include "string_util.h"
+#include "tok_parse.h"
 #include "rio_misc.h"
 #include "goodput_cli.h"
 #include "libtime_utils.h"
@@ -161,9 +163,6 @@ int ThreadCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 exit:
         return 0;
 };
-
-#define HACK(x) #x
-#define STR(x) HACK(x)
 
 struct cli_cmd Thread = {
 "thread",
@@ -539,14 +538,14 @@ void cpu_occ_parse_proc_line(char *file_line,
 
 	if (NULL == tok)
 		goto error;
-	
-	*proc_new_utime = (uint64_t)strtoull(tok, NULL, 10);
+	if (tok_parse_ll(tok, proc_new_utime, 0))
+		goto error;
 
 	tok = strtok_r(NULL, delim, &saveptr);
 	if (NULL == tok)
 		goto error;
-
-	*proc_new_stime = (uint64_t)strtoull(tok, NULL, 10);
+	if (tok_parse_ll(tok, proc_new_stime, 0))
+		goto error;
 	return;
 error:
 	ERR("\nFAILED: proc_line \"%s\"\n", fl_cpy);
@@ -569,44 +568,50 @@ void cpu_occ_parse_stat_line(char *file_line,
 	
 	/* Throw the first token away. */
 	tok = strtok_r(file_line, delim, &saveptr);
-
 	if (NULL == tok)
 		goto error;
 	
 	tok = strtok_r(NULL, delim, &saveptr);
 	if (NULL == tok)
 		goto error;
-	*p_user = (uint64_t)strtoull(tok, NULL, 10);
+	if (tok_parse_ll(tok, p_user, 0))
+		goto error;
 
 	tok = strtok_r(NULL, delim, &saveptr);
 	if (NULL == tok)
 		goto error;
-	*p_nice = (uint64_t)strtoull(tok, NULL, 10);
+	if (tok_parse_ll(tok, p_nice, 0))
+		goto error;
 
 	tok = strtok_r(NULL, delim, &saveptr);
 	if (NULL == tok)
 		goto error;
-	*p_system = (uint64_t)strtoull(tok, NULL, 10);
+	if (tok_parse_ll(tok, p_system, 0))
+		goto error;
 
 	tok = strtok_r(NULL, delim, &saveptr);
 	if (NULL == tok)
 		goto error;
-	*p_idle = (uint64_t)strtoull(tok, NULL, 10);
+	if (tok_parse_ll(tok, p_idle, 0))
+		goto error;
 
 	tok = strtok_r(NULL, delim, &saveptr);
 	if (NULL == tok)
 		goto error;
-	*p_iowait = (uint64_t)strtoull(tok, NULL, 10);
+	if (tok_parse_ll(tok, p_iowait, 0))
+		goto error;
 
 	tok = strtok_r(NULL, delim, &saveptr);
 	if (NULL == tok)
 		goto error;
-	*p_irq = (uint64_t)strtoull(tok, NULL, 10);
+	if (tok_parse_ll(tok, p_irq, 0))
+		goto error;
 
 	tok = strtok_r(NULL, delim, &saveptr);
 	if (NULL == tok)
 		goto error;
-	*p_softirq = (uint64_t)strtoull(tok, NULL, 10);
+	if (tok_parse_ll(tok, p_softirq, 0))
+		goto error;
 	
 	return;
 error:
@@ -1828,7 +1833,7 @@ int MpdevsCmd(struct cli_env *env, int UNUSED(argc), char **UNUSED(argv))
         uint32_t *ep_list = NULL;
         uint32_t *list_ptr;
         uint32_t number_of_eps = 0;
-        uint8_t  number_of_mports = RIODP_MAX_MPORTS;
+        uint8_t  number_of_mports = RIO_MAX_MPORTS;
         uint32_t ep = 0;
         int i;
         int mport_id;
@@ -1843,10 +1848,10 @@ int MpdevsCmd(struct cli_env *env, int UNUSED(argc), char **UNUSED(argv))
 
         LOGMSG(env, "\nAvailable %d local mport(s):\n", number_of_mports);
 
-        if (number_of_mports > RIODP_MAX_MPORTS) {
+        if (number_of_mports > RIO_MAX_MPORTS) {
                 LOGMSG(env,
 			"WARNING: Only %d out of %d have been retrieved\n",
-                        RIODP_MAX_MPORTS, number_of_mports);
+			RIO_MAX_MPORTS, number_of_mports);
         }
 
         list_ptr = mport_list;

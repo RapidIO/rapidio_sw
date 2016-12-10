@@ -4,6 +4,7 @@
 
 #include "rapidio_mport_mgmt.h"
 
+#include "tok_parse.h"
 #include "librskt_private.h"
 #include "librsktd_private.h"
 #include "librskt.h"
@@ -18,17 +19,6 @@ extern "C" {
 #endif
 
 static rskt_client *client;
-
-void show_help()
-{
-	puts("rsktc_test -d<destid> -s<socket_number> [-h] [-l<data_length>] [-r<repetitions>] [-t] \n");
-	puts("-d<destid>: Specify destination ID of machine running rskts_test. Default is 1234");
-	puts("-s<socket_number>: Specity socket number used by rskts_test for listening for connections");
-	puts("-h:  This help message.");
-	puts("-l<data_length>: Specify length of data to send (0 to 8192). If omitted default is 512 bytes");
-	puts("-r<repetitions>: Specify number of repetitions to run for. Default is 1");
-	puts("-t:  Use a number of repetitions and varying data lengths (txtest/rxtest) (overrides -r and -l)");
-}
 
 void sig_handler(int sig)
 {
@@ -62,14 +52,31 @@ void sig_handler(int sig)
 	exit(0);
 } /* sig_handler() */
 
+void usage(char *program)
+{
+	printf("%s -d<destid> -s<socket_number> [-h] [-l<data_length>] [-r<repetitions>] [-t] \n", program);
+	puts("-d<destid>: Specify destination ID of machine running rskts_test.");
+	puts("-s<socket_number>: Specity socket number used by rskts_test for listening for connections, Default is 1234");
+	puts("-h:  This help message.");
+	puts("-l<data_length>: Specify length of data to send (0 to 8192). Default is 512 bytes");
+	puts("-r<repetitions>: Specify number of repetitions to run for. Default is 1");
+	puts("-t:  Use a number of repetitions and varying data lengths (txtest/rxtest) (overrides -r and -l)");
+}
+
 int main(int argc, char *argv[])
 {
-	char c;
-	uint16_t destid = 0xFFFF;
-	int socket_number = 1234;
-	unsigned repetitions = 1;
-	unsigned data_length = 512;
+	int c;
+	char *program = argv[0];
+
+	// command line parameters
+	uint16_t did = 0;
+	bool did_set = false;
+	uint16_t socket_number = 1234;
+	uint32_t repetitions = 1;
+	uint32_t data_length = 512;
 	bool tx_test = false;
+	int rc;
+
 
 	/* Register signal handler */
 	struct sigaction sig_action;
@@ -85,49 +92,61 @@ int main(int argc, char *argv[])
 	/* Must specify at least 1 argument (the destid) */
 	if (argc < 2) {
 		puts("Insufficient arguments. Must specify <destid>");
-		show_help();
+		usage(program);
 		exit(1);
 	}
 
-	while ((c = getopt(argc, argv, "htd:l:r:s:")) != -1)
+	while (-1 != (c = getopt(argc, argv, "htd:l:r:s:")))
 		switch (c) {
 
 		case 'd':
-			destid = (uint16_t)strtoul(optarg, NULL, 10);
-			break;
-		case 'h':
-			show_help();
-			exit(1);
+			if (tok_parse_did(optarg, &did, 0)) {
+				printf(TOK_ERR_DID_MSG_FMT);
+				exit (EXIT_FAILURE);
+			}
+			did_set = true;
 			break;
 		case 'l':
-			data_length = (unsigned)strtoul(optarg, NULL, 10)
+			if (tok_parse_long(optarg, &data_length, 0, 8192, 0)) {
+				printf(TOK_ERR_LONG_MSG_FMT, "Data length", 0, 8192);
+				exit (EXIT_FAILURE);
+			}
 			break;
 		case 'r':
-			repetitions = (unsigned)strtoul(optarg, NULL, 10);
+			if (tok_parse_l(optarg, &repetitions, 0)) {
+				printf(TOK_ERR_L_MSG_FMT, "Number of repetitions");
+				exit (EXIT_FAILURE);
+			}
 			break;
 		case 's':
-			socket_number = (int)strtol(optarg, NULL, 10);
+			if (tok_parse_socket(optarg, &socket_number, 0)) {
+				printf(TOK_ERR_SOCKET_MSG_FMT, "Socket number");
+				exit (EXIT_FAILURE);
+			}
 			break;
 		case 't':
 			tx_test = true;
 			break;
+		case 'h':
+			usage(program);
+			exit(EXIT_SUCCESS);
 		case '?':
-			/* Invalid command line option */
-			show_help();
-			exit(1);
-			break;
 		default:
-			abort();
+			/* Invalid command line option */
+			if (isprint(optopt)) {
+				printf("Unknown option '-%c\n", optopt);
+			}
+			usage(program);
+			exit(EXIT_FAILURE);
 		}
 
 	/* Must specify destid */
-	if (destid == 0xFFFF) {
-		puts("Error. Must specify <destid>");
-		show_help();
-		exit(1);
+	if (!did_set ) {
+		usage(program);
+		exit(EXIT_FAILURE);
 	}
 
-	int rc = librskt_init(DFLT_DMN_LSKT_SKT, 0);
+	rc = librskt_init(DFLT_DMN_LSKT_SKT, 0);
 	if (rc) {
 		CRIT("failed in librskt_init, rc = %d\n", rc);
 		return 1;

@@ -50,6 +50,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sys/types.h>
 #include <netinet/in.h>
 
+#include "tok_parse.h"
 #include "rio_ecosystem.h"
 #include "fmd_dd.h"
 #include "fmd_app_msg.h"
@@ -164,15 +165,14 @@ extern struct cli_cmd CLIApp;
 
 int CLIAppCmd(struct cli_env *env, int argc, char **argv)
 {
-	int idx;
+	uint32_t idx;
 
 	if (argc) {
-		idx = (int)strtol(argv[0], NULL, 10);
-		if ((idx >= FMD_MAX_APPS) || (idx < 0)) {
-			LOGMSG(env, "Illegal idx, range 0 - %d\n",
-					FMD_MAX_APPS-1);
+		if (tok_parse_long(argv[0], &idx, 0, FMD_MAX_APPS, 0)) {
+			LOGMSG(env, TOK_ERR_LONG_MSG_FMT, "Maximum apps",
+					0, FMD_MAX_APPS);
 			goto exit;
-		};
+		}
 		if (app_st.apps[idx].alive) {
 			app_st.apps[idx].i_must_die = 1;
 			pthread_kill(app_st.apps[idx].app_thr, SIGHUP);

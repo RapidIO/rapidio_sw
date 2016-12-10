@@ -9,6 +9,7 @@
 #include <iostream>
 #include <algorithm>
 
+#include "tok_parse.h"
 #include "librdma.h"
 #include "cm_sock.h"
 #include "bat_common.h"
@@ -52,9 +53,9 @@ void sig_handler(int sig)
 	exit(0);
 }
 
-void show_help()
+void usage(char *program)
 {
-	puts("bat_server -c<channel>|-h");
+	printf("%s -c<channel>|-h\n", program);
 }
 
 /**
@@ -72,8 +73,10 @@ void accept_thread_f(uint64_t server_msh, uint64_t server_msubh)
 
 int main(int argc, char *argv[])
 {
-	uint16_t channel;
 	int c;
+	char *program = argv[0];
+
+	uint16_t channel;
 
 	signal(SIGINT, sig_handler);
 	signal(SIGABRT, sig_handler);
@@ -82,25 +85,29 @@ int main(int argc, char *argv[])
 
 	/* Parse command-line parameters */
 	if (argc < 2) {
-		show_help();
-		exit(1);
+		usage(program);
+		exit(EXIT_FAILURE);
 	}
-	while ((c = getopt(argc, argv, "hc:")) != -1) {
+	while (-1 != (c = getopt(argc, argv, "hc:"))) {
 		switch(c) {
 		case 'c':
-			channel = (uint16_t)strtoul(optarg, NULL, 10);
+			if (tok_parse_socket(optarg, &channel, 0)) {
+				printf(TOK_ERR_SOCKET_MSG_FMT, "Channel");
+				exit(EXIT_FAILURE);
+			}
 			break;
 		case 'h':
-			show_help();
-			exit(1);
-			break;
+			usage(program);
+			exit(EXIT_SUCCESS);
 		case '?':
-			/* Invalid command line option */
-			exit(1);
-			break;
 		default:
-			abort();
-		} /* switch */
+			/* Invalid command line option */
+			if (isprint(optopt)) {
+				printf("Unknown option '-%c\n", optopt);
+			}
+			usage(program);
+			exit(EXIT_FAILURE);
+		}
 	} /* while */
 
 	while (1) {

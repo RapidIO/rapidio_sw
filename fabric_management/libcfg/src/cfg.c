@@ -51,6 +51,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <netinet/in.h>
 
 #include "rio_ecosystem.h"
+#include "tok_parse.h"
 #include "ct.h"
 #include "did.h"
 #include "fmd_dd.h"
@@ -286,19 +287,11 @@ fail:
 int get_dec_int(struct int_cfg_parms *cfg, uint32_t *dec_int)
 {
 	char *tok = NULL;
-	char *endptr = NULL;
 
 	if (cfg->init_err || get_next_token(cfg, &tok))
 		goto fail;
 
-	errno = 0;
-	*dec_int = (uint32_t)strtol(tok, &endptr, 10);
-
-	if ((errno == ERANGE && (*dec_int == 0xFFFFFFFF || *dec_int == 0))
-		|| ((errno != 0) && (*dec_int == 0)))
-		goto fail;
-
-	if (endptr == tok) {
+	if (tok_parse_l(tok, dec_int, 10)) {
 		goto fail;
 	}
 	return 0;
@@ -310,21 +303,13 @@ fail:
 int get_hex_int(struct int_cfg_parms *cfg, uint32_t *hex_int)
 {
 	char *tok = NULL;
-	char *endptr = NULL;
 
 	if (cfg->init_err || get_next_token(cfg, &tok))
 		goto fail;
 
-	errno = 0;
-	*hex_int = strtoul(tok, &endptr, 16);
-
-	if ((errno == ERANGE && (*hex_int == 0xFFFFFFFF || *hex_int == 0))
-		|| ((errno != 0) && (*hex_int == 0)))
+	if (tok_parse_l(tok, hex_int, 16)) {
 		goto fail;
-
-	if (endptr == tok)
-		goto fail;
-
+	}
 	return 0;
 fail:
 	parse_err(cfg, (char *)"get_hex_int error.");
@@ -337,7 +322,7 @@ int get_port_num(struct int_cfg_parms *cfg, uint32_t *pnum)
 		return 1;
 
 	// FIXME: Need to use standard macros to check this...
-	if (*pnum >= 18) {
+	if (*pnum >= RIO_MAX_DEV_PORT) {
 		parse_err(cfg, (char *)"Illegal portnum.");
 		goto fail;
 	};
@@ -370,7 +355,7 @@ int get_string(struct int_cfg_parms *cfg, char **parm)
 
 int get_rt_v(struct int_cfg_parms *cfg, uint32_t *rt_val)
 {
-	char *tok = NULL, *endptr = NULL;
+	char *tok = NULL;
 	pe_rt_val val = 0;
 
 	if (get_next_token(cfg, &tok))
@@ -396,17 +381,11 @@ int get_rt_v(struct int_cfg_parms *cfg, uint32_t *rt_val)
 		*rt_val = IDT_DSF_RT_NO_ROUTE;
 		break;
 	default:
-		val = (pe_rt_val)strtoul(tok, &endptr, 0);
-		if ((errno == ERANGE && (val == 0xFFFFFFFF || val == 0))
-			|| ((errno != 0) && (val == 0)))
+		if (tok_parse_port_num(tok, &val, 0)) {
+			parse_err(cfg, (char *)"Illegal port index.");
 			goto fail;
-		if (endptr == tok)
-			goto fail;
+		}
 		*rt_val = val;
-		if (*rt_val >= 18) {
-			parse_err(cfg, (char *)"Illegal port number.");
-			goto fail;
-		};
 	};
 	return 0;
 fail:
@@ -448,6 +427,7 @@ int find_ep_and_port(struct int_cfg_parms *cfg, char *tok,
 			struct int_cfg_ep **ep, int *port)
 {
 	char *temp = NULL;
+	uint32_t tmp;
 
 	*port = 0;
 	*ep = NULL;
@@ -458,12 +438,12 @@ int find_ep_and_port(struct int_cfg_parms *cfg, char *tok,
 
 	if ('.' == temp[0]) {
 		temp[0] = '\0';
-		*port = (int)strtol(&temp[1], NULL, 10);
-		if ((*port < 0) || (*port >= CFG_MAX_EP_PORT)) {
+		if (tok_parse_long(&temp[1], &tmp, 0, CFG_MAX_EP_PORT, 0)) {
 			parse_err(cfg, (char *)"Illegal port index.");
 			goto fail;
-		};
-	};
+		}
+		*port = (int)tmp;
+	}
 
 	if (find_ep_name(cfg, tok, ep))
 		goto fail;
@@ -481,6 +461,7 @@ int find_sw_and_port(struct int_cfg_parms *cfg, char *tok,
 			struct int_cfg_sw **sw, int *port)
 {
 	char *temp;
+	uint32_t tmp;
 
 	*port = 0;
 	*sw = NULL;
@@ -493,11 +474,11 @@ int find_sw_and_port(struct int_cfg_parms *cfg, char *tok,
 
 	if ('.' == temp[0]) {
 		temp[0] = '\0';
-		*port = (int)strtol(&temp[1], NULL, 10);
-		if ((*port < 0) || (*port >= CFG_MAX_EP_PORT)) {
+		if (tok_parse_long(&temp[1], &tmp, 0, CFG_MAX_EP_PORT, 0)) {
 			parse_err(cfg, (char *)"Illegal port index.");
 			goto fail;
-		};
+		}
+		*port = (int)tmp;
 	};
 
 	if (find_sw_name(cfg, tok, sw)) {
@@ -518,6 +499,7 @@ int get_ep_sw_and_port(struct int_cfg_parms *cfg, struct int_cfg_conn *conn,
 			int idx)
 {
 	char *temp = NULL, *tok = NULL;
+	uint32_t tmp;
 
 	conn->ends[idx].port_num = 0;
 	conn->ends[idx].ep_h = NULL;
@@ -536,11 +518,11 @@ int get_ep_sw_and_port(struct int_cfg_parms *cfg, struct int_cfg_conn *conn,
 
 	if ('.' == temp[0]) {
 		temp[0] = '\0';
-		conn->ends[idx].port_num = (int)strtol(&temp[1], NULL, 10);
-		if (conn->ends[idx].port_num < 0) {
+		if (tok_parse_port_num(&temp[1], &tmp, 0)) {
 			parse_err(cfg, (char *)"Illegal port index.");
 			goto fail;
-		};
+		}
+		conn->ends[idx].port_num = (int)tmp;
 	};
 
 	if (!find_ep_name(cfg, tok, &conn->ends[idx].ep_h)) {
@@ -584,7 +566,7 @@ fail:
 int cfg_get_destid(struct int_cfg_parms *cfg, uint32_t *destid, uint32_t devid_sz)
 {
 	int port = 0;
-	char *tok, *endptr;
+	char *tok;
 	struct int_cfg_ep *ep;
 
 	if (get_next_token(cfg, &tok))
@@ -593,13 +575,9 @@ int cfg_get_destid(struct int_cfg_parms *cfg, uint32_t *destid, uint32_t devid_s
 	if (find_ep_and_port(cfg, tok, &ep, &port)) {
 		if (cfg->init_err)
 			goto fail;
-		*destid = (uint32_t)strtoul(tok, &endptr, 16);
-		if ((errno == ERANGE && (*destid == 0xFFFFFFFF 
-			|| *destid == 0)) || 
-			((errno != 0) && (*destid == 0)))
+		if (tok_parse_did(tok, destid, 16)) {
 			goto fail;
-		if (endptr == tok)
-			goto fail;
+		}
 		return 0;
 	};
 
@@ -846,12 +824,10 @@ int parse_mc_mask(struct int_cfg_parms *cfg, idt_rt_mc_info_t *mc_info)
 			done = 1;
 			break;
 		default: 
-			pnum = (uint32_t)strtoul(tok, NULL, 10);
-			if (pnum >= CFG_MAX_SW_PORT) {
-				parse_err(cfg, 
-					(char *)"Illegal multicast port.");
+			if (tok_parse_port_num(tok, &pnum, 0)) {
+				parse_err(cfg, (char *)"Illegal multicast port.");
 				goto fail;
-			};
+			}
 			mc_info[mc_mask_idx].mc_mask |= (1 << pnum);
 			break;
 		};
@@ -1139,12 +1115,13 @@ int parse_switch(struct int_cfg_parms *cfg)
 			case 0: rt = &cfg->sws[i].rt[rt_sz];
 				cfg->sws[i].rt_valid[rt_sz] = true;
 				break;
-			default: uint32_t  port = (uint32_t)strtoul(token, NULL, 10);
-	// FIXME: Need to use standard macros to check this...
-				if (port >= RIO_MAX_DEV_PORT) {
+			default:
+				// FIXME: Need to use standard macros to check this...
+				uint32_t port;
+				if (tok_parse_port_num(token, &port, 0)) {
 					parse_err(cfg, (char *)"Illegal port.");
 					goto fail;
-				};
+				}
 				rt = &cfg->sws[i].ports[port].rt[rt_sz];
 				cfg->sws[i].ports[port].rt_valid[rt_sz] = true;
 				if (cfg->sws[i].rt_valid[rt_sz])

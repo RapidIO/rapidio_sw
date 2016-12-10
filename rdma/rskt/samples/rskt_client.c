@@ -43,6 +43,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <semaphore.h>
 #include <pthread.h>
 
+#include "tok_parse.h"
+#include "rio_standard.h"
 #include "liblog.h"
 #include "rapidio_mport_mgmt.h"
 #include "librskt_private.h"
@@ -57,7 +59,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define RSKT_DEFAULT_SOCKET_NUMBER	1234
 
-
 /**
  * \file
  *\brief Example multi threaded client application for RMA Sockets library
@@ -66,56 +67,33 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * identifying integer to each one. Each thread then repeatedly connects
  * to the server, performws write and read data transfer operations,
  * closes the socket,  and reconnects.
- * 
- * Usage:
- *
- * rskt_client -d(did) -s(socknum) -h -l (loglevel) -L(len) -p (skts)
- *
- * - did : Destination ID of node running rskt_server.
- * - socknum : Socket number the server is listening to, 1 to 65535.
- * Default is 1234.
- * - loglevel : Log severity to display and capture. Values are:
- * - 1 - No logs
- * - 2 - critical
- * - 3 - Errors and above
- * - 4 - Warnings and above
- * - 5 - High priority info and above
- * - 6 - Information logs and above
- * - 7 - Debug information and above
- * - len - Specify length of data to send (0 to 8192).
- *       Default is 512 bytes\
- * - -t : Use varying data length data. Overrides option -L (len)
- * - rpt : Repeat test this many times. Default is 1
- * - rpt : Repeat test this many times. Default is 1
- * - skts : Numbeer of sockets to execute in parallel
- * - -h   Display usage information and exit.
  */
 
 /** 
  * \brief display usage information for the RSKT client
  */
-void usage()
+void usage(char *program)
 {
-	printf("rskt_client -d<did> -s<socknum> -h -l <log level> -L<len> -p <threads>"
-							" -t -r<rpt> \n");
+	printf("%s -d<did> -s<socknum> -h -l <log level> -L<len> -p <threads>"
+			" -t -r<rpt> \n", program);
 	printf("-d<did>    : Destination ID of node running rskt_server.\n");
 	printf("-s<socknum>: Socket number used by rskt_server\n");
-	printf("             Default is 1234\n");
+	printf("             Default is %u\n", RSKT_DEFAULT_SOCKET_NUMBER);
 	printf("-h         : Display this help message and exit.\n");
-        printf("-l<log level>    : Log severity to display and capture\n");
-        printf("                   1 - No logs\n");
-        printf("                   2 - critical\n");
-        printf("                   3 - Errors and above\n");
-        printf("                   4 - Warnings and above\n");
-        printf("                   5 - High priority info and above\n");
-        printf("                   6 - Information logs and above\n");
-        printf("                   7 - Debug information and above\n");
+	printf("-l<log level>    : Log severity to display and capture\n");
+	printf("                   1 - No logs\n");
+	printf("                   2 - critical\n");
+	printf("                   3 - Errors and above\n");
+	printf("                   4 - Warnings and above\n");
+	printf("                   5 - High priority info and above\n");
+	printf("                   6 - Information logs and above\n");
+	printf("                   7 - Debug information and above\n");
 	printf("-L<len>    : Specify length of data to send (0 to 8192).\n");
 	printf("             Default is 512 bytes\n");
 	printf("-t         : Use varying data length data. Overrides -l\n");
 	printf("-r<rpt>    : Repeat test this many times. Default is 1\n");
-	printf("-p<skts>   : Number of sockets to execute in parallel.\n");
-	printf("             Default is 1.\n");
+	printf("-p<skts>   : Number of sockets to execute in parallel\n");
+	printf("             Default is 1\n");
 } /* usage() */
 
 /**
@@ -155,11 +133,11 @@ unsigned generate_data(unsigned data_len, unsigned tx_test,
 unsigned repetitions = 1; /** Each thread send and receives this 
 			* number of times
 			*/
-uint16_t destid = 0xFFFF; /** Destid of the the server */
-int socket_number = RSKT_DEFAULT_SOCKET_NUMBER;  /** rskt_server socket number */
+uint32_t destid = RIO_LAST_DEV16; /** Destid of the the server */
+uint16_t socket_number = RSKT_DEFAULT_SOCKET_NUMBER;  /** rskt_server socket number */
 unsigned tx_test = 0; /** 0 - send constant data, 1 - vary transmit data length
 			*/
-int data_length = 512;	/** Length of data if tx_test is 0 */
+uint32_t data_length = 512;	/** Length of data if tx_test is 0 */
 sem_t client_done;		/** Accounting for exiting client threads */
 int errorish_goodbye;	/** 0 if successful, 1 if an error was detected */
 
@@ -234,7 +212,6 @@ void *parallel_client(void *parms)
 			}
 
 			/* Read data echoed back from the server */
-
 			do {
 				rc = rskt_read(client_socket, recv_buf,
 						RSKT_DEFAULT_RECV_BUF_SIZE);
@@ -245,7 +222,9 @@ void *parallel_client(void *parms)
 					client_num, i, j, rc, strerror(errno));
 				goto close_client_socket;
 			}
-			if (rc != data_length) {
+
+			// TODO logic does not look correct, read in a loop above
+			if ((uint32_t)rc != data_length) {
 				ERR("Client %d: iter %x %x Byte %u Got %u ",
 					client_num, i, j, data_length, rc);
 			}
@@ -317,9 +296,13 @@ struct pthread_info {
 int main(int argc, char *argv[])
 {
 	int c;
+	char *program = argv[0];
+
+	bool have_destid = false;
+	unsigned parallel = 1;
+
 	time_t	cur_time;
 	char	asc_time[26];
-	unsigned parallel = 1;
 
 	struct l_head_t pthread_list;
 	struct l_item_t *li;
@@ -329,50 +312,74 @@ int main(int argc, char *argv[])
 	unsigned i;
 	int rc = 0;
 
-        /** Parse command line parameters */
+	/** Parse command line parameters */
 	if (argc < 2) {
 		puts("Insufficient arguments. Must specify <destid>");
-		usage();
-		goto exit_main;
+		usage(program);
+		exit(EXIT_FAILURE);
 	}
 
-	while ((c = getopt(argc, argv, "htd:l:L:r:s:p:")) != -1)
+	while (-1 != (c = getopt(argc, argv, "htd:l:L:r:s:p:")))
 		switch (c) {
-
 		case 'd':
-			destid = (uint16_t)strtoul(optarg, NULL, 10);
-			break;
-		default :
-		case 'h':
-			usage();
-			exit(1);
+			if (tok_parse_did(optarg, &destid, 0)) {
+				printf(TOK_ERR_DID_MSG_FMT);
+				exit(EXIT_FAILURE);
+			}
+			have_destid = true;
 			break;
 		case 'l':
-			g_level = (unsigned)strtoul(optarg, NULL, 10);
+			if (tok_parse_log_level(optarg, &g_level, 0)) {
+				printf(TOK_ERR_LOG_LEVEL_MSG_FMT);
+				exit(EXIT_FAILURE);
+			}
 			g_disp_level = g_level;
 			break;
 		case 'L':
-			data_length = (int)strtol(optarg, NULL, 10);
+			if (tok_parse_long(optarg, &data_length, 0, 8192, 0)) {
+				printf(TOK_ERR_LONG_MSG_FMT, "Buffer size", 0, 8192);
+				exit(EXIT_FAILURE);
+			}
 			break;
 		case 'p':
-			parallel = (unsigned)strtoul(optarg, NULL, 10);
+			if (tok_parse_long(optarg, &parallel, 1, 255, 0)) {
+				printf(TOK_ERR_LONG_MSG_FMT, "Number of parallel sockets", 1, 255);
+				exit(EXIT_FAILURE);
+			}
 			break;
 		case 'r':
-			repetitions = (unsigned)strtoul(optarg, NULL, 10);
+			if (tok_parse_l(optarg, &repetitions, 0)) {
+				printf(TOK_ERR_L_HEX_MSG_FMT, "Number of repetitions");
+				exit(EXIT_FAILURE);
+			}
 			break;
 		case 's':
-			socket_number = (int)strtol(optarg, NULL, 10);
+			if (tok_parse_socket(optarg, &socket_number,0)) {
+				printf(TOK_ERR_SOCKET_MSG_FMT, "Socket number");
+				exit(EXIT_FAILURE);
+			}
 			break;
 		case 't':
 			tx_test = 1;
 			break;
+		case 'h':
+			usage(program);
+			exit(EXIT_SUCCESS);
+		case '?':
+		default:
+			/* Invalid command line option */
+			if (isprint(optopt)) {
+				printf("Unknown option '-%c\n", optopt);
+			}
+			usage(program);
+			exit(EXIT_FAILURE);
 		}
 
 	/** Check entered parameters */
-	if (destid == 0xFFFF) {
+	if (!have_destid) {
 		puts("Error. Must specify <destid>");
-		usage();
-		exit(1);
+		usage(program);
+		exit(EXIT_FAILURE);
 	}
 
 	/** Open log file for debug, initialize status variables */
