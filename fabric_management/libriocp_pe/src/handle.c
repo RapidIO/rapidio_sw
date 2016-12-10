@@ -567,6 +567,7 @@ int riocp_pe_handle_create_mport(uint8_t mport, bool is_host,
 
 err:
 	riocp_pe_handle_destroy(&h);
+
 	return ret;
 }
 

@@ -757,9 +757,7 @@ void *conn_loop(void *ret)
 	}
 
 	/* Make sure all connection requests are cleaned up */
-	if (NULL != new_socket)
-		free((void *)new_socket);
-
+	free(new_socket);
 	new_socket = pop_conn_req(&conn_reqs);
 
 	while ((NULL != new_socket) && (*new_socket)) {

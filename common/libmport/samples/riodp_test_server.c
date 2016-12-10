@@ -241,7 +241,7 @@ int main(int argc, char** argv)
 	struct args arg;
 	riomp_mailbox_t mailbox = NULL;
 	riomp_sock_t socket = NULL;
-	riomp_sock_t new_socket;
+	riomp_sock_t new_socket = NULL;
 	pid_t pid, wpid;
 	int status = 0;
 	int tmp;
@@ -348,6 +348,7 @@ repeat:
 		} else {
 			/* TBD */
 		}
+		free(new_socket);
 	}
 
 out:

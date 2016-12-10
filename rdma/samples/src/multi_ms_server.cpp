@@ -241,6 +241,7 @@ int main(int argc, char *argv[])
 	/* Create threads for the memory spaces */
 	for (unsigned i = 1; i <= n; i++) {
 		ti *tio = new ti(msoh, i);
+
 		printf("i = %u\n", i);
 		if (pthread_create(&tio->tid, NULL, ms_thread_f, tio)) {
 			printf("Failed to create thread for ms%u\n", i);
@@ -259,6 +260,7 @@ int main(int argc, char *argv[])
 	}
 
 	/* Never reached. Exit via ctrl-c */
+
 	return 0;
 } /* main() */
 

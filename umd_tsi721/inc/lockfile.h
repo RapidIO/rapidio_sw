@@ -35,7 +35,7 @@ public:
     lock.l_pid = getpid();
 
     int ret = fcntl(m_fd, F_SETLK, &lock);
-    if (ret != 0) {
+    if (ret) {
       close(m_fd);
       throw std::runtime_error("LockFile: Lock file taken!");
     }
@@ -43,8 +43,10 @@ public:
     char tmp[81] = {0};
     snprintf(tmp, 80, "Locker pid %d tid %d", getpid(), gettid());
     rc = write(m_fd, tmp, strlen(tmp));
-    if (strlen(tmp) != (unsigned)rc)
+    if (strlen(tmp) != (unsigned)rc) {
+      close(m_fd);
       throw std::runtime_error("LockFile: write returned unexpected value!");
+    }
   }
 };
 

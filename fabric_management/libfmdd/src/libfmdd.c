@@ -449,12 +449,14 @@ int fmdd_wait_for_dd_change(fmdd_h h)
 	rc = sem_wait(chg_sem);
 
 	DBG("Waking up after change to device database\n");
+
+	sem_destroy(chg_sem);
+	free(chg_sem);
+
 	if (fml.mon_must_die || !fml.mon_alive || rc) {
 		ERR("mon_must_die, !mon_alive or sem_wait() failed\n");
 		goto fail;
 	}
-
-	/// \todo MEMORY LEAK: Every event results in one sem_t worth of memory being wasted.
 
 	return 0;
 fail:

@@ -74,8 +74,11 @@ public:
 					send_buf(new char[MQ_SEND_BUF_SIZE]),
 					recv_buf(new char[MQ_RCV_BUF_SIZE])
 	{
-		if (sizeof(T) == 1)
+		if (sizeof(T) == 1) {
+			delete [] send_buf;
+			delete [] recv_buf;
 			throw msg_q_exception("char is not a supported type");
+		}
 
 		/* Determine open flags and ownership */
 		if (mq_of == MQ_CREATE) {
@@ -87,6 +90,8 @@ public:
 			is_owner = false;
 			oflag = O_RDWR;
 		} else {
+			delete [] send_buf;
+			delete [] recv_buf;
 			throw msg_q_exception("Invalid open flag");
 		}
 
@@ -98,6 +103,8 @@ public:
 
 		mq = mq_open(name.c_str(), oflag, 0644, &attr);
 		if (mq == (mqd_t)-1) {
+			delete [] send_buf;
+			delete [] recv_buf;
 			ERR("mq_open('%s') failed: %s\n", name.c_str(), strerror(errno));
 			throw msg_q_exception("mq_open() failed");
 		}
@@ -105,6 +112,9 @@ public:
 
 	~msg_q()
 	{
+		delete [] send_buf;
+		delete [] recv_buf;
+
 		if (mq_close(mq)) {
 			ERR("mq_close('%s') failed: %s\n", name.c_str(), strerror(errno));
 		} else {
@@ -117,8 +127,6 @@ public:
 				INFO("'%s' unlinked as well\n", name.c_str());
 			}
 		}
-		delete [] send_buf;
-		delete [] recv_buf;
 	}
 
 	const string& get_name() const { return name; }

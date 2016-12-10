@@ -932,7 +932,7 @@ static int riocp_pe_get_ports_add_peer(struct riocp_pe *pe, uint8_t port, struct
 		ports[port].peer        = peer->port;
 		ports[port].peer->pe    = peer;
 		ports[port].peer->id    = pe->peers[port].remote_port;
-/* FIXME: Neet to get port status here...
+/* FIXME: Need to get port status here...
 		ports[port].peer->width = ports[port].width;
 		ports[port].peer->speed = ports[port].speed;
 */

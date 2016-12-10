@@ -82,10 +82,13 @@ public:
     if (module == NULL || module[0] == '\0' || mport < 0 || instance < 0)
       throw std::runtime_error("ChannelLock::TakeLock: Invalid parameter!");
 
-    ChannelLock::getInstance()->TakeLockInproc(module, mport, instance);
-    // NOT catching std::runtime_error
+    try {
+      ChannelLock::getInstance()->TakeLockInproc(module, mport, instance);
+    } catch(std::runtime_error& ex) {
+      throw ex;
+    }
 
-    LockFile* lock = NULL;
+    LockFile* lock;
     char lock_name[81] = {0};
     snprintf(lock_name, 80, "/var/lock/UMD-%s-%u:%u..LCK", module, mport, instance);
 
@@ -93,8 +96,10 @@ public:
     catch(std::runtime_error& ex) {
       ChannelLock::getInstance()->ReleaseLockInproc(module, mport, instance);
       throw ex;
+    } catch(std::logic_error& ex) {
+      ChannelLock::getInstance()->ReleaseLockInproc(module, mport, instance);
+      throw ex;
     }
-    // NOT catching std::logic_error
 
     return new LockChannel(lock, module, mport, instance);
   }
