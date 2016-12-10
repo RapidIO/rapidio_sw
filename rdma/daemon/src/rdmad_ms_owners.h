@@ -59,7 +59,7 @@ class ms_owner;
 class ms_owners_exception : public exception {
 public:
 	ms_owners_exception(const char *msg) : err(msg) {}
-	const char *what() { return err; }
+	const char *what() const _GLIBCXX_USE_NOEXCEPT override { return err; }
 private:
 	const char *err;
 };

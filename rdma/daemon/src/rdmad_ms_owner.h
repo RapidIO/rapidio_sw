@@ -59,11 +59,8 @@ class unix_server;
  */
 class ms_owner_exception : public exception {
 public:
-	ms_owner_exception(const char *msg) : err(msg)
-	{
-	}
-
-	const char *what() { return err; }
+	ms_owner_exception(const char *msg) : err(msg) {}
+	const char *what() const _GLIBCXX_USE_NOEXCEPT override { return err; }
 private:
 	const char *err;
 };

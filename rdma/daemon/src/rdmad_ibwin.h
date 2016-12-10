@@ -57,11 +57,8 @@ using mspace_iterator = mspace_list::iterator;
  */
 class ibwin_map_exception : public exception {
 public:
-	ibwin_map_exception(const char *msg) : err(msg)
-	{
-	}
-
-	const char *what() { return err; }
+	ibwin_map_exception(const char *msg) : err(msg) {}
+	const char *what() const _GLIBCXX_USE_NOEXCEPT override { return err; }
 private:
 	const char *err;
 };

@@ -56,8 +56,7 @@ using std::unique_ptr;
 class inbound_exception : public exception {
 public:
 	inbound_exception(const char *msg) : err(msg) {}
-	~inbound_exception() throw() {}
-	const char *what() throw() { return err; }
+	const char *what() const _GLIBCXX_USE_NOEXCEPT override { return err; }
 private:
 	const char *err;
 };

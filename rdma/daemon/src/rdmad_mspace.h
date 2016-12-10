@@ -75,7 +75,7 @@ class ms_owners;
 class mspace_exception : public exception {
 public:
 	mspace_exception(const char *msg) : err(msg) {}
-	const char *what() { return err; }
+	const char *what() const _GLIBCXX_USE_NOEXCEPT override { return err; }
 private:
 	const char *err;
 };
