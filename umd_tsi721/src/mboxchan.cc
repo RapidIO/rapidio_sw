@@ -853,7 +853,7 @@ void* MboxChannel::get_inb_message(MboxOptions_t& opt)
       rx_slot = 0;
   }
 
-  DDBG("\n\tNow rx_slot = %d, imq_base[rx_slot] = %p\n", rx_slot, m_imsg_ring.imq_base[rx_slot]);
+  DDBG("\n\tNow rx_slot = %d, imq_base[rx_slot] = %p\n", rx_slot, (void *)m_imsg_ring.imq_base[rx_slot]);
 
   /* Physical address of this message from the descriptor populated by HW */
   const uint64_t rx_phys = ((uint64_t) desc->bufptr_hi << 32) | desc->bufptr_lo;

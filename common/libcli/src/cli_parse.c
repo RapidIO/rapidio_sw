@@ -55,11 +55,11 @@ extern "C" {
 
 int getDecParm(char *token, int defaultData)
 {
-	unsigned long data;
+	int data;
 
 	if (token == NULL || token[0] == '/') {
 		data = defaultData;
-	} else if (sscanf(token, "%ld", &data) <= 0) {
+	} else if (sscanf(token, "%d", &data) <= 0) {
 		data = defaultData;
 	}
 	return data;
@@ -74,33 +74,6 @@ float getFloatParm(char *token, float defaultData)
 	} else if (sscanf(token, "%f", &data) <= 0) {
 		data = defaultData;
 	}
-	return data;
-}
-
-unsigned long getHexParm(char *dollarParameters[], unsigned int nDollarParms,
-				char *token, unsigned int defaultData)
-{
-	unsigned long dollarIndex;
-	unsigned long data;
-
-	if (token == NULL || token[0] == '/') {
-		data = defaultData;
-		goto exit;
-	}
-
-	if (sscanf(token, "%lX", &data) > 0) {
-		goto exit;
-	}
-
-	if ((sscanf(token, "$%ld", &dollarIndex) > 0)
-			&& (dollarIndex < nDollarParms)) {
-		if (1 == sscanf(dollarParameters[dollarIndex], "%lX", &data)) {
-			goto exit;
-		}
-	}
-
-	data = defaultData;
-exit:
 	return data;
 }
 

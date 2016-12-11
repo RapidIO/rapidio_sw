@@ -352,7 +352,9 @@ bool send_mbox_msg(struct worker *info, bool msg_1)
 
 bool copy_buf_to_tx(struct worker *info, int i)
 {
-	int did = 0, mbox = 0, seq = 0, msg_sz = 0, parms;
+	int did = 0, mbox = 0;
+	uint32_t seq = 0, msg_sz = 0;
+	int parms;
 
 	memcpy(info->tx_msg, info->buf[i], FOUR_KB); 
 

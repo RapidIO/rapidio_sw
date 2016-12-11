@@ -105,12 +105,8 @@ struct cli_cmd {
 #endif
 
 /* parsing support routines */
-extern uint64_t getHexParm(char *dollarParameters[], 
-			unsigned int nDollarParms,
-			char *token, unsigned int defaultData);
-
-extern unsigned long getHex(char *token, unsigned long defaultData);
 int getDecParm(char *token, int defaultData);
+uint64_t getHex(char *token, unsigned long defaultData);
 float getFloatParm(char *token, float defaultData);
 int parm_idx(char *token, char *token_list);
 

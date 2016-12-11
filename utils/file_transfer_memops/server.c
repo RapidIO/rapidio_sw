@@ -397,45 +397,44 @@ ATTR_NONE
 
 int FXMpdevsCmd(struct cli_env *env, int argc, char **argv)
 {
+	size_t i, j;
+	size_t number_of_eps;
+	size_t number_of_mports;
+	std::vector<uint32_t> ep_list;
+	std::vector<uint32_t> mport_list;
+
 	if (argc) {
 		LOGMSG(env, "FAILED: Extra parameters ignored: %s\n", argv[0]);
 	}
 
-	std
-	::vector<uint32_t> mport_list;
-	if (! MportMgmt::get_mport_list(mport_list)) {
+	if (!MportMgmt::get_mport_list(mport_list)) {
 		LOGMSG(env, "ERR: riomp_mport_get_mport_list() ERR\n");
 		return 0;
 	}
 
-	const int number_of_mports = mport_list.size();
+	number_of_mports = mport_list.size();
+	printf("\nAvailable %zu local mport(s):\n", number_of_mports);
 
-        printf("\nAvailable %d local mport(s):\n", number_of_mports);
+ 	for (i = 0; i < number_of_mports; i++) {
+		uint32_t mport_id = (uint32_t)mport_list[i];
 
-        for (int i = 0; i < number_of_mports; i++) {
-                const int mport_id = mport_list[i];
+		LOGMSG(env, "+++ mport_id: %lu\n", (unsigned long)mport_id);
 
-                LOGMSG(env, "+++ mport_id: %u\n", mport_id);
-
-                /* Display EPs for this MPORT */
-
-		std::vector<uint32_t> ep_list;
-                if (! MportMgmt::get_ep_list(mport_id, ep_list)) {
-                	LOGMSG(env, "ERR: riomp_ep_get_list() ERR\n");
-                        break;
-                }
-
-		const int number_of_eps = ep_list.size();
-
-		LOGMSG(env, "\t%u Endpoints (dest_ID): ", number_of_eps);
-                for (int ep = 0; ep < number_of_eps; ep++) {
-                	LOGMSG(env, "%u ", ep_list[i]);
+		/* Display EPs for this MPORT */
+		if (! MportMgmt::get_ep_list(mport_id, ep_list)) {
+			LOGMSG(env, "ERR: riomp_ep_get_list() ERR\n");
+			break;
 		}
 
-                LOGMSG(env, "\n");
-        }
+		number_of_eps = ep_list.size();
+		LOGMSG(env, "\t%zu Endpoints (dest_ID): ", number_of_eps);
+		for (j = 0; j < number_of_eps; j++) {
+			LOGMSG(env, "%lu ", (unsigned long)ep_list[j]);
+		}
+		LOGMSG(env, "\n");
+	}
 
-        LOGMSG(env, "\n");
+	LOGMSG(env, "\n");
 	return 0;
 }
 

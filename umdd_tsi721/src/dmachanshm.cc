@@ -971,11 +971,12 @@ int DMAChannelSHM::scanFIFO(WorkItem_t* completed_work, const int max_work, cons
     if(compl_hwbuf[ci].valid != COMPL_SIG) {
       pthread_spin_unlock(&m_state->pending_work_splock);
 
-      XERR("\n\tFound INVALID completion item for BD HW @0x%lx bd_idx=%d FIFO offset 0x%x in m_pending_work -- FIFO hw RP=%u WP=%u\n",
+      XERR("\n\tFound INVALID completion item for BD HW @0x%lx bd_idx=%d FIFO offset 0x%x in m_pending_work -- FIFO hw RP=%lu WP=%lu\n",
           compl_hwbuf[ci].win_handle,
           ((compl_hwbuf[ci].win_handle - m_dmadesc.win_handle) / DMA_BUFF_DESCR_SIZE),
           compl_hwbuf[ci].fifo_offset,
-          getFIFOReadCount(), getFIFOWriteCount());
+          (unsigned long)getFIFOReadCount(),
+          (unsigned long)getFIFOWriteCount());
       continue;
     }
 
