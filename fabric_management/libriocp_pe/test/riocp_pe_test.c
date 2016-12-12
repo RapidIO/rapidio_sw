@@ -1,3 +1,11 @@
+/*
+ * Copyright (c) 2014, Prodrive Technologies
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+#ifndef __STDC_LIMIT_MACROS
+#define __STDC_LIMIT_MACROS
+#endif
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
