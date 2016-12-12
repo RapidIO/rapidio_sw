@@ -99,6 +99,8 @@ struct hw_dma_desc {
 } __attribute__((aligned(32)));
 
 struct dmadesc {
+  dmadesc() { memset(this, 0, sizeof(*this)); }
+
   inline int pack(hw_dma_desc* bd_ptr)
   {
     uint64_t rio_addr;
@@ -106,8 +108,8 @@ struct dmadesc {
 
     if (NULL == bd_ptr) return -1;
 
-    struct dmadesc *desc = this;
-    *bd_ptr = {};
+    struct dmadesc* desc = this;
+    memset(bd_ptr, 0, sizeof(*bd_ptr));
 
     switch (dtype) {
       case 3:

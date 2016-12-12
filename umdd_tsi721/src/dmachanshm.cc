@@ -394,7 +394,7 @@ bool DMAChannelSHM::queueDmaOpT12(enum dma_rtype rtype, DmaOptions_t& opt, RioMp
   if ((opt.dtype == DTYPE1) && !m_mport->check_dma_buf(mem))
     return false;
 
-  struct dmadesc desc = {};
+  struct dmadesc desc;
   struct hw_dma_desc* bd_hw = NULL;
   bool queued_T3 = false;
 
@@ -616,7 +616,7 @@ bool DMAChannelSHM::alloc_dmatxdesc(const uint32_t bd_cnt)
 #endif
 
   // Initialize DMA descriptors ring using added link descriptor 
-  struct dmadesc T3_bd = {};
+  struct dmadesc T3_bd;
   dmadesc_setdtype(T3_bd, DTYPE3);
   dmadesc_setT3_nextptr(T3_bd, (uint64_t)m_dmadesc.win_handle);
 
@@ -1222,7 +1222,7 @@ void DMAChannelSHM::softRestart(const bool nuke_bds)
   struct hw_dma_desc* end_bd_p = (struct hw_dma_desc*)
     ((uint8_t*)m_dmadesc.win_ptr + ((m_state->bd_num-1) * DMA_BUFF_DESCR_SIZE));
 
-  struct dmadesc end_bd = {};
+  struct dmadesc end_bd;
   dmadesc_setdtype(end_bd, DTYPE3);
   dmadesc_setT3_nextptr(end_bd, (uint64_t)m_dmadesc.win_handle);
 
@@ -1442,7 +1442,7 @@ int DMAChannelSHM::cleanupBDQueue(bool multithreaded_fifo)
   }
 #endif
 
-  struct dmadesc T3_bd = {};
+  struct dmadesc T3_bd;
   dmadesc_setdtype(T3_bd, DTYPE3);
 
 // We must have the FIFO cleared of completed entries.
