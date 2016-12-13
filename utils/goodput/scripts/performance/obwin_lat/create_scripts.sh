@@ -8,7 +8,7 @@
 #  all of the individual scripts.
 #
 #  The "template" files in this directory is the basis of the
-#  individiaul scripts.
+#  individual scripts.
 #  
 
 cd "$(dirname "$0")"

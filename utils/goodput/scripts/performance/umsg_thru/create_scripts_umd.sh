@@ -1,14 +1,14 @@
 #!/bin/bash
 
 #  This script creates all transmit/receive goodput script files for
-#  Messaging goodput measurment
+#  Messaging goodput measurements.
 #
 #  This includes individual scripts for 1 byte up to 4K message transmission,
 #  as well as a script that will invoke all of the individual
 #  transmission scripts.
 #
 #  The "template" files in this directory is the basis of the
-#  individiaul scripts.
+#  individual scripts.
 #  
 
 cd "$(dirname "$0")"
