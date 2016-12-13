@@ -124,8 +124,60 @@ void wpeer_loop_sig_handler(int sig)
                 return;
 }
 
-void close_wpeer(struct rskt_dmn_wpeer *wpeer);
-void cleanup_wpeer(struct rskt_dmn_wpeer *wpeer);
+void cleanup_wpeer(struct rskt_dmn_wpeer *wpeer)
+{
+	struct librsktd_unified_msg *msg = NULL;
+
+	if (NULL == wpeer) {
+		return;
+	}
+
+	*wpeer->self_ref = NULL;
+	wpeer->wpeer_alive = 0;
+	wpeer->i_must_die = 1;
+	sem_post(&wpeer->started);
+
+	if (NULL != wpeer->rx_buff) {
+		riomp_sock_release_receive_buffer(wpeer->cm_skt_h, 
+							wpeer->rx_buff);
+		wpeer->rx_buff = NULL;
+	};
+	
+	if (NULL != wpeer->tx_buff) {
+		riomp_sock_release_send_buffer(wpeer->cm_skt_h,
+							wpeer->tx_buff);
+		wpeer->tx_buff = NULL;
+	};
+
+	if (wpeer->cm_skt_h_valid) {
+		int rc;
+		wpeer->cm_skt_h_valid = 0;
+		rc = riomp_sock_close(&wpeer->cm_skt_h);
+		if (rc) {
+			ERR("riomp_sock_close ERR %d\n", rc);
+		};
+	};
+
+	sem_wait(&wpeer->w_rsp_mutex);
+	msg = (struct librsktd_unified_msg *)l_pop_head(&wpeer->w_rsp);
+	sem_post(&wpeer->w_rsp_mutex);
+
+	/* Send "failed" responses to application */
+	while (NULL != msg) {
+		msg->proc_stage = RSKTD_A2W_SEQ_DRESP;
+		if (wpeer->resp == NULL) {
+			WARN("wpeer->resp == NULL\n");
+		} else {
+			wpeer->resp->err = ECONNRESET;
+		}
+		enqueue_mproc_msg(msg);
+
+		sem_wait(&wpeer->w_rsp_mutex);
+		msg = (struct librsktd_unified_msg *)l_pop_head(&wpeer->w_rsp);
+		sem_post(&wpeer->w_rsp_mutex);
+	};
+};
+
 
 void *wpeer_rx_loop(void *p_i)
 {
@@ -208,9 +260,9 @@ void *wpeer_rx_loop(void *p_i)
 
 int init_wpeer(struct rskt_dmn_wpeer **wp, ct_t ct, uint32_t cm_skt)
 {
-	int rc;
+	int rc, conn_rc;
 	struct rskt_dmn_wpeer *w = NULL;
-	int conn_rc;
+	int attempts = 5;
 
 	w = alloc_wpeer(ct, cm_skt);
 	if (NULL == w) {
@@ -224,8 +276,12 @@ int init_wpeer(struct rskt_dmn_wpeer **wp, ct_t ct, uint32_t cm_skt)
 		rc = riomp_sock_socket(dmn.mb, &w->cm_skt_h);
 		sem_post(&dmn.mb_mtx);
 
-		conn_rc = riomp_sock_connect(w->cm_skt_h, w->ct, w->cm_skt);
+		if (rc) {
+                        ERR("riomp_sock_socket ERR %d\n", rc);
+			goto fail;
+                };
 
+		conn_rc = riomp_sock_connect(w->cm_skt_h, w->ct, w->cm_skt);
                 if (!conn_rc) {
                 	HIGH("ct %d connected\n", ct);
 			w->cm_skt_h_valid = 1;
@@ -236,39 +292,56 @@ int init_wpeer(struct rskt_dmn_wpeer **wp, ct_t ct, uint32_t cm_skt)
                 if (rc) {
                         ERR("riomp_sock_close ERR %d\n", rc);
                 };
-	} while (conn_rc && ((EINTR == errno) || (ETIME == errno)));
+		sleep(1);
+	} while (conn_rc && attempts-- && 
+		((ENODEV == errno) || (EINTR == errno) || (ETIME == errno)));
 
-        if (conn_rc == EADDRINUSE) {
+	switch (conn_rc) {
+	case 0:
+		break;
+        case EADDRINUSE:
                 CRIT("init_wpeer %d: Requested channel %d in use...\n",
 			ct, cm_skt);
-        } else {
-		if (conn_rc) {
-               		CRIT("init_wpeer %d connect %d error: %d\n",
-				ct, cm_skt, conn_rc);
-        	}
+		break;
+	default:
+		CRIT("init_wpeer %d connect %d error: %d %s\n",
+				ct, cm_skt, conn_rc, strerror(conn_rc));
+		break;
         }
-	if (conn_rc)
-		goto exit;
+	if (conn_rc) {
+		rc = conn_rc;
+		goto fail;
+	}
 
         rc = riomp_sock_request_send_buffer(w->cm_skt_h, &w->tx_buff);
         if (rc) {
                	CRIT("init_wpeer %d: req_buffer: %d\n", ct, rc);
-		goto exit;
+		goto fail;
         }
 
 	w->rx_buff = calloc(1, RSKTD_CM_MSG_SIZE);
+	if (NULL == w->rx_buff) {
+		CRIT("Could not allocate rx buffer %d %s\n",
+							errno, strerror(errno));
+		rc = -ENOMEM;
+		goto fail;
+	};
 
 	DBG("Creating wpeer_rx_loop\n");
         rc = pthread_create(&w->w_rx, NULL, wpeer_rx_loop, (void*)w);
-	if (!rc) {
-		DBG("Waiting for wpeer_rx_loop() to start\n");
-		sem_wait(&w->started);
-		DBG("wpeer_rx_loop started\n");
-	}
+	if (rc) {
+		CRIT("Could not start wpeer_rx_loop for ct 0x%x\n rc %d %d %s",
+			ct, rc, errno, strerror(errno));
+		goto fail;
+	};
+	DBG("Waiting for wpeer_rx_loop() to start\n");
+	sem_wait(&w->started);
+	DBG("wpeer_rx_loop started\n");
+
 	return 0;
-exit:
-	free(w->self_ref);
-	free(w);
+fail:
+	cleanup_wpeer(w);
+	*wp = NULL;
 	return rc;
 };
 
@@ -338,60 +411,6 @@ void enqueue_wpeer_msg(struct librsktd_unified_msg *msg)
 	sem_post(&dmn.wpeer_tx_mutex);
 	sem_post(&dmn.wpeer_tx_cnt);
 	INFO("EXIT");
-};
-
-void cleanup_wpeer(struct rskt_dmn_wpeer *wpeer)
-{
-	struct librsktd_unified_msg *msg = NULL;
-
-	if (NULL == wpeer) {
-		return;
-	}
-
-	*wpeer->self_ref = NULL;
-	wpeer->wpeer_alive = 0;
-	wpeer->i_must_die = 1;
-	sem_post(&wpeer->started);
-
-	if (NULL != wpeer->rx_buff) {
-		riomp_sock_release_receive_buffer(wpeer->cm_skt_h, 
-							wpeer->rx_buff);
-		wpeer->rx_buff = NULL;
-	};
-	
-	if (NULL != wpeer->tx_buff) {
-		riomp_sock_release_send_buffer(wpeer->cm_skt_h,
-							wpeer->tx_buff);
-		wpeer->tx_buff = NULL;
-	};
-
-	if (wpeer->cm_skt_h_valid) {
-		int rc;
-		wpeer->cm_skt_h_valid = 0;
-		rc = riomp_sock_close(&wpeer->cm_skt_h);
-		if (rc) {
-			ERR("riomp_sock_close ERR %d\n", rc);
-		};
-	};
-
-	sem_wait(&wpeer->w_rsp_mutex);
-	msg = (struct librsktd_unified_msg *)l_pop_head(&wpeer->w_rsp);
-	sem_post(&wpeer->w_rsp_mutex);
-
-	/* Send "failed" responses to application */
-	while (NULL != msg) {
-		msg->proc_stage = RSKTD_A2W_SEQ_DRESP;
-		if (wpeer->resp == NULL) {
-			WARN("wpeer->resp == NULL\n");
-		} else {
-			wpeer->resp->err = ECONNRESET;
-		}
-		enqueue_mproc_msg(msg);
-
-		sem_wait(&wpeer->w_rsp_mutex);
-		msg = (struct librsktd_unified_msg *)l_pop_head(&wpeer->w_rsp);
-		sem_post(&wpeer->w_rsp_mutex);
-	};
 };
 
 void close_wpeer(struct rskt_dmn_wpeer *wpeer)

@@ -59,7 +59,10 @@ struct fmd_p_hello {
 	uint32_t did;
 	uint32_t did_sz;
 	ct_t ct;
-	hc_t hc;
+	union {
+		uint32_t hc_long; // Messaging alignment requires 4 bytes
+		hc_t hc_short; // Reminder that this is hc_t.
+	};
 };
 
 typedef struct fmd_p_hello fmd_s_hello_req;
@@ -75,7 +78,10 @@ struct fmd_m_peer_mod_req {
 	uint32_t op;
 	uint32_t did;
 	uint32_t did_sz;
-	hc_t hc;
+	union {
+		uint32_t hc_long; // Messaging alignment requires 4 bytes
+		hc_t hc_short; // Reminder that this is hc_t.
+	};
 	ct_t ct;
 	uint32_t is_mp;
 	uint32_t flag;
@@ -85,7 +91,10 @@ struct fmd_m_peer_mod_req {
 struct fmd_s_peer_mod_resp {
 	uint32_t did;
 	uint32_t did_sz;
-	hc_t hc;
+	union {
+		uint32_t hc_long; // Messaging alignment requires 4 bytes
+		hc_t hc_short; // Reminder that this is hc_t.
+	};
 	ct_t ct;
 	uint32_t is_mp;
 	uint32_t flag;

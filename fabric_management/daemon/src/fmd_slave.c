@@ -98,7 +98,7 @@ int send_slave_hello_message(void)
 	slv->s2m->hello_rq.did = htonl((regs.my_destID & RIO_DEVID_DEV8) >> 16);
 	slv->s2m->hello_rq.did_sz = htonl(FMD_DEV08);
 	slv->s2m->hello_rq.ct = htonl(regs.comptag);
-	slv->s2m->hello_rq.hc = htonl(HC_MP);
+	slv->s2m->hello_rq.hc_long = htonl(HC_MP);
 
 	slv->tx_buff_used = 1;
 	slv->tx_rc |= riomp_sock_send(slv->skt_h, slv->tx_buff,
@@ -215,7 +215,7 @@ void slave_process_mod(void)
 	slv->s2m->msg_type = slv->m2s->msg_type | htonl(FMD_P_MSG_RESP);
 	slv->s2m->mod_rsp.did = slv->m2s->mod_rq.did;
 	slv->s2m->mod_rsp.did_sz = slv->m2s->mod_rq.did_sz;
-	slv->s2m->mod_rsp.hc = slv->m2s->mod_rq.hc;
+	slv->s2m->mod_rsp.hc_long = slv->m2s->mod_rq.hc_long;
 	slv->s2m->mod_rsp.ct = slv->m2s->mod_rq.ct;
 	slv->s2m->mod_rsp.is_mp = slv->m2s->mod_rq.is_mp;
 	slv->s2m->mod_rsp.flag = slv->m2s->mod_rq.flag;
@@ -254,7 +254,7 @@ void slave_process_mod(void)
 
 			rc = riomp_mgmt_device_add(p_acc->maint,
 					ntohl(slv->m2s->mod_rq.did), 
-					ntohl(slv->m2s->mod_rq.hc),
+					ntohl(slv->m2s->mod_rq.hc_long),
 					ntohl(slv->m2s->mod_rq.ct),
 					(const char *)slv->m2s->mod_rq.name);
 		}
@@ -265,7 +265,7 @@ void slave_process_mod(void)
 		rc = add_device_to_dd( ntohl(slv->m2s->mod_rq.ct),
 				ntohl(slv->m2s->mod_rq.did), 
 				FMD_DEV08, 
-				ntohl(slv->m2s->mod_rq.hc),
+				ntohl(slv->m2s->mod_rq.hc_long),
 				ntohl(slv->m2s->mod_rq.is_mp),
 				ntohl(slv->m2s->mod_rq.flag),
 				slv->m2s->mod_rq.name);

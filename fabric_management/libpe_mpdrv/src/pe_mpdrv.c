@@ -431,6 +431,8 @@ int generic_device_init(struct riocp_pe *pe, uint32_t *ct)
 	idt_sc_init_dev_ctrs_out_t      sc_out;
 	idt_em_dev_rpt_ctl_in_t	 rpt_in;
 	int rc = 1;
+	rio_port_t port;
+        struct cfg_dev sw;
 
 	DBG("ENTRY\n");
 	priv = (struct mpsw_drv_private_data *)(pe->private_data);
@@ -518,24 +520,41 @@ int generic_device_init(struct riocp_pe *pe, uint32_t *ct)
 	rc = idt_pc_get_config(dev_h, &pc_in, &priv->st.pc);
 	if (RIO_SUCCESS != rc)
 		goto exit;
-
-	set_pc_in.lrto = 50; /* 5 microsecond link timeout */
-	set_pc_in.log_rto = 500; /* 50 microsecond logical response timeout */
+        
+	set_pc_in.lrto = 50; /* 5 usec link timeout */
+	set_pc_in.log_rto = 500; /* 50 usec logical response timeout */
 	set_pc_in.oob_reg_acc = false;
 	set_pc_in.num_ports = priv->st.pc.num_ports;
 	memcpy(set_pc_in.pc, priv->st.pc.pc, sizeof(set_pc_in.pc));
-
-	for (int i = 0; i < priv->st.pc.num_ports; i++) {
-		set_pc_in.pc[i].fc = idt_pc_fc_rx;
-	}
-
-	rc = mpsw_drv_raw_reg_rd(pe, pe->destid, pe->hopcount, RIO_SW_PORT_INF,
-				&port_info);
+	/* device not found in config file
+	* continue with other initialization
+	*/
+	rc = mpsw_drv_raw_reg_rd(pe, pe->destid, pe->hopcount,
+					RIO_SW_PORT_INF, &port_info);
 	if (rc) {
 		CRIT("Unable to get port info %d:%s\n", rc, strerror(rc));
 		goto exit;
 	}
 	set_pc_in.reg_acc_port = RIO_ACCESS_PORT(port_info);
+
+	for (port = 0; port < set_pc_in.num_ports; port++) {
+		set_pc_in.pc[port].port_lockout = false;
+		set_pc_in.pc[port].nmtc_xfer_enable = false;
+	};
+       	if (!cfg_find_dev_by_ct(*ct, &sw)) {
+		if (sw.is_sw) {
+			for (port = 0; port < sw.sw_info.num_ports; port++) {
+				set_pc_in.pc[port].ls =
+						sw.sw_info.sw_pt[port].ls;
+			};
+		} else {
+			set_pc_in.pc[0].ls = sw.ep_pt.ls;
+		}
+	}	
+	rc = idt_pc_set_config(dev_h, &set_pc_in, &priv->st.pc);
+	if (RIO_SUCCESS != rc) {
+		goto exit;
+	}
 	
 	ps_in.ptl.num_ports = RIO_ALL_PORTS;
 	rc = idt_pc_get_status(dev_h, &ps_in, &priv->st.ps);
@@ -1410,8 +1429,11 @@ int mpsw_drv_enable_pe(struct riocp_pe *pe, pe_port_t port)
 
 	struct mpsw_drv_private_data *priv;
 	uint32_t oset;
-	uint32_t reg_val;
-	int st_port = port, end_port = port;
+	uint32_t reg_val, port_info;
+	uint32_t rc;
+	rio_port_t st_port = port, end_port = port;
+	idt_pc_set_config_in_t set_pc_in;
+	DAR_DEV_INFO_t *dev_h = NULL;
 
 	DBG("ENTRY\n");
 	priv = (struct mpsw_drv_private_data *)(pe->private_data);
@@ -1420,8 +1442,40 @@ int mpsw_drv_enable_pe(struct riocp_pe *pe, pe_port_t port)
 		ERR("Private Data is NULL, exiting\n");
 		goto fail;
 	}
+	dev_h = &priv->dev_h;
 	if (!priv->dev_h.extFPtrForPort) {
 		ERR("extFPtrForPort is 0");
+		goto fail;
+	}
+
+	set_pc_in.lrto = 50; /* 5 usec link timeout */
+	set_pc_in.log_rto = 500; /* 50 usec logical response timeout */
+	set_pc_in.oob_reg_acc = false;
+	set_pc_in.num_ports = priv->st.pc.num_ports;
+	memcpy(set_pc_in.pc, priv->st.pc.pc, sizeof(set_pc_in.pc));
+	/* device not found in config file
+	* continue with other initialization
+	*/
+	rc = mpsw_drv_raw_reg_rd(pe, pe->destid, pe->hopcount,
+					RIO_SW_PORT_INF, &port_info);
+	if (rc) {
+		CRIT("Unable to get port info %d:%s\n", rc, strerror(rc));
+		goto fail;
+	}
+	set_pc_in.reg_acc_port = RIO_ACCESS_PORT(port_info);
+
+	if (RIOCP_PE_ANY_PORT == port) {
+		st_port = 0;
+		end_port = RIOCP_PE_PORT_COUNT(pe->cap) - 1;
+	}
+
+	for (port = st_port; port <= end_port; port++) {
+		set_pc_in.pc[port].port_lockout = false;
+		set_pc_in.pc[port].nmtc_xfer_enable = true;
+	};
+
+	rc = idt_pc_set_config(dev_h, &set_pc_in, &priv->st.pc);
+	if (RIO_SUCCESS != rc) {
 		goto fail;
 	}
 
@@ -1435,28 +1489,6 @@ int mpsw_drv_enable_pe(struct riocp_pe *pe, pe_port_t port)
 	if (riocp_pe_maint_write(pe, oset, reg_val)) {
 		ERR("PE %s failed to write @ 0x%x.", pe->sysfs_name, oset);
 		goto fail;
-	}
-
-	if (RIOCP_PE_ANY_PORT == port) {
-		st_port = 0;
-		end_port = RIOCP_PE_PORT_COUNT(pe->cap) - 1;
-	}
-
-	for (port = st_port; port <= end_port; port++) {
-		oset = RIO_SPX_CTL(priv->dev_h.extFPtrForPort,
-					priv->dev_h.extFPtrPortType,
-					port);
-		if (riocp_pe_maint_read(pe, oset, &reg_val)) {
-			ERR("PE %s failed to read port %d @ 0x%x",
-						pe->sysfs_name, port, oset);
-			goto fail;
-		}
-		reg_val |= RIO_SPX_CTL_INP_EN | RIO_SPX_CTL_OTP_EN;
-		if (riocp_pe_maint_write(pe, oset, reg_val)) {
-			ERR("PE %s failed to write port %d @ 0x%x",
-						pe->sysfs_name, port, oset);
-			goto fail;
-		}
 	}
 
 	return 0;

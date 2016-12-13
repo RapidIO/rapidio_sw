@@ -122,7 +122,7 @@ void send_add_dev_msg(struct fmd_peer *peer, struct fmd_dd_dev_info *dev)
 	peer->m2s->mod_rq.op = htonl(FMD_P_OP_ADD);
 	peer->m2s->mod_rq.did = htonl(dev->destID);
 	peer->m2s->mod_rq.did_sz = htonl(dev->destID_sz);
-	peer->m2s->mod_rq.hc = htonl(HC_MP);
+	peer->m2s->mod_rq.hc_long = htonl(HC_MP);
 	peer->m2s->mod_rq.ct = htonl(dev->ct);
 	peer->m2s->mod_rq.is_mp = 0;
 
@@ -171,7 +171,7 @@ void send_del_dev_msg(struct fmd_peer *peer, struct fmd_peer *del_peer)
 	peer->m2s->mod_rq.op = htonl(FMD_P_OP_DEL);
 	peer->m2s->mod_rq.did = htonl(del_peer->p_did);
 	peer->m2s->mod_rq.did_sz = htonl(del_peer->p_did_sz);
-	peer->m2s->mod_rq.hc = htonl(del_peer->p_hc);
+	peer->m2s->mod_rq.hc_long = htonl(del_peer->p_hc);
 	peer->m2s->mod_rq.ct = htonl(del_peer->p_ct);
 	peer->m2s->mod_rq.is_mp = 0;
 	memcpy(peer->m2s->mod_rq.name, del_peer->peer_name, MAX_P_NAME+1);
@@ -258,13 +258,13 @@ void master_process_hello_peer(struct fmd_peer *peer)
 		ntohl(peer->s2m->hello_rq.did),
 		ntohl(peer->s2m->hello_rq.did_sz),
 		ntohl(peer->s2m->hello_rq.ct),
-		ntohl(peer->s2m->hello_rq.hc));
+		ntohl(peer->s2m->hello_rq.hc_long));
 
 	peer->p_pid = ntohl(peer->s2m->hello_rq.pid);
 	peer->p_did = ntohl(peer->s2m->hello_rq.did);
 	peer->p_did_sz = ntohl(peer->s2m->hello_rq.did_sz);
 	peer->p_ct = ntohl(peer->s2m->hello_rq.ct);
-	peer->p_hc = ntohl(peer->s2m->hello_rq.hc);
+	peer->p_hc = ntohl(peer->s2m->hello_rq.hc_long);
 	SAFE_STRNCPY(peer->peer_name, peer->s2m->hello_rq.peer_name,
 		sizeof(peer->peer_name));
 
@@ -285,7 +285,7 @@ void master_process_hello_peer(struct fmd_peer *peer)
 		peer->m2s->hello_rsp.did = htonl(0);
 		peer->m2s->hello_rsp.did_sz = htonl(0);
 		peer->m2s->hello_rsp.ct = htonl(0);
-		peer->m2s->hello_rsp.hc = htonl(0);
+		peer->m2s->hello_rsp.hc_long = htonl(0);
 	} else {
 		SAFE_STRNCPY(peer->m2s->hello_rsp.peer_name, peer_pe->sysfs_name,
 			sizeof(peer->m2s->hello_rsp.peer_name));
@@ -293,7 +293,7 @@ void master_process_hello_peer(struct fmd_peer *peer)
 		peer->m2s->hello_rsp.did = htonl(fmd->opts->mast_devid);
 		peer->m2s->hello_rsp.did_sz = htonl(fmd->opts->mast_devid_sz);
 		peer->m2s->hello_rsp.ct = htonl(peer_pe->comptag);
-		peer->m2s->hello_rsp.hc = htonl(0);
+		peer->m2s->hello_rsp.hc_long = htonl(0);
 		add_to_list = 1;
 		peer->p_hc = HC_MP;
 	};
@@ -439,7 +439,7 @@ void *peer_rx_loop(void *p_i)
 				ntohl(peer->s2m->mod_rsp.did),
 				ntohl(peer->s2m->mod_rsp.did_sz),
 				ntohl(peer->s2m->mod_rsp.ct),
-				ntohl(peer->s2m->mod_rsp.hc),
+				ntohl(peer->s2m->mod_rsp.hc_long),
 				ntohl(peer->s2m->mod_rsp.is_mp),
 				ntohl(peer->s2m->mod_rsp.rc));
 			break;
