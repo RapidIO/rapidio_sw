@@ -1004,9 +1004,9 @@ int alloc_msg_tx_rx_buffs(struct worker *info)
 	if (NULL == info->sock_rx_buf) {
 		free(info->sock_tx_buf);
 		info->sock_tx_buf = NULL;
-		return 0;
+		return 1;
 	}
-	return 1;
+	return 0;
 };
 
 void msg_cleanup_con_skt(struct worker *info)
