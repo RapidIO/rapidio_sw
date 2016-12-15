@@ -303,7 +303,7 @@ typedef struct idt_rt_alloc_mc_mask_out_t_TAG
 
 typedef struct idt_rt_dealloc_mc_mask_in_t_TAG
 {
-    uint8_t           mc_mask_rte; // Multicast mask routing value to be removed from
+    uint32_t        mc_mask_rte; // Multicast mask routing value to be removed from
                                  //    the routing table state pointed to by "rt".
                                  // The multicast mask is also cleared to 0 by this 
                                  //    routine.
