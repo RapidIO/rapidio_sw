@@ -116,13 +116,15 @@ typedef uint8_t pe_port_t;
 #define RIOCP_PE_GET_NEXT_LEVEL_GROUP(n) (RIOCP_PE_IS_NEXT_LEVEL_GROUP(n)?(((n) - 0x200) & 0xff):RT_VAL_BAD)
 
 struct mport_regs {
-	uint32_t memaddr_sz;
-	uint32_t host_destID;
-	uint32_t my_destID;
-	uint32_t comptag;
-	uint32_t disc;
-	uint32_t p_err_stat;
-	uint32_t p_ctl1;
+	uint32_t memaddr_sz; // RIO_PE_LL_CTL
+	uint32_t host_destID; // 
+	uint32_t my_destID; // RIO_DEVID
+	uint32_t comptag; // RIO_COMP_TAG
+	uint32_t disc; // RIO_SP_GEN_CTL
+	uint32_t p_err_stat; // RIO_SPX_ERR_STAT
+	uint32_t p_ctl1; // RIO_SPX_CTL
+	uint32_t scratch_cm_sock; // Endpoint implementation specific.
+				// Tsi721: TSI721_RIO_WHITEBOARD
 };
 
 struct riocp_pe_driver {

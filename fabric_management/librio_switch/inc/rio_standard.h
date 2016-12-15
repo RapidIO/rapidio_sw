@@ -219,6 +219,12 @@ typedef uint32_t RIO_DST_OPS_T;
 /* RIO_DEVID : Register Bits Masks Definitions */
 #define RIO_DEVID_DEV16             (0x0000ffff)
 #define RIO_DEVID_DEV8              (0x00ff0000)
+#define GET_DEV8_FROM_HW(x) ((x & RIO_DEVID_DEV8) >> 16)
+#define GET_DEV16_FROM_HW(x) (x & RIO_DEVID_DEV16)
+#define MAKE_HW_FROM_DEV8(x) ((x << 16) & RIO_DEVID_DEV8)
+#define MAKE_HW_FROM_DEV16(x) (x & RIO_DEVID_DEV16)
+#define MAKE_HW_FROM_DEV8n16(d8,d16) (MAKE_HW_FROM_DEV8(d8) | \
+					MAKE_HW_FROM_DEV16(d16))
 
 /* RIO_HOST_LOCK : Register Bits Masks Definitions */
 #define RIO_HOST_LOCK_UNLOCKED                         (0x0000ffff)
@@ -702,7 +708,11 @@ typedef uint32_t RIO_SPX_ERR_STAT_T;
 #define RIO_EMHS_PW_DESTID_32CTL         (0x00004000)
 #define RIO_EMHS_PW_DESTID_16CTL         (0x00008000)
 #define RIO_EMHS_PW_DESTID_DEV8          (0x00ff0000)
-#define RIO_EMHS_PW_DESTID_DEV16         (0xff000000)
+#define RIO_EMHS_PW_DESTID_DEV16         (0xffff0000)
+#define GET_DEV8_FROM_PW_TGT_HW(x) ((x & RIO_EMHS_PW_DESTID_16CTL)? \
+                        ANY_ID:((x & RIO_EMHS_PW_DESTID_DEV8) >> 16))
+#define GET_DEV16_FROM_PW_TGT_HW(x) (!(x & RIO_EMHS_PW_DESTID_16CTL)? \
+                DID_ANY_DEV16_ID:((x & RIO_EMHS_PW_DESTID_DEV16) >> 16))
 
 /* RIO_EMHS_TTL : Register Bits Masks Definitions */
 #define RIO_EMHS_TTL_MASK                (0xffff0000)

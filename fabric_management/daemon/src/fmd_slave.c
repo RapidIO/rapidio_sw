@@ -448,6 +448,7 @@ int start_peer_mgmt_slave(uint32_t mast_acc_skt_num, uint32_t mast_did,
 			goto fail;
 		}
 
+		// Note: fmd.opts.mast_cm_port is set by the MASTER node.
 		conn_rc = riomp_sock_connect(slv->skt_h, slv->mast_did,
 					fmd->opts->mast_cm_port);
 		if (!conn_rc)

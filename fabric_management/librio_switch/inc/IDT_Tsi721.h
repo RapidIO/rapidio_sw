@@ -1600,6 +1600,7 @@ extern "C" {
 #define TSI721_RIO_PW_TGT_ID_LRG_TRANS                             (0x00008000)
 #define TSI721_RIO_PW_TGT_ID_PW_TGT_ID                             (0x00ff0000)
 #define TSI721_RIO_PW_TGT_ID_MSB_PW_ID                             (0xff000000)
+#define TSI721_RIO_PW_TGT_ID_DEV16_ID                              (0xffff0000)
 
 /* TSI721_RIO_SP_ERR_DET : Register Bits Masks Definitions */
 #define TSI721_RIO_SP_ERR_DET_LINK_TO                              (0x00000001)

@@ -58,7 +58,7 @@ extern "C" {
 #endif
 
 unsigned g_level 	= RDMA_LL; /* Default log level from build */
-unsigned g_disp_level 	= RDMA_LL; /* Default log level from build */
+unsigned g_disp_level 	= RDMA_LL_CRIT; /* Default log level from build */
 
 static circ_buf<string,NUM_LOG_LINES>	log_buf;
 static unsigned circ_buf_en = 0;
@@ -163,17 +163,12 @@ int rdma_log(unsigned level,
 		log_buf.push_back(log_line);
 	if (log_file) 
 		fputs(log_line.c_str(), log_file);
-#ifdef DEBUG
 	if (level <= g_disp_level) {
 		fprintf(stdout, "%s", log_line.c_str());
 		if ('\n' != buffer[n+p-1])
 			fprintf(stdout, "\n");
 		fflush(stdout);
 	};
-#else
-	(void)level;	/* Disable error on unused variable */
-	(void)p;
-#endif
 	sem_post(&log_buf_sem);
 
 	/* Return 0 if there is no error */

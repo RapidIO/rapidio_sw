@@ -89,6 +89,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "libfmdd.h"
 #include "pe_mpdrv_private.h"
 #include "IDT_Routing_Table_Config_API.h"
+#include "IDT_Tsi721.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -469,6 +470,9 @@ int slave_get_ct_and_name(int mport, uint32_t *comptag, char *dev_name)
 		*comptag = regs.comptag;
 		memset(dev_name, 0, FMD_MAX_DEV_FN);
 		snprintf(dev_name, FMD_MAX_DEV_FN, "LOCAL_MP%d", mp_num);
+		fmd->opts->mast_devid = GET_DEV8_FROM_PW_TGT_HW(
+							regs.host_destID);
+		fmd->opts->mast_cm_port = regs.scratch_cm_sock;
 		return 0;
 	};
 

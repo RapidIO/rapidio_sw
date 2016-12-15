@@ -45,6 +45,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "cfg.h"
 #include "liblist.h"
 #include "liblog.h"
+#include "IDT_Tsi721.h"
+#include "fmd_state.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -307,6 +309,12 @@ int fmd_enable_all_endpoints(riocp_pe_handle mp_pe)
 
 	for (i = 0; i < count; i++) {
 		uint32_t lockval;
+		uint32_t cm_sock = fmd->opts->mast_cm_port;
+
+		if (RIOCP_PE_IS_BRIDGE(pes[i]->cap)) {
+			riocp_pe_maint_write(pes[i], TSI721_RIO_WHITEBOARD,
+								cm_sock);
+		}
 		riocp_pe_maint_read(pes[i], RIO_HOST_LOCK, &lockval);
 		if (RIO_HOST_LOCK_UNLOCKED != lockval) {
 			riocp_pe_maint_write(pes[i], RIO_HOST_LOCK, lockval);

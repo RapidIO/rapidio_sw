@@ -60,6 +60,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "IDT_Statistics_Counter_API.h"
 #include "cfg.h"
 #include "rapidio_mport_mgmt.h"
+#include "IDT_Tsi721.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -1393,7 +1394,8 @@ int mpsw_drv_get_mport_regs(int mp_num, struct mport_regs *regs)
 	//
 	// For now, works with Tsi721.
 
-	if (riomp_mgmt_lcfg_read(mp_h, 0x1028, 4, &regs->host_destID)) {
+	if (riomp_mgmt_lcfg_read(mp_h, TSI721_RIO_PW_TGT_ID, 4,
+							&regs->host_destID)) {
 		goto close;
 	}
 
@@ -1403,13 +1405,19 @@ int mpsw_drv_get_mport_regs(int mp_num, struct mport_regs *regs)
 	//
 	// For now, works with Tsi721.
 
-	if (riomp_mgmt_lcfg_read(mp_h, 0x13C, 4, &regs->disc)) {
+	if (riomp_mgmt_lcfg_read(mp_h, TSI721_RIO_SP_GEN_CTL, 4, &regs->disc)) {
 		goto close;
 	}
-	if (riomp_mgmt_lcfg_read(mp_h, 0x158, 4, &regs->p_err_stat)) {
+	if (riomp_mgmt_lcfg_read(mp_h, TSI721_RIO_SP_ERR_STAT, 4,
+							&regs->p_err_stat)) {
 		goto close;
 	}
-	if (riomp_mgmt_lcfg_read(mp_h, 0x15C, 4, &regs->p_ctl1)) {
+	if (riomp_mgmt_lcfg_read(mp_h, TSI721_RIO_SP_CTL, 4, &regs->p_ctl1)) {
+		goto close;
+	}
+
+	if (riomp_mgmt_lcfg_read(mp_h, TSI721_RIO_WHITEBOARD, 4,
+						&regs->scratch_cm_sock)) {
 		goto close;
 	}
 
