@@ -271,7 +271,7 @@ void check_write_bc(uint32_t offset, uint32_t writedata)
               mock_dar_reg[idx].data = writedata;
           }
        } 
-       else if (offset >= RXS_RIO_BC_L1_GX_ENTRYY_CSR(0,0) && offset <= RXS_RIO_BC_L1_GX_ENTRYY_CSR(RXS_MAX_L1_GROUP, IDT_DAR_RT_DEV_TABLE_SIZE)) {
+       else if (offset >= RXS_RIO_BC_L1_GX_ENTRYY_CSR(0,0) && offset <= RXS_RIO_BC_L1_GX_ENTRYY_CSR(RXS_MAX_L1_GROUP-1, IDT_DAR_RT_DEV_TABLE_SIZE-1)) {
           did = offset - RXS_RIO_BC_L1_GX_ENTRYY_CSR(0,0);
 
           for (port = 0; port < RXS2448_MAX_PORTS;  port++) {
