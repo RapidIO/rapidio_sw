@@ -1190,16 +1190,20 @@ static void rxs_reg_mc_mask(uint32_t port, uint32_t mc_mask_num, uint32_t *mc_ma
 }
 
 void check_init_rt_regs_port(uint32_t chk_on_port,
-		uint32_t chk_dflt_val, uint32_t chk_rt_val, uint32_t chk_mask)
+		uint32_t chk_dflt_val, uint32_t chk_rt_val, uint32_t chk_mask, uint32_t chk_first_dom_val)
 {
-	uint32_t rt_num, temp;
+	uint32_t rt_num, temp, s_rt_num = 0;
 	uint32_t dom_out, dev_out, mask_num, mc_mask_out;
 
 	assert_int_equal(RIO_SUCCESS,
 		DARRegRead(&mock_dev_info, RXS_RIO_ROUTE_DFLT_PORT, &temp));
 	assert_int_equal(temp, chk_dflt_val);
 
-	for (rt_num = 0; rt_num < IDT_DAR_RT_DEV_TABLE_SIZE; rt_num++) { 
+        rxs_reg_dev_dom(chk_on_port, s_rt_num, &dom_out, &dev_out);
+        assert_int_equal(chk_first_dom_val, dom_out);
+        assert_int_equal(chk_rt_val, dev_out);
+        s_rt_num++;  
+	for (rt_num = s_rt_num; rt_num < IDT_DAR_RT_DEV_TABLE_SIZE; rt_num++) { 
 		rxs_reg_dev_dom(chk_on_port, rt_num, &dom_out, &dev_out);
 		assert_int_equal(chk_rt_val, dom_out);
 		assert_int_equal(chk_rt_val, dev_out);
@@ -1219,19 +1223,22 @@ void check_init_rt_regs(uint32_t port, bool hw,
 	uint32_t end_p = port;
 	uint32_t chk_rt_val = (hw)?mock_init_in->default_route_table_port:0;
 	uint32_t chk_dflt_val = (hw)?mock_init_in->default_route:0;
+        uint32_t chk_first_idx_dom_val = (hw)?IDT_DSF_RT_USE_DEVICE_TABLE:0;
 	uint32_t chk_mask = 0;
 
 	if (port == RIO_ALL_PORTS) {
 		st_p = 0;
 		end_p = RXS2448_MAX_PORTS - 1;
 
-		check_init_rt_regs_port(RIO_ALL_PORTS,
-				chk_dflt_val, chk_rt_val, chk_mask);
+		 for (port = st_p; port <= end_p; port++) {
+			check_init_rt_regs_port(port,
+                                chk_dflt_val, chk_rt_val, chk_mask, chk_first_idx_dom_val);
+                 }
 	};
 
 	for (port = st_p; port <= end_p; port++) {
-		check_init_rt_regs_port(RIO_ALL_PORTS,
-				chk_dflt_val, chk_rt_val, chk_mask);
+		check_init_rt_regs_port(port,
+				chk_dflt_val, chk_rt_val, chk_mask, chk_first_idx_dom_val);
 	};
 }
 
@@ -1309,7 +1316,7 @@ void rxs_init_rt_test_success_all_ports(bool hw)
             assert_int_equal(RIO_SUCCESS, mock_init_out.imp_rc);
 
             check_init_struct(&mock_init_in);
-            check_init_rt_regs(port, mock_init_in.update_hw, &mock_init_in);
+            check_init_rt_regs(mock_init_in.set_on_port, mock_init_in.update_hw, &mock_init_in);
         }
 }
 
