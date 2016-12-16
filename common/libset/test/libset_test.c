@@ -203,7 +203,6 @@ void set_create_max_capacity_test(void **state)
 	assert_int_equal(0, set.expand_size);
 	assert_int_equal(0, set.next);
 	assert_non_null(set.arr);
-	assert_int_equal(sizeof(uint32_t *), sizeof(set.arr));
 	free(set.arr);
 
 	(void)state; // unused
@@ -221,7 +220,6 @@ void set_create_max_expand_test(void **state)
 	assert_int_equal(UINT16_MAX-1, set.expand_size);
 	assert_int_equal(0, set.next);
 	assert_non_null(set.arr);
-	assert_int_equal(sizeof(uint32_t *), sizeof(set.arr));
 	free(set.arr);
 
 	(void)state; // unused
@@ -240,7 +238,6 @@ void set_create_normal_test(void **state)
 	assert_int_equal(2, set.expand_size);
 	assert_int_equal(0, set.next);
 	assert_non_null(set.arr);
-	assert_int_equal(sizeof(uint32_t *), sizeof(set.arr));
 	free(set.arr);
 
 	set_initialize(&set);
@@ -250,7 +247,6 @@ void set_create_normal_test(void **state)
 	assert_int_equal(1, set.expand_size);
 	assert_int_equal(0, set.next);
 	assert_non_null(set.arr);
-	assert_int_equal(sizeof(uint32_t *), sizeof(set.arr));
 	free(set.arr);
 
 	set_initialize(&set);
@@ -260,7 +256,6 @@ void set_create_normal_test(void **state)
 	assert_int_equal(6, set.expand_size);
 	assert_int_equal(0, set.next);
 	assert_non_null(set.arr);
-	assert_int_equal(sizeof(uint32_t *), sizeof(set.arr));
 	free(set.arr);
 
 	(void)state; // unused
