@@ -95,6 +95,10 @@ typedef enum idt_pc_ls_t_tag
                         */
     idt_pc_ls_6p25 = 4, /* 6.25 Gbaud lane speed.
                         */
+    idt_pc_ls_10p3 = 5, /* 10.3 Gbaud lane speed.
+                        */
+    idt_pc_ls_12p5 = 6, /* 12.5 Gbaud lane speed.
+                        */
     idt_pc_ls_last      // last lane speed, not used...
 } idt_pc_ls_t;
 

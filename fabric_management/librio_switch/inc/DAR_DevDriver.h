@@ -69,7 +69,7 @@ typedef uint32_t DSF_Handle_t;    /* Device Specific Function Handle, not */
 *     accessed.
 */
 #define HOST_REGS_DEVID 0xFFFFFFFF
-#define MAX_DAR_PORTS   18
+#define MAX_DAR_PORTS   24 //18
 #define NAME_SIZE	15
 #define MAX_DAR_SCRPAD_IDX  30
 
@@ -115,6 +115,14 @@ typedef struct DAR_DEV_INFO_t_TAG
     uint32_t    extFPtrForVC;   /* RO: ID  0x0A: Virtual Channel
                               */
     uint32_t    extFPtrForVOQ;  /* RO: ID  0x0B: Virtual Output Queueing
+                              */
+    uint32_t    extFPtrForRT;  /* RO: ID  0x0E: Routing Tablet
+                              */
+    uint32_t    extFPtrForTS;  /* RO: ID  0x0F: Timestamp Synchronization
+                              */
+    uint32_t    extFPtrForMISC;  /* RO: ID  0x10: Miscellaneous Register Block
+                              */
+    uint32_t    extFPtrForHS;  /* RO: ID  0x17: Hot Swap
                               */
     /* Values of RapidIO Standard Registers, useful for understanding device
            capabilities without reading registers.
@@ -309,7 +317,7 @@ uint32_t DARrioGetAssmblyInfo ( DAR_DEV_INFO_t *dev_info,
 	or have a trained link.
 */
 
-#define DAR_MAX_PORTS 18
+#define DAR_MAX_PORTS 24 //18
 
 struct DAR_ptl {
 	uint8_t	num_ports; /* Number of valid entries in port */

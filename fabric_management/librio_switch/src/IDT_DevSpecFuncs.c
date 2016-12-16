@@ -38,11 +38,15 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <IDT_DSF_DB_Private.h>
 #include <CPS1848_registers.h>
 #include <DAR_Utilities.h>
+#include "IDT_RXS_API.h"
 #include <string.h>
 
 #ifdef IDT_TSI721_SUPPORT
 #include <IDT_Tsi721_API.h>
 #endif
+
+#include "IDT_RXS_API.h"
+
 
 #ifdef __cplusplus
 extern "C" {
@@ -273,8 +277,8 @@ void check_unicast_routing( DAR_DEV_INFO_t     *dev_info,
                             idt_rt_probe_in_t  *in_parms, 
                             idt_rt_probe_out_t *out_parms ) 
 {
-    uint8_t idx, rte = 0;
-    uint8_t phys_rte;
+    uint8_t idx;
+    uint32_t phys_rte, rte = 0;
     bool  dflt_pt;
 
 	if (NULL == dev_info)
@@ -758,6 +762,11 @@ uint32_t IDT_DSF_bind_DAR_routines(
 #ifdef IDT_TSI721_DAR_WANTED
     bind_tsi721_DAR_support();
     bind_tsi721_DSF_support();
+#endif
+
+#ifdef IDT_RXSx_DAR_WANTED
+    bind_rxs_DAR_support();
+    bind_rxs_DSF_support();
 #endif
 
     ReadReg  = ReadRegCall;

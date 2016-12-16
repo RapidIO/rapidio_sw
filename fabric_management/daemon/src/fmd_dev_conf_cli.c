@@ -36,8 +36,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdlib.h>
 
 #include "fmd.h"
-#include "fmd_dev_rw_cli.h"
-#include "liblog.h"
 #include "libcli.h"
 #include "riocp_pe_internal.h"
 #include "pe_mpdrv_private.h"

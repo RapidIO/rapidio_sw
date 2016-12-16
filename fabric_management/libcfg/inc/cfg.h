@@ -58,7 +58,7 @@ extern "C" {
 #define CFG_DEV32 2
 #define CFG_DEVID_MAX (CFG_DEV32+1)
 
-#define CFG_MAX_SW_PORT 18
+#define CFG_MAX_SW_PORT 24 //18
 
 #define CFG_MEM_SZ_34 (uint8_t)(34)
 #define CFG_MEM_SZ_50 (uint8_t)(50)
@@ -106,6 +106,7 @@ struct cfg_sw {
 
 struct cfg_dev {
 	const char *name; /* System name of device */
+	const char *dev_type; /* Device type */
 	int port_cnt; /* Number of ports on device */
 	uint32_t did_sz; /* CFG_DEVID_MAX if all are supported */
 	uint32_t did; /* Device ID used to access the device */
