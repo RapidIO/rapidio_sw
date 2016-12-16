@@ -38,63 +38,63 @@ all: libcmocka libset libcli liblist liblog libtime_utils \
 libcmocka: FORCE
 	$(MAKE) -C libcmocka
 	mkdir -p libs_so
-	(cd libcmocka; tar cf - libcmocka.so*) | (cd libs_so; tar xvf -)
+	cp libcmocka/libcmocka.so* libs_so/
 
 libset: FORCE libcmocka
 	$(MAKE) all -C libset
 	mkdir -p libs_a
 	mkdir -p libs_so
 	cp libset/libset.a libs_a/
-	(cd libset; tar cf - libset.so*) | (cd libs_so; tar xvf -)
+	cp libset/libset.so* libs_so/
 
 libcli: FORCE libcmocka liblog
 	$(MAKE) all -C libcli
 	mkdir -p libs_a
 	mkdir -p libs_so
 	cp libcli/libcli.a libs_a/
-	(cd libcli; tar cf - libcli.so*) | (cd libs_so; tar xvf -)
+	cp libcli/libcli.so* libs_so/
 		
 liblist: FORCE libcmocka liblog libcli
 	$(MAKE) all -C liblist
 	mkdir -p libs_a
 	mkdir -p libs_so
 	cp liblist/liblist.a libs_a/
-	(cd liblist; tar cf - liblist.so*) | (cd libs_so; tar xvf -)
+	cp liblist/liblist.so* libs_so/
 		
 liblog: FORCE libcmocka 
 	$(MAKE) all -C liblog
 	mkdir -p libs_a
 	mkdir -p libs_so
 	cp liblog/liblog.a libs_a/
-	(cd liblog; tar cf - liblog.so*) | (cd libs_so; tar xvf -)
+	cp liblog/liblog.so* libs_so/
 		
 libtime_utils: FORCE libcmocka liblog libcli
 	$(MAKE) all -C libtime_utils
 	mkdir -p libs_a
 	mkdir -p libs_so
 	cp libtime_utils/libtime_utils.a libs_a/
-	(cd libtime_utils; tar cf - libtime_utils.so*) | (cd libs_so; tar xvf -)
+	cp libtime_utils/libtime_utils.so* libs_so/
 		
 libunit_test: FORCE libcmocka liblog libcli libtime_utils
 	$(MAKE) all -C libunit_test
 	mkdir -p libs_a
 	mkdir -p libs_so
 	cp libunit_test/libunit_test.a libs_a/
-	(cd libunit_test; tar cf - libunit_test.so*) | (cd libs_so; tar xvf -)
+	cp libunit_test/libunit_test.so* libs_so/
 		
 librsvdmem: FORCE libcmocka libcli
 	$(MAKE) all -C librsvdmem
 	mkdir -p libs_a
 	mkdir -p libs_so
 	cp librsvdmem/librsvdmem.a libs_a/
-	(cd librsvdmem; tar cf - librsvdmem.so*) | (cd libs_so; tar xvf -)
+	cp librsvdmem/librsvdmem.so* libs_so/
 		
 libmport: FORCE libcmocka libtime_utils
 	$(MAKE) all -C libmport
 	mkdir -p libs_a
 	mkdir -p libs_so
 	cp libmport/libmport.a libs_a/
-	(cd libmport; tar cf - libmport.so*) | (cd libs_so; tar xvf -)
+	cp libmport/libmport.so* libs_so/
 
 samples: FORCE libcmocka liblog libcli
 	$(MAKE) -C samples

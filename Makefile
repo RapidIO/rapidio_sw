@@ -64,7 +64,7 @@ common: FORCE
 memops: FORCE common umd
 	$(MAKE) all -C memops
 	@cp memops/*.a common/libs_a || true
-	(cd memops; tar cf - libmemops_intf.so*) | (cd common/libs_so; tar xvf -)
+	cp memops/libmemops_intf.so* common/libs_so 
 	
 rrmapcli: common FORCE	
 	$(MAKE) all -C utils/rrmapcli
