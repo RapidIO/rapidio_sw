@@ -46,6 +46,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <vector>
 #include "limits.h"
 
+#include "tok_parse.h"
 #include "libcli.h"
 #include "cli_cmd_line.h"
 
@@ -55,14 +56,16 @@ extern "C" {
 
 int getDecParm(char *token, int defaultData)
 {
-	int data;
+	int32_t data;
 
 	if (token == NULL || token[0] == '/') {
 		data = defaultData;
-	} else if (sscanf(token, "%d", &data) <= 0) {
-		data = defaultData;
+	} else {
+		if (tok_parse_signed_l(token, &data, 0)) {
+			data = defaultData;
+		}
 	}
-	return data;
+	return (int)data;
 }
 
 float getFloatParm(char *token, float defaultData)
@@ -81,20 +84,9 @@ uint64_t getHex(char *token, unsigned long defaultData)
 
 {
 	uint64_t data = defaultData;
-	char *end;
-
-	errno = 0;
-	if ((token != NULL) && (token[0] != '/')) {
-		data = (uint64_t)strtoull(token, &end, 16);
-		if (!data && (end == token)) {
-			data = defaultData;
-		} else if (data == ULLONG_MAX && errno) {
-			data = defaultData;
-		} else if (*end) {
-			data = defaultData;
-		}
+	if (tok_parse_ll(token, &data, 0)) {
+		data = defaultData;
 	}
-
 	return data;
 }
 

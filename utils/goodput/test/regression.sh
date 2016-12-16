@@ -16,17 +16,22 @@ SLAVE_NODE=node2
 MAST_MPNUM=0
 SLAVE_MPNUM=0
 
-HOMEDIR=$PWD
+DFLT_HOMEDIR=$PWD
 PREVDIR=/..
 
-HOMEDIR=$HOMEDIR$PREVDIR
+DFLT_HOMEDIR=$DFLT_HOMEDIR$PREVDIR
+DFLT_WAIT_TIME=30
+DFLT_IBA_ADDR=0x200000000
+DFLT_SKT_PREFIX=234
 
-WAIT_TIME=30
+HOMEDIR=$DFLT_HOMEDIR
+
+WAIT_TIME=$DFLT_WAIT_TIME
 TRANS_IN=5
-IBA_ADDR=200000000
-ACC_SIZE=40000
-BYTES=400000
-SKT_PREFIX=234
+IBA_ADDR=$DFLT_IBA_ADDR
+ACC_SIZE=0x40000
+BYTES=0x400000
+SKT_PREFIX=$DFLT_SKT_PREFIX
 SYNC_IN=3
 SYNC2_IN=${SYNC_IN}
 SYNC3_IN=${SYNC_IN}
@@ -119,24 +124,29 @@ if [ $PRINT_HELP != "0" ]; then
 	echo $'SLAVE_MPNUM: Slave node mport number (usually 0)'
 	echo $'All parameters after this are optional.  Default values shown.'
 	echo $'DIR        : Directory on both MAST and SLAVE to run tests.'
-	echo $'             Default is ' $HOMEDIR
-        echo $'WAIT       : Time in seconds to wait before perf measurement'
-	echo $'             Default is ' $WAIT_TIME
-        echo $'DMA_TRANS  : DMA transaction type'
-        echo $'             0 NW, 1 SW, 2 NW_R, 3 SW_R 4 NW_R_ALL'
+	echo $'             Default is ' $DFLT_HOMEDIR
+    echo $'WAIT       : Time in seconds to wait before performance measurement'
+	echo $'             Default is ' $DFLT_WAIT_TIME
+    echo $'DMA_TRANS  : DMA transaction type'
+    echo $'             0 NW, 1 SW, 2 NW_R, 3 SW_R, 4 NW_R_ALL'
 	echo $'             Default is 0 NW.'
-        echo $'DMA_SYNC   : 0 - blocking, 1 - async, 2 - fire and forget'
+    echo $'DMA_SYNC   : 0 - blocking, 1 - async, 2 - fire and forget'
 	echo $'             Default is 0 blocking.'
-        echo $'IBA_ADDR   : RapidIO address of inbound window for both nodes'
-	echo $'             Default is ' $IBA_ADDR
-        echo $'SKT_PREFIX : First 3 digits of 4 digit socket numbers'
-	echo $'             Default is ' $SKT_PREFIX
-        echo $'DMA_SYNC2  : 0 - blocking, 1 - async, 2 - fire and forget'
-        echo $'             Default is same as DMA_SYNC'
-        echo $'DMA_SYNC3  : 0 - blocking, 1 - async, 2 - fire and forget'
-        echo $'             Default is same as DMA_SYNC'
+    echo $'IBA_ADDR   : Hexadecimal RapidIO address of inbound window for both nodes'
+	echo $'             Default is ' $DFLT_IBA_ADDR
+    echo $'SKT_PREFIX : First 3 digits of 4 digit socket numbers'
+	echo $'             Default is ' $DFLT_SKT_PREFIX
+    echo $'DMA_SYNC2  : 0 - blocking, 1 - async, 2 - fire and forget'
+    echo $'             Default is same as DMA_SYNC'
+    echo $'DMA_SYNC3  : 0 - blocking, 1 - async, 2 - fire and forget'
+    echo $'             Default is same as DMA_SYNC'
 	exit 1
 fi;
+
+# ensure hex values are correctly prefixed
+if [[ $IBA_ADDR != 0x* ]] && [[ $IBA_ADDR != 0X* ]]; then
+        IBA_ADDR=0x$IBA_ADDR
+fi
 
 INTERP_TRANS=(NW SW NW_R SW_R NW_R_ALL DEFAULT);
 INTERP_SYNC=(BLOCK ASYNC FAF DEFAULT);
@@ -264,8 +274,8 @@ echo 'SYNC       : 0 ' ${INTERP_SYNC[0]} >> $LABEL_LOG
 echo 'SYNC2      : 0 ' ${INTERP_SYNC[0]} >> $LABEL_LOG
 echo 'SYNC3      : 0 ' ${INTERP_SYNC[0]} >> $LABEL_LOG
 echo 'DID        :' ${DESTIDS[0]} >> $LABEL_LOG
-echo 'IBA_ADDR   : 0x' $IBA_ADDR >> $LABEL_LOG
-echo 'SKT_PREFIX : 0x' $SKT_PREFIX >> $LABEL_LOG
+echo 'IBA_ADDR   : ' $IBA_ADDR >> $LABEL_LOG
+echo 'SKT_PREFIX : ' $SKT_PREFIX >> $LABEL_LOG
 echo 'MPORT_NUM  : ' $SLAVE_MPNUM >> $LABEL_LOG
 LOG_FILE_SLAVE
 
@@ -313,8 +323,8 @@ echo 'SYNC       :' $SYNC  ${INTERP_SYNC[SYNC]} >> $LABEL_LOG
 echo 'SYNC2      :' $SYNC2 ${INTERP_SYNC[SYNC2]} >> $LABEL_LOG
 echo 'SYNC3      :' $SYNC3 ${INTERP_SYNC[SYNC3]} >> $LABEL_LOG
 echo 'DID        :' ${DESTIDS[1]} >> $LABEL_LOG
-echo 'IBA_ADDR   : 0x' $IBA_ADDR >> $LABEL_LOG
-echo 'SKT_PREFIX : 0x' $SKT_PREFIX >> $LABEL_LOG
+echo 'IBA_ADDR   : ' $IBA_ADDR >> $LABEL_LOG
+echo 'SKT_PREFIX : ' $SKT_PREFIX >> $LABEL_LOG
 echo 'MPORT_NUM  : ' $MAST_MPNUM >> $LABEL_LOG
 LOG_FILE_MASTER
 

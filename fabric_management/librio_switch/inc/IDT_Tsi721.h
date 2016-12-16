@@ -3450,12 +3450,13 @@ extern "C" {
 #define TSI721_WA_VAL_5G              0x0000006F
 #define TSI721_WA_VAL_3G              0x0000000F
 
-#define RIO_MAX_MSG_SIZE        0x1000
-
 /******************************************************/
 /* TSI721 : MESSAGE DESCRIPTOR BIT DEFINITIONS        */
 /******************************************************/
 
+#ifndef RIO_MAX_MSG_SIZE
+#define RIO_MAX_MSG_SIZE                (0x1000)
+#endif
 #define TSI721_MSG_BUFFER_SIZE          RIO_MAX_MSG_SIZE
 #define TSI721_MSG_MAX_SIZE             RIO_MAX_MSG_SIZE
 #define TSI721_IMSG_MAXCH               8

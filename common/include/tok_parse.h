@@ -43,20 +43,24 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "string_util.h"
 
 #define TOK_ERR_DID_MSG_FMT ("Destination Id must be between 0 and 0xff\n")
-#define TOK_ERR_CT_MSG_FMT ("Component tag must be between 0 and " STR(UINT32_MAX)"\n")
+#define TOK_ERR_CT_MSG_FMT ("Component tag must be between 0 and 0xffffffff\n")
 #define TOK_ERR_HC_MSG_FMT ("Hopcount must be between 0 and 0xff\n")
 #define TOK_ERR_MPORT_MSG_FMT ("Mport device index must be between 0 and 7\n")
 #define TOK_ERR_LOG_LEVEL_MSG_FMT ("Log level must be between 1 and 7\n")
-#define TOK_ERR_SOCKET_MSG_FMT ("%s must be between 0 and " STR(UINT16_MAX)"\n")
-#define TOK_ERR_PORT_NUM_MSG_FMT ("Port number must be between 0 and " STR(RIO_MAX_DEV_PORT-1)"\n")
+#define TOK_ERR_SOCKET_MSG_FMT ("%s must be between 0 and 0xffff\n")
+#define TOK_ERR_PORT_NUM_MSG_FMT ("Port number must be between 0 and " STR(RIO_MAX_DEV_PORT-1) "\n")
 
-#define TOK_ERR_LL_HEX_MSG_FMT ("%s must be between 0x0 and " STR(UINT64_MAX)"\n")
-#define TOK_ERR_L_HEX_MSG_FMT ("%s must be between 0x0 and " STR(UINT32_MAX)"\n")
-#define TOK_ERR_S_HEX_MSG_FMT ("%s must be between 0x0 and " STR(UINT16_MAX)"\n")
+#define TOK_ERR_LL_HEX_MSG_FMT ("%s must be between 0x0 and 0xffffffffffffffff\n")
+#define TOK_ERR_L_HEX_MSG_FMT ("%s must be between 0x0 and 0xffffffff\n")
+#define TOK_ERR_S_HEX_MSG_FMT ("%s must be between 0x0 and 0xffff\n")
 
 #define TOK_ERR_LONGLONG_MSG_FMT ("%s must be between %" PRIu64 " and %" PRIu64 "\n")
 #define TOK_ERR_LONG_MSG_FMT ("%s must be between %" PRIu32 " and %" PRIu32 "\n")
 #define TOK_ERR_SHORT_MSG_FMT ("%s must be between %" PRIu16 " and %" PRIu16 "\n")
+
+#define TOK_ERR_SIGNED_LONGLONG_MSG_FMT ("%s must be between %" PRId64 " and %" PRId64 "\n")
+#define TOK_ERR_SIGNED_LONG_MSG_FMT ("%s must be between %" PRId32 " and %" PRId32 "\n")
+#define TOK_ERR_SIGNED_SHORT_MSG_FMT ("%s must be between %" PRId16 " and %" PRId16 "\n")
 
 #define TOK_ERR_LONGLONG_HEX_MSG_FMT ("%s must be between 0x%" PRIx64 " and 0x%" PRIx64 "\n")
 #define TOK_ERR_LONG_HEX_MSG_FMT ("%s must be between 0x%" PRIx32 " and 0x%" PRIx32 "\n")
@@ -73,9 +77,20 @@ int tok_parse_long(char *token, uint32_t *value, uint32_t min, uint32_t max,
 int tok_parse_short(char *token, uint16_t *value, uint16_t min, uint16_t max,
 		int base);
 
+int tok_parse_signed_longlong(char *token, int64_t *value, int64_t min, int64_t max,
+		int base);
+int tok_parse_signed_long(char *token, int32_t *value, int32_t min, int32_t max,
+		int base);
+int tok_parse_signed_short(char *token, int16_t *value, int16_t min, int16_t max,
+		int base);
+
 int tok_parse_ll(char *token, uint64_t *value, int base);
 int tok_parse_l(char *token, uint32_t *value, int base);
 int tok_parse_s(char *token, uint16_t *value, int base);
+
+int tok_parse_signed_ll(char *token, int64_t *value, int base);
+int tok_parse_signed_l(char *token, int32_t *value, int base);
+int tok_parse_signed_s(char *token, int16_t *value, int base);
 
 int tok_parse_did(char *token, uint32_t *did, int base);
 int tok_parse_ct(char *token, uint32_t *ct, int base);

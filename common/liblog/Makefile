@@ -38,6 +38,7 @@ OBJECTS:=$(patsubst src/%.cpp,src/%.o,$(wildcard src/*.cpp))
 OBJECTS:= $(OBJECTS) $(patsubst src/%.c,src/%.o,$(wildcard src/*.c))
 
 CXXFLAGS+=-D$(DEBUG_CTL) -DRDMA_LL=$(LOG_LEVEL)
+CXXFLAGS+=-I../../fabric_management/librio_switch/inc
 LINK_FLAGS+= -rdynamic -shared -Wl,-soname,lib$(NAME).so.$(SOVER)
 
 

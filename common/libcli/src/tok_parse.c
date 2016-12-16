@@ -129,6 +129,91 @@ int tok_parse_short(char *token, uint16_t *value, uint16_t min, uint16_t max,
 }
 
 /**
+ * Parse a string token for a bounded signed long long (64-bit) numeric value
+ *
+ * @param[in] token the string representation of the numeric value
+ * @param[out] value the numeric value
+ * @param[in] min the minimum accepted value
+ * @param[in] max the maximum accepted value
+ * @param[in] base the base of the numeric value
+ *
+ * @retval 0 on success, -1 on failure
+ */
+int tok_parse_signed_longlong(char *token, int64_t *value, int64_t min, int64_t max,
+		int base)
+{
+	int64_t data;
+	char *end = NULL;
+
+	errno = 0;
+	data = strtoll(token, &end, base);
+	if (end == token || *end != '\0'
+			|| ((data == INT64_MIN || data == INT64_MAX) && errno == ERANGE)) {
+		return -1;
+	}
+
+	if ((data < min) || (data > max)) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	*value = data;
+	return 0;
+}
+
+/**
+ * Parse a string token for a bounded signed long (32-bit) numeric value
+ *
+ * @param[in] token the string representation of the numeric value
+ * @param[out] value the numeric value
+ * @param[in] min the minimum accepted value
+ * @param[in] max the maximum accepted value
+ * @param[in] base the base of the numeric value
+ *
+ * @retval 0 on success, -1 on failure
+ */
+int tok_parse_signed_long(char *token, int32_t *value, int32_t min, int32_t max,
+		int base)
+{
+	int64_t data;
+	int rc;
+
+	if ((token == NULL) || (value == NULL)) {
+		return -1;
+	}
+
+	rc = tok_parse_signed_longlong(token, &data, min, max, base);
+	*value = (int32_t)data;
+	return rc;
+}
+
+/**
+ * Parse a string token for a bounded signed short (16-bit) numeric value
+ *
+ * @param[in] token the string representation of the numeric value
+ * @param[out] value the numeric value
+ * @param[in] min the minimum accepted value
+ * @param[in] max the maximum accepted value
+ * @param[in] base the base of the numeric value
+ *
+ * @retval 0 on success, -1 on failure
+ */
+int tok_parse_signed_short(char *token, int16_t *value, int16_t min, int16_t max,
+		int base)
+{
+	int64_t data;
+	int rc;
+
+	if ((token == NULL) || (value == NULL)) {
+		return -1;
+	}
+
+	rc = tok_parse_signed_longlong(token, &data, min, max, base);
+	*value = (int16_t)data;
+	return rc;
+}
+
+/**
  * Parse a string token for a long long (64-bit) numeric value
  *
  * @param[in] token the string representation of the numeric value
@@ -174,6 +259,7 @@ int tok_parse_l(char *token, uint32_t *value, int base)
 	return rc;
 }
 
+
 /**
  * Parse a string token for a short (16-bit) numeric value.
  *
@@ -194,6 +280,76 @@ int tok_parse_s(char *token, uint16_t *value, int base)
 
 	rc = tok_parse_longlong(token, &data, 0, UINT16_MAX, base);
 	*value = (uint16_t)data;
+	return rc;
+
+}
+
+/**
+ * Parse a string token for a signed long long (64-bit) numeric value
+ *
+ * @param[in] token the string representation of the numeric value
+ * @param[out] value the numeric value
+ * @param[in] base the base of the numeric value
+ *
+ * @retval 0 on success, -1 on failure
+ */
+int tok_parse_signed_ll(char *token, int64_t *value, int base)
+{
+	int64_t data;
+	int rc;
+
+	if ((token == NULL) || (value == NULL)) {
+		return -1;
+	}
+
+	rc = tok_parse_signed_longlong(token, &data, INT64_MIN, INT64_MAX, base);
+	*value = data;
+	return rc;
+}
+
+/**
+ * Parse a string token for a signed long (32-bit) numeric value
+ *
+ * @param[in] token the string representation of the numeric value
+ * @param[out] value the numeric value
+ * @param[in] base the base of the numeric value
+ *
+ * @retval 0 on success, -1 on failure
+ */
+int tok_parse_signed_l(char *token, int32_t *value, int base)
+{
+	int64_t data;
+	int rc;
+
+	if ((token == NULL) || (value == NULL)) {
+		return -1;
+	}
+
+	rc = tok_parse_signed_longlong(token, &data, INT32_MIN, INT32_MAX, base);
+	*value = (int32_t)data;
+	return rc;
+}
+
+/**
+ * Parse a string token for a signed short (16-bit) numeric value.
+ *
+ * @param[in] token the string representation of the numeric value
+ * @param[out] value the numeric value
+ * @param[in] base the base of the numeric value
+ *
+ * @retval 0 on success, -1 on failure
+ */
+int tok_parse_signed_s(char *token, int16_t *value, int base)
+{
+	int64_t data;
+	int rc;
+
+	if ((token == NULL) || (value == NULL)) {
+		return -1;
+	}
+
+	rc = tok_parse_signed_longlong(token, &data, INT16_MIN, INT16_MAX, base);
+	*value = (int16_t)data;
 	return rc;
 
 }

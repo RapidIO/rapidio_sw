@@ -25,7 +25,7 @@ if [ -z "$IBA_ADDR" ]; then
         if [ -n "$1" ]; then
                 IBA_ADDR=$1
         else
-                IBA_ADDR=200000000
+                IBA_ADDR=0x200000000
                 LOC_PRINT_HEP=2
         fi
 fi
@@ -69,7 +69,7 @@ if [ -z "$BUFC" ]; then
         if [ -n "$1" ]; then
                 BUFC=$1
         else
-                BUFC=100
+                BUFC=0x100
                 LOC_PRINT_HEP=6
         fi
 fi
@@ -80,7 +80,7 @@ if [ -z "$STS" ]; then
         if [ -n "$1" ]; then
                 STS=$1
         else
-                STS=100
+                STS=0x100
                 LOC_PRINT_HEP=7
         fi
 fi
@@ -136,13 +136,26 @@ if [ -n "$LOC_PRINT_HEP" ]; then
         echo $'DID        : Device ID that this device sends to'
         echo $'Trans      : DMA transaction type'
         echo $'Wait       : Time in seconds to wait before publish performance'
-        echo $'Bufc       : Number of TX buffers'
-        echo $'Sts        : size of TX FIFO'
-	echo $'Chan       : HW DMA channel 0..7'
-	echo $'TX_CPU     : Processor to run the trasnmit/receive loop'
-	echo $'FIFO_CPU   : Processor to run the completion FIFO loop'
-	echo $'OVERRIDE   : <optional>, default and N allows isolcpus'
-	echo $'           Any other value forces TX_CPU and FIFO_CPU\n'
+        echo $'Bufc       : Number of TX buffers, in hex'
+        echo $'Sts        : size of TX FIFO, in hex'
+        echo $'Chan       : HW DMA channel 0..7'
+        echo $'TX_CPU     : Processor to run the transmit/receive loop'
+        echo $'FIFO_CPU   : Processor to run the completion FIFO loop'
+        echo $'OVERRIDE   : <optional>, default and N allows isolcpus'
+        echo $'           Any other value forces TX_CPU and FIFO_CPU\n'
+fi
+
+# ensure hex values are correctly prefixed
+if [[ $IBA_ADDR != 0x* ]] && [[ $IBA_ADDR != 0X* ]]; then
+        IBA_ADDR=0x$IBA_ADDR
+fi
+
+if [[ $BUFC != 0x* ]] && [[ $BUFC != 0X* ]]; then
+        BUFC=0x$BUFC
+fi
+
+if [[ $STS != 0x* ]] && [[ $STS != 0X* ]]; then
+        STS=0x$STS
 fi
 
 echo $'\nUDMA_LATENCY MPORT_DIR= ' $MPORT_DIR
@@ -170,20 +183,20 @@ SIZE_NAME=(1B 2B 4B 8B 16B 32B 64B 128B 256B 512B
 	1M 2M 4M)
 
 SIZE=(
-"1" "2" "4" "8" 
-"10" "20" "40" "80"
-"100" "200" "400" "800"
-"1000" "2000" "4000" "8000"
-"10000" "20000" "40000" "80000"
-"100000" "200000" "400000")
+"0x1" "0x2" "0x4" "0x8"
+"0x10" "0x20" "0x40" "0x80"
+"0x100" "0x200" "0x400" "0x800"
+"0x1000" "0x2000" "0x4000" "0x8000"
+"0x10000" "0x20000" "0x40000" "0x80000"
+"0x100000" "0x200000" "0x400000")
 
 BYTES=(
-"400000" "400000" "400000" "400000" 
-"400000" "400000" "400000" "400000"
-"400000" "400000" "400000" "400000"
-"400000" "400000" "400000" "400000"
-"400000" "400000" "400000" "400000"
-"400000" "400000" "400000")
+"0x400000" "0x400000" "0x400000" "0x400000"
+"0x400000" "0x400000" "0x400000" "0x400000"
+"0x400000" "0x400000" "0x400000" "0x400000"
+"0x400000" "0x400000" "0x400000" "0x400000"
+"0x400000" "0x400000" "0x400000" "0x400000"
+"0x400000" "0x400000" "0x400000")
 
 # Function to format file names.
 # Format is xxZss.txt, where

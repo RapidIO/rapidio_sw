@@ -35,6 +35,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdlib.h>
 #include "liblog.h"
 #include "libcli.h"
+#include "tok_parse.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -61,22 +62,22 @@ char *level_strings[RDMA_LL_DBG+1] {
 
 int LogLevelCmd(struct cli_env *env, int argc, char **argv)
 {
-        uint8_t temp;
-
+	uint32_t temp;
 	if (argc) {
-		temp = getHex(argv[0], 0);
-		if (temp < RDMA_LL_CRIT)
-			temp = RDMA_LL_CRIT - 1;
+		if (tok_parse_log_level(argv[0], &temp, 0)) {
+			LOGMSG(env, TOK_ERR_LOG_LEVEL_MSG_FMT);
+			return 1;
+		}
 		if (temp > RDMA_LL)
 			temp = RDMA_LL;
-		g_level = temp;
-	};
+		g_level = (unsigned) temp;
+	}
 
 	LOGMSG(env, "\nCompiled log level %d: %s\n", RDMA_LL, LOG_STR(RDMA_LL));
-	LOGMSG(env, "Current  log level %d: %s\n", g_level, LOG_STR(g_level));
+	LOGMSG(env, "Current log level %d: %s\n", g_level, LOG_STR(g_level));
 
 	return 0;
-};
+}
 
 struct cli_cmd LogLevel = {
 "levelog",
@@ -84,7 +85,7 @@ struct cli_cmd LogLevel = {
 0,
 "Display or set current log level.",
 "{<level>}\n"
-        "1: Logging disabled.\n"
+        "1: Logging disabled\n"
         "2: Critical, Failure critical to correct operation\n"
         "3: Error   , Error occurred, may not affect operation\n"
         "4: Warning , Something a bit strange occurred\n"
@@ -103,31 +104,31 @@ ATTR_NONE
  */
 int DispLevelCmd(struct cli_env *env, int argc, char **argv)
 {
-	uint8_t temp;
-
+	uint32_t temp;
 	if (argc) {
-		temp = getHex(argv[0], 0);
-		if (temp < RDMA_LL_CRIT)
-			temp = RDMA_LL_CRIT - 1;
+		if (tok_parse_log_level(argv[0], &temp, 0)) {
+			LOGMSG(env, TOK_ERR_LOG_LEVEL_MSG_FMT);
+			return 1;
+		}
 		if (temp > RDMA_LL)
 			temp = RDMA_LL;
-		g_disp_level = temp;
-	};
+		g_disp_level = (unsigned) temp;
+	}
 
 	LOGMSG(env, "\nCompiled log level %d: %s\n", RDMA_LL, LOG_STR(RDMA_LL));
 	LOGMSG(env, "Current DISPLAY log level %d: %s\n", g_disp_level,
 			LOG_STR(g_disp_level));
 
 	return 0;
-};
+}
 
 struct cli_cmd DispLevel = {
-"leveldisp",
+"dlevelog",
 3,
 0,
 "Display or set current DISPLAY level.",
 "{<level>}\n"
-        "1: Logging disabled.\n"
+        "1: Logging disabled\n"
         "2: Critical, Failure critical to correct operation\n"
         "3: Error   , Error occurred, may not affect operation\n"
         "4: Warning , Something a bit strange occurred\n"

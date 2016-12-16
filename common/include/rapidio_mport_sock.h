@@ -37,6 +37,11 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+#ifndef RIO_MAX_MSG_SIZE
+#define RIO_MAX_MSG_SIZE (0x1000)
+#endif
+#define CM_HEADER_BYTES (0x18)
+
 #ifdef __cplusplus
 extern "C" {
 #endif

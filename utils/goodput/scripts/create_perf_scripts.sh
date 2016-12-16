@@ -3,11 +3,11 @@
 WAIT_TIME=30
 DID=0
 TRANS=0
-IBA_ADDR=20d800000
-ACC_SIZE=40000
-BUFC=100 # UMD: hex number of TX buffers
-STS=100 # UMD: hex size of RX FIFO -- should be > BUFC
-BYTES=400000
+IBA_ADDR=0x20d800000
+ACC_SIZE=0x40000
+BUFC=0x100 # UMD: hex number of TX buffers
+STS=0x100 # UMD: hex size of RX FIFO -- should be > BUFC
+BYTES=0x400000
 SKT_PREFIX=234
 MPORT=0
 SYNC=0
@@ -83,7 +83,7 @@ if [ $PRINT_HELP != "0" ]; then
 	echo $'             0 NW, 1 SW, 2 NW_R, 3 SW_R 4 NW_R_ALL'
 	echo $'DMA_SYNC   : 0 - blocking, 1 - async, 2 - fire and forget'
 	echo $'DID        : Device ID of target device for performance scripts'
-	echo $'IBA_ADDR   : RapidIO address of inbound window on DID'
+	echo $'IBA_ADDR   : Hex RapidIO address of inbound window on DID'
 	echo $'SKT_PREFIX : First 3 digits of 4 digit socket numbers'
 	echo $'\nOptional parameters, if not entered same as DMA_SYNC'
 	echo $'MPORT      : Mport number for these scripts, default is 0'
@@ -91,6 +91,11 @@ if [ $PRINT_HELP != "0" ]; then
 	echo $'DMA_SYNC3  : 0 - blocking, 1 - async, 2 - fire and forget'
 	exit 1
 fi;
+
+# ensure hex values are correctly prefixed
+if [[ $IBA_ADDR != 0x* ]] && [[ $IBA_ADDR != 0X* ]]; then
+        IBA_ADDR=0x$IBA_ADDR
+fi
 
 INTERP_TRANS=(NW SW NW_R SW_R NW_R_ALL);
 INTERP_SYNC=(BLOCK ASYNC FAF);

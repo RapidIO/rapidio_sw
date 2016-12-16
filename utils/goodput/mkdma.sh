@@ -17,7 +17,7 @@ function udma()
 {
 size=$1
 cat <<EOF
-levelog 0
+levelog 1
 kill all
 t 0 0 0
 wait 0 2

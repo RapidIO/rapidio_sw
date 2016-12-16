@@ -58,10 +58,10 @@ fi
 
 if [ -n "$LOC_PRINT_HEP" ]; then
         echo $'\nScript accepts the following parameters:'
-        echo $'SKT_PREFIX: first 3 decimal digits of 4 digit socket numbers'
-        echo $'DID       : Device ID of target device for performance scripts'
-        echo $'Wait      : Time in seconds to wait before displaying perf\n'
-        echo $'DIR       : Directory to use as home directory for scripts\n'
+        echo $'SKT_PREFIX : first 3 decimal digits of 4 digit socket numbers'
+        echo $'DID        : Device ID of target device for performance scripts'
+        echo $'Wait       : Time in seconds to wait before displaying performance\n'
+        echo $'DIR        : Directory to use as home directory for scripts\n'
 fi
 
 echo 'MSG_LATENCY SKT_PREFIX = ' $SKT_PREFIX
@@ -76,7 +76,7 @@ echo 'MSG_LATENCY MPORT_DIR  = ' $MPORT_DIR
 
 SIZE_NAME=(24B 32B 64B 128B 256B 512B 1K 2K 4K)
 
-SIZE=( "18" "20" "40" "80" "100" "200" "400" "800" "1000")
+SIZE=( "0x18" "0x20" "0x40" "0x80" "0x100" "0x200" "0x400" "0x800" "0x1000")
 
 # Function to format file names.
 # Format is xxZss.txt, where

@@ -28,20 +28,20 @@ SIZE_NAME=(1B 2B 4B 8B 16B 32B 64B 128B 256B 512B
 	1M 2M 4M)
 
 SIZE=(
-"1" "2" "4" "8" 
-"10" "20" "40" "80"
-"100" "200" "400" "800"
-"1000" "2000" "4000" "8000"
-"10000" "20000" "40000" "80000"
-"100000" "200000" "400000")
+"0x1" "0x2" "0x4" "0x8"
+"0x10" "0x20" "0x40" "0x80"
+"0x100" "0x200" "0x400" "0x800"
+"0x1000" "0x2000" "0x4000" "0x8000"
+"0x10000" "0x20000" "0x40000" "0x80000"
+"0x100000" "0x200000" "0x400000")
 
 BYTES=(
-"10000" "10000" "10000" "10000" 
-"10000" "10000" "10000" "10000"
-"10000" "10000" "10000" "10000"
-"10000" "10000" "10000" "10000"
-"10000" "20000" "40000" "80000"
-"100000" "200000" "400000")
+"0x10000" "0x10000" "0x10000" "0x10000"
+"0x10000" "0x10000" "0x10000" "0x10000"
+"0x10000" "0x10000" "0x10000" "0x10000"
+"0x10000" "0x10000" "0x10000" "0x10000"
+"0x10000" "0x20000" "0x40000" "0x80000"
+"0x100000" "0x200000" "0x400000")
 
 ## TEMPLATES is the name of the template files
 ## PREFIXES is the name of the parallel DMA tests created for each template
@@ -83,7 +83,7 @@ if [ -z "$IBA_ADDR" ]; then
         if [ -n "$4" ]; then
                 IBA_ADDR=$4
         else
-                IBA_ADDR=20d800000
+                IBA_ADDR=0x20d800000
                 LOC_PRINT_HEP=1
         fi
 fi
@@ -126,15 +126,20 @@ fi
 
 if [ -n "$LOC_PRINT_HEP" ]; then
         echo $'\nScript requires the following parameters:'
-        echo $'WAIT    : Time in seconds to wait before taking perf measurement'
-        echo $'DID     : Device ID of target device for performance scripts'
-        echo $'TRANS   : DMA transaction type'
-        echo $'          0 NW, 1 SW, 2 NW_R, 3 SW_R 4 NW_R_ALL'
-        echo $'IBA_ADDR: Hex address of target window on DID'
-	echo $'DMA_SYNC : 0 - blocking, 1 - async, 2 - fire and forget'
+        echo $'WAIT     : Time in seconds to wait before taking performance measurement'
+        echo $'DID      : Device ID of target device for performance scripts'
+        echo $'TRANS    : DMA transaction type'
+        echo $'           0 NW, 1 SW, 2 NW_R, 3 SW_R 4 NW_R_ALL'
+        echo $'IBA_ADDR : Hex address of target window on DID'
+        echo $'DMA_SYNC : 0 - blocking, 1 - async, 2 - fire and forget'
         echo $'DMA_SYNC2: 0 - blocking, 1 - async, 2 - fire and forget'
         echo $'DMA_SYNC3: 0 - blocking, 1 - async, 2 - fire and forget\n'
         echo $'DIR      : Directory to use as home directory for scripts\n'
+fi
+
+# ensure hex values are correctly prefixed
+if [[ $IBA_ADDR != 0x* ]] && [[ $IBA_ADDR != 0X* ]]; then
+        IBA_ADDR=0x$IBA_ADDR
 fi
 
 echo PDMA_THRUPUT WAIT_TIME= $WAIT_TIME

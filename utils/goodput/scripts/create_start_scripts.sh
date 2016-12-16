@@ -2,7 +2,7 @@
 
 PRINT_HELP=0
 SKT_PREFIX=234
-IBA_ADDR=200000000
+IBA_ADDR=0x200000000
 
 if [ -n "$1" ]
   then
@@ -30,10 +30,15 @@ if [ $PRINT_HELP != "0" ]; then
         echo $'\nScript requires the following parameters:'
         echo $'MPORT      : Mport number usually 0'
         echo $'SOCKET_PFX : First 3 digits of 4 digit socket numbers i.e. 123'
-        echo $'IBA_ADDR   : RapidIO address of inbound window on DID'
-	echo $'\nNo parameters entered, scripts not generated...'
+        echo $'IBA_ADDR   : Hex RapidIO address of inbound window on DID'
+        echo $'\nNo parameters entered, scripts not generated...'
         exit 1
 fi;
+
+# ensure hex values are correctly prefixed
+if [[ $IBA_ADDR != 0x* ]] && [[ $IBA_ADDR != 0X* ]]; then
+        IBA_ADDR=0x$IBA_ADDR
+fi
 
 MPORT_DIR=mport${MPORT}
 

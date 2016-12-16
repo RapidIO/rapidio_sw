@@ -194,7 +194,7 @@ struct cli_cmd CLIApp  = {
 (char *)"app",
 3,
 0,
-(char *)"Print FMD Application connections status\n",
+(char *)"Print FMD Application connections status",
 (char *)"{{idx>}\n"
 	"<idx> : Optionally shutdown and clear application at this index.\n",
 CLIAppCmd,
@@ -218,7 +218,7 @@ struct cli_cmd CLINotify  = {
 (char *)"notify",
 3,
 0,
-(char *)"Nofifies all applications of a change in the device directory\n",
+(char *)"Notifies all applications of a change in the device directory",
 (char *)"<No Parameters>\n",
 CLINotifyCmd,
 ATTR_NONE

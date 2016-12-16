@@ -37,6 +37,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "fmd.h"
 #include "fmd_dev_rw_cli.h"
+#include "tok_parse.h"
 #include "liblog.h"
 #include "libcli.h"
 #include "riocp_pe_internal.h"
@@ -87,6 +88,7 @@ int CLIConfigCmd(struct cli_env *env, int argc, char **argv)
 	info_rc = riocp_pe_get_ports(pe_h, pe_port_info);
 	if (info_rc) {
 		LOGMSG(env, "\nGet port information failed: rc %d.", info_rc);
+		goto exit;
 	};
 
 	LOGMSG(env, "\nPhysLink TO: %8.1f microseconds..",
@@ -182,8 +184,9 @@ int CLIResetCmd(struct cli_env *env, int argc, char **argv)
 
 {
 	int rc;
-        riocp_pe_handle pe_h = (riocp_pe_handle)(env->h);
-	int port;
+	riocp_pe_handle pe_h = (riocp_pe_handle)(env->h);
+	rio_port_t port;
+	uint32_t tmp;
 	bool reset_lp = false;
 
 	if (NULL == pe_h) {
@@ -191,7 +194,12 @@ int CLIResetCmd(struct cli_env *env, int argc, char **argv)
 		goto exit;
 	};
 
-	port = getDecParm(argv[0], 0);
+	if (tok_parse_port_num(argv[0], &tmp, 0)) {
+		LOGMSG(env, "\n");
+		LOGMSG(env, TOK_ERR_PORT_NUM_MSG_FMT);
+		goto exit;
+	}
+	port = (pe_port_t)tmp;
 	if (argc > 1) {
 		reset_lp = true;
 	};
@@ -214,7 +222,7 @@ struct cli_cmd CLIReset = {
 1,
 (char *)"Reset port on current device.",
 (char *)"<port> <lp>\n"
-	"REset <port> on current device.\n"
+	"Reset <port> on current device.\n"
 	"If <lp> is present, reset the link partner first.\n",
 CLIResetCmd,
 ATTR_NONE

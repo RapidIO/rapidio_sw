@@ -39,6 +39,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdlib.h>
 
 #include "rio_ecosystem.h"
+#include "tok_parse.h"
+#include "ct.h"
 #include "fmd.h"
 #include "fmd_dev_rw_cli.h"
 #include "liblog.h"
@@ -128,15 +130,12 @@ int mport_read(riocp_pe_handle pe_h, uint32_t offset, uint32_t *data)
 	if (!rc)
 		*data = temp_data;
 	return rc;
-};
+}
 
 int mport_write(riocp_pe_handle pe_h, uint32_t offset, uint32_t data)
 {
-	int rc = 0;
-	rc = pe_h->mport->minfo->reg_acc.reg_wr(pe_h, offset, data);
-
-	return rc;
-};
+	return pe_h->mport->minfo->reg_acc.reg_wr(pe_h, offset, data);
+}
 
 int CLIDevSelCmd(struct cli_env *env, int argc, char **argv)
 {
@@ -155,6 +154,7 @@ int CLIDevSelCmd(struct cli_env *env, int argc, char **argv)
 	if (argc) {
 		// selecting a device - set the prompt
 		for (i = 0; i < pes_count; i++) {
+			// try as a device name
 			if (!strcmp(pes[i]->sysfs_name, argv[0])
 					&& (strlen(pes[i]->sysfs_name)
 							== strlen(argv[0]))) {
@@ -163,10 +163,15 @@ int CLIDevSelCmd(struct cli_env *env, int argc, char **argv)
 				LOGMSG(env, "\nFound device named \"%s\"\n",
 						argv[0]);
 				goto exit;
-			};
-		};
-		
-		comptag = getHex(argv[0], 0);
+			}
+		}
+
+		// try again with a comptag
+		if (tok_parse_ct(argv[0], &comptag, 0)) {
+			LOGMSG(env, "\n");
+			LOGMSG(env, TOK_ERR_CT_MSG_FMT);
+			goto exit;
+		}
 
 		for (i = 0; i < pes_count; i++) {
 			rc = riocp_pe_get_comptag(pes[i], &pe_ct);
@@ -180,9 +185,9 @@ int CLIDevSelCmd(struct cli_env *env, int argc, char **argv)
 				LOGMSG(env, "\nFound device for CT 0x%08x\n",
 						pe_ct);
 				goto exit;
-			};
-		};
-	};
+			}
+		}
+	}
 
 	if (NULL != env->h) {
 		rc = riocp_pe_get_comptag((riocp_pe_handle)env->h, &comptag);
@@ -223,9 +228,9 @@ struct cli_cmd CLIDevSel = {
 0,
 (char *)"display available devices or select a device",
 (char *)"{<comptag>}\n"
-	"<comptag> : Optional parameter, used to select a device as\n"
-	"            the target for register reads and writes.\n"
-	"            Can be component tag value of device name.\n",
+	"<comptag> Optional parameter, used to select a device as\n"
+	"          the target for register reads and writes.\n"
+	"          Can be component tag value of device name.\n",
 CLIDevSelCmd,
 ATTR_RPT
 };
@@ -240,30 +245,46 @@ int CLIRegReadCmd(struct cli_env *env, int argc, char **argv)
 	int errorStat = 0;
 	uint32_t address;
 	uint32_t data, prevRead;
-	uint32_t numReads = 1, i;
+	uint32_t numReads, i;
 	int rc;
 	riocp_pe_handle pe_h = (riocp_pe_handle)(env->h);
 
 	if (NULL == pe_h) {
 		LOGMSG(env, "\nNo Device Selected...\n");
 		goto exit;
-	};
+	}
 
-	if (argc) {
-		address = getHex(argv[0], 0);
-		if (argc > 1)
-			numReads = getHex(argv[1], 1);
+	address = store_address;
+	numReads = (argc ? 1 : store_numacc);
 
+	switch (argc) {
+	case 2:
+		if (tok_parse_l(argv[1], &numReads, 0)) {
+			LOGMSG(env, "\n");
+			LOGMSG(env, TOK_ERR_L_HEX_MSG_FMT, "<repeat>");
+			goto exit;
+		}
+		// no break
+	case 1:
+		if (tok_parse_l(argv[0], &address, 0)) {
+			LOGMSG(env, "\n");
+			LOGMSG(env, TOK_ERR_L_HEX_MSG_FMT, "<address>");
+			goto exit;
+		}
 		if ((address % 4) != 0) {
 			aligningAddress(env, address);
 			address = address - (address % 4);
 		}
-		store_address = address;
-		store_numacc = numReads;
-	} else {
-		address = store_address;
-		numReads= store_numacc;
-	};
+		// no break
+	case 0:
+		break;
+	default:
+		LOGMSG(env, "\nInvalid number of arguments: %d\n", argc);
+		goto exit;
+	}
+
+	store_address = address;
+	store_numacc = numReads;
 
 	for (i = 0; i < numReads; i++) {
 		rc = mport_read(pe_h, address, &data);
@@ -289,10 +310,10 @@ struct cli_cmd CLIRegRead = {
 1,
 1,
 (char *)"read register",
-(char *)"<address> {<numreads>}\n"
-	"<address> : Register offset.  Must be 4 byte aligned.\n"
-	"<repeat>  : Optional, number of times to read <address>\n"
-	"            Default <repeat> is 1.\n",
+(char *)"<address> {<repeat>}\n"
+	"<address> Register offset. Must be 4 byte aligned.\n"
+	"<repeat>  Optional, number of times to read <address>\n"
+	"          Default <repeat> is 1, can be up to 0xFFFFFFFF.\n",
 CLIRegReadCmd,
 ATTR_RPT
 };
@@ -308,27 +329,44 @@ int CLIRegWriteCmd(struct cli_env *env, int argc, char **argv)
 	uint32_t address;
 	uint32_t data;
 	uint32_t rc;
-        riocp_pe_handle pe_h = (riocp_pe_handle)(env->h);
+	riocp_pe_handle pe_h = (riocp_pe_handle)(env->h);
 
 	if (NULL == pe_h) {
 		LOGMSG(env, "\nNo Device Selected...\n");
 		goto exit;
 	};
 
-	if (argc) {
-		address = getHex(argv[0], 0);
-		data    = getHex(argv[1], 0);
+	address = store_address;
+	data = store_data;
+
+	switch (argc) {
+	case 2:
+		if (tok_parse_l(argv[1], &data, 0)) {
+			LOGMSG(env, "\n");
+			LOGMSG(env, TOK_ERR_L_HEX_MSG_FMT, "<data>");
+			goto exit;
+		}
+		// no break
+	case 1:
+		if (tok_parse_l(argv[0], &address, 0)) {
+			LOGMSG(env, "\n");
+			LOGMSG(env, TOK_ERR_L_HEX_MSG_FMT, "<address>");
+			goto exit;
+		}
 		if ((address % 4) != 0) {
-			/*ensure that the address is a multiple of n bytes*/
 			aligningAddress(env, address);
 			address = address - (address % 4);
-		};
-		store_address = address;
-		store_data    = data;
-	} else {
-		address = store_address;
-		data = store_data ;
-	};
+		}
+		// no break
+	case 0:
+		break;
+	default:
+		LOGMSG(env, "\nInvalid number of arguments: %d\n", argc);
+		goto exit;
+	}
+
+	store_address = address;
+	store_data = data;
 
 	/* Command arguments are syntactically correct - do write */
 	rc = mport_write(pe_h, address, data);
@@ -357,8 +395,8 @@ struct cli_cmd CLIRegWrite = {
 (char *)"write register, then read back updated register value",
 (char *)"<address> <data>\n"
 	"Write <data> at <address> for current device.\n"
-	"<address> must be 4 byte aligned.\n"
-	"<data> is 4 bytes.\n",
+	"<address> Register offset. Must be 4 byte aligned.\n"
+	"<data>    a 4 byte value.\n",
 CLIRegWriteCmd,
 ATTR_RPT
 };
@@ -374,38 +412,61 @@ int CLIRegReWriteCmd(struct cli_env *env, int argc, char **argv)
 	uint32_t data;
 	uint32_t repeat, i;
 	uint32_t rc;
-        riocp_pe_handle pe_h = (riocp_pe_handle)(env->h);
+	riocp_pe_handle pe_h = (riocp_pe_handle)(env->h);
 
 	if (NULL == pe_h) {
 		LOGMSG(env, "\nNo Device Selected...\n");
 		goto exit;
-	};
+	}
 
-	if (argc) {
-		address = getHex(argv[0], 0);
-		data    = getHex(argv[1], 0);
-		repeat  = getHex(argv[2], 0);
+	address = store_address;
+	data = store_data;
+	repeat = (argc ? 1 : store_numacc);
+
+	switch (argc) {
+	case 3:
+		if (tok_parse_l(argv[2], &repeat, 0)) {
+			LOGMSG(env, "\n");
+			LOGMSG(env, TOK_ERR_L_HEX_MSG_FMT, "<repeat>");
+			goto exit;
+		}
+		// no break
+	case 2:
+		if (tok_parse_l(argv[1], &data, 0)) {
+			LOGMSG(env, "\n");
+			LOGMSG(env, TOK_ERR_L_HEX_MSG_FMT, "<data>");
+			goto exit;
+		}
+		// no break
+	case 1:
+		if (tok_parse_l(argv[0], &address, 0)) {
+			LOGMSG(env, "\n");
+			LOGMSG(env, TOK_ERR_L_HEX_MSG_FMT, "<address>");
+			goto exit;
+		}
 		if ((address % 4) != 0) {
 			aligningAddress(env, address);
 			address = address - (address % 4);
-		};
-		store_address = address;
-		store_data = data;
-		store_numacc = repeat;
-	} else {
-		address = store_address;
-		data    = store_data;
-		repeat  = store_numacc;
-	};
+		}
+		// no break
+	case 0:
+		break;
+	default:
+		LOGMSG(env, "\nInvalid number of arguments: %d\n", argc);
+		goto exit;
+	}
 
+	store_address = address;
+	store_data = data;
+	store_numacc = repeat;
 
 	for (i = 0; i < repeat; i++) {
 		rc = mport_write(pe_h, address, data);
 		if (0 != rc) {
 			failedWrite(env, address, data, rc);
 			goto exit;
-		};
-	};
+		}
+	}
 
 	rc = mport_read(pe_h, address, &data);
 	if (0 != rc) {
@@ -425,9 +486,9 @@ struct cli_cmd CLIRegReWrite = {
 (char *)"write register repeatedly, then read back updated value",
 (char *)"<address> <data> <repeat>\n"
 "Write <data> at <address> for current device <repeat> times.\n"
-	"<address> must be 4 byte aligned.\n"
-	"<data> is 4 bytes.\n"
-	"<repeat> can be up to 0xFFFFFFFF",
+	"<address> Register offset. Must be 4 byte aligned.\n"
+	"<data>    a 4 byte value.\n"
+	"<repeat>  can be up to 0xFFFFFFFF\n",
 CLIRegReWriteCmd,
 ATTR_RPT
 };
@@ -450,21 +511,37 @@ int CLIRegWriteNoReadbackCmd(struct cli_env *env, int argc, char **argv)
 		goto exit;
 	};
 
-	if (argc) {
-		address = getHex(argv[0], 0);
-		data    = getHex(argv[1], 0);
+	address = store_address;
+	data = store_data;
 
+	switch (argc) {
+	case 2:
+		if (tok_parse_l(argv[1], &data, 0)) {
+			LOGMSG(env, "\n");
+			LOGMSG(env, TOK_ERR_L_HEX_MSG_FMT, "<data>");
+			goto exit;
+		}
+		// no break
+	case 1:
+		if (tok_parse_l(argv[0], &address, 0)) {
+			LOGMSG(env, "\n");
+			LOGMSG(env, TOK_ERR_L_HEX_MSG_FMT, "<address>");
+			goto exit;
+		}
 		if ((address % 4) != 0) {
-			/*ensure that the address is a multiple of n bytes*/
 			aligningAddress(env, address);
 			address = address - (address % 4);
-		};
-		store_address = address;
-		store_data = data;
-	} else {
-		address = store_address;
-		data = store_data;
-	};
+		}
+		// no break
+	case 0:
+		break;
+	default:
+		LOGMSG(env, "\nInvalid number of arguments: %d\n", argc);
+		goto exit;
+	}
+
+	store_address = address;
+	store_data = data;
 
 	/* Command arguments are syntactically correct - do write */
 	rc = mport_write(pe_h, address, data);
@@ -485,8 +562,8 @@ struct cli_cmd CLIRegWriteNoReadback = {
 (char *)"write register",
 (char *)"<address> <data>\n"
 "Write <data> at <address> for current device\n"
-"<address> must be 4 byte aligned.\n"
-"<data> is 4 bytes.",
+"<address> Register offset. Must be 4 byte aligned.\n"
+"<data>    a 4 byte value.\n",
 CLIRegWriteNoReadbackCmd,
 ATTR_RPT
 };
@@ -502,22 +579,39 @@ int expect(struct cli_env *env, int argc, char **argv, int inverse)
 	if (NULL == pe_h) {
 		LOGMSG(env, "\nNo Device Selected...\n");
 		goto exit;
-	};
+	}
 
-	if (argc) {
-		address = getHex(argv[0], 0);
-		expdata = getHex(argv[1], 1);
+	address = store_address;
+	expdata = store_data;
 
+	switch (argc) {
+	case 2:
+		if (tok_parse_l(argv[1], &expdata, 0)) {
+			LOGMSG(env, "\n");
+			LOGMSG(env, TOK_ERR_L_HEX_MSG_FMT, "<data>");
+			goto exit;
+		}
+		// no break
+	case 1:
+		if (tok_parse_l(argv[0], &address, 0)) {
+			LOGMSG(env, "\n");
+			LOGMSG(env, TOK_ERR_L_HEX_MSG_FMT, "<address>");
+			goto exit;
+		}
 		if ((address % 4) != 0) {
 			aligningAddress(env, address);
 			address = address - (address % 4);
-		};
-		store_address = address;
-		store_data = expdata;
-	} else {
-		address = store_address;
-		expdata = store_data;
-	};
+		}
+		// no break
+	case 0:
+		break;
+	default:
+		LOGMSG(env, "\nInvalid number of arguments: %d\n", argc);
+		goto exit;
+	}
+
+	store_address = address;
+	store_data = expdata;
 
 	rc = mport_read(pe_h, address, &data);
 	if (0 != rc) {
@@ -556,8 +650,8 @@ struct cli_cmd CLIRegExpectNot = {
 (char *)"<address> <data>\n"
 	"Read register at <address> on current device, compare to <data>\n"
 	"Print an error message if value read is equal to <data>\n"
-	"<address> must be 4 byte aligned.\n"
-	"<data> is 4 bytes.",
+	"<address> Register offset. Must be 4 byte aligned.\n"
+	"<data>    a 4 byte value.\n",
 CLIRegExpectNotCmd,
 ATTR_RPT
 };
@@ -579,8 +673,8 @@ struct cli_cmd CLIRegExpect = {
 (char *)"<address> <data>\n"
 	"Read register at <address> on current device, compare to <data>\n"
 	"Print an error message if value read is not equal to <data>\n"
-	"<address> must be 4 byte aligned.\n"
-	"<data> is 4 bytes.",
+	"<address> Register offset. Must be 4 byte aligned.\n"
+	"<data>    a 4 byte value\n",
 CLIRegExpectCmd,
 ATTR_RPT
 };
@@ -603,35 +697,48 @@ int CLIRegDumpCmd(struct cli_env *env, int argc, char **argv)
 	if (NULL == pe_h) {
 		LOGMSG(env, "\nNo Device Selected...\n");
 		goto exit;
-	};
-
-	if (argc) {
-		address  = getHex(argv[0], 0);
-		numbytes = getHex(argv[1], 1);
-	} else {
-		/* in the special case of a continous dump command,
-		 * this function is called with argc == 0
-		 */
-		address = store_address;
-		numbytes = store_numbytes;
 	}
 
-	if ((address % 4) != 0) {
-		/* ensure that the address is a multiple of n bytes */
-		aligningAddress(env, address);
-		address = address - (address % 4);
+	address = store_address;
+	numbytes = store_numbytes;
+
+	switch (argc) {
+	case 2:
+		if (tok_parse_l(argv[1], &numbytes, 0)) {
+			LOGMSG(env, "\n");
+			LOGMSG(env, TOK_ERR_L_HEX_MSG_FMT, "<numbytes>");
+			goto exit;
+		}
+		// no break
+	case 1:
+		if (tok_parse_l(argv[0], &address, 0)) {
+			LOGMSG(env, "\n");
+			LOGMSG(env, TOK_ERR_L_HEX_MSG_FMT, "<address>");
+			goto exit;
+		}
+		if ((address % 4) != 0) {
+			aligningAddress(env, address);
+			address = address - (address % 4);
+		}
+		// no break
+	case 0:
+		break;
+	default:
+		LOGMSG(env, "\nInvalid number of arguments: %d\n", argc);
+		goto exit;
 	}
 
-	/* Dump columnar data for 16 bytes at a time.
-	 * First get the output alinged for the entered address
+	store_address = address;
+	store_numbytes = numbytes;
+
+	/* Dump column data for 16 bytes at a time.
+	 * First get the output aligned for the entered address
 	 */
-
-
 	LOGMSG(env, "\nAddress  00____03 04____07 08____0B 0C____0F");
 	LOGMSG(env, "\n%8x", address & 0xFFFFFFF0);
 	for (i = 0; i < (address & 0xF); i += 4) {
 		LOGMSG(env, "         ");
-	};
+	}
 	for (i = 0; i < numbytes; i += 4) {
 		rc = mport_read(pe_h, address + i, &data);
 		if (0 != rc) {
@@ -641,8 +748,8 @@ int CLIRegDumpCmd(struct cli_env *env, int argc, char **argv)
 		LOGMSG(env, " %08x", data);
 		if ((0xC == ((address + i) & 0xF)) && ((i + 4) < numbytes)) {
 			LOGMSG(env, "\n%8x", (address + i + 4) & 0xFFFFFFF0);
-		};
-	};
+		}
+	}
 	LOGMSG(env, "\n");
 
 	/* store data for continuous dump command */
@@ -660,7 +767,7 @@ struct cli_cmd CLIRegDump = {
 (char *)"display a block of memory/registers",
 (char *)"<address> <numbytes>\n"
 "Read 4 byte registers starting at <address> on current device\n"
-	"<address> will be rounded down to 4 byte alignment.\n"
+	"<address>  will be rounded down to 4 byte alignment.\n"
 	"<numbytes> will be rounded up to 4 byte alignment.\n",
 CLIRegDumpCmd,
 ATTR_RPT
@@ -671,44 +778,60 @@ int CLIMRegReadCmd(struct cli_env *env, int argc, char **argv)
 	int errorStat = 0;
 	uint32_t address;
 	uint32_t data, prevRead;
-	uint32_t numReads = 1, i;
+	uint32_t numReads, i;
 	uint32_t did;
-	uint32_t tmp;
 	hc_t hc;
 	int rc;
 
-	if (argc) {
-		address = getHex(argv[0], 0);
-		if(argc > 2) {
-			did = (uint32_t)getHex(argv[1], 0);
-			tmp = (uint32_t)getHex(argv[2], 0);
-			if (tmp > HC_MP) {
-				goto exit;
-			}
-			hc = tmp;
-		} else {
-			did = mstore_did;
-			hc = mstore_hc;
-		};
-		
-		if(argc > 3)
-			numReads = (uint32_t)getHex(argv[3], 1);
+	address = mstore_address;
+	did = mstore_did;
+	hc = mstore_hc;
+	numReads = (argc ? 1 : mstore_numacc);
 
+	switch(argc) {
+	case 4:
+		if (tok_parse_l(argv[3], &numReads, 0)) {
+			LOGMSG(env, "\n");
+			LOGMSG(env, TOK_ERR_L_HEX_MSG_FMT, "<repeat>");
+			goto exit;
+		}
+		// no break
+	case 3:
+		if (tok_parse_hc(argv[2], &hc, 0)) {
+			LOGMSG(env, "\n");
+			LOGMSG(env, TOK_ERR_HC_MSG_FMT);
+			goto exit;
+		}
+		// no break
+	case 2:
+		if (tok_parse_did(argv[1], &did, 0)) {
+			LOGMSG(env, "\n");
+			LOGMSG(env, TOK_ERR_DID_MSG_FMT);
+			goto exit;
+		}
+		// no break
+	case 1:
+		if (tok_parse_l(argv[0], &address, 0)) {
+			LOGMSG(env, "\n");
+			LOGMSG(env, TOK_ERR_L_HEX_MSG_FMT, "<address>");
+			goto exit;
+		}
 		if ((address % 4) != 0) {
 			aligningAddress(env, address);
 			address = address - (address % 4);
 		}
+		// no break
+	case 0:
+		break;
+	default:
+		LOGMSG(env, "\nInvalid number of arguments: %d\n", argc);
+		goto exit;
+	}
 
-		mstore_address = address;
-		mstore_numacc = numReads;
-		mstore_did = did;
-		mstore_hc = hc;
-	} else {
-		address = mstore_address;
-		numReads= mstore_numacc;
-		did = mstore_did;
-		hc = mstore_hc;
-	};
+	mstore_address = address;
+	mstore_did = did;
+	mstore_hc = hc;
+	mstore_numacc = numReads;
 
 	for (i = 0; i < numReads; i++) {
 		rc = pe_mpsw_rw_driver.raw_reg_rd((riocp_pe_handle)env->h,
@@ -735,14 +858,14 @@ struct cli_cmd CLIMRegRead = {
 2,
 1,
 (char *)"maintenance read register",
-(char *)"<address> {<devid> <hc> {<numreads>}}\n"
-	"<address> : Register offset.  Must be 4 byte aligned.\n"
-	"<devid>   : Optional, device ID to read.\n"
-	"            If not present, use last entered devid.\n"
-	"<hc>      : Hop count. Specify FF to access mport.\n"
-	"            If not present, use last entered hc.\n"
-	"<repeat>  : Optional, number of times to read <address>\n"
-	"            Default <repeat> is 1.\n",
+(char *)"<address> {<devid> <hc> {<repeat>}}\n"
+	"<address> Register offset. Must be 4 byte aligned.\n"
+	"<did>     Optional, device ID to read.\n"
+	"          If not present, use last entered <did>.\n"
+	"<hc>      Optional, hop count. Specify 0xFF to access mport.\n"
+	"          If not present, use last entered <hc>.\n"
+	"<repeat>  Optional, number of times to read <address>\n"
+	"          Default <repeat> is 1, can be up to 0xFFFFFFFF.\n",
 CLIMRegReadCmd,
 ATTR_RPT
 };
@@ -753,44 +876,58 @@ int CLIMRegWriteCmd(struct cli_env *env, int argc, char **argv)
 	uint32_t address;
 	uint32_t did;
 	hc_t hc;
-	uint32_t tmp;
 	uint32_t data;
 	uint32_t rc;
 
-	if (argc) {
-		address = (uint32_t)getHex(argv[0], 0);
-		data    = (uint32_t)getHex(argv[1], 0);
+	address = mstore_address;
+	data = mstore_data;
+	did = mstore_did;
+	hc = mstore_hc;
 
-		if (argc > 3) {
-			did = (uint32_t)getHex(argv[2], 0);
-			tmp = (uint32_t)getHex(argv[3], 0);
-			if (tmp > HC_MP) {
-				goto exit;
-			}
-			hc = tmp;
-
-
-		} else {
-			did = mstore_did;
-			hc = mstore_hc;
+	switch(argc) {
+	case 4:
+		if (tok_parse_hc(argv[3], &hc, 0)) {
+			LOGMSG(env, "\n");
+			LOGMSG(env, TOK_ERR_HC_MSG_FMT);
+			goto exit;
 		}
-
+		// no break
+	case 3:
+		if (tok_parse_did(argv[2], &did, 0)) {
+			LOGMSG(env, "\n");
+			LOGMSG(env, TOK_ERR_DID_MSG_FMT);
+			goto exit;
+		}
+		// no break
+	case 2:
+		if (tok_parse_l(argv[1], &data, 0)) {
+			LOGMSG(env, "\n");
+			LOGMSG(env, TOK_ERR_L_HEX_MSG_FMT, "data");
+			goto exit;
+		}
+		// no break
+	case 1:
+		if (tok_parse_l(argv[0], &address, 0)) {
+			LOGMSG(env, "\n");
+			LOGMSG(env, TOK_ERR_L_HEX_MSG_FMT, "address");
+			goto exit;
+		}
 		if ((address % 4) != 0) {
-			/*ensure that the address is a multiple of n bytes*/
 			aligningAddress(env, address);
 			address = address - (address % 4);
 		}
+		// no break
+	case 0:
+		break;
+	default:
+		LOGMSG(env, "\nInvalid number of arguments: %d\n", argc);
+		goto exit;
+	}
 
-		mstore_address = address;
-		mstore_data    = data;
-		mstore_did     = did;
-		mstore_hc    = hc;
-	} else {
-		address = mstore_address;
-		data = mstore_data;
-		did = mstore_did;
-		hc = mstore_hc;
-	};
+	mstore_address = address;
+	mstore_data = data;
+	mstore_did = did;
+	mstore_hc = hc;
 
 	/* Command arguments are syntactically correct - do write */
 
@@ -824,12 +961,12 @@ struct cli_cmd CLIMRegWrite = {
 (char *)"write register, then read back updated register value",
 (char *)"<address> <data> {<devid> <hc>}\n"
 	"Write <data> at <address> for device <devid> at <hc> hops away.\n"
-	"<address>: must be 4 byte aligned.\n"
-	"<data>   : 4 byte value to write.\n"
-	"<did>    : device ID to access.\n"
-	"           If not present, use last did entered.\n"
-	"<hc>     : Hop count.  Use FF to access local mport registers.\n"
-	"           If not present, use last did entered.\n",
+	"<address> Register offset. Must be 4 byte aligned.\n"
+	"<data>    4 byte value to write.\n"
+	"<did>     Optional, device ID to access.\n"
+	"          If not present, use last <did> entered.\n"
+	"<hc>      Optional, hop count. Use 0xFF to access local mport registers.\n"
+	"          If not present, use last <hc> entered.\n",
 CLIMRegWriteCmd,
 ATTR_RPT
 };

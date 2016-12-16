@@ -25,9 +25,9 @@ DIR_NAME=obwin_lat
 
 SIZE_NAME=(1B 2B 4B 8B)
 
-SIZE=("1" "2" "4" "8")
+SIZE=("0x1" "0x2" "0x4" "0x8")
 
-BYTES=("400000" "400000" "400000" "400000")
+BYTES=("0x400000" "0x400000" "0x400000" "0x400000")
 
 PREFIX=ol
 
@@ -35,7 +35,7 @@ if [ -z "$IBA_ADDR" ]; then
         if [ -n "$1" ]; then
                 IBA_ADDR=$1
         else
-                IBA_ADDR=20d800000
+                IBA_ADDR=0x20d800000
                 LOC_PRINT_HEP=1
         fi
 fi
@@ -78,11 +78,16 @@ fi
 
 if [ -n "$LOC_PRINT_HEP" ]; then
         echo $'\nScript accepts the following parameters:'
-        echo $'IBA_ADDR: Hex address of target window on DID'
-        echo $'DID     : Device ID that this device sends to'
-        echo $'Trans   : DMA transaction type'
-        echo $'Wait    : Time in seconds to wait before showing perf\n'
-        echo $'DIR     : Directory to use as home directory for scripts\n'
+        echo $'IBA_ADDR : Hex address of target window on DID'
+        echo $'DID      : Device ID that this device sends to'
+        echo $'Trans    : DMA transaction type'
+        echo $'Wait     : Time in seconds to wait before showing performance\n'
+        echo $'DIR      : Directory to use as home directory for scripts\n'
+fi
+
+# ensure hex values are correctly prefixed
+if [[ $IBA_ADDR != 0x* ]] && [[ $IBA_ADDR != 0X* ]]; then
+        IBA_ADDR=0x$IBA_ADDR
 fi
 
 echo 'OBWIN_LATENCY IBA_ADDR = ' $IBA_ADDR

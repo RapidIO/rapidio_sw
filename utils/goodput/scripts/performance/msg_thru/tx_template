@@ -51,11 +51,11 @@ wait 7 R
 g
 g c
 g
-echo MSG TRANSMIT GOODPUT 0xmsg_size BYTES
+echo MSG TRANSMIT GOODPUT msg_size BYTES
 
 os
 sleep wait_time
-echo MSG TRANSMIT GOODPUT 0xmsg_size BYTES
+echo MSG TRANSMIT GOODPUT msg_size BYTES
 st
 g
 od 11

@@ -26,7 +26,7 @@ t 0 $cpu1 0
 wait 0 H
 
 echo Make sure that destid did has Ugoodput running with an IBwin mapped
-echo at address 0xiba_addr of at least size 0xbytes
+echo at address iba_addr of at least size bytes
 
 // nrudma : <Idx> <Cpu> <Chan> <Bufc> <Sts> <Did> <Rio_addr> <Acc_sz>
 nrudma 0 $cpu2 $chnnel bufc sts $destid iba_addr acc_size

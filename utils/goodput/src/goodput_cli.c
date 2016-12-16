@@ -43,6 +43,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <vector>
 
 #include "rio_ecosystem.h"
+#include "rapidio_mport_sock.h"
 #include "string_util.h"
 #include "tok_parse.h"
 #include "rio_misc.h"
@@ -77,63 +78,135 @@ char *req_type_str[(int)last_action+1] = {
 	(char *)"~IBWIN",
 	(char *)"SHTDWN",
 #ifdef USER_MODE_DRIVER
-        (char*)"UCal",
-        (char*)"UDMA",
-        (char*)"ltudma",
-        (char*)"lrudma",
-        (char*)"nrudma",
-        (char*)"UDMATun",
-        (char*)"UMSG",
-        (char*)"UMSGLat",
-        (char*)"UMSGTun",
-        (char*)"EPWa",
-        (char*)"UMSGWa",
-        (char*)"AFUWa",
-        (char*)"UDWWW",
+	(char*)"UCal",
+	(char*)"UDMA",
+	(char*)"ltudma",
+	(char*)"lrudma",
+	(char*)"nrudma",
+	(char*)"UDMATun",
+	(char*)"UMSG",
+	(char*)"UMSGLat",
+	(char*)"UMSGTun",
+	(char*)"EPWa",
+	(char*)"UMSGWa",
+	(char*)"AFUWa",
+	(char*)"UDWWW",
 #endif
 	(char *)"LAST"
 };
 
-int check_idx(struct cli_env *env, int idx, int want_halted)
+// Parse the token ensuring it is within the range for a worker index and
+// check the status of the worker thread.
+int gp_parse_worker_index(struct cli_env *env, char *tok, uint16_t *idx)
 {
-	int rc = 1;
+	if (tok_parse_short(tok, idx, 0, MAX_WORKER_IDX, 0)) {
+		LOGMSG(env, "\n");
+		LOGMSG(env, TOK_ERR_SHORT_MSG_FMT, "<idx>", 0, MAX_WORKER_IDX);
+		return 1;
+	}
+	return 0;
+}
 
-	if ((idx < 0) || (idx >= MAX_WORKERS)) {
-		LOGMSG(env, "\nIndex must be 0 to %d...\n", MAX_WORKERS);
-		goto exit;
-	};
-
-	if (want_halted && (2 != wkr[idx].stat)) {
-		LOGMSG(env, "\nWorker not halted...\n");
-		goto exit;
-	};
-
-	if (!want_halted && (2 == wkr[idx].stat)) {
-		LOGMSG(env, "\nWorker halted...\n");
-		goto exit;
-	};
-	rc = 0;
-exit:
-	return rc;
-};
-
-int get_cpu(struct cli_env *env, char *dec_parm, int *cpu)
+// Parse the token ensuring it is within the range for a worker index and
+// check the status of the worker thread.
+int gp_parse_worker_index_check_thread(struct cli_env *env, char *tok,
+		uint16_t *idx, bool want_halted)
 {
-	int rc = 1;
+	if (gp_parse_worker_index(env, tok, idx)) {
+		goto err;
+	}
 
-	*cpu = GetDecParm(dec_parm, 0);
+	if (want_halted) {
+		if (2 != wkr[*idx].stat) {
+			LOGMSG(env, "\nWorker not halted\n");
+			goto err;
+		}
+	} else {
+		if (2 == wkr[*idx].stat) {
+			LOGMSG(env, "\nWorker halted\n");
+			goto err;
+		}
+	}
+	return 0;
+err:
+	return 1;
+}
 
+// Parse the token as a boolean value. The range of the token is restricted
+// to the numeric values of 0 (false) and 1 (true)
+int gp_parse_bool(struct cli_env *env, char *tok, const char *name, uint16_t *boo)
+{
+	if (tok_parse_short(tok, boo, 0, 1, 0)) {
+		LOGMSG(env, "\n");
+		LOGMSG(env, TOK_ERR_SHORT_MSG_FMT, name, 0, 1);
+		return 1;
+	}
+	return 0;
+}
+
+// Parse the token ensuring it is within the provided range. Further ensure it
+// is a power of 2
+int gp_parse_ull_pw2(struct cli_env *env, char *tok, const char *name,
+		uint64_t *value, uint64_t min, uint64_t max)
+{
+	if (tok_parse_longlong(tok, value, min, max, 0)) {
+		LOGMSG(env, "\n");
+		LOGMSG(env, TOK_ERR_LONGLONG_HEX_MSG_FMT, name, min, max);
+		goto err;
+	}
+
+	if ((*value - 1) & *value) {
+		LOGMSG(env, "\n%s must be a power of 2\n", name);
+		goto err;
+	}
+
+	return 0;
+err:
+	return 1;
+}
+
+// Parse the token ensuring it is within the provided range. Further ensure it
+// is a power of 2
+int gp_parse_ul_pw2(struct cli_env *env, char *tok, const char *name, uint32_t *value,
+		uint32_t min, uint32_t max)
+{
+	if (tok_parse_long(tok, value, min, max, 0)) {
+		LOGMSG(env, "\n");
+		LOGMSG(env, TOK_ERR_LONG_HEX_MSG_FMT, name, min, max);
+		goto err;
+	}
+
+	if ((*value - 1) & *value) {
+		LOGMSG(env, "\n%s must be a power of 2\n", name);
+		goto err;
+	}
+
+	return 0;
+err:
+	return 1;
+}
+
+int gp_parse_cpu(struct cli_env *env, char *dec_parm, int *cpu)
+{
 	const int MAX_GOODPUT_CPU = getCPUCount() - 1;
 
-	if ((*cpu < -1) || (*cpu > MAX_GOODPUT_CPU)) {
-		LOGMSG(env, "\nCPU must be 0 to %d...\n", MAX_GOODPUT_CPU);
-		goto exit;
-	};
+	if (tok_parse_signed_l(dec_parm, cpu, 0)) {
+		LOGMSG(env, "\n");
+		LOGMSG(env, TOK_ERR_SIGNED_LONG_MSG_FMT, "<cpu>", -1, MAX_GOODPUT_CPU);
+		return 1;
+	}
+	return 0;
+}
 
-	rc = 0;
-exit:
-	return rc;
-};
+int gp_parse_did(struct cli_env *env, char *tok, uint32_t *did)
+{
+	if (tok_parse_did(tok, did, 0)) {
+		LOGMSG(env, "\n");
+		LOGMSG(env, "<did> must be between 0 and 0xff\n");
+		return 1;
+	}
+	return 0;
+}
 
 #define ACTION_STR(x) (char *)((x < last_action)?req_type_str[x]:"UNKWN!")
 #define MODE_STR(x) (char *)((x == kernel_action)?"KRNL":"User")
@@ -141,28 +214,33 @@ exit:
 
 int ThreadCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 {
-	int idx, cpu, new_dma;
+	uint16_t idx;
+	uint16_t new_dma;
+	int cpu;
 
-	idx = getDecParm(argv[0], 0);
-	if (get_cpu(env, argv[1], &cpu))
+	if (gp_parse_worker_index(env, argv[0], &idx)) {
 		goto exit;
-	new_dma = getDecParm(argv[2], 0);
+	}
 
-	if ((idx < 0) || (idx >= MAX_WORKERS)) {
-		LOGMSG(env, "\nIndex must be 0 to %d...\n", MAX_WORKERS);
+	if (gp_parse_cpu(env, argv[1], &cpu)) {
 		goto exit;
-	};
+	}
+
+	if (gp_parse_bool(env, argv[2], "<new_dma>", &new_dma)) {
+		goto exit;
+	}
 
 	if (wkr[idx].stat) {
-		LOGMSG(env, "\nWorker %d already running...\n", idx);
+		LOGMSG(env, "\nWorker %u already alive\n", idx);
 		goto exit;
-	};
+	}
 
-	wkr[idx].idx = idx;
-	start_worker_thread(&wkr[idx], new_dma, cpu);
+	wkr[idx].idx = (int)idx;
+	start_worker_thread(&wkr[idx], (int)new_dma, cpu);
+
 exit:
-        return 0;
-};
+	return 0;
+}
 
 struct cli_cmd Thread = {
 "thread",
@@ -170,32 +248,29 @@ struct cli_cmd Thread = {
 3,
 "Start a thread on a cpu",
 "start <idx> <cpu> <new_dma>\n"
-	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
-	"<cpu> is a cpu number, or -1 to indicate no cpu affinity\n"
-	"<new_dma> If <> 0, open mport again to get a new DMA channel\n",
+	"<idx>     is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
+	"<cpu>     is a cpu number, or -1 to indicate no cpu affinity\n"
+	"<new_dma> 0: share DMA channel, 1: try to get a new DMA channel\n",
 ThreadCmd,
 ATTR_NONE
 };
 
 int KillCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 {
-	int st_idx = 0, end_idx = MAX_WORKERS-1, i;
+	uint16_t st_idx = 0, end_idx = MAX_WORKER_IDX, i;
 
 	if (strncmp(argv[0], "all", 3)) {
-		st_idx = getDecParm(argv[0], 0);
-		end_idx = st_idx;
-
-		if ((st_idx < 0) || (st_idx >= MAX_WORKERS)) {
-			LOGMSG(env, "\nIndex must be 0 to %d...\n", MAX_WORKERS);
+		if (gp_parse_worker_index(env, argv[0], &st_idx)) {
 			goto exit;
-		};
-	};
+		}
+		end_idx = st_idx;
+	}
 
 	for (i = st_idx; i <= end_idx; i++) {
 		shutdown_worker_thread(&wkr[i]);
-	};
+	}
 exit:
-        return 0;
+	return 0;
 };
 
 struct cli_cmd Kill = {
@@ -211,29 +286,28 @@ ATTR_NONE
 
 int HaltCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 {
-	unsigned int st_idx = 0, end_idx = MAX_WORKERS-1, i;
+	uint16_t st_idx = 0, end_idx = MAX_WORKER_IDX, i;
 
 	if (strncmp(argv[0], "all", 3)) {
-		st_idx = (unsigned int) getDecParm(argv[0], 0);
-		end_idx = st_idx;
-
-		if (st_idx >= MAX_WORKERS) {
-			LOGMSG(env, "\nIndex must be 0 to %d...\n", MAX_WORKERS);
+		if (gp_parse_worker_index(env, argv[0], &st_idx)) {
 			goto exit;
-		};
-	};
+		}
+		end_idx = st_idx;
+	}
 
 	for (i = st_idx; i <= end_idx; i++) {
 		wkr[i].stop_req = 2;
 #ifdef USER_MODE_DRIVER
 		wkr[i].umd_fifo_proc_must_die = 1;
-		if (wkr[i].umd_dch) wkr[i].umd_dch->shutdown();
+		if (wkr[i].umd_dch) {
+			wkr[i].umd_dch->shutdown();
+		}
 #endif
-	};
+	}
 
 exit:
-        return 0;
-};
+	return 0;
+}
 
 struct cli_cmd Halt = {
 "halt",
@@ -248,23 +322,28 @@ ATTR_NONE
 
 int MoveCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 {
-	int idx, cpu;
+	uint16_t idx;
+	int cpu;
 
-	idx = getDecParm(argv[0], 0);
-	if (get_cpu(env, argv[1], &cpu))
+	if (gp_parse_worker_index(env, argv[0], &idx)) {
 		goto exit;
+	}
 
-	if ((idx < 0) || (idx >= MAX_WORKERS)) {
-		LOGMSG(env, "\nIndex must be 0 to %d...\n", MAX_WORKERS);
+	if (gp_parse_cpu(env, argv[1], &cpu)) {
 		goto exit;
-	};
+	}
+
+	if (0 == wkr[idx].stat) {
+		LOGMSG(env, "\nThread %u was not alive\n", idx);
+		goto exit;
+	}
 
 	wkr[idx].wkr_thr.cpu_req = cpu;
 	wkr[idx].stop_req = 0;
 	sem_post(&wkr[idx].run);
 exit:
-        return 0;
-};
+	return 0;
+}
 
 struct cli_cmd Move = {
 "move",
@@ -280,51 +359,55 @@ ATTR_NONE
 
 int WaitCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 {
-	int idx, state = -1, limit = 10000;
+	uint16_t idx, limit = 10000;
+	int state = -1;
 	const struct timespec ten_usec = {0, 10 * 1000};
 
-	idx = getDecParm(argv[0], 0);
+	if (gp_parse_worker_index(env, argv[0], &idx)) {
+		goto exit;
+	}
+
 	switch (argv[1][0]) {
 	case '0':
 	case 'd':
-	case 'D': state = 0;
+	case 'D':
+		state = 0;
 		break;
 	case '1':
 	case 'r':
-	case 'R': state = 1;
+	case 'R':
+		state = 1;
 		break;
 	case '2':
 	case 'h':
-	case 'H': state = 2;
+	case 'H':
+		state = 2;
 		break;
-	default: state = -1;
+	default:
+		state = -1;
 		break;
-	};
+	}
 
-	if ((idx < 0) || (idx >= MAX_WORKERS)) {
-		LOGMSG(env, "\nIndex must be 0 to %d...\n", MAX_WORKERS);
+	if (-1 == state) {
+		LOGMSG(env, "\nState must be 0|d|D, 1|r|R, or 2|h|H\n");
 		goto exit;
 	}
 
-	if ((state < 0) || (state > 2)) {
-		LOGMSG(env, "\nState must be 0|d|D, 1|r|R , or 2|h|H\n");
-		goto exit;
-	}
-
-	while ((wkr[idx].stat != state) && limit--)
+	while ((wkr[idx].stat != state) && limit--) {
 		nanosleep(&ten_usec, NULL);
+	}
 
 	if (wkr[idx].stat == state) {
-		LOGMSG(env, "\nPassed, Worker %d is now %s\n", idx,
+		LOGMSG(env, "\nPassed, Worker %u is now %s\n", idx,
 				THREAD_STR(wkr[idx].stat));
 	} else {
-		LOGMSG(env, "\nFAILED, Worker %d is now %s\n", idx,
+		LOGMSG(env, "\nFAILED, Worker %u is now %s\n", idx,
 				THREAD_STR(wkr[idx].stat));
 	}
 
 exit:
 	return 0;
-};
+}
 
 struct cli_cmd Wait = {
 "wait",
@@ -332,7 +415,7 @@ struct cli_cmd Wait = {
 2,
 "Wait until a thread reaches a particular state",
 "wait <idx> <state>\n"
-	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
+	"<idx>   is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
 	"<state> 0|d|D - Dead, 1|r|R - Run, 2|h|H - Halted\n",
 WaitCmd,
 ATTR_NONE
@@ -342,7 +425,7 @@ int SleepCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 {
 	float sec = GetFloatParm(argv[0], 0);
 	if(sec > 0) {
-		LOGMSG(env, "\nSleeping %f sec...\n", sec);
+		LOGMSG(env, "\nSleeping %f sec\n", sec);
 		const long usec = sec * 1000000;
 		usleep(usec);
 	}
@@ -354,7 +437,8 @@ struct cli_cmd Sleep = {
 2,
 1,
 "Sleep for a number of seconds (fractional allowed)",
-"sleep <sec>\n",
+"sleep <sec>\n"
+	"<sec> is the number of seconds to sleep\n",
 SleepCmd,
 ATTR_NONE
 };
@@ -364,45 +448,43 @@ ATTR_NONE
 
 int IBAllocCmd(struct cli_env *env, int argc, char **argv)
 {
-	int idx;
+	uint16_t idx;
 	uint64_t ib_size;
 	uint64_t ib_rio_addr = RIO_ANY_ADDR;
 	uint64_t ib_phys_addr= RIO_ANY_ADDR;
-	bool check = true;
 
-	idx = GetDecParm(argv[0], 0);
-	ib_size = GetHex(argv[1], 0);
+	if (gp_parse_worker_index_check_thread(env, argv[0], &idx, 1)) {
+		goto exit;
+	}
 
-	/* Note: RSVD overrides rio_addr... */
+	if (gp_parse_ull_pw2(env, argv[1], "<size>", &ib_size, FOUR_KB,
+			4 * SIXTEEN_MB)) {
+		goto exit;
+	}
+
+	/* Note: RSVD overrides rio_addr */
 	if (argc > 3) {
 		int rc;
 		rc = get_rsvd_phys_mem(argv[3], &ib_phys_addr, &ib_size);
 		if (rc) {
-			LOGMSG(env, "\nNo rerved memory found for keyword %s",
+			LOGMSG(env, "\nNo reserved memory found for keyword %s",
 					argv[3]);
 			goto exit;
-		};
-		check = false;
+		}
 	} else if (argc > 2) {
-		ib_rio_addr = GetHex(argv[2], 0);
-	};
+		if (tok_parse_longlong(argv[2], &ib_rio_addr, 1, UINT64_MAX,
+				0)) {
+			LOGMSG(env, "\n");
+			LOGMSG(env, TOK_ERR_LONGLONG_HEX_MSG_FMT, "<addr>",
+					(uint64_t )1, (uint64_t)UINT64_MAX);
+			goto exit;
+		}
+	}
 
-	if (check_idx(env, idx, 1))
-		goto exit;
-
-	if (check && ((ib_size < FOUR_KB) || (ib_size > 4 * SIXTEEN_MB))) {
-		LOGMSG(env, "\nIbwin size range: 0x%x to 0x%x\n", FOUR_KB,
-				4*SIXTEEN_MB);
-		goto exit;
-	};
-	if ((ib_size - 1) & ib_size) {
-		LOGMSG(env, "\nIbwin size must be a power of 2.\n");
-		goto exit;
-	};
 	if ((ib_rio_addr != RIO_ANY_ADDR ) && ((ib_size - 1) & ib_rio_addr)) {
-		LOGMSG(env, "\nIbwin address not aligned with size\n");
+		LOGMSG(env, "\n<addr> not aligned with <size>\n");
 		goto exit;
-	};
+	}
 
 	wkr[idx].action = alloc_ibwin;
 	wkr[idx].ib_byte_cnt = ib_size;
@@ -412,8 +494,8 @@ int IBAllocCmd(struct cli_env *env, int argc, char **argv)
 	sem_post(&wkr[idx].run);
 
 exit:
-        return 0;
-};
+	return 0;
+}
 
 struct cli_cmd IBAlloc = {
 "IBAlloc",
@@ -421,30 +503,29 @@ struct cli_cmd IBAlloc = {
 2,
 "Allocate an inbound window",
 "IBAlloc <idx> <size> {<addr> {<RSVD>}}\n"
-	"<size> is a hexadecimal power of two from 0x1000 to 0x01000000\n"
+	"<size> must be a power of two from 0x1000 to 0x01000000\n"
 	"<addr> is the optional RapidIO address for the inbound window\n"
 	"       NOTE: <addr> must be aligned to <size>\n"
-	"<RSVD> is a keyword for reserved memory area.\n"
-	"       NOTE: If <RSVD> is specified, <addr> is ignored.\n",
+	"<RSVD> is a keyword for reserved memory area\n"
+	"       NOTE: If <RSVD> is specified, <addr> is ignored\n",
 IBAllocCmd,
 ATTR_NONE
 };
 
 int IBDeallocCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 {
-	int idx;
+	uint16_t idx;
 
-	idx = GetDecParm(argv[0], 0);
-
-	if (check_idx(env, idx, 1))
+	if (gp_parse_worker_index_check_thread(env, argv[0], &idx, 1)) {
 		goto exit;
+	}
 
 	wkr[idx].action = free_ibwin;
 	wkr[idx].stop_req = 0;
 	sem_post(&wkr[idx].run);
 exit:
-        return 0;
-};
+	return 0;
+}
 
 struct cli_cmd IBDealloc = {
 "IBDealloc",
@@ -459,40 +540,35 @@ ATTR_NONE
 
 int IBCheckCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 {
-	int idx = GetDecParm(argv[0], 0);
-	uint64_t ib_size = GetHex(argv[1], 0);
+	uint16_t idx;
+	uint64_t ib_size;
 
-	if (check_idx(env, idx, 1))
-		goto exit;
-
-	if ((ib_size < FOUR_KB) || (ib_size > 4 * SIXTEEN_MB)) {
-		LOGMSG(env, "\nIbwin size range: 0x%x to 0x%x\n", FOUR_KB,
-				4*SIXTEEN_MB);
+	if (gp_parse_worker_index(env, argv[0], &idx)) {
 		goto exit;
 	}
-	if ((ib_size - 1) & ib_size) {
-		LOGMSG(env, "\nIbwin size must be a power of 2.\n");
+
+	if (gp_parse_ull_pw2(env, argv[1], "<size>", &ib_size, FOUR_KB, 4 * SIXTEEN_MB)) {
 		goto exit;
 	}
 
 	if (!(wkr[idx].stat == 1 || wkr[idx].stat == 2)) {
-		LOGMSG(env, "\nThread %d not halted or running.\n", idx);
+		LOGMSG(env, "\nThread %u not halted or running\n", idx);
 		goto exit;
 	}
 
 	if (wkr[idx].ib_byte_cnt != ib_size) {
 		LOGMSG(env,
-				"\nIbwin of thread %d of size 0x%lx does not match requested size 0x%lx\n",
+				"\nIbwin of thread %u of size 0x%" PRIx64 " does not match requested size 0x%" PRIx64 "\n",
 				idx, wkr[idx].ib_byte_cnt, ib_size);
-		abort();
+		goto exit;
 	}
 	if (!wkr[idx].ib_valid) {
-		LOGMSG(env, "\nIbwin of thread %d is NOT valid.\n", idx);
-		abort();
+		LOGMSG(env, "\nIbwin of thread %u is NOT valid\n", idx);
+		goto exit;
 	}
 	if (wkr[idx].ib_ptr == NULL) {
-		LOGMSG(env, "\nIbwin of thread %d has NULL ib_ptr.\n", idx);
-		abort();
+		LOGMSG(env, "\nIbwin of thread %u has NULL ib_ptr\n", idx);
+		goto exit;
 	}
 
 	wkr[idx].action = no_action;
@@ -500,7 +576,7 @@ int IBCheckCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 
 exit:
 	return 0;
-};
+}
 
 struct cli_cmd IBCheck = {
 "IBCheck",
@@ -508,9 +584,8 @@ struct cli_cmd IBCheck = {
 2,
 "Check if an inbound window was allocated",
 "IBCheck <idx> <size>\n"
-        "<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
-        "<size> is a hexadecimal power of two from 0x1000 to 0x01000000\n"
-        "Note: This will abort execution on failure.",
+        "<idx>  is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
+        "<size> must be a power of two from 0x1000 to 0x01000000\n",
 IBCheckCmd,
 ATTR_NONE
 };
@@ -549,7 +624,7 @@ void cpu_occ_parse_proc_line(char *file_line,
 	return;
 error:
 	ERR("\nFAILED: proc_line \"%s\"\n", fl_cpy);
-};
+}
 
 void cpu_occ_parse_stat_line(char *file_line,
 			uint64_t *p_user,
@@ -616,7 +691,7 @@ void cpu_occ_parse_stat_line(char *file_line,
 	return;
 error:
 	ERR("\nFAILED: stat_line \"%s\"\n", fl_cpy);
-};
+}
 
 int cpu_occ_valid;
 
@@ -634,8 +709,8 @@ int cpu_occ_set(uint64_t *tot_jifis,
 		uint64_t *proc_user_jifis)
 {
 	FILE *stat_fp = NULL, *cpu_stat_fp = NULL;
-	char filename[256] ={0};
-	char file_line[CPUOCC_BUFF_SIZE] ={0};
+	char filename[256] = {0};
+	char file_line[CPUOCC_BUFF_SIZE] = {0};
 	uint64_t p_user = 1, p_nice = 1, p_system = 1, p_idle = 1;
 	uint64_t p_iowait = 1, p_irq = 1, p_softirq = 1;
 	int rc;
@@ -649,19 +724,19 @@ int cpu_occ_set(uint64_t *tot_jifis,
 		ERR( "FAILED: Open proc stat file \"%s\": %d %s\n",
 			filename, errno, strerror(errno));
 		goto exit;
-	};
+	}
 
 	cpu_stat_fp = fopen("/proc/stat", "re");
 	if (NULL == cpu_stat_fp) {
 		ERR("FAILED: Open file \"/proc/stat\": %d %s\n",
 			errno, strerror(errno));
 		goto exit;
-	};
+	}
 
 	if (NULL == fgets(file_line, sizeof(file_line), stat_fp)) {
 		ERR("Unexpected EOF 1: %d %s\n", errno, strerror(errno));
 		goto exit;
-	};
+	}
 
 	cpu_occ_parse_proc_line(file_line, proc_user_jifis, proc_kern_jifis);
 
@@ -670,7 +745,7 @@ int cpu_occ_set(uint64_t *tot_jifis,
 	if (NULL == fgets(file_line, sizeof(file_line), cpu_stat_fp)) {
 		ERR("Unexpected EOF 2: %d %s\n", errno, strerror(errno));
 		goto exit;
-	};
+	}
 
 	cpu_occ_parse_stat_line(file_line, &p_user, &p_nice, &p_system,
 			&p_idle, &p_iowait, &p_irq, &p_softirq);
@@ -680,10 +755,14 @@ int cpu_occ_set(uint64_t *tot_jifis,
 	
 	rc = 0;
 exit:
-	if (stat_fp != NULL) fclose(stat_fp);
-	if (cpu_stat_fp != NULL) fclose(cpu_stat_fp);
+	if (stat_fp != NULL) {
+		fclose(stat_fp);
+	}
+	if (cpu_stat_fp != NULL) {
+		fclose(cpu_stat_fp);
+	}
 	return rc;
-};
+}
 
 int CPUOccSetCmd(struct cli_env *env, int UNUSED(argc), char **UNUSED(argv))
 {
@@ -719,19 +798,20 @@ int CPUOccDisplayCmd(struct cli_env *env, int UNUSED(argc), char **UNUSED(argv))
 	char pctg[24];
 	int cpus = getCPUCount();
 
-	if (!cpus)
+	if (!cpus) {
 		cpus = 1;
+	}
 
 	if (!cpu_occ_valid) {
 		LOGMSG(env, "\nFAILED: CPU OCC measurement start not set\n");
 		goto exit;
-	};
+	}
 
 	if (cpu_occ_set(&new_tot_jifis, &new_proc_kern_jifis,
 			&new_proc_user_jifis)) {
 		LOGMSG(env, "\nFAILED: Could not get proc info \n");
 		goto exit;
-	};
+	}
 
 	cpu_occ_pct = (((float)(new_proc_kern_jifis + new_proc_user_jifis
 			- old_proc_kern_jifis - old_proc_user_jifis))
@@ -753,47 +833,70 @@ struct cli_cmd CPUOccDisplay = {
 3,
 0,
 "Display cpu occupancy",
-"odisp <idx>\n"
-	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n",
+"odisp\n"
+	"No parameters\n",
 CPUOccDisplayCmd,
 ATTR_RPT
 };
 
 int obdio_cmd(struct cli_env *env, int UNUSED(argc), char **argv, enum req_type action)
 {
-	int idx;
-	int did;
+	uint16_t idx;
+	uint32_t did;
 	uint64_t rio_addr;
 	uint64_t bytes;
 	uint64_t acc_sz;
-	int wr = 0;
+	uint16_t wr;
 
-	idx = getDecParm(argv[0], 0);
-	did = getDecParm(argv[1], 0);
-	rio_addr = getHex(argv[2], 0);
+	int n = 0;
+	if (gp_parse_worker_index_check_thread(env, argv[n++], &idx, 1)) {
+		goto exit;
+	}
+
+	if (gp_parse_did(env, argv[n++], &did)) {
+		goto exit;
+	}
+
+	if (tok_parse_longlong(argv[n++], &rio_addr, 1, UINT64_MAX, 0)) {
+		LOGMSG(env, "\n");
+		LOGMSG(env, TOK_ERR_LONGLONG_HEX_MSG_FMT, "<rio_addr>",
+				(uint64_t)1, (uint64_t)UINT64_MAX);
+		goto exit;
+	}
+
 	if (direct_io == action) {
-		bytes = getHex(argv[3], 0);
-		acc_sz = getHex(argv[4], 0);
-		wr = getDecParm(argv[5], 0);
+		if (tok_parse_ll(argv[n++], &bytes, 0)) {
+			LOGMSG(env, "\n");
+			LOGMSG(env, TOK_ERR_LL_HEX_MSG_FMT, "<bytes>");
+			goto exit;
+		}
+		if (gp_parse_ull_pw2(env, argv[n++], "<acc_sz>", &acc_sz, 1, 8)) {
+			goto exit;
+		}
+		if (gp_parse_bool(env, argv[n++], "<wr>", &wr)) {
+			goto exit;
+		}
 	} else {
-		acc_sz = getHex(argv[3], 0);
+		if (gp_parse_ull_pw2(env, argv[n++], "<acc_sz>", &acc_sz, 1, 8)) {
+			goto exit;
+		}
 		bytes = acc_sz;
-		if (direct_io_tx_lat == action) 
-			wr = getDecParm(argv[4], 0);
-		else
+		if (direct_io_tx_lat == action) {
+			if (gp_parse_bool(env, argv[n++], "<wr>", &wr)) {
+				goto exit;
+			}
+		} else {
 			wr = 1;
-	};
-		
+		}
+	}
+
 	if (direct_io_tx_lat == action) {
 		if (!wkr[idx].ib_valid || (NULL == wkr[idx].ib_ptr)) {
 			LOGMSG(env, "\nNo mapped inbound window present\n");
 			goto exit;
-		};
-	};
+		}
+	}
 
-
-	if (check_idx(env, idx, 1))
-		goto exit;
 	wkr[idx].action = action;
 	wkr[idx].action_mode = kernel_action;
 	wkr[idx].did = did;
@@ -801,21 +904,18 @@ int obdio_cmd(struct cli_env *env, int UNUSED(argc), char **argv, enum req_type 
 	wkr[idx].byte_cnt = bytes;
 	wkr[idx].acc_size = acc_sz;
 	wkr[idx].wr = wr;
-	if ( direct_io == action)
-		wkr[idx].ob_byte_cnt = bytes;
-	else
-		wkr[idx].ob_byte_cnt = 0x10000;
+	wkr[idx].ob_byte_cnt = (direct_io == action ? bytes : 0x10000);
 
 	wkr[idx].stop_req = 0;
 	sem_post(&wkr[idx].run);
 exit:
-        return 0;
-};
+	return 0;
+}
 
 int OBDIOCmd(struct cli_env *env, int argc, char **argv)
 {
 	return obdio_cmd(env, argc, argv, direct_io);
-};
+}
 
 struct cli_cmd OBDIO = {
 "OBDIO",
@@ -823,14 +923,12 @@ struct cli_cmd OBDIO = {
 6,
 "Measure goodput of reads/writes through an outbound window",
 "OBDIO <idx> <did> <rio_addr> <bytes> <acc_sz> <wr>\n"
-	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
-	"<did> target device ID\n"
+	"<idx>      is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
+	"<did>      target device ID\n"
 	"<rio_addr> RapidIO memory address to access\n"
-	"<bytes> total bytes to transfer\n"
-	"<acc_sz> Access size, values: 1, 2, 4, 8, 16\n"
-	"<wr>  0: Read, <>0: Write\n"
-	"NOTE: <acc_sz> == 16 is used to calibrate\n"
-	"       the software contribution to latency...\n",
+	"<bytes>    total bytes to transfer\n"
+	"<acc_sz>   access size, 1, 2, 4, 8\n"
+	"<wr>       0: Read, 1: Write\n",
 OBDIOCmd,
 ATTR_NONE
 };
@@ -838,7 +936,7 @@ ATTR_NONE
 int OBDIOTxLatCmd(struct cli_env *env, int argc, char **argv)
 {
 	return obdio_cmd(env, argc, argv, direct_io_tx_lat);
-};
+}
 
 struct cli_cmd OBDIOTxLat = {
 "DIOTxLat",
@@ -846,14 +944,12 @@ struct cli_cmd OBDIOTxLat = {
 5,
 "Measure latency of reads/writes through an outbound window",
 "DIOTxLat <idx> <did> <rio_addr> <acc_sz> <wr>\n"
-	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
-	"<did> target device ID\n"
+	"<idx>      is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
+	"<did>      target device ID\n"
 	"<rio_addr> RapidIO memory address to access\n"
-	"<acc_sz> Access size, values: 1, 2, 4, 8, 16\n"
-	"<wr>  0: Read, <>0: Write\n"
-	"NOTE: <acc_sz> == 16 is used to calibrate\n"
-	"       the software contribution to latency...\n"
-	"NOTE: For <wr>=1, there must be a <did> thread running OBDIORxLat!\n",
+	"<acc_sz>   access size, values: 1, 2, 4, 8\n"
+	"<wr>       0: Read, 1: Write\n"
+	"           NOTE: For <wr> = 1, there must be a <did> thread running OBDIORxLat!\n",
 OBDIOTxLatCmd,
 ATTR_NONE
 };
@@ -861,7 +957,7 @@ ATTR_NONE
 int OBDIORxLatCmd(struct cli_env *env, int argc, char **argv)
 {
 	return obdio_cmd(env, argc, argv, direct_io_rx_lat);
-};
+}
 
 struct cli_cmd OBDIORxLat = {
 "DIORxLat",
@@ -869,17 +965,17 @@ struct cli_cmd OBDIORxLat = {
 4,
 "Loop back DIOTxLat writes through an outbound window",
 "DIORxLat <idx> <did> <rio_addr> <acc_sz>\n"
-	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
-	"<did> target device ID\n"
+	"<idx>      is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
+	"<did>      target device ID\n"
 	"<rio_addr> RapidIO memory address to access\n"
-	"<acc_sz> Access size, values: 1, 2, 4, 8\n"
-	"NOTE: DIORxLat must be run before OBDIOTxLat!\n",
+	"<acc_sz>   access size, 1, 2, 4 or 8\n"
+	"\nNOTE: DIORxLat must be run before OBDIOTxLat!\n",
 OBDIORxLatCmd,
 ATTR_NONE
 };
 
 // "<trans>  0 NW, 1 SW, 2 NW_R, 3 SW_R 4 NW_R_ALL\n"
-riomp_dma_directio_type convert_int_to_riomp_dma_directio_type(int trans)
+riomp_dma_directio_type convert_int_to_riomp_dma_directio_type(uint16_t trans)
 {
 	switch (trans) {
 	default:
@@ -893,34 +989,61 @@ riomp_dma_directio_type convert_int_to_riomp_dma_directio_type(int trans)
 
 int dmaCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 {
-	int idx;
-	int did;
+	uint16_t idx;
+	uint32_t did;
 	uint64_t rio_addr;
 	uint64_t bytes;
 	uint64_t acc_sz;
-	int wr;
-	int kbuf;
-	int trans;
-	int sync;
+	uint16_t wr;
+	uint16_t kbuf;
+	uint16_t trans;
+	uint16_t sync;
 
-	idx = getDecParm(argv[0], 0);
-	did = getDecParm(argv[1], 0);
-	rio_addr = getHex(argv[2], 0);
-	bytes = getHex(argv[3], 0);
-	acc_sz = getHex(argv[4], 0);
-	wr = getDecParm(argv[5], 0);
-	kbuf = getDecParm(argv[6], 0);
-	trans = getDecParm(argv[7], 0);
-	sync = getDecParm(argv[8], 0);
-
-	if (check_idx(env, idx, 1))
+	int n = 0;
+	if (gp_parse_worker_index_check_thread(env, argv[n++], &idx, 1)) {
 		goto exit;
+	}
 
-	if (trans > 4)
-		trans = RIO_DIRECTIO_TYPE_NWRITE;
+	if (gp_parse_did(env, argv[n++], &did)) {
+		goto exit;
+	}
 
-	if (sync > RIO_DIRECTIO_TRANSFER_FAF)
-		sync = RIO_DIRECTIO_TRANSFER_SYNC;
+	if (tok_parse_longlong(argv[n++], &rio_addr, 1, UINT64_MAX, 0)) {
+		LOGMSG(env, "\n");
+		LOGMSG(env, TOK_ERR_LONGLONG_HEX_MSG_FMT, "<rio_addr>",
+				(uint64_t)1, (uint64_t)UINT64_MAX);
+		goto exit;
+	}
+
+	if (tok_parse_ll(argv[n++], &bytes, 0)) {
+		LOGMSG(env, "\n");
+		LOGMSG(env, TOK_ERR_LL_HEX_MSG_FMT, "<bytes>");
+		goto exit;
+	}
+
+	if (gp_parse_ull_pw2(env, argv[n++], "<acc_sz>", &acc_sz, 1, UINT32_MAX)) {
+		goto exit;
+	}
+
+	if (gp_parse_bool(env, argv[n++], "<wr>", &wr)) {
+		goto exit;
+	}
+
+	if (gp_parse_bool(env, argv[n++], "<kbuf>", &kbuf)) {
+		goto exit;
+	}
+
+	if (tok_parse_short(argv[n++], &trans, 0, 4, 0)) {
+		LOGMSG(env, "\n");
+		LOGMSG(env, TOK_ERR_SHORT_MSG_FMT, "<trans>", 0, 4);
+		goto exit;
+	}
+
+	if (tok_parse_short(argv[n++], &sync, 0, 2, 0)) {
+		LOGMSG(env, "\n");
+		LOGMSG(env, TOK_ERR_SHORT_MSG_FMT, "<sync>", 0, 2);
+		goto exit;
+	}
 
 	wkr[idx].action = dma_tx;
 	wkr[idx].action_mode = kernel_action;
@@ -937,8 +1060,8 @@ int dmaCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 	wkr[idx].stop_req = 0;
 	sem_post(&wkr[idx].run);
 exit:
-        return 0;
-};
+	return 0;
+}
 
 struct cli_cmd dma = {
 "dma",
@@ -946,51 +1069,83 @@ struct cli_cmd dma = {
 9,
 "Measure goodput of DMA reads/writes",
 "dma <idx> <did> <rio_addr> <bytes> <acc_sz> <wr> <kbuf> <trans> <sync>\n"
-	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
-	"<did> target device ID\n"
+	"<idx>      is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
+	"<did>      target device ID\n"
 	"<rio_addr> RapidIO memory address to access\n"
-	"<bytes> total bytes to transfer\n"
-	"<acc_sz> Access size, min 0x1000 max 0x1000000\n"
-	"<wr>  0: Read, <>0: Write\n"
-	"<kbuf>  0: User memory, <>0: Kernel buffer\n"
-	"<trans>  0 NW, 1 SW, 2 NW_R, 3 SW_R 4 NW_R_ALL\n"
-	"<sync>  0 SYNC 1 ASYNC 2 FAF\n",
+	"<bytes>    total bytes to transfer\n"
+	"<acc_sz>   access size, must be a power of two from 1 to 0xffffffff\n"
+	"<wr>       0: Read, 1: Write\n"
+	"<kbuf>     0: User memory, 1: Kernel buffer\n"
+	"<trans>    0: NW, 1: SW, 2: NW_R, 3: SW_R, 4: NW_R_ALL\n"
+	"<sync>     0: SYNC, 1: ASYNC, 2: FAF\n",
 dmaCmd,
 ATTR_NONE
 };
 
 int dmaNumCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 {
-	int idx;
-	int did;
+	uint16_t idx;
+	uint32_t did;
 	uint64_t rio_addr;
 	uint64_t bytes;
 	uint64_t acc_sz;
-	int wr;
-	int kbuf;
-	int trans;
-	int sync;
-	int num_trans;
+	uint16_t wr;
+	uint16_t kbuf;
+	uint16_t trans;
+	uint16_t sync;
+	uint32_t num_trans;
 
-	idx = getDecParm(argv[0], 0);
-	did = getDecParm(argv[1], 0);
-	rio_addr = getHex(argv[2], 0);
-	bytes = getHex(argv[3], 0);
-	acc_sz = getHex(argv[4], 0);
-	wr = getDecParm(argv[5], 0);
-	kbuf = getDecParm(argv[6], 0);
-	trans = getDecParm(argv[7], 0);
-	sync = getDecParm(argv[8], 0);
-	num_trans = getDecParm(argv[9], 0);
-
-	if (check_idx(env, idx, 1))
+	int n = 0;
+	if (gp_parse_worker_index_check_thread(env, argv[n++], &idx, 1)) {
 		goto exit;
+	}
 
-	if (trans > 4)
-		trans = RIO_DIRECTIO_TYPE_NWRITE;
+	if (gp_parse_did(env, argv[n++], &did)) {
+		goto exit;
+	}
 
-	if (sync > RIO_DIRECTIO_TRANSFER_FAF)
-		sync = RIO_DIRECTIO_TRANSFER_SYNC;
+	if (tok_parse_longlong(argv[n++], &rio_addr, 1, UINT64_MAX, 0)) {
+		LOGMSG(env, "\n");
+		LOGMSG(env, TOK_ERR_LONGLONG_HEX_MSG_FMT, "<rio_addr>",
+				(uint64_t)1, (uint64_t)UINT64_MAX);
+		goto exit;
+	}
+
+	if (tok_parse_ll(argv[n++], &bytes, 0)) {
+		LOGMSG(env, "\n");
+		LOGMSG(env, TOK_ERR_LL_HEX_MSG_FMT, "<bytes>");
+		goto exit;
+	}
+
+	if (gp_parse_ull_pw2(env, argv[n++], "<acc_sz>", &acc_sz, 1, UINT32_MAX)) {
+		goto exit;
+	}
+
+	if (gp_parse_bool(env, argv[n++], "<wr>", &wr)) {
+		goto exit;
+	}
+
+	if (gp_parse_bool(env, argv[n++], "<kbuf>", &kbuf)) {
+		goto exit;
+	}
+
+	if (tok_parse_short(argv[n++], &trans, 0, 4, 0)) {
+		LOGMSG(env, "\n");
+		LOGMSG(env, TOK_ERR_SHORT_MSG_FMT, "<trans>", 0, 4);
+		goto exit;
+	}
+
+	if (tok_parse_short(argv[n++], &sync, 0, 2, 0)) {
+		LOGMSG(env, "\n");
+		LOGMSG(env, TOK_ERR_SHORT_MSG_FMT, "<sync>", 0, 2);
+		goto exit;
+	}
+
+	if (tok_parse_l(argv[n++], &num_trans, 0)) {
+		LOGMSG(env, "\n");
+		LOGMSG(env, TOK_ERR_L_HEX_MSG_FMT, "<num>");
+		goto exit;
+	}
 
 	wkr[idx].action = dma_tx_num;
 	wkr[idx].action_mode = kernel_action;
@@ -998,18 +1153,18 @@ int dmaNumCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 	wkr[idx].rio_addr = rio_addr;
 	wkr[idx].byte_cnt = bytes;
 	wkr[idx].acc_size = acc_sz;
-	wkr[idx].wr = wr;
-	wkr[idx].use_kbuf = kbuf;
+	wkr[idx].wr = (int)wr;
+	wkr[idx].use_kbuf = (int)kbuf;
 	wkr[idx].dma_trans_type = convert_int_to_riomp_dma_directio_type(trans);
 	wkr[idx].dma_sync_type = (enum riomp_dma_directio_transfer_sync)sync;
 	wkr[idx].rdma_buff_size = bytes;
-	wkr[idx].num_trans = num_trans;
+	wkr[idx].num_trans = (int)num_trans;
 
 	wkr[idx].stop_req = 0;
 	sem_post(&wkr[idx].run);
 exit:
-        return 0;
-};
+	return 0;
+}
 
 struct cli_cmd dmaNum = {
 "dnum",
@@ -1017,48 +1172,70 @@ struct cli_cmd dmaNum = {
 10,
 "Send a specified number of DMA reads/writes",
 "<idx> <did> <rio_addr> <bytes> <acc_sz> <wr> <kbuf> <trans> <sync> <num>\n"
-	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
-	"<did> target device ID\n"
+	"<idx>      is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
+	"<did>      target device ID\n"
 	"<rio_addr> RapidIO memory address to access\n"
-	"<bytes> total bytes to transfer\n"
-	"<acc_sz> Access size, min 0x1000 max 0x1000000\n"
-	"<wr>  0: Read, <>0: Write\n"
-	"<kbuf>  0: User memory, <>0: Kernel buffer\n"
-	"<trans>  0 NW, 1 SW, 2 NW_R, 3 SW_R 4 NW_R_ALL\n"
-	"<sync>  0 SYNC 1 ASYNC 2 FAF\n"
-	"<num>   Number of transactions to send.\n",
+	"<bytes>    total bytes to transfer\n"
+	"<acc_sz>   access size, must be a power of two from 1 to 0xffffffff\n"
+	"<wr>       0: Read, 1: Write\n"
+	"<kbuf>     0: User memory, 1: Kernel buffer\n"
+	"<trans>    0: NW, 1: SW, 2: NW_R, 3: SW_R, 4: NW_R_ALL\n"
+	"<sync>     0: SYNC, 1: ASYNC, 2: FAF\n"
+	"<num>      number of transactions to send\n",
 dmaNumCmd,
 ATTR_NONE
 };
 
 int dmaTxLatCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 {
-	int idx;
-	int did;
+	uint16_t idx;
+	uint32_t did;
 	uint64_t rio_addr;
 	uint64_t bytes;
-	int wr;
-	int kbuf;
-	int trans;
+	uint16_t wr;
+	uint16_t kbuf;
+	uint16_t trans;
 
-	idx = getDecParm(argv[0], 0);
-	did = getDecParm(argv[1], 0);
-	rio_addr = getHex(argv[2], 0);
-	bytes = getHex(argv[3], 0);
-	wr = getDecParm(argv[4], 0);
-	kbuf = getDecParm(argv[5], 0);
-	trans = getDecParm(argv[6], 0);
-
-	if (check_idx(env, idx, 1))
+	int n = 0;
+	if (gp_parse_worker_index_check_thread(env, argv[n++], &idx, 1)) {
 		goto exit;
+	}
+
+	if (gp_parse_did(env, argv[n++], &did)) {
+		goto exit;
+	}
+
+	if (tok_parse_longlong(argv[n++], &rio_addr, 1, UINT64_MAX, 0)) {
+		LOGMSG(env, "\n");
+		LOGMSG(env, TOK_ERR_LONGLONG_HEX_MSG_FMT, "<rio_addr>",
+				(uint64_t)1, (uint64_t)UINT64_MAX);
+		goto exit;
+	}
+
+	if (tok_parse_ll(argv[n++], &bytes, 0)) {
+		LOGMSG(env, "\n");
+		LOGMSG(env, TOK_ERR_LL_HEX_MSG_FMT, "<bytes>");
+		goto exit;
+	}
+
+	if (gp_parse_bool(env, argv[n++], "<wr>", &wr)) {
+		goto exit;
+	}
+
+	if (gp_parse_bool(env, argv[n++], "<kbuf>", &kbuf)) {
+		goto exit;
+	}
+
+	if (tok_parse_short(argv[n++], &trans, 0, 4, 0)) {
+		LOGMSG(env, "\n");
+		LOGMSG(env, TOK_ERR_SHORT_MSG_FMT, "<trans>", 0, 4);
+		goto exit;
+	}
 
 	if (wr && (!wkr[idx].ib_valid || (NULL == wkr[idx].ib_ptr))) {
 		LOGMSG(env, "\nNo mapped inbound window present\n");
 		goto exit;
-	};
-
-	if (trans > (int)RIO_DIRECTIO_TYPE_NWRITE_R_ALL)
-		trans = RIO_DIRECTIO_TYPE_NWRITE;
+	}
 
 	wkr[idx].action = dma_tx_lat;
 	wkr[idx].action_mode = kernel_action;
@@ -1069,20 +1246,19 @@ int dmaTxLatCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 	wkr[idx].wr = wr;
 	wkr[idx].use_kbuf = kbuf;
 	wkr[idx].dma_trans_type = convert_int_to_riomp_dma_directio_type(trans);
-	if (wr)
-		wkr[idx].dma_sync_type = RIO_DIRECTIO_TRANSFER_SYNC;
-	else
-		wkr[idx].dma_sync_type = RIO_DIRECTIO_TRANSFER_SYNC;
-	if (bytes < MIN_RDMA_BUFF_SIZE) 
+	wkr[idx].dma_sync_type = RIO_DIRECTIO_TRANSFER_SYNC;
+
+	if (bytes < MIN_RDMA_BUFF_SIZE) {
 		wkr[idx].rdma_buff_size = MIN_RDMA_BUFF_SIZE;
-	else
+	} else {
 		wkr[idx].rdma_buff_size = bytes;
+	}
 
 	wkr[idx].stop_req = 0;
 	sem_post(&wkr[idx].run);
 exit:
-        return 0;
-};
+	return 0;
+}
 
 struct cli_cmd dmaTxLat = {
 "dTxLat",
@@ -1090,37 +1266,47 @@ struct cli_cmd dmaTxLat = {
 7,
 "Measure lantecy of DMA reads/writes",
 "dTxLat <idx> <did> <rio_addr> <bytes> <wr> <kbuf> <trans>\n"
-	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
-	"<did> target device ID\n"
+	"<idx>      is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
+	"<did>      target device ID\n"
 	"<rio_addr> RapidIO memory address to access\n"
-	"<bytes> total bytes to transfer\n"
-	"<wr>  0: Read, <>0: Write\n"
-	"<kbuf>  0: User memory, <>0: Kernel buffer\n"
-	"<trans>  0 NW, 1 SW, 2 NW_R, 3 SW_R 4 NW_R_ALL\n"
-	"NOTE: For <wr>=1, there must be a thread on <did> running dRxLat!\n",
+	"<bytes>    total bytes to transfer\n"
+	"<wr>       0: Read, 1: Write\n"
+	"           NOTE: For <wr> = 1, there must be a thread on <did> running dRxLat!\n"
+	"<kbuf>     0: User memory, 1: Kernel buffer\n"
+	"<trans>    0: NW, 1: SW, 2: NW_R, 3: SW_R, 4: NW_R_ALL\n",
 dmaTxLatCmd,
 ATTR_NONE
 };
 
 int dmaRxLatCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 {
-	int idx;
-	int did;
+	uint16_t idx;
+	uint32_t did;
 	uint64_t rio_addr;
 	uint64_t bytes;
 
-	idx = getDecParm(argv[0], 0);
-	did = getDecParm(argv[1], 0);
-	rio_addr = getHex(argv[2], 0);
-	bytes = getHex(argv[3], 0);
-
-	if (check_idx(env, idx, 1))
+	int n = 0;
+	if (gp_parse_worker_index_check_thread(env, argv[n++], &idx, 1)) {
 		goto exit;
+	}
 
-	if (!rio_addr || !bytes) {
-		LOGMSG(env, "\nrio_addr and bytes cannot be 0.\n");
+	if (gp_parse_did(env, argv[n++], &did)) {
 		goto exit;
-	};
+	}
+
+	if (tok_parse_longlong(argv[n++], &rio_addr, 1, UINT64_MAX, 0)) {
+		LOGMSG(env, "\n");
+		LOGMSG(env, TOK_ERR_LONGLONG_HEX_MSG_FMT, "<rio_addr>",
+				(uint64_t)1, (uint64_t)UINT64_MAX);
+		goto exit;
+	}
+
+	if (tok_parse_longlong(argv[n++], &bytes, 1, UINT32_MAX, 0)) {
+		LOGMSG(env, "\n");
+		LOGMSG(env, TOK_ERR_LONGLONG_HEX_MSG_FMT, "<bytes>",
+				(uint64_t )1, (uint64_t)UINT32_MAX);
+		goto exit;
+	}
 
 	wkr[idx].action = dma_rx_lat;
 	wkr[idx].action_mode = kernel_action;
@@ -1132,15 +1318,17 @@ int dmaRxLatCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 	wkr[idx].use_kbuf = 1;
 	wkr[idx].dma_trans_type = RIO_DIRECTIO_TYPE_NWRITE;
 	wkr[idx].dma_sync_type = RIO_DIRECTIO_TRANSFER_SYNC;
-	if (bytes < MIN_RDMA_BUFF_SIZE) 
+
+	if (bytes < MIN_RDMA_BUFF_SIZE) {
 		wkr[idx].rdma_buff_size = MIN_RDMA_BUFF_SIZE;
-	else
+	} else {
 		wkr[idx].rdma_buff_size = bytes;
+	}
 
 	wkr[idx].stop_req = 0;
 	sem_post(&wkr[idx].run);
 exit:
-        return 0;
+	return 0;
 };
 
 struct cli_cmd dmaRxLat = {
@@ -1149,16 +1337,16 @@ struct cli_cmd dmaRxLat = {
 4,
 "Loop back DMA writes for dTxLat command.",
 "dRxLat <idx> <did> <rio_addr> <bytes>\n"
-	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
-	"<did> target device ID\n"
+	"<idx>      is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
+	"<did>      target device ID\n"
 	"<rio_addr> RapidIO memory address to access\n"
-	"<bytes> total bytes to transfer\n"
-	"NOTE: The dRxLat command must be run before dTxLat!\n",
+	"<bytes>    total bytes to transfer\n"
+	"\nNOTE: The dRxLat command must be run before dTxLat!\n",
 dmaRxLatCmd,
 ATTR_NONE
 };
 
-void roundoff_message_size(int *bytes)
+void roundoff_message_size(uint32_t *bytes)
 {
 	if (*bytes > 4096)
 		*bytes = 4096;
@@ -1167,28 +1355,38 @@ void roundoff_message_size(int *bytes)
 		*bytes = 24;
 
 	*bytes = (*bytes + 7) & 0x1FF8;
-};
+}
 
 
 int msg_tx_cmd(struct cli_env *env, int UNUSED(argc), char **argv, enum req_type req)
 {
-	int idx;
-	int did;
-	int sock_num;
-	int bytes;
+	uint16_t idx;
+	uint32_t did;
+	uint16_t sock_num;
+	uint32_t bytes;
 
-	idx = getDecParm(argv[0], 0);
-	did = getDecParm(argv[1], 0);
-	sock_num = getDecParm(argv[2], 0);
-	bytes = getHex(argv[3], 0);
-
-	if (check_idx(env, idx, 1))
+	int n = 0;
+	if (gp_parse_worker_index_check_thread(env, argv[n++], &idx, 1)) {
 		goto exit;
+	}
 
-	if (!sock_num) {
-		LOGMSG(env, "\nSock_num must not be 0.\n");
+	if (gp_parse_did(env, argv[n++], &did)) {
 		goto exit;
-	};
+	}
+
+	if (tok_parse_socket(argv[n++], &sock_num, 0)) {
+		LOGMSG(env, "\n");
+		LOGMSG(env, TOK_ERR_SOCKET_MSG_FMT, "<sock_num>");
+		goto exit;
+	}
+
+	if (tok_parse_long(argv[n++], &bytes, CM_HEADER_BYTES, RIO_MAX_MSG_SIZE,
+			0)) {
+		LOGMSG(env, "\n");
+		LOGMSG(env, TOK_ERR_LONG_HEX_MSG_FMT, "<size>", CM_HEADER_BYTES,
+				RIO_MAX_MSG_SIZE);
+		goto exit;
+	}
 
 	roundoff_message_size(&bytes);
 
@@ -1201,14 +1399,13 @@ int msg_tx_cmd(struct cli_env *env, int UNUSED(argc), char **argv, enum req_type
 	wkr[idx].stop_req = 0;
 	sem_post(&wkr[idx].run);
 exit:
-        return 0;
+	return 0;
 };
 
 int msgTxCmd(struct cli_env *env, int argc, char **argv)
 {
-	msg_tx_cmd(env, argc, argv, message_tx);
-        return 0;
-};
+	return msg_tx_cmd(env, argc, argv, message_tx);
+}
 
 struct cli_cmd msgTx = {
 "msgTx",
@@ -1216,22 +1413,19 @@ struct cli_cmd msgTx = {
 4,
 "Measure goodput of channelized messages",
 "msgTx <idx> <did> <sock_num> <size>\n"
-	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
-	"<did> target device ID\n"
+	"<idx>      is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
+	"<did>      target device ID\n"
 	"<sock_num> RapidIO Channelized Messaging channel number to connect\n"
-	"<size> bytes per message hex. Must be a multiple of 8.\n"
-        "       Minimum 0x18, maximum 0x1000 (24 through 4096).\n"
-	"NOTE: All parameters are decimal numbers.\n"
-	"NOTE: msgTx must send to a corresponding msgRx!\n",
+	"<size>     bytes per message. Must be a multiple of 8 from 24 to 4096\n"
+	"\nNOTE: msgTx must send to a corresponding msgRx!\n",
 msgTxCmd,
 ATTR_NONE
 };
 
 int msgTxLatCmd(struct cli_env *env, int argc, char **argv)
 {
-	msg_tx_cmd(env, argc, argv, message_tx_lat);
-        return 0;
-};
+	return msg_tx_cmd(env, argc, argv, message_tx_lat);
+}
 
 struct cli_cmd msgTxLat = {
 "mTxLat",
@@ -1239,12 +1433,11 @@ struct cli_cmd msgTxLat = {
 4,
 "Measures latency of channelized messages",
 "mTxLat <idx> <did> <sock_num> <size>\n"
-	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
-	"<did> target device ID\n"
+	"<idx>      is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
+	"<did>      target device ID\n"
 	"<sock_num> RapidIO Channelized Messaging channel number to connect\n"
-	"<size> bytes per message hex. Must be a multiple of 8.\n"
-        "       Minimum 0x18, maximum 0x1000 (24 through 4096).\n"
-	"NOTE: mTxLat must be sending to a node running mRxLat!\n"
+	"<size>     bytes per message. Must be a multiple of 8 from 24 to 4096\n"
+	"\nNOTE: mTxLat must be sending to a node running mRxLat!\n"
 	"NOTE: mRxLat must be run before mTxLat!\n",
 msgTxLatCmd,
 ATTR_NONE
@@ -1252,21 +1445,28 @@ ATTR_NONE
 
 int msgRxCmdExt(struct cli_env *env, int UNUSED(argc), char **argv, req_type action)
 {
-	int idx;
-	int sock_num;
-	int bytes;
+	uint16_t idx;
+	uint16_t sock_num;
+	uint32_t bytes;
 
-	idx = getDecParm(argv[0], 0);
-	sock_num = getDecParm(argv[1], 0);
-	bytes = getHex(argv[2], 0);
-
-	if (check_idx(env, idx, 1))
+	int n = 0;
+	if (gp_parse_worker_index_check_thread(env, argv[n++], &idx, 1)) {
 		goto exit;
+	}
 
-	if (!sock_num) {
-		LOGMSG(env, "\nSock_num must not be 0.\n");
+	if (tok_parse_socket(argv[n++], &sock_num, 0)) {
+		LOGMSG(env, "\n");
+		LOGMSG(env, TOK_ERR_SOCKET_MSG_FMT, "<sock_num>");
 		goto exit;
-	};
+	}
+
+	if (tok_parse_long(argv[n++], &bytes, CM_HEADER_BYTES, RIO_MAX_MSG_SIZE,
+			0)) {
+		LOGMSG(env, "\n");
+		LOGMSG(env, TOK_ERR_LONG_HEX_MSG_FMT, "<size>", CM_HEADER_BYTES,
+				RIO_MAX_MSG_SIZE);
+		goto exit;
+	}
 
 	roundoff_message_size(&bytes);
 
@@ -1285,7 +1485,7 @@ exit:
 int msgRxLatCmd(struct cli_env *env, int argc, char **argv)
 {
 	return msgRxCmdExt(env, argc, argv, message_rx_lat);
-};
+}
 
 struct cli_cmd msgRxLat = {
 "mRxLat",
@@ -1293,31 +1493,29 @@ struct cli_cmd msgRxLat = {
 3,
 "Loops back received messages to mTxLat sender",
 "mRxLat <idx> <sock_num> <size>\n"
-	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
+	"<idx>      is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
 	"<sock_num> RapidIO Channelized Messaging channel number to accept\n"
-	"<size> bytes per message hex. Must be a multiple of 8.\n"
-        "       Minimum 0x18, maximum 0x1000 (24 through 4096).\n"
-	"NOTE: All parameters are decimal numbers.\n"
-	"NOTE: mRxLat must be run before mTxLat!\n",
+	"<size>     bytes per message. Must be a multiple of 8 from 24 to 4096\n"
+	"\nNOTE: mRxLat must be run before mTxLat!\n",
 msgRxLatCmd,
 ATTR_NONE
 };
 
 int msgRxCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 {
-	int idx;
-	int sock_num;
+	uint16_t idx;
+	uint16_t sock_num;
 
-	idx = getDecParm(argv[0], 0);
-	sock_num = getDecParm(argv[1], 0);
-
-	if (check_idx(env, idx, 1))
+	int n = 0;
+	if (gp_parse_worker_index_check_thread(env, argv[n++], &idx, 1)) {
 		goto exit;
+	}
 
-	if (!sock_num) {
-		LOGMSG(env, "\nSock_num must not be 0.\n");
+	if (tok_parse_socket(argv[n++], &sock_num, 0)) {
+		LOGMSG(env, "\n");
+		LOGMSG(env, TOK_ERR_SOCKET_MSG_FMT, "<sock_num>");
 		goto exit;
-	};
+	}
 
 	wkr[idx].action = message_rx;
 	wkr[idx].action_mode = kernel_action;
@@ -1336,18 +1534,17 @@ struct cli_cmd msgRx = {
 2,
 "Receives channelized messages as requested",
 "msgRx <idx> <sock_num>\n"
-	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
-	"<sock_num> Target socket number for connections from msgTx command\n"
-	"NOTE: msgRx must be running before msgTx!\n",
+	"<idx>      is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
+	"<sock_num> target socket number for connections from msgTx command\n"
+	"\nNOTE: msgRx must be running before msgTx!\n",
 msgRxCmd,
 ATTR_NONE
 };
 
 int msgTxOhCmd(struct cli_env *env, int argc, char **argv)
 {
-	msg_tx_cmd(env, argc, argv, message_tx_oh);
-	return 0;
-};
+	return msg_tx_cmd(env, argc, argv, message_tx_oh);
+}
 
 struct cli_cmd msgTxOh = {
 "mTxOh",
@@ -1355,12 +1552,11 @@ struct cli_cmd msgTxOh = {
 4,
 "Measures overhead of channelized messages",
 "mTxOh <idx> <did> <sock_num> <size>\n"
-	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
-	"<did> target device ID\n"
+	"<idx>      is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
+	"<did>      target device ID\n"
 	"<sock_num> RapidIO Channelized Messaging channel number to connect\n"
-	"<size> bytes per message hex. Must be a multiple of 8.\n"
-	"       Minimum 0x18, maximum 0x1000 (24 through 4096).\n"
-	"NOTE: mTxOh must be sending to a node running mRxOh!\n"
+	"<size>     bytes per message. Must be a multiple of 8 from 24 to 4096\n"
+	"\nNOTE: mTxOh must be sending to a node running mRxOh!\n"
 	"NOTE: mRxOh must be run before mTxOh!\n",
 msgTxOhCmd,
 ATTR_NONE
@@ -1369,7 +1565,7 @@ ATTR_NONE
 int msgRxOhCmd(struct cli_env *env, int argc, char **argv)
 {
 	return msgRxCmdExt(env, argc, argv, message_rx_oh);
-};
+}
 
 struct cli_cmd msgRxOh = {
 "mRxOh",
@@ -1377,12 +1573,10 @@ struct cli_cmd msgRxOh = {
 3,
 "Loops back received messages to mTxOh sender",
 "mRxOh <idx> <sock_num> <size>\n"
-	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
+	"<idx>      is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
 	"<sock_num> RapidIO Channelized Messaging channel number to accept\n"
-	"<size> bytes per message hex. Must be a multiple of 8.\n"
-	"       Minimum 0x18, maximum 0x1000 (24 through 4096).\n"
-	"NOTE: All parameters are decimal numbers.\n"
-	"NOTE: mRxOh must be run before mTxOh!\n",
+	"<size>     bytes per message. Must be a multiple of 8 from 24 to 4096\n"
+	"\nNOTE: mRxOh must be run before mTxOh!\n",
 msgRxOhCmd,
 ATTR_NONE
 };
@@ -1486,7 +1680,7 @@ int GoodputCmd(struct cli_env *env, int argc, char **UNUSED(argv))
 			Gbps_str, tot_Msgpersec, link_occ_str);
 
 	return 0;
-};
+}
 
 struct cli_cmd Goodput = {
 "goodput",
@@ -1495,7 +1689,7 @@ struct cli_cmd Goodput = {
 "Print current performance for threads.",
 "goodput {<optional>}\n"
 	"Any parameter to goodput causes the byte and message counts of all\n"
-	"   running threads to be zeroed after they are displayed.\n",
+	"   running threads to be zeroed after they are displayed\n",
 GoodputCmd,
 ATTR_RPT
 };
@@ -1543,15 +1737,15 @@ int LatCmd(struct cli_env *env, int argc, char **argv)
 				min_lat_str, avg_lat_str, max_lat_str);
 	};
 
-        return 0;
-};
+	return 0;
+}
 
 struct cli_cmd Lat = {
 "lat",
 3,
 0,
 "Print current latency for threads.",
-"lat {No Parms}\n",
+"<No Parameters>\n",
 LatCmd,
 ATTR_RPT
 };
@@ -1574,7 +1768,7 @@ static inline void display_cpu(struct cli_env *env, int cpu)
 	std::stringstream ss;
 	display_cpu_ss(ss, cpu);
 	LOGMSG(env, "%s", ss.str().c_str());
-};
+}
 
 extern "C"
 void display_gen_status_ss(std::stringstream& out)
@@ -1606,7 +1800,7 @@ void display_gen_status(struct cli_env *env)
 	std::stringstream ss;
 	display_gen_status_ss(ss);
 	LOGMSG(env, "%s", ss.str().c_str());
-};
+}
 
 extern "C"
 void display_ibwin_status_ss(std::stringstream& out)
@@ -1637,7 +1831,7 @@ void display_ibwin_status(struct cli_env *env)
 	std::stringstream ss;
 	display_ibwin_status_ss(ss);
 	LOGMSG(env, "%s", ss.str().c_str());
-};
+}
 
 void display_msg_status(struct cli_env *env)
 {
@@ -1658,9 +1852,9 @@ void display_msg_status(struct cli_env *env)
 			wkr[i].con_skt_valid, wkr[i].msg_size,
 			wkr[i].sock_num, (NULL != wkr[i].sock_tx_buf),
 			(NULL != wkr[i].sock_rx_buf)
-		);
-	};
-};
+		)
+	}
+}
 
 int StatusCmd(struct cli_env *env, int argc, char **argv)
 {
@@ -1685,10 +1879,10 @@ int StatusCmd(struct cli_env *env, int argc, char **argv)
 		default:
 			LOGMSG(env, "Unknown option \"%c\"\n", argv[0][0]);
 			return 0;
-	};
+	}
 
-        return 0;
-};
+	return 0;
+}
 
 struct cli_cmd Status = {
 "status",
@@ -1700,12 +1894,10 @@ struct cli_cmd Status = {
         "i : IBWIN status\n"
         "m : Messaging status\n"
         "s : General status\n"
-        "Default is general status.\n",
+        "Default is general status\n",
 StatusCmd,
 ATTR_RPT
 };
-
-static inline int MIN(int a, int b) { return a < b? a: b; }
 
 int dump_idx;
 uint64_t dump_base_offset;
@@ -1713,29 +1905,37 @@ uint64_t dump_size;
 
 int DumpCmd(struct cli_env *env, int argc, char **argv)
 {
-	int idx;
+	uint16_t idx;
 	uint64_t offset, base_offset;
 	uint64_t size;
+	int n = 0;
 
 	if (argc) {
-		idx = getDecParm(argv[0], 0);
-		base_offset = getHex(argv[1], 0);
-		size = getHex(argv[2], 0);
+		if (gp_parse_worker_index(env, argv[n++], &idx)) {
+			goto exit;
+		}
+
+		if (tok_parse_ll(argv[n++], &base_offset, 0)) {
+			LOGMSG(env, "\n");
+			LOGMSG(env, TOK_ERR_LL_HEX_MSG_FMT, "<base_offset>");
+			goto exit;
+		}
+
+		if (tok_parse_ll(argv[n++], &size, 0)) {
+			LOGMSG(env, "\n");
+			LOGMSG(env, TOK_ERR_LL_HEX_MSG_FMT, "<size>");
+			goto exit;
+		}
 	} else {
 		idx = dump_idx;
 		base_offset = dump_base_offset;
 		size = dump_size;
-	};
-
-	if ((idx < 0) || (idx >= MAX_WORKERS)) {
-		LOGMSG(env, "\nIndex must be 0 to %d...\n", MAX_WORKERS);
-		goto exit;
-	};
+	}
 
 	if (!wkr[idx].ib_valid || (NULL == wkr[idx].ib_ptr)) {
 		LOGMSG(env, "\nNo mapped inbound window present\n");
 		goto exit;
-	};
+	}
 
 	if ((base_offset + size) > wkr[idx].ib_byte_cnt) {
 		LOGMSG(env, "\nOffset + size exceeds window bytes\n");
@@ -1746,19 +1946,19 @@ int DumpCmd(struct cli_env *env, int argc, char **argv)
 	dump_base_offset = base_offset;
 	dump_size = size;
 
-        LOGMSG(env,
-                "  Offset 00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F");
-        for (offset = 0; offset < size; offset++) {
-                if (!(offset & 0xF)) {
-                        LOGMSG(env,"\n%8lx", base_offset + offset);
-                }
-                LOGMSG(env, " %2x",
+	LOGMSG(env,
+		"          Offset 00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F");
+	for (offset = 0; offset < size; offset++) {
+		if (!(offset & 0xF)) {
+			LOGMSG(env, "\n%" PRIx64 "", base_offset + offset);
+		}
+		LOGMSG(env, " %2x",
 			*(volatile uint8_t * volatile)(
 			(uint8_t *)wkr[idx].ib_ptr + base_offset + offset));
-        };
-        LOGMSG(env, "\n");
+	}
+	LOGMSG(env, "\n");
 exit:
-        return 0;
+	return 0;
 };
 
 struct cli_cmd Dump = {
@@ -1767,34 +1967,49 @@ struct cli_cmd Dump = {
 3,
 "Dump inbound memory area",
 "Dump <idx> <offset> <size>\n"
-	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
+	"<idx>    is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
 	"<offset> is the hexadecimal offset, in bytes, from the window start\n"
-	"<size> is the number of bytes to display, starting at <offset>\n",
+	"<size>   is the number of bytes to display, starting at <offset>\n",
 DumpCmd,
 ATTR_RPT
 };
 
 int FillCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 {
-	int idx;
+	uint16_t idx;
 	uint64_t offset, base_offset;
 	uint64_t size;
-	uint64_t data;
+	uint16_t tmp;
+	uint8_t data;
 
-	idx = getDecParm(argv[0], 0);
-	base_offset = getHex(argv[1], 0);
-	size = getHex(argv[2], 0);
-	data = getHex(argv[3], 0);
-
-	if ((idx < 0) || (idx >= MAX_WORKERS)) {
-		LOGMSG(env, "\nIndex must be 0 to %d...\n", MAX_WORKERS);
+	int n = 0;
+	if (gp_parse_worker_index(env, argv[n++], &idx)) {
 		goto exit;
-	};
+	}
+
+	if (tok_parse_ll(argv[n++], &base_offset, 0)) {
+		LOGMSG(env, "\n");
+		LOGMSG(env, TOK_ERR_LL_HEX_MSG_FMT, "<offset>");
+		goto exit;
+	}
+
+	if (tok_parse_ll(argv[n++], &size, 0)) {
+		LOGMSG(env, "\n");
+		LOGMSG(env, TOK_ERR_LL_HEX_MSG_FMT, "<size>");
+		goto exit;
+	}
+
+	if (tok_parse_short(argv[3], &tmp, 0, 0xff, 0)) {
+		LOGMSG(env, "\n");
+		LOGMSG(env, TOK_ERR_SHORT_HEX_MSG_FMT, "<data>", 0, 0xff);
+		goto exit;
+	}
+	data = (uint8_t)tmp;
 
 	if (!wkr[idx].ib_valid || (NULL == wkr[idx].ib_ptr)) {
 		LOGMSG(env, "\nNo mapped inbound window present\n");
 		goto exit;
-	};
+	}
 
 	if ((base_offset + size) > wkr[idx].ib_byte_cnt) {
 		LOGMSG(env, "\nOffset + size exceeds window bytes\n");
@@ -1805,13 +2020,13 @@ int FillCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 	dump_base_offset = base_offset;
 	dump_size = size;
 
-        for (offset = 0; offset < size; offset++) {
+	for (offset = 0; offset < size; offset++) {
 		*(volatile uint8_t * volatile)
 		((uint8_t *)wkr[idx].ib_ptr + base_offset + offset) = data;
-        };
+	}
 exit:
-        return 0;
-};
+	return 0;
+}
 
 struct cli_cmd Fill = {
 "fill",
@@ -1819,10 +2034,10 @@ struct cli_cmd Fill = {
 4,
 "Fill inbound memory area",
 "Fill <idx> <offset> <size> <data>\n"
-	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
-	"<offset> is the hexadecimal offset, in bytes, from the window start\n"
-	"<size> is the number of bytes to display, starting at <offset>\n"
-	"<data> is the 8 bit value to write.\n",
+	"<idx>    is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
+	"<offset> is the offset, in bytes, from the window start\n"
+	"<size>   is the number of bytes to display, starting at <offset>\n"
+	"<data>   is the 8 bit value to write\n",
 FillCmd,
 ATTR_RPT
 };
@@ -1895,29 +2110,29 @@ int MpdevsCmd(struct cli_env *env, int UNUSED(argc), char **UNUSED(argv))
 	};
 exit:
         return 0;
-};
+}
 
 struct cli_cmd Mpdevs = {
 "mpdevs",
 2,
 0,
 "Display mports and devices",
-"mpdevs <No Parameters>\n",
+"<No Parameters>\n",
 MpdevsCmd,
 ATTR_NONE
 };
 
 int UTimeCmd(struct cli_env *env, int argc, char **argv)
 {
-	int idx, st_i = 0, end_i = MAX_TIMESTAMPS-1;
+	uint16_t idx, st_i = 0, end_i = MAX_TIMESTAMPS-1;
 	struct seq_ts *ts_p = NULL;
 	uint64_t lim = 0;
 	int got_one = 0;
 	struct timespec diff, min, max, tot;
 
-	idx = GetDecParm(argv[0], 0);
-	if (check_idx(env, idx, 0))
+	if (gp_parse_worker_index_check_thread(env, argv[0], &idx, 0)) {
 		goto exit;
+	}
 
 	switch (argv[1][0]) {
 	case 'd':
@@ -1933,7 +2148,7 @@ int UTimeCmd(struct cli_env *env, int argc, char **argv)
 		ts_p = &wkr[idx].meas_ts;
 		break;
 	default:
-                LOGMSG(env, "FAILED: <type> not 'd', 'f' or 'm'.\n");
+		LOGMSG(env, "\nFAILED: <type> not 'd', 'f' or 'm'\n");
 		goto exit;
 	};
 		
@@ -1944,66 +2159,85 @@ int UTimeCmd(struct cli_env *env, int argc, char **argv)
 		break;
 	case '-':
 		if (argc > 4) {
-			st_i = GetDecParm(argv[3], 0);
-			end_i = GetDecParm(argv[4], 0);
+			if (tok_parse_short(argv[3], &st_i, 0, MAX_TIMESTAMPS-1, 0)) {
+				LOGMSG(env, "\n");
+				LOGMSG(env, TOK_ERR_SHORT_MSG_FMT, "st_i", 0, MAX_TIMESTAMPS-1);
+				goto exit;
+			}
+			if (tok_parse_short(argv[4], &end_i, 0, MAX_TIMESTAMPS-1, 0)) {
+				LOGMSG(env, "\n");
+				LOGMSG(env, TOK_ERR_SHORT_MSG_FMT, "end_i", 0, MAX_TIMESTAMPS-1);
+				goto exit;
+			}
 		} else {
-                	LOGMSG(env,
-				"\nFAILED: Must enter two idexes\n");
+			LOGMSG(env, "\nFAILED: Must enter two indices\n");
 			goto exit;
-		};
+		}
 
-		if ((end_i < st_i) || (st_i < 0) || (end_i >= MAX_TIMESTAMPS)) {
-                	LOGMSG(env, "FAILED: Index range 0 to %d.\n",
-				MAX_TIMESTAMPS-1);
+		if (end_i < st_i) {
+			LOGMSG(env, "\nFAILED: End index is less than start index\n");
 			goto exit;
-		};
+		}
 
 		if (ts_p->ts_idx < MAX_TIMESTAMPS - 1) {
-                	LOGMSG(env,
-				"\nWARNING: Last valid timestamp is %d\n",
-				ts_p->ts_idx);
-		};
+			LOGMSG(env, "\nWARNING: Last valid timestamp is %d\n",
+					ts_p->ts_idx);
+		}
 		diff = time_difference(ts_p->ts_val[st_i], ts_p->ts_val[end_i]);
-                LOGMSG(env, "\n---->> Sec<<---- Nsec---MMMuuuNNN\n");
-                LOGMSG(env, "%16ld %16ld\n",
+		LOGMSG(env, "\n---->> Sec<<---- Nsec---MMMuuuNNN\n");
+		LOGMSG(env, "%16ld %16ld\n",
 				diff.tv_sec, diff.tv_nsec);
 		break;
 
 	case 'p':
 	case 'P':
-		if (argc > 3)
-			st_i = GetDecParm(argv[3], 0);
-		if (argc > 4)
-			end_i = GetDecParm(argv[4], 0);
+		if (argc > 3) {
+			if (tok_parse_short(argv[3], &st_i, 0, MAX_TIMESTAMPS-1, 0)) {
+				LOGMSG(env, "\n");
+				LOGMSG(env, TOK_ERR_SHORT_MSG_FMT, "st_i", 0, MAX_TIMESTAMPS-1);
+				goto exit;
+			}
+		}
+		if (argc > 4) {
+			if (tok_parse_short(argv[4], &end_i, 0, MAX_TIMESTAMPS-1, 0)) {
+				LOGMSG(env, "\n");
+				LOGMSG(env, TOK_ERR_SHORT_MSG_FMT, "end_i", 0, MAX_TIMESTAMPS-1);
+				goto exit;
+			}
+		}
 
-		if ((end_i < st_i) || (st_i < 0) || (end_i >= MAX_TIMESTAMPS)) {
-                	LOGMSG(env, "FAILED: Index range 0 to %d.\n",
-				MAX_TIMESTAMPS-1);
+		if (end_i < st_i) {
+			LOGMSG(env, "\nFAILED: End index is less than start index\n");
 			goto exit;
 		};
 
 		if (ts_p->ts_idx < MAX_TIMESTAMPS - 1) {
-                	LOGMSG(env,
+			LOGMSG(env,
 				"\nWARNING: Last valid timestamp is %d\n",
 				ts_p->ts_idx);
 		};
 
-                LOGMSG(env,
-			"\n Idx ---->> Sec<<---- Nsec---mmmuuunnn Marker\n");
+		LOGMSG(env,
+			"\nIdx ---->> Sec<<---- Nsec---mmmuuunnn Marker\n");
 		for (idx = st_i; idx <= end_i; idx++) {
-                	LOGMSG(env, "%4d %16ld %16ld %d\n", idx,
+			LOGMSG(env, "%4d %16ld %16ld %d\n", idx,
 				ts_p->ts_val[idx].tv_sec, 
 				ts_p->ts_val[idx].tv_nsec,
 				ts_p->ts_mkr[idx]);
 		};
 		break;
-			
+
 	case 'l':
 	case 'L':
-		if (argc > 3)
-			lim = GetDecParm(argv[3], 0);
-		else
-               		lim = 0;
+		if (argc > 3) {
+			if (tok_parse_ll(argv[3], &lim, 0)) {
+				LOGMSG(env, "\n");
+				LOGMSG(env, TOK_ERR_LL_HEX_MSG_FMT, "lim");
+				goto exit;
+			}
+		} else {
+			lim = 0;
+		}
 
 		for (idx = st_i; idx < end_i; idx++) {
 			time_track(idx, ts_p->ts_val[idx], ts_p->ts_val[idx+1],
@@ -2013,35 +2247,35 @@ int UTimeCmd(struct cli_env *env, int argc, char **argv)
 			if ((uint64_t)diff.tv_nsec < lim)
 				continue;
 			if (!got_one) {
-                		LOGMSG(env,
-				"\n Idx ---->> Sec<<---- Nsec---MMMuuuNNN Marker\n");
+				LOGMSG(env,
+				"\nIdx ---->> Sec<<---- Nsec---MMMuuuNNN Marker\n");
 				got_one = 1;
-			};
-                	LOGMSG(env, "%4d %16ld %16ld %d -> %d\n", idx,
+			}
+			LOGMSG(env, "%4d %16ld %16ld %d -> %d\n", idx,
 				diff.tv_sec, diff.tv_nsec, 
 				ts_p->ts_mkr[idx], ts_p->ts_mkr[idx+1]);
-		};
+		}
 
 		if (!got_one) {
-                	LOGMSG(env,
+			LOGMSG(env,
 				"\nNo delays found bigger than %ld\n", lim);
-		};
-                LOGMSG(env,
+		}
+		LOGMSG(env,
 			"\n==== ---->> Sec<<---- Nsec---MMMuuuNNN\n");
-                LOGMSG(env, "Min: %16ld %16ld\n",
+		LOGMSG(env, "Min: %16ld %16ld\n",
 				min.tv_sec, min.tv_nsec);
 		diff = time_div(tot, end_i - st_i);
-                LOGMSG(env, "Avg: %16ld %16ld\n",
+		LOGMSG(env, "Avg: %16ld %16ld\n",
 				diff.tv_sec, diff.tv_nsec);
-                LOGMSG(env, "Max: %16ld %16ld\n",
+		LOGMSG(env, "Max: %16ld %16ld\n",
 				max.tv_sec, max.tv_nsec);
 		break;
 	default:
-                LOGMSG(env, "FAILED: <cmd> not 's','p' or 'l'.\n");
-	};
+		LOGMSG(env, "FAILED: <cmd> not 's','p' or 'l'\n");
+	}
 exit:
-        return 0;
-};
+	return 0;
+}
 
 struct cli_cmd UTime = {
 "utime",
@@ -2063,9 +2297,9 @@ struct cli_cmd UTime = {
 	"      '-' - return difference in two timestamp idices\n"
 	"            Note: Must enter two timestamp indexes\n"
 	"      'p' - print the existing counter values\n"
-	"            Note: optionally enter start and end indexes.\n"
+	"            Note: optionally enter start and end indexes\n"
 	"      'l' - locate differences greater than x nsec\n"
-	"            Note: Must enter the number of nanoseconds in decimal.\n",
+	"            Note: Must enter the number of nanoseconds\n",
 UTimeCmd,
 ATTR_NONE
 };
@@ -2074,34 +2308,39 @@ ATTR_NONE
 
 int UCalCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 {
-	int n = 0, idx, chan, map_sz, sy_iter, hash = 0;
+	uint16_t idx, hash;
+	uint32_t chan, map_sz, sy_iter;
 
-	idx = GetDecParm(argv[n++], 0);
-	if (check_idx(env, idx, 1))
+	int n = 0;
+	if (gp_parse_worker_index_check_thread(env, argv[n++], &idx, 1)) {
 		goto exit;
+	}
 
-	chan = GetDecParm(argv[n++], 0);
-	map_sz = GetHex(argv[n++], 0);
-	sy_iter = GetHex(argv[n++], 0);
-	hash = GetDecParm(argv[n++], 0);
-	
-	if ((chan < 1) || (chan > 7)) {
-                LOGMSG(env, "Chan %d illegal, must be 1 to 7\n", chan);
+	if (tok_parse_long(argv[n++], &chan, 1, 7, 0)) {
+		LOGMSG(env, "\n");
+		LOGMSG(env, TOK_ERR_LONG_MSG_FMT, "<chan>", 1, 7);
 		goto exit;
-	};
+	}
 
-	if ((map_sz < 32) || (map_sz > 0x800000) || (map_sz & (map_sz-1))) {
-                LOGMSG(env,
-			"Bad Buff %x, must be power of 2, 0x20 to 0x%x\n",
-			map_sz, MAX_UMD_BUF_COUNT);
+	if (gp_parse_ul_pw2(env, argv[n++], "<map_sz>", &map_sz, 0x20, MAX_UMD_BUF_COUNT)) {
 		goto exit;
-	};
+	}
+
+	if (tok_parse_l(argv[n++], &sy_iter, 0)) {
+		LOGMSG(env, "\n");
+		LOGMSG(env, TOK_ERR_L_HEX_MSG_FMT, "<sy_iter>");
+		goto exit;
+	}
+
+	if (gp_parse_bool(env, argv[n++], "<hash>", &hash)) {
+		goto exit;
+	}
 
 	wkr[idx].action = umd_calibrate;
 	wkr[idx].action_mode = user_mode_action;
 	wkr[idx].umd_chan = chan;
-	wkr[idx].umd_tx_buf_cnt = map_sz;
-	wkr[idx].umd_sts_entries = sy_iter;
+	wkr[idx].umd_tx_buf_cnt = (int)map_sz;
+	wkr[idx].umd_sts_entries = (int)sy_iter;
 	wkr[idx].wr = hash;
 	
 	wkr[idx].stop_req = 0;
@@ -2116,22 +2355,20 @@ struct cli_cmd UCal = {
 5,
 "Calibrate performance of various facilities.",
 "<idx> <chan> <map_sz> <sy_iter> <hash>\n"
-	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
-	"<chan> is a DMA channel number from 1 through 7\n"
-	"<map_sz> is number of entries in a map to test\n"
+	"<idx>     is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
+	"<chan>    is a DMA channel number from 1 through 7\n"
+	"<map_sz>  is number of entries in a map to test\n"
 	"<sy_iter> is the number of times to perform sched_yield and other\n"
-	"       operating system related testing.\n"
-	"<hash> If non-zero, attempt hash calibration.\n",
-
+	"          operating system related testing\n"
+	"<hash>    0: do not calibrate hash 1: attempt hash calibration\n",
 UCalCmd,
 ATTR_NONE
 };
 
-
 int UDMACmd(struct cli_env *env, int UNUSED(argc), char **argv)
 {
-	int idx;
-	int chan;
+	uint16_t idx;
+	uint32_t chan;
 	int cpu;
 	uint32_t buff;
 	uint32_t sts;
@@ -2139,57 +2376,56 @@ int UDMACmd(struct cli_env *env, int UNUSED(argc), char **argv)
 	uint64_t rio_addr;
 	uint32_t bytes;
 	uint32_t acc_sz;
-	int trans;
+	uint16_t trans;
 
-        int n = 0; // this be a trick from X11 source tree ;)
-
-	idx      = GetDecParm(argv[n++], 0);
-	if (get_cpu(env, argv[n++], &cpu))
+	int n = 0;
+	if (gp_parse_worker_index_check_thread(env, argv[n++], &idx, 1)) {
 		goto exit;
+	}
 
-	chan     = GetDecParm(argv[n++], 0);
-	buff     = GetHex(argv[n++], 0);
-	sts      = GetHex(argv[n++], 0);
-	did      = GetDecParm(argv[n++], 0);
-	rio_addr = GetHex(argv[n++], 0);
-	bytes    = GetHex(argv[n++], 0);
-	acc_sz   = GetHex(argv[n++], 0);
-	trans    = GetDecParm(argv[n++], 0);
-
-	if (check_idx(env, idx, 1))
+	if (gp_parse_cpu(env, argv[n++], &cpu)) {
 		goto exit;
+	}
 
-	if ((chan < 1) || (chan > 7)) {
-                LOGMSG(env, "Chan %d illegal, must be 1 to 7\n", chan);
+	if (tok_parse_long(argv[n++], &chan, 1, 7, 0)) {
+		LOGMSG(env, "\n");
+		LOGMSG(env, TOK_ERR_LONG_MSG_FMT, "<chan>", 1, 7);
 		goto exit;
-	};
+	}
 
-	if ((buff < 32) || (buff > 0x800000) || (buff & (buff-1)) ||
-			(buff > MAX_UMD_BUF_COUNT)) {
-                LOGMSG(env,
-			"Bad Buff %x, must be power of 2, 0x20 to 0x%x\n",
-			buff, MAX_UMD_BUF_COUNT);
+	if (gp_parse_ul_pw2(env, argv[n++], "<buff>", &buff, 0x20, MAX_UMD_BUF_COUNT)) {
 		goto exit;
-	};
+	}
 
-	if ((sts < 32) || (sts > 0x800000) || (sts & (sts-1))) {
-                LOGMSG(env,
-			"Bad Buff %x, must be power of 2, 0x20 to 0x80000\n",
-			sts);
+	if (gp_parse_ul_pw2(env, argv[n++], "<sts>", &sts, 0x20, 0x800000)) {
 		goto exit;
-	};
+	}
 
-	if (!rio_addr || !acc_sz || !bytes) {
-                LOGMSG(env,
-			"Addr, bytes and acc_size must be non-zero\n");
+	if (gp_parse_did(env, argv[n++], &did)) {
 		goto exit;
-	};
+	}
 
-	if ((trans < 0) || (trans > 5)) {
-                LOGMSG(env,
-			"Illegal trans %d, must be between 0 and 5\n", trans);
+	if (tok_parse_longlong(argv[n++], &rio_addr, 1, UINT64_MAX, 0)) {
+		LOGMSG(env, "\n");
+		LOGMSG(env, TOK_ERR_LONGLONG_HEX_MSG_FMT, "<rio_addr>",
+				(uint64_t)1, (uint64_t)UINT64_MAX);
 		goto exit;
-	};
+	}
+
+	if (gp_parse_ul_pw2(env, argv[n++], "<bytes>", &bytes, 1, UINT32_MAX)) {
+		goto exit;
+	}
+
+	if (gp_parse_ul_pw2(env, argv[n++], "<acc_sz>", &acc_sz, 1, UINT32_MAX)) {
+		goto exit;
+	}
+
+	if (tok_parse_short(argv[n++], &trans, 0, 3, 0)) {
+		LOGMSG(env, "\n");
+		LOGMSG(env, TOK_ERR_SHORT_MSG_FMT, "<trans>", 0, 3);
+		goto exit;
+	}
+
 
 	wkr[idx].action = umd_dma;
 	wkr[idx].action_mode = user_mode_action;
@@ -2211,7 +2447,7 @@ int UDMACmd(struct cli_env *env, int UNUSED(argc), char **argv)
 
 	sem_post(&wkr[idx].run);
 exit:
-        return 0;
+	return 0;
 };
 
 struct cli_cmd UDMA = {
@@ -2220,94 +2456,92 @@ struct cli_cmd UDMA = {
 10,
 "Transmit DMA requests with User-Mode demo driver",
 "<idx> <cpu> <chan> <buff> <sts> <did> <rio_addr> <bytes> <acc_sz> <trans>\n"
-	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
-	"<cpu> is a cpu number, or -1 to indicate no cpu affinity\n"
-	"<chan> is a DMA channel number from 1 through 7\n"
-	"<buff> is the number of transmit descriptors/buffers to allocate\n"
-	"       Must be a power of two from 0x20 up to 0x80000\n"
-	"<sts> is the number of status entries for completed descriptors\n"
-	"       Must be a power of two from 0x20 up to 0x80000\n"
-	"<did> target device ID\n"
+	"<idx>      is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
+	"<cpu>      is a cpu number, or -1 to indicate no cpu affinity\n"
+	"<chan>     is a DMA channel number from 1 through 7\n"
+	"<buff>     is the number of transmit descriptors/buffers to allocate\n"
+	"           Must be a power of two from 0x20 to " STR(MAX_UMD_BUF_COUNT) "\n"
+	"<sts>      is the number of status entries for completed descriptors\n"
+	"           Must be a power of two from 0x20 to 0x80000\n"
+	"<did>      target device ID\n"
 	"<rio_addr> RapidIO memory address to access\n"
-	"<bytes> total bytes to transfer\n"
-	"<acc_sz> Access size\n"
-	"<trans>  0 NREAD, 1 LAST_NWR, 2 NW, 3 NW_R\n"
-        "NOTE:  Enter simulation with \"set sim 1\" before running this command\n",
+	"<bytes>    total bytes to transfer, must be a power of two from 1 to 0xffffffff\n"
+	"<acc_sz>   access size, must be a power of two from 1 to 0xffffffff\n"
+	"<trans>    0: NREAD, 1: LAST_NWR, 2: NW, 3: NW_R\n"
+	"\nNOTE: Enter simulation with \"set sim 1\" before running this command\n",
 UDMACmd,
 ATTR_NONE
 };
 
 int UDMALatTxRxCmd(const char cmd, struct cli_env *env, int UNUSED(argc), char **argv)
 {
-	int idx;
-	int chan;
+	uint16_t idx;
+	uint32_t chan;
 	int cpu;
 	uint32_t buff;
 	uint32_t sts;
 	uint32_t did;
 	uint64_t rio_addr;
 	uint32_t acc_sz;
-	int trans;
+	uint32_t trans;
 
-        int n = 0; // this be a trick from X11 source tree ;)
-
-	idx      = GetDecParm(argv[n++], 0);
-	if (get_cpu(env, argv[n++], &cpu))
+	int n = 0;
+	if (gp_parse_worker_index_check_thread(env, argv[n++], &idx, 1)) {
 		goto exit;
-	chan     = GetDecParm(argv[n++], 0);
-	buff     = GetHex(argv[n++], 0);
-	sts      = GetHex(argv[n++], 0);
-	did      = GetDecParm(argv[n++], 0);
-	rio_addr = GetHex(argv[n++], 0);
-	acc_sz   = GetHex(argv[n++], 0);
-	trans    = GetDecParm(argv[n++], 0);
+	}
+
+	if (gp_parse_cpu(env, argv[n++], &cpu)) {
+		goto exit;
+	}
+
+	if (tok_parse_long(argv[n++], &chan, 1, 7, 0)) {
+		LOGMSG(env, "\n");
+		LOGMSG(env, TOK_ERR_LONG_MSG_FMT, "<chan>", 1, 7);
+		goto exit;
+	}
+
+	if (gp_parse_ul_pw2(env, argv[n++], "<buff>", &buff, 0x20, MAX_UMD_BUF_COUNT)) {
+		goto exit;
+	}
+
+	if (gp_parse_ul_pw2(env, argv[n++], "<sts>", &sts, 0x20, 0x800000)) {
+		goto exit;
+	}
+
+	if (gp_parse_did(env, argv[n++], &did)) {
+		goto exit;
+	}
+
+	if (tok_parse_longlong(argv[n++], &rio_addr, 1, UINT64_MAX, 0)) {
+		LOGMSG(env, "\n");
+		LOGMSG(env, TOK_ERR_LONGLONG_HEX_MSG_FMT, "<rio_addr>",
+				(uint64_t)1, (uint64_t)UINT64_MAX);
+		goto exit;
+	}
+
+	if (gp_parse_ul_pw2(env, argv[n++], "<acc_sz>", &acc_sz, 1, UINT32_MAX)) {
+		goto exit;
+	}
+
+	if (tok_parse_long(argv[n++], &trans, 0, 3, 0)) {
+		LOGMSG(env, "\n");
+		LOGMSG(env, TOK_ERR_LONG_MSG_FMT, "<trans>", 0 ,3);
+		goto exit;
+	}
+
 
 	if (cmd != 'R' && cmd != 'T') {
-                LOGMSG(env, "Command '%c' illegal, this should never happen\n", cmd);
+		LOGMSG(env, "Command '%c' illegal, this should never happen\n", cmd);
 		goto exit;
-	};
-
-	if (check_idx(env, idx, 1))
-		goto exit;
-
-	if ((chan < 1) || (chan > 7)) {
-                LOGMSG(env, "Chan %d illegal, must be 1 to 7\n", chan);
-		goto exit;
-	};
-
-	if ((buff < 32) || (buff > 0x800000) || (buff & (buff-1)) ||
-			(buff > MAX_UMD_BUF_COUNT)) {
-                LOGMSG(env,
-			"Bad Buff %x, must be power of 2, 0x20 to 0x%x\n",
-			buff, MAX_UMD_BUF_COUNT);
-		goto exit;
-	};
-
-	if ((sts < 32) || (sts > 0x800000) || (sts & (sts-1))) {
-                LOGMSG(env,
-			"Bad Buff %x, must be power of 2, 0x20 to 0x80000\n",
-			sts);
-		goto exit;
-	};
-
-	if (!rio_addr || !acc_sz) {
-                LOGMSG(env,
-			"Addr and acc_size must be non-zero\n");
-		goto exit;
-	};
-
-	if ((trans < 1) || (trans > 5)) {
-                LOGMSG(env,
-			"Illegal trans %d, must be between 1 and 5 (NREAD=0 disallowed)\n", trans);
-		goto exit;
-	};
+	}
 
 	if (! wkr[idx].ib_valid) {
 		LOGMSG(env, "IBwin not allocated for this worker thread!\n");
 		goto exit;
 	}
-	if (wkr[idx].ib_byte_cnt < acc_sz) {
-		LOGMSG(env, "IBwin too small (0x%" PRIx64 ") must be at least 0x%" PRIx32 "\n", wkr[idx].ib_byte_cnt, acc_sz);
+
+	if (acc_sz > wkr[idx].ib_byte_cnt) {
+		LOGMSG(env, "Access size (0x%" PRIx32 ") is too large. IBwin window size is 0x%" PRIx64 "\n", acc_sz, wkr[idx].ib_byte_cnt);
 		goto exit;
 	}
 
@@ -2333,8 +2567,15 @@ int UDMALatTxRxCmd(const char cmd, struct cli_env *env, int UNUSED(argc), char *
 exit:
 	return 0;
 }
-static int UDMALatTxCmd(struct cli_env *env, int argc, char **argv) { return UDMALatTxRxCmd('T', env, argc, argv); }
-static int UDMALatRxCmd(struct cli_env *env, int argc, char **argv) { return UDMALatTxRxCmd('R', env, argc, argv); }
+static int UDMALatTxCmd(struct cli_env *env, int argc, char **argv)
+{
+	return UDMALatTxRxCmd('T', env, argc, argv);
+}
+
+static int UDMALatRxCmd(struct cli_env *env, int argc, char **argv)
+{
+	return UDMALatTxRxCmd('R', env, argc, argv);
+}
 
 struct cli_cmd UDMALTX = {
 "ltudma",
@@ -2342,18 +2583,18 @@ struct cli_cmd UDMALTX = {
 9,
 "Latency of DMA requests with User-Mode demo driver - Master",
 "<idx> <cpu> <chan> <buff> <sts> <did> <rio_addr> <acc_sz> <trans>\n"
-	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
-	"<cpu> is a cpu number, or -1 to indicate no cpu affinity\n"
-	"<chan> is a DMA channel number from 1 through 7\n"
-	"<buff> is the number of transmit descriptors/buffers to allocate\n"
-	"       Must be a power of two from 0x20 up to 0x80000\n"
-	"<sts> is the number of status entries for completed descriptors\n"
-	"       Must be a power of two from 0x20 up to 0x80000\n"
-	"<did> target device ID\n"
+	"<idx>      is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
+	"<cpu>      is a cpu number, or -1 to indicate no cpu affinity\n"
+	"<chan>     is a DMA channel number from 1 through 7\n"
+	"<buff>     is the number of transmit descriptors/buffers to allocate\n"
+	"           Must be a power of two from 0x20 to " STR(MAX_UMD_BUF_COUNT) "\n"
+	"<sts>      is the number of status entries for completed descriptors\n"
+	"           Must be a power of two from 0x20 to 0x80000\n"
+	"<did>      target device ID\n"
 	"<rio_addr> RapidIO memory address to access\n"
-	"<acc_sz> Access size\n"
-	"<trans>  1 LAST_NWR, 2 NW, 3 NW_R\n"
-	"NOTE:  IBAlloc of size >= acc_sz needed before running this command\n",
+	"<acc_sz>   access size, must be a power of two from 1 to 0xffffffff\n"
+	"<trans>    0: NREAD, 1: LAST_NWR, 2: NW, 3: NW_R\n"
+	"\nNOTE: IBAlloc of size >= acc_sz needed before running this command\n",
 UDMALatTxCmd,
 ATTR_NONE
 };
@@ -2363,26 +2604,26 @@ struct cli_cmd UDMALRX = {
 9,
 "Latency of DMA requests with User-Mode demo driver - Slave",
 "<idx> <cpu> <chan> <buff> <sts> <did> <rio_addr> <acc_sz> <trans>\n"
-	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
-	"<cpu> is a cpu number, or -1 to indicate no cpu affinity\n"
-	"<chan> is a DMA channel number from 1 through 7\n"
-	"<buff> is the number of transmit descriptors/buffers to allocate\n"
-	"       Must be a power of two from 0x20 up to 0x80000\n"
-	"<sts> is the number of status entries for completed descriptors\n"
-	"       Must be a power of two from 0x20 up to 0x80000\n"
-	"<did> target device ID\n"
+	"<idx>      is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
+	"<cpu>      is a cpu number, or -1 to indicate no cpu affinity\n"
+	"<chan>     is a DMA channel number from 1 through 7\n"
+	"<buff>     is the number of transmit descriptors/buffers to allocate\n"
+	"           Must be a power of two from 0x20 to " STR(MAX_UMD_BUF_COUNT) "\n"
+	"<sts>      is the number of status entries for completed descriptors\n"
+	"           Must be a power of two from 0x20 to 0x80000\n"
+	"<did>      target device ID\n"
 	"<rio_addr> RapidIO memory address to access\n"
-	"<acc_sz> Access size\n"
-	"<trans>  1 LAST_NWR, 2 NW, 3 NW_R\n"
-	"NOTE:  IBAlloc of size >= acc_sz needed before running this command\n",
+	"<acc_sz>   access size, must be a power of two from 1 to 0xffffffff\n"
+	"<trans>    1: LAST_NWR, 2: NW, 3: NW_R\n"
+	"\nNOTE: IBAlloc of size >= acc_sz needed before running this command\n",
 UDMALatRxCmd,
 ATTR_NONE
 };
 
 int UDMALatNREAD(struct cli_env *env, int UNUSED(argc), char **argv)
 {
-	int idx;
-	int chan;
+	uint16_t idx;
+	uint32_t chan;
 	int cpu;
 	uint32_t buff;
 	uint32_t sts;
@@ -2390,45 +2631,43 @@ int UDMALatNREAD(struct cli_env *env, int UNUSED(argc), char **argv)
 	uint64_t rio_addr;
 	uint32_t acc_sz;
 
-        int n = 0; // this be a trick from X11 source tree ;)
-
-	idx      = GetDecParm(argv[n++], 0);
-	if (get_cpu(env, argv[n++], &cpu))
+	int n = 0;
+	if (gp_parse_worker_index_check_thread(env, argv[n++], &idx, 1)) {
 		goto exit;
-	chan     = GetDecParm(argv[n++], 0);
-	buff     = GetHex(argv[n++], 0);
-	sts      = GetHex(argv[n++], 0);
-	did      = GetDecParm(argv[n++], 0);
-	rio_addr = GetHex(argv[n++], 0);
-	acc_sz   = GetHex(argv[n++], 0);
+	}
 
-	if (check_idx(env, idx, 1))
+	if (gp_parse_cpu(env, argv[n++], &cpu)) {
 		goto exit;
+	}
 
-	if ((chan < 1) || (chan > 7)) {
-                LOGMSG(env, "Chan %d illegal, must be 1 to 7\n", chan);
+	if (tok_parse_long(argv[n++], &chan, 1, 7, 0)) {
+		LOGMSG(env, "\n");
+		LOGMSG(env, TOK_ERR_LONG_MSG_FMT, "<chan>", 1, 7);
 		goto exit;
-	};
+	}
 
-	if ((buff < 32) || (buff > 0x800000) || (buff & (buff-1)) ||
-			(buff > MAX_UMD_BUF_COUNT)) {
-                LOGMSG(env,
-			"Bad Buff %x, must be power of 2, 0x20 to 0x%x\n",
-			buff, MAX_UMD_BUF_COUNT);
+	if (gp_parse_ul_pw2(env, argv[n++], "<buff>", &buff, 0x20, MAX_UMD_BUF_COUNT)) {
 		goto exit;
-	};
+	}
 
-	if ((sts < 32) || (sts > 0x800000) || (sts & (sts-1))) {
-                LOGMSG(env,
-			"Bad Buff %x, must be power of 2, 0x20 to 0x80000\n",
-			sts);
+	if (gp_parse_ul_pw2(env, argv[n++], "<sts>", &sts, 0x20, 0x800000)) {
 		goto exit;
-	};
+	}
 
-	if (!rio_addr || !acc_sz) {
-                LOGMSG(env, "Addr and acc_size must be non-zero\n");
+	if (gp_parse_did(env, argv[n++], &did)) {
 		goto exit;
-	};
+	}
+
+	if (tok_parse_longlong(argv[n++], &rio_addr, 1, UINT64_MAX, 0)) {
+		LOGMSG(env, "\n");
+		LOGMSG(env, TOK_ERR_LONGLONG_HEX_MSG_FMT, "<rio_addr>",
+				(uint64_t)1, (uint64_t)UINT64_MAX);
+		goto exit;
+	}
+
+	if (gp_parse_ul_pw2(env, argv[n++], "<acc_sz>", &acc_sz, 1, UINT32_MAX)) {
+		goto exit;
+	}
 
 	wkr[idx].action = umd_dmalnr;
 	wkr[idx].action_mode = user_mode_action;
@@ -2459,18 +2698,18 @@ struct cli_cmd UDMALRR = {
 8,
 "Latency of DMA requests with User-Mode demo driver - NREAD",
 "<idx> <cpu> <chan> <buff> <sts> <did> <rio_addr> <acc_sz>\n"
-	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
-        "<cpu> is a cpu number, or -1 to indicate no cpu affinity\n"
-        "<chan> is a DMA channel number from 1 through 7\n"
-        "<buff> is the number of transmit descriptors/buffers to allocate\n"
-        "       Must be a power of two from 0x20 up to 0x80000\n"
-        "<sts> is the number of status entries for completed descriptors\n"
-        "       Must be a power of two from 0x20 up to 0x80000\n"
-        "<did> target device ID\n"
+	"<idx>      is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
+        "<cpu>      is a cpu number, or -1 to indicate no cpu affinity\n"
+        "<chan>     is a DMA channel number from 1 through 7\n"
+        "<buff>     is the number of transmit descriptors/buffers to allocate\n"
+        "           Must be a power of two from 0x20 to "  STR(MAX_UMD_BUF_COUNT) "\n"
+        "<sts>      is the number of status entries for completed descriptors\n"
+        "           Must be a power of two from 0x20 to 0x80000\n"
+        "<did>      target device ID\n"
         "<rio_addr> RapidIO memory address to access\n"
-        "<acc_sz> Access size\n"
-        "NOTE:  IBAlloc on <did> of size >= acc_sz needed before running this command\n"
-        "NOTE:  Enter simulation with \"set sim 1\" before running this command\n",
+        "<acc_sz>   access size, must be a power of two from 1 to 0xffffffff\n"
+        "\nNOTE: IBAlloc on <did> of size >= acc_sz needed before running this command\n"
+        "NOTE: Enter simulation with \"set sim 1\" before running this command\n",
 UDMALatNREAD,
 ATTR_NONE
 };
@@ -2479,11 +2718,16 @@ extern void UMD_DD(const struct worker* wkr);
 
 int UMDDDDCmd(struct cli_env *env, int argc, char **argv)
 {
-	int idx = argc > 0? GetDecParm(argv[0], 0): 0;
-	if (idx < 0 || idx >= MAX_WORKERS) {
-		LOGMSG(env, "Bad idx %d\n", idx);
-		goto exit;
+	uint16_t idx;
+
+	if (argc > 0) {
+		if (gp_parse_worker_index(env, argv[0], &idx)) {
+			goto exit;
+		}
+	} else {
+		idx = 0;
 	}
+
 	UMD_DD(&wkr[idx]);
 
 exit:
@@ -2504,19 +2748,29 @@ extern void UMD_Test(const struct worker* wkr);
 
 int UMDTestCmd(struct cli_env *env, int argc, char **argv)
 {
-        int idx = argc > 0? GetDecParm(argv[0], 0): 0;
-        int did = argc > 1? GetDecParm(argv[1], 666): 666;
+	uint16_t idx;
+	uint32_t did;
 
-        if (idx < 0 || idx >= MAX_WORKERS) {
-                LOGMSG(env, "Bad idx %d\n", idx);
-                goto exit;
-        }
+	if (argc > 0) {
+		if (gp_parse_worker_index(env, argv[0], &idx)) {
+			goto exit;
+		}
+	} else {
+		idx = 0;
+	}
+	if (argc > 1) {
+		if (gp_parse_did(env, argv[1], &did)) {
+			goto exit;
+		}
+	} else {
+		did = 666; // force it to blow up
+	}
 
 	wkr[idx].did = did;
-        UMD_Test(&wkr[idx]);
+	UMD_Test(&wkr[idx]);
 
 exit:
-        return 0;
+	return 0;
 }
 
 struct cli_cmd UMDTest = {
@@ -2532,37 +2786,49 @@ ATTR_NONE
 
 int UMDDDWWWCmd(struct cli_env *env, int argc, char **argv)
 {
-        const int idx = GetDecParm(argv[0], -1);
-        if (idx < 0 || idx >= MAX_WORKERS) {
-                LOGMSG(env, "Bad idx %d\n", idx);
-                return 0;
-        }
+	uint16_t idx;
+	uint16_t dmatunidx;
+	uint16_t port;
 
-        const int dmatunidx = argc > 0? GetDecParm(argv[1], 0): 0;
-        if (dmatunidx < 0 || dmatunidx >= MAX_WORKERS) {
-                LOGMSG(env, "Bad dmatunidx %d\n", dmatunidx);
-                return 0;
-        }
+	if (gp_parse_worker_index(env, argv[0], &idx)) {
+		goto exit;
+	}
+
+	if (argc > 0) {
+		if (gp_parse_worker_index(env, argv[1], &dmatunidx)) {
+			goto exit;
+		}
+	}
 
 	if (idx == dmatunidx) {
-                LOGMSG(env, "Bad dmatunidx %d != idx %d\n", dmatunidx, idx);
-                return 0;
-        }
+		LOGMSG(env, "\n");
+		LOGMSG(env, "Bad dmatunidx %d != idx %d\n", dmatunidx, idx);
+		goto exit;
+ 	}
 
-        const int port = argc > 1? GetDecParm(argv[2], -1): 8080;
+	if (argc > 1) {
+		if (tok_parse_s(argv[2], &port, 0)) {
+			LOGMSG(env, "\n");
+			LOGMSG(env, TOK_ERR_S_HEX_MSG_FMT, "port");
+			goto exit;
+		}
+	} else {
+		port = 8080;
+	}
 
-        wkr[idx].action      = umd_www;
-        wkr[idx].action_mode = user_mode_action;
-        wkr[idx].umd_chan_to = dmatunidx; // FUDGE
-        wkr[idx].umd_chan    = port; // FUDGE
-        wkr[idx].wr          = 0;
-        wkr[idx].use_kbuf    = 0;
+	wkr[idx].action = umd_www;
+	wkr[idx].action_mode = user_mode_action;
+	wkr[idx].umd_chan_to = dmatunidx; // FUDGE
+	wkr[idx].umd_chan = port;// FUDGE
+	wkr[idx].wr = 0;
+	wkr[idx].use_kbuf = 0;
 
-        wkr[idx].stop_req    = 0;
+	wkr[idx].stop_req = 0;
 
 	sem_post(&wkr[idx].run);
 
-        return 0;
+exit:
+	return 0;
 }
 
 struct cli_cmd UMDD_WWW = {
@@ -2571,9 +2837,9 @@ struct cli_cmd UMDD_WWW = {
 1,
 "WWW Server for UMD Tun status",
 "<idx> <dmatunidx> <port>\n"
-        "<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
+        "<idx>       is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
         "<dmatunidx> [optional, default=0] is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
-        "<port> [optional, default=8080] is a TCP/IP port to listen on\n",
+        "<port>      [optional, default=8080] is a TCP/IP port to listen on\n",
 UMDDDWWWCmd,
 ATTR_RPT
 };
@@ -2582,15 +2848,20 @@ extern void UMD_DDD(const struct worker* wkr);
 
 int UMDDDDDCmd(struct cli_env *env, int argc, char **argv)
 {
-        int idx = argc > 0? GetDecParm(argv[0], 0): 0;
-        if (idx < 0 || idx >= MAX_WORKERS) {
-                LOGMSG(env, "Bad idx %d\n", idx);
-                goto exit;
-        }
-        UMD_DDD(&wkr[idx]);
+	uint16_t idx;
+
+	if (argc > 0) {
+		if (gp_parse_worker_index(env, argv[0], &idx)) {
+			goto exit;
+		}
+	} else {
+		idx = 0;
+	}
+
+	UMD_DDD(&wkr[idx]);
 
 exit:
-        return 0;
+	return 0;
 }
 
 struct cli_cmd UMDDDD = {
@@ -2607,105 +2878,111 @@ ATTR_RPT
 
 int UDMACmdTun(struct cli_env *env, int argc, char **argv)
 {
-        int idx;
-        int chan;
-        int chan_n;
-	int chan2;
-        int cpu;
-        uint32_t buff;
-        uint32_t sts;
-	int mtu;
-	int thruput = 0;
-	int dma_method = 0;
+	uint16_t idx;
+	uint16_t chan;
+	uint16_t chan_n;
+	uint16_t chan2;
+	int cpu;
+	uint32_t buff;
+	uint32_t sts;
+	uint32_t mtu;
+	uint16_t thruput;
+	uint16_t dma_method;
 
-        int n = 0; // this be a trick from X11 source tree ;)
+	int n = 0;
+	if (gp_parse_worker_index_check_thread(env, argv[n++], &idx, 1)) {
+		goto exit;
+	}
 
-        idx      = GetDecParm(argv[n++], 0);
-        if (get_cpu(env, argv[n++], &cpu))
-                goto exit;
-        chan     = GetDecParm(argv[n++], 0);
-        chan_n   = GetDecParm(argv[n++], 0);
-        chan2     = GetDecParm(argv[n++], 0);
-        buff     = GetHex(argv[n++], 0);
-        sts      = GetHex(argv[n++], 0);
-        mtu      = GetDecParm(argv[n++], 0);
-        dma_method = GetDecParm(argv[n++], 0);
+	if (gp_parse_cpu(env, argv[n++], &cpu)) {
+		goto exit;
+	}
 
-	if (n <= (argc-1))
-		thruput      = GetDecParm(argv[n++], 0);
+	if (tok_parse_short(argv[n++], &chan, 1, 7, 0)) {
+		LOGMSG(env, "\n");
+		LOGMSG(env, TOK_ERR_SHORT_MSG_FMT, "<chan_1>", 1, 7);
+		goto exit;
+	}
 
-        if (check_idx(env, idx, 1))
-                goto exit;
+	if (tok_parse_short(argv[n++], &chan_n, 1, 7, 0)) {
+		LOGMSG(env, "\n");
+		LOGMSG(env, TOK_ERR_SHORT_MSG_FMT, "<chan_n>", 1, 7);
+		goto exit;
+	}
 
-        if ((chan < 1) || (chan > 7)) {
-                LOGMSG(env, "Chan_1 %d illegal, must be 1 to 7\n", chan);
-                goto exit;
-        };
-        if ((chan_n < 1) || (chan_n > 7)) {
-                LOGMSG(env, "Chan_n %d illegal, must be 1 to 7\n", chan);
-                goto exit;
-        };
+	if (tok_parse_short(argv[n++], &chan2, 1, 7, 0)) {
+		LOGMSG(env, "\n");
+		LOGMSG(env, TOK_ERR_SHORT_MSG_FMT, "<chan_nread>", 1, 7);
+		goto exit;
+	}
+
 	if (chan > chan_n) {
-                LOGMSG(env, "Chan {%d...%d} range illegal\n", chan, chan_n);
-                goto exit;
-        };
-        if ((chan2 < 1) || (chan2 > 7)) {
-                LOGMSG(env, "Chan2 %d illegal, must be 1 to 7\n", chan2);
-                goto exit;
-        };
+		LOGMSG(env, "\n");
+		LOGMSG(env, "Chan {%d...%d} range illegal\n", chan, chan_n);
+		goto exit;
+	}
+
 	if (chan2 >= chan && chan2 <= chan_n) {
-                LOGMSG(env, "Chan2 %d illegal, cannot be in {%d...%d} range\n", chan2, chan, chan_n);
-                goto exit;
-        };
-        if (chan == chan2) {
-                LOGMSG(env, "Must use different channels\n");
-                goto exit;
-        };
+		LOGMSG(env, "\n");
+		LOGMSG(env, "Chan2 %d illegal, cannot be in {%d...%d} range\n", chan2, chan, chan_n);
+		goto exit;
+	}
+	if (chan == chan2) {
+		LOGMSG(env, "\n");
+		LOGMSG(env, "Must use different channels\n");
+		goto exit;
+	}
 
-        if ((buff < 32) || (buff > 0x800000) || (buff & (buff-1)) ||
-                        (buff > MAX_UMD_BUF_COUNT)) {
-                LOGMSG(env,
-                        "Bad Buff %x, must be power of 2, 0x20 to 0x%x\n",
-                        buff, MAX_UMD_BUF_COUNT);
-                goto exit;
-        };
+	if (gp_parse_ul_pw2(env, argv[n++], "<buff>", &buff, 0x20, MAX_UMD_BUF_COUNT)) {
+		goto exit;
+	}
 
-        if ((sts < 32) || (sts > 0x800000) || (sts & (sts-1))) {
-                LOGMSG(env,
-                        "Bad Buff %x, must be power of 2, 0x20 to 0x80000\n",
-                        sts);
-                goto exit;
-        };
+	if (gp_parse_ul_pw2(env, argv[n++], "<sts>", &sts, 0x20, 0x800000)) {
+		goto exit;
+	}
 
-	if (mtu < 580 || mtu > 128*1024) {
-                LOGMSG(env, "MTU %d illegal, must be 580 to 128k\n", mtu);
-                goto exit;
-        };
+	if (tok_parse_long(argv[n++], &mtu, 580, 128*1024, 0)) {
+		LOGMSG(env, "\n");
+		LOGMSG(env, TOK_ERR_LONG_MSG_FMT, "<mtu>", 580, 128*1024);
+		goto exit;
+	}
 
-        wkr[idx].action = umd_dma_tap;
-        wkr[idx].action_mode = user_mode_action;
-        wkr[idx].dma_method  = dma_method? ACCESS_MPORT: ACCESS_UMD;
-        wkr[idx].umd_chan    = chan;
-        wkr[idx].umd_chan_n  = chan_n;
-        wkr[idx].umd_chan2   = chan2; // for NREAD
-        wkr[idx].umd_tun_MTU = mtu;
-        wkr[idx].umd_fifo_thr.cpu_req = cpu;
-        wkr[idx].umd_fifo_thr.cpu_run = wkr[idx].wkr_thr.cpu_run;
-        wkr[idx].umd_tx_buf_cnt = buff;
-        wkr[idx].umd_sts_entries = sts;
-        wkr[idx].umd_tun_thruput = !!thruput;
+	if (gp_parse_bool(env, argv[n++], "<dma_method>", &dma_method)) {
+		goto exit;
+	}
+
+	if (n <= (argc-1)) {
+		if (gp_parse_bool(env, argv[n++], "<thruput>", &thruput)) {
+			goto exit;
+		}
+	} else {
+		thruput = 0;
+	}
+
+	wkr[idx].action = umd_dma_tap;
+	wkr[idx].action_mode = user_mode_action;
+	wkr[idx].dma_method  = dma_method? ACCESS_MPORT: ACCESS_UMD;
+	wkr[idx].umd_chan    = chan;
+	wkr[idx].umd_chan_n  = chan_n;
+	wkr[idx].umd_chan2   = chan2; // for NREAD
+	wkr[idx].umd_tun_MTU = mtu;
+	wkr[idx].umd_fifo_thr.cpu_req = cpu;
+	wkr[idx].umd_fifo_thr.cpu_run = wkr[idx].wkr_thr.cpu_run;
+	wkr[idx].umd_tx_buf_cnt = buff;
+	wkr[idx].umd_sts_entries = sts;
+	wkr[idx].umd_tun_thruput = !!thruput;
 	wkr[idx].did = ~0;
 	wkr[idx].rio_addr = 0;
-        wkr[idx].byte_cnt = 0;
-        wkr[idx].acc_size = mtu+DMA_L2_SIZE;
-        wkr[idx].umd_tx_rtype = ALL_NWRITE;
-        wkr[idx].wr = 1;
-        wkr[idx].use_kbuf = 1;
+	wkr[idx].byte_cnt = 0;
+	wkr[idx].acc_size = mtu+DMA_L2_SIZE;
+	wkr[idx].umd_tx_rtype = ALL_NWRITE;
+	wkr[idx].wr = 1;
+	wkr[idx].use_kbuf = 1;
 
-        wkr[idx].stop_req = 0;
-        sem_post(&wkr[idx].run);
+	wkr[idx].stop_req = 0;
+	sem_post(&wkr[idx].run);
 exit:
-        return 0;
+	return 0;
 }
 
 struct cli_cmd UDMAT = {
@@ -2714,20 +2991,20 @@ struct cli_cmd UDMAT = {
 7,
 "TUN/TAP (L3) over DMA with User-Mode demo driver -- pointopoint",
 "<idx> <cpu> <chan_1> <chan_n> <chan_nread> <buff> <sts> <mtu> <rdma> <thruput>\n"
-        "<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
-        "<cpu> is a cpu number, or -1 to indicate no cpu affinity\n"
-        "<chan_1> is a DMA channel number from 1 through 7\n"
-        "<chan_n> is a DMA channel number from 1 through 7 -- we use chan{1...n} for TX round-robin\n"
+        "<idx>        is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
+        "<cpu>        is a cpu number, or -1 to indicate no cpu affinity\n"
+        "<chan_1>     is a DMA channel number from 1 through 7\n"
+        "<chan_n>     is a DMA channel number from 1 through 7 -- we use chan{1...n} for TX round-robin\n"
         "<chan_nread> is a DMA channel number from 1 through 7 used for NREAD, distinct from range above\n"
-        "<buff> is the number of transmit descriptors/buffers to allocate\n"
-        "       Must be a power of two from 0x20 up to 0x80000\n"
-        "<sts> is the number of status entries for completed descriptors\n"
-        "       Must be a power of two from 0x20 up to 0x80000\n"
-        "<mtu> is interface MTU\n"
-        "       Must be between (576+4) and 128k; upper bound depends on kernel\n"
-        "<rdma> 0=DMAChannel 1=libmport\n"
-        "<thruput> [optional] optimise for 1=thruput 0=latency {default}\n"
-        "Note: tunX device will be configured as 169.254.x.y where x.y is our destid+1\n"
+        "<buff>       is the number of transmit descriptors/buffers to allocate\n"
+        "             Must be a power of two from 0x20 to "  STR(MAX_UMD_BUF_COUNT) "\n"
+        "<sts>        is the number of status entries for completed descriptors\n"
+        "             Must be a power of two from 0x20 to 0x80000\n"
+        "<mtu>        is interface MTU\n"
+        "             Must be between (576+4) and 128k; upper bound depends on kernel\n"
+        "<rdma>       0: DMAChannel, 1: libmport\n"
+        "<thruput>    [optional] optimise for 1=thruput 0=latency {default}\n"
+        "\nNote: tunX device will be configured as 169.254.x.y where x.y is our destid+1\n"
         "Note: IBAlloc size = (8+MTU)*buf+4 needed before running this command\n",
 UDMACmdTun,
 ATTR_NONE
@@ -2735,109 +3012,104 @@ ATTR_NONE
 
 int UMSGCmd(const char cmd, struct cli_env *env, int UNUSED(argc), char **argv)
 {
-        int idx;
-        int chan;
-        int chan_to = -1;
-        int letter = 0;
-        int cpu;
-        uint32_t buff;
-        uint32_t sts;
-        uint32_t did;
-        uint32_t acc_sz;
-        int txrx = 0;
+	uint16_t idx;
+	uint16_t chan;
+	uint16_t chan_to;
+	uint16_t letter;
+	int cpu;
+	uint32_t buff;
+	uint32_t sts;
+	uint32_t did;
+	uint32_t acc_sz;
+	uint16_t txrx;
 
-        int n = 0; // this be a trick from X11 source tree ;)
-
-        idx      = GetDecParm(argv[n++], 0);
-	if (get_cpu(env, argv[n++], &cpu))
+	int n = 0;
+	if (gp_parse_worker_index_check_thread(env, argv[n++], &idx, 1)) {
 		goto exit;
-        chan     = GetDecParm(argv[n++], 0);
-        if (cmd == 'T') {
-		chan_to  = GetDecParm(argv[n++], 0);
-		letter   = GetDecParm(argv[n++], 0);
-	}
-        buff     = GetHex(argv[n++], 0);
-        sts      = GetHex(argv[n++], 0);
-        did      = GetDecParm(argv[n++], 0);
-        acc_sz   = GetHex(argv[n++], 0);
-        txrx     = GetDecParm(argv[n++], 0);
-
-        if (cmd != 'L' && cmd != 'T') {
-                LOGMSG(env, "Command '%c' illegal, this should never happen\n", cmd);
-                goto exit;
-        };
-
-        if (check_idx(env, idx, 1))
-                goto exit;
-
-        if ((chan < 2) || (chan > 3)) {
-                LOGMSG(env, "Chan %d illegal, must be 2 to 3\n", chan);
-                goto exit;
-        };
-        if (cmd == 'T'){
-		if ((chan_to < 2) || (chan_to > 3)) {
-			LOGMSG(env, "Chan_to %d illegal, must be 2 to 3\n", chan);
-			goto exit;
-		}
-		if ((letter < 0) || (letter > 3)) {
-			LOGMSG(env, "Letter %d illegal, must be 0 to 3\n", letter);
-			goto exit;
-		}
-        };
-
-
-	if ((buff < 32) || (buff > MAX_UMD_BUF_COUNT) || (buff & (buff-1)) ||
-			(buff > MAX_UMD_BUF_COUNT)) {
-                LOGMSG(env,
-			"Bad Buff %x, must be power of 2, 0x20 to 0x%x\n",
-			buff, MAX_UMD_BUF_COUNT);
-		goto exit;
-	};
-
-        if ((sts < 32) || (sts > 0x800000) || (sts & (sts-1))) {
-                LOGMSG(env,
-                        "Bad STS %x, must be power of 2, 0x20 to 0x80000\n",
-                        sts);
-                goto exit;
-        };
-	if ((acc_sz < 1 || acc_sz > 4096) && txrx) {
-                LOGMSG(env,
-                        "Bad acc_sz %d, must be 1..4096\n", acc_sz);
-                goto exit;
 	}
 
-        if (mp_h_qresp_valid && (qresp.hdid == did) && txrx &&
+	if (gp_parse_cpu(env, argv[n++], &cpu)) {
+		goto exit;
+	}
+
+	if (tok_parse_short(argv[n++], &chan, 2, 3, 0)) {
+		LOGMSG(env, "\n");
+		LOGMSG(env, TOK_ERR_SHORT_MSG_FMT, "<chan>", 2, 3);
+		goto exit;
+	}
+
+	if (cmd == 'T') {
+		if (tok_parse_short(argv[n++], &chan_to, 2, 3, 0)) {
+			LOGMSG(env, "\n");
+			LOGMSG(env, TOK_ERR_SHORT_MSG_FMT, "<chan_to>", 2, 3);
+			goto exit;
+		}
+		if (tok_parse_short(argv[n++], &letter, 0, 3, 0)) {
+			LOGMSG(env, "\n");
+			LOGMSG(env, TOK_ERR_SHORT_MSG_FMT, "<letter>", 0, 3);
+			goto exit;
+		}
+	}
+
+	if (gp_parse_ul_pw2(env, argv[n++], "<buff>", &buff, 0x20, MAX_UMD_BUF_COUNT)) {
+		goto exit;
+	}
+
+	if (gp_parse_ul_pw2(env, argv[n++], "<sts>", &sts, 0x20, 0x800000)) {
+		goto exit;
+	}
+
+	if (gp_parse_did(env, argv[n++], &did)) {
+		goto exit;
+	}
+
+	if (gp_parse_ul_pw2(env, argv[n++], "<size>", &acc_sz, 8, 4096)) {
+		goto exit;
+	}
+
+	if (gp_parse_bool(env, argv[n++], "<txrx>", &txrx)) {
+		goto exit;
+	}
+
+	if (cmd != 'L' && cmd != 'T') {
+		LOGMSG(env, "\n");
+		LOGMSG(env, "Command '%c' illegal, this should never happen\n", cmd);
+		goto exit;
+	}
+
+
+	if (mp_h_qresp_valid && (qresp.hdid == did) && txrx &&
 			(GetEnv((char *)"FORCE_DESTID") == NULL)) {
-                LOGMSG(env,
-                	"\n\tERROR: Testing against own desitd=%d."
-                        "Set env FORCE_DESTID to disable this check.\n",
-                        did);
-                goto exit;
-        }
+		LOGMSG(env,
+			"\n\tERROR: Testing against own desitd=%d."
+			"Set env FORCE_DESTID to disable this check\n",
+			did);
+		goto exit;
+	}
 
-        wkr[idx].action = (cmd == 'T')? umd_mbox: umd_mboxl;
-        wkr[idx].action_mode = user_mode_action;
-        wkr[idx].umd_chan    = chan;
-        wkr[idx].umd_chan_to = chan_to;
-        wkr[idx].umd_letter  = letter;
-        wkr[idx].umd_fifo_thr.cpu_req = cpu;
-        wkr[idx].umd_fifo_thr.cpu_run = wkr[idx].wkr_thr.cpu_run;
-        wkr[idx].umd_tx_buf_cnt = buff;
-        wkr[idx].umd_sts_entries = sts;
-        wkr[idx].did = did;
-        wkr[idx].rio_addr = 0;
-        wkr[idx].byte_cnt = 0;
-        wkr[idx].acc_size = acc_sz;
-        wkr[idx].umd_tx_rtype = (enum dma_rtype)-1;
-        wkr[idx].wr = !!txrx;
-        wkr[idx].use_kbuf = 1;
+	wkr[idx].action = (cmd == 'T')? umd_mbox: umd_mboxl;
+	wkr[idx].action_mode = user_mode_action;
+	wkr[idx].umd_chan    = chan;
+	wkr[idx].umd_chan_to = chan_to;
+	wkr[idx].umd_letter  = letter;
+	wkr[idx].umd_fifo_thr.cpu_req = cpu;
+	wkr[idx].umd_fifo_thr.cpu_run = wkr[idx].wkr_thr.cpu_run;
+	wkr[idx].umd_tx_buf_cnt = buff;
+	wkr[idx].umd_sts_entries = sts;
+	wkr[idx].did = did;
+	wkr[idx].rio_addr = 0;
+	wkr[idx].byte_cnt = 0;
+	wkr[idx].acc_size = acc_sz;
+	wkr[idx].umd_tx_rtype = (enum dma_rtype)-1;
+	wkr[idx].wr = !!txrx;
+	wkr[idx].use_kbuf = 1;
 
-        wkr[idx].stop_req = 0;
-        wkr[idx].max_iter = GetDecParm((char *)"$maxit", -1);
+	wkr[idx].stop_req = 0;
+	wkr[idx].max_iter = GetDecParm((char *)"$maxit", -1);
 
-        sem_post(&wkr[idx].run);
+	sem_post(&wkr[idx].run);
 exit:
-        return 0;
+	return 0;
 }
 
 int UMSGCmdThruput(struct cli_env *env, int argc, char **argv)
@@ -2857,82 +3129,72 @@ struct cli_cmd UMSG = {
 "<idx> <cpu> <chan> <chan_to> <letter> <buff> <sts> <did> <size> <txrx>\n"
 	"<idx>    : worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
 	"<cpu>    : cpu number, or -1 to indicate no cpu affinity\n"
-	"<chan>   : Local MBOX channel number from 2 through 3\n"
-	"<chan_to>: Remote MBOX channel number from 2 through 3\n"
-	"<letter> : Remote MBOX letter number from 0 through 3 -- ignored for RX\n"
+	"<chan>   : local MBOX channel number from 2 through 3\n"
+	"<chan_to>: remote MBOX channel number from 2 through 3\n"
+	"<letter> : remote MBOX letter number from 0 through 3 -- ignored for RX\n"
 	"<buff>   : number of transmit descriptors/buffers to allocate\n"
-	"           A power of two, 0x20 up to " STR(MAX_UMD_BUF_COUNT) "\n"
+	"           Must be a power of two, 0x20 to " STR(MAX_UMD_BUF_COUNT) "\n"
 	"<sts>    : number of status entries for completed descriptors\n"
-	"           A power of two, 0x20 up to 0x80000\n"
+	"           Must be a power of two, 0x20 to 0x80000\n"
 	"<did>    : target device ID (if Transmitting) -- ignored for RX\n"
-	"<size>   : Message size, hexadecimal multiple of 8\n"
-	"           Minimum 8 maximum 0x1000 (8 through 4096)\n"
-	"           Note: Only used when txrx <> 0\n"
-	"<txrx>   : 0 RX, 1 TX\n",
+	"<size>   : message size, must be a multiple of 8 from 8 through 4096\n"
+	"           Note: Only used when txrx = 1\n"
+	"<txrx>   : 0: RX, 1: TX\n",
 UMSGCmdThruput,
 ATTR_NONE
 };
 
 int UMSGCmdTun(struct cli_env *env, int UNUSED(argc), char **argv)
 {
-        int idx;
-        int chan;
-        int cpu;
-        uint32_t buff;
-        uint32_t sts;
+	uint16_t idx;
+	uint16_t chan;
+	int cpu;
+	uint32_t buff;
+	uint32_t sts;
 
-        int n = 0; // this be a trick from X11 source tree ;)
-
-        idx      = GetDecParm(argv[n++], 0);
-	if (get_cpu(env, argv[n++], &cpu))
+	int n = 0;
+	if (gp_parse_worker_index_check_thread(env, argv[n++], &idx, 1)) {
 		goto exit;
-        chan     = GetDecParm(argv[n++], 0);
-        buff     = GetHex(argv[n++], 0);
-        sts      = GetHex(argv[n++], 0);
+	}
 
-        if (check_idx(env, idx, 1))
-                goto exit;
-
-        if ((chan < 2) || (chan > 3)) {
-                LOGMSG(env, "Chan %d illegal, must be 2 to 3\n", chan);
-                goto exit;
-        };
-
-	if ((buff < 32) || (buff > 0x800000) || (buff & (buff-1)) ||
-			(buff > MAX_UMD_BUF_COUNT)) {
-                LOGMSG(env,
-			"Bad Buff %x, must be power of 2, 0x20 to 0x%x\n",
-			buff, MAX_UMD_BUF_COUNT);
+	if (gp_parse_cpu(env, argv[n++], &cpu)) {
 		goto exit;
-	};
+	}
 
-        if ((sts < 32) || (sts > 0x800000) || (sts & (sts-1))) {
-                LOGMSG(env,
-                        "Bad Buff %x, must be power of 2, 0x20 to 0x80000\n",
-                        sts);
-                goto exit;
-        };
+	if (tok_parse_short(argv[n++], &chan, 2, 3, 0)) {
+		LOGMSG(env, "\n");
+		LOGMSG(env, TOK_ERR_SHORT_MSG_FMT, "<chan>", 2, 3);
+		goto exit;
+	}
 
-        wkr[idx].action      = umd_mbox_tap;
-        wkr[idx].action_mode = user_mode_action;
-        wkr[idx].umd_chan    = chan;
-        wkr[idx].umd_chan_to = chan; // FUGE
-        wkr[idx].umd_fifo_thr.cpu_req = cpu;
-        wkr[idx].umd_fifo_thr.cpu_run = wkr[idx].wkr_thr.cpu_run;
-        wkr[idx].umd_tx_buf_cnt = buff;
-        wkr[idx].umd_sts_entries = sts;
-        wkr[idx].did = 0;
-        wkr[idx].rio_addr = 0;
-        wkr[idx].byte_cnt = 0;
-        wkr[idx].acc_size = 0;
-        wkr[idx].umd_tx_rtype = MAINT_WR;
-        wkr[idx].wr = 1;
-        wkr[idx].use_kbuf = 1;
+	if (gp_parse_ul_pw2(env, argv[n++], "<buff>", &buff, 0x20, MAX_UMD_BUF_COUNT)) {
+		goto exit;
+	}
 
-        wkr[idx].stop_req = 0;
-        sem_post(&wkr[idx].run);
+	if (gp_parse_ul_pw2(env, argv[n++], "<sts>", &sts, 0x20, 0x800000)) {
+		goto exit;
+	}
+
+	wkr[idx].action      = umd_mbox_tap;
+	wkr[idx].action_mode = user_mode_action;
+	wkr[idx].umd_chan    = chan;
+	wkr[idx].umd_chan_to = chan; // FUDGE
+	wkr[idx].umd_fifo_thr.cpu_req = cpu;
+	wkr[idx].umd_fifo_thr.cpu_run = wkr[idx].wkr_thr.cpu_run;
+	wkr[idx].umd_tx_buf_cnt = buff;
+	wkr[idx].umd_sts_entries = sts;
+	wkr[idx].did = 0;
+	wkr[idx].rio_addr = 0;
+	wkr[idx].byte_cnt = 0;
+	wkr[idx].acc_size = 0;
+	wkr[idx].umd_tx_rtype = MAINT_WR;
+	wkr[idx].wr = 1;
+	wkr[idx].use_kbuf = 1;
+
+	wkr[idx].stop_req = 0;
+	sem_post(&wkr[idx].run);
 exit:
-        return 0;
+	return 0;
 }
 
 struct cli_cmd UMSGL = {
@@ -2941,18 +3203,17 @@ struct cli_cmd UMSGL = {
 8,
 "Latency of MBOX requests with User-Mode demo driver",
 "<idx> <cpu> <chan> <buff> <sts> <did> <size> <txrx>\n"
-	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
-        "<cpu> is a cpu number, or -1 to indicate no cpu affinity\n"
+	"<idx>  is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
+        "<cpu>  is a cpu number, or -1 to indicate no cpu affinity\n"
         "<chan> is a MBOX channel number from 2 through 3\n"
         "<buff> is the number of transmit descriptors/buffers to allocate\n"
-        "       Must be a power of two from 0x20 up to 0x80000\n"
+        "       Must be a power of two from  0x20 to " STR(MAX_UMD_BUF_COUNT) "\n"
         "<sts>  the number of status entries for completed descriptors\n"
-        "       Must be a power of two from 0x20 up to 0x80000\n"
+        "       Must be a power of two from 0x20 to 0x80000\n"
         "<did>  target device ID (if Transmitting) -- ignored for RX\n"
-	"<size> Message size, hexadecimal multiple of 8\n"
-	"       Minimum 8 maximum 0x1000 (8 through 4096)\n"
-	"       Note: Only used when txrx <> 0\n"
-        "<txrx> 0 Slave, 1 Master\n",
+	"<size> message size, must be a multiple of 8 from 8 to 4096\n"
+	"       Note: Only used when txrx = 1\n"
+        "<txrx> 0: Slave, 1: Master\n",
 UMSGCmdLat,
 ATTR_NONE
 };
@@ -2963,14 +3224,14 @@ struct cli_cmd UMSGT = {
 5,
 "TUN/TAP (L3) over MBOX with User-Mode demo driver",
 "<idx> <cpu> <chan> <buff> <sts>\n"
-        "<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
-        "<cpu> is a cpu number, or -1 to indicate no cpu affinity\n"
+        "<idx>  is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
+        "<cpu>  is a cpu number, or -1 to indicate no cpu affinity\n"
         "<chan> is a MBOX channel number from 2 through 3\n"
         "<buff> is the number of transmit descriptors/buffers to allocate\n"
-        "       Must be a power of two from 0x20 up to 0x80000\n"
-        "<sts> is the number of status entries for completed descriptors\n"
-        "       Must be a power of two from 0x20 up to 0x80000\n"
-        "Note: tunX device will be configured as 169.254.x.y where x.y is our destid+1",
+        "       Must be a power of two from 0x20 to " STR(MAX_UMD_BUF_COUNT) "\n"
+        "<sts>  is the number of status entries for completed descriptors\n"
+        "       Must be a power of two from 0x20 to 0x80000\n"
+        "\nNote: tunX device will be configured as 169.254.x.y where x.y is our destid+1",
 UMSGCmdTun,
 ATTR_NONE
 };
@@ -3003,21 +3264,21 @@ int getIsolCPU(std::vector<std::string>& cpus)
 
 int IsolcpuCmd(struct cli_env *env, int argc, char **argv)
 {
-        int minisolcpu = 0;
+	int minisolcpu = 0;
 
-        int n = 0; // this be a trick from X11 source tree ;)
-
-        if (argc > 0)
-		minisolcpu = GetDecParm(argv[n++], 0);
+	if (argc > 0)
+		minisolcpu = GetDecParm(argv[0], 0);
 
 	std::vector<std::string> cpus;
 
 	const int NI = getIsolCPU(cpus);
 
-	if(minisolcpu > 0 && NI < minisolcpu) {
-		CRIT("\n\tMinimum number of isolcpu cores (%d) not met, got %d. Bailing out!\n", minisolcpu, NI);
+	if (minisolcpu > 0 && NI < minisolcpu) {
+		CRIT("\n\tMinimum number of isolcpu cores (%d) not met, got %d. Bailing out!\n",
+		minisolcpu, NI);
 		return -1;
 	}
+
 
 	int c = 0;
 	char clist[129] = {0};
@@ -3050,46 +3311,49 @@ ATTR_NONE
 
 int EpWatchCmd(struct cli_env *env, int argc, char **argv)
 {
-	int idx = 0;
-        int tundmathreadindex = -1;
-        int epdid = ~0;
+	uint16_t idx;
+	uint16_t tundmathreadindex;
+	uint32_t epdid = 0xffffffff;
 
-        int n = 0; // this be a trick from X11 source tree ;)
-
-        idx               = GetDecParm(argv[n++], 0);
-	tundmathreadindex = GetDecParm(argv[n++], 0);
-	if (argc > 2)
-		epdid = GetDecParm(argv[n++], 0);
-
-        if (check_idx(env, idx, 1))
-                goto exit;
-
-        if (check_idx(env, tundmathreadindex, 0))
-                goto exit;
-
-	if (idx == tundmathreadindex) {
-                LOGMSG(env, "Must use different worker threads!\n");
-                goto exit;
+	int n = 0;
+	if (gp_parse_worker_index_check_thread(env, argv[n++], &idx, 1)) {
+		goto exit;
 	}
 
-        wkr[idx].action      = umd_epwatch;
-        wkr[idx].action_mode = user_mode_action;
-        wkr[idx].umd_chan    = -1; // FUGE
-        wkr[idx].umd_chan_to = tundmathreadindex; // FUDGE
-        wkr[idx].umd_fifo_thr.cpu_req = -1;
-        wkr[idx].umd_fifo_thr.cpu_run = -1;
-        wkr[idx].umd_tx_buf_cnt = 0;
-        wkr[idx].umd_sts_entries = 0;
-	wkr[idx].did = epdid; // FUDGE
-        wkr[idx].rio_addr = 0;
-        wkr[idx].byte_cnt = 0;
-        wkr[idx].acc_size = 0;
-        wkr[idx].umd_tx_rtype = MAINT_WR;
-        wkr[idx].wr = 0;
-        wkr[idx].use_kbuf = 0;
+	if (gp_parse_worker_index_check_thread(env, argv[n++], &tundmathreadindex, 1)) {
+		goto exit;
+	}
 
-        wkr[idx].stop_req = 0;
-        sem_post(&wkr[idx].run);
+	if (argc > 2) {
+		if (gp_parse_did(env, argv[n++], &epdid)) {
+			goto exit;
+		}
+	}
+
+	if (idx == tundmathreadindex) {
+		LOGMSG(env, "\n");
+		LOGMSG(env, "Must use different worker threads!\n");
+		goto exit;
+	}
+
+	wkr[idx].action      = umd_epwatch;
+	wkr[idx].action_mode = user_mode_action;
+	wkr[idx].umd_chan    = -1; // FUDGE
+	wkr[idx].umd_chan_to = tundmathreadindex; // FUDGE
+	wkr[idx].umd_fifo_thr.cpu_req = -1;
+	wkr[idx].umd_fifo_thr.cpu_run = -1;
+	wkr[idx].umd_tx_buf_cnt = 0;
+	wkr[idx].umd_sts_entries = 0;
+	wkr[idx].did = epdid; // FUDGE
+	wkr[idx].rio_addr = 0;
+	wkr[idx].byte_cnt = 0;
+	wkr[idx].acc_size = 0;
+	wkr[idx].umd_tx_rtype = MAINT_WR;
+	wkr[idx].wr = 0;
+	wkr[idx].use_kbuf = 0;
+
+	wkr[idx].stop_req = 0;
+	sem_post(&wkr[idx].run);
 
 	return 0;
 
@@ -3103,84 +3367,72 @@ struct cli_cmd EPWatch = {
 2,
 "Watches RIO endpoints coming/going",
 "<idx> <tundmathreadindex> <ep-did>\n"
-        "<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
-        "<tundmathreadindex> Idx of tundma thread which must be started prior to this thread.\n"
-	"<ep-did> [optional] EP to delete (simulates EP going away)",
+        "<idx>               is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
+        "<tundmathreadindex> index of tundma thread which must be started prior to this thread\n"
+	"<ep-did> [optional] endpoint to delete (simulates EP going away)",
 EpWatchCmd,
 ATTR_NONE
 };
 
 int UMSGCmdWatch(struct cli_env *env, int UNUSED(argc), char **argv)
 {
-        int idx;
-        int tundmathreadindex = -1;
-        int chan;
-        uint32_t buff;
-        uint32_t sts;
+	uint16_t idx;
+	uint16_t tundmathreadindex;
+	uint16_t chan;
+	uint32_t buff;
+	uint32_t sts;
 
-        int n = 0; // this be a trick from X11 source tree ;)
+	int n = 0;
+	if (gp_parse_worker_index_check_thread(env, argv[n++], &idx, 1)) {
+		goto exit;
+	}
 
-        idx      = GetDecParm(argv[n++], 0);
-        tundmathreadindex = GetDecParm(argv[n++], 0);
+	if (gp_parse_worker_index_check_thread(env, argv[n++], &tundmathreadindex, 0)) {
+		goto exit;
+	}
 
-        if (check_idx(env, idx, 1))
-                goto exit;
+	if (idx == tundmathreadindex) {
+		LOGMSG(env, "\n");
+		LOGMSG(env, "Must use different worker threads!\n");
+		goto exit;
+	}
 
-        if (check_idx(env, tundmathreadindex, 0))
-                goto exit;
+	if (tok_parse_short(argv[n++], &chan, 2, 3, 0)) {
+		LOGMSG(env, "\n");
+		LOGMSG(env, TOK_ERR_SHORT_MSG_FMT, "<chan>", 2, 3);
+		goto exit;
+	}
 
-        if (idx == tundmathreadindex) {
-                LOGMSG(env, "Must use different worker threads!\n");
-                goto exit;
-        }
 
-        chan     = GetDecParm(argv[n++], 0);
-        buff     = GetHex(argv[n++], 0);
-        sts      = GetHex(argv[n++], 0);
+	if (gp_parse_ul_pw2(env, argv[n++], "<buff>", &buff, 0x20, MAX_UMD_BUF_COUNT)) {
+		goto exit;
+	}
 
-        if (check_idx(env, idx, 1))
-                goto exit;
 
-        if ((chan < 2) || (chan > 3)) {
-                LOGMSG(env, "Chan %d illegal, must be 2 to 3\n", chan);
-                goto exit;
-        };
+	if (gp_parse_ul_pw2(env, argv[n++], "<sts>", &sts, 0x20, 0x800000)) {
+		goto exit;
+	}
 
-        if ((buff < 32) || (buff > 0x800000) || (buff & (buff-1)) ||
-                        (buff > MAX_UMD_BUF_COUNT)) {
-                LOGMSG(env,
-                        "Bad Buff %x, must be power of 2, 0x20 to 0x%x\n",
-                        buff, MAX_UMD_BUF_COUNT);
-                goto exit;
-        };
-
-        if ((sts < 32) || (sts > 0x800000) || (sts & (sts-1))) {
-                LOGMSG(env,
-                        "Bad Buff %x, must be power of 2, 0x20 to 0x80000\n",
-                        sts);
-                goto exit;
-        };
-
-        wkr[idx].action      = umd_mbox_watch;
-        wkr[idx].action_mode = user_mode_action;
-        wkr[idx].umd_chan    = chan;
-        wkr[idx].umd_chan_to    = tundmathreadindex; // FUDGE
-        wkr[idx].umd_fifo_thr.cpu_req = -1;
-        wkr[idx].umd_fifo_thr.cpu_run = wkr[idx].wkr_thr.cpu_run;
-        wkr[idx].umd_tx_buf_cnt = buff;
-        wkr[idx].umd_sts_entries = sts;
+	wkr[idx].action      = umd_mbox_watch;
+	wkr[idx].action_mode = user_mode_action;
+	wkr[idx].umd_chan    = chan;
+	wkr[idx].umd_chan_to    = tundmathreadindex; // FUDGE
+	wkr[idx].umd_fifo_thr.cpu_req = -1;
+	wkr[idx].umd_fifo_thr.cpu_run = wkr[idx].wkr_thr.cpu_run;
+	wkr[idx].umd_tx_buf_cnt = buff;
+	wkr[idx].umd_sts_entries = sts;
 	wkr[idx].did = ~0;
-        wkr[idx].rio_addr = 0;
-        wkr[idx].byte_cnt = 0;
-        wkr[idx].acc_size = 0;
-        wkr[idx].umd_tx_rtype = MAINT_WR;
-        wkr[idx].wr = 1;
-        wkr[idx].use_kbuf = 1;
+	wkr[idx].rio_addr = 0;
+	wkr[idx].byte_cnt = 0;
+	wkr[idx].acc_size = 0;
+	wkr[idx].umd_tx_rtype = MAINT_WR;
+	wkr[idx].wr = 1;
+	wkr[idx].use_kbuf = 1;
 
-        wkr[idx].stop_req = 0;
-        sem_post(&wkr[idx].run);
+	wkr[idx].stop_req = 0;
+	sem_post(&wkr[idx].run);
 exit:
-        return 0;
+	return 0;
 }
 
 struct cli_cmd UMSGWATCH = {
@@ -3189,57 +3441,52 @@ struct cli_cmd UMSGWATCH = {
 5,
 "Watches MBOX messages about peers' IBwin allocations",
 "<idx> <tundmathreadindex> <chan> <buff> <sts>\n"
-        "<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
-	"<tundmathreadindex> idx of tundma thread which must be started prior to this thread.\n"
-        "<chan> is a MBOX channel number from 2 through 3\n"
-        "<buff> is the number of transmit descriptors/buffers to allocate\n"
-        "       Must be a power of two from 0x20 up to 0x80000\n"
-        "<sts> is the number of status entries for completed descriptors\n"
-        "       Must be a power of two from 0x20 up to 0x80000\n",
+        "<idx>               is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
+	"<tundmathreadindex> index of tundma thread which must be started prior to this thread\n"
+        "<chan>              is a MBOX channel number from 2 through 3\n"
+        "<buff>              is the number of transmit descriptors/buffers to allocate\n"
+        "                    Must be a power of two from 0x20 up " STR(MAX_UMD_BUF_COUNT) "\n"
+        "<sts>               is the number of status entries for completed descriptors\n"
+        "                    Must be a power of two from 0x20 to 0x80000\n",
 UMSGCmdWatch,
 ATTR_NONE
 };
 
 int AFUCmdWatch(struct cli_env *env, int UNUSED(argc), char **argv)
 {
-        int idx;
-	int max_tag;
-        int n = 0; // this be a trick from X11 source tree ;)
+	uint16_t idx;
+	uint32_t max_tag;
 
-        idx      = GetDecParm(argv[n++], 0);
+	int n = 0;
+	if (gp_parse_worker_index_check_thread(env, argv[n++], &idx, 1)) {
+		goto exit;
+	}
 
-        if (check_idx(env, idx, 1))
-                goto exit;
+	if (gp_parse_ul_pw2(env, argv[n++], "<max_tag>", &max_tag, 4, 1024)) {
+		goto exit;
+	}
 
-        max_tag   = GetDecParm(argv[n++], 8);
+	wkr[idx].action      = umd_afu_watch;
+	wkr[idx].action_mode = user_mode_action;
+	wkr[idx].umd_chan       = max_tag; // FUDGE
+	wkr[idx].umd_chan_to    = -1;
+	wkr[idx].umd_fifo_thr.cpu_req = -1;
+	wkr[idx].umd_fifo_thr.cpu_run = wkr[idx].wkr_thr.cpu_run;
+	wkr[idx].umd_tx_buf_cnt = 0;
+	wkr[idx].umd_sts_entries = 0;
+	wkr[idx].did = ~0;
+	wkr[idx].rio_addr = 0;
+	wkr[idx].byte_cnt = 0;
+	wkr[idx].acc_size = 0;
+	wkr[idx].umd_tx_rtype = MAINT_WR;
+	wkr[idx].wr = 0;
+	wkr[idx].use_kbuf = 0;
 
-	if ((max_tag < 4) || (max_tag > 1024) || (max_tag & (max_tag-1))) {
-                LOGMSG(env, "Bad max_tag %x, must be power of 2, 4 to 1024\n", max_tag);
-                goto exit;
-        };
+	wkr[idx].stop_req = 0;
 
-
-        wkr[idx].action      = umd_afu_watch;
-        wkr[idx].action_mode = user_mode_action;
-        wkr[idx].umd_chan       = max_tag; // FUDGE
-        wkr[idx].umd_chan_to    = -1;
-        wkr[idx].umd_fifo_thr.cpu_req = -1;
-        wkr[idx].umd_fifo_thr.cpu_run = wkr[idx].wkr_thr.cpu_run;
-        wkr[idx].umd_tx_buf_cnt = 0;
-        wkr[idx].umd_sts_entries = 0;
-        wkr[idx].did = ~0;
-        wkr[idx].rio_addr = 0;
-        wkr[idx].byte_cnt = 0;
-        wkr[idx].acc_size = 0;
-        wkr[idx].umd_tx_rtype = MAINT_WR;
-        wkr[idx].wr = 0;
-        wkr[idx].use_kbuf = 0;
-
-        wkr[idx].stop_req = 0;
-
-        sem_post(&wkr[idx].run);
+	sem_post(&wkr[idx].run);
 exit:
-        return 0;
+	return 0;
 }
 
 struct cli_cmd AFUWATCH = {
@@ -3248,8 +3495,9 @@ struct cli_cmd AFUWATCH = {
 2,
 "Spawns an AF_UNIX server which listens to <max_tag> AF_UNIX sockets named " AFU_PATH "NNN",
 "<idx> <max_tag>\n"
-        "<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
-        "<max_tag> maximum number of CM \"tags\" aka number of listening AF_UNIX sockets\n",
+        "<idx>    is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
+        "<max_tag> maximum number of CM \"tags\" aka number of listening AF_UNIX sockets\n"
+	"          Must be a power of two from 4 to 1024\n",
 AFUCmdWatch,
 ATTR_NONE
 };
@@ -3259,12 +3507,12 @@ int TESTdmapackCmd(struct cli_env *UNUSED(env), int UNUSED(argc), char **UNUSED(
 {
 #if 0
 	if (test_packing()) {
-		LOGMSG(env, "\ntest_packing FAILED...\n");
+		LOGMSG(env, "\ntest_packing FAILED\n");
 	} else {
-		LOGMSG(env, "\ntest_packing Passed...\n");
+		LOGMSG(env, "\ntest_packing Passed\n");
 	}
 #endif
-        return 0;
+	return 0;
 }
 
 struct cli_cmd TESTdmapack = {
@@ -3350,8 +3598,8 @@ void bind_goodput_cmds(void)
 	new_tot_jifis = 2;
 	cpu_occ_pct = 0.0;
 
-        add_commands_to_cmd_db(sizeof(goodput_cmds)/sizeof(goodput_cmds[0]),
-                                goodput_cmds);
+	add_commands_to_cmd_db(sizeof(goodput_cmds) / sizeof(goodput_cmds[0]),
+			goodput_cmds);
 };
 
 #ifdef __cplusplus

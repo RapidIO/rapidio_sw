@@ -14,7 +14,7 @@ t 0 -1 0
 
 wait 0 H
 
-mR 0 skt_prefix9 1000
+mR 0 skt_prefix9 0x1000
 
 wait 0 R
 

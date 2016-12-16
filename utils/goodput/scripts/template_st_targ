@@ -48,7 +48,7 @@ msgR 5 skt_prefix5
 msgR 6 skt_prefix6
 msgR 7 skt_prefix7
 
-mR   8 skt_prefix9 1000
+mR   8 skt_prefix9 0x1000
 
 wait 0 R
 wait 1 R
@@ -60,7 +60,7 @@ wait 6 R
 wait 7 R
 wait 8 R
 
-IBA 10 400000 iba_addr
+IBA 10 0x400000 iba_addr
 sleep 1
 wait 10 H
 

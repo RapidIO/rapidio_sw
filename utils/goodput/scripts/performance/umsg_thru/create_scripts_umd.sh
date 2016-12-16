@@ -62,7 +62,7 @@ if [ -z "$BUFC" ]; then
         if [ -n "$4" ]; then
                 BUFC=$4
         else
-                BUFC=100
+                BUFC=0x100
                 LOC_PRINT_HEP=5
         fi
 fi
@@ -71,7 +71,7 @@ if [ -z "$STS" ]; then
         if [ -n "$5" ]; then
                 STS=$5
         else
-                STS=100
+                STS=0x100
                 LOC_PRINT_HEP=6
         fi
 fi
@@ -107,13 +107,22 @@ if [ -n "$LOC_PRINT_HEP" ]; then
         echo $'MPORT_DIR: /dev/rio_{MPORT_DIR} device used for test.'
         echo $'DID      : Device ID of target device for performance scripts'
         echo $'MBOX     : Channel 2 or 3'
-        echo $'Wait     : Time in seconds to wait before taking perf measurement\n'
-        echo $'Bufc     : Number of TX buffers'
-        echo $'Sts      : size of TX FIFO\n'
-        echo $'TX_CPU   : Processor to run the trasnmit/receive loop'
+        echo $'Wait     : Time in seconds to wait before taking performance measurement\n'
+        echo $'Bufc     : Number of TX buffers, in hex'
+        echo $'Sts      : size of TX FIFO, in hex\n'
+        echo $'TX_CPU   : Processor to run the transmit/receive loop'
         echo $'FIFO_CPU : Processor to run the completion FIFO loop'
         echo $'OVERRIDE : <optional>, default and N allows isolcpus'
         echo $'           Any other value forces TX_CPU and FIFO_CPU\n'
+fi
+
+# ensure hex values are correctly prefixed
+if [[ $BUFC != 0x* ]] && [[ $BUFC != 0X* ]]; then
+        BUFC=0x$BUFC
+fi
+
+if [[ $STS != 0x* ]] && [[ $STS != 0X* ]]; then
+        STS=0x$STS
 fi
 
 echo 'UMSG_THRUPUT MPORT_DIR  = ' $MPORT_DIR
@@ -133,7 +142,7 @@ unset LOC_PRINT_HEP
 
 SIZE_NAME=(24B 32B 64B 128B 256B 512B 1K 2K 4K)
 
-SIZE=( "18" "20" "40" "80" "100" "200" "400" "800" "1000")
+SIZE=( "0x18" "0x20" "0x40" "0x80" "0x100" "0x200" "0x400" "0x800" "0x1000")
 
 # Function to format file names.
 # Format is xxZss.txt, where

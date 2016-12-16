@@ -75,7 +75,7 @@ fi
 if [ $LOC_PRINT_HEP != "0" ]; then
 	echo $'\nScript requires the following parameters:'
         echo $'MPORT    : /dev/rio_mport{MPORT} device to use for test.'
-        echo $'IBA_ADDR : Hex address of target window on DID'
+        echo $'IBA_ADDR : Hex RapidIO address of target window on DID'
         echo $'DID      : Device ID of target device for performance scripts'
         echo $'Wr_TRANS : UDMA Write transaction type'
         echo $'           1 LAST_NWR, 2 NW, 3 NW_R'
@@ -90,6 +90,19 @@ if [ $LOC_PRINT_HEP != "0" ]; then
         echo $'           Any other value forces TX_CPU and FIFO_CPU'
 	exit 1
 fi;
+
+# ensure hex values are correctly prefixed
+if [[ $IBA_ADDR != 0x* ]] && [[ $IBA_ADDR != 0X* ]]; then
+        IBA_ADDR=0x$IBA_ADDR
+fi
+
+if [[ $BUFC != 0x* ]] && [[ $BUFC != 0X* ]]; then
+        BUFC=0x$BUFC
+fi
+
+if [[ $STS != 0x* ]] && [[ $STS != 0X* ]]; then
+        STS=0x$STS
+fi
 
 CPU_COUNT=$( grep -c ^processor /proc/cpuinfo );
 let MAX_CPU=$CPU_COUNT-1;

@@ -16,24 +16,34 @@ SLAVE_NODE=node2
 MAST_MPNUM=0
 SLAVE_MPNUM=0
 
-HOMEDIR=$PWD
+DFLT_HOMEDIR=$PWD
 PREVDIR=/..
 
-HOMEDIR=$HOMEDIR$PREVDIR
+DFLT_HOMEDIR=$DFLT_HOMEDIR$PREVDIR
+DFLT_WAIT_TIME=30
+DFLT_IBA_ADDR=0x200000000
+DFLT_BUFC=0x100
+DFLT_STS=0x100
+DFLT_DMA_CHAN=2
+DFLT_MBOX_CHAN=2
+DFLT_TX_CPU=2
+DFLT_STS_CPU=3
 
-WAIT_TIME=30
+HOMEDIR=$DFLT_HOMEDIR
+
+WAIT_TIME=$DFLT_WAIT_TIME
 
 INTERP_TRANS=(READ LAST_NW_R NW NW_R_ALL DEFAULT);
 WR_TRANS_IN=4
-IBA_ADDR=200000000
-ACC_SIZE=40000
-BYTES=400000
-BUFC_IN=100
-STS_IN=100
-DMA_CHAN_IN=2
-MBOX_CHAN_IN=2
-TX_CPU_IN=2
-STS_CPU_IN=3
+IBA_ADDR=$DFLT_IBA_ADDR
+ACC_SIZE=0x40000
+BYTES=0x400000
+BUFC_IN=$DFLT_BUFC
+STS_IN=$DFLT_STS
+DMA_CHAN_IN=$DFLT_DMA_CHAN
+MBOX_CHAN_IN=$DFLT_MBOX_CHAN
+TX_CPU_IN=$DFLT_TX_CPU
+STS_CPU_IN=$DFLT_STS_CPU
 
 unset OVERRIDE_IN
 
@@ -161,32 +171,32 @@ if [ $PRINT_HELP != "0" ]; then
 	echo $'SLAVE_MPNUM: Slave node mport number (usually 0)'
 	echo $'All parameters after this are optional.  Default values shown.'
 	echo $'DIR        : Directory on both MAST and SLAVE to run tests.'
-	echo $'             Default is ' $HOMEDIR
-        echo $'WAIT       : Time in seconds to wait before perf measurement'
-	echo $'             Default is ' $WAIT_TIME
+	echo $'             Default is ' $DFLT_HOMEDIR
+        echo $'WAIT       : Time in seconds to wait before performance measurement'
+	echo $'             Default is ' $DFLT_WAIT_TIME
         echo $'WR_TRANS   : DMA write transaction type'
         echo $'             1 LAST_NW_R, 2 NW, 3 ALL_NW_R'
 	echo $'             Default is 2 NW.'
-        echo $'IBA_ADDR   : RapidIO address of inbound window for both nodes'
-	echo $'             Default is ' $IBA_ADDR
-        echo $'BUFC       : Number of transmit buffers for MBOX and DMA'
-	echo $'             Default is ' $BUFC_IN
-        echo $'STS        : Number of transactions completion pointers'
-	echo $'             for MBOX and DMA.  Default is ' $STS_IN
+        echo $'IBA_ADDR   : Hexadecimal RapidIO address of inbound window for both nodes'
+	echo $'             Default is ' $DFLT_IBA_ADDR
+        echo $'BUFC       : Hexadecimal number of transmit buffers for MBOX and DMA'
+	echo $'             Default is ' $DFLT_BUFC
+        echo $'STS        : Hexadecimal number of transactions completion pointers'
+	echo $'             for MBOX and DMA.  Default is ' $DFLT_STS
         echo $'DMA_CHAN   : DMA channel to use for the test, allowed 2-7'
-	echo $'             Default is ' $DMA_CHAN_IN
+	echo $'             Default is ' $DFLT_DMA_CHAN
         echo $'MBOX_CHAN  : Mailbox channel to use for the test, allowed 2 or 3'
-	echo $'             Default is ' $MBOX_CHAN_IN
+	echo $'             Default is ' $DFLT_MBOX_CHAN
         echo $'TX_CPU     : Specific processor core used for transmission.'
-	echo $'             -1 means "any core".  Allowed range is specifc'
+	echo $'             -1 means "any core".  Allowed range is specific'
         echo $'             to the two tested nodes.  Use "lscpu" to learn'
-        echo $'             what processors are avaialble.'
-	echo $'             Default is ' $TX_CPU_IN ' or any isolcpu.'
+        echo $'             what processors are available.'
+	echo $'             Default is ' $DFLT_TX_CPU ' or any isolcpu.'
         echo $'STS_CPU    : Specific processor core used to manage completions.'
 	echo $'             -1 means "any core".  Allowed range is specifc'
         echo $'             to the two tested nodes.  Use "lscpu" to learn'
-        echo $'             what processors are avaialble.'
-	echo $'             Default is ' $STS_CPU_IN ' or any isolcpu.'
+        echo $'             what processors are available.'
+	echo $'             Default is ' $DFLT_STS_CPU ' or any isolcpu.'
         echo $'OVERRIDE   : The default for TX_CPU and STS_CPU is to use any'
         echo $'             isolcpu configured on the target platform.'
         echo $'             Entering any value forces TX_CPU and STS_CPU to'
@@ -194,6 +204,19 @@ if [ $PRINT_HELP != "0" ]; then
         echo $'             values.'
 	exit 1
 fi;
+
+# ensure hex values are correctly prefixed
+if [[ $IBA_ADDR != 0x* ]] && [[ $IBA_ADDR != 0X* ]]; then
+        IBA_ADDR=0x$IBA_ADDR
+fi
+
+if [[ $BUFC_IN != 0x* ]] && [[ $BUFC_IN != 0X* ]]; then
+        BUFC_IN=0x$BUFC_IN
+fi
+
+if [[ $STS_IN != 0x* ]] && [[ $STS_IN != 0X* ]]; then
+        STS_IN=0x$STS_IN
+fi
 
 echo $'\nStarting User Mode Driver regression:\n'
 echo 'MAST       :' $MAST_NODE
@@ -316,7 +339,7 @@ echo 'GENERATING SCRIPTS ON SLAVE ${SLAVE_NODE}, PARAMETERS ARE' >> $LABEL_LOG
 echo 'WAIT TIME  :' $WAIT_TIME ' SECONDS' >> $LABEL_LOG
 echo 'TRANS       ' $DMA_TRANS ${INTERP_TRANS[DMA_TRANS]} >> $LABEL_LOG
 echo 'DID        :' ${DESTIDS[0]} >> $LABEL_LOG
-echo 'IBA_ADDR   : 0x' $IBA_ADDR >> $LABEL_LOG
+echo 'IBA_ADDR   : ' $IBA_ADDR >> $LABEL_LOG
 echo 'MPORT_NUM  : ' $SLAVE_MPNUM >> $LABEL_LOG
 echo 'BUFC       :' $BUFC_IN >> $LABEL_LOG
 echo 'STS        :' $STS_IN >> $LABEL_LOG
@@ -369,7 +392,7 @@ echo 'MASTER PARAMETERS ARE' >> $LABEL_LOG
 echo 'WAIT TIME  :' $WAIT_TIME ' SECONDS' >> $LABEL_LOG
 echo 'TRANS      :' $DMA_TRANS ${INTERP_TRANS[DMA_TRANS]} >> $LABEL_LOG
 echo 'DID        :' ${DESTIDS[1]} >> $LABEL_LOG
-echo 'IBA_ADDR   : 0x' $IBA_ADDR >> $LABEL_LOG
+echo 'IBA_ADDR   : ' $IBA_ADDR >> $LABEL_LOG
 echo 'MPORT_NUM  : ' $MAST_MPNUM >> $LABEL_LOG
 echo 'BUFC       :' $BUFC_IN >> $LABEL_LOG
 echo 'STS        :' $STS_IN >> $LABEL_LOG
