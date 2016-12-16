@@ -61,6 +61,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "cfg.h"
 #include "rapidio_mport_mgmt.h"
 #include "IDT_Tsi721.h"
+#include "fmd_errmsg.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -204,7 +205,7 @@ int mpsw_mport_dev_add(struct riocp_pe *pe, char *name)
 		rc = riomp_mgmt_device_add(p_acc->maint, pe->destid,
 			pe->hopcount, pe->comptag, pe->sysfs_name);
 		if (rc) {
-			CRIT("riomp_mgmt_device_add, rc %d errno %d\n",
+			ERR("riomp_mgmt_device_add, rc %d errno %d\n",
 				rc, errno);
 		}
 	}
@@ -224,7 +225,7 @@ int mpsw_alloc_priv_data(struct riocp_pe *pe, void **p_dat,
 
 	*p_dat = calloc(1, sizeof(struct mpsw_drv_private_data));
 	if (NULL == *p_dat) {
-		CRIT("Unable to allocate mpsw_drv_private_data\n");
+		ERR(MALLOC_FAIL);
 		ret = -ENOMEM;
 		goto err;
 	}
@@ -243,7 +244,7 @@ int mpsw_alloc_priv_data(struct riocp_pe *pe, void **p_dat,
 		priv_ptr->dev_h.accessInfo =
 			calloc(1, sizeof(struct mpsw_drv_pe_acc_info));
 		if (NULL == priv_ptr->dev_h.accessInfo) {
-			CRIT("Unable to allocate mpsw_drv_pe_acc_info\n");
+			ERR(MALLOC_FAIL);
 			ret = ENOMEM;
 			goto err;
 		}
@@ -254,7 +255,7 @@ int mpsw_alloc_priv_data(struct riocp_pe *pe, void **p_dat,
 
 		ret = riomp_mgmt_mport_create_handle(pe->minfo->id, 0, &acc_p->maint);
 		if (ret) {
-			CRIT("Unable to open mport %d %d:%s\n", pe->minfo->id,
+			ERR("Unable to open mport %d %d:%s\n", pe->minfo->id,
 				errno, strerror(errno));
 			goto exit;
 		}
@@ -264,7 +265,7 @@ int mpsw_alloc_priv_data(struct riocp_pe *pe, void **p_dat,
 
 		ret = riomp_mgmt_query(acc_p->maint, &acc_p->props);
 		if (ret < 0) {
-			CRIT("Unable to query mport %d properties %d:%s\n",
+			ERR("Unable to query mport %d properties %d:%s\n",
 				 pe->mport, errno, strerror(errno));
 			goto err;
 		}
@@ -302,7 +303,7 @@ int mpsw_destroy_priv_data(struct riocp_pe *pe)
 					(priv_ptr->dev_h.accessInfo);
 		if (acc_p->maint_valid) {
 			if (riomp_mgmt_mport_destroy_handle(&acc_p->maint)) 
-				CRIT("Unable to close mport %d %d:%s\n",
+				ERR("Unable to close mport %d %d:%s\n",
 					pe->mport, errno, strerror(errno));
 		}
 		free(priv_ptr->dev_h.accessInfo);
@@ -533,7 +534,7 @@ int generic_device_init(struct riocp_pe *pe, uint32_t *ct)
 	rc = mpsw_drv_raw_reg_rd(pe, pe->destid, pe->hopcount,
 					RIO_SW_PORT_INF, &port_info);
 	if (rc) {
-		CRIT("Unable to get port info %d:%s\n", rc, strerror(rc));
+		ERR("Unable to get port info %d:%s\n", rc, strerror(rc));
 		goto exit;
 	}
 	set_pc_in.reg_acc_port = RIO_ACCESS_PORT(port_info);
@@ -670,7 +671,7 @@ int RIOCP_WU mpsw_drv_init_pe(struct riocp_pe *pe, uint32_t *ct,
 
 	ret = mpsw_alloc_priv_data(pe, (void **)&p_dat, peer);
 	if (ret) {
-		CRIT("Unable to allocate private data.\n");
+		ERR("Unable to allocate private data.\n");
 		goto exit;
 	}
 
@@ -678,14 +679,14 @@ int RIOCP_WU mpsw_drv_init_pe(struct riocp_pe *pe, uint32_t *ct,
 	ret = mpsw_drv_raw_reg_rd(pe, pe->destid, pe->hopcount, RIO_DEV_IDENT,
 				&temp_devid);
 	if (ret) {
-		CRIT("Unable to read device ID %d:%s\n", ret, strerror(ret));
+		ERR("Unable to read device ID %d:%s\n", ret, strerror(ret));
 		goto exit;
 	}
 	
 	p_dat->dev_h.devID = temp_devid;
 	ret = DAR_Find_Driver_for_Device(1, &p_dat->dev_h);
 	if (RIO_SUCCESS != ret) {
-		CRIT("Unable to find driver for device, type 0x%x\n, ret 0x%x",
+		ERR("Unable to find driver for device, type 0x%x\n, ret 0x%x",
 			ret, p_dat->dev_h.devID);
 		ret = errno = EOPNOTSUPP;
 		goto exit;
@@ -694,13 +695,13 @@ int RIOCP_WU mpsw_drv_init_pe(struct riocp_pe *pe, uint32_t *ct,
 
 	ret = generic_device_init(pe, ct);
 	if (ret) {
-		CRIT("Generic device init failed: %d (0x%x)\n", ret, ret);
+		ERR("Generic device init failed: %d (0x%x)\n", ret, ret);
 		goto exit;
 	}
 
 	ret = mpsw_mport_dev_add(pe, name);
 	if (ret) {
-		CRIT("Adding device to mport failed: %d (0x%x)\n", ret, ret);
+		ERR("Adding device to mport failed: %d (0x%x)\n", ret, ret);
 		goto exit;
 	}
 exit:
@@ -1467,7 +1468,7 @@ int mpsw_drv_enable_pe(struct riocp_pe *pe, pe_port_t port)
 	rc = mpsw_drv_raw_reg_rd(pe, pe->destid, pe->hopcount,
 					RIO_SW_PORT_INF, &port_info);
 	if (rc) {
-		CRIT("Unable to get port info %d:%s\n", rc, strerror(rc));
+		ERR("Unable to get port info %d:%s\n", rc, strerror(rc));
 		goto fail;
 	}
 	set_pc_in.reg_acc_port = RIO_ACCESS_PORT(port_info);

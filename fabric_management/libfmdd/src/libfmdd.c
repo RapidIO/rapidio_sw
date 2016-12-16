@@ -52,6 +52,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "liblog.h"
 #include "libfmdd_info.h"
 #include "libfmdd.h"
+#include "fmd_errmsg.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -62,20 +63,20 @@ struct fml_globals fml;
 int open_socket_to_fmd(void)
 {
 	if (!fml.fd) {
-		fml.fd = socket(AF_UNIX, SOCK_SEQPACKET, 0);
-		if (-1 == fml.fd) {
-			CRIT("ERROR on libfm_init socket\n");
-			goto fail;
-		};
 		fml.addr_sz = sizeof(struct sockaddr_un);
 		memset(&fml.addr, 0, fml.addr_sz);
 
 		fml.addr.sun_family = AF_UNIX;
 		snprintf(fml.addr.sun_path, sizeof(fml.addr.sun_path) - 1,
 			FMD_APP_MSG_SKT_FMT, fml.portno);
+		fml.fd = socket(AF_UNIX, SOCK_SEQPACKET, 0);
+		if (-1 == fml.fd) {
+			CRIT(REM_SOCKET_FAIL, fml.addr.sun_path);
+			goto fail;
+		};
 		if (connect(fml.fd, (struct sockaddr *) &fml.addr, 
 				fml.addr_sz)) {
-			CRIT("ERROR on libfm_init connect\n");
+			CRIT(REM_SOCKET_FAIL, fml.addr.sun_path);
 			goto fail;
 		};
 	};
@@ -93,7 +94,7 @@ int get_dd_names_from_fmd(void)
 			sizeof(fml.req.hello_req.app_name));
 
 	if (send(fml.fd, (void *)&(fml.req), sizeof(fml.req), MSG_EOR) < 0) {
-		ERR("Failed to send(): %s\n", strerror(errno));
+		CRIT(REM_SOCKET_FAIL, fml.addr.sun_path);
 		goto fail;
 	}
 
@@ -196,7 +197,7 @@ int update_devid_status(void)
                 found = 0;
                 for (j = 0; j < fml.num_devs; j++) {
                         if (fml.devs[j].destID > FMD_MAX_DEVID) {
-                                CRIT("Devid 0x%x, out of range, MAX is 0x%x",
+                                ERR("Devid 0x%x, out of range, MAX is 0x%x",
                                         fml.devs[j].destID, FMD_MAX_DEVID);
                                 continue;
                         };
@@ -298,15 +299,15 @@ fmdd_h fmdd_get_handle(char *my_name, uint8_t flag)
 		fml.flag = flag;
 		l_init(&fml.pend_waits);
 		if (open_socket_to_fmd()) {
-			ERR("Failed in open_socket_to_fmd()\n");
+			CRIT(REM_SOCKET_FAIL, fml.addr.sun_path);
 			goto fail;
 		}
 		if (get_dd_names_from_fmd()) {
-			ERR("Failed in get_dd_names_from_fmd()\n");
+			CRIT(DEV_DB_FAIL, "");
 			goto fail;
 		}
 		if (open_dd()) {
-			ERR("Failed in open_dd()\n");
+			CRIT(DEV_DB_FAIL, "");
 			goto fail;
 		}
 		sem_init(&fml.mon_started, 0, 0);
@@ -316,7 +317,7 @@ fmdd_h fmdd_get_handle(char *my_name, uint8_t flag)
 		/* Startup the connection monitoring thread */
 		if (pthread_create( &fml.mon_thr, NULL, mon_loop, NULL)) {
 			fml.all_must_die = 1;
-			CRIT("ERROR:fmdd_get_handle, mon_loop thread\n");
+			CRIT(THREAD_FAIL, errno);
 			goto fail;
 		};
 		sem_wait(&fml.mon_started);

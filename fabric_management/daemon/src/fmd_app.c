@@ -47,6 +47,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "fmd_master.h"
 #include "liblog.h"
 #include "libfmdd.h"
+#include "fmd_errmsg.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -207,30 +208,31 @@ int open_app_conn_socket(void)
 	int rc = 1;
 	app_st.addr.sun_family = AF_UNIX;
 
-	app_st.fd = socket(AF_UNIX, SOCK_SEQPACKET, 0);
-	if (-1 == app_st.fd) {
-		CRIT("ERROR on open_app_conn socket");
-		goto fail;
-	};
-
 	snprintf(app_st.addr.sun_path, sizeof(app_st.addr.sun_path) - 1,
 		FMD_APP_MSG_SKT_FMT, app_st.port);
 
-	if (remove(app_st.addr.sun_path))
+	app_st.fd = socket(AF_UNIX, SOCK_SEQPACKET, 0);
+	if (-1 == app_st.fd) {
+		CRIT(LOC_SOCKET_FAIL, app_st.addr.sun_path);
+		goto fail;
+	};
+
+	if (remove(app_st.addr.sun_path)) {
 		if (ENOENT != errno)
-			CRIT("ERROR on app_conn remove");
+			CRIT(LOC_SOCKET_FAIL, app_st.addr.sun_path);
+	}
 
 	snprintf(app_st.addr.sun_path, sizeof(app_st.addr.sun_path) - 1,
 		FMD_APP_MSG_SKT_FMT, app_st.port);
 
 	if (-1 == bind(app_st.fd, (struct sockaddr *) &app_st.addr, 
 			sizeof(struct sockaddr_un))) {
-		CRIT("ERROR on app_conn bind");
+		CRIT(LOC_SOCKET_FAIL, app_st.addr.sun_path);
 		goto fail;
 	};
 
 	if (listen(app_st.fd, app_st.bklg) == -1) {
-		CRIT("ERROR on app_conn listen");
+		CRIT(LOC_SOCKET_FAIL, app_st.addr.sun_path);
 		goto fail;
 	};
 	rc = 0;
@@ -280,7 +282,7 @@ void *app_conn_loop( void *unused )
 			};
 		};
 		if (!found) {
-			CRIT("FMD could not find free app!");
+			CRIT("FMD: Maximum applications reached!");
 			goto fail;
 		};
 		new_app = &app_st.apps[new_app_i];
@@ -292,8 +294,7 @@ void *app_conn_loop( void *unused )
                         &new_app->addr_size);
 			
 		if (-1 == new_app->app_fd) {
-			if (app_st.fd) 
-				CRIT("ERROR on app_conn accept");
+			CRIT(LOC_SOCKET_FAIL, app_st.addr.sun_path);
 			goto fail;
 		};
 
@@ -301,14 +302,14 @@ void *app_conn_loop( void *unused )
         	rc = pthread_create(&new_app->app_thr, NULL, app_loop,
 				(void *)new_app);
         	if (rc) {
-                	printf("Error - app_rx_loop rc: %d\n", rc);
+                	ERR("Error - app_rx_loop rc: %d\n", rc);
 		} else {
         		sem_wait(&new_app->started);
 			new_app->alloced = 1;
 		};
 	};
 fail:
-	printf("\nFMD Library Connection Thread Exiting\n");
+	CRIT("\nFMD Application Connection Thread Exiting\n");
 	halt_app_handler();
 
 	pthread_exit(unused);

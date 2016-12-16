@@ -1325,7 +1325,7 @@ int cfg_parse_file(char *cfg_fn, char **dd_mtx_fn, char **dd_fn,
 	INFO("\nCFG: Opening configuration file \"%s\"...\n", cfg_fn);
 	cfg_fd = fopen(cfg_fn, "r");
 	if (NULL == cfg_fd) {
-		CRIT("CFG: Config file open failed, errno %d : %s\n",
+		WARN("CFG: Config file open failed, errno %d : %s\n",
 				errno, strerror(errno));
 		goto fail;
 	};

@@ -142,7 +142,7 @@ int add_device_to_dd(ct_t ct, uint32_t did, uint32_t did_sz, hc_t hc,
 	}
 
 	if (fmd->dd->num_devs >= FMD_MAX_DEVS) {
-		CRIT("More than 0x%x devices, increase FMD_MAX_DEVS.");
+		CRIT("More than %d devices, FMD_MAX_DEVS.", FMD_MAX_DEVS);
 		goto fail;
 	}
 

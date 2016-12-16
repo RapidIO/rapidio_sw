@@ -47,6 +47,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "liblog.h"
 #include "IDT_Tsi721.h"
 #include "fmd_state.h"
+#include "fmd_errmsg.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -103,7 +104,7 @@ int fmd_traverse_network_from_pe_port(riocp_pe_handle pe, rio_port_t port_num, s
 				no_cfg = (struct fmd_no_cfg *)malloc(
 						sizeof(struct fmd_no_cfg));
 				if (NULL == no_cfg) {
-					CRIT("Out of memory");
+					CRIT(MALLOC_FAIL);
 					goto fail;
 				}
 
@@ -119,7 +120,7 @@ int fmd_traverse_network_from_pe_port(riocp_pe_handle pe, rio_port_t port_num, s
 
 			if (rc) {
 				if ((-ENODEV != rc) && (-EIO != rc)) {
-					CRIT("PE 0x%0x Port %d probe failed %d\n", 
+					HIGH("PE 0x%0x Port %d probe failed %d",
 						curr_pe->comptag, pnum, rc);
 					goto fail;
 				}
@@ -136,7 +137,7 @@ int fmd_traverse_network_from_pe_port(riocp_pe_handle pe, rio_port_t port_num, s
 
 			rc = riocp_pe_get_comptag(new_pe, &comptag);
 			if (rc) {
-				CRIT("Get new comptag failed, rc %d\n", rc);
+				HIGH("Get new comptag failed, rc %d\n", rc);
 				goto fail;
 			}
 
@@ -176,7 +177,7 @@ int fmd_traverse_network_from_pe_port(riocp_pe_handle pe, rio_port_t port_num, s
 		if (NULL != curr_pe) {
 			rc = cfg_find_dev_by_ct(curr_pe->comptag, &curr_dev);
 			if (rc) {
-				CRIT("cfg_find_dev_by_ct fail, ct 0x%x rc %d\n",
+				HIGH("cfg_find_dev_by_ct fail, ct 0x%x rc %d",
 					curr_pe->comptag, rc);
 				goto fail;
 			}
@@ -224,7 +225,7 @@ int fmd_traverse_network_from_pe_port(riocp_pe_handle pe, rio_port_t port_num, s
 			rc = riocp_pe_probe(curr_pe, pnum, &new_pe, &ct, sysfs_name, false);
 			if (rc) {
 				if ((-ENODEV != rc) && (-EIO != rc)) {
-					CRIT("PE 0x%0x Port %d probe failed %d\n",
+					HIGH("PE 0x%0x Port %d probe failed %d",
 						curr_pe->comptag, pnum, rc);
 					ct_release(ct, did);
 					ct = COMPTAG_UNSET;
@@ -245,7 +246,7 @@ int fmd_traverse_network_from_pe_port(riocp_pe_handle pe, rio_port_t port_num, s
 
 			rc = riocp_pe_get_comptag(new_pe, &comptag);
 			if (rc) {
-				CRIT("Get new comptag failed, rc %d\n", rc);
+				HIGH("Get new comptag failed, rc %d\n", rc);
 				ct_release(ct, did);
 				ct = COMPTAG_UNSET;
 				goto fail;
@@ -266,7 +267,7 @@ int fmd_traverse_network_from_pe_port(riocp_pe_handle pe, rio_port_t port_num, s
 						no_cfg = (struct fmd_no_cfg *)malloc(
 								sizeof(struct fmd_no_cfg));
 						if (NULL == no_cfg) {
-							CRIT("Out of memory\n");
+							CRIT(MALLOC_FAIL);
 							goto fail;
 						}
 						no_cfg->curr_pe = new_pe;
