@@ -43,6 +43,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "string_util.h"
 #include "DAR_DB.h"
 #include "DAR_DB_Private.h"
+#include "DAR_Utilities.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -108,11 +109,6 @@ uint32_t DARDB_WriteReg( DAR_DEV_INFO_t *dev_info,
                                       uint32_t  writedata )
 {
     return WriteReg( dev_info, offset, writedata );
-}
-
-void DARDB_WaitSec(uint32_t delay_nsec, uint32_t delay_sec)
-{
-    WaitSec(delay_nsec, delay_sec);
 }
 
 /* Standard HAL routines for system bringup, all of which use
@@ -923,7 +919,7 @@ void init_DAR_driver( DAR_DB_Driver_t *DAR_info )
 {
     DAR_info->ReadReg                  = DARDB_ReadReg ;
     DAR_info->WriteReg                 = DARDB_WriteReg ;
-    DAR_info->WaitSec                  = DARDB_WaitSec ;
+    DAR_info->WaitSec                  = DAR_WaitSec ;
 
     DAR_info->rioGetNumLocalPorts      = DARDB_rioGetNumLocalPorts ;
     DAR_info->rioGetFeatures           = DARDB_rioGetFeatures ;
