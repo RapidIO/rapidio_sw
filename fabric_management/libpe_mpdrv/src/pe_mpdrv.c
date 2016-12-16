@@ -522,7 +522,7 @@ int generic_device_init(struct riocp_pe *pe, uint32_t *ct)
 	rc = idt_pc_get_config(dev_h, &pc_in, &priv->st.pc);
 	if (RIO_SUCCESS != rc)
 		goto exit;
-        
+
 	set_pc_in.lrto = 50; /* 5 usec link timeout */
 	set_pc_in.log_rto = 500; /* 50 usec logical response timeout */
 	set_pc_in.oob_reg_acc = false;

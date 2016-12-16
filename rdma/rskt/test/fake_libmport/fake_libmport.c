@@ -368,6 +368,9 @@ int riomp_mgmt_rcfg_read(riomp_mport_t mport_handle, uint32_t destid,
 			return 0;
 	};
 
+	// Klokwork: analysis coming down this path sees the caller using
+	// *data as an uninitialized variable
+	*data = 0;
 	return 0 * destid * hc * offset * size;
 };
 

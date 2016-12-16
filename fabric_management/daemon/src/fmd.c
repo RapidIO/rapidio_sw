@@ -481,7 +481,6 @@ int setup_mport_slave(int mport)
 {
 	int rc, ret;
 	ct_t comptag;
-	struct cfg_dev cfg_dev;
 	char mast_dev_fn[FMD_MAX_DEV_FN] = {0};
 	struct mpsw_drv_private_data *p_dat = NULL;
 	struct mpsw_drv_pe_acc_info *acc_p = NULL;
@@ -502,7 +501,7 @@ int setup_mport_slave(int mport)
 		return 1;
 	};
 
-	delete_sysfs_devices(mport_pe, cfg_dev.auto_config);
+	delete_sysfs_devices(mport_pe, cfg_auto());
 
 	ret = riocp_pe_handle_get_private(mport_pe, (void **)&p_dat);
 	if (ret) {

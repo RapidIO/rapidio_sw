@@ -635,12 +635,18 @@ int riomp_mgmt_lcfg_read(riomp_mport_t mport_handle, uint32_t offset, uint32_t s
 	if (hnd == NULL || data == NULL)
 		return -EINVAL;
 
+	// Klokwork appears to loose track of *data and claims it can be used uninitialized
+	// Perhaps because of the mt_buffer wrapping, or perhaps it thinks -errno can be 0
+	// on a successful return
+	*data = 0;
+
 	mt.offset = offset;
 	mt.length = size;
 	mt.buffer = (uintptr_t)data;
 
-	if (ioctl(hnd->fd, RIO_MPORT_MAINT_READ_LOCAL, &mt))
+	if (ioctl(hnd->fd, RIO_MPORT_MAINT_READ_LOCAL, &mt)) {
 		return -errno;
+	}
 	return 0;
 }
 
@@ -677,14 +683,20 @@ int riomp_mgmt_rcfg_read(riomp_mport_t mport_handle, uint32_t destid, hc_t hc, u
 	if (hnd == NULL || data == NULL)
 		return -EINVAL;
 
+	// Klokwork appears to loose track of *data and claims it can be used uninitialized
+	// Perhaps because of the mt_buffer wrapping, or perhaps it thinks -errno can be 0
+	// on a successful return
+	*data = 0;
+
 	mt.rioid = destid;
 	mt.hopcount = hc;
 	mt.offset = offset;
 	mt.length = size;
 	mt.buffer = (uintptr_t)data;
 
-	if (ioctl(hnd->fd, RIO_MPORT_MAINT_READ_REMOTE, &mt))
+	if (ioctl(hnd->fd, RIO_MPORT_MAINT_READ_REMOTE, &mt)) {
 		return -errno;
+	}
 	return 0;
 }
 

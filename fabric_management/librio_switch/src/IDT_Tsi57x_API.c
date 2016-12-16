@@ -5473,7 +5473,8 @@ uint32_t idt_tsi57x_sc_read_ctrs( DAR_DEV_INFO_t           *dev_info,
                                 idt_sc_read_ctrs_out_t   *out_parms)
 {
    uint32_t rc = RIO_ERR_INVALID_PARAMETER;
-   uint8_t p_to_i[Tsi578_MAX_PORTS], srch_i, srch_p, port_num, cntr;
+   uint8_t p_to_i[Tsi578_MAX_PORTS] = {IDT_MAX_PORTS};
+   uint8_t srch_i, srch_p, port_num, cntr;
    bool found;
    struct DAR_ptl good_ptl;
 
@@ -5513,9 +5514,6 @@ uint32_t idt_tsi57x_sc_read_ctrs( DAR_DEV_INFO_t           *dev_info,
    // For generality, must establish a list of ports.
    // Do not assume that the port number equals the index in the structure...
       
-   for (srch_i = 0; srch_i < NUM_PORTS(dev_info); srch_i++) 
-      p_to_i[srch_i] = IDT_MAX_PORTS;
-
    for (srch_p = 0; srch_p < good_ptl.num_ports; srch_p ++) {
       port_num = good_ptl.pnums[srch_p];
 	  found = false;
