@@ -699,26 +699,29 @@ int DAR_get_rw_addr ( DAR_pkt_bytes_t  *bytes_in,
     switch (fields_out->log_rw.pkt_addr_size)
     {
         case rio_addr_66:
-            fields_out->log_rw.addr[2] = bytes_in->pkt_data[lbidx+7] & 3;
-            fields_out->log_rw.addr[1] |= (bytes_in->pkt_data[lbidx++] << 24);
-            fields_out->log_rw.addr[1] |= (bytes_in->pkt_data[lbidx++] << 16);
+            fields_out->log_rw.addr[2] =
+                            ((uint32_t)(bytes_in->pkt_data[lbidx+7]) & 3);
+            fields_out->log_rw.addr[1] |=
+                            ((uint32_t)(bytes_in->pkt_data[lbidx++]) << 24);
+            fields_out->log_rw.addr[1] |=
+                            ((uint32_t)(bytes_in->pkt_data[lbidx++]) << 16);
             break;
 
         case rio_addr_50:
             if (rio_addr_50 == fields_out->log_rw.pkt_addr_size) {
                 fields_out->log_rw.addr[1] =
-                    (bytes_in->pkt_data[lbidx+5] & 3) << 16;
+                    ((uint32_t)(bytes_in->pkt_data[lbidx+5] & 3) << 16);
             }
             fields_out->log_rw.addr[1] |=
-                (bytes_in->pkt_data[lbidx++] << 8);
+                ((uint32_t)(bytes_in->pkt_data[lbidx++]) << 8);
             fields_out->log_rw.addr[1] |=
-                bytes_in->pkt_data[lbidx++];
+                (uint32_t)(bytes_in->pkt_data[lbidx++]);
             break;
 
         case rio_addr_34:
             if (rio_addr_34 == fields_out->log_rw.pkt_addr_size) {
                 fields_out->log_rw.addr[1] |=
-                    (bytes_in->pkt_data[lbidx+3] & 3);
+                    ((uint32_t)(bytes_in->pkt_data[lbidx+3]) & 3);
             }
             break;
 
@@ -732,7 +735,7 @@ int DAR_get_rw_addr ( DAR_pkt_bytes_t  *bytes_in,
             fields_out->log_rw.addr[0] |=
                 ((uint32_t)(bytes_in->pkt_data[lbidx++]) << 8  );
             fields_out->log_rw.addr[0] |=
-                (uint32_t)(bytes_in->pkt_data[lbidx++]) & 0xF8;
+                ((uint32_t)(bytes_in->pkt_data[lbidx++]) & 0xF8);
             break;
         default: lbidx = DAR_UTIL_BAD_ADDRSIZE;
     };

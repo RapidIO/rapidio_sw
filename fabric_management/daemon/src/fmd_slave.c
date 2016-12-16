@@ -113,7 +113,7 @@ fail:
 }
 
 int add_device_to_dd(ct_t ct, uint32_t did, uint32_t did_sz, hc_t hc,
-		uint32_t is_mast_pt, uint32_t flag, char *name)
+		uint32_t is_mast_pt, uint8_t flag, char *name)
 {
 	uint32_t idx, found_one = 0;
 
@@ -267,7 +267,7 @@ void slave_process_mod(void)
 				FMD_DEV08, 
 				ntohl(slv->m2s->mod_rq.hc_long),
 				ntohl(slv->m2s->mod_rq.is_mp),
-				ntohl(slv->m2s->mod_rq.flag),
+				(uint8_t)(ntohl(slv->m2s->mod_rq.flag) & FMDD_ANY_FLAG),
 				slv->m2s->mod_rq.name);
 		slv->s2m->mod_rsp.rc = htonl(rc);
 		break;
@@ -304,7 +304,7 @@ void slave_process_fset(void)
         uint32_t i;
 	uint32_t did = ntohl(slv->m2s->fset.did); 
 	uint32_t ct = ntohl(slv->m2s->fset.ct);
-	uint32_t flag = ntohl(slv->m2s->fset.flag);
+	uint8_t flag = (uint8_t)(ntohl(slv->m2s->fset.flag) & FMDD_ANY_FLAG);
 
         if ((NULL == fmd->dd) || (NULL == fmd->dd_mtx))
                 return;
@@ -510,7 +510,8 @@ fail:
 		
 void update_master_flags_from_peer(void)
 {
-	uint32_t did, did_sz, flag, i;
+	uint32_t did, did_sz, i;
+	uint8_t flag;
 	ct_t ct;
 
 	if ((NULL == fmd->dd) || (NULL == fmd->dd_mtx) || (NULL == slv->s2m)) {

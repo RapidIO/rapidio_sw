@@ -1330,7 +1330,7 @@ int DMAChannelSHM::simFIFO(const int max_bd, const uint32_t fault_bmask)
 
       uint64_t next_linear = le32(bd_ptr->next_hi);
       next_linear <<= 32;
-      next_linear |= le32(bd_ptr->next_lo);
+      next_linear |= (uint64_t)(le32(bd_ptr->next_lo));
 
       assert(next_linear);
       assert(m_dmadesc.win_handle < next_linear);

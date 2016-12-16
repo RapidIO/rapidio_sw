@@ -63,7 +63,7 @@ struct fmd_dd_dev_info {
 	uint32_t destID_sz;
 	hc_t hc;
 	uint32_t is_mast_pt;
-	uint32_t flag;
+	uint8_t flag;
 	char name[FMD_MAX_NAME+1];
 };
 

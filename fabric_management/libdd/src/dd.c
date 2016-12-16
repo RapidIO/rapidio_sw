@@ -64,6 +64,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "liblog.h"
 #include "riocp_pe.h"
 #include "libcli.h"
+#include "libfmdd.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -132,7 +133,7 @@ int fmd_dd_open_rw(char *dd_fn, int *dd_fd, struct fmd_dd **dd,
 		(*dd)->devs[idx].destID_sz = FMD_DEV08;
 		(*dd)->devs[idx].hc = HC_MP;
 		(*dd)->devs[idx].is_mast_pt = 0;
-		(*dd)->devs[idx].flag = 0;
+		(*dd)->devs[idx].flag = FMDD_NO_FLAG;
 		memset((*dd)->devs[idx].name, 0, FMD_MAX_NAME+1);
 	};
 	fmd_dd_incr_chg_idx(*dd, 1);

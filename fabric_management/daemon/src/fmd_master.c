@@ -115,6 +115,7 @@ void send_add_dev_msg(struct fmd_peer *peer, struct fmd_dd_dev_info *dev)
 	uint8_t flag;
 
 	sem_wait(&peer->tx_mtx);
+	// INFW - BEW same ~
  	flag = (dev->flag & ~FMDD_FLAG_OK_MP) | FMDD_FLAG_OK;
 
 	peer->m2s->msg_type = htonl(FMD_P_REQ_MOD);
