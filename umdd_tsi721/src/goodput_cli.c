@@ -453,13 +453,13 @@ void cpu_occ_parse_proc_line(char *file_line,
 
 	if (NULL == tok)
 		goto error;
-	if (tok_parse_ll(tok, proc_new_utime, 0))
+	if (tok_parse_ull(tok, proc_new_utime, 0))
 		goto error;
 
 	tok = strtok_r(NULL, delim, &saveptr);
 	if (NULL == tok)
 		goto error;
-	if (tok_parse_ll(tok, proc_new_stime, 0))
+	if (tok_parse_ull(tok, proc_new_stime, 0))
 		goto error;
 
 	return;
@@ -490,43 +490,43 @@ void cpu_occ_parse_stat_line(char *file_line,
 	tok = strtok_r(NULL, delim, &saveptr);
 	if (NULL == tok)
 		goto error;
-	if (tok_parse_ll(tok, p_user, 0))
+	if (tok_parse_ull(tok, p_user, 0))
 		goto error;
 
 	tok = strtok_r(NULL, delim, &saveptr);
 	if (NULL == tok)
 		goto error;
-	if (tok_parse_ll(tok, p_nice, 0))
+	if (tok_parse_ull(tok, p_nice, 0))
 		goto error;
 
 	tok = strtok_r(NULL, delim, &saveptr);
 	if (NULL == tok)
 		goto error;
-	if (tok_parse_ll(tok, p_system, 0))
+	if (tok_parse_ull(tok, p_system, 0))
 		goto error;
 
 	tok = strtok_r(NULL, delim, &saveptr);
 	if (NULL == tok)
 		goto error;
-	if (tok_parse_ll(tok, p_idle, 0))
+	if (tok_parse_ull(tok, p_idle, 0))
 		goto error;
 
 	tok = strtok_r(NULL, delim, &saveptr);
 	if (NULL == tok)
 		goto error;
-	if (tok_parse_ll(tok, p_iowait, 0))
+	if (tok_parse_ull(tok, p_iowait, 0))
 		goto error;
 
 	tok = strtok_r(NULL, delim, &saveptr);
 	if (NULL == tok)
 		goto error;
-	if (tok_parse_ll(tok, p_irq, 0))
+	if (tok_parse_ull(tok, p_irq, 0))
 		goto error;
 
 	tok = strtok_r(NULL, delim, &saveptr);
 	if (NULL == tok)
 		goto error;
-	if (tok_parse_ll(tok, p_softirq, 0))
+	if (tok_parse_ull(tok, p_softirq, 0))
 		goto error;
 
 	return;

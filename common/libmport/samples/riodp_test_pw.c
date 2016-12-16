@@ -224,8 +224,8 @@ int main(int argc, char** argv)
 			"dhnm:M:L:H:", options, NULL))) {
 		switch (c) {
 		case 'm':
-			if (tok_parse_l(optarg, &pw_mask, 0)) {
-				printf(TOK_ERR_L_HEX_MSG_FMT, "Mask");
+			if (tok_parse_ul(optarg, &pw_mask, 0)) {
+				printf(TOK_ERR_UL_HEX_MSG_FMT, "Mask");
 				return (EXIT_FAILURE);
 			}
 			break;
@@ -239,15 +239,15 @@ int main(int argc, char** argv)
 			}
 			break;
 		case 'L':
-			if (tok_parse_l(optarg, &pw_low, 0)) {
-				printf(TOK_ERR_L_HEX_MSG_FMT,
+			if (tok_parse_ul(optarg, &pw_low, 0)) {
+				printf(TOK_ERR_UL_HEX_MSG_FMT,
 						"Low filter value");
 				return (EXIT_FAILURE);
 			}
 			break;
 		case 'H':
-			if (tok_parse_l(optarg, &pw_high, 0)) {
-				printf(TOK_ERR_L_HEX_MSG_FMT,
+			if (tok_parse_ul(optarg, &pw_high, 0)) {
+				printf(TOK_ERR_UL_HEX_MSG_FMT,
 						"High filter value");
 				return (EXIT_FAILURE);
 			}

@@ -120,7 +120,7 @@ int get_phys_mem(const char *filename, char *parm_name, uint64_t *sa, uint64_t *
 			errno = EDOM;
 			goto fail;
 		}
-		if (tok_parse_ll(token, sa, 0)) {
+		if (tok_parse_ull(token, sa, 0)) {
 			errno = EDOM;
 			goto fail;
 		}
@@ -130,7 +130,7 @@ int get_phys_mem(const char *filename, char *parm_name, uint64_t *sa, uint64_t *
 			errno = EDOM;
 			goto fail;
 		}
-		if (tok_parse_ll(token, sz, 0)) {
+		if (tok_parse_ull(token, sz, 0)) {
 			errno = EDOM;
 			goto fail;
 		}

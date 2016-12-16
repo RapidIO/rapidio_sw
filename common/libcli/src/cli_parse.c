@@ -61,7 +61,7 @@ int getDecParm(char *token, int defaultData)
 	if (token == NULL || token[0] == '/') {
 		data = defaultData;
 	} else {
-		if (tok_parse_signed_l(token, &data, 0)) {
+		if (tok_parse_l(token, &data, 0)) {
 			data = defaultData;
 		}
 	}
@@ -84,7 +84,7 @@ uint64_t getHex(char *token, unsigned long defaultData)
 
 {
 	uint64_t data = defaultData;
-	if (tok_parse_ll(token, &data, 0)) {
+	if (tok_parse_ull(token, &data, 0)) {
 		data = defaultData;
 	}
 	return data;

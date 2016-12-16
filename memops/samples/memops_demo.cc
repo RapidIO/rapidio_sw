@@ -245,8 +245,8 @@ int main(int argc, char* argv[])
 			m = 2;
 			break;
 		case 'A':
-			if (tok_parse_ll(optarg, &rio_addr, 0)) {
-				printf(TOK_ERR_LL_HEX_MSG_FMT, "Base address");
+			if (tok_parse_ull(optarg, &rio_addr, 0)) {
+				printf(TOK_ERR_ULL_HEX_MSG_FMT, "Base address");
 				exit(EXIT_FAILURE);
 			}
 			break;
@@ -292,8 +292,8 @@ int main(int argc, char* argv[])
 	uint32_t chan = 6;
 	char* umd_chan = getenv("UMD_CHAN");
 	if (umd_chan != NULL) {
-		if (tok_parse_long(umd_chan, &chan, 0, 7, 0)) {
-			printf(TOK_ERR_LONG_MSG_FMT, "Environment variable \'UMD_CHAN\'", 0, 7);
+		if (tok_parse_ulong(umd_chan, &chan, 0, 7, 0)) {
+			printf(TOK_ERR_ULONG_MSG_FMT, "Environment variable \'UMD_CHAN\'", 0, 7);
 			return 1;
 		}
 	}

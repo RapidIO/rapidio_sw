@@ -267,8 +267,8 @@ int main(int argc, char** argv)
 			flags = O_NONBLOCK;
 			break;
 		case 'I':
-			if (tok_parse_l(optarg, &db_info, 0)) {
-				printf(TOK_ERR_L_HEX_MSG_FMT, "DoorBell Info");
+			if (tok_parse_ul(optarg, &db_info, 0)) {
+				printf(TOK_ERR_UL_HEX_MSG_FMT, "DoorBell Info");
 				exit(EXIT_FAILURE);
 			}
 			break;
@@ -279,14 +279,14 @@ int main(int argc, char** argv)
 			}
 			break;
 		case 'S':
-			if (tok_parse_l(optarg, &db_start, 0)) {
-				printf(TOK_ERR_L_HEX_MSG_FMT, "DoorBell start");
+			if (tok_parse_ul(optarg, &db_start, 0)) {
+				printf(TOK_ERR_UL_HEX_MSG_FMT, "DoorBell start");
 				exit(EXIT_FAILURE);
 			}
 			break;
 		case 'E':
-			if (tok_parse_l(optarg, &db_end, 0)) {
-				printf(TOK_ERR_L_HEX_MSG_FMT, "DoorBell end");
+			if (tok_parse_ul(optarg, &db_end, 0)) {
+				printf(TOK_ERR_UL_HEX_MSG_FMT, "DoorBell end");
 				exit(EXIT_FAILURE);
 			}
 			break;

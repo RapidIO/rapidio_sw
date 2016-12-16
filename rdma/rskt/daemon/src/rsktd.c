@@ -207,9 +207,9 @@ void parse_options(int argc, char *argv[])
 					ctrls.print_help = 1;
 					goto exit;
 				}
-				if (tok_parse_long(argv[idx], &ctrls.num_ms, 1, MAX_DMN_NUM_MS, 0)) {
+				if (tok_parse_ulong(argv[idx], &ctrls.num_ms, 1, MAX_DMN_NUM_MS, 0)) {
 					printf("\n");
-					printf(TOK_ERR_LONG_MSG_FMT, "<num_spaces>", 1, MAX_DMN_NUM_MS);
+					printf(TOK_ERR_ULONG_MSG_FMT, "<num_spaces>", 1, MAX_DMN_NUM_MS);
 					ctrls.print_help = 1;
 					goto exit;
 				}
@@ -221,7 +221,7 @@ void parse_options(int argc, char *argv[])
 					ctrls.print_help = 1;
 					goto exit;
 				}
-				if (tok_parse_long(argv[idx], &ctrls.ms_size,
+				if (tok_parse_ulong(argv[idx], &ctrls.ms_size,
 						128, 2048, 0)) {
 					if ((128 != ctrls.ms_size)
 						&& (256 != ctrls.ms_size)
@@ -241,7 +241,7 @@ void parse_options(int argc, char *argv[])
 					ctrls.print_help = 1;
 					goto exit;
 				}
-				if (tok_parse_long(argv[idx], &ctrls.rskt_buff_size, 2, 128, 0)) {
+				if (tok_parse_ulong(argv[idx], &ctrls.rskt_buff_size, 2, 128, 0)) {
 					if ((2 != ctrls.rskt_buff_size) &&
 						(4 != ctrls.rskt_buff_size) &&
 						(8 != ctrls.rskt_buff_size) &&
@@ -290,9 +290,9 @@ void parse_options(int argc, char *argv[])
 					ctrls.print_help = 1;
 					goto exit;
 				}
-				if (tok_parse_long(argv[idx], &ctrls.rsktd_u_bklg, 1, UINT32_MAX, 0)) {
+				if (tok_parse_ulong(argv[idx], &ctrls.rsktd_u_bklg, 1, UINT32_MAX, 0)) {
 					printf("\n");
-					printf(TOK_ERR_LONG_MSG_FMT, "<u_bklg>", 1, UINT32_MAX);
+					printf(TOK_ERR_ULONG_MSG_FMT, "<u_bklg>", 1, UINT32_MAX);
 					ctrls.print_help = 1;
 					goto exit;
 				}
@@ -346,9 +346,9 @@ void parse_options(int argc, char *argv[])
 					goto exit;
 				}
 				idx++;
-				if (tok_parse_l(argv[idx], &ctrls.peers[ctrls.num_peers].ct, 0)) {
+				if (tok_parse_ul(argv[idx], &ctrls.peers[ctrls.num_peers].ct, 0)) {
 					printf("\n");
-					printf(TOK_ERR_L_HEX_MSG_FMT, "component tag");
+					printf(TOK_ERR_UL_HEX_MSG_FMT, "component tag");
 					ctrls.print_help = 1;
 					goto exit;
 				}

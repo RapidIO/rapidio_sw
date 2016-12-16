@@ -107,14 +107,14 @@ int main(int argc, char *argv[])
 			did_set = true;
 			break;
 		case 'l':
-			if (tok_parse_long(optarg, &data_length, 0, 8192, 0)) {
-				printf(TOK_ERR_LONG_MSG_FMT, "Data length", 0, 8192);
+			if (tok_parse_ulong(optarg, &data_length, 0, 8192, 0)) {
+				printf(TOK_ERR_ULONG_MSG_FMT, "Data length", 0, 8192);
 				exit (EXIT_FAILURE);
 			}
 			break;
 		case 'r':
-			if (tok_parse_l(optarg, &repetitions, 0)) {
-				printf(TOK_ERR_L_MSG_FMT, "Number of repetitions");
+			if (tok_parse_ul(optarg, &repetitions, 0)) {
+				printf(TOK_ERR_UL_MSG_FMT, "Number of repetitions");
 				exit (EXIT_FAILURE);
 			}
 			break;

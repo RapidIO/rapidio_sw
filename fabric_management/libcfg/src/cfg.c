@@ -291,7 +291,7 @@ int get_dec_int(struct int_cfg_parms *cfg, uint32_t *dec_int)
 	if (cfg->init_err || get_next_token(cfg, &tok))
 		goto fail;
 
-	if (tok_parse_l(tok, dec_int, 10)) {
+	if (tok_parse_ul(tok, dec_int, 10)) {
 		goto fail;
 	}
 	return 0;
@@ -307,7 +307,7 @@ int get_hex_int(struct int_cfg_parms *cfg, uint32_t *hex_int)
 	if (cfg->init_err || get_next_token(cfg, &tok))
 		goto fail;
 
-	if (tok_parse_l(tok, hex_int, 16)) {
+	if (tok_parse_ul(tok, hex_int, 16)) {
 		goto fail;
 	}
 	return 0;
@@ -438,7 +438,7 @@ int find_ep_and_port(struct int_cfg_parms *cfg, char *tok,
 
 	if ('.' == temp[0]) {
 		temp[0] = '\0';
-		if (tok_parse_long(&temp[1], &tmp, 0, CFG_MAX_EP_PORT, 0)) {
+		if (tok_parse_ulong(&temp[1], &tmp, 0, CFG_MAX_EP_PORT, 0)) {
 			parse_err(cfg, (char *)"Illegal port index.");
 			goto fail;
 		}
@@ -474,7 +474,7 @@ int find_sw_and_port(struct int_cfg_parms *cfg, char *tok,
 
 	if ('.' == temp[0]) {
 		temp[0] = '\0';
-		if (tok_parse_long(&temp[1], &tmp, 0, CFG_MAX_EP_PORT, 0)) {
+		if (tok_parse_ulong(&temp[1], &tmp, 0, CFG_MAX_EP_PORT, 0)) {
 			parse_err(cfg, (char *)"Illegal port index.");
 			goto fail;
 		}

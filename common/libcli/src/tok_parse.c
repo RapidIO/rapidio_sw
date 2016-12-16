@@ -54,7 +54,7 @@ extern "C" {
  *
  * @retval 0 on success, -1 on failure
  */
-int tok_parse_longlong(char *token, uint64_t *value, uint64_t min, uint64_t max,
+int tok_parse_ulonglong(char *token, uint64_t *value, uint64_t min, uint64_t max,
 		int base)
 {
 	uint64_t data;
@@ -87,7 +87,7 @@ int tok_parse_longlong(char *token, uint64_t *value, uint64_t min, uint64_t max,
  *
  * @retval 0 on success, -1 on failure
  */
-int tok_parse_long(char *token, uint32_t *value, uint32_t min, uint32_t max,
+int tok_parse_ulong(char *token, uint32_t *value, uint32_t min, uint32_t max,
 		int base)
 {
 	uint64_t data;
@@ -97,7 +97,7 @@ int tok_parse_long(char *token, uint32_t *value, uint32_t min, uint32_t max,
 		return -1;
 	}
 
-	rc = tok_parse_longlong(token, &data, min, max, base);
+	rc = tok_parse_ulonglong(token, &data, min, max, base);
 	*value = (uint32_t)data;
 	return rc;
 }
@@ -113,7 +113,7 @@ int tok_parse_long(char *token, uint32_t *value, uint32_t min, uint32_t max,
  *
  * @retval 0 on success, -1 on failure
  */
-int tok_parse_short(char *token, uint16_t *value, uint16_t min, uint16_t max,
+int tok_parse_ushort(char *token, uint16_t *value, uint16_t min, uint16_t max,
 		int base)
 {
 	uint64_t data;
@@ -123,7 +123,7 @@ int tok_parse_short(char *token, uint16_t *value, uint16_t min, uint16_t max,
 		return -1;
 	}
 
-	rc = tok_parse_longlong(token, &data, min, max, base);
+	rc = tok_parse_ulonglong(token, &data, min, max, base);
 	*value = (uint16_t)data;
 	return rc;
 }
@@ -139,7 +139,7 @@ int tok_parse_short(char *token, uint16_t *value, uint16_t min, uint16_t max,
  *
  * @retval 0 on success, -1 on failure
  */
-int tok_parse_signed_longlong(char *token, int64_t *value, int64_t min, int64_t max,
+int tok_parse_longlong(char *token, int64_t *value, int64_t min, int64_t max,
 		int base)
 {
 	int64_t data;
@@ -172,7 +172,7 @@ int tok_parse_signed_longlong(char *token, int64_t *value, int64_t min, int64_t 
  *
  * @retval 0 on success, -1 on failure
  */
-int tok_parse_signed_long(char *token, int32_t *value, int32_t min, int32_t max,
+int tok_parse_long(char *token, int32_t *value, int32_t min, int32_t max,
 		int base)
 {
 	int64_t data;
@@ -182,7 +182,7 @@ int tok_parse_signed_long(char *token, int32_t *value, int32_t min, int32_t max,
 		return -1;
 	}
 
-	rc = tok_parse_signed_longlong(token, &data, min, max, base);
+	rc = tok_parse_longlong(token, &data, min, max, base);
 	*value = (int32_t)data;
 	return rc;
 }
@@ -198,7 +198,7 @@ int tok_parse_signed_long(char *token, int32_t *value, int32_t min, int32_t max,
  *
  * @retval 0 on success, -1 on failure
  */
-int tok_parse_signed_short(char *token, int16_t *value, int16_t min, int16_t max,
+int tok_parse_short(char *token, int16_t *value, int16_t min, int16_t max,
 		int base)
 {
 	int64_t data;
@@ -208,7 +208,7 @@ int tok_parse_signed_short(char *token, int16_t *value, int16_t min, int16_t max
 		return -1;
 	}
 
-	rc = tok_parse_signed_longlong(token, &data, min, max, base);
+	rc = tok_parse_longlong(token, &data, min, max, base);
 	*value = (int16_t)data;
 	return rc;
 }
@@ -222,7 +222,7 @@ int tok_parse_signed_short(char *token, int16_t *value, int16_t min, int16_t max
  *
  * @retval 0 on success, -1 on failure
  */
-int tok_parse_ll(char *token, uint64_t *value, int base)
+int tok_parse_ull(char *token, uint64_t *value, int base)
 {
 	uint64_t data;
 	int rc;
@@ -231,7 +231,7 @@ int tok_parse_ll(char *token, uint64_t *value, int base)
 		return -1;
 	}
 
-	rc = tok_parse_longlong(token, &data, 0, UINT64_MAX, base);
+	rc = tok_parse_ulonglong(token, &data, 0, UINT64_MAX, base);
 	*value = data;
 	return rc;
 }
@@ -245,7 +245,7 @@ int tok_parse_ll(char *token, uint64_t *value, int base)
  *
  * @retval 0 on success, -1 on failure
  */
-int tok_parse_l(char *token, uint32_t *value, int base)
+int tok_parse_ul(char *token, uint32_t *value, int base)
 {
 	uint64_t data;
 	int rc;
@@ -254,7 +254,7 @@ int tok_parse_l(char *token, uint32_t *value, int base)
 		return -1;
 	}
 
-	rc = tok_parse_longlong(token, &data, 0, UINT32_MAX, base);
+	rc = tok_parse_ulonglong(token, &data, 0, UINT32_MAX, base);
 	*value = (uint32_t)data;
 	return rc;
 }
@@ -269,7 +269,7 @@ int tok_parse_l(char *token, uint32_t *value, int base)
  *
  * @retval 0 on success, -1 on failure
  */
-int tok_parse_s(char *token, uint16_t *value, int base)
+int tok_parse_us(char *token, uint16_t *value, int base)
 {
 	uint64_t data;
 	int rc;
@@ -278,7 +278,7 @@ int tok_parse_s(char *token, uint16_t *value, int base)
 		return -1;
 	}
 
-	rc = tok_parse_longlong(token, &data, 0, UINT16_MAX, base);
+	rc = tok_parse_ulonglong(token, &data, 0, UINT16_MAX, base);
 	*value = (uint16_t)data;
 	return rc;
 
@@ -293,7 +293,7 @@ int tok_parse_s(char *token, uint16_t *value, int base)
  *
  * @retval 0 on success, -1 on failure
  */
-int tok_parse_signed_ll(char *token, int64_t *value, int base)
+int tok_parse_ll(char *token, int64_t *value, int base)
 {
 	int64_t data;
 	int rc;
@@ -302,7 +302,7 @@ int tok_parse_signed_ll(char *token, int64_t *value, int base)
 		return -1;
 	}
 
-	rc = tok_parse_signed_longlong(token, &data, INT64_MIN, INT64_MAX, base);
+	rc = tok_parse_longlong(token, &data, INT64_MIN, INT64_MAX, base);
 	*value = data;
 	return rc;
 }
@@ -316,7 +316,7 @@ int tok_parse_signed_ll(char *token, int64_t *value, int base)
  *
  * @retval 0 on success, -1 on failure
  */
-int tok_parse_signed_l(char *token, int32_t *value, int base)
+int tok_parse_l(char *token, int32_t *value, int base)
 {
 	int64_t data;
 	int rc;
@@ -325,7 +325,7 @@ int tok_parse_signed_l(char *token, int32_t *value, int base)
 		return -1;
 	}
 
-	rc = tok_parse_signed_longlong(token, &data, INT32_MIN, INT32_MAX, base);
+	rc = tok_parse_longlong(token, &data, INT32_MIN, INT32_MAX, base);
 	*value = (int32_t)data;
 	return rc;
 }
@@ -339,7 +339,7 @@ int tok_parse_signed_l(char *token, int32_t *value, int base)
  *
  * @retval 0 on success, -1 on failure
  */
-int tok_parse_signed_s(char *token, int16_t *value, int base)
+int tok_parse_s(char *token, int16_t *value, int base)
 {
 	int64_t data;
 	int rc;
@@ -348,7 +348,7 @@ int tok_parse_signed_s(char *token, int16_t *value, int base)
 		return -1;
 	}
 
-	rc = tok_parse_signed_longlong(token, &data, INT16_MIN, INT16_MAX, base);
+	rc = tok_parse_longlong(token, &data, INT16_MIN, INT16_MAX, base);
 	*value = (int16_t)data;
 	return rc;
 
@@ -372,7 +372,7 @@ int tok_parse_did(char *token, uint32_t *did, int base)
 		return -1;
 	}
 
-	rc = tok_parse_longlong(token, &value, 0, RIO_LAST_DEV8, base);
+	rc = tok_parse_ulonglong(token, &value, 0, RIO_LAST_DEV8, base);
 	*did = (uint32_t)value;
 	return rc;
 }
@@ -395,7 +395,7 @@ int tok_parse_ct(char *token, uint32_t *ct, int base)
 		return -1;
 	}
 
-	rc = tok_parse_longlong(token, &value, 0, UINT32_MAX, base);
+	rc = tok_parse_ulonglong(token, &value, 0, UINT32_MAX, base);
 	*ct = (uint32_t)value;
 	return rc;
 }
@@ -418,7 +418,7 @@ int tok_parse_hc(char *token, uint8_t *hc, int base)
 		return -1;
 	}
 
-	rc = tok_parse_longlong(token, &value, 0, HC_MP, base);
+	rc = tok_parse_ulonglong(token, &value, 0, HC_MP, base);
 	*hc = (uint8_t)value;
 	return rc;
 }
@@ -441,7 +441,7 @@ int tok_parse_mport_id(char *token, uint32_t *mport_id, int base)
 		return -1;
 	}
 
-	rc = tok_parse_longlong(token, &value, 0, RIO_MAX_MPORTS - 1, base);
+	rc = tok_parse_ulonglong(token, &value, 0, RIO_MAX_MPORTS - 1, base);
 	*mport_id = (uint32_t)value;
 	return rc;
 }
@@ -464,7 +464,7 @@ int tok_parse_log_level(char *token, uint32_t *level, int base)
 		return -1;
 	}
 
-	rc = tok_parse_longlong(token, &value, RDMA_LL_OFF, RDMA_LL_DBG, base);
+	rc = tok_parse_ulonglong(token, &value, RDMA_LL_OFF, RDMA_LL_DBG, base);
 	*level = (uint32_t)value;
 	return rc;
 }
@@ -487,7 +487,7 @@ int tok_parse_socket(char *token, uint16_t *socket, int base)
 		return -1;
 	}
 
-	rc = tok_parse_longlong(token, &value, 1, UINT16_MAX, base);
+	rc = tok_parse_ulonglong(token, &value, 1, UINT16_MAX, base);
 	*socket = (uint16_t)value;
 	return rc;
 }
@@ -510,7 +510,7 @@ int tok_parse_port_num(char *token, uint32_t *port_num, int base)
 		return -1;
 	}
 
-	rc = tok_parse_longlong(token, &value, 0, RIO_MAX_DEV_PORT - 1, base);
+	rc = tok_parse_ulonglong(token, &value, 0, RIO_MAX_DEV_PORT - 1, base);
 	*port_num = (uint32_t)value;
 	return rc;
 }

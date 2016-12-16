@@ -213,8 +213,8 @@ int main(int argc, char *argv[])
 	while (-1 != (c = getopt(argc, argv, "hn:")))
 		switch (c) {
 		case 'n':
-			if (tok_parse_short(optarg, &n, 1, 255, 0)) {
-				printf(TOK_ERR_SHORT_MSG_FMT, "Number of memory spaces", 1, 255);
+			if (tok_parse_ushort(optarg, &n, 1, 255, 0)) {
+				printf(TOK_ERR_USHORT_MSG_FMT, "Number of memory spaces", 1, 255);
 				exit(EXIT_FAILURE);
 			}
 			break;

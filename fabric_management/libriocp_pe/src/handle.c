@@ -81,7 +81,7 @@ int riocp_pe_handle_addr_aton(char *addr, uint8_t **address, size_t *address_len
 		token = strtok_r(str, ",", &saveptr1);
 		if (token == NULL)
 			break;
-		if (tok_parse_short(token, &val, 0, UINT8_MAX, 0)) {
+		if (tok_parse_ushort(token, &val, 0, UINT8_MAX, 0)) {
 			return -EINVAL;
 		}
 		_address[i] = (uint8_t)(val & UINT8_MAX);

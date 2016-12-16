@@ -181,9 +181,9 @@ void parse_options(int argc, char *argv[],
 					*print_help = 1;
 					goto exit;
 				}
-				if (tok_parse_ll(argv[idx], ibwin_base, 0)) {
+				if (tok_parse_ull(argv[idx], ibwin_base, 0)) {
 					printf("\n");
-					printf(TOK_ERR_LL_HEX_MSG_FMT, "<base>");
+					printf(TOK_ERR_ULL_HEX_MSG_FMT, "<base>");
 					*print_help = 1;
 					goto exit;
 				}
@@ -215,9 +215,9 @@ void parse_options(int argc, char *argv[],
 					*print_help = 1;
 					goto exit;
 				}
-				if (tok_parse_long(argv[idx], &tmp32, 0, TOTAL_TX_BUFF_SIZE/1024, 0)) {
+				if (tok_parse_ulong(argv[idx], &tmp32, 0, TOTAL_TX_BUFF_SIZE/1024, 0)) {
 					printf("\n");
-					printf(TOK_ERR_LONG_HEX_MSG_FMT, "<size>", 0, TOTAL_TX_BUFF_SIZE/1024);
+					printf(TOK_ERR_ULONG_HEX_MSG_FMT, "<size>", 0, TOTAL_TX_BUFF_SIZE/1024);
 					*print_help = 1;
 					goto exit;
 				}
@@ -231,9 +231,9 @@ void parse_options(int argc, char *argv[],
 					*print_help = 1;
 					goto exit;
 				}
-				if (tok_parse_long(argv[idx], &tmp32, 0, 9, 0)) {
+				if (tok_parse_ulong(argv[idx], &tmp32, 0, 9, 0)) {
 					printf("\n");
-					printf(TOK_ERR_LONG_HEX_MSG_FMT, "<ibwin_cnt>", 0, 9);
+					printf(TOK_ERR_ULONG_HEX_MSG_FMT, "<ibwin_cnt>", 0, 9);
 					*print_help = 1;
 					goto exit;
 				}

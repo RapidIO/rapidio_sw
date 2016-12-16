@@ -259,16 +259,16 @@ int CLIRegReadCmd(struct cli_env *env, int argc, char **argv)
 
 	switch (argc) {
 	case 2:
-		if (tok_parse_l(argv[1], &numReads, 0)) {
+		if (tok_parse_ul(argv[1], &numReads, 0)) {
 			LOGMSG(env, "\n");
-			LOGMSG(env, TOK_ERR_L_HEX_MSG_FMT, "<repeat>");
+			LOGMSG(env, TOK_ERR_UL_HEX_MSG_FMT, "<repeat>");
 			goto exit;
 		}
 		// no break
 	case 1:
-		if (tok_parse_l(argv[0], &address, 0)) {
+		if (tok_parse_ul(argv[0], &address, 0)) {
 			LOGMSG(env, "\n");
-			LOGMSG(env, TOK_ERR_L_HEX_MSG_FMT, "<address>");
+			LOGMSG(env, TOK_ERR_UL_HEX_MSG_FMT, "<address>");
 			goto exit;
 		}
 		if ((address % 4) != 0) {
@@ -341,16 +341,16 @@ int CLIRegWriteCmd(struct cli_env *env, int argc, char **argv)
 
 	switch (argc) {
 	case 2:
-		if (tok_parse_l(argv[1], &data, 0)) {
+		if (tok_parse_ul(argv[1], &data, 0)) {
 			LOGMSG(env, "\n");
-			LOGMSG(env, TOK_ERR_L_HEX_MSG_FMT, "<data>");
+			LOGMSG(env, TOK_ERR_UL_HEX_MSG_FMT, "<data>");
 			goto exit;
 		}
 		// no break
 	case 1:
-		if (tok_parse_l(argv[0], &address, 0)) {
+		if (tok_parse_ul(argv[0], &address, 0)) {
 			LOGMSG(env, "\n");
-			LOGMSG(env, TOK_ERR_L_HEX_MSG_FMT, "<address>");
+			LOGMSG(env, TOK_ERR_UL_HEX_MSG_FMT, "<address>");
 			goto exit;
 		}
 		if ((address % 4) != 0) {
@@ -425,23 +425,23 @@ int CLIRegReWriteCmd(struct cli_env *env, int argc, char **argv)
 
 	switch (argc) {
 	case 3:
-		if (tok_parse_l(argv[2], &repeat, 0)) {
+		if (tok_parse_ul(argv[2], &repeat, 0)) {
 			LOGMSG(env, "\n");
-			LOGMSG(env, TOK_ERR_L_HEX_MSG_FMT, "<repeat>");
+			LOGMSG(env, TOK_ERR_UL_HEX_MSG_FMT, "<repeat>");
 			goto exit;
 		}
 		// no break
 	case 2:
-		if (tok_parse_l(argv[1], &data, 0)) {
+		if (tok_parse_ul(argv[1], &data, 0)) {
 			LOGMSG(env, "\n");
-			LOGMSG(env, TOK_ERR_L_HEX_MSG_FMT, "<data>");
+			LOGMSG(env, TOK_ERR_UL_HEX_MSG_FMT, "<data>");
 			goto exit;
 		}
 		// no break
 	case 1:
-		if (tok_parse_l(argv[0], &address, 0)) {
+		if (tok_parse_ul(argv[0], &address, 0)) {
 			LOGMSG(env, "\n");
-			LOGMSG(env, TOK_ERR_L_HEX_MSG_FMT, "<address>");
+			LOGMSG(env, TOK_ERR_UL_HEX_MSG_FMT, "<address>");
 			goto exit;
 		}
 		if ((address % 4) != 0) {
@@ -516,16 +516,16 @@ int CLIRegWriteNoReadbackCmd(struct cli_env *env, int argc, char **argv)
 
 	switch (argc) {
 	case 2:
-		if (tok_parse_l(argv[1], &data, 0)) {
+		if (tok_parse_ul(argv[1], &data, 0)) {
 			LOGMSG(env, "\n");
-			LOGMSG(env, TOK_ERR_L_HEX_MSG_FMT, "<data>");
+			LOGMSG(env, TOK_ERR_UL_HEX_MSG_FMT, "<data>");
 			goto exit;
 		}
 		// no break
 	case 1:
-		if (tok_parse_l(argv[0], &address, 0)) {
+		if (tok_parse_ul(argv[0], &address, 0)) {
 			LOGMSG(env, "\n");
-			LOGMSG(env, TOK_ERR_L_HEX_MSG_FMT, "<address>");
+			LOGMSG(env, TOK_ERR_UL_HEX_MSG_FMT, "<address>");
 			goto exit;
 		}
 		if ((address % 4) != 0) {
@@ -586,16 +586,16 @@ int expect(struct cli_env *env, int argc, char **argv, int inverse)
 
 	switch (argc) {
 	case 2:
-		if (tok_parse_l(argv[1], &expdata, 0)) {
+		if (tok_parse_ul(argv[1], &expdata, 0)) {
 			LOGMSG(env, "\n");
-			LOGMSG(env, TOK_ERR_L_HEX_MSG_FMT, "<data>");
+			LOGMSG(env, TOK_ERR_UL_HEX_MSG_FMT, "<data>");
 			goto exit;
 		}
 		// no break
 	case 1:
-		if (tok_parse_l(argv[0], &address, 0)) {
+		if (tok_parse_ul(argv[0], &address, 0)) {
 			LOGMSG(env, "\n");
-			LOGMSG(env, TOK_ERR_L_HEX_MSG_FMT, "<address>");
+			LOGMSG(env, TOK_ERR_UL_HEX_MSG_FMT, "<address>");
 			goto exit;
 		}
 		if ((address % 4) != 0) {
@@ -704,16 +704,16 @@ int CLIRegDumpCmd(struct cli_env *env, int argc, char **argv)
 
 	switch (argc) {
 	case 2:
-		if (tok_parse_l(argv[1], &numbytes, 0)) {
+		if (tok_parse_ul(argv[1], &numbytes, 0)) {
 			LOGMSG(env, "\n");
-			LOGMSG(env, TOK_ERR_L_HEX_MSG_FMT, "<numbytes>");
+			LOGMSG(env, TOK_ERR_UL_HEX_MSG_FMT, "<numbytes>");
 			goto exit;
 		}
 		// no break
 	case 1:
-		if (tok_parse_l(argv[0], &address, 0)) {
+		if (tok_parse_ul(argv[0], &address, 0)) {
 			LOGMSG(env, "\n");
-			LOGMSG(env, TOK_ERR_L_HEX_MSG_FMT, "<address>");
+			LOGMSG(env, TOK_ERR_UL_HEX_MSG_FMT, "<address>");
 			goto exit;
 		}
 		if ((address % 4) != 0) {
@@ -790,9 +790,9 @@ int CLIMRegReadCmd(struct cli_env *env, int argc, char **argv)
 
 	switch(argc) {
 	case 4:
-		if (tok_parse_l(argv[3], &numReads, 0)) {
+		if (tok_parse_ul(argv[3], &numReads, 0)) {
 			LOGMSG(env, "\n");
-			LOGMSG(env, TOK_ERR_L_HEX_MSG_FMT, "<repeat>");
+			LOGMSG(env, TOK_ERR_UL_HEX_MSG_FMT, "<repeat>");
 			goto exit;
 		}
 		// no break
@@ -811,9 +811,9 @@ int CLIMRegReadCmd(struct cli_env *env, int argc, char **argv)
 		}
 		// no break
 	case 1:
-		if (tok_parse_l(argv[0], &address, 0)) {
+		if (tok_parse_ul(argv[0], &address, 0)) {
 			LOGMSG(env, "\n");
-			LOGMSG(env, TOK_ERR_L_HEX_MSG_FMT, "<address>");
+			LOGMSG(env, TOK_ERR_UL_HEX_MSG_FMT, "<address>");
 			goto exit;
 		}
 		if ((address % 4) != 0) {
@@ -900,16 +900,16 @@ int CLIMRegWriteCmd(struct cli_env *env, int argc, char **argv)
 		}
 		// no break
 	case 2:
-		if (tok_parse_l(argv[1], &data, 0)) {
+		if (tok_parse_ul(argv[1], &data, 0)) {
 			LOGMSG(env, "\n");
-			LOGMSG(env, TOK_ERR_L_HEX_MSG_FMT, "data");
+			LOGMSG(env, TOK_ERR_UL_HEX_MSG_FMT, "data");
 			goto exit;
 		}
 		// no break
 	case 1:
-		if (tok_parse_l(argv[0], &address, 0)) {
+		if (tok_parse_ul(argv[0], &address, 0)) {
 			LOGMSG(env, "\n");
-			LOGMSG(env, TOK_ERR_L_HEX_MSG_FMT, "address");
+			LOGMSG(env, TOK_ERR_UL_HEX_MSG_FMT, "address");
 			goto exit;
 		}
 		if ((address % 4) != 0) {

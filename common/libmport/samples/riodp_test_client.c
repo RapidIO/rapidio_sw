@@ -212,8 +212,8 @@ int main(int argc, char** argv)
 		printf(TOK_ERR_SOCKET_MSG_FMT, "Remote channel");
 		exit(EXIT_FAILURE);
 	}
-	if (tok_parse_l(argv[4], &arg.repeat, 0)) {
-		printf(TOK_ERR_L_HEX_MSG_FMT, "Number of repetitions");
+	if (tok_parse_ul(argv[4], &arg.repeat, 0)) {
+		printf(TOK_ERR_UL_HEX_MSG_FMT, "Number of repetitions");
 		exit(EXIT_FAILURE);
 	}
 

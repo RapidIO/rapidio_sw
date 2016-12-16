@@ -99,9 +99,9 @@ char *req_type_str[(int)last_action+1] = {
 // check the status of the worker thread.
 int gp_parse_worker_index(struct cli_env *env, char *tok, uint16_t *idx)
 {
-	if (tok_parse_short(tok, idx, 0, MAX_WORKER_IDX, 0)) {
+	if (tok_parse_ushort(tok, idx, 0, MAX_WORKER_IDX, 0)) {
 		LOGMSG(env, "\n");
-		LOGMSG(env, TOK_ERR_SHORT_MSG_FMT, "<idx>", 0, MAX_WORKER_IDX);
+		LOGMSG(env, TOK_ERR_USHORT_MSG_FMT, "<idx>", 0, MAX_WORKER_IDX);
 		return 1;
 	}
 	return 0;
@@ -136,9 +136,9 @@ err:
 // to the numeric values of 0 (false) and 1 (true)
 int gp_parse_bool(struct cli_env *env, char *tok, const char *name, uint16_t *boo)
 {
-	if (tok_parse_short(tok, boo, 0, 1, 0)) {
+	if (tok_parse_ushort(tok, boo, 0, 1, 0)) {
 		LOGMSG(env, "\n");
-		LOGMSG(env, TOK_ERR_SHORT_MSG_FMT, name, 0, 1);
+		LOGMSG(env, TOK_ERR_USHORT_MSG_FMT, name, 0, 1);
 		return 1;
 	}
 	return 0;
@@ -149,9 +149,9 @@ int gp_parse_bool(struct cli_env *env, char *tok, const char *name, uint16_t *bo
 int gp_parse_ull_pw2(struct cli_env *env, char *tok, const char *name,
 		uint64_t *value, uint64_t min, uint64_t max)
 {
-	if (tok_parse_longlong(tok, value, min, max, 0)) {
+	if (tok_parse_ulonglong(tok, value, min, max, 0)) {
 		LOGMSG(env, "\n");
-		LOGMSG(env, TOK_ERR_LONGLONG_HEX_MSG_FMT, name, min, max);
+		LOGMSG(env, TOK_ERR_ULONGLONG_HEX_MSG_FMT, name, min, max);
 		goto err;
 	}
 
@@ -170,9 +170,9 @@ err:
 int gp_parse_ul_pw2(struct cli_env *env, char *tok, const char *name, uint32_t *value,
 		uint32_t min, uint32_t max)
 {
-	if (tok_parse_long(tok, value, min, max, 0)) {
+	if (tok_parse_ulong(tok, value, min, max, 0)) {
 		LOGMSG(env, "\n");
-		LOGMSG(env, TOK_ERR_LONG_HEX_MSG_FMT, name, min, max);
+		LOGMSG(env, TOK_ERR_ULONG_HEX_MSG_FMT, name, min, max);
 		goto err;
 	}
 
@@ -190,9 +190,9 @@ int gp_parse_cpu(struct cli_env *env, char *dec_parm, int *cpu)
 {
 	const int MAX_GOODPUT_CPU = getCPUCount() - 1;
 
-	if (tok_parse_signed_l(dec_parm, cpu, 0)) {
+	if (tok_parse_long(dec_parm, cpu, -1, MAX_GOODPUT_CPU, 0)) {
 		LOGMSG(env, "\n");
-		LOGMSG(env, TOK_ERR_SIGNED_LONG_MSG_FMT, "<cpu>", -1, MAX_GOODPUT_CPU);
+		LOGMSG(env, TOK_ERR_LONG_MSG_FMT, "<cpu>", -1, MAX_GOODPUT_CPU);
 		return 1;
 	}
 	return 0;
@@ -472,10 +472,10 @@ int IBAllocCmd(struct cli_env *env, int argc, char **argv)
 			goto exit;
 		}
 	} else if (argc > 2) {
-		if (tok_parse_longlong(argv[2], &ib_rio_addr, 1, UINT64_MAX,
+		if (tok_parse_ulonglong(argv[2], &ib_rio_addr, 1, UINT64_MAX,
 				0)) {
 			LOGMSG(env, "\n");
-			LOGMSG(env, TOK_ERR_LONGLONG_HEX_MSG_FMT, "<addr>",
+			LOGMSG(env, TOK_ERR_ULONGLONG_HEX_MSG_FMT, "<addr>",
 					(uint64_t )1, (uint64_t)UINT64_MAX);
 			goto exit;
 		}
@@ -613,13 +613,13 @@ void cpu_occ_parse_proc_line(char *file_line,
 
 	if (NULL == tok)
 		goto error;
-	if (tok_parse_ll(tok, proc_new_utime, 0))
+	if (tok_parse_ull(tok, proc_new_utime, 0))
 		goto error;
 
 	tok = strtok_r(NULL, delim, &saveptr);
 	if (NULL == tok)
 		goto error;
-	if (tok_parse_ll(tok, proc_new_stime, 0))
+	if (tok_parse_ull(tok, proc_new_stime, 0))
 		goto error;
 	return;
 error:
@@ -649,43 +649,43 @@ void cpu_occ_parse_stat_line(char *file_line,
 	tok = strtok_r(NULL, delim, &saveptr);
 	if (NULL == tok)
 		goto error;
-	if (tok_parse_ll(tok, p_user, 0))
+	if (tok_parse_ull(tok, p_user, 0))
 		goto error;
 
 	tok = strtok_r(NULL, delim, &saveptr);
 	if (NULL == tok)
 		goto error;
-	if (tok_parse_ll(tok, p_nice, 0))
+	if (tok_parse_ull(tok, p_nice, 0))
 		goto error;
 
 	tok = strtok_r(NULL, delim, &saveptr);
 	if (NULL == tok)
 		goto error;
-	if (tok_parse_ll(tok, p_system, 0))
+	if (tok_parse_ull(tok, p_system, 0))
 		goto error;
 
 	tok = strtok_r(NULL, delim, &saveptr);
 	if (NULL == tok)
 		goto error;
-	if (tok_parse_ll(tok, p_idle, 0))
+	if (tok_parse_ull(tok, p_idle, 0))
 		goto error;
 
 	tok = strtok_r(NULL, delim, &saveptr);
 	if (NULL == tok)
 		goto error;
-	if (tok_parse_ll(tok, p_iowait, 0))
+	if (tok_parse_ull(tok, p_iowait, 0))
 		goto error;
 
 	tok = strtok_r(NULL, delim, &saveptr);
 	if (NULL == tok)
 		goto error;
-	if (tok_parse_ll(tok, p_irq, 0))
+	if (tok_parse_ull(tok, p_irq, 0))
 		goto error;
 
 	tok = strtok_r(NULL, delim, &saveptr);
 	if (NULL == tok)
 		goto error;
-	if (tok_parse_ll(tok, p_softirq, 0))
+	if (tok_parse_ull(tok, p_softirq, 0))
 		goto error;
 	
 	return;
@@ -857,17 +857,17 @@ int obdio_cmd(struct cli_env *env, int UNUSED(argc), char **argv, enum req_type 
 		goto exit;
 	}
 
-	if (tok_parse_longlong(argv[n++], &rio_addr, 1, UINT64_MAX, 0)) {
+	if (tok_parse_ulonglong(argv[n++], &rio_addr, 1, UINT64_MAX, 0)) {
 		LOGMSG(env, "\n");
-		LOGMSG(env, TOK_ERR_LONGLONG_HEX_MSG_FMT, "<rio_addr>",
+		LOGMSG(env, TOK_ERR_ULONGLONG_HEX_MSG_FMT, "<rio_addr>",
 				(uint64_t)1, (uint64_t)UINT64_MAX);
 		goto exit;
 	}
 
 	if (direct_io == action) {
-		if (tok_parse_ll(argv[n++], &bytes, 0)) {
+		if (tok_parse_ull(argv[n++], &bytes, 0)) {
 			LOGMSG(env, "\n");
-			LOGMSG(env, TOK_ERR_LL_HEX_MSG_FMT, "<bytes>");
+			LOGMSG(env, TOK_ERR_ULL_HEX_MSG_FMT, "<bytes>");
 			goto exit;
 		}
 		if (gp_parse_ull_pw2(env, argv[n++], "<acc_sz>", &acc_sz, 1, 8)) {
@@ -1008,16 +1008,16 @@ int dmaCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 		goto exit;
 	}
 
-	if (tok_parse_longlong(argv[n++], &rio_addr, 1, UINT64_MAX, 0)) {
+	if (tok_parse_ulonglong(argv[n++], &rio_addr, 1, UINT64_MAX, 0)) {
 		LOGMSG(env, "\n");
-		LOGMSG(env, TOK_ERR_LONGLONG_HEX_MSG_FMT, "<rio_addr>",
+		LOGMSG(env, TOK_ERR_ULONGLONG_HEX_MSG_FMT, "<rio_addr>",
 				(uint64_t)1, (uint64_t)UINT64_MAX);
 		goto exit;
 	}
 
-	if (tok_parse_ll(argv[n++], &bytes, 0)) {
+	if (tok_parse_ull(argv[n++], &bytes, 0)) {
 		LOGMSG(env, "\n");
-		LOGMSG(env, TOK_ERR_LL_HEX_MSG_FMT, "<bytes>");
+		LOGMSG(env, TOK_ERR_ULL_HEX_MSG_FMT, "<bytes>");
 		goto exit;
 	}
 
@@ -1033,15 +1033,15 @@ int dmaCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 		goto exit;
 	}
 
-	if (tok_parse_short(argv[n++], &trans, 0, 4, 0)) {
+	if (tok_parse_ushort(argv[n++], &trans, 0, 4, 0)) {
 		LOGMSG(env, "\n");
-		LOGMSG(env, TOK_ERR_SHORT_MSG_FMT, "<trans>", 0, 4);
+		LOGMSG(env, TOK_ERR_USHORT_MSG_FMT, "<trans>", 0, 4);
 		goto exit;
 	}
 
-	if (tok_parse_short(argv[n++], &sync, 0, 2, 0)) {
+	if (tok_parse_ushort(argv[n++], &sync, 0, 2, 0)) {
 		LOGMSG(env, "\n");
-		LOGMSG(env, TOK_ERR_SHORT_MSG_FMT, "<sync>", 0, 2);
+		LOGMSG(env, TOK_ERR_USHORT_MSG_FMT, "<sync>", 0, 2);
 		goto exit;
 	}
 
@@ -1104,16 +1104,16 @@ int dmaNumCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 		goto exit;
 	}
 
-	if (tok_parse_longlong(argv[n++], &rio_addr, 1, UINT64_MAX, 0)) {
+	if (tok_parse_ulonglong(argv[n++], &rio_addr, 1, UINT64_MAX, 0)) {
 		LOGMSG(env, "\n");
-		LOGMSG(env, TOK_ERR_LONGLONG_HEX_MSG_FMT, "<rio_addr>",
+		LOGMSG(env, TOK_ERR_ULONGLONG_HEX_MSG_FMT, "<rio_addr>",
 				(uint64_t)1, (uint64_t)UINT64_MAX);
 		goto exit;
 	}
 
-	if (tok_parse_ll(argv[n++], &bytes, 0)) {
+	if (tok_parse_ull(argv[n++], &bytes, 0)) {
 		LOGMSG(env, "\n");
-		LOGMSG(env, TOK_ERR_LL_HEX_MSG_FMT, "<bytes>");
+		LOGMSG(env, TOK_ERR_ULL_HEX_MSG_FMT, "<bytes>");
 		goto exit;
 	}
 
@@ -1129,21 +1129,21 @@ int dmaNumCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 		goto exit;
 	}
 
-	if (tok_parse_short(argv[n++], &trans, 0, 4, 0)) {
+	if (tok_parse_ushort(argv[n++], &trans, 0, 4, 0)) {
 		LOGMSG(env, "\n");
-		LOGMSG(env, TOK_ERR_SHORT_MSG_FMT, "<trans>", 0, 4);
+		LOGMSG(env, TOK_ERR_USHORT_MSG_FMT, "<trans>", 0, 4);
 		goto exit;
 	}
 
-	if (tok_parse_short(argv[n++], &sync, 0, 2, 0)) {
+	if (tok_parse_ushort(argv[n++], &sync, 0, 2, 0)) {
 		LOGMSG(env, "\n");
-		LOGMSG(env, TOK_ERR_SHORT_MSG_FMT, "<sync>", 0, 2);
+		LOGMSG(env, TOK_ERR_USHORT_MSG_FMT, "<sync>", 0, 2);
 		goto exit;
 	}
 
-	if (tok_parse_l(argv[n++], &num_trans, 0)) {
+	if (tok_parse_ul(argv[n++], &num_trans, 0)) {
 		LOGMSG(env, "\n");
-		LOGMSG(env, TOK_ERR_L_HEX_MSG_FMT, "<num>");
+		LOGMSG(env, TOK_ERR_UL_HEX_MSG_FMT, "<num>");
 		goto exit;
 	}
 
@@ -1205,16 +1205,16 @@ int dmaTxLatCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 		goto exit;
 	}
 
-	if (tok_parse_longlong(argv[n++], &rio_addr, 1, UINT64_MAX, 0)) {
+	if (tok_parse_ulonglong(argv[n++], &rio_addr, 1, UINT64_MAX, 0)) {
 		LOGMSG(env, "\n");
-		LOGMSG(env, TOK_ERR_LONGLONG_HEX_MSG_FMT, "<rio_addr>",
+		LOGMSG(env, TOK_ERR_ULONGLONG_HEX_MSG_FMT, "<rio_addr>",
 				(uint64_t)1, (uint64_t)UINT64_MAX);
 		goto exit;
 	}
 
-	if (tok_parse_ll(argv[n++], &bytes, 0)) {
+	if (tok_parse_ull(argv[n++], &bytes, 0)) {
 		LOGMSG(env, "\n");
-		LOGMSG(env, TOK_ERR_LL_HEX_MSG_FMT, "<bytes>");
+		LOGMSG(env, TOK_ERR_ULL_HEX_MSG_FMT, "<bytes>");
 		goto exit;
 	}
 
@@ -1226,9 +1226,9 @@ int dmaTxLatCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 		goto exit;
 	}
 
-	if (tok_parse_short(argv[n++], &trans, 0, 4, 0)) {
+	if (tok_parse_ushort(argv[n++], &trans, 0, 4, 0)) {
 		LOGMSG(env, "\n");
-		LOGMSG(env, TOK_ERR_SHORT_MSG_FMT, "<trans>", 0, 4);
+		LOGMSG(env, TOK_ERR_USHORT_MSG_FMT, "<trans>", 0, 4);
 		goto exit;
 	}
 
@@ -1294,16 +1294,16 @@ int dmaRxLatCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 		goto exit;
 	}
 
-	if (tok_parse_longlong(argv[n++], &rio_addr, 1, UINT64_MAX, 0)) {
+	if (tok_parse_ulonglong(argv[n++], &rio_addr, 1, UINT64_MAX, 0)) {
 		LOGMSG(env, "\n");
-		LOGMSG(env, TOK_ERR_LONGLONG_HEX_MSG_FMT, "<rio_addr>",
+		LOGMSG(env, TOK_ERR_ULONGLONG_HEX_MSG_FMT, "<rio_addr>",
 				(uint64_t)1, (uint64_t)UINT64_MAX);
 		goto exit;
 	}
 
-	if (tok_parse_longlong(argv[n++], &bytes, 1, UINT32_MAX, 0)) {
+	if (tok_parse_ulonglong(argv[n++], &bytes, 1, UINT32_MAX, 0)) {
 		LOGMSG(env, "\n");
-		LOGMSG(env, TOK_ERR_LONGLONG_HEX_MSG_FMT, "<bytes>",
+		LOGMSG(env, TOK_ERR_ULONGLONG_HEX_MSG_FMT, "<bytes>",
 				(uint64_t )1, (uint64_t)UINT32_MAX);
 		goto exit;
 	}
@@ -1380,10 +1380,10 @@ int msg_tx_cmd(struct cli_env *env, int UNUSED(argc), char **argv, enum req_type
 		goto exit;
 	}
 
-	if (tok_parse_long(argv[n++], &bytes, CM_HEADER_BYTES, RIO_MAX_MSG_SIZE,
+	if (tok_parse_ulong(argv[n++], &bytes, CM_HEADER_BYTES, RIO_MAX_MSG_SIZE,
 			0)) {
 		LOGMSG(env, "\n");
-		LOGMSG(env, TOK_ERR_LONG_HEX_MSG_FMT, "<size>", CM_HEADER_BYTES,
+		LOGMSG(env, TOK_ERR_ULONG_HEX_MSG_FMT, "<size>", CM_HEADER_BYTES,
 				RIO_MAX_MSG_SIZE);
 		goto exit;
 	}
@@ -1460,10 +1460,10 @@ int msgRxCmdExt(struct cli_env *env, int UNUSED(argc), char **argv, req_type act
 		goto exit;
 	}
 
-	if (tok_parse_long(argv[n++], &bytes, CM_HEADER_BYTES, RIO_MAX_MSG_SIZE,
+	if (tok_parse_ulong(argv[n++], &bytes, CM_HEADER_BYTES, RIO_MAX_MSG_SIZE,
 			0)) {
 		LOGMSG(env, "\n");
-		LOGMSG(env, TOK_ERR_LONG_HEX_MSG_FMT, "<size>", CM_HEADER_BYTES,
+		LOGMSG(env, TOK_ERR_ULONG_HEX_MSG_FMT, "<size>", CM_HEADER_BYTES,
 				RIO_MAX_MSG_SIZE);
 		goto exit;
 	}
@@ -1915,15 +1915,15 @@ int DumpCmd(struct cli_env *env, int argc, char **argv)
 			goto exit;
 		}
 
-		if (tok_parse_ll(argv[n++], &base_offset, 0)) {
+		if (tok_parse_ull(argv[n++], &base_offset, 0)) {
 			LOGMSG(env, "\n");
-			LOGMSG(env, TOK_ERR_LL_HEX_MSG_FMT, "<base_offset>");
+			LOGMSG(env, TOK_ERR_ULL_HEX_MSG_FMT, "<base_offset>");
 			goto exit;
 		}
 
-		if (tok_parse_ll(argv[n++], &size, 0)) {
+		if (tok_parse_ull(argv[n++], &size, 0)) {
 			LOGMSG(env, "\n");
-			LOGMSG(env, TOK_ERR_LL_HEX_MSG_FMT, "<size>");
+			LOGMSG(env, TOK_ERR_ULL_HEX_MSG_FMT, "<size>");
 			goto exit;
 		}
 	} else {
@@ -1987,21 +1987,21 @@ int FillCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 		goto exit;
 	}
 
-	if (tok_parse_ll(argv[n++], &base_offset, 0)) {
+	if (tok_parse_ull(argv[n++], &base_offset, 0)) {
 		LOGMSG(env, "\n");
-		LOGMSG(env, TOK_ERR_LL_HEX_MSG_FMT, "<offset>");
+		LOGMSG(env, TOK_ERR_ULL_HEX_MSG_FMT, "<offset>");
 		goto exit;
 	}
 
-	if (tok_parse_ll(argv[n++], &size, 0)) {
+	if (tok_parse_ull(argv[n++], &size, 0)) {
 		LOGMSG(env, "\n");
-		LOGMSG(env, TOK_ERR_LL_HEX_MSG_FMT, "<size>");
+		LOGMSG(env, TOK_ERR_ULL_HEX_MSG_FMT, "<size>");
 		goto exit;
 	}
 
-	if (tok_parse_short(argv[3], &tmp, 0, 0xff, 0)) {
+	if (tok_parse_ushort(argv[3], &tmp, 0, 0xff, 0)) {
 		LOGMSG(env, "\n");
-		LOGMSG(env, TOK_ERR_SHORT_HEX_MSG_FMT, "<data>", 0, 0xff);
+		LOGMSG(env, TOK_ERR_USHORT_HEX_MSG_FMT, "<data>", 0, 0xff);
 		goto exit;
 	}
 	data = (uint8_t)tmp;
@@ -2159,14 +2159,14 @@ int UTimeCmd(struct cli_env *env, int argc, char **argv)
 		break;
 	case '-':
 		if (argc > 4) {
-			if (tok_parse_short(argv[3], &st_i, 0, MAX_TIMESTAMPS-1, 0)) {
+			if (tok_parse_ushort(argv[3], &st_i, 0, MAX_TIMESTAMPS-1, 0)) {
 				LOGMSG(env, "\n");
-				LOGMSG(env, TOK_ERR_SHORT_MSG_FMT, "st_i", 0, MAX_TIMESTAMPS-1);
+				LOGMSG(env, TOK_ERR_USHORT_MSG_FMT, "st_i", 0, MAX_TIMESTAMPS-1);
 				goto exit;
 			}
-			if (tok_parse_short(argv[4], &end_i, 0, MAX_TIMESTAMPS-1, 0)) {
+			if (tok_parse_ushort(argv[4], &end_i, 0, MAX_TIMESTAMPS-1, 0)) {
 				LOGMSG(env, "\n");
-				LOGMSG(env, TOK_ERR_SHORT_MSG_FMT, "end_i", 0, MAX_TIMESTAMPS-1);
+				LOGMSG(env, TOK_ERR_USHORT_MSG_FMT, "end_i", 0, MAX_TIMESTAMPS-1);
 				goto exit;
 			}
 		} else {
@@ -2192,16 +2192,16 @@ int UTimeCmd(struct cli_env *env, int argc, char **argv)
 	case 'p':
 	case 'P':
 		if (argc > 3) {
-			if (tok_parse_short(argv[3], &st_i, 0, MAX_TIMESTAMPS-1, 0)) {
+			if (tok_parse_ushort(argv[3], &st_i, 0, MAX_TIMESTAMPS-1, 0)) {
 				LOGMSG(env, "\n");
-				LOGMSG(env, TOK_ERR_SHORT_MSG_FMT, "st_i", 0, MAX_TIMESTAMPS-1);
+				LOGMSG(env, TOK_ERR_USHORT_MSG_FMT, "st_i", 0, MAX_TIMESTAMPS-1);
 				goto exit;
 			}
 		}
 		if (argc > 4) {
-			if (tok_parse_short(argv[4], &end_i, 0, MAX_TIMESTAMPS-1, 0)) {
+			if (tok_parse_ushort(argv[4], &end_i, 0, MAX_TIMESTAMPS-1, 0)) {
 				LOGMSG(env, "\n");
-				LOGMSG(env, TOK_ERR_SHORT_MSG_FMT, "end_i", 0, MAX_TIMESTAMPS-1);
+				LOGMSG(env, TOK_ERR_USHORT_MSG_FMT, "end_i", 0, MAX_TIMESTAMPS-1);
 				goto exit;
 			}
 		}
@@ -2230,9 +2230,9 @@ int UTimeCmd(struct cli_env *env, int argc, char **argv)
 	case 'l':
 	case 'L':
 		if (argc > 3) {
-			if (tok_parse_ll(argv[3], &lim, 0)) {
+			if (tok_parse_ull(argv[3], &lim, 0)) {
 				LOGMSG(env, "\n");
-				LOGMSG(env, TOK_ERR_LL_HEX_MSG_FMT, "lim");
+				LOGMSG(env, TOK_ERR_ULL_HEX_MSG_FMT, "lim");
 				goto exit;
 			}
 		} else {
@@ -2316,9 +2316,9 @@ int UCalCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 		goto exit;
 	}
 
-	if (tok_parse_long(argv[n++], &chan, 1, 7, 0)) {
+	if (tok_parse_ulong(argv[n++], &chan, 1, 7, 0)) {
 		LOGMSG(env, "\n");
-		LOGMSG(env, TOK_ERR_LONG_MSG_FMT, "<chan>", 1, 7);
+		LOGMSG(env, TOK_ERR_ULONG_MSG_FMT, "<chan>", 1, 7);
 		goto exit;
 	}
 
@@ -2326,9 +2326,9 @@ int UCalCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 		goto exit;
 	}
 
-	if (tok_parse_l(argv[n++], &sy_iter, 0)) {
+	if (tok_parse_ul(argv[n++], &sy_iter, 0)) {
 		LOGMSG(env, "\n");
-		LOGMSG(env, TOK_ERR_L_HEX_MSG_FMT, "<sy_iter>");
+		LOGMSG(env, TOK_ERR_UL_HEX_MSG_FMT, "<sy_iter>");
 		goto exit;
 	}
 
@@ -2387,9 +2387,9 @@ int UDMACmd(struct cli_env *env, int UNUSED(argc), char **argv)
 		goto exit;
 	}
 
-	if (tok_parse_long(argv[n++], &chan, 1, 7, 0)) {
+	if (tok_parse_ulong(argv[n++], &chan, 1, 7, 0)) {
 		LOGMSG(env, "\n");
-		LOGMSG(env, TOK_ERR_LONG_MSG_FMT, "<chan>", 1, 7);
+		LOGMSG(env, TOK_ERR_ULONG_MSG_FMT, "<chan>", 1, 7);
 		goto exit;
 	}
 
@@ -2405,9 +2405,9 @@ int UDMACmd(struct cli_env *env, int UNUSED(argc), char **argv)
 		goto exit;
 	}
 
-	if (tok_parse_longlong(argv[n++], &rio_addr, 1, UINT64_MAX, 0)) {
+	if (tok_parse_ulonglong(argv[n++], &rio_addr, 1, UINT64_MAX, 0)) {
 		LOGMSG(env, "\n");
-		LOGMSG(env, TOK_ERR_LONGLONG_HEX_MSG_FMT, "<rio_addr>",
+		LOGMSG(env, TOK_ERR_ULONGLONG_HEX_MSG_FMT, "<rio_addr>",
 				(uint64_t)1, (uint64_t)UINT64_MAX);
 		goto exit;
 	}
@@ -2420,9 +2420,9 @@ int UDMACmd(struct cli_env *env, int UNUSED(argc), char **argv)
 		goto exit;
 	}
 
-	if (tok_parse_short(argv[n++], &trans, 0, 3, 0)) {
+	if (tok_parse_ushort(argv[n++], &trans, 0, 3, 0)) {
 		LOGMSG(env, "\n");
-		LOGMSG(env, TOK_ERR_SHORT_MSG_FMT, "<trans>", 0, 3);
+		LOGMSG(env, TOK_ERR_USHORT_MSG_FMT, "<trans>", 0, 3);
 		goto exit;
 	}
 
@@ -2494,9 +2494,9 @@ int UDMALatTxRxCmd(const char cmd, struct cli_env *env, int UNUSED(argc), char *
 		goto exit;
 	}
 
-	if (tok_parse_long(argv[n++], &chan, 1, 7, 0)) {
+	if (tok_parse_ulong(argv[n++], &chan, 1, 7, 0)) {
 		LOGMSG(env, "\n");
-		LOGMSG(env, TOK_ERR_LONG_MSG_FMT, "<chan>", 1, 7);
+		LOGMSG(env, TOK_ERR_ULONG_MSG_FMT, "<chan>", 1, 7);
 		goto exit;
 	}
 
@@ -2512,9 +2512,9 @@ int UDMALatTxRxCmd(const char cmd, struct cli_env *env, int UNUSED(argc), char *
 		goto exit;
 	}
 
-	if (tok_parse_longlong(argv[n++], &rio_addr, 1, UINT64_MAX, 0)) {
+	if (tok_parse_ulonglong(argv[n++], &rio_addr, 1, UINT64_MAX, 0)) {
 		LOGMSG(env, "\n");
-		LOGMSG(env, TOK_ERR_LONGLONG_HEX_MSG_FMT, "<rio_addr>",
+		LOGMSG(env, TOK_ERR_ULONGLONG_HEX_MSG_FMT, "<rio_addr>",
 				(uint64_t)1, (uint64_t)UINT64_MAX);
 		goto exit;
 	}
@@ -2523,9 +2523,9 @@ int UDMALatTxRxCmd(const char cmd, struct cli_env *env, int UNUSED(argc), char *
 		goto exit;
 	}
 
-	if (tok_parse_long(argv[n++], &trans, 0, 3, 0)) {
+	if (tok_parse_ulong(argv[n++], &trans, 0, 3, 0)) {
 		LOGMSG(env, "\n");
-		LOGMSG(env, TOK_ERR_LONG_MSG_FMT, "<trans>", 0 ,3);
+		LOGMSG(env, TOK_ERR_ULONG_MSG_FMT, "<trans>", 0 ,3);
 		goto exit;
 	}
 
@@ -2640,9 +2640,9 @@ int UDMALatNREAD(struct cli_env *env, int UNUSED(argc), char **argv)
 		goto exit;
 	}
 
-	if (tok_parse_long(argv[n++], &chan, 1, 7, 0)) {
+	if (tok_parse_ulong(argv[n++], &chan, 1, 7, 0)) {
 		LOGMSG(env, "\n");
-		LOGMSG(env, TOK_ERR_LONG_MSG_FMT, "<chan>", 1, 7);
+		LOGMSG(env, TOK_ERR_ULONG_MSG_FMT, "<chan>", 1, 7);
 		goto exit;
 	}
 
@@ -2658,9 +2658,9 @@ int UDMALatNREAD(struct cli_env *env, int UNUSED(argc), char **argv)
 		goto exit;
 	}
 
-	if (tok_parse_longlong(argv[n++], &rio_addr, 1, UINT64_MAX, 0)) {
+	if (tok_parse_ulonglong(argv[n++], &rio_addr, 1, UINT64_MAX, 0)) {
 		LOGMSG(env, "\n");
-		LOGMSG(env, TOK_ERR_LONGLONG_HEX_MSG_FMT, "<rio_addr>",
+		LOGMSG(env, TOK_ERR_ULONGLONG_HEX_MSG_FMT, "<rio_addr>",
 				(uint64_t)1, (uint64_t)UINT64_MAX);
 		goto exit;
 	}
@@ -2807,9 +2807,9 @@ int UMDDDWWWCmd(struct cli_env *env, int argc, char **argv)
  	}
 
 	if (argc > 1) {
-		if (tok_parse_s(argv[2], &port, 0)) {
+		if (tok_parse_us(argv[2], &port, 0)) {
 			LOGMSG(env, "\n");
-			LOGMSG(env, TOK_ERR_S_HEX_MSG_FMT, "port");
+			LOGMSG(env, TOK_ERR_US_HEX_MSG_FMT, "port");
 			goto exit;
 		}
 	} else {
@@ -2898,21 +2898,21 @@ int UDMACmdTun(struct cli_env *env, int argc, char **argv)
 		goto exit;
 	}
 
-	if (tok_parse_short(argv[n++], &chan, 1, 7, 0)) {
+	if (tok_parse_ushort(argv[n++], &chan, 1, 7, 0)) {
 		LOGMSG(env, "\n");
-		LOGMSG(env, TOK_ERR_SHORT_MSG_FMT, "<chan_1>", 1, 7);
+		LOGMSG(env, TOK_ERR_USHORT_MSG_FMT, "<chan_1>", 1, 7);
 		goto exit;
 	}
 
-	if (tok_parse_short(argv[n++], &chan_n, 1, 7, 0)) {
+	if (tok_parse_ushort(argv[n++], &chan_n, 1, 7, 0)) {
 		LOGMSG(env, "\n");
-		LOGMSG(env, TOK_ERR_SHORT_MSG_FMT, "<chan_n>", 1, 7);
+		LOGMSG(env, TOK_ERR_USHORT_MSG_FMT, "<chan_n>", 1, 7);
 		goto exit;
 	}
 
-	if (tok_parse_short(argv[n++], &chan2, 1, 7, 0)) {
+	if (tok_parse_ushort(argv[n++], &chan2, 1, 7, 0)) {
 		LOGMSG(env, "\n");
-		LOGMSG(env, TOK_ERR_SHORT_MSG_FMT, "<chan_nread>", 1, 7);
+		LOGMSG(env, TOK_ERR_USHORT_MSG_FMT, "<chan_nread>", 1, 7);
 		goto exit;
 	}
 
@@ -2941,9 +2941,9 @@ int UDMACmdTun(struct cli_env *env, int argc, char **argv)
 		goto exit;
 	}
 
-	if (tok_parse_long(argv[n++], &mtu, 580, 128*1024, 0)) {
+	if (tok_parse_ulong(argv[n++], &mtu, 580, 128*1024, 0)) {
 		LOGMSG(env, "\n");
-		LOGMSG(env, TOK_ERR_LONG_MSG_FMT, "<mtu>", 580, 128*1024);
+		LOGMSG(env, TOK_ERR_ULONG_MSG_FMT, "<mtu>", 580, 128*1024);
 		goto exit;
 	}
 
@@ -3032,21 +3032,21 @@ int UMSGCmd(const char cmd, struct cli_env *env, int UNUSED(argc), char **argv)
 		goto exit;
 	}
 
-	if (tok_parse_short(argv[n++], &chan, 2, 3, 0)) {
+	if (tok_parse_ushort(argv[n++], &chan, 2, 3, 0)) {
 		LOGMSG(env, "\n");
-		LOGMSG(env, TOK_ERR_SHORT_MSG_FMT, "<chan>", 2, 3);
+		LOGMSG(env, TOK_ERR_USHORT_MSG_FMT, "<chan>", 2, 3);
 		goto exit;
 	}
 
 	if (cmd == 'T') {
-		if (tok_parse_short(argv[n++], &chan_to, 2, 3, 0)) {
+		if (tok_parse_ushort(argv[n++], &chan_to, 2, 3, 0)) {
 			LOGMSG(env, "\n");
-			LOGMSG(env, TOK_ERR_SHORT_MSG_FMT, "<chan_to>", 2, 3);
+			LOGMSG(env, TOK_ERR_USHORT_MSG_FMT, "<chan_to>", 2, 3);
 			goto exit;
 		}
-		if (tok_parse_short(argv[n++], &letter, 0, 3, 0)) {
+		if (tok_parse_ushort(argv[n++], &letter, 0, 3, 0)) {
 			LOGMSG(env, "\n");
-			LOGMSG(env, TOK_ERR_SHORT_MSG_FMT, "<letter>", 0, 3);
+			LOGMSG(env, TOK_ERR_USHORT_MSG_FMT, "<letter>", 0, 3);
 			goto exit;
 		}
 	}
@@ -3161,9 +3161,9 @@ int UMSGCmdTun(struct cli_env *env, int UNUSED(argc), char **argv)
 		goto exit;
 	}
 
-	if (tok_parse_short(argv[n++], &chan, 2, 3, 0)) {
+	if (tok_parse_ushort(argv[n++], &chan, 2, 3, 0)) {
 		LOGMSG(env, "\n");
-		LOGMSG(env, TOK_ERR_SHORT_MSG_FMT, "<chan>", 2, 3);
+		LOGMSG(env, TOK_ERR_USHORT_MSG_FMT, "<chan>", 2, 3);
 		goto exit;
 	}
 
@@ -3397,9 +3397,9 @@ int UMSGCmdWatch(struct cli_env *env, int UNUSED(argc), char **argv)
 		goto exit;
 	}
 
-	if (tok_parse_short(argv[n++], &chan, 2, 3, 0)) {
+	if (tok_parse_ushort(argv[n++], &chan, 2, 3, 0)) {
 		LOGMSG(env, "\n");
-		LOGMSG(env, TOK_ERR_SHORT_MSG_FMT, "<chan>", 2, 3);
+		LOGMSG(env, TOK_ERR_USHORT_MSG_FMT, "<chan>", 2, 3);
 		goto exit;
 	}
 

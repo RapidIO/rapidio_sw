@@ -348,8 +348,8 @@ int main(int argc, char** argv)
 			"hiM:R:S:L:", options, NULL))) {
 		switch (c) {
 		case 'S':
-			if (tok_parse_l(optarg, &ibwin_size, 0)) {
-				printf(TOK_ERR_L_HEX_MSG_FMT, "Buffer size");
+			if (tok_parse_ul(optarg, &ibwin_size, 0)) {
+				printf(TOK_ERR_UL_HEX_MSG_FMT, "Buffer size");
 				exit (EXIT_FAILURE);
 			}
 			break;
@@ -358,15 +358,15 @@ int main(int argc, char** argv)
 			buf_mode = 1;
 			break;
 		case 'R':
-			if (tok_parse_ll(optarg, &rio_base, 0)) {
-				printf(TOK_ERR_LL_HEX_MSG_FMT, "Base address");
+			if (tok_parse_ull(optarg, &rio_base, 0)) {
+				printf(TOK_ERR_ULL_HEX_MSG_FMT, "Base address");
 				exit (EXIT_FAILURE);
 			}
 			break;
 			/* Options common for all modes */
 		case 'L':
-			if (tok_parse_ll(optarg, &loc_addr, 0)) {
-				printf(TOK_ERR_LL_HEX_MSG_FMT,
+			if (tok_parse_ull(optarg, &loc_addr, 0)) {
+				printf(TOK_ERR_ULL_HEX_MSG_FMT,
 						"Physical address");
 				exit (EXIT_FAILURE);
 			}

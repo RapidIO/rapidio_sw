@@ -207,8 +207,8 @@ int main(int argc, char *argv[])
 	while (-1 != (c = getopt(argc, argv, "hc:d:i:")) )
 		switch (c) {
 		case 'c':
-			if (tok_parse_l(optarg, &count, 0)) {
-				printf(TOK_ERR_L_HEX_MSG_FMT, "Number of repetitions");
+			if (tok_parse_ul(optarg, &count, 0)) {
+				printf(TOK_ERR_UL_HEX_MSG_FMT, "Number of repetitions");
 				exit(EXIT_FAILURE);
 			}
 			break;
@@ -220,8 +220,8 @@ int main(int argc, char *argv[])
 			have_destid = true;
 			break;
 		case 'i':
-			if (tok_parse_short(optarg, &i, 1, 255, 0)) {
-				printf(TOK_ERR_SHORT_MSG_FMT, "Number of memory spaces", 1, 255);
+			if (tok_parse_ushort(optarg, &i, 1, 255, 0)) {
+				printf(TOK_ERR_USHORT_MSG_FMT, "Number of memory spaces", 1, 255);
 				exit(EXIT_FAILURE);
 			}
 			break;

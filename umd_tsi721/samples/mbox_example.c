@@ -586,32 +586,32 @@ void parse_options(struct worker *info, int argc, char* argv[])
 			}
 			break;
 		case 'c':
-			if (tok_parse_short(optarg, &info->mbox, 2, 3, 0)) {
-				printf(TOK_ERR_SHORT_MSG_FMT, "MBOX channel for mp", 2, 3);
+			if (tok_parse_ushort(optarg, &info->mbox, 2, 3, 0)) {
+				printf(TOK_ERR_USHORT_MSG_FMT, "MBOX channel for mp", 2, 3);
 				exit (EXIT_FAILURE);
 			}
 			break;
 		case 'C':
-			if (tok_parse_short(optarg, &info->tgt_mbox, 2, 3, 0)) {
-				printf(TOK_ERR_SHORT_MSG_FMT, "MBOX channel for the server", 2, 3);
+			if (tok_parse_ushort(optarg, &info->tgt_mbox, 2, 3, 0)) {
+				printf(TOK_ERR_USHORT_MSG_FMT, "MBOX channel for the server", 2, 3);
 				exit (EXIT_FAILURE);
 			}
 			break;
 		case 's':
-			if (tok_parse_long(optarg, &info->msg_sz, 8, 4096, 0)) {
-				printf(TOK_ERR_LONG_MSG_FMT, "Message size", 8, 4096);
+			if (tok_parse_ulong(optarg, &info->msg_sz, 8, 4096, 0)) {
+				printf(TOK_ERR_ULONG_MSG_FMT, "Message size", 8, 4096);
 				exit(EXIT_FAILURE);
 			}
 			break;
 		case 'b':
-			if (tok_parse_short(optarg, &info->tx_buf_cnt, 32, 4096, 0)) {
-				printf(TOK_ERR_SHORT_MSG_FMT, "Maximum number of pending messages", 32, 4096);
+			if (tok_parse_ushort(optarg, &info->tx_buf_cnt, 32, 4096, 0)) {
+				printf(TOK_ERR_USHORT_MSG_FMT, "Maximum number of pending messages", 32, 4096);
 				exit(EXIT_FAILURE);
 			}
 			break;
 		case 'f':
-			if (tok_parse_short(optarg, &info->sts_entries, 32, 4096, 0)) {
-				printf(TOK_ERR_SHORT_MSG_FMT, "Maximum number of finished messages", 32, 4096);
+			if (tok_parse_ushort(optarg, &info->sts_entries, 32, 4096, 0)) {
+				printf(TOK_ERR_USHORT_MSG_FMT, "Maximum number of finished messages", 32, 4096);
 				exit(EXIT_FAILURE);
 			}
 			break;

@@ -167,9 +167,9 @@ struct fmd_opt_vals *fmd_parse_options(int argc, char *argv[])
 
 		case 'i':
 		case 'I':
-			if (tok_parse_l(optarg, &opts->mast_interval,
+			if (tok_parse_ul(optarg, &opts->mast_interval,
 								0)) {
-				printf(TOK_ERR_L_HEX_MSG_FMT, "Interval");
+				printf(TOK_ERR_UL_HEX_MSG_FMT, "Interval");
 				exit(EXIT_FAILURE);
 			}
 			break;

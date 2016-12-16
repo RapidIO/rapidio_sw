@@ -565,22 +565,22 @@ int main(int argc, char** argv)
 			"rvdhia:A:D:I:O:M:R:S:T:B:L:", options, NULL))) {
 		switch (c) {
 		case 'A':
-			if (tok_parse_ll(optarg, &tgt_addr, 0)) {
-				printf(TOK_ERR_LL_HEX_MSG_FMT,
+			if (tok_parse_ull(optarg, &tgt_addr, 0)) {
+				printf(TOK_ERR_ULL_HEX_MSG_FMT,
 						"Target memory address");
 				exit(EXIT_FAILURE);
 			}
 			break;
 		case 'L':
-			if (tok_parse_ll(optarg, &loc_addr, 0)) {
-				printf(TOK_ERR_LL_HEX_MSG_FMT,
+			if (tok_parse_ull(optarg, &loc_addr, 0)) {
+				printf(TOK_ERR_ULL_HEX_MSG_FMT,
 						"Local memory address");
 				exit(EXIT_FAILURE);
 			}
 			break;
 		case 'a':
-			if (tok_parse_s(optarg, &align, 0)) {
-				printf(TOK_ERR_S_HEX_MSG_FMT, "Data alignment");
+			if (tok_parse_us(optarg, &align, 0)) {
+				printf(TOK_ERR_US_HEX_MSG_FMT, "Data alignment");
 				exit(EXIT_FAILURE);
 			}
 			break;
@@ -591,27 +591,27 @@ int main(int argc, char** argv)
 			}
 			break;
 		case 'O':
-			if (tok_parse_l(optarg, &offset, 0)) {
-				printf(TOK_ERR_L_HEX_MSG_FMT, "Data offset");
+			if (tok_parse_ul(optarg, &offset, 0)) {
+				printf(TOK_ERR_UL_HEX_MSG_FMT, "Data offset");
 				exit(EXIT_FAILURE);
 			}
 			break;
 		case 'S':
-			if (tok_parse_l(optarg, &copy_size, 0)) {
-				printf(TOK_ERR_L_HEX_MSG_FMT,
+			if (tok_parse_ul(optarg, &copy_size, 0)) {
+				printf(TOK_ERR_UL_HEX_MSG_FMT,
 						"Data transfer size");
 				exit(EXIT_FAILURE);
 			}
 			break;
 		case 'T':
-			if (tok_parse_l(optarg, &repeat, 0)) {
-				printf(TOK_ERR_L_HEX_MSG_FMT, "Number of repetitions");
+			if (tok_parse_ul(optarg, &repeat, 0)) {
+				printf(TOK_ERR_UL_HEX_MSG_FMT, "Number of repetitions");
 				exit(EXIT_FAILURE);
 			}
 			break;
 		case 'B':
-			if (tok_parse_l(optarg, &tbuf_size, 0)) {
-				printf(TOK_ERR_L_HEX_MSG_FMT,
+			if (tok_parse_ul(optarg, &tbuf_size, 0)) {
+				printf(TOK_ERR_UL_HEX_MSG_FMT,
 						"Test buffer size");
 				exit(EXIT_FAILURE);
 			}
@@ -629,8 +629,8 @@ int main(int argc, char** argv)
 				exit(EXIT_FAILURE);
 			}
 			ibwin_set = true;
-			if (tok_parse_l(optarg, &ibwin_size, 0)) {
-				printf(TOK_ERR_L_HEX_MSG_FMT,
+			if (tok_parse_ul(optarg, &ibwin_size, 0)) {
+				printf(TOK_ERR_UL_HEX_MSG_FMT,
 						"Inbound window memory size");
 				exit(EXIT_FAILURE);
 			}
@@ -646,8 +646,8 @@ int main(int argc, char** argv)
 			ibwin_size = DEFAULT_IBWIN_SIZE;
 			break;
 		case 'R':
-			if (tok_parse_ll(optarg, &rio_base, 0)) {
-				printf(TOK_ERR_LL_HEX_MSG_FMT,
+			if (tok_parse_ull(optarg, &rio_base, 0)) {
+				printf(TOK_ERR_ULL_HEX_MSG_FMT,
 						"Inbound window base memory address");
 				return (EXIT_FAILURE);
 			}

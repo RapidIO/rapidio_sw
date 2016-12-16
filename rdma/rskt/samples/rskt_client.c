@@ -336,20 +336,20 @@ int main(int argc, char *argv[])
 			g_disp_level = g_level;
 			break;
 		case 'L':
-			if (tok_parse_long(optarg, &data_length, 0, 8192, 0)) {
-				printf(TOK_ERR_LONG_MSG_FMT, "Buffer size", 0, 8192);
+			if (tok_parse_ulong(optarg, &data_length, 0, 8192, 0)) {
+				printf(TOK_ERR_ULONG_MSG_FMT, "Buffer size", 0, 8192);
 				exit(EXIT_FAILURE);
 			}
 			break;
 		case 'p':
-			if (tok_parse_long(optarg, &parallel, 1, 255, 0)) {
-				printf(TOK_ERR_LONG_MSG_FMT, "Number of parallel sockets", 1, 255);
+			if (tok_parse_ulong(optarg, &parallel, 1, 255, 0)) {
+				printf(TOK_ERR_ULONG_MSG_FMT, "Number of parallel sockets", 1, 255);
 				exit(EXIT_FAILURE);
 			}
 			break;
 		case 'r':
-			if (tok_parse_l(optarg, &repetitions, 0)) {
-				printf(TOK_ERR_L_HEX_MSG_FMT, "Number of repetitions");
+			if (tok_parse_ul(optarg, &repetitions, 0)) {
+				printf(TOK_ERR_UL_HEX_MSG_FMT, "Number of repetitions");
 				exit(EXIT_FAILURE);
 			}
 			break;

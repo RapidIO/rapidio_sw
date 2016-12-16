@@ -150,16 +150,16 @@ int parse_options(int argc, char *argv[],
 	}
 
 	if (argc > 6) {
-		if (tok_parse_short(argv[6], &tmp16, 0, 1, 0)) {
-			printf(TOK_ERR_SHORT_HEX_MSG_FMT, "debug", 0, 1);
+		if (tok_parse_ushort(argv[6], &tmp16, 0, 1, 0)) {
+			printf(TOK_ERR_USHORT_HEX_MSG_FMT, "debug", 0, 1);
 			goto print_help;
 		}
 		*debug = (uint8_t)(tmp16 & UINT8_MAX);
 	}
 
 	if (argc > 7) {
-		if (tok_parse_short(argv[7], &tmp16, 0, 1, 0)) {
-			printf(TOK_ERR_SHORT_HEX_MSG_FMT, "k_buf", 0, 1);
+		if (tok_parse_ushort(argv[7], &tmp16, 0, 1, 0)) {
+			printf(TOK_ERR_USHORT_HEX_MSG_FMT, "k_buf", 0, 1);
 			goto print_help;
 		}
 		*k_buffs = (uint8_t)(tmp16 & UINT8_MAX);

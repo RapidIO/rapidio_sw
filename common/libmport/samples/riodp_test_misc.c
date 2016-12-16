@@ -162,15 +162,15 @@ int main(int argc, char** argv)
 			}
 			break;
 		case 'O':
-			if (tok_parse_l(optarg, &offset, 0)) {
-				printf(TOK_ERR_L_HEX_MSG_FMT,
+			if (tok_parse_ul(optarg, &offset, 0)) {
+				printf(TOK_ERR_UL_HEX_MSG_FMT,
 						"Register space offset");
 				return (EXIT_FAILURE);
 			}
 			break;
 		case 'S':
-			if (tok_parse_l(optarg, &op_size, 0)) {
-				printf(TOK_ERR_L_HEX_MSG_FMT,
+			if (tok_parse_ul(optarg, &op_size, 0)) {
+				printf(TOK_ERR_UL_HEX_MSG_FMT,
 						"Data transfer size");
 				return (EXIT_FAILURE);
 			}
@@ -182,8 +182,8 @@ int main(int argc, char** argv)
 			}
 			break;
 		case 'V':
-			if (tok_parse_l(optarg, &data, 0)) {
-				printf(TOK_ERR_L_HEX_MSG_FMT, "Data value");
+			if (tok_parse_ul(optarg, &data, 0)) {
+				printf(TOK_ERR_UL_HEX_MSG_FMT, "Data value");
 				return (EXIT_FAILURE);
 			}
 			break;

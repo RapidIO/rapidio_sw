@@ -168,8 +168,8 @@ int CLIAppCmd(struct cli_env *env, int argc, char **argv)
 	uint32_t idx;
 
 	if (argc) {
-		if (tok_parse_long(argv[0], &idx, 0, FMD_MAX_APPS, 0)) {
-			LOGMSG(env, TOK_ERR_LONG_MSG_FMT, "Maximum apps",
+		if (tok_parse_ulong(argv[0], &idx, 0, FMD_MAX_APPS, 0)) {
+			LOGMSG(env, TOK_ERR_ULONG_MSG_FMT, "Maximum apps",
 					0, FMD_MAX_APPS);
 			goto exit;
 		}

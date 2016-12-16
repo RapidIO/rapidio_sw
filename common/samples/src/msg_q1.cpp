@@ -18,8 +18,8 @@ int main(int argc, char *argv[])
 
 	/* Number of iterations */
 	uint32_t n;
-	if (tok_parse_l(argv[1], &n, 0)) {
-		printf(TOK_ERR_L_HEX_MSG_FMT, "Number of repetitions");
+	if (tok_parse_ul(argv[1], &n, 0)) {
+		printf(TOK_ERR_UL_HEX_MSG_FMT, "Number of repetitions");
 	}
 
 	/* Initialize the logger */

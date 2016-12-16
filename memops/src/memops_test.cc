@@ -130,8 +130,8 @@ int main(int argc, char* argv[])
   }
 
   uint64_t rio_addr = 0;
-  if (tok_parse_ll(argv[n++], &rio_addr, 0)) {
-	  fprintf(stderr, TOK_ERR_LL_HEX_MSG_FMT, "rio address");
+  if (tok_parse_ull(argv[n++], &rio_addr, 0)) {
+	  fprintf(stderr, TOK_ERR_ULL_HEX_MSG_FMT, "rio address");
 	  usage(argv[0]);
 	  exit(EXIT_FAILURE);
   }
@@ -148,8 +148,8 @@ int main(int argc, char* argv[])
   uint16_t chan = 7;
   char *env_var = getenv("UMD_CHAN");
   if (env_var != NULL) {
-	  if (tok_parse_long(env_var, &chan, 0, 7, 0)) {
-		  fprintf(stderr, TOK_ERR_LONG_MSG_FMT, "Environment variable \'UMD_CHAN\'", 0, 7);
+	  if (tok_parse_ulong(env_var, &chan, 0, 7, 0)) {
+		  fprintf(stderr, TOK_ERR_ULONG_MSG_FMT, "Environment variable \'UMD_CHAN\'", 0, 7);
 		  exit(EXIT_FAILURE);
 	  }
   }

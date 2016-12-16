@@ -164,8 +164,8 @@ int main(int argc, char *argv[])
 			have_first_channel = true;
 			break;
 		case 'n':
-			if (tok_parse_short(optarg, &num_channels, 0, 255, 0)) {
-				printf(TOK_ERR_S_HEX_MSG_FMT, "Number of channels");
+			if (tok_parse_ushort(optarg, &num_channels, 0, 255, 0)) {
+				printf(TOK_ERR_USHORT_MSG_FMT, "Number of channels", 0, 255);
 				exit(EXIT_FAILURE);
 			}
 			have_num_channels = true;
@@ -191,8 +191,8 @@ int main(int argc, char *argv[])
 			}
 			break;
 		case 'r':
-			if (tok_parse_l(optarg, &repetitions, 0)) {
-				printf(TOK_ERR_L_HEX_MSG_FMT, "Number of repetitions");
+			if (tok_parse_ul(optarg, &repetitions, 0)) {
+				printf(TOK_ERR_UL_HEX_MSG_FMT, "Number of repetitions");
 				exit(EXIT_FAILURE);
 			}
 			printf("Tests will be run %d times!\n", repetitions);
