@@ -283,21 +283,36 @@ public:
   {
     assert(this);
 
-    if (m_copy) return;
+    if (m_copy) {
+        return;
+    }
+
+    if (NULL == m_info) {
+        return; // ::init was not called?
+    }
 
     lock();
     sig = PEER_SIG_DESTROYED;
 
-    if (m_tun_fd >= 0) { close(m_tun_fd); m_tun_fd = -1; }
+    if (m_tun_fd >= 0) {
+        close(m_tun_fd);
+        m_tun_fd = -1;
+    }
     m_tun_name[0] = '\0';
 
-    if (m_info == NULL) return; // ::init was not called?
+    free(m_rio_rx_bd_L2_ptr);
+    m_rio_rx_bd_L2_ptr = NULL;
 
-    free(m_rio_rx_bd_L2_ptr);   m_rio_rx_bd_L2_ptr = NULL;
-    free(m_rio_rx_bd_ready);    m_rio_rx_bd_ready = NULL;
-    free(m_rio_rx_bd_ready_ts); m_rio_rx_bd_ready_ts = NULL;
+    free(m_rio_rx_bd_ready);
+    m_rio_rx_bd_ready = NULL;
+
+    free(m_rio_rx_bd_ready_ts);
+    m_rio_rx_bd_ready_ts = NULL;
+
     m_rio_rx_bd_ready_size = -1;
-    free((void*)m_ib_histo);    m_ib_histo = NULL;
+
+    free((void*)m_ib_histo);
+    m_ib_histo = NULL;
 
     m_info = NULL;
 
@@ -318,18 +333,20 @@ public:
     char Tap_Ifconfig_Cmd[257] = {0};
     int flags = IFF_TUN | IFF_NO_PI;
 
-    if (m_info == NULL) return false;
+    if (m_info == NULL)
+        return false;
 
     lock();
 
-    if (my_destid == m_destid) goto error;
+    if (my_destid == m_destid)
+        goto unlock;
 
     memset(m_tun_name, 0, sizeof(m_tun_name));
 
     // Initialize tun/tap interface
     if ((m_tun_fd = tun_alloc(if_name, flags)) < 0) {
         CRIT("Error connecting to tun/tap interface %s!\n", if_name);
-        goto error;
+        goto unlock;
     }
     SAFE_STRNCPY(m_tun_name, if_name, sizeof(m_tun_name));
 
@@ -357,7 +374,7 @@ public:
         CRIT("system() failed with error %d\n", rr);
         // No need to remove from epoll set, close does that as it isn't dup(2)'ed
         close(m_tun_fd); m_tun_fd = -1;
-        goto error;
+        goto unlock;
       }
 
       snprintf(ifconfig_cmd, 256, "/sbin/ifconfig %s -multicast", if_name);
@@ -366,7 +383,7 @@ public:
         CRIT("system() ifconfig failed with error %d\n", tret);
         // No need to remove from epoll set, close does that as it isn't dup(2)'ed
         close(m_tun_fd); m_tun_fd = -1;
-        goto error;
+        goto unlock;
 	}
     }}
 
@@ -380,7 +397,7 @@ public:
         CRIT("\n\tFailed to add tun_fd %d for peer destid %u to epoll set %d\n",
            m_tun_fd, m_destid, m_info->umd_epollfd);
         close(m_tun_fd); m_tun_fd = -1;
-        goto error;
+        goto unlock;
       }
     }}
 
@@ -396,11 +413,8 @@ unlock:
            my_destid, m_destid,
            m_info->umd_tx_buf_cnt, m_info->umd_sts_entries);
     }
-
     return ret;
 
-error:
-    goto unlock;
   }
 
   /** \brief Scan & Count the RO IB "BDs" for this Peer

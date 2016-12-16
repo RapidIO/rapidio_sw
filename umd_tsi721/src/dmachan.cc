@@ -255,9 +255,12 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
   
   wk.mem = mem;
 
-  pthread_spin_lock(&m_bl_splock); 
-  if (umdemo_must_die)
+  pthread_spin_lock(&m_bl_splock);
+
+  if (umdemo_must_die) {
+    pthread_spin_unlock(&m_bl_splock);
     return false;
+  }
 
   struct hw_dma_desc* bd_hw = NULL;
   uint32_t bd_idx = m_dma_wr % m_bd_num;
@@ -326,6 +329,7 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
      }
     pthread_spin_unlock(&m_pending_work_splock);
 
+    // FIXME: see previous note, at least be consistent ...
     m_dma_wr++;
     setWriteCount(m_dma_wr);
     if(m_dma_wr == 0xFFFFFFFE) m_dma_wr = 0;
