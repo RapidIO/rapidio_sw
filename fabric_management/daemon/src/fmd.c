@@ -429,7 +429,7 @@ int setup_mport_master(int mport)
 
 	if (riocp_pe_create_host_handle(&mport_pe, mport, 0, &pe_mpsw_rw_driver,
 			&comptag, name)) {
-		CRIT("\nCannot create host handle mport %d, exiting...",
+		CRIT("Cannot create host handle mport %d, exiting...",
 			mport);
 		riocp_pe_destroy_handle(&mport_pe);
 		return 1;
