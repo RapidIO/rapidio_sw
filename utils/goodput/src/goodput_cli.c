@@ -2228,7 +2228,7 @@ struct cli_cmd UTime = {
 "utime",
 2,
 3,
-"UMD Timestamp buffer command",
+"Timestamp buffer command",
 "<idx> <type> <cmd> <parms>\n"
 	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
 	"<type> is:\n"

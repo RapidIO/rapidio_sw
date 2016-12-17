@@ -11,7 +11,7 @@
  *   configuration file, and to manage software applications using the fabric
  *
  * Two utilities are also provided:
- * - Goodput - performance measurement of the RapidIO fabric and UMD
+ * - Goodput - performance measurement of the RapidIO fabric 
  * - File Transfer - performs file transfer over a RapidIO network using
  *   messaging to coordinate DMA transfers between multiple clients and
  *   servers.

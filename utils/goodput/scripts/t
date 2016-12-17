@@ -1,8 +1,0 @@
-kill all
-wait 0 d
-t 0 2 0
-wait 0 h
-dnum 0 3 0x22f000000 0x400000 0x400000 1 1 0 1 100
-wait 0 r
-sleep 1
-ut 0 m l 1

@@ -55,23 +55,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <sched.h>
 
-
 #include "libcli.h"
 #include "liblog.h"
 #include "libtime_utils.h"
 #include "libunit_test_priv.h"
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-uint32_t crc32(uint32_t crc, const void *buf, size_t size);
-
-void umd_dma_goodput_tun_demo(struct worker *info);
-
-#ifdef __cplusplus
-};
-#endif
 
 #ifdef __cplusplus
 extern "C" {

@@ -83,12 +83,6 @@ COMMONLIBA=$(COMMONDIR)/libs_a
 
 FMDDIR=$(TOPDIR)/fabric_management
 
-UMDDIR?=$(TOPDIR)/umd_tsi721
-UMDINCDIR=$(UMDDIR)/inc
-
-UMDDDIR?=$(TOPDIR)/umdd_tsi721
-UMDDINCDIR=$(UMDDDIR)/inc
-
 STD_FLAGS=$(OPTFLAGS) -pthread -Wall -Wextra -Werror -fPIC
 STD_FLAGS+=-I$(TOPDIR)/include -I$(COMMONINC) -I. -I./inc
 STD_FLAGS+=-L$(COMMONLIB)

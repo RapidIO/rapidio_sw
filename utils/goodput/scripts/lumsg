@@ -1,6 +1,0 @@
-thread 0 -1 0
-set DEBUG_MBOX 1
-set did ? 0
-set buf ? 0x100
-set sts ? 0x100
-lumsg 0 -1 3 $buf $sts $did 0x100 $ma

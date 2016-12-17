@@ -64,20 +64,8 @@ find logs/${MPORT_DIR} -type d -perm 775 -exec chmod 777 {} \;
 
 mkdir -m 777 -p $MPORT_DIR
 
-cp -f 'scripts/afu' $MPORT_DIR/afu
-cp -f 'scripts/dmav' $MPORT_DIR/dmav
-cp -f 'scripts/epdel' $MPORT_DIR/epdel
-cp -f 'scripts/epwatch' $MPORT_DIR/epwatch
-cp -f 'scripts/lumsg' $MPORT_DIR/lumsg
-cp -f 'scripts/mboxwatch' $MPORT_DIR/mboxwatch
-cp -f 'scripts/s' $MPORT_DIR/s
-cp -f 'scripts/t' $MPORT_DIR/t
 cp -f 'scripts/template_st_targ' $MPORT_DIR/start_target
 cp -f 'scripts/template_st_src' $MPORT_DIR/start_source
-cp -f 'scripts/udmatun' $MPORT_DIR/udmatun
-cp -f 'scripts/ugoodput_info' $MPORT_DIR/ugoodput_info
-cp -f 'scripts/udmatun' $MPORT_DIR/udmatun
-cp -f 'scripts/www' $MPORT_DIR/www
 
 find ${MPORT_DIR} -type f -perm 664 -exec chmod 666 {} \;
 find ${MPORT_DIR} -type f -perm 644 -exec chmod 666 {} \;

@@ -112,11 +112,6 @@ enum req_mode {
 	user_mode_action
 };
 
-typedef enum {
-	ACCESS_UMD   = 42,
-	ACCESS_MPORT = -42
-} DMAAccess_t;
-
 #define MIN_RDMA_BUFF_SIZE 0x10000
 
 struct thread_cpu {
@@ -127,7 +122,7 @@ struct thread_cpu {
 
 
 struct worker {
-	int idx; /* index of this worker thread -- needed by UMD */
+	int idx; /* index of this worker thread */
 	struct thread_cpu wkr_thr;
 	sem_t started;
 	int stat; /* 0 - dead, 1 - running, 2 stopped */

@@ -132,8 +132,6 @@ struct riomp_mgmt_event {
 struct rapidio_mport_handle {
 	int fd;			/**< posix api compatible fd to be used with poll/select */
 	uint8_t mport_id;
-	uint8_t umd_chan;
-	void* stats;		/**< Pointer to statistics gathering back door for driver... */
 };
 
 /** @brief RapidIO mport handle */
@@ -184,11 +182,6 @@ int riomp_mgmt_get_ep_list(uint8_t mport_id, uint32_t **destids, uint32_t *numbe
  * @retval -errno on error
  */
 int riomp_mgmt_free_ep_list(uint32_t **destids);
-
-enum {
-  UMD_RESERVED            =  0x6660000, ///< No infinite recursion when libmport calls UMDd/SHM client which calls libmport
-  UMD_SELECT_NEXT_CHANNEL = 0x42420000 ///< Force libmport to use UMDd/SHM client for DMA and cycle thru channels
-};
 
 /**
  * @brief create mport handle

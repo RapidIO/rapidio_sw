@@ -70,18 +70,6 @@ struct rapidio_mport_mailbox {
 	uint8_t mport_id;
 };
 
-
-void* riomp_mgmt_mport_get_stats(struct rapidio_mport_handle* hnd)
-{
-	if (hnd == NULL) return NULL;
-	return hnd->stats;
-}
-void riomp_mgmt_mport_set_stats(struct rapidio_mport_handle* hnd, void* stats)
-{
-	if ((hnd == NULL) || (stats == NULL)) return;
-	hnd->stats = stats;
-}
-
 struct rio_channel {
 	uint16_t id;
 	uint32_t remote_destid;

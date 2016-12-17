@@ -1,6 +1,0 @@
-isolcpu
-set cpu1 ? -1
-set cpu2 ? -1
-t 0 $cpu1 0
-wait 0 h
-tumsg 0 $cpu2 3 $buf $sts

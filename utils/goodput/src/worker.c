@@ -80,21 +80,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 extern "C" {
 #endif
 
-uint32_t crc32(uint32_t crc, const void *buf, size_t size);
-
-void umd_dma_goodput_tun_demo(struct worker *info);
-void umd_epwatch_demo(struct worker *info);
-void umd_mbox_watch_demo(struct worker *info);
-void umd_afu_watch_demo(struct worker *info);
-
-#ifdef __cplusplus
-};
-#endif
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 void init_worker_info(struct worker *info, int first_time)
 {
 	if (first_time) {
@@ -819,8 +804,6 @@ void dma_tx_num_cmd(struct worker *info)
 	if (alloc_dma_tx_buffer(info))
 		goto exit;
 
-	riomp_mgmt_mport_set_stats(info->mp_h, &info->meas_ts);
-
 	zero_stats(info);
 
 	clock_gettime(CLOCK_MONOTONIC, &info->st_time);
@@ -842,7 +825,6 @@ void dma_tx_num_cmd(struct worker *info)
 		sleep(0);
 	}
 exit:
-	riomp_mgmt_mport_set_stats(info->mp_h, NULL);
 	dealloc_dma_tx_buffer(info);
 };
 	

@@ -39,8 +39,6 @@
 #define RIO_MPORT_DEV_PATH "/dev/rio_mport"
 #define RIO_CMDEV_PATH "/dev/rio_cm"
 
-#define UMD_SLEEP_NS	1 // Setting this to 0 will compile out nanosleep syscall
-
 /**
  * @brief mport opaque handle structure
  */

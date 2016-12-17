@@ -1,4 +1,0 @@
-thr 1 -1 0
-wait 1 h
-mboxwatch 1 0 3 $buf $sts
-sleep 0.5
