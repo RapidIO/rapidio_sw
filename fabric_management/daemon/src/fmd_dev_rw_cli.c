@@ -139,7 +139,8 @@ int mport_write(riocp_pe_handle pe_h, uint32_t offset, uint32_t data)
 
 int CLIDevSelCmd(struct cli_env *env, int argc, char **argv)
 {
-	ct_t comptag, pe_ct;
+	ct_t comptag = 0;
+	ct_t pe_ct;
 	riocp_pe_handle *pes = NULL;
 	size_t pes_count, i;
 	int rc;

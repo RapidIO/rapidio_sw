@@ -271,12 +271,20 @@ uint32_t IDT_tsi57xWriteReg( DAR_DEV_INFO_t *dev_info,
 
 				case Tsi578_RIO_MC_DESTID_ASSOC:
 				{
-					uint8_t mask = (dev_info->scratchpad[idx - 1] & RIO_MC_CON_SEL_MASK);
+					uint8_t mask;
+					uint32_t destid;
 					bool large = (dev_info->scratchpad[idx] & RIO_MC_CON_OP_DEV16M);
-					uint32_t destid = dev_info->scratchpad[idx - 1] & 
-						(RIO_MC_CON_SEL_DEV8 | RIO_MC_CON_SEL_DEV16);
 					uint32_t cmd = (dev_info->scratchpad[idx] & RIO_MC_CON_OP_CMD);
 					
+					if (!idx) {
+						rc = RIO_ERR_SW_FAILURE;
+						break;
+					}
+
+					mask = (dev_info->scratchpad[idx - 1] & RIO_MC_CON_SEL_MASK);
+					destid = dev_info->scratchpad[idx - 1] & 
+						(RIO_MC_CON_SEL_DEV8 | RIO_MC_CON_SEL_DEV16);
+
 					/* Write to Tsi578_RIO_MC_DESTID_ASSOC can update destID registers.
 					 * Must emulate the effect, as it is not possible to trust the value
 					 * of the destID register selected when port 0 is powered down.
@@ -2104,14 +2112,14 @@ uint32_t idt_tsi57x_pc_secure_port  ( DAR_DEV_INFO_t          *dev_info,
 {
     uint32_t rc = RIO_ERR_INVALID_PARAMETER;
 	uint8_t pnum;
-    uint32_t port_mode, port_mode_mod, port_mode_mask, port_ctl, glob_int_en, port_idx;
+    uint32_t port_mode = 0;
+    uint32_t port_mode_mod, port_mode_mask, port_ctl, glob_int_en, port_idx;
 	struct DAR_ptl good_ptl;
 
     out_parms->imp_rc = RIO_SUCCESS;
 
 	rc = DARrioGetPortList(dev_info, &in_parms->ptl, &good_ptl);
-    if (rc != RIO_SUCCESS)
-    {
+    if ((rc != RIO_SUCCESS) || !good_ptl.num_ports) {
         out_parms->imp_rc = PC_SECURE_PORT(1);
         return rc;
     }
