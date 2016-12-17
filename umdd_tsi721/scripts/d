@@ -1,6 +1,0 @@
-th 1 -1 0
-wait 1 h
-set rio_addr ? 22ed90000
-udma 1 -1 7 $buf $sts $did $rio_addr 10000 10000 2
-g c
-st

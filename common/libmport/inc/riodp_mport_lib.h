@@ -35,7 +35,6 @@
  */
 
 #include <map>
-#include "dmachan.h"
 
 #define RIO_MPORT_DEV_PATH "/dev/rio_mport"
 #define RIO_CMDEV_PATH "/dev/rio_cm"

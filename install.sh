@@ -160,11 +160,10 @@ awk -vM=$MEMSZ $HOSTL '
     ssh root@"$MASTER" "mkdir -p $CONFIG_PATH; cd $CONFIG_PATH; cat > $FILENAME";
 
 
-UMDD_CONF=$CONFIG_PATH/umdd.conf
 RSRV_CONF=$CONFIG_PATH/rsvd_phys_mem.conf
 for host in  "${ALLNODES[@]}"; do
   [ "$host" = 'none' ] && continue;
-  ssh root@"$host" "mkdir -p $CONFIG_PATH; cp $SCRIPTS_PATH/umdd.conf $UMDD_CONF; cp $SCRIPTS_PATH/rsvd_phys_mem.conf $RSRV_CONF"
+  ssh root@"$host" "mkdir -p $CONFIG_PATH; cp $SCRIPTS_PATH/rsvd_phys_mem.conf $RSRV_CONF"
 done
 
 echo "Installation of configuration files COMPLETED..."

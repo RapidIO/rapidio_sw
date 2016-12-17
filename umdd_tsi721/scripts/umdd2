@@ -1,5 +1,0 @@
-isol
-th 1 $cpu1 0
-wait 1 h
-set chan2 ? 7
-umdd 1 -1 $chan2 $buf $sts

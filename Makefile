@@ -41,54 +41,31 @@ export DEBUG
 # TODO This must go away
 TOP_LEVEL = $(shell pwd)
 
-TARGETS = common umd memops umdd fabric_management rdma rrmapcli goodput \
-	file_transfer file_transfer_memops
+TARGETS = common fabric_management rrmapcli goodput file_transfer 
 
 all: $(TARGETS)
 
 fabric_management: common FORCE
 	$(MAKE) all -C fabric_management
 		
-rdma: common fabric_management FORCE
-	$(MAKE) all -C rdma
-		
-umd: FORCE
-	$(MAKE) all -C umd_tsi721
-		
-umdd: common umd FORCE
-	$(MAKE) all -C umdd_tsi721
-		
 common: FORCE
 	$(MAKE) all -C common 
-	
-memops: FORCE common umd
-	$(MAKE) all -C memops
-	@cp memops/*.a common/libs_a || true
-	cp memops/libmemops_intf.so* common/libs_so 
 	
 rrmapcli: common FORCE	
 	$(MAKE) all -C utils/rrmapcli
 
-goodput: common umd FORCE	
+goodput: common FORCE	
 	$(MAKE) all -C utils/goodput
 
 file_transfer: common FORCE
 	$(MAKE) all -C utils/file_transfer
 
-file_transfer_memops: memops common FORCE
-	$(MAKE) all -C utils/file_transfer_memops
-
 FORCE:
 
 clean: FORCE
-	$(MAKE) clean -C memops
 	$(MAKE) clean -C common
-	$(MAKE) clean -C umd_tsi721
-	$(MAKE) clean -C umdd_tsi721
-	$(MAKE) clean -C rdma
 	$(MAKE) clean -C fabric_management
 	$(MAKE) clean -C utils/rrmapcli
 	$(MAKE) clean -C utils/goodput
 	$(MAKE) clean -C utils/file_transfer
-	$(MAKE) clean -C utils/file_transfer_memops
 	rm -rf include/libs_a/*

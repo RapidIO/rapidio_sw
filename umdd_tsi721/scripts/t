@@ -1,4 +1,0 @@
-th 7 -1 0
-w 7 h
-set chan ? 7
-tstudma 7 -1 $chan $buf $sts $did 22ed90000 10000

@@ -7,18 +7,8 @@
  * found in the rapidio_sw/include directory.  They are:
  * - RapidIO master port (MPORT) management, DMA, and channelized messaging
  *   character mode driver interfaces
- * - RapidIO raw messaging implemented with the Tsi721 user mode driver
  * - Fabric management to support system enumeration based on a
  *   configuration file, and to manage software applications using the fabric
- * - Remote Memory Access (RMA), which allows "socket style" connect/accept,
- *   read/write, and close communication for a shared memory regions, and
- * - RMA Sockets, which provides a "socket style" "stream of bytes" interface
- *   using an RMA bounded buffer.
- *
- * For applications that require a complete network stack, RRMAP provides 
- * the DmaTun component to transport IP frames over a
- * RapidIO network.  This open source, application level implementation 
- * leverages the Tsi721 user mode driver.
  *
  * Two utilities are also provided:
  * - Goodput - performance measurement of the RapidIO fabric and UMD
@@ -31,20 +21,6 @@
  *               confirm what nodes are available in the system, and what
  *               facilities (Remote Memory Access, RMA Sockets) are available
  *               on each node.
- * - librdma.h : Interfaces for Remote Memory Access
- * - rdma_types.h : Type definitions for librdma.h
- * - librskt.h : RMA Sockets implementation of socket-style (stream of bytes)
- *               transfers.
- * - mboxmgr_tsi721.h : Raw messaging capability based on the Tsi721 
- *			User mode driver.
- * - mportmgmt.h : RapidIO "master port" discovery, capabilities, and 
- *                 handle management.
- * - mportcmsock.h : "Channelized Messaging" socket-like capability for 
- *                 sharing the use of a single messaging resource with 
- *                 multiple applications.
- * - memops.h : Mport DMA interface, including memory management and 
- *           DMA engine access and allocation.  User can specify kernel or
- *           Tsi721 User Mode Driver implementation.
  *
  * Precompiled libraries associated with the interfaces are found in:
  * - Static linking: /opts/rapidio/rapidio_sw/include/libs_a 
@@ -120,9 +96,6 @@
  *              determine what devices are available for demonstrations,
  *              including the start and stop scripts described in
  *              \ref execution_sec.
- * - umdd.conf - Configuration information for Tsi721 User Mode Driver
- *            DMA and MBOX channels.  For more information, refer to 
- *            \ref stack_umd_mbox  and \ref stack_umd_dma.
  *
  * \section execution_sec Starting and Stopping RRMAP
  *
@@ -132,26 +105,10 @@
  * Use the check_all.sh script to determine the component status 
  * of each installed node.
  *
- * RRMAP supports two component configurations.  Both configurations support
- * the MPORT management, DMA, channelized messaging, and raw messaging 
- * interfaces.  For information about these interfaces, refer to 
- * \ref stack_umd_mbox  and \ref stack_umd_dma.
- *
- * - Kernel Only: The kernel only configuration must be used for the 
- *   Goodput and File Transfer utilties.  The Tsi721 DMA UMD may optionally
- *   be started to transparently increase DMA performance for both of these
- *   utilities.
  * - RRMAP Stack: The RRMAP stack includes
  *   - \ref stack_fmd Fabric Management, 
- *   - \ref stack_rma RMA,
- *   - \ref stack_rskt RMA Sockets,
- *   - \ref stack_dma_tun DmaTun 
  *
  * \subsection kernel_config Kernel Only
- *
- * The "kernel only" configuration must be used for the Goodput and
- * file transfer utilities.  The RRMAP stack is not started, as it would
- * interfere with the operation of both goodput and file transfer.
  *
  * To start the "kernel only" configuration,
  * execute the rio_start.sh script
@@ -161,10 +118,6 @@
  * - ./stop_rio.sh - removes access to DMA and messaging
  * - ./all_down.sh - powers down all nodes 
  *
- * Goodput and file transfer can use the Tsi721 User Mode Driver for DMA
- * transactions.  To start the Tsi721 User Mode Driver, execute the 
- * umd721_start.sh script.
- *
  * Refer to \ref goodput_docs goodput for information on 
  * starting the goodput utility.
  *
@@ -173,12 +126,8 @@
  * To start the RRMAP stack, execute the following script:
  * - ./all_start.sh 
  *
- * All_start.sh starts RRMAP fabric management, RMA, and RMA Sockets. If a
- * Tsi721 device is present, all_start.sh also launches the Tsi721 DMA User Mode
- * Driver.  
+ * All_start.sh starts RRMAP fabric management.
  *
- * The DMATun facility may be started with the dmatun_start.sh script.
- * 
  * To halt the RRMAP stack configuration, use one of the following
  * scripts:
  * - ./stop_all.sh - terminates Fabric Management, RMA, RMA Sockets, 
@@ -218,16 +167,7 @@
  * A similar sequence of communication occurs when an application enters the
  * system and incorporates the libfmdd library.
  *
- * RMA and RMA Sockets are dependent upon the FMD running on their node. 
- * The RMA Daemon and RMA Sockets applications
- * register with the FMD on startup, and receive events
- * informing them of the appearance and disappearance of nodes and
- * applications on other
- * nodes.
- *
  * Refer to the include/libfmdd.h file reference for interface details.
- * Example code for registering with and managing Fabric Management Daemon
- * events is found in rapidio_sw/rdma/rskt/daemon/src/librsktd_fm.c
  *
  * \subsection fabric_management_details Fabric Management Daemon Details
  *
@@ -241,253 +181,6 @@
  * The Slave Fabric Management Daemons will not allow applications to connect
  * to it until it has connected to the Master Fabric Management Daemon.
  * 
- * \page stack_rma RRMAP Remote Memory Access
- *
- * \section remote_memory_access Remote Memory Access (RMA)
- *
- * The Remote Memory Access component is implemented in a Remote Memory Access
- * Daemon (RMAD) process which runs on each node in the system, and a 
- * Remote Memory Access library that is bound into each application that 
- * wants to use its interfaces.  The libary connects to the RMAD for RMAD
- * services.  The RMAD
- * is responsible for managing memory on the node, managing connections 
- * to that memory, and
- * ensuring that when a connection is closed or broken that all accesses to
- * the memory are cleaned up before the memory is used by another 
- * application.
- *
- * The include/librdma.h defines the interfaces supported 
- * by the RMA library.  The RMA library uses three concepts to manage memory:
- * - Memory space owner: A unique identifier for a memory owner
- * - Memory space: A unique identifier for a memory space.  A memory space is
- *   an area of memory that can be written remotely from another node over a 
- *   RapidIO network.  Every memory space is associated with a memory space
- *   owner.
- * - Memory subspace: A portion of a memory space.  There are no rules around
- *   how a memory subspace is defined, except that it must be wholely
- *   contained within a single memory space.  Connections are made or broken
- *   with memory subspaces.
- *
- * The RMA Daemon is responsible for managing accesses to memory spaces/
- * subspaces.  Memory space owner handles and memory space/subspace handles 
- * may be passed between processes.  Typically, an "owner" process is
- * responsible for
- * creating the memory space owner handles and memory space handles.
- * An "owner" process tells a "user" process what memory space owner handles
- * and memory spaces it can access.  The method for communication is up to the
- * implementer.
- * 
- * Two "user" processes can transfer data through memory subspaces after the
- * memory subspaces have been connected.  Memory space connections are formed
- * using socket-like semantics with the 
- * interfaces rdma_connect and rdma_accept.
- *
- * Once a connection is made, data can be written to or read from a remote 
- * memory subspace. The source of the written data and the recepticle for the
- * read data can be either a local memory subspace or a local memory buffer.
- *
- * The reads and writes (pulls and pushes) can use three distinct
- * synchronization styles:
- * - Synchronous: Execution does not continue until the transfer is completed.
- *   Note that written data may still be in flight through the network after
- *   the transaction is "completed", depending on the underlying hardware.
- * - Asynchronous: Execution continues separately.  At a later time, the
- *   process may check that the transfer has completed.
- * - Fire and forget: There is no notification when a transfer has completed.
- *   Transfer completion must be detected based on changes in memory.
- *
- * The RMA Daemon is informed when an application using the Daemon terminates,
- * and cleans up all memory space/subspace accesses and connections for process.
- *
- * Refer to the include/librdma.h for interface details for
- * the Remote Memory Access component.
- * Example code for the RMA interfaces is found at
- * rapidio_sw/rdma/samples/src.
- *
- * \page stack_rskt RRMAP Remote Memory Access Sockets
- *
- * \section rdma_sockets RMA Sockets (RSKT)
- *
- * RMA Sockets implements a socket style interface using RMA to manage
- * bounded buffers.  RMA Sockets are implemented in a RMA Sockets daemon 
- * process which manages sockets and connections, and a library which can
- * be integrated into applications.   
- *
- * RMA Sockets is dependent on the Fabric Management Daemon, and on the 
- * Remote Memory Access Daemon.  
- *
- * The number and throughput of sockets supported varies with the buffer size
- * and total memory allocated by the RMA Socket daemon.  These quantities are
- * controlled by the following RMA Socket daemon command line parameters:
- *
- * - -s (num_spaces): Number of memory spaces to use. Maximum is 64.
- * - -S (size): Size in kilobytes of memory spaces to request.  Valid values are
- *            128, 256, 512, 1024, and 2048
- * - -k (size): Size of rskt socket buffers in kilobytes.  Valid values are
- *            2, 4, 8, 16, 32, 64, and 128. Must be less than -s value.
- *
- * Note that the maximum possible single transfer for a socket is 16 bytes 
- * less than half the -k (size) value.
- *
- * Refer to the librskt.h for 
- * interface details.  For RMA Sockets code examples, refer to
- * rapidio_sw/rdma/rskt/daemon/src, rskt_server.c and rskt_client.c.
- * These two files implement a server with accepts multiple connections,
- * and a client which repeatedly connects, sends data and receives responses,
- * and then closes the socket.
- *
- * \subsection rdma_skts_known_limitations RMA Sockets Limitations
- *
- * The known limitations of the RMA Sockets implementation are:
- *
- * - The RMA Sockets implementation leaks memory on all actions except
- *   rskt_read and rskt_write.
- * - The RMA Sockets implementation uses synchronous transfers, which 
- *   reduces throughput.
- *
- * \page stack_umd_mbox Tsi721 Raw Messaging User Mode Driver 
- *
- * The interface for the Tsi721 Raw Messaging user mode driver (UMD) is 
- * mboxmgr_tsi721.h.  The associated library is 
- * include/libs_a/libmboxmgr.a.  The Tsi721 MBOX UMD
- * gives an application dedicated use of Tsi721 messaging channel 2 or 3,
- * also known as a mailbox.
- * The format and contents of the messages is completely controlled by the
- * application.    
- *
- * Example code for the Tsi721 MBOX UMD is found in 
- * mbox_example.c.  Mbox_example.c implements 
- * mbox_server and mbox_client executables.  The mbox_server receives
- * messages and echos them back to the sending client.  The client sends
- * an endless stream of messages to the target server.  
- *
- * The 
- * libmboxmgr/test/mbox_sample_test.sh script  
- * executes a multiple client to single server test automatically, based
- * on the list of installed nodes created by install.sh.  Documentation of
- * the example code is found at mbox_example.c
- *
- * \page stack_umd_dma RapidIO Master Port Interfaces
- *
- * There are three master port interfaces,  all found in the include directory:
- * - mportmgmt.h : Query existance of RapidIO master ports, and manage 
- *   mport handles used by other interfaces.
- * - memops.h : RapidIO DMA inteface to send and receive memory reads/writes 
- *   across a RapidIO network.
- * - mportcmsock.h: Channelized Messaging "sockets" interface.  Presents a 
- *   socket style interface to allow a single
- *   RapidIO messaging resource to be shared among multiple processes. 
- *
- * Applications are strongly encouraged to use these intefaces, as they
- * have the following positive attributes:
- * - encapsulation of the information required by the interfaces, leading
- *   to smaller and simpler application code
- * - forward compatibility with new/other RapidIO devices 
- * - complete support for the full variety of memory management, DMA, and
- *   messaging operations 
- * - "safety" checks that are immediately visible for debugging
- * - removal of risky (i.e. register access) routines that are supported by
- *   the libmport interface, but that should not be available to users
- *   or necessary for application development outside of the RRMAP stack.
- * - use the inheritance and function override capabilities of C++ to 
- *   create custom behaviors for individual applications.
- *
- * Individual demonstration software for each interface is documented below.
- * A file transfer application, with identical semantics to the file 
- * transfer demonstration found in rapidio_sw/utils/file_transefer, is found
- * in rapidio_sw/utils/file_transfer_memops.  For more information, see
- * \ref stack_fxfr.
- *
- * \section mport_mgmt RapidIO Master Port Management
- *
- * The master port management interface is used by the RapidIO DMA interface
- * and the channelized messaging interface.  For more information on the 
- * management interface, refer to the file documentation for mportmgmt.h.
- *
- * \section mport_cmsock RapidIO Channelized Messaging Socket-style Interface
- *
- * The RapidIO Channelized Messaging Socket-style interface has the
- * create, bind, listen, accept, connect, read, write, and close calls that
- * are the main features of socket programming.  For more information on 
- * the specific procedures, refer to the file documentation for mportcmsock.h.
- *
- * The file umd_tsi721/cmsock_example.cc is the demonstration code for the
- * Channelized Messaging interface.  Refer to the file documentation for
- * usage.  The binary for the cmsock_example.cc is umd_tsi721/cmsock_ex.
- *
- * \section mport_dma RapidIO DMA Interface
- *
- * The RapidIO DMA Interface allows users to choose from three different 
- * drivers:
- * - MEMOPS_UMD: Tsi721 Shared DMA user mode driver.  A Tsi721 device must
- *   be present.  The usual channel for the shared DMA user mode driver is 5.
- * - MEMOPS_UMDD: Tsi721 Dedicated DMA user mode driver.  A Tsi721 device 
- *   must be present, and a free channel must be available.  
- * - MEMOPS_MPORT: Kernel mode driver, as implemented in common/libmport.
- *   This option is completely portable across RapidIO implementations.
- *
- * The guidance for channel usage is:
- * - Use MEMOPS_MPORT for code which must be portable across different
- *   RapidIO enabled platforms, or that must support user allocated buffers
- * - Use MEMOPS_UMDD for applications with the following attributes:
- *   - can share DMA bandwidth with other applications 
- *   - only use kernel allocated DMA-able memory
- *   - always run on platforms with a Tsi721 device.
- * - Use MEMOPS_UMD for applications
- *   - must get their own fair share of DMA bandwidth, regardless of the
- *     behavior of other applications
- *   - for applications whose DMA traffic is higher (or lower) priority
- *     than those of other applications
- *   - always run on platforms with a Tsi721 device
- *
- * The Tsi721 channels available to users are generally 0 through 5, 
- * Channels 6 and 7 are used by the kernel. 
- * 
- * RIOMemOps_classFactory creates a RIOMmeOpsIntf (RapidIO Memory
- * Operations Interface) object for a specified driver type and mport instance.
- * The operation of the interface is also dependent on two environment
- * variables:
- * - UMD_CHAN : This is the specific channel requested for the RIOMmeOpsIntf
- *              object.  A value of -1 allows the driver to select the first
- *              free DMA channel of the requested type.  For those who 
- *		are attempting performance optimization, it is possible to 
- *		indicate a specific channel.  
- *		- UMD_CHAN must be set to match the Tsi721 User Mode Driver
- *		daemon channel number (usually 5) for MEMOPS_UMDD.
- *		- UMD_CHAN must be different from the Tsi721 User Mode Driver
- *		daemon channel number (usually 5) for MEMOPS_UMD.
- * - UMD_LIB : This is the specific user mode driver library revision that 
- *		should be used.  Typically, this variable should be set to
- *		/opt/rapidio/rapidio_sw/umdd_tsi721/libUMDd.so.0.4.
- *
- * Example code for the RapidIO DMA Interface is found in 
- * memops/samples/memops_demo.cc.  This code is compiled into the
- * memops/memops_demo binary.  The demo requires that a memory window 
- * should be available on another node to act as a target for reads and 
- * writes performed by memops_demo.  Typically, this can be done by 
- * executing the start_target script on the goodput utility.  
- * For more information, refer to \ref goodput_docs.
- * Refer to the memops_demo.cc file documentation for syntax and usage.
- *
- * \page stack_dma_tun IP Tunnelling over RapidIO
- *
- * DmaTun is the name of the RRMAP stack component which transports IP 
- * frames transparently over a RapidIO network.  No interface exists for the
- * DmaTun component.  
- *
- * The DmaTun is not started by the all_start.sh script.  
- * DmaTun must be
- * started using the dmatun_start.sh 
- * script.  DmaTun creates a network
- * tunnel with IP addresses 10.64.12.(destID) on each node, where (destID) is 
- * is the device ID of the Tsi721 on that node.  Frames addressed to other
- * nodes with DMA TUN operating are transported over RapidIO to the target
- * node.
- *
- * The utils/goodput/iperfbidi.sh and iperfpeers.sh scripts use the 
- * standard "iperf" 
- * traffic generation and test tool to demonstrate DmaTun performance.
- *
  * \page stack_fxfr File Transfer Utility
  *
  * The file transfer demonstration is found in the

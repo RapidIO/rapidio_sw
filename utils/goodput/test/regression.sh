@@ -187,7 +187,7 @@ else
 	fi
 fi
 
-# Before proceeding further, recompile goodput and ugoodput
+# Before proceeding further, recompile goodput 
 # and demonstrate that each can execute the startup script
 
 NODES=( "$MAST_NODE" "$SLAVE_NODE" )
@@ -204,7 +204,7 @@ for node in ${NODES[@]}; do
 		exit 1
 	fi
 
-	echo $node " Building goodput and ugoodput."
+	echo $node " Building goodput."
 	ssh -T root@"$node" <<BUILD_SCRIPT   
 cd $HOMEDIR
 make -s clean
@@ -214,11 +214,6 @@ BUILD_SCRIPT
 	if ( ! ssh -T root@"$node" test -f $HOMEDIR/goodput ); then
 		echo $'\n'
 		echo $node " $HOMEDIR/goodput could not be built. Exiting..."
-		exit 1
-	fi
-	if ( ! ssh -T root@"$node" test -f $HOMEDIR/ugoodput ); then
-		echo $'\n'
-		echo $node " $HOMEDIR/ugoodput could not be built. Exiting..."
 		exit 1
 	fi
 

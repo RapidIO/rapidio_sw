@@ -15,45 +15,12 @@ done
 
 for node in $REVNODES
 do
-	# Kill RSKTD
-	THE_PID=$(ssh root@"$node" pgrep rsktd)
-	echo "Killing rsktd on $node RSKTD PID=$THE_PID"
-	for proc in $THE_PID
-	do
-		ssh root@"$node" "kill -s 2 $proc"
-	done
-
-	# Kill RDMAD
-	THE_PID=$(ssh root@"$node" pgrep rdmad)
-	echo "Killing rdmad on $node RDMAD PID=$THE_PID"
-	for proc in $THE_PID
-	do
-		ssh root@"$node" "kill -s 2 $proc"
-	done
-
 	# Kill FMD
 	THE_PID=$(ssh root@"$node" pgrep fmd)
 	echo "Killing -fmd- on $node  FMD  PID=$THE_PID"
 	for proc in $THE_PID
 	do
 		ssh root@"$node" "kill -s 2 $proc"
-	done
-
-	# Kill ShM UMD
-	THE_PID=$(ssh root@"$node" pgrep umdd)
-	echo "Killing umdd- on $node UMDD  PID=$THE_PID"
-	for proc in $THE_PID
-	do
-		ssh root@"$node" screen -S umdd -p 0 -X stuff $'quit\r'
-		ssh root@"$node" "kill -s 2 $proc"
-	done
-
-	# Kill DMA Tun
-	THE_PID=$(ssh root@"$node" pgrep ugoodput)
-	echo "Killing DMATun on $node DMATUN  PID=$THE_PID"
-	for proc in $THE_PID
-	do
-		ssh root@"$node" screen -S dmatun -p 0 -X stuff $'quit\r'
 	done
 
 	sleep 2

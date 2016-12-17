@@ -72,27 +72,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rapidio_mport_sock.h"
 
 #include "libtime_utils.h"
-
-#ifdef USER_MODE_DRIVER
-#include <map>
-
-#include "dmachan.h"
-#include "rdmaops.h"
-#include "mboxchan.h"
-#include "debug.h"
-#include "local_endian.h"
-#include "mapfile.h"
-#include "mport.h"
-#include "pciebar.h"
-#include "psem.h"
-#include "pshm.h"
-#include "rdtsc.h"
-#include "chanlock.h"
-#include "udma_tun.h"
-#include "ibmap.h"
-#include "umbox_afu.h"
-#endif
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -125,21 +104,6 @@ enum req_type {
 	alloc_ibwin,
 	free_ibwin,
 	shutdown_worker,
-#ifdef USER_MODE_DRIVER
-	umd_calibrate,
-	umd_dma,
-	umd_dmaltx,
-	umd_dmalrx,
-	umd_dmalnr,
-	umd_dma_tap,
-	umd_mbox,
-	umd_mboxl,
-	umd_mbox_tap,
-	umd_epwatch,
-	umd_mbox_watch,
-	umd_afu_watch,
-	umd_www,
-#endif
 	last_action
 };
 
@@ -155,56 +119,12 @@ typedef enum {
 
 #define MIN_RDMA_BUFF_SIZE 0x10000
 
-#ifdef USER_MODE_DRIVER
-#define MAX_UMD_BUF_COUNT 0x4000
-#endif
-
 struct thread_cpu {
 	int cpu_req; /* Requested CPU, -1 means no CPU affinity */
 	int cpu_run; /* Currently running on this CPU */
 	pthread_t thr; /* Thread being migrated... */
 };
 
-#ifdef USER_MODE_DRIVER
-
-#define SOFT_RESTART	69
-#define QUIT_IN_PROGRESS	42
-
-#define MAX_PEERS		64 ///< Maximum size of cluster
-
-#define MAX_EPOLL_EVENTS	64
-
-typedef struct {
-	int			 chan;
-	int                      oi;
-	int                      tx_buf_cnt; ///< Powers of 2, min 0x20, only (n-2) usable, 1st & last one for T3
-	int			 sts_entries;
-
-	volatile uint64_t        ticks_total;
-	volatile uint64_t        total_ticks_tx; ///< How many ticks (total) between read from Tun and NWRITE FIFO completion
-
-	RdmaOpsIntf*             rdma;
-
-	RioMport::DmaMem_t       dmamem[MAX_UMD_BUF_COUNT];
-	DMAChannel::DmaOptions_t dmaopt[MAX_UMD_BUF_COUNT];
-} DmaChannelInfo_t;
-
-/** \brief Stats for the RDMAD-redux */
-typedef struct {
-	uint16_t destid;        ///< Remote peer's destid
-	time_t   on_time;       ///< 1st time it was enumerated by kernel/FMD
-	time_t   ls_time;       ///< last time it sent us stuff
-	uint64_t my_rio_addr;   ///< My RIO address broadcast to this peer
-	int      bcast_cnt_out; ///< How many time we broadcast IBwin mapping to it
-	int      bcast_cnt_in;  ///< How many time we received his broadcasts of IBwin mapping
-	char*    state;         ///< Documentation, debug-only
-} DmaPeerCommsStats_t;
-
-#endif // USER_MODE_DRIVER
-
-#ifdef USER_MODE_DRIVER
-class DmaPeer;
-#endif
 
 struct worker {
 	int idx; /* index of this worker thread -- needed by UMD */
@@ -284,103 +204,7 @@ struct worker {
 	struct seq_ts desc_ts;
 	struct seq_ts fifo_ts;
 	struct seq_ts meas_ts;
-#ifdef USER_MODE_DRIVER
-	DMAAccess_t     dma_method; // Only for DMA Tun
-
-	void            (*owner_func)(struct worker*);     ///< Who is the owner of this
-	void            (*umd_set_rx_fd)(struct worker*, const int);     ///< Who is the owner of this
-
-	uint16_t	my_destid;
-
-        #define UMD_NUM_LOCKS   9 // 2 x MBOX + 7 x DMA channels available to UMD
-        LockChannel*       umd_lock[UMD_NUM_LOCKS];
-
-	int		umd_chan; ///< Local mailbox OR DMA channel
-	int		umd_chan_n; ///< Local mailbox OR DMA channel, forming a range {chan,...,chan_n}
-	int		umd_chan2; ///< Local mailbox OR DMA channel
-	int		umd_chan_to; ///< Remote mailbox
-	int		umd_letter; ///< Remote mailbox letter
-	DMAChannel      *umd_dch; ///< Used for anything but DMA Tun
-	MboxChannel 	*umd_mch;
-	enum dma_rtype	umd_tx_rtype;
-	int 		umd_tx_buf_cnt;
-	int		umd_sts_entries;
-	int		umd_tx_iter_cnt;
-	struct thread_cpu umd_fifo_thr;
-	sem_t		umd_fifo_proc_started;
-	volatile int	umd_fifo_proc_alive;
-	volatile int	umd_fifo_proc_must_die;
-
-	struct thread_cpu umd_mbox_tap_thr;
-
-	volatile uint64_t umd_fifo_total_ticks;
-	volatile uint64_t umd_fifo_total_ticks_count;
-
-	void		(*umd_dma_fifo_callback)(struct worker* info);
-
-	// Used only for MBOX Tun
-        int             umd_tun_fd;
-        char            umd_tun_name[33];
-        int             umd_tun_MTU;
-        int             umd_tun_thruput;
-
-	// Used only for DMA Tun
-	int             umd_mbox_tx_fd; // socketpair(2) server for MBOX TX; safer than sharing a MboxChannel instance
-	int             umd_mbox_rx_fd; // socketpair(2) server for MBOX RX; sharing a MboxChannel instance is out of question!
-
-	volatile uint64_t umd_ticks_total_chan2;
-
-	DmaChannelInfo_t* umd_dci_nread; ///< Used for NREAD in DMA Tun
-	DmaChannelInfo_t* umd_dci_list[8]; // Used for round-robin TX. Only 6 usable!
-
-	int		umd_sockp_quit[2]; ///< Used to signal Tun RX thread to quit
-	int             umd_epollfd; ///< Epoll set
-	struct thread_cpu umd_dma_tap_thr;
-
-	pthread_mutex_t umd_dma_did_peer_mutex;
-
-        std::map<uint16_t, DmaPeerCommsStats_t> umd_dma_did_enum_list; ///< This is just a list of destids we broadcast to -- populated by EpWatch
-
-	int             umd_dma_did_peer_list_high_wm; ///< High water mark of list below -- maintained by Main Battle Tank thread
-	DmaPeer*        umd_dma_did_peer_list[MAX_PEERS]; ///< List of currently up peers -- maintained by Main Battle Tank thread
-	std::map<uint16_t, int> umd_dma_did_peer; ///< These are slot into \ref umd_dma_did_peer_list -- maintained by Main Battle Tank thread
-
-	IBwinMap*       umd_peer_ibmap;
-
-	sem_t		umd_mbox_tap_proc_started;
-	volatile int	umd_mbox_tap_proc_alive;
-	sem_t		umd_dma_tap_proc_started;
-	volatile int	umd_dma_tap_proc_alive;
-	uint32_t	umd_dma_abort_reason;
-	volatile uint64_t tick_count, tick_total;
-	volatile uint64_t tick_data_total;
-
-	uint64_t        umd_nread_threshold; ///< Force NREADs (per-peer) if last was warlier than this many rdtsc ticks
-
-	int             umd_dma_bcast_min;	///< Receive "N" bcasts from peer via MBOX before putting up Tun
-	int             umd_dma_bcast_interval; ///< Minimum interval in seconds before our broadcasts on MBOX
-
-	// NOT used for DMA Tun
-        RioMport::DmaMem_t dmamem[MAX_UMD_BUF_COUNT];
-        DMAChannel::DmaOptions_t dmaopt[MAX_UMD_BUF_COUNT];
-
-
-	volatile int umd_disable_nread;
-	volatile int umd_push_rp_thr; ///< Push RP via NWRITE every N packets; 0=after each packet
-	volatile int umd_chann_reserve; ///< Reserve chann (if more than 1) for push RP NWRITE
-#endif
 };
-
-#ifdef USER_MODE_DRIVER
-static inline int BD_PAYLOAD_SIZE(const struct worker* info)
-{
-	if (info == NULL) return -1;
-	return DMA_L2_SIZE + info->umd_tun_MTU;
-}
-
-#include "dmapeer.h"
-
-#endif // USER_MODE_DRIVER
 
 /**
  * @brief Returns number of CPUs as reported in /proc/cpuinfo
