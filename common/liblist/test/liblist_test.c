@@ -742,8 +742,8 @@ void l_remove_test(void **state)
 	assert_null(list.tail->next);
 
 	// remove middle item
-	l_remove(&list, addr[2]);
 	removed = (struct l_head_t *)addr[2]->item;
+	l_remove(&list, addr[2]);
 	assert_int_equal(--count, list.cnt);
 	assert_null(list.tail->next);
 
