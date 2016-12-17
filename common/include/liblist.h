@@ -43,8 +43,8 @@ extern "C" {
 struct l_item_t {
 	struct l_item_t *next;
 	struct l_item_t *prev;
-	uint32_t key;
 	void *item;
+	uint64_t key;
 };
 
 struct l_head_t {

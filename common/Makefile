@@ -47,14 +47,14 @@ libset: FORCE libcmocka
 	cp libset/libset.a libs_a/
 	cp libset/libset.so* libs_so/
 
-libcli: FORCE libcmocka liblog
+libcli: FORCE libcmocka
 	$(MAKE) all -C libcli
 	mkdir -p libs_a
 	mkdir -p libs_so
 	cp libcli/libcli.a libs_a/
 	cp libcli/libcli.so* libs_so/
 		
-liblist: FORCE libcmocka liblog libcli
+liblist: FORCE libcmocka 
 	$(MAKE) all -C liblist
 	mkdir -p libs_a
 	mkdir -p libs_so

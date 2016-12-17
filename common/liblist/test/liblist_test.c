@@ -120,13 +120,13 @@ void l_init_initial_memory_test(void **state)
 	struct l_head_t *list;
 	struct l_item_t *head, *tail;
 
-	list = (struct l_head_t *)malloc(sizeof(struct l_head_t));
+	list = (struct l_head_t *)calloc(1, sizeof(struct l_head_t));
 	assert_non_null(list);
 
-	head = (struct l_item_t *)malloc(sizeof(struct l_item_t));
+	head = (struct l_item_t *)calloc(1, sizeof(struct l_item_t));
 	assert_non_null(head);
 
-	tail = (struct l_item_t *)malloc(sizeof(struct l_item_t));
+	tail = (struct l_item_t *)calloc(1, sizeof(struct l_item_t));
 	assert_non_null(tail);
 	assert_ptr_not_equal(head, tail);
 
@@ -626,8 +626,8 @@ void l_remove_null_parm_test(void **state)
 	struct l_item_t *delMe;
 	int *value;
 
-	value = (int *)malloc(sizeof(int));
-	item = (struct l_item_t *)malloc(sizeof(struct l_item_t));
+	value = (int *)calloc(1, sizeof(int));
+	item = (struct l_item_t *)calloc(1, sizeof(struct l_item_t));
 	delMe = item;
 	*value = 0xdead;
 
@@ -689,7 +689,7 @@ void l_remove_test(void **state)
 	int i, count;
 
 	for (i = 0; i < max_items; i++) {
-		items[i] = (struct l_head_t *)malloc(sizeof(struct l_head_t));
+		items[i] = (struct l_head_t *)calloc(1, sizeof(struct l_head_t));
 		items[i]->cnt = i;
 	}
 
@@ -774,8 +774,8 @@ void l_lremove_null_parm_test(void **state)
 	struct l_item_t *delMe;
 	int *value;
 
-	value = (int *)malloc(sizeof(int));
-	item = (struct l_item_t *)malloc(sizeof(struct l_item_t));
+	value = (int *)calloc(1, sizeof(int));
+	item = (struct l_item_t *)calloc(1, sizeof(struct l_item_t));
 	delMe = item;
 	*value = 0xdead;
 
@@ -836,7 +836,7 @@ void l_lremove_test(void **state)
 	int i;
 
 	for (i = 0; i < max_items; i++) {
-		items[i] = (struct l_head_t *)malloc(sizeof(struct l_head_t));
+		items[i] = (struct l_head_t *)calloc(1, sizeof(struct l_head_t));
 		items[i]->cnt = i;
 	}
 
@@ -1123,7 +1123,7 @@ void l_size_test(void **state)
 	struct l_head_t *list;
 	int i;
 
-	list = (struct l_head_t *)malloc(sizeof(struct l_head_t));
+	list = (struct l_head_t *)calloc(1, sizeof(struct l_head_t));
 
 	// empty list
 	l_init(list);
