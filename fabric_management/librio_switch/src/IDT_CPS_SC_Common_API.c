@@ -138,7 +138,8 @@ uint32_t idt_cps_sc_read_ctrs( DAR_DEV_INFO_t           *dev_info,
                              idt_sc_read_ctrs_out_t   *out_parms)
 {
    uint32_t rc = RIO_ERR_INVALID_PARAMETER;
-   uint8_t p_to_i[IDT_MAX_PORTS], srch_i, srch_p, port_num, cntr;
+   uint8_t p_to_i[IDT_MAX_PORTS] = {IDT_MAX_PORTS};
+   uint8_t srch_i, srch_p, port_num, cntr;
    bool  found;
    uint32_t ctl_reg;
    struct DAR_ptl good_ptl;
@@ -179,9 +180,6 @@ uint32_t idt_cps_sc_read_ctrs( DAR_DEV_INFO_t           *dev_info,
    // For generality, must establish a list of ports.
    // Do not assume that the port number equals the index in the structure...
       
-   for (srch_i = 0; srch_i < NUM_PORTS(dev_info); srch_i++) 
-      p_to_i[srch_i] = IDT_MAX_PORTS;
-
    for (srch_p = 0; srch_p < good_ptl.num_ports; srch_p ++) {
       found = false;
       port_num = good_ptl.pnums[srch_p];
@@ -244,7 +242,7 @@ uint32_t idt_sc_cfg_cps_ctrs ( DAR_DEV_INFO_t           *dev_info,
    uint32_t rc = RIO_ERR_INVALID_PARAMETER;
    uint32_t ctl_reg, new_ctl_reg = 0, unused;
    uint8_t ctr;
-   uint8_t p_to_i[IDT_MAX_PORTS];
+   uint8_t p_to_i[IDT_MAX_PORTS] = {IDT_MAX_PORTS};
    uint8_t srch_i, srch_p, port_num;
    bool  found;
    struct DAR_ptl good_ptl;
@@ -281,11 +279,6 @@ uint32_t idt_sc_cfg_cps_ctrs ( DAR_DEV_INFO_t           *dev_info,
       out_parms->imp_rc = SC_CFG_CPS_CTRS(0x0A);
       goto idt_sc_cfg_cps_ctr_exit;
    };
-
-   // Track which ports have been programmed.
-      
-   for (srch_i = 0; srch_i < NUM_PORTS(dev_info); srch_i++) 
-      p_to_i[srch_i] = IDT_MAX_PORTS;
 
    // Update hardware and data structures to reflect change in programming.
    // - program the counter control values requested

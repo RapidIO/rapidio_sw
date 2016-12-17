@@ -736,8 +736,8 @@ bool MboxChannel::send_message(MboxOptions_t& opt, const void* data, const size_
     DDBG("\n\tOBDMACXSTS = %08X\n\tOUTPUT_XERR_STOP = %08X\n\tINPUT_XERR_STOP  = %08X\n",
         regs, reg_out_err_stop, reg_inp_err_stop);
 
+    pthread_spin_unlock(&m_tx_splock); // unlock here to print the blurb lock-free
     if (sts_abort) {
-      pthread_spin_unlock(&m_tx_splock); // unlock here to print the blurb lock-free
 
       XERR("\n\tABORTed on outbound message to mbox=%d destid=%d regs=0x%x regi=0x%xn", m_mbox, opt.destid, regs, regi);
       regs >>= 16;
@@ -761,7 +761,6 @@ bool MboxChannel::send_message(MboxOptions_t& opt, const void* data, const size_
         break;
       }
     }
-
     return false;
   }
 

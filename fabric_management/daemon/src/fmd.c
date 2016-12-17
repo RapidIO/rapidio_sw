@@ -90,6 +90,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "pe_mpdrv_private.h"
 #include "IDT_Routing_Table_Config_API.h"
 #include "IDT_Tsi721.h"
+#include "fmd_errmsg.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -171,7 +172,7 @@ void spawn_threads(struct fmd_opt_vals *cfg)
 		free(pass_cons_ret);
 		free(pass_poll_interval);
 
-		CRIT("Error - Out of memory\n");
+		CRIT(MALLOC_FAIL);
 		exit(EXIT_FAILURE);
 	}
 
@@ -191,7 +192,7 @@ void spawn_threads(struct fmd_opt_vals *cfg)
 	poll_ret = pthread_create( &poll_thread, NULL, poll_loop, 
 				(void*)(pass_poll_interval));
 	if(poll_ret) {
-		CRIT("Error - poll_thread rc: %d\n",poll_ret);
+		CRIT(THREAD_FAIL, poll_ret);
 		exit(EXIT_FAILURE);
 	}
  
@@ -203,7 +204,7 @@ void spawn_threads(struct fmd_opt_vals *cfg)
 	cli_ret = pthread_create( &remote_login_thread, NULL, remote_login,
 								(void*)(rlp));
 	if(cli_ret) {
-		CRIT("Error - remote_login_thread rc: %d", cli_ret);
+		CRIT(THREAD_FAIL, cli_ret);
 		exit(EXIT_FAILURE);
 	}
 
@@ -215,25 +216,21 @@ void spawn_threads(struct fmd_opt_vals *cfg)
 		cons_ret = pthread_create( &console_thread, NULL, 
 			console, (void *)((char *)"FMD > "));
 		if(cons_ret) {
-			CRIT("Error - cons_thread rc: %d\n",cli_ret);
+			CRIT(THREAD_FAIL, cli_ret);
 			exit(EXIT_FAILURE);
 		}
-		CRIT("pthread_create() for console returns: %d\n",
-			cons_ret);
 	};
-	INFO("pthread_create() for poll_loop returns: %d\n",poll_ret);
-	INFO("pthread_create() for remote_login_thread returns: %d\n",cli_ret);
  
 	ret = start_fmd_app_handler(cfg->app_port_num, 50,
 					cfg->dd_fn, cfg->dd_mtx_fn); 
 	if (ret) {
-		CRIT("Error - start_fmd_app_handler rc: %d\n", ret);
+		CRIT(THREAD_FAIL, ret);
 		exit(EXIT_FAILURE);
 	}
 	ret = start_peer_mgmt(cfg->mast_cm_port, 0, cfg->mast_devid, 
 			cfg->mast_mode);
 	if (ret) {
-		CRIT("Error - start_fmd_app_handler rc: %d\n", ret);
+		CRIT(THREAD_FAIL, ret);
 		exit(EXIT_FAILURE);
 	}
 
@@ -316,7 +313,7 @@ int delete_sysfs_devices(riocp_pe_handle mport_pe, bool auto_config)
 					sysfs_name =(char *)malloc(
 							strlen(entry->d_name));
 					if (NULL == sysfs_name) {
-						CRIT("Out of memory, kernel object: %s\n", entry->d_name);
+						CRIT(MALLOC_FAIL);
 						rc = -ENOMEM;
 						goto cleanup;
 					}
@@ -331,7 +328,7 @@ int delete_sysfs_devices(riocp_pe_handle mport_pe, bool auto_config)
 					sysfs_name = (char *)malloc(
 							strlen(entry->d_name));
 					if (NULL == sysfs_name) {
-						CRIT("Out of memory, object: %s\n", entry->d_name);
+						CRIT(MALLOC_FAIL);
 						rc = -ENOMEM;
 						goto cleanup;
 					}
@@ -347,7 +344,7 @@ int delete_sysfs_devices(riocp_pe_handle mport_pe, bool auto_config)
 					sysfs_name = (char *)malloc(
 							strlen(entry->d_name));
 					if (NULL == sysfs_name) {
-						CRIT("Out of memory, object: %s\n", entry->d_name);
+						CRIT(MALLOC_FAIL);
 						rc = -ENOMEM;
 						goto cleanup;
 					}
@@ -397,14 +394,15 @@ int setup_mport_master(int mport)
 	char *name;
 
 	if (cfg_find_mport(mport, &mp)) {
-		CRIT("\nCannot find configured mport, exiting...\n");
+		CRIT("\nRequested mport %d does not exist, exiting\n", mport);
 		return 1;
 	};
 
 	comptag = mp.ct;
 
 	if (cfg_find_dev_by_ct(comptag, &cfg_dev) && !cfg_auto()) {
-		CRIT("\nCannot find configured mport device, exiting...\n");
+	CRIT("\nRequested mport %d device component tag 0x%x does not exist\n.",
+			mport, comptag);
 		return 1;
 	};
 
@@ -417,12 +415,12 @@ int setup_mport_master(int mport)
 			return 1;
 		}
 		if (ct_create_from_did(&comptag, did)) {
-			CRIT("\nCannot create ct for did 0x%d, exiting...\n");
+			CRIT("\nMaster port DID duplicated...\n");
 			return 1;
 		}
 		name = (char *)calloc(1,40);
 		if (NULL == name) {
-			CRIT("\nOut of Memory\n");
+			CRIT(MALLOC_FAIL);
 			return 1;
 		} else {
 			snprintf(name, 39, "MPORT%d", mport);
@@ -431,7 +429,7 @@ int setup_mport_master(int mport)
 
 	if (riocp_pe_create_host_handle(&mport_pe, mport, 0, &pe_mpsw_rw_driver,
 			&comptag, name)) {
-		CRIT("\nCannot create host handle mport %d, exiting...",
+		CRIT("Cannot create host handle mport %d, exiting...",
 			mport);
 		riocp_pe_destroy_handle(&mport_pe);
 		return 1;
@@ -483,7 +481,6 @@ int setup_mport_slave(int mport)
 {
 	int rc, ret;
 	ct_t comptag;
-	struct cfg_dev cfg_dev;
 	char mast_dev_fn[FMD_MAX_DEV_FN] = {0};
 	struct mpsw_drv_private_data *p_dat = NULL;
 	struct mpsw_drv_pe_acc_info *acc_p = NULL;
@@ -493,27 +490,28 @@ int setup_mport_slave(int mport)
 	//       hello response.  The devname for the MPORT is only used
 	//       in the dd and libriocp_pe, it is not used by sysfs.
 	if (slave_get_ct_and_name(mport, &comptag, dev_name)) {
-		CRIT("\nCannot get component tag or dev_name, exiting...\n");
+		CRIT("\nComponent tag/device name fetch failed for mport %d\n",
+								mport);
 		return 1;
 	};
 
 	if (riocp_pe_create_agent_handle(&mport_pe, mport, 0,
 			&pe_mpsw_rw_driver, &comptag, dev_name)) {
-		CRIT("\nCannot create agent handle, exiting...\n");
+		CRIT("\nCannot create agent handle for mport %d\n", mport);
 		return 1;
 	};
 
-	delete_sysfs_devices(mport_pe, cfg_dev.auto_config);
+	delete_sysfs_devices(mport_pe, cfg_auto());
 
 	ret = riocp_pe_handle_get_private(mport_pe, (void **)&p_dat);
 	if (ret) {
-		CRIT("\nCannot retrieve mport private data, exiting...\n");
+		CRIT("\nAgent handle failed for mport %d, exiting...\n", mport);
 		return 1;
 	};
 
 	acc_p = (struct mpsw_drv_pe_acc_info *)p_dat->dev_h.accessInfo;
 	if ((NULL == acc_p) || !acc_p->maint_valid) {
-		CRIT("\nMport access info is NULL, exiting...\n");
+		CRIT("\nAgent handle failed for mport %d, exiting...\n", mport);
 		return 1;
 	};
 
@@ -533,8 +531,7 @@ int setup_mport_slave(int mport)
 				FMD_SLAVE_MASTER_NAME);
 		};
 		if (rc) {
-			CRIT("\nCannot add FMD Master device %d %d: %s\n", 
-				rc, errno, strerror(errno));
+			CRIT("\nFMD Master inaccessible, wait & try again\n");
 			sleep(5);
 		};
 	} while (EIO == rc);
@@ -551,12 +548,12 @@ void setup_mport(struct fmd_state *fmd)
                                 SRIO_API_WriteRegFunc,
                                 SRIO_API_DelayFunc);
         if (dsf_rc) {
-                CRIT("\nCannot initialize RapidIO APIs...\n");
+                CRIT(SOFTWARE_FAIL);
 		goto fail;
         };
 
         if (riocp_bind_driver(&pe_mpsw_driver)) {
-                CRIT("\nFailed to bind riocp driver, exiting...\n");
+                CRIT(SOFTWARE_FAIL);
 		goto fail;
         };
 

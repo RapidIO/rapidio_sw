@@ -77,6 +77,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sys/sem.h>
 #include <fcntl.h>
 #include <time.h>
+#include "fmd_errmsg.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -102,13 +103,13 @@ int fmd_dd_open_rw(char *dd_fn, int *dd_fd, struct fmd_dd **dd,
                         S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 
         if (-1 == *dd_fd) {
-        	CRIT("rw shm_open failed: 0x%x %s", errno, strerror(errno));
+        	CRIT(DEV_DB_FAIL, dd_fn);
 		goto fail;
 	};
 
         rc = ftruncate(*dd_fd, sizeof(struct fmd_dd));
         if (-1 == rc) {
-        	CRIT("rw ftruncate failed: 0x%x %s", errno, strerror(errno));
+        	CRIT(DEV_DB_FAIL, dd_fn);
                 shm_unlink(dd_fn);
                 goto fail;
         };
@@ -117,7 +118,7 @@ int fmd_dd_open_rw(char *dd_fn, int *dd_fd, struct fmd_dd **dd,
 		PROT_READ|PROT_WRITE, MAP_SHARED, *dd_fd, 0);
 
         if (MAP_FAILED == *dd) {
-        	CRIT("rw mmap failed:0x%x %s", errno, strerror(errno));
+        	CRIT(DEV_DB_FAIL, dd_fn);
                 *dd = NULL;
                 shm_unlink(dd_fn);
                 goto fail;
@@ -149,8 +150,7 @@ int fmd_dd_open(char *dd_fn, int *dd_fd, struct fmd_dd **dd,
 {
 	*dd_fd = shm_open(dd_fn, O_RDONLY, 0);
         if (-1 == *dd_fd) {
-        	CRIT("RO shm_open failed: 0x%x %s",
-            		errno, strerror( errno ) );
+        	CRIT(DEV_DB_FAIL, dd_fn);
                 goto exit;
 	}
 
@@ -158,8 +158,7 @@ int fmd_dd_open(char *dd_fn, int *dd_fd, struct fmd_dd **dd,
                 MAP_SHARED, *dd_fd, 0);
 
         if (MAP_FAILED == *dd) {
-        	CRIT("RO mmap failed:0x%x %s",
-            		errno, strerror(errno));
+        	CRIT(DEV_DB_FAIL, dd_fn);
                 *dd = NULL;
                 goto exit;
         };
@@ -189,7 +188,7 @@ int fmd_dd_mtx_open_priv(char *dd_mtx_fn, int *dd_mtx_fd,
         	*dd_mtx_fd = shm_open(dd_mtx_fn, O_RDWR | O_CREAT | O_EXCL, 
                         	S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 		if (EEXIST == errno) {
-			CRIT("DD_MTX file already exists, FMD failure");
+        		CRIT(DEV_DB_FAIL, dd_mtx_fn);
 			goto fail;
 		};
 		new_mtx = true;
@@ -200,15 +199,13 @@ int fmd_dd_mtx_open_priv(char *dd_mtx_fn, int *dd_mtx_fd,
 	};
 
         if (-1 == *dd_mtx_fd) {
-        	CRIT("rw mutex shm_open failed: 0x%x %s",
-            		errno, strerror( errno ) );
+        	CRIT(DEV_DB_FAIL, dd_mtx_fn);
                 goto fail;
 	}
 
         rc = ftruncate(*dd_mtx_fd, sizeof(struct fmd_dd_mtx));
         if (-1 == rc) {
-        	CRIT("rw mutex ftruncate failed: 0x%x %s",
-            		errno, strerror( errno ) );
+        	CRIT(DEV_DB_FAIL, dd_mtx_fn);
                 goto fail;
         };
 
@@ -216,7 +213,7 @@ int fmd_dd_mtx_open_priv(char *dd_mtx_fn, int *dd_mtx_fd,
 			PROT_READ|PROT_WRITE, MAP_SHARED, *dd_mtx_fd, 0);
 
         if (MAP_FAILED == *dd_mtx) {
-        	CRIT("rw mutex mmap failed:0x%x %s", errno, strerror(errno));
+        	CRIT(DEV_DB_FAIL, dd_mtx_fn);
                 *dd_mtx = NULL;
                 goto fail;
         };

@@ -440,9 +440,12 @@ bool DMAChannelSHM::queueDmaOpT12(enum dma_rtype rtype, DmaOptions_t& opt, RioMp
     return false;
   }
   
-  pthread_spin_lock(&m_state->bl_splock); 
-  if (umdemo_must_die)
+  pthread_spin_lock(&m_state->bl_splock);
+
+  if (umdemo_must_die) {
+    pthread_spin_unlock(&m_state->bl_splock);
     return false;
+  }
 
   wk.mem = mem;
 

@@ -43,6 +43,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "string_util.h"
 #include "DAR_DB.h"
 #include "DAR_DB_Private.h"
+#include "DAR_Utilities.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -109,7 +110,6 @@ uint32_t DARDB_WriteReg( DAR_DEV_INFO_t *dev_info,
 {
     return WriteReg( dev_info, offset, writedata );
 }
-
 
 /* Standard HAL routines for system bringup, all of which use
    standard RapidIO registers.  The default routines will function
@@ -919,6 +919,7 @@ void init_DAR_driver( DAR_DB_Driver_t *DAR_info )
 {
     DAR_info->ReadReg                  = DARDB_ReadReg ;
     DAR_info->WriteReg                 = DARDB_WriteReg ;
+    DAR_info->WaitSec                  = DAR_WaitSec ;
 
     DAR_info->rioGetNumLocalPorts      = DARDB_rioGetNumLocalPorts ;
     DAR_info->rioGetFeatures           = DARDB_rioGetFeatures ;
@@ -947,7 +948,7 @@ void init_DAR_driver( DAR_DB_Driver_t *DAR_info )
     DAR_info->rioStdRouteSetDefault    = DARDB_rioStdRouteSetDefault ;
     DAR_info->rioSetAssmblyInfo        = DARDB_rioSetAssmblyInfo ;
     DAR_info->rioGetAssmblyInfo        = DARDB_rioGetAssmblyInfo ;
-	DAR_info->rioGetPortList           = DARDB_rioGetPortListDefault;
+    DAR_info->rioGetPortList           = DARDB_rioGetPortListDefault;
     DAR_info->rioSetEnumBound          = DARDB_rioSetEnumBound ;
     DAR_info->rioGetDevResetInitStatus = DARDB_rioGetDevResetInitStatus ;
 
