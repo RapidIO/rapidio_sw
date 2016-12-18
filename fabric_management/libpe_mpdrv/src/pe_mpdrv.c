@@ -1034,10 +1034,16 @@ int mpsw_drv_change_mcast_mask(struct riocp_pe *sw, pe_port_t port,
 		goto fail;
 	};
 
-	if (RIOCP_PE_ALL_PORTS == port)
+	if (RIOCP_PE_ALL_PORTS == port) {
 		chg_in.rt = &p_dat->st.g_rt;
-	else
+	} else {
+		if (port >= IDT_MAX_PORTS) {
+			DBG("Illegal Port Selected - max is %d. EXITING!",
+			(sizeof(p_dat->st.pprt)/sizeof(p_dat->st.pprt[0])) - 1);
+			goto fail;
+		};
 		chg_in.rt = &p_dat->st.pprt[port];
+	}
 
 	chg_in.mc_mask_rte = rt_val;
 	chg_in.mc_info.mc_mask = port_mask;

@@ -1204,6 +1204,11 @@ uint32_t pc_set_config_init_parms_check_conflict( DAR_DEV_INFO_t          *dev_i
     };
        // NOT ALL PORTS
        rc = RIO_ERR_INVALID_PARAMETER;
+
+	if (in_parms->num_ports >= TSI57X_NUM_PORTS(dev_info)) {
+                 out_parms->imp_rc = PC_SET_CONFIG(0x99);
+       		goto pc_set_config_init_parms_check_conflict_exit;
+	}
        out_parms->num_ports = in_parms->num_ports;
        for (port_idx = 0; port_idx < out_parms->num_ports; port_idx++) 
        {
@@ -1996,7 +2001,7 @@ uint32_t idt_tsi57x_pc_clr_errs  ( DAR_DEV_INFO_t       *dev_info,
              idt_pc_clr_errs_out_t temp_out;
              uint32_t                temp_rc;
 
-             memcpy(&temp_in, &in_parms, sizeof(idt_pc_clr_errs_in_t));
+             memcpy(&temp_in, in_parms, sizeof(idt_pc_clr_errs_in_t));
              temp_in.clr_lp_port_err = false;
 
              temp_rc = idt_tsi57x_pc_clr_errs( dev_info, &temp_in, &temp_out );
@@ -5595,7 +5600,7 @@ uint32_t idt_sc_cfg_tsi57x_ctr ( DAR_DEV_INFO_t              *dev_info,
 {
    uint32_t rc = RIO_ERR_INVALID_PARAMETER;
    uint32_t new_ctl = 0, ctl_reg, new_ctl_reg, reg_mask;
-   uint8_t p_to_i[Tsi578_MAX_PORTS];
+   uint8_t p_to_i[Tsi578_MAX_PORTS] = {IDT_MAX_PORTS};
    uint8_t srch_i, srch_p, port_num;
    bool  found;
    struct DAR_ptl good_ptl;
@@ -5667,11 +5672,6 @@ uint32_t idt_sc_cfg_tsi57x_ctr ( DAR_DEV_INFO_t              *dev_info,
       reg_mask = 0xFFFF0000;
       new_ctl  = new_ctl << 16;
    };
-
-   // Track which ports have been programmed.
-      
-   for (srch_i = 0; srch_i < TSI57X_NUM_PORTS(dev_info); srch_i++) 
-      p_to_i[srch_i] = IDT_MAX_PORTS;
 
    // Update hardware and data structures to reflect change in programming.
    // - program the counter control values requested

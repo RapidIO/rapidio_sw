@@ -2248,27 +2248,38 @@ ATTR_NONE
 int getIsolCPU(std::vector<std::string>& cpus)
 {
   FILE* f = popen("awk '{for(i=1;i<NF;i++){if($i~/isolcpus/){is=$i}}}END{split(is,a,/=/);c=a[2];n=split(c,b,/,/); for(i in b){print b[i]}}' /proc/cmdline", "re");
-  if(f == NULL) return -1;
+	if(f == NULL) {
+		return -1;
+	}
 
-  int count = 0;
-  while(! feof(f)) {
-    char buf[257] = {0};
-    if (NULL == fgets(buf, 256, f))
-	break;
+	int count = 0;
 
-    int N = strlen(buf);
+	while(! feof(f)) {
+		char buf[257] = {0};
+		if (NULL == fgets(buf, 256, f)) {
+			break;
+		}
 
-	if (N <= 0)
-		break;
-    if(buf[N-1] == '\n') buf[--N] = '\0';
-    if(buf[N-1] == '\r') buf[--N] = '\0';
-   
-    cpus.push_back(buf);
-    count++;
-  }
-  pclose(f);
+		int N = strlen(buf);
+		if (N <= 0)
+			break;
+		if (buf[N-1] == '\n') {
+			buf[--N] = '\0';
+		}
+		if (N) {
+			if (buf[N-1] == '\r') {
+				buf[--N] = '\0';
+			}
+		}
 
-  return count;
+		cpus.push_back(buf);
+		count++;
+	}
+	pclose(f);
+
+	pclose(f);
+
+	return count;
 }
 
 int IsolcpuCmd(struct cli_env *env, int argc, char **argv)
@@ -2290,7 +2301,7 @@ int IsolcpuCmd(struct cli_env *env, int argc, char **argv)
 
 
 	int c = 0;
-	char clist[130] = {0};
+	char clist[140] = {0};
 	std::vector<std::string>::iterator it = cpus.begin();
 	for(; it != cpus.end(); it++) {
 		char tmp[9] = {0};
