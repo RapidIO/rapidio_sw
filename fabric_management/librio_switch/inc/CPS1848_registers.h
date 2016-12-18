@@ -38,6 +38,7 @@ extern "C" {
 #endif
 
 #define CPS_MAX_MC_MASKS 40
+#define CPS1848_MAX_PORT 18
 
 /**************************************************/
 /* CPS1848 : Register address offset definitions  */

@@ -1607,7 +1607,7 @@ extern int cfg_get_conn_dev(ct_t ct, int pt,
 		goto fail;
 
 	oe = OTHER_END(conn_end);
-	if (conn_end > 1)
+	if ((conn_end > 1) || (oe > 1))
 		goto fail;
 
 	*conn_pt = conn->ends[oe].port_num;

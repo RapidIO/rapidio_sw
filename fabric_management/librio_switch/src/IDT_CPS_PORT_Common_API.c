@@ -702,25 +702,25 @@ uint32_t CPS_set_config_init_parms_check_conflict( DAR_DEV_INFO_t          *dev_
     bool   found_flt, found_port;
 
     // Invalidate all sorted entries to start with...
-    sorted->num_ports = NUM_PORTS(dev_info);
-    for (port_idx = 0; port_idx < NUM_PORTS(dev_info); port_idx++) {
+    sorted->num_ports = NUM_CPS_PORTS(dev_info);
+    for (port_idx = 0; port_idx < NUM_CPS_PORTS(dev_info); port_idx++) {
        sorted->pc[port_idx].pnum = RIO_ALL_PORTS;
     };
 
     if (RIO_ALL_PORTS == in_parms->num_ports) {
-       for (pnum = 0; pnum < NUM_PORTS(dev_info); pnum++) {
+       for (pnum = 0; pnum < NUM_CPS_PORTS(dev_info); pnum++) {
           sorted->pc[pnum] = in_parms->pc[0];
           sorted->pc[pnum].pnum = pnum;
        };
     } else {
-       if (in_parms->num_ports > NUM_PORTS(dev_info)) {
+       if (in_parms->num_ports > NUM_CPS_PORTS(dev_info)) {
           *fail_pt = PC_SET_CONFIG(0x10);
           goto chk_parms_exit;
        }
 
        for (port_idx = 0; port_idx < in_parms->num_ports; port_idx++) {
           pnum = in_parms->pc[port_idx].pnum;
-          if (pnum >= NUM_PORTS(dev_info)) { 
+          if (pnum >= NUM_CPS_PORTS(dev_info)) { 
              *fail_pt = PC_SET_CONFIG(0x11);
              goto chk_parms_exit;
           };
@@ -733,7 +733,7 @@ uint32_t CPS_set_config_init_parms_check_conflict( DAR_DEV_INFO_t          *dev_
     sorted->reg_acc_port = in_parms->reg_acc_port;
 
     // Some basic checks for parameter validity...
-    for (pnum = 0; pnum < NUM_PORTS(dev_info); pnum++) {
+    for (pnum = 0; pnum < NUM_CPS_PORTS(dev_info); pnum++) {
        if (sorted->pc[pnum].pnum == pnum) {
           if (sorted->pc[pnum].port_available) {
              if (( sorted->pc[pnum].pw >= idt_pc_pw_last ) ||
@@ -873,7 +873,7 @@ uint32_t CPS_set_config_init_parms_check_conflict( DAR_DEV_INFO_t          *dev_
     };
 
     // Now read in all registers for ports being programmed...
-    for (port_idx = 0; port_idx < NUM_PORTS(dev_info); port_idx++) {
+    for (port_idx = 0; port_idx < NUM_CPS_PORTS(dev_info); port_idx++) {
        regs->ports[port_idx].reset_reg_vals = false;
        if (RIO_ALL_PORTS == sorted->pc[port_idx].pnum)
           continue;
@@ -1020,7 +1020,7 @@ uint32_t compute_baudrate_config( DAR_DEV_INFO_t          *dev_info,
    uint8_t quad_val, quadrant, pnum;
    uint8_t first_lane, last_lane, lane_num;
 
-   for (pnum = 0; pnum < NUM_PORTS(dev_info); pnum++) {
+   for (pnum = 0; pnum < NUM_CPS_PORTS(dev_info); pnum++) {
 
       if ((RIO_ALL_PORTS == sorted->pc[pnum].pnum) || !sorted->pc[pnum].port_available || !sorted->pc[pnum].powered_up ) 
          continue;
@@ -1141,7 +1141,7 @@ uint32_t compute_laneswap_config( DAR_DEV_INFO_t        *dev_info,
    uint8_t quad_val, quadrant, pnum;
    uint8_t lnum, start_lane, end_lane;
 
-   for (pnum = 0; pnum < NUM_PORTS(dev_info); pnum++) {
+   for (pnum = 0; pnum < NUM_CPS_PORTS(dev_info); pnum++) {
       if (RIO_ALL_PORTS == sorted->pc[pnum].pnum || !sorted->pc[pnum].port_available || !sorted->pc[pnum].powered_up) 
          continue;
 
@@ -1298,7 +1298,7 @@ uint32_t compute_powerdown_config( DAR_DEV_INFO_t          *dev_info,
    uint8_t lane_num, start_lane, end_lane;
    bool  found_one;
 
-   for (pnum = 0; pnum < NUM_PORTS(dev_info); pnum++) {
+   for (pnum = 0; pnum < NUM_CPS_PORTS(dev_info); pnum++) {
       if (!sorted->pc[pnum].port_available || (RIO_ALL_PORTS == sorted->pc[pnum].pnum)) 
          continue;
 
@@ -1767,7 +1767,7 @@ uint32_t CPS_set_config_write_changes( DAR_DEV_INFO_t          *dev_info,
       };
    };
 
-   for (pnum = 0; pnum < NUM_PORTS(dev_info); pnum++) {
+   for (pnum = 0; pnum < NUM_CPS_PORTS(dev_info); pnum++) {
       uint32_t reset_val;
       uint8_t pll_num;
       bool  make_chg, dep_ports; 
@@ -2061,7 +2061,7 @@ uint32_t IDT_CPS_pc_set_config(
 	out_parms->lrto = 0;
     out_parms->imp_rc    = RIO_SUCCESS;
 
-    if ( (NUM_PORTS(dev_info) < in_parms->num_ports) &&
+    if ( (NUM_CPS_PORTS(dev_info) < in_parms->num_ports) &&
         !(RIO_ALL_PORTS      == in_parms->num_ports))
     {
         rc = RIO_ERR_INVALID_PARAMETER;
@@ -2119,9 +2119,9 @@ uint32_t IDT_CPS_pc_set_config(
 
     // Return updated configuration for all changed ports...
     get_cfg_in.ptl.num_ports = 0;
-    for (port_idx = 0; port_idx < NUM_PORTS(dev_info); port_idx++) {
+    for (port_idx = 0; port_idx < NUM_CPS_PORTS(dev_info); port_idx++) {
 		uint8_t srch_idx;
-		for (srch_idx = 0; srch_idx < NUM_PORTS(dev_info); srch_idx++) {
+		for (srch_idx = 0; srch_idx < NUM_CPS_PORTS(dev_info); srch_idx++) {
 			if (port_idx == sorted.pc[srch_idx].pnum) {
 			  get_cfg_in.ptl.pnums[get_cfg_in.ptl.num_ports] = port_idx;
 			  get_cfg_in.ptl.num_ports++;
@@ -2293,13 +2293,13 @@ uint32_t IDT_CPS_pc_reset_port(
     out_parms->imp_rc = RIO_SUCCESS;
 
     if ((RIO_ALL_PORTS      != in_parms->port_num) &&
-        (in_parms->port_num >= NUM_PORTS(dev_info))) {
+        (in_parms->port_num >= NUM_CPS_PORTS(dev_info))) {
        out_parms->imp_rc = PC_RESET_PORT(1);
        goto idt_CPS_pc_reset_port_exit;
     };
 
     if (!in_parms->oob_reg_acc) {
-       if (in_parms->reg_acc_port >= NUM_PORTS(dev_info)) {
+       if (in_parms->reg_acc_port >= NUM_CPS_PORTS(dev_info)) {
           out_parms->imp_rc = PC_RESET_PORT(2);
           goto idt_CPS_pc_reset_port_exit;
        };
@@ -2313,7 +2313,7 @@ uint32_t IDT_CPS_pc_reset_port(
 
     if (RIO_ALL_PORTS == in_parms->port_num) {
        start_port = 0;
-       end_port   = NUM_PORTS(dev_info) - 1;
+       end_port   = NUM_CPS_PORTS(dev_info) - 1;
     } else {
        start_port = end_port = in_parms->port_num;
     };
@@ -2369,7 +2369,7 @@ uint32_t IDT_CPS_pc_reset_link_partner(
 
    out_parms->imp_rc = RIO_SUCCESS;
 
-   if ( in_parms->port_num >= NUM_PORTS(dev_info)) {
+   if ( in_parms->port_num >= NUM_CPS_PORTS(dev_info)) {
       out_parms->imp_rc = PC_RESET_LP(1);
       goto idt_CPS_pc_reset_lp_exit;
    };
@@ -2460,7 +2460,7 @@ uint32_t IDT_CPS_pc_clr_errs(
 
    out_parms->imp_rc = RIO_SUCCESS ; /* Default Value */
 
-   if ( in_parms->port_num >= NUM_PORTS(dev_info)) {
+   if ( in_parms->port_num >= NUM_CPS_PORTS(dev_info)) {
       out_parms->imp_rc = PC_CLR_ERRS(1);
       goto IDT_CPS_pc_clr_errs_exit;
    };
@@ -2496,13 +2496,13 @@ uint32_t IDT_CPS_pc_clr_errs(
 
          // Need to perform complex error recovery.
          // Check the parameters before calling the error recovery routine.
-         if (NUM_PORTS(in_parms->lp_dev_info) < in_parms->num_lp_ports) {
+         if (NUM_CPS_PORTS(in_parms->lp_dev_info) < in_parms->num_lp_ports) {
             out_parms->imp_rc = PC_CLR_ERRS(3);
             goto IDT_CPS_pc_clr_errs_exit;
          };
          for (port_idx = 0; port_idx < in_parms->num_lp_ports; port_idx++) { 
             // Return codes 0x10 through 0x20
-            if (NUM_PORTS(in_parms->lp_dev_info) <= in_parms->lp_port_list[port_idx]) {
+            if (NUM_CPS_PORTS(in_parms->lp_dev_info) <= in_parms->lp_port_list[port_idx]) {
                out_parms->imp_rc = PC_CLR_ERRS(0x10 + port_idx);
                goto IDT_CPS_pc_clr_errs_exit;
             };
@@ -2536,7 +2536,7 @@ uint32_t set_int_pw_ignore_reset( DAR_DEV_INFO_t      *dev_info,
 
    if (RIO_ALL_PORTS == port_num) {
       start_port = 0;
-      end_port   = NUM_PORTS(dev_info) - 1;
+      end_port   = NUM_CPS_PORTS(dev_info) - 1;
    } else {
       start_port = end_port = port_num;
    };

@@ -1255,7 +1255,7 @@ uint32_t IDT_CPS_em_cfg_get  ( DAR_DEV_INFO_t        *dev_info,
    out_parms->fail_idx      = idt_em_last;
    out_parms->notfn         = idt_em_notfn_last;
 
-   if (in_parms->port_num >= NUM_PORTS(dev_info)) {
+   if (in_parms->port_num >= NUM_CPS_PORTS(dev_info)) {
       out_parms->imp_rc = EM_CFG_GET(0x01);
       goto idt_CPS_em_cfg_get_exit;
    } else {
@@ -2089,7 +2089,7 @@ uint32_t IDT_CPS_em_get_pw_stat  ( DAR_DEV_INFO_t            *dev_info,
    };
 
    if ((RIO_ALL_PORTS       != in_parms->pw_port_num) &&
-       (NUM_PORTS(dev_info) <= in_parms->pw_port_num)) {
+       (NUM_CPS_PORTS(dev_info) <= in_parms->pw_port_num)) {
       out_parms->imp_rc = EM_GET_PW_STAT(3);
       goto idt_CPS_em_get_pw_stat_exit;
    };
@@ -2405,7 +2405,7 @@ uint32_t read_err_info( DAR_DEV_INFO_t   *dev_info,
    uint32_t rc = RIO_SUCCESS;
    uint8_t pnum, quadrant, quad_cfg;
 
-   for (pnum = 0; pnum < NUM_PORTS(dev_info); pnum++) {
+   for (pnum = 0; pnum < NUM_CPS_PORTS(dev_info); pnum++) {
       quadrant = pi->cpr[pnum].quadrant;
       quad_cfg = pi->quad_cfg_val[quadrant];
 
@@ -2452,7 +2452,7 @@ uint32_t write_err_info( DAR_DEV_INFO_t   *dev_info,
    uint32_t rc = RIO_SUCCESS;
    uint8_t pnum, quadrant, quad_cfg;
 
-   for (pnum = 0; pnum < NUM_PORTS(dev_info); pnum++) {
+   for (pnum = 0; pnum < NUM_CPS_PORTS(dev_info); pnum++) {
       quadrant = pi->cpr[pnum].quadrant;
       quad_cfg = pi->quad_cfg_val[quadrant];
 
@@ -2562,7 +2562,7 @@ uint32_t IDT_CPS_em_clr_events   ( DAR_DEV_INFO_t           *dev_info,
        // - RIO_ALL_PORTS cannot be used with any other events.
        // - RIO_ALL_PORTS must be used with idt_em_d_log and idt_em_i_init_fail.
        // - valid event values
-       if ( ((pnum >= NUM_PORTS(dev_info)) && (RIO_ALL_PORTS != pnum)) || 
+       if ( ((pnum >= NUM_CPS_PORTS(dev_info)) && (RIO_ALL_PORTS != pnum)) || 
           ((RIO_ALL_PORTS == pnum) && !((idt_em_d_log == in_parms->events[idx].event)
                                      ||(idt_em_i_init_fail == in_parms->events[idx].event)))  ||
           (((idt_em_d_log       == in_parms->events[idx].event) ||
@@ -2816,7 +2816,7 @@ uint32_t IDT_CPS_em_create_events ( DAR_DEV_INFO_t              *dev_info,
        out_parms->failure_idx = idx;
        pnum = in_parms->events[idx].port_num;
 
-       if ( ((pnum >= NUM_PORTS(dev_info)) && (RIO_ALL_PORTS != pnum)) || 
+       if ( ((pnum >= NUM_CPS_PORTS(dev_info)) && (RIO_ALL_PORTS != pnum)) || 
           ((RIO_ALL_PORTS == pnum) && !((idt_em_d_log       == in_parms->events[idx].event) ||
                                         (idt_em_i_init_fail == in_parms->events[idx].event)))  ||
           (((idt_em_d_log       == in_parms->events[idx].event) ||

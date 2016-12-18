@@ -52,7 +52,7 @@ extern "C" {
 
 /* Send string to one/all of the many output streams supported by cli_env */
 #define LOGMSG(env, format, ...) \
-	sprintf(env->output, format, ##__VA_ARGS__); \
+	snprintf(env->output, sizeof(env->output), format, ##__VA_ARGS__); \
 	logMsg(env);
 
 struct cli_cmd;

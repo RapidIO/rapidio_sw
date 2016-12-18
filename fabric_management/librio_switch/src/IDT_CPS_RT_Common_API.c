@@ -75,14 +75,14 @@ uint32_t IDT_CPS_rt_initialize(
 
     // Validate parameters
     
-    if (  (in_parms->default_route      >= NUM_PORTS(dev_info))  &&
+    if (  (in_parms->default_route      >= NUM_CPS_PORTS(dev_info))  &&
         !(IDT_DSF_RT_NO_ROUTE == in_parms->default_route)  )
     {
         out_parms->imp_rc = RT_INITIALIZE(1);
         goto idt_CPS_rt_initialize_exit;
     }
 
-    if ( (in_parms->default_route_table_port >= NUM_PORTS(dev_info)) &&
+    if ( (in_parms->default_route_table_port >= NUM_CPS_PORTS(dev_info)) &&
          !( (IDT_DSF_RT_USE_DEFAULT_ROUTE == in_parms->default_route_table_port) ||
             (IDT_DSF_RT_NO_ROUTE          == in_parms->default_route_table_port)) )
     {
@@ -90,7 +90,7 @@ uint32_t IDT_CPS_rt_initialize(
         goto idt_CPS_rt_initialize_exit;
     }
 
-    if ( (in_parms->set_on_port >= NUM_PORTS(dev_info)  )  &&
+    if ( (in_parms->set_on_port >= NUM_CPS_PORTS(dev_info)  )  &&
         !(RIO_ALL_PORTS         == in_parms->set_on_port))
     {
         out_parms->imp_rc = RT_INITIALIZE(3);
@@ -144,7 +144,7 @@ uint32_t IDT_CPS_rt_initialize(
 
        if (RIO_ALL_PORTS == in_parms->set_on_port ) {
           start_port = 0;
-          end_port   = NUM_PORTS(dev_info) - 1;
+          end_port   = NUM_CPS_PORTS(dev_info) - 1;
        } else {
           start_port = end_port = in_parms->set_on_port;
        };
@@ -195,7 +195,7 @@ uint32_t idt_CPS_check_port_for_discard( DAR_DEV_INFO_t     *dev_info,
 
    port = (dflt_rt)?in_parms->rt->default_route:out_parms->routing_table_value;
 
-   if (NUM_PORTS(dev_info) <= port) {
+   if (NUM_CPS_PORTS(dev_info) <= port) {
       out_parms->reason_for_discard = idt_rt_disc_probe_abort;
       out_parms->imp_rc = RT_PROBE(1);
       goto idt_CPS_check_port_for_discard_exit;
@@ -283,11 +283,11 @@ uint32_t IDT_CPS_rt_probe(
     out_parms->imp_rc                 = RIO_SUCCESS;
     out_parms->valid_route            = false;
     out_parms->routing_table_value    = RIO_ALL_PORTS;
-    for (bit = 0; bit < NUM_PORTS(dev_info); bit++)
+    for (bit = 0; bit < NUM_CPS_PORTS(dev_info); bit++)
         out_parms->mcast_ports[bit] = false;
     out_parms->reason_for_discard     = idt_rt_disc_probe_abort;
 
-    if (   ((NUM_PORTS(dev_info) <= in_parms->probe_on_port) &&
+    if (   ((NUM_CPS_PORTS(dev_info) <= in_parms->probe_on_port) &&
             (RIO_ALL_PORTS       != in_parms->probe_on_port))  ||
            ( !in_parms->rt           ) ) {
        out_parms->imp_rc = RT_PROBE(0x11);
@@ -357,7 +357,7 @@ uint32_t read_mc_masks( DAR_DEV_INFO_t            *dev_info,
 {
    uint32_t rc = RIO_ERR_INVALID_PARAMETER;
    uint8_t  mask_idx;
-   uint32_t reg_val, port_mask = ((uint32_t)(1) << NUM_PORTS(dev_info)) - 1;
+   uint32_t reg_val, port_mask = ((uint32_t)(1) << NUM_CPS_PORTS(dev_info)) - 1;
    idt_rt_dealloc_mc_mask_in_t  d_in_parm;
    idt_rt_dealloc_mc_mask_out_t d_out_parm;
 
@@ -412,7 +412,7 @@ uint32_t read_rte_entries( DAR_DEV_INFO_t            *dev_info,
    };
 
    rt->default_route = (uint8_t)(rte_val & CPS1848_RTE_DEFAULT_PORT_CSR_DEFAULT_PORT);
-   if ( rt->default_route >= NUM_PORTS(dev_info)) {
+   if ( rt->default_route >= NUM_CPS_PORTS(dev_info)) {
       rt->default_route = IDT_DSF_RT_NO_ROUTE;
    }
 
@@ -449,7 +449,7 @@ uint32_t read_rte_entries( DAR_DEV_INFO_t            *dev_info,
       } else {
 	 if ((IDT_DSF_RT_USE_DEFAULT_ROUTE != rte_val) &&
              (IDT_DSF_RT_NO_ROUTE          != rte_val) &&
-	     (NUM_PORTS(dev_info)          <= rte_val) ) { 
+	     (NUM_CPS_PORTS(dev_info)          <= rte_val) ) { 
             rt->dom_table[destID].rte_val = IDT_DSF_RT_NO_ROUTE;
 	 };
       };
@@ -481,7 +481,7 @@ uint32_t read_rte_entries( DAR_DEV_INFO_t            *dev_info,
          rt->mc_masks[mask_idx].mc_destID = first_mc_destID + destID;
       };
          
-      if (  ((rte_val >= NUM_PORTS(dev_info)) && (rte_val < IDT_DSF_FIRST_MC_MASK))        ||
+      if (  ((rte_val >= NUM_CPS_PORTS(dev_info)) && (rte_val < IDT_DSF_FIRST_MC_MASK))        ||
 	    ((rte_val >= IDT_DSF_BAD_MC_MASK) && (IDT_DSF_RT_NO_ROUTE          != rte_val) 
 	                                      && (IDT_DSF_RT_USE_DEFAULT_ROUTE != rte_val)) ) {
          rt->dev_table[destID].rte_val = IDT_DSF_RT_NO_ROUTE;
@@ -509,7 +509,7 @@ uint32_t IDT_CPS_rt_probe_all(
 
     out_parms->imp_rc = RIO_SUCCESS;
     if ( ( ( (uint8_t)(RIO_ALL_PORTS) != in_parms->probe_on_port ) && 
-           ( in_parms->probe_on_port >= NUM_PORTS(dev_info)    ) ) ||
+           ( in_parms->probe_on_port >= NUM_CPS_PORTS(dev_info)    ) ) ||
          ( !in_parms->rt) ) 
     {
         out_parms->imp_rc = RT_PROBE_ALL(1);
@@ -621,7 +621,7 @@ uint32_t CPS_program_rte_entries ( DAR_DEV_INFO_t        *dev_info,
     for (rte_num = 0; rte_num < IDT_DAR_RT_DOM_TABLE_SIZE; rte_num++) {
        if (in_parms->rt->dom_table[rte_num].changed || set_all) {
 	  // Validate value to be programmed.
-	  if (in_parms->rt->dom_table[rte_num].rte_val >= NUM_PORTS(dev_info)) {
+	  if (in_parms->rt->dom_table[rte_num].rte_val >= NUM_CPS_PORTS(dev_info)) {
 	     // Domain table can be a port number, use device table, use default route, or drop.
 	     if ((in_parms->rt->dom_table[rte_num].rte_val != IDT_DSF_RT_USE_DEVICE_TABLE ) &&
 	         (in_parms->rt->dom_table[rte_num].rte_val != IDT_DSF_RT_USE_DEFAULT_ROUTE) &&
@@ -644,7 +644,7 @@ uint32_t CPS_program_rte_entries ( DAR_DEV_INFO_t        *dev_info,
     for (rte_num = 0; rte_num < IDT_DAR_RT_DEV_TABLE_SIZE; rte_num++) {
        if (in_parms->rt->dev_table[rte_num].changed || set_all) {
 	  // Validate value to be programmed.
-	  if (in_parms->rt->dev_table[rte_num].rte_val >= NUM_PORTS(dev_info)) {
+	  if (in_parms->rt->dev_table[rte_num].rte_val >= NUM_CPS_PORTS(dev_info)) {
 	     // Device table can be a port number, a multicast mask, use default route, or drop.
 	     if ((MC_MASK_IDX_FROM_ROUTE(in_parms->rt->dev_table[rte_num].rte_val) 
 				                           == IDT_DSF_BAD_MC_MASK         ) &&
@@ -681,14 +681,14 @@ uint32_t idt_CPS_rt_set_common( DAR_DEV_INFO_t        *dev_info,
     out_parms->imp_rc = RIO_SUCCESS;
 
     if ( ( ( (uint8_t)(RIO_ALL_PORTS) != in_parms->set_on_port ) && 
-           ( in_parms->set_on_port >= NUM_PORTS(dev_info)    ) ) ||
+           ( in_parms->set_on_port >= NUM_CPS_PORTS(dev_info)    ) ) ||
          ( !in_parms->rt) ) 
     {
         out_parms->imp_rc = RTE_SET_COMMON(1);
         goto idt_CPS_rt_set_common_exit;
     }
 
-    if ((NUM_PORTS(dev_info) <= in_parms->rt->default_route) &&
+    if ((NUM_CPS_PORTS(dev_info) <= in_parms->rt->default_route) &&
         !(IDT_DSF_RT_NO_ROUTE == in_parms->rt->default_route))   {
         out_parms->imp_rc = RTE_SET_COMMON(2);
         goto idt_CPS_rt_set_common_exit;
@@ -760,7 +760,7 @@ uint32_t IDT_CPS_rt_change_rte(
    if ( (IDT_DSF_RT_USE_DEVICE_TABLE  != in_parms->rte_value) &&
         (IDT_DSF_RT_USE_DEFAULT_ROUTE != in_parms->rte_value) &&
         (IDT_DSF_RT_NO_ROUTE          != in_parms->rte_value) &&
-        (in_parms->rte_value >= NUM_PORTS(dev_info))) {
+        (in_parms->rte_value >= NUM_CPS_PORTS(dev_info))) {
       out_parms->imp_rc = RT_CHANGE_RTE(2);
       goto idt_CPS_rt_change_rte_exit;
    }
@@ -844,7 +844,7 @@ uint32_t IDT_CPS_rt_change_mc_mask(
    uint32_t rc = RIO_ERR_INVALID_PARAMETER;
    uint8_t  chg_idx, dom_idx, dev_idx;
    uint32_t illegal_ports   = ~((1 << IDT_MAX_PORTS      ) - 1);
-   uint32_t avail_ports     =   (1 << NUM_PORTS(dev_info)) - 1;
+   uint32_t avail_ports     =   (1 << NUM_CPS_PORTS(dev_info)) - 1;
 
    out_parms->imp_rc = RIO_SUCCESS;
 

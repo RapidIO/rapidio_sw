@@ -40,16 +40,20 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef __IDT_CPS_COMMON_TEST_H__
 #define __IDT_CPS_COMMON_TEST_H__
 
-#include <DAR_DevDriver.h>
-#include <IDT_Common.h>
-#include <IDT_Port_Config_API.h>
-#include <IDT_Routing_Table_Config_API.h>
-#include <IDT_Error_Management_API.h>
-#include <IDT_Statistics_Counter_API.h>
+#include "CPS1848_registers.h"
+#include "DAR_DevDriver.h"
+#include "IDT_Common.h"
+#include "IDT_Port_Config_API.h"
+#include "IDT_Routing_Table_Config_API.h"
+#include "IDT_Error_Management_API.h"
+#include "IDT_Statistics_Counter_API.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+#define NUM_CPS_PORTS(dev_info) ((NUM_PORTS(dev_info) > CPS1848_MAX_PORT) ? \
+                        CPS1848_MAX_PORT : NUM_PORTS(dev_info))
 
 // Common implementation of rioSetAssmblyInfo for all CPS Gen 1 & 2
 //

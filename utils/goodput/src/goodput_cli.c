@@ -690,7 +690,6 @@ int cpu_occ_set(uint64_t *tot_jifis,
 	char file_line[CPUOCC_BUFF_SIZE] = {0};
 	uint64_t p_user = 1, p_nice = 1, p_system = 1, p_idle = 1;
 	uint64_t p_iowait = 1, p_irq = 1, p_softirq = 1;
-	int rc;
 
 	pid_t my_pid = getpid();
 
@@ -730,7 +729,6 @@ int cpu_occ_set(uint64_t *tot_jifis,
 	*tot_jifis = p_user + p_nice + p_system + p_idle +
 			p_iowait + p_irq + p_softirq;
 	
-	rc = 0;
 exit:
 	if (stat_fp != NULL) {
 		fclose(stat_fp);
@@ -738,7 +736,7 @@ exit:
 	if (cpu_stat_fp != NULL) {
 		fclose(cpu_stat_fp);
 	}
-	return rc;
+	return 0;
 }
 
 int CPUOccSetCmd(struct cli_env *env, int UNUSED(argc), char **UNUSED(argv))
@@ -2257,9 +2255,11 @@ int getIsolCPU(std::vector<std::string>& cpus)
     char buf[257] = {0};
     if (NULL == fgets(buf, 256, f))
 	break;
-    if(buf[0] == '\0') break;
 
     int N = strlen(buf);
+
+	if (N <= 0)
+		break;
     if(buf[N-1] == '\n') buf[--N] = '\0';
     if(buf[N-1] == '\r') buf[--N] = '\0';
    
@@ -2290,7 +2290,7 @@ int IsolcpuCmd(struct cli_env *env, int argc, char **argv)
 
 
 	int c = 0;
-	char clist[129] = {0};
+	char clist[130] = {0};
 	std::vector<std::string>::iterator it = cpus.begin();
 	for(; it != cpus.end(); it++) {
 		char tmp[9] = {0};

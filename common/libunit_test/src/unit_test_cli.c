@@ -315,26 +315,35 @@ int SleepCmd(struct cli_env *env, int argc, char **argv)
 int getIsolCPU(std::vector<std::string>& cpus)
 {
   FILE* f = popen("awk '{for(i=1;i<NF;i++){if($i~/isolcpus/){is=$i}}}END{split(is,a,/=/);c=a[2];n=split(c,b,/,/); for(i in b){print b[i]}}' /proc/cmdline", "re");
-  if(f == NULL) return -1;
+	if(f == NULL) {
+		return -1;
+	}
 
-  int count = 0;
-  while(! feof(f)) {
-    char buf[257] = {0};
-    if (NULL == fgets(buf, 256, f))
-	break;
-    if(buf[0] == '\0')
-	break;
+	int count = 0;
+	while(! feof(f)) {
+		char buf[257] = {0};
+		if (NULL == fgets(buf, 256, f)) {
+			break;
+		}
 
-    int N = strlen(buf);
-    if(buf[N-1] == '\n') buf[--N] = '\0';
-    if(buf[N-1] == '\r') buf[--N] = '\0';
+		int N = strlen(buf);
+		if (N <= 0)
+			break;
+		if (buf[N-1] == '\n') {
+			buf[--N] = '\0';
+		}
+		if (N) {
+    			if (buf[N-1] == '\r') {
+				buf[--N] = '\0';
+			}
+		}
 
-    cpus.push_back(buf);
-    count++;
-  }
-  pclose(f);
+		cpus.push_back(buf);
+		count++;
+  	}
+	pclose(f);
 
-  return count;
+	return count;
 }
 
 int IsolcpuCmd(struct cli_env *env, int argc, char **argv)
@@ -365,8 +374,8 @@ int IsolcpuCmd(struct cli_env *env, int argc, char **argv)
                         CRIT("IsolcpuCmd: Out of memory %s\n", tmp);
                         return -1;
                 }
-                strncat(clist, it->c_str(), 128);
-                strncat(clist, " ", 128);
+                strncat(clist, it->c_str(), 127);
+                strncat(clist, " ", 127);
         }
 
         LOGMSG(env, "\nIsolcpus: %s\n", clist);

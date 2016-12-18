@@ -138,7 +138,7 @@ uint32_t idt_cps_sc_read_ctrs( DAR_DEV_INFO_t           *dev_info,
                              idt_sc_read_ctrs_out_t   *out_parms)
 {
    uint32_t rc = RIO_ERR_INVALID_PARAMETER;
-   uint8_t p_to_i[IDT_MAX_PORTS] = {IDT_MAX_PORTS};
+   uint8_t p_to_i[CPS1848_MAX_PORT] = {IDT_MAX_PORTS};
    uint8_t srch_i, srch_p, port_num, cntr;
    bool  found;
    uint32_t ctl_reg;
