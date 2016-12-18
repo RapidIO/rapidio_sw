@@ -850,10 +850,15 @@ int mpsw_drv_set_route_entry(struct riocp_pe  *pe,
 	chg_in.dom_entry = 0;
 	chg_in.idx       = did;
 	chg_in.rte_value = rt_val;
-	if (RIO_ALL_PORTS == port)
+	if (RIO_ALL_PORTS == port) {
 		chg_in.rt = &p_dat->st.g_rt;
-	else
+	} else {
+		if (port >= IDT_MAX_PORTS) {
+			DBG("Invalid port #, max is %d", IDT_MAX_PORTS);
+			goto fail;
+		}
 		chg_in.rt = &p_dat->st.pprt[port];
+	}
 	
 	ret = idt_rt_change_rte(&p_dat->dev_h, &chg_in, &chg_out);
 	if (ret) {
@@ -980,6 +985,12 @@ int mpsw_drv_free_mcast_mask(struct riocp_pe *sw, pe_port_t port,
 	if ((port != RIOCP_PE_ALL_PORTS) && (port >= RIOCP_PE_PORT_COUNT(sw->cap))) {
 		DBG("Illegal Look Up Table Selected - max is %d. EXITING!",
 			RIOCP_PE_PORT_COUNT(sw->cap)-1);
+		goto fail;
+	};
+
+	if ((port != RIOCP_PE_ALL_PORTS) && (port >= IDT_MAX_PORTS)) {
+		DBG("Unsupported Look Up Table Selected - max is %d. EXITING!",
+			IDT_MAX_PORTS - 1);
 		goto fail;
 	};
 
@@ -1482,6 +1493,12 @@ int mpsw_drv_enable_pe(struct riocp_pe *pe, pe_port_t port)
 	if (RIOCP_PE_ANY_PORT == port) {
 		st_port = 0;
 		end_port = RIOCP_PE_PORT_COUNT(pe->cap) - 1;
+	} else {
+		if (port >= IDT_MAX_PORTS) {
+			ERR("Illegal port number %d max is %d", port,
+				IDT_MAX_PORTS -1 );
+			goto fail;
+		}
 	}
 
 	for (port = st_port; port <= end_port; port++) {

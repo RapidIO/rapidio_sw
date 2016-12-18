@@ -311,7 +311,7 @@ int delete_sysfs_devices(riocp_pe_handle mport_pe, bool auto_config)
 				// always delete kernel names (dd:a:dddd)
 				if(!regexec(&regex, entry->d_name, 0, NULL, 0)) {
 					sysfs_name =(char *)malloc(
-							strlen(entry->d_name));
+						strlen(entry->d_name) + 1);
 					if (NULL == sysfs_name) {
 						CRIT(MALLOC_FAIL);
 						rc = -ENOMEM;
@@ -326,7 +326,7 @@ int delete_sysfs_devices(riocp_pe_handle mport_pe, bool auto_config)
 				// auto: delete all names
 				if(auto_config) {
 					sysfs_name = (char *)malloc(
-							strlen(entry->d_name));
+						strlen(entry->d_name) + 1);
 					if (NULL == sysfs_name) {
 						CRIT(MALLOC_FAIL);
 						rc = -ENOMEM;
@@ -342,7 +342,7 @@ int delete_sysfs_devices(riocp_pe_handle mport_pe, bool auto_config)
 				if (!strncmp(entry->d_name, AUTO_NAME_PREFIX,
 						strlen(AUTO_NAME_PREFIX))) {
 					sysfs_name = (char *)malloc(
-							strlen(entry->d_name));
+						strlen(entry->d_name) + 1);
 					if (NULL == sysfs_name) {
 						CRIT(MALLOC_FAIL);
 						rc = -ENOMEM;

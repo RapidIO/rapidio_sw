@@ -64,7 +64,8 @@ uint32_t IDT_CPSGEN2_GetPortList ( DAR_DEV_INFO_t  *dev_info ,
 	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
     
     if ( IDT_CPS1432_DEV_ID == ( DECODE_DEVICE_ID( dev_info->devID ) ) ) {
-		if ((ptl_in->num_ports > NUM_PORTS(dev_info)) && (ptl_in->num_ports != RIO_ALL_PORTS))
+		if ((ptl_in->num_ports > NUM_CPS_PORTS(dev_info)) &&
+					(ptl_in->num_ports != RIO_ALL_PORTS))
 			goto exit;
 
 		if (!(ptl_in->num_ports))
@@ -83,6 +84,8 @@ uint32_t IDT_CPSGEN2_GetPortList ( DAR_DEV_INFO_t  *dev_info ,
 			bool dup_ports[DAR_MAX_PORTS];
 			uint8_t idx;
 
+			if (ptl_in->num_ports > DAR_MAX_PORTS) {
+			}
 			for (idx = 0; idx < DAR_MAX_PORTS; idx++)
 				dup_ports[idx] = false;
 			dup_ports[8] = true;

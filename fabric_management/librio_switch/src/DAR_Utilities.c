@@ -752,7 +752,9 @@ int DAR_get_rw_addr ( DAR_pkt_bytes_t  *bytes_in,
 
 /* Values from RapidIO 2.1 Part 6 Table 3-10 */
 
-int CS_13bit_crc_bit_mask[35] =
+#define NUM_CRC13_VECTORS 35
+
+int CS_13bit_crc_bit_mask[NUM_CRC13_VECTORS] =
 {
    0x0888,
    0x0444,
@@ -794,8 +796,7 @@ int CS_13bit_crc_bit_mask[35] =
 /* Compute_13bit_crc expects the first 32 bits of the control symbol data to be
    in msbits, and the least 3 bits of the control symbol payload to be in the
    most significant bits of lsbits.
-*/
-int compute_13bit_crc( uint32_t msbits, uint32_t lsbits )
+*/ int compute_13bit_crc( uint32_t msbits, uint32_t lsbits )
 {
     uint32_t crc = 0x1FFF, i;
     uint32_t bit = 0x80000000;
@@ -807,8 +808,9 @@ int compute_13bit_crc( uint32_t msbits, uint32_t lsbits )
         if (msbits & bit)
             crc = crc ^ CS_13bit_crc_bit_mask[i];
 
-        if (lsbits & bit)
+        if ((lsbits & bit) && (i + 32 < NUM_CRC13_VECTORS)) {
             crc = crc ^ CS_13bit_crc_bit_mask[i+32];
+	}
 
         bit = bit >> 1;
     };
@@ -1954,6 +1956,9 @@ uint32_t DAR_update_pkt_CRC( DAR_pkt_bytes_t  *bytes_in )
     if (bytes_in->pkt_has_crc) {
        update_pkt_crc( bytes_in );
     } else {
+	if (bytes_in->num_chars > RIO_MAX_PKT_BYTES - 2) {
+       		return RIO_ERR_INVALID_PARAMETER;
+	}
        bytes_in->num_chars = compute_pkt_crc( bytes_in->pkt_data, 
 		                              bytes_in->num_chars );
     };

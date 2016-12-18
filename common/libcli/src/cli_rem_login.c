@@ -66,7 +66,7 @@ void *remote_session(void *parms)
 	cli_terminal(p->e);
 	close(p->e->sess_socket);
 	free(p->e);
-	free(p);
+	free(parms);
 	pthread_exit(NULL);
 };
 
@@ -117,9 +117,13 @@ void *remote_login(void *remote_login_parm)
 		int rc;
 
 		env = (struct cli_env *)malloc(sizeof(struct cli_env));
+		if (NULL == env) {
+			break;
+		};
+		env->sess_socket = 0;
 		sess = (struct rem_sess_parms *)
 					malloc(sizeof(struct rem_sess_parms));
-		if ((NULL == env) || (NULL == sess)) {
+		if (NULL == sess) {
 			break;
 		};
 		init_cli_env(env);

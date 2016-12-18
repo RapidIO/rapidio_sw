@@ -796,7 +796,7 @@ const char RIOCP_SO_ATTR *riocp_pe_handle_get_device_str(riocp_pe_handle pe)
 	uint16_t vid = pe->cap.dev_id & 0xffff;
 	uint16_t did = (pe->cap.dev_id >> 16) & 0xffff;
 
-	for (i = 0; i < (sizeof(riocp_pe_device_ids)/sizeof(struct riocp_pe_device_id)); i++)
+	for (i = 0; i < (sizeof(riocp_pe_device_ids)/sizeof(riocp_pe_device_ids[0])); i++)
 		if (riocp_pe_device_ids[i].vid == vid && riocp_pe_device_ids[i].did == did)
 			return riocp_pe_device_ids[i].name;
 

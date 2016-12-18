@@ -215,6 +215,7 @@ int cli_terminal(struct cli_env *env)
 				errorStat = 2;
 				goto exit;
 			};
+			inp[BUFLEN - 1] = '\0';
 			errorStat = process_skt_inp(env, cmd, inp, &cmdlen);
 		} else {
 			fflush(stdin);
@@ -628,8 +629,11 @@ int SetCmd(struct cli_env *env, int argc, char **argv)
                 start = 2;
           }
 
-          char buf[4097] = {0};
-          for (int i = start; i < argc; i++) { strncat(buf, argv[i], 4096);  strncat(buf, " ", 4096); }
+          char buf[4100] = {0};
+          for (int i = start; i < argc; i++){
+		strncat(buf, argv[i], 4096);
+		strncat(buf, " ", 4096);
+	  }
 
           const int N = strlen(buf);
           buf[N - 1] = '\0';

@@ -41,6 +41,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 extern "C" {
 #endif
 
+#define NUM_CPS_MC_MASKS(x) ((NUM_MC_MASKS(x) > CPS_MAX_MC_MASKS)? \
+			CPS_MAX_MC_MASKS : NUM_MC_MASKS(x)) 
 #define RTE_SET_COMMON_0      (RT_FIRST_SUBROUTINE_0+0x0100) // 0x100100
 #define PROGRAM_RTE_ENTRIES_0 (RT_FIRST_SUBROUTINE_0+0x1900)
 #define PROGRAM_MC_MASKS_0    (RT_FIRST_SUBROUTINE_0+0x1A00)
@@ -362,7 +364,7 @@ uint32_t read_mc_masks( DAR_DEV_INFO_t            *dev_info,
    idt_rt_dealloc_mc_mask_out_t d_out_parm;
 
    d_in_parm.rt = rt;
-   for (mask_idx = NUM_MC_MASKS(dev_info); mask_idx < IDT_DSF_MAX_MC_MASK; mask_idx++ ) 
+   for (mask_idx = NUM_CPS_MC_MASKS(dev_info); mask_idx < IDT_DSF_MAX_MC_MASK; mask_idx++ ) 
    {
       d_in_parm.mc_mask_rte = IDT_DSF_FIRST_MC_MASK + mask_idx;
       rc = IDT_DSF_rt_dealloc_mc_mask( dev_info, &d_in_parm, &d_out_parm );
@@ -373,7 +375,7 @@ uint32_t read_mc_masks( DAR_DEV_INFO_t            *dev_info,
       };
    };
 
-   for (mask_idx = 0; mask_idx < NUM_MC_MASKS(dev_info); mask_idx++)  {
+   for (mask_idx = 0; mask_idx < NUM_CPS_MC_MASKS(dev_info); mask_idx++)  {
       rc = DARRegRead( dev_info, CPS1848_PORT_X_MCAST_MASK_Y(pnum, mask_idx), &reg_val);
       if (RIO_SUCCESS != rc) {
          *imp_rc = READ_MC_MASKS(1);
@@ -558,7 +560,7 @@ uint32_t CPS_program_mc_masks ( DAR_DEV_INFO_t        *dev_info,
        base_addr = CPS1848_PORT_X_MCAST_MASK_Y(in_parms->set_on_port,0);
     };
 
-    for (mask_num = 0; mask_num < NUM_MC_MASKS(dev_info); mask_num++) {
+    for (mask_num = 0; mask_num < NUM_CPS_MC_MASKS(dev_info); mask_num++) {
        if (in_parms->rt->mc_masks[mask_num].changed || set_all) {
 	  if ( in_parms->rt->mc_masks[mask_num].mc_mask & ~mask_mask ) {
              rc = RIO_ERR_INVALID_PARAMETER;
@@ -882,7 +884,7 @@ uint32_t IDT_CPS_rt_change_mc_mask(
 
    chg_idx = MC_MASK_IDX_FROM_ROUTE(in_parms->mc_mask_rte);
    
-   if (chg_idx >= NUM_MC_MASKS(dev_info)) {
+   if (chg_idx >= NUM_CPS_MC_MASKS(dev_info)) {
       rc = RIO_ERR_INVALID_PARAMETER;
       out_parms->imp_rc = CHANGE_MC_MASK(3);
       goto idt_CPS_rt_change_mc_mask_exit;

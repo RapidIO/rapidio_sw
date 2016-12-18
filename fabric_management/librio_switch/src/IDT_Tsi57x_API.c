@@ -1182,18 +1182,19 @@ uint32_t pc_set_config_init_parms_check_conflict( DAR_DEV_INFO_t          *dev_i
     // Have to read all of the lane registers to know if they have changed or not.
     
     for (port_num = 0; port_num < TSI57X_NUM_PORTS(dev_info); port_num++) {
+       uint8_t mac = sw_pmr[port_num].mac_num;
        chg->valid[port_num]         = false;
        for (lane_num = 0; lane_num < Tsi578_MAX_LANES; lane_num++ ) 
        {
            if (sw_pmr[port_num].lane_count_4x) {
-              rc = DARRegRead( dev_info, TSI57X_HIDDEN_SERDES_REG(sw_pmr[port_num].mac_num, lane_num), 
-                                                   &chg->laneRegs[sw_pmr[port_num].mac_num][lane_num] );
+              rc = DARRegRead( dev_info, TSI57X_HIDDEN_SERDES_REG(mac, lane_num), 
+                                               &chg->laneRegs[mac][lane_num] );
               if (RIO_SUCCESS != rc) {
                  out_parms->imp_rc = PC_SET_CONFIG(0x30);
                  goto pc_set_config_init_parms_check_conflict_exit;
               };
            };
-           chg->laneRegsChanged[port_num][lane_num] = false;
+           chg->laneRegsChanged[mac][lane_num] = false;
        };
     };
 
@@ -1246,8 +1247,8 @@ uint32_t pc_set_config_init_parms_check_conflict( DAR_DEV_INFO_t          *dev_i
           if ((4 == sw_pmr[port_num].lane_count_4x) && chg->valid[port_num])  
           {
             port_idx = 0;
-            while ((RIO_ALL_PORTS != sw_pmr[port_num].other_mac_ports[port_idx]) &&
-                   (port_idx < MAX_OTHER_MAC_PORTS))                        
+            while ((port_idx < MAX_OTHER_MAC_PORTS) &&                        
+		(RIO_ALL_PORTS != sw_pmr[port_num].other_mac_ports[port_idx]))
             {
                // The dependent port is always 1x.
                pnum = sw_pmr[port_num].other_mac_ports[port_idx];

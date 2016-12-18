@@ -529,7 +529,7 @@ int cpu_occ_set(uint64_t *tot_jifis,
 	char file_line[CPUOCC_BUFF_SIZE];
 	uint64_t p_user = 1, p_nice = 1, p_system = 1, p_idle = 1;
 	uint64_t p_iowait = 1, p_irq = 1, p_softirq = 1;
-	int rc;
+	int rc = 1;
 
 	memset(filename, 0, 256);
 	snprintf(filename, 255, "/proc/%d/stat", my_pid);

@@ -987,6 +987,11 @@ uint32_t compute_quad_config( cps_port_info_t         *pi,
           pnum = pi->ppq->qdrt[quadrant].port_num[port_idx];
 		  if (RIO_ALL_PORTS == pnum)
 			 continue;
+		if (pnum >= CPS1848_MAX_PORT) {
+         		rc = RIO_ERR_SW_FAILURE;
+         		*fail_pt = PC_SET_CONFIG(0x51);
+         		goto compute_quad_config_exit;
+		};
 
           if (pi->cpr[pnum].cfg[old_qcfg].lane_count && !pi->cpr[pnum].cfg[new_qcfg].lane_count) {
              if (RIO_ALL_PORTS == sorted->pc[pnum].pnum) {
@@ -2155,7 +2160,7 @@ uint32_t IDT_CPS_pc_get_status(
     out_parms->imp_rc    = 0;
 
 	rc = DARrioGetPortList(dev_info, &in_parms->ptl, &good_ptl);
-	if (RIO_SUCCESS != rc) {
+	if ((RIO_SUCCESS != rc) || (good_ptl.num_ports >= CPS1848_MAX_PORT)) {
           out_parms->imp_rc = PC_GET_uint32_t(1);
           goto idt_CPS_pc_get_status_exit;
     }

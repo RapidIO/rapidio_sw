@@ -615,6 +615,7 @@ void *xfer_loop(void *ibwin_idx)
 		if (NULL != info->req_skt) {
 			riomp_sock_close(info->req_skt);
 			free(info->req_skt);
+			info->req_skt = NULL;
 		};
 
 		if (!pause_file_xfer_conn) {
