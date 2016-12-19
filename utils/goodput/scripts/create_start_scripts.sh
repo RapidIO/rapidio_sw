@@ -81,4 +81,3 @@ sed -i -- 's/iba_addr/'$IBA_ADDR'/g' 'start_target'
 sed -i -- 's/MPORT_DIR/'$MPORT_DIR'/g' 'start_source'
 sed -i -- 's/iba_addr/'$IBA_ADDR'/g' 'start_source'
 
-sed -i -- 's/iba_addr/'$IBA_ADDR'/g' 'ugoodput_info'
