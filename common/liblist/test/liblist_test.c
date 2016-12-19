@@ -46,19 +46,16 @@ extern "C" {
 #endif
 
 // frees the allocated item memory
-void free_list_items(struct l_head_t *list)
+inline void free_list_items(struct l_head_t *list)
 {
 	struct l_item_t *current = list->head;
-	while (NULL != current->next) {
-		struct l_item_t *tmp = current->next;
+	while (NULL != current) {
+		struct l_item_t *next = current->next;
 		free(current);
 		list->cnt--;
-		current = tmp;
+		current = next;
 	}
 
-	assert_non_null(current);
-	free(current);
-	list->cnt--;
 	assert_int_equal(0, list->cnt);
 }
 
