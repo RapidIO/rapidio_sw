@@ -392,13 +392,14 @@ extern "C" {
 
 /* Multicast route port
 */
+#define CPS_MC_BASE_PORT (0x40)
 #define CPS_MC_PORT(maskno) ((uint8_t)(maskno + CPS_MC_BASE_PORT))
 
 /* Check Multicast route port
 */
 #define IS_CPS_MC_PORT(route_port) \
             ( (route_port >= CPS_MC_BASE_PORT) && \
-              (route_port < (CPS_MC_BASE_PORT + CPS_MC_NUM_MASKS))) 
+              (route_port < (CPS_MC_BASE_PORT + CPS_MAX_MC_MASKS))) 
 
 /* Get Multicast mask no
 */

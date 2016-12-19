@@ -1244,6 +1244,9 @@ extern "C" {
 /* TSI721 : S-RIO Register address offset definitions */
 /******************************************************/
 
+#define TSI721_MAX_PORTS 1
+#define TSI721_MAX_LANES 4
+
 #define TSI721_RIO_DEV_ID                                          (0x00000000)
 #define TSI721_RIO_DEV_INFO                                        (0x00000004)
 #define TSI721_RIO_ASBLY_ID                                        (0x00000008)
@@ -1374,7 +1377,7 @@ extern "C" {
 #define TSI721_RIO_DEV_IDENT_VEND                               (0x0000ffff)
 #define TSI721_RIO_DEV_IDENT_DEVI                                   (0xffff0000)
 #define TSI721_RIO_DEVICE_VENDOR (0x00000038)
-#define TSI721_RIO_DEVICE_ID     (0x000080AB)
+//#define TSI721_RIO_DEVICE_ID     (0x000080AB)
 
 /* TSI721_RIO_DEV_INFO : Register Bits Masks Definitions */
 #define TSI721_RIO_DEV_INFO_DEV_REV                                (0xffffffff)

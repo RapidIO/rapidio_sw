@@ -775,7 +775,7 @@ uint32_t DARDB_rioDeviceSupportedDefault( DAR_DEV_INFO_t *dev_info )
 
     if (dev_info->features & RIO_PE_FEAT_MC)
     {
-        rc = ReadReg(dev_info, RIO_SW_RT_TBL_LIM_MAX_DESTID, &dev_info->swMcastInfo);
+	rc = ReadReg(dev_info, RIO_SW_MC_INF, &dev_info->swMcastInfo);
         if ( RIO_SUCCESS != rc )
             return rc;
     }
@@ -807,6 +807,10 @@ uint32_t DARDB_rioDeviceSupportedDefault( DAR_DEV_INFO_t *dev_info )
                     dev_info->extFPtrForErr = prev_addr;
                     break;
 
+                case RIO_EFB_T_HS:
+                    dev_info->extFPtrForHS = prev_addr;
+                    break;
+
                 case RIO_EFB_T_LANE :
                     dev_info->extFPtrForLane = prev_addr;
                     break;
@@ -817,6 +821,18 @@ uint32_t DARDB_rioDeviceSupportedDefault( DAR_DEV_INFO_t *dev_info )
 
                 case RIO_EFB_T_V0Q:
                     dev_info->extFPtrForVOQ = prev_addr;
+                    break;
+
+                case RIO_EFB_T_RT:
+                    dev_info->extFPtrForRT = prev_addr;
+                    break;
+
+                case RIO_EFB_T_TS:
+                    dev_info->extFPtrForTS = prev_addr;
+                    break;
+
+                case RIO_EFB_T_MISC:
+                    dev_info->extFPtrForMISC = prev_addr;
                     break;
 
                 default:
@@ -990,8 +1006,13 @@ void DARDB_Init_Device_Info( DAR_DEV_INFO_t *dev_info )
     dev_info->extFPtrPortType= 0 ;
     dev_info->extFPtrForLane = 0 ;
     dev_info->extFPtrForErr  = 0 ;
+    dev_info->extFPtrForHS   = 0 ;
     dev_info->extFPtrForVC   = 0 ;
     dev_info->extFPtrForVOQ  = 0 ;
+    dev_info->extFPtrForRT   = 0 ;
+    dev_info->extFPtrForTS   = 0 ;
+    dev_info->extFPtrForMISC = 0 ;
+
 }
 
 

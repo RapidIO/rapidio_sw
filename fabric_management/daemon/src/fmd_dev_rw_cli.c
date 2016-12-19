@@ -49,6 +49,12 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "pe_mpdrv_private.h"
 #include "string_util.h"
 
+#include "rio_standard.h"
+#include "IDT_RXS2448.h"
+#include "IDT_RXS_API.h"
+#include "IDT_RXS_Routing_Table_Config_API.h"
+#include "IDT_Routing_Table_Config_API.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -997,7 +1003,7 @@ struct cli_cmd *reg_cmd_list[] = {
 &CLIRegDump,
 &CLIMRegRead,
 &CLIMRegWrite,
-&CLIDevSel 
+&CLIDevSel
 };
 
 void fmd_bind_dev_rw_cmds(void)

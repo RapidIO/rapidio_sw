@@ -264,23 +264,23 @@ typedef uint32_t pe_rt_val;
 #define RIO_LAST_DEV16 (0x0FFFF)
 #define RIO_LVL_GRP_SZ 0x100
 
-#define RIO_RTV_PORT(n) ((pe_rt_val)((n >= 0xFF)?RIO_RTE_BAD: \
-				(RIO_RTE_PT_0 + ((n) & 0xff))))
-#define RIO_RTV_MC_MSK(n) ((pe_rt_val)((n > 0xFF)?RIO_RTE_BAD: \
-				(RIO_RTE_MC_0 + ((n) & 0xff))))
-#define RIO_RTV_LVL_GRP(n) ((pe_rt_val)((n > 0xFF)?RIO_RTE_BAD: \
-				(RIO_RTE_LVL_G0 + ((n) & 0xff))))
+#define RIO_RTV_PORT(n) ((n & 0xFFFFFF00)?RIO_RTE_BAD: \
+				(RIO_RTE_PT_0 + ((n) & 0xff)))
+#define RIO_RTV_MC_MSK(n) ((n & 0xFFFFFF00)?RIO_RTE_BAD: \
+				(RIO_RTE_MC_0 + ((n) & 0xff)))
+#define RIO_RTV_LVL_GRP(n) ((n & 0xFFFFFF00)?RIO_RTE_BAD: \
+				(RIO_RTE_LVL_G0 + ((n) & 0xff)))
 
 #define RIO_RTV_IS_PORT(n)    ((n) <= RIO_RTE_PT_LAST)
 #define RIO_RTV_IS_MC_MSK(n) ((n) >= RIO_RTE_MC_0 && (n) <= RIO_RTE_MC_LAST)
 #define RIO_RTV_IS_LVL_GRP(n) (((n) >= RIO_RTE_LVL_G0) && \
 				((n) <= RIO_RTE_LVL_GLAST))
 
-#define RIO_RTV_GET_PORT(n)     (RIO_RTE_IS_PORT(n)?(((n) & 0xff)):RTE_BAD)
-#define RIO_RTV_GET_MC_MSK(n)  (RIO_RTE_IS_MC_MSK(n)? \
-				(((n) - RIO_RTE_MC_0) \ & 0xff):RTE_BAD)
-#define RIO_RTV_GET_LVL_GRP(n)  (RIO_RTE_IS_LVL_GRP(n)? \
-				(((n) - RIO_RTE_LVL_G0) & 0xff):RTE_BAD)
+#define RIO_RTV_GET_PORT(n)     (RIO_RTV_IS_PORT(n)?(((n) & 0xff)):RIO_RTE_BAD)
+#define RIO_RTV_GET_MC_MSK(n)  (RIO_RTV_IS_MC_MSK(n)? \
+				(((n) - RIO_RTE_MC_0) & 0xff):RIO_RTE_BAD)
+#define RIO_RTV_GET_LVL_GRP(n)  (RIO_RTV_IS_LVL_GRP(n)? \
+				(((n) - RIO_RTE_LVL_G0) & 0xff):RIO_RTE_BAD)
 
 
 /* RIO_DFLT_RTE : Register Bits Masks Definitions */

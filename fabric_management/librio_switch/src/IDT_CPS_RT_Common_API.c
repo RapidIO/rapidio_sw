@@ -43,6 +43,18 @@ extern "C" {
 
 #define NUM_CPS_MC_MASKS(x) ((NUM_MC_MASKS(x) > CPS_MAX_MC_MASKS)? \
 			CPS_MAX_MC_MASKS : NUM_MC_MASKS(x)) 
+
+#define CPS_RT_USE_DEVICE_TABLE                 (0x000000DD)
+#define CPS_RT_USE_DEFAULT_ROUTE                (0x000000DE)
+#define CPS_RT_NO_ROUTE                         (0x000000DF)
+
+#define CPS_FIRST_MC_MASK                       (0x00000040)
+#define CPS_MAX_MC_MASK                         (0x00000028)
+#define CPS_LAST_MC_MASK                        (0x00000067)
+
+#define CPS_RTE_PT_0                            (0x00000000)
+#define CPS_RTE_PT_LAST                         (0x00000012)
+
 #define RTE_SET_COMMON_0      (RT_FIRST_SUBROUTINE_0+0x0100) // 0x100100
 #define PROGRAM_RTE_ENTRIES_0 (RT_FIRST_SUBROUTINE_0+0x1900)
 #define PROGRAM_MC_MASKS_0    (RT_FIRST_SUBROUTINE_0+0x1A00)
@@ -52,6 +64,66 @@ extern "C" {
 // CPS Gen1 and Gen2 switches have exactly the same Routing Table programming
 // model.  The routing table routines are therefore implemented in this 
 // file for both switch families.
+//
+uint32_t rt_rte_translate_std_to_CPS(DAR_DEV_INFO_t *dev_info,
+				uint32_t std_in, uint32_t *cps_out) 
+{
+
+	switch(std_in) {
+	case RIO_RTE_DFLT_PORT: *cps_out = CPS_RT_USE_DEFAULT_ROUTE;
+				goto success;
+ 	case RIO_RTE_DROP: *cps_out = CPS_RT_NO_ROUTE;
+				goto success;
+	case RIO_RTE_LVL_G0: *cps_out = CPS_RT_USE_DEVICE_TABLE;
+				goto success;
+	default:
+		if (RIO_RTV_IS_PORT(std_in)) {
+			if (RIO_RTV_GET_PORT(std_in) < NUM_PORTS(dev_info)) {
+				*cps_out = std_in;
+				goto success;
+			}
+		}
+		if (RIO_RTV_IS_MC_MSK(std_in)) {
+			if (RIO_RTV_GET_MC_MSK(std_in) < IDT_CPS_MAX_MC_MASK) {
+				*cps_out =
+					CPS_MC_PORT(RIO_RTV_GET_MC_MSK(std_in));
+				goto success;
+			}
+		}
+		break;
+	}
+	return RIO_ERR_INVALID_PARAMETER;
+
+success:
+	return RIO_SUCCESS;
+}
+
+uint32_t rt_rte_translate_CPS_to_std(DAR_DEV_INFO_t *dev_info,
+				uint32_t cps_in, uint32_t *std_out)
+{
+	switch(cps_in) {
+	case CPS_RT_USE_DEFAULT_ROUTE: *std_out = RIO_RTE_DFLT_PORT;
+				goto success;
+ 	case CPS_RT_NO_ROUTE: *std_out = RIO_RTE_DROP;
+				goto success;
+	case CPS_RT_USE_DEVICE_TABLE: *std_out = RIO_RTE_LVL_G0;
+				goto success;
+	default:
+		if (cps_in < NUM_PORTS(dev_info)) {
+			*std_out = RIO_RTV_PORT(cps_in);
+			goto success;
+		}
+		if (IS_CPS_MC_PORT(cps_in)) {
+			*std_out = RIO_RTV_MC_MSK(IS_CPS_MC_MASK_NO(cps_in));
+			goto success;
+		};
+		break;
+	}
+	return RIO_ERR_INVALID_PARAMETER;
+
+success:
+	return RIO_SUCCESS;
+}
 
 /* initializes the routing table hardware and/or routing table state structure.
 */
@@ -358,7 +430,7 @@ uint32_t read_mc_masks( DAR_DEV_INFO_t            *dev_info,
                       uint32_t                    *imp_rc  )  
 {
    uint32_t rc = RIO_ERR_INVALID_PARAMETER;
-   uint8_t  mask_idx;
+   uint32_t mask_idx;
    uint32_t reg_val, port_mask = ((uint32_t)(1) << NUM_CPS_PORTS(dev_info)) - 1;
    idt_rt_dealloc_mc_mask_in_t  d_in_parm;
    idt_rt_dealloc_mc_mask_out_t d_out_parm;
@@ -378,7 +450,7 @@ uint32_t read_mc_masks( DAR_DEV_INFO_t            *dev_info,
    for (mask_idx = 0; mask_idx < NUM_CPS_MC_MASKS(dev_info); mask_idx++)  {
       rc = DARRegRead( dev_info, CPS1848_PORT_X_MCAST_MASK_Y(pnum, mask_idx), &reg_val);
       if (RIO_SUCCESS != rc) {
-         *imp_rc = READ_MC_MASKS(1);
+         *imp_rc = READ_MC_MASKS(0x01);
          goto read_mc_masks_exit;
       };
 
@@ -409,7 +481,7 @@ uint32_t read_rte_entries( DAR_DEV_INFO_t            *dev_info,
 
    rc = DARRegRead( dev_info, CPS1848_RTE_DEFAULT_PORT_CSR, &rte_val );
    if (RIO_SUCCESS != rc) {
-      *imp_rc = READ_RTE_ENTRIES(1);
+      *imp_rc = READ_RTE_ENTRIES(0x01);
       goto read_rte_entries_exit;
    };
 
@@ -436,12 +508,17 @@ uint32_t read_rte_entries( DAR_DEV_INFO_t            *dev_info,
       // Read routing table entry for deviceID
       rc = DARRegRead( dev_info, CPS1848_PORT_X_DOM_RTE_TABLE_Y(pnum, destID), &rte_val );
       if (RIO_SUCCESS != rc) {
-         *imp_rc = READ_RTE_ENTRIES(4);
+         *imp_rc = READ_RTE_ENTRIES(0x04);
          goto read_rte_entries_exit;
       }
 
       rte_val &= CPS1848_PORT_X_DOM_RTE_TABLE_Y_PORT;
-      rt->dom_table[destID].rte_val = (uint8_t)(rte_val);
+      rc = rt_rte_translate_CPS_to_std(dev_info, rte_val, &rte_val);
+      if (RIO_SUCCESS != rc) {
+         *imp_rc = READ_RTE_ENTRIES(0x05);
+         goto read_rte_entries_exit;
+      }
+      rt->dom_table[destID].rte_val = (uint32_t)(rte_val);
 
       if (IDT_DSF_RT_USE_DEVICE_TABLE == rte_val) {
 	 if (!found_one) {
@@ -462,7 +539,7 @@ uint32_t read_rte_entries( DAR_DEV_INFO_t            *dev_info,
    //
    for (destID = 0; destID < IDT_DAR_RT_DEV_TABLE_SIZE; destID++)
    {
-      uint8_t mask_idx;
+      uint32_t mask_idx;
 
       rt->dev_table[destID].changed = false;
 
@@ -473,8 +550,12 @@ uint32_t read_rte_entries( DAR_DEV_INFO_t            *dev_info,
       }
 
       rte_val &= CPS1848_PORT_X_DEV_RTE_TABLE_Y_PORT;
-
-      rt->dev_table[destID].rte_val = (uint8_t)(rte_val);
+      rc = rt_rte_translate_CPS_to_std(dev_info, rte_val, &rte_val);
+      if (RIO_SUCCESS != rc) {
+         *imp_rc = READ_RTE_ENTRIES(0x09);
+         goto read_rte_entries_exit;
+      }
+      rt->dev_table[destID].rte_val = (uint32_t)(rte_val);
 
       mask_idx = MC_MASK_IDX_FROM_ROUTE(rte_val);
       if ((IDT_DSF_BAD_MC_MASK != mask_idx) && !(rt->mc_masks[mask_idx].in_use)) {
@@ -544,9 +625,8 @@ uint32_t CPS_program_mc_masks ( DAR_DEV_INFO_t        *dev_info,
     uint32_t rc = RIO_SUCCESS;
     // Note that the base address for CPS1848, CPS1432, CPS1616, SPS1616
     // are all the same.
-    uint8_t  mask_num;
+    uint32_t mask_num;
     uint32_t base_addr, mask_mask;
-   
 
     if (IDT_CPS1848_DEV_ID == DEV_CODE(dev_info)) {
        mask_mask = CPS1848_BCAST__MCAST_MASK_X_PORT_MASK;
@@ -594,9 +674,15 @@ uint32_t CPS_program_rte_entries ( DAR_DEV_INFO_t        *dev_info,
     // Note that the base address for CPS1848, CPS1432, CPS1616, SPS1616
     // are all the same.
     uint16_t rte_num;
-    uint32_t dev_rte_base, dom_rte_base;
-   
-    rc = DARRegWrite( dev_info, CPS1848_RTE_DEFAULT_PORT_CSR, in_parms->rt->default_route );
+    uint32_t dev_rte_base, dom_rte_base, cps_val;
+
+    rc = rt_rte_translate_std_to_CPS(dev_info, in_parms->rt->default_route,
+						&cps_val);
+    if (RIO_SUCCESS != rc) {
+        *imp_rc = PROGRAM_RTE_ENTRIES(0x06);
+        goto CPS_program_rte_entries_exit;
+    }
+    rc = DARRegWrite(dev_info, CPS1848_RTE_DEFAULT_PORT_CSR, cps_val);
     if (RIO_SUCCESS != rc) {
        *imp_rc = PROGRAM_RTE_ENTRIES(0x10);
        goto CPS_program_rte_entries_exit; 
@@ -633,8 +719,15 @@ uint32_t CPS_program_rte_entries ( DAR_DEV_INFO_t        *dev_info,
                 goto CPS_program_rte_entries_exit; 
              };
           };
-          rc = DARRegWrite( dev_info, DOM_RTE_ADDR(dom_rte_base, rte_num), 
-                            (uint32_t)(in_parms->rt->dom_table[rte_num].rte_val) );
+          rc = rt_rte_translate_std_to_CPS(dev_info,
+			in_parms->rt->dom_table[rte_num].rte_val, &cps_val);
+          if (RIO_SUCCESS != rc) {
+             *imp_rc = PROGRAM_RTE_ENTRIES(0x07);
+             goto CPS_program_rte_entries_exit;
+          }
+
+          rc = DARRegWrite( dev_info, DOM_RTE_ADDR(dom_rte_base, rte_num),
+								cps_val);
           if (RIO_SUCCESS != rc) {
              *imp_rc = PROGRAM_RTE_ENTRIES(2);
              goto CPS_program_rte_entries_exit; 
@@ -657,8 +750,15 @@ uint32_t CPS_program_rte_entries ( DAR_DEV_INFO_t        *dev_info,
                 goto CPS_program_rte_entries_exit; 
              };
           };
-          rc = DARRegWrite( dev_info, DEV_RTE_ADDR(dev_rte_base, rte_num), 
-                            (uint32_t)(in_parms->rt->dev_table[rte_num].rte_val) );
+          rc = rt_rte_translate_std_to_CPS(dev_info,
+			in_parms->rt->dev_table[rte_num].rte_val, &cps_val);
+          if (RIO_SUCCESS != rc) {
+             *imp_rc = PROGRAM_RTE_ENTRIES(0x08);
+             goto CPS_program_rte_entries_exit;
+          }
+
+          rc = DARRegWrite( dev_info, DEV_RTE_ADDR(dev_rte_base, rte_num),
+								cps_val);
           if (RIO_SUCCESS != rc) {
              *imp_rc = PROGRAM_RTE_ENTRIES(4);
              goto CPS_program_rte_entries_exit; 

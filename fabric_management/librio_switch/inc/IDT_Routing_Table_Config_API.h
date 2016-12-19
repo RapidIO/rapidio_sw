@@ -38,6 +38,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <IDT_Common.h>
 #include <stdbool.h>
 
+#include "IDT_RXS_Routing_Table_Config_API.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -97,19 +99,28 @@ extern "C" {
 #define IDT_DAR_RT_DEV_TABLE_SIZE                   256
 #define IDT_DAR_RT_DOM_TABLE_SIZE                   256
 
-#define IDT_DSF_RT_USE_DEVICE_TABLE                 0xDD
+/* For CPS and SPS devices */
+/*#define IDT_DSF_RT_USE_DEVICE_TABLE                 0xDD
 #define IDT_DSF_RT_USE_DEFAULT_ROUTE                0xDE
 #define IDT_DSF_RT_NO_ROUTE                         0xDF
 
 #define IDT_DSF_FIRST_MC_MASK                       0x40
-#define IDT_DSF_MAX_MC_MASK                         0x28
+#define IDT_DSF_MAX_MC_MASK                         0x28*/
+
+/* For RXSs */
+#define IDT_DSF_RT_USE_DEVICE_TABLE                 0x0200
+#define IDT_DSF_RT_USE_DEFAULT_ROUTE                0x0300
+#define IDT_DSF_RT_NO_ROUTE                         0x0301
+
+#define IDT_DSF_FIRST_MC_MASK                       0x0100
+#define IDT_DSF_MAX_MC_MASK                         0x00FF
 #define IDT_DSF_BAD_MC_MASK                         (IDT_DSF_FIRST_MC_MASK+IDT_DSF_MAX_MC_MASK)
 
 #define IDT_LAST_DEV8_DESTID  0xFF
 #define IDT_LAST_DEV16_DESTID 0xFFFF
 
-#define MC_MASK_IDX_FROM_ROUTE(x) (uint8_t)(((x >= IDT_DSF_FIRST_MC_MASK) && (x < IDT_DSF_BAD_MC_MASK))?(x - IDT_DSF_FIRST_MC_MASK):IDT_DSF_BAD_MC_MASK)
-#define MC_MASK_ROUTE_FROM_IDX(x) (uint8_t)((x < IDT_DSF_MAX_MC_MASK)?(IDT_DSF_FIRST_MC_MASK + x):IDT_DSF_BAD_MC_MASK)
+#define MC_MASK_IDX_FROM_ROUTE(x) (uint32_t)(((x >= IDT_DSF_FIRST_MC_MASK) && (x < IDT_DSF_BAD_MC_MASK))?(x - IDT_DSF_FIRST_MC_MASK):IDT_DSF_BAD_MC_MASK)
+#define MC_MASK_ROUTE_FROM_IDX(x) (uint32_t)((x < IDT_DSF_MAX_MC_MASK)?(IDT_DSF_FIRST_MC_MASK + x):IDT_DSF_BAD_MC_MASK)
 
 typedef enum { tt_dev8, tt_dev16 } tt_t;
 
@@ -182,10 +193,10 @@ typedef struct idt_rt_initialize_in_t_TAG
                            //   this function also clears all multicast masks and removes all
                            //   associations between multicast masks and ports.
 
-    uint8_t     default_route; // Routing control for IDT_DSF_RT_DEFAULT_ROUTE routing table value.
+    uint32_t    default_route; // Routing control for IDT_DSF_RT_DEFAULT_ROUTE routing table value.
                              //    Must be a valid port number, or IDT_DSF_RT_NO_ROUTE
 
-    uint8_t     default_route_table_port; // Select the default routing for every destination ID in the routing table
+    uint32_t    default_route_table_port; // Select the default routing for every destination ID in the routing table
                                         // Can be one of: a valid port number, IDT_DSF_RT_NO_ROUTE, or
                                         //   IDT_DSF_RT_USE_DEFAULT_ROUTE
     bool      update_hw;  // true : Update hardware state
@@ -219,7 +230,7 @@ typedef struct idt_rt_probe_out_t_TAG
                          //        defined by the routing_table_value.
                          // false: Packets will be discarded as 
                          //        indicated by reason_for_discard.
-    uint8_t  routing_table_value; // Encoded routing table value read
+    uint32_t  routing_table_value; // Encoded routing table value read
     uint8_t  default_route;       // When routing_table_value is 
                                 //    IDT_DSF_RT_USE_DEFAULT_ROUTE,
                                 //    this field contains the value of 
@@ -286,13 +297,13 @@ typedef struct idt_rt_alloc_mc_mask_in_t_TAG
 typedef struct idt_rt_alloc_mc_mask_out_t_TAG
 {
     uint32_t imp_rc     ; // Implementation specific failure information 
-    uint8_t  mc_mask_rte; // Routing table value which selects the allocated multicast mask.
+    uint32_t mc_mask_rte; // Routing table value which selects the allocated multicast mask.
                         //   If no free multicast masks exist, set to IDT_DSF_BAD_MC_MASK.
 } idt_rt_alloc_mc_mask_out_t;
 
 typedef struct idt_rt_dealloc_mc_mask_in_t_TAG
 {
-    uint8_t           mc_mask_rte; // Multicast mask routing value to be removed from
+    uint32_t        mc_mask_rte; // Multicast mask routing value to be removed from
                                  //    the routing table state pointed to by "rt".
                                  // The multicast mask is also cleared to 0 by this 
                                  //    routine.
@@ -309,7 +320,7 @@ typedef struct idt_rt_change_rte_in_t_TAG
     bool            dom_entry;  // true  if domain routing table entry is being updated 
                                 // false if device routing table entry is being update
     uint8_t           idx;        // Index of routing table entry to be updated
-    uint8_t           rte_value;  // Value for the routing table entry
+    uint32_t          rte_value;  // Value for the routing table entry
                                 //  - Note that if the requested routing table entry
                                 //    matches the routing table entry value in *rt,
                                 //    the routing table entry status is "no change"
@@ -323,7 +334,7 @@ typedef struct idt_rt_change_rte_out_t_TAG
 
 typedef struct idt_rt_change_mc_mask_in_t_TAG
 {
-    uint8_t            mc_mask_rte; // Multicast mask routing value which identifies the
+    uint32_t            mc_mask_rte; // Multicast mask routing value which identifies the
                                   //    mask to be modified.                          
     idt_rt_mc_info_t mc_info;     // Multicast information to be assigned to associated multicast entry
     idt_rt_state_t  *rt;          // Pointer to routing table state structure to be updated

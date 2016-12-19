@@ -119,7 +119,7 @@ uint32_t idt_cps_sc_init_dev_ctrs ( DAR_DEV_INFO_t             *dev_info,
       in_parms->dev_ctrs->p_ctrs[idx].pnum = good_ptl.pnums[idx];
       in_parms->dev_ctrs->p_ctrs[idx].ctrs_cnt = NUM_CPS_SC;
       for (cntr_i = 0; cntr_i < NUM_CPS_SC; cntr_i++) {
-         in_parms->dev_ctrs->p_ctrs[idx].ctrs[cntr_i] = cps_sc_info[idx].sc_info;
+         in_parms->dev_ctrs->p_ctrs[idx].ctrs[cntr_i] = cps_sc_info[cntr_i].sc_info;
       };
    };
    rc = RIO_SUCCESS;
@@ -138,7 +138,6 @@ uint32_t idt_cps_sc_read_ctrs( DAR_DEV_INFO_t           *dev_info,
                              idt_sc_read_ctrs_out_t   *out_parms)
 {
    uint32_t rc = RIO_ERR_INVALID_PARAMETER;
-   uint8_t p_to_i[CPS1848_MAX_PORT] = {IDT_MAX_PORTS};
    uint8_t srch_i, srch_p, port_num, cntr;
    bool  found;
    uint32_t ctl_reg;
@@ -186,17 +185,6 @@ uint32_t idt_cps_sc_read_ctrs( DAR_DEV_INFO_t           *dev_info,
       for (srch_i = 0; srch_i < in_parms->dev_ctrs->valid_p_ctrs; srch_i++) {
          if ( in_parms->dev_ctrs->p_ctrs[srch_i].pnum == port_num ) {
 	         found = true;
-            // If the port hasn't previously been read and the counter structure is
-            // correctly initialized, keep going...
-            if ((IDT_MAX_PORTS == p_to_i[port_num]    ) && 
-                (NUM_CPS_SC    == in_parms->dev_ctrs->p_ctrs[srch_i].ctrs_cnt)) {
-               p_to_i[port_num] = srch_i;
-            } else {
-               // Port number appears multiple times in the list,
-               // or number of performance counters is incorrect/uninitialized...
-               out_parms->imp_rc = SC_READ_CTRS(0x50 + port_num);
-               goto idt_cps_sc_read_ctrs_exit;
-            };
 
             // Read the control value to determine if any counters are enabled
             rc = DARRegRead( dev_info, CPS1848_PORT_X_OPS(port_num), &ctl_reg );
@@ -242,7 +230,6 @@ uint32_t idt_sc_cfg_cps_ctrs ( DAR_DEV_INFO_t           *dev_info,
    uint32_t rc = RIO_ERR_INVALID_PARAMETER;
    uint32_t ctl_reg, new_ctl_reg = 0, unused;
    uint8_t ctr;
-   uint8_t p_to_i[IDT_MAX_PORTS] = {IDT_MAX_PORTS};
    uint8_t srch_i, srch_p, port_num;
    bool  found;
    struct DAR_ptl good_ptl;
@@ -292,18 +279,6 @@ uint32_t idt_sc_cfg_cps_ctrs ( DAR_DEV_INFO_t           *dev_info,
       for (srch_i = 0; srch_i < in_parms->dev_ctrs->valid_p_ctrs; srch_i++) {
          if ( in_parms->dev_ctrs->p_ctrs[srch_i].pnum == port_num ) {
 	        found = true;
-            // If the port hasn't previously been programmed and the counter structure is
-            // correctly initialized, keep going...
-            if ((IDT_MAX_PORTS == p_to_i[port_num]                           ) && 
-                (NUM_CPS_SC    == in_parms->dev_ctrs->p_ctrs[srch_i].ctrs_cnt)) {
-               p_to_i[port_num] = srch_i;
-            } else {
-               // Port number appears multiple times in the list,
-               // or number of performance counters is incorrect/uninitialized...
-				rc = RIO_ERR_INVALID_PARAMETER;
-               out_parms->imp_rc = SC_CFG_CPS_CTRS(0x30 + port_num);
-               goto idt_sc_cfg_cps_ctr_exit;
-            };
 	 
             // Always program the control value...
             rc = DARRegRead( dev_info, CPS1848_PORT_X_OPS(port_num), &ctl_reg );
