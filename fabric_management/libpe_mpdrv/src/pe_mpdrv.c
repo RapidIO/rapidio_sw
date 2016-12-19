@@ -1027,10 +1027,16 @@ int mpsw_drv_alloc_mcast_mask(struct riocp_pe *sw, pe_port_t port,
 		goto fail;
 	};
 
-	if (RIOCP_PE_ALL_PORTS == port)
+	if (RIOCP_PE_ALL_PORTS == port) {
 		alloc_in.rt = &p_dat->st.g_rt;
-	else
+	} else {
+		if (port >= IDT_MAX_PORTS) {
+			DBG("Illegal Table %d Selected - max %d. EXITING!",
+				port, IDT_MAX_PORTS);
+			goto fail;
+		}
 		alloc_in.rt = &p_dat->st.pprt[port];
+	}
 
 	ret = idt_rt_alloc_mc_mask(&p_dat->dev_h, &alloc_in, &alloc_out);
 	if (ret) {

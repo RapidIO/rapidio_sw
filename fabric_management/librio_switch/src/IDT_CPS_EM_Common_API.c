@@ -1141,7 +1141,7 @@ uint32_t IDT_CPS_em_cfg_set  ( DAR_DEV_INFO_t        *dev_info,
    };
 
    rc = DARrioGetPortList(dev_info, &in_parms->ptl, &good_ptl);
-   if (RIO_SUCCESS != rc) {
+   if ((RIO_SUCCESS != rc) || (good_ptl.num_ports > CPS1848_MAX_PORT)) {
          out_parms->imp_rc = EM_CFG_SET(0x10);
          goto idt_CPS_em_cfg_set_exit;
    };

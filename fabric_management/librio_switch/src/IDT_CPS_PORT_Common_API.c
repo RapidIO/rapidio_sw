@@ -589,6 +589,7 @@ uint32_t IDT_CPS_pc_get_config(
                            goto idt_CPS_pc_get_config_exit;
               };
    
+           if ( out_parms->pc[port_idx].powered_up ) {
               if (((sps1616_cfg == pi.cpr) &&  (lane_ctl & CPS1616_LANE_X_CTL_RX_PLL_SEL  )) ||
                   ((sps1616_cfg != pi.cpr) &&  (pll_ctl1 & CPS1848_PLL_X_CTL_1_PLL_DIV_SEL))) {
                  switch ((lane_ctl & CPS1848_LANE_X_CTL_RX_RATE) >> 1) {
@@ -609,6 +610,7 @@ uint32_t IDT_CPS_pc_get_config(
                              break;
                  };
               };
+           };
 
               // Determine port disable and lockout status.
               if (spx_ctl1 & RIO_SPX_CTL_PORT_DIS) {

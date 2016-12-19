@@ -365,17 +365,17 @@ int IsolcpuCmd(struct cli_env *env, int argc, char **argv)
         }
 
         int c = 0;
-        char clist[129] = {0};
+        char clist[140] = {0};
         std::vector<std::string>::iterator it = cpus.begin();
         for(; it != cpus.end(); it++) {
-                char tmp[9] = {0};
+                char tmp[15] = {0};
                 snprintf(tmp, 8, "cpu%d=%s", ++c, it->c_str());
                 if (SetEnvVar(tmp)) {
                         CRIT("IsolcpuCmd: Out of memory %s\n", tmp);
                         return -1;
                 }
-                strncat(clist, it->c_str(), 127);
-                strncat(clist, " ", 127);
+                strncat(clist, it->c_str(), 128);
+                strncat(clist, " ", 128);
         }
 
         LOGMSG(env, "\nIsolcpus: %s\n", clist);

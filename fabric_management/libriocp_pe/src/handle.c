@@ -334,7 +334,12 @@ int riocp_pe_handle_create_pe(struct riocp_pe *pe, struct riocp_pe **handle, hc_
 	/* Allocate space for address used to access this PE
 		and copy port list from PE to new peer handle */
 	if (hopcount > 0) {
-		h->address = (uint8_t *)calloc(hopcount, sizeof(*h->address));
+		// address is a string, with entries for 2 digit port numbers
+		// followed by a comma.  3 = 2 digits + a comma...
+		//
+		// There may be a few extra bytes as part of this allocation,
+		// but it's not a big deal...
+		h->address = (uint8_t *)calloc(3 * hopcount, sizeof(*h->address));
 		if (h->address == NULL) {
 			RIOCP_ERROR("Unable to allocate memory for h->address\n");
 			ret = -ENOMEM;

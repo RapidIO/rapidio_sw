@@ -600,8 +600,6 @@ void *xfer_loop(void *ibwin_idx)
 		printf("\nxfer_loop idx %d starting\n", idx);
 
 	while(!all_must_die) {
-		struct timespec req = {2, 0}, rem;
-
 		prep_info_for_xfer(info);
 		if (NULL == info->req_skt)
 			sem_wait(&info->req_avail);
@@ -609,8 +607,6 @@ void *xfer_loop(void *ibwin_idx)
 		if (info->debug)
 			printf("Thread %d processing connect request.\n", idx);
 		info->rc = rx_file(info, &all_must_die);
-
-   		nanosleep(&req, &rem);
 
 		if (NULL != info->req_skt) {
 			riomp_sock_close(info->req_skt);
