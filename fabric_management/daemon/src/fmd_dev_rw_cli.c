@@ -137,13 +137,60 @@ int mport_write(riocp_pe_handle pe_h, uint32_t offset, uint32_t data)
 	return pe_h->mport->minfo->reg_acc.reg_wr(pe_h, offset, data);
 }
 
-int CLIDevSelCmd(struct cli_env *env, int argc, char **argv)
+int select_device(struct cli_env *env, size_t pes_count, riocp_pe_handle *pes,
+		char *tok)
 {
+	size_t i;
+	int ret = 1;
 	ct_t comptag = 0;
 	ct_t pe_ct;
+
+	// selecting a device - set the prompt
+	for (i = 0; i < pes_count; i++) {
+		// try as a device name
+		if (!strcmp(pes[i]->sysfs_name, tok)
+				&& (strlen(pes[i]->sysfs_name)
+						== strlen(tok))) {
+			env->h = pes[i];
+			set_prompt(env);
+			LOGMSG(env, "\nFound device named \"%s\"\n", tok);
+			ret = 0;
+			goto exit;
+		}
+	}
+
+	// try again with a comptag
+	if (tok_parse_ct(tok, &comptag, 0)) {
+		LOGMSG(env, "\n");
+		LOGMSG(env, TOK_ERR_CT_MSG_FMT);
+		goto exit;
+	}
+
+	for (i = 0; i < pes_count; i++) {
+		int rc = riocp_pe_get_comptag(pes[i], &pe_ct);
+		if (rc) {
+			LOGMSG(env, "\nFailed reading CT: %d\n", rc);
+			goto exit;
+		}
+		if (comptag == pe_ct) {
+			env->h = pes[i];
+			set_prompt(env);
+			LOGMSG(env, "\nFound device for CT 0x%08x\n", pe_ct);
+			ret = 0;
+			goto exit;
+		}
+	}
+exit:
+	return ret;
+}
+
+int CLIDevSelCmd(struct cli_env *env, int argc, char **argv)
+{
 	riocp_pe_handle *pes = NULL;
 	size_t pes_count, i;
 	int rc;
+	ct_t comptag = 0;
+	ct_t pe_ct;
 	const char *dev_name, *vend_name, *sysfs_name;
 
 	rc = riocp_mport_get_pe_list(mport_pe, &pes_count, &pes);
@@ -153,40 +200,8 @@ int CLIDevSelCmd(struct cli_env *env, int argc, char **argv)
 	}
 
 	if (argc) {
-		// selecting a device - set the prompt
-		for (i = 0; i < pes_count; i++) {
-			// try as a device name
-			if (!strcmp(pes[i]->sysfs_name, argv[0])
-					&& (strlen(pes[i]->sysfs_name)
-							== strlen(argv[0]))) {
-				env->h = pes[i];
-				set_prompt(env);
-				LOGMSG(env, "\nFound device named \"%s\"\n",
-						argv[0]);
-				goto exit;
-			}
-		}
-
-		// try again with a comptag
-		if (tok_parse_ct(argv[0], &comptag, 0)) {
-			LOGMSG(env, "\n");
-			LOGMSG(env, TOK_ERR_CT_MSG_FMT);
+		if (select_device(env, pes_count, pes, argv[0])) {
 			goto exit;
-		}
-
-		for (i = 0; i < pes_count; i++) {
-			rc = riocp_pe_get_comptag(pes[i], &pe_ct);
-			if (rc) {
-				LOGMSG(env, "\nFailed reading CT: %d\n", rc);
-				goto exit;
-			}
-			if (comptag == pe_ct) {
-				env->h = pes[i];
-				set_prompt(env);
-				LOGMSG(env, "\nFound device for CT 0x%08x\n",
-						pe_ct);
-				goto exit;
-			}
 		}
 	}
 

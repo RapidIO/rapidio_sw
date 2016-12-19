@@ -39,6 +39,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 extern "C" {
 #endif
 
+int select_device(struct cli_env *env, size_t pes_count, riocp_pe_handle *pes,
+		char *tok);
 void fmd_bind_dev_rw_cmds(void);
 
 #ifdef __cplusplus

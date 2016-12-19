@@ -54,16 +54,33 @@ extern "C" {
 int CLIConfigCmd(struct cli_env *env, int argc, char **argv)
 {
 	int rc, info_rc;
-	riocp_pe_handle pe_h = (riocp_pe_handle)(env->h);
+	riocp_pe_handle pe_h;
 	struct mpsw_drv_private_data *h;
 	int j;
 	struct riocp_pe_port pe_port_info[24];
 	riocp_pe_handle peer_pe;
 
-	if (0) {
-		argv[0][0] = argc;
+	if (argc) {
+        	riocp_pe_handle *pes = NULL;
+        	size_t pes_count;
+		int sel_rc;
+
+		rc = riocp_mport_get_pe_list(mport_pe, &pes_count, &pes);
+        	if (rc) {
+                	LOGMSG(env, "\nCould not get PE list\n");
+                	goto exit;
+        	}
+		sel_rc = select_device(env, pes_count, pes, argv[0]);
+		rc = riocp_mport_free_pe_list(&pes);
+		if (rc) {
+			LOGMSG(env, "\nFailed freeing PE list %d\n", rc);
+		}
+		if (sel_rc) {
+			goto exit;
+		}
 	}
 
+	pe_h = (riocp_pe_handle)(env->h);
 	if (NULL == pe_h) {
 		LOGMSG(env, "\nNo Device Selected...\n");
 		goto exit;
