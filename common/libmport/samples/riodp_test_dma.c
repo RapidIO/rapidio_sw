@@ -714,7 +714,7 @@ int main(int argc, char** argv)
 	int rc = EXIT_SUCCESS;
 	int ret;
 	bool sync_set = false;
-	bool ibwin_set = false;
+	bool inbound_mode = false;
 
 	/** Parse command line options, if any */
 	while (-1 != (c = getopt_long_only(argc, argv,
@@ -800,13 +800,13 @@ int main(int argc, char** argv)
 			break;
 			/* Inbound Memory (window) Mode options */
 		case 'I':
-			if (ibwin_set) {
+			if (inbound_mode) {
 				printf(
 						"Only one of \'-\' or \'ibwin\' may be specified\n");
 				usage(program);
 				exit(EXIT_FAILURE);
 			}
-			ibwin_set = true;
+			inbound_mode = true;
 			if (tok_parse_ul(optarg, &ibwin_size, 0)) {
 				printf(TOK_ERR_UL_HEX_MSG_FMT,
 						"Inbound window memory size");
@@ -814,13 +814,13 @@ int main(int argc, char** argv)
 			}
 			break;
 		case 'i':
-			if (ibwin_set) {
+			if (inbound_mode) {
 				printf(
 						"Only one of \'-\' or \'ibwin\' may be specified\n");
 				usage(program);
 				exit(EXIT_FAILURE);
 			}
-			ibwin_set = true;
+			inbound_mode = true;
 			ibwin_size = DEFAULT_IBWIN_SIZE;
 			break;
 		case 'R':
@@ -884,7 +884,7 @@ int main(int argc, char** argv)
 		printf("Using default configuration\n\n");
 	}
 
-	if (ibwin_size) {
+	if (inbound_mode) {
 		printf("+++ RapidIO Inbound Window Mode +++\n");
 		printf("\tmport%d ib_size=0x%x PID:%d\n",
 			mport_id, ibwin_size, (int)getpid());
