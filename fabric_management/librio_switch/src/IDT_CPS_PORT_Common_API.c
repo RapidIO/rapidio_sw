@@ -2160,7 +2160,7 @@ uint32_t IDT_CPS_pc_get_status(
     out_parms->imp_rc    = 0;
 
 	rc = DARrioGetPortList(dev_info, &in_parms->ptl, &good_ptl);
-	if ((RIO_SUCCESS != rc) || (good_ptl.num_ports >= CPS1848_MAX_PORT)) {
+	if ((RIO_SUCCESS != rc) || (good_ptl.num_ports > CPS1848_MAX_PORT)) {
           out_parms->imp_rc = PC_GET_uint32_t(1);
           goto idt_CPS_pc_get_status_exit;
     }
