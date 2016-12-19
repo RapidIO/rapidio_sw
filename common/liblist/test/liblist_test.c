@@ -204,7 +204,7 @@ void l_push_tail_test(void **state)
 	assert_non_null(list.head);
 	assert_ptr_equal(list.tail, list.head);
 
-	assert_int_equal(0, list.head->key);
+	assert_true(0 == list.head->key);
 	assert_ptr_equal(&items[0], list.head->item);
 	assert_null(list.head->next);
 	assert_null(list.head->prev);
@@ -226,7 +226,7 @@ void l_push_tail_test(void **state)
 		assert_ptr_equal(addr[i + 1], current->next);
 		assert_ptr_equal(addr[i - 1], current->prev);
 		assert_ptr_equal(&items[i], current->item);
-		assert_int_equal(0, current->key);
+		assert_true(0 == current->key);
 		assert_int_equal(i, *(int * )current->item);
 		current = current->next;
 	}
@@ -235,14 +235,14 @@ void l_push_tail_test(void **state)
 	assert_null(current->next);
 	assert_ptr_equal(addr[max_items - 2], current->prev);
 	assert_ptr_equal(&items[max_items - 1], current->item);
-	assert_int_equal(0, current->key);
+	assert_true(0 == current->key);
 	assert_int_equal(max_items - 1, *(int * )current->item);
 
 	current = list.head;
 	assert_ptr_equal(addr[1], current->next);
 	assert_null(current->prev);
 	assert_ptr_equal(&items[0], current->item);
-	assert_int_equal(0, current->key);
+	assert_true(0 == current->key);
 	assert_int_equal(0, *(int * )current->item);
 
 	// free allocated memory
@@ -374,7 +374,7 @@ void l_add_equal_test(void **state)
 	assert_non_null(list.head);
 	assert_ptr_equal(list.tail, list.head);
 
-	assert_int_equal(0, list.head->key);
+	assert_true(0 == list.head->key);
 	assert_ptr_equal(&items[0], list.head->item);
 	assert_null(list.head->next);
 	assert_null(list.head->prev);
@@ -396,7 +396,7 @@ void l_add_equal_test(void **state)
 		assert_ptr_equal(addr[i], current);
 		assert_ptr_equal(addr[i + 1], current->next);
 		assert_ptr_equal(&items[i], current->item);
-		assert_int_equal(0, current->key);
+		assert_true(0 == current->key);
 		assert_int_equal(i, *(int * )current->item);
 		current = current->next;
 	}
@@ -406,7 +406,7 @@ void l_add_equal_test(void **state)
 	assert_ptr_equal(addr[max_items - 1], current);
 	assert_null(current->next);
 	assert_ptr_equal(&items[max_items - 1], current->item);
-	assert_int_equal(0, current->key);
+	assert_true(0 == current->key);
 	assert_int_equal(max_items - 1, *(int * )current->item);
 
 	// and the head
@@ -415,7 +415,7 @@ void l_add_equal_test(void **state)
 	assert_ptr_equal(addr[0], current);
 	assert_ptr_equal(addr[1], current->next);
 	assert_ptr_equal(&items[0], current->item);
-	assert_int_equal(0, current->key);
+	assert_true(0 == current->key);
 	assert_int_equal(0, *(int * )current->item);
 
 	// free allocated memory
@@ -449,7 +449,7 @@ void l_add_greater_test(void **state)
 	assert_non_null(list.head);
 	assert_ptr_equal(list.tail, list.head);
 
-	assert_int_equal(0, list.head->key);
+	assert_true(0 == list.head->key);
 	assert_ptr_equal(&items[0], list.head->item);
 	assert_null(list.head->next);
 	assert_null(list.head->prev);
@@ -490,7 +490,7 @@ void l_add_greater_test(void **state)
 	assert_ptr_equal(addr[0], current);
 	assert_ptr_equal(addr[1], current->next);
 	assert_ptr_equal(&items[0], current->item);
-	assert_int_equal(0, current->key);
+	assert_true(0 == current->key);
 	assert_int_equal(0, *(int * )current->item);
 
 	// free allocated memory
@@ -524,7 +524,7 @@ void l_add_lessthan_test(void **state)
 	assert_non_null(list.head);
 	assert_ptr_equal(list.tail, list.head);
 
-	assert_int_equal(100, list.head->key);
+	assert_true(100 == list.head->key);
 	assert_ptr_equal(&items[0], list.head->item);
 	assert_null(list.head->next);
 	assert_null(list.head->prev);
@@ -541,14 +541,15 @@ void l_add_lessthan_test(void **state)
 
 	// walk the structure
 	struct l_item_t *current = list.head->next;
-	int key_value = 100 - max_items + 2;
+	unsigned int key_value = 100 - max_items + 2;
 	for (i = 1; i < max_items - 1; i++) {
 		assert_ptr_equal(addr[i - 1], current->prev);
 		assert_ptr_equal(addr[i], current);
 		assert_ptr_equal(addr[i + 1], current->next);
 		assert_ptr_equal(&items[max_items - 1 - i], current->item);
-		assert_int_equal(key_value++, current->key);
+		assert_true(key_value == current->key);
 		assert_int_equal(max_items - 1 - i, *(int * )current->item);
+		key_value++;
 		current = current->next;
 	}
 
@@ -557,7 +558,7 @@ void l_add_lessthan_test(void **state)
 	assert_ptr_equal(addr[max_items - 1], current);
 	assert_null(current->next);
 	assert_ptr_equal(&items[0], current->item);
-	assert_int_equal(100, current->key);
+	assert_true(100 == current->key);
 	assert_int_equal(0, *(int * )current->item);
 
 	// and the head
@@ -566,7 +567,7 @@ void l_add_lessthan_test(void **state)
 	assert_ptr_equal(addr[0], current);
 	assert_ptr_equal(addr[1], current->next);
 	assert_ptr_equal(&items[max_items - 1], current->item);
-	assert_int_equal(100 - max_items + 1, current->key);
+	assert_true((100 - max_items + 1) == current->key);
 	assert_int_equal(max_items - 1, *(int * )current->item);
 
 	// free allocated memory
@@ -580,7 +581,7 @@ void l_add_test(void **state)
 	// keys jump around
 	const int max_items = 5;
 	struct l_head_t list;
-	int items[] = {1, 3, 5, 7, 11};
+	unsigned int items[] = {1, 3, 5, 7, 11};
 	int order[] = {3, 0, 4, 1, 2};
 	int i;
 
@@ -605,7 +606,7 @@ void l_add_test(void **state)
 	struct l_item_t *current = list.head;
 	for (i = 0; i < max_items; i++) {
 		assert_ptr_equal(&items[i], current->item);
-		assert_int_equal(items[i], current->key);
+		assert_true(items[i] == current->key);
 		assert_int_equal(items[i], *(int * )current->item);
 		current = current->next;
 	}
@@ -636,7 +637,7 @@ void l_remove_null_parm_test(void **state)
 	// null list
 	l_remove(NULL, item);
 	assert_int_equal(0xdead, *value);
-	assert_int_equal(123, item->key);
+	assert_true(123 == item->key);
 	assert_ptr_equal(item, item->next);
 	assert_ptr_equal(item, item->prev);
 	assert_ptr_equal(value, item->item);
@@ -648,7 +649,7 @@ void l_remove_null_parm_test(void **state)
 	assert_int_equal(0xdead, *value);
 	assert_non_null(item);
 	assert_ptr_not_equal(delMe, item);
-	assert_int_equal(123, delMe->key);
+	assert_true(123 == delMe->key);
 	assert_ptr_equal(delMe, delMe->next);
 	assert_ptr_equal(delMe, delMe->prev);
 	assert_ptr_equal(value, delMe->item);
@@ -703,7 +704,7 @@ void l_remove_test(void **state)
 	for (i = 0; i < max_items; i++) {
 		assert_ptr_equal(items[i], current->item);
 		assert_int_equal(i, items[i]->cnt);
-		assert_int_equal(0, current->key);
+		assert_true(0 == current->key);
 		current = current->next;
 	}
 
@@ -718,7 +719,7 @@ void l_remove_test(void **state)
 		assert_ptr_not_equal(removed, current->item);
 		assert_ptr_equal(items[i], current->item);
 		assert_int_equal(i, items[i]->cnt);
-		assert_int_equal(0, current->key);
+		assert_true(0 == current->key);
 		current = current->next;
 	}
 	assert_null(list.tail->next);
@@ -733,7 +734,7 @@ void l_remove_test(void **state)
 		assert_ptr_not_equal(removed, current->item);
 		assert_ptr_equal(items[i], current->item);
 		assert_int_equal(i, items[i]->cnt);
-		assert_int_equal(0, current->key);
+		assert_true(0 == current->key);
 		current = current->next;
 	}
 	assert_null(list.tail->next);
@@ -749,7 +750,7 @@ void l_remove_test(void **state)
 		assert_ptr_not_equal(removed, current->item);
 		assert_ptr_equal(items[i], current->item);
 		assert_int_equal(i, items[i]->cnt);
-		assert_int_equal(0, current->key);
+		assert_true(0 == current->key);
 		current = current->next;
 	}
 	assert_null(list.tail->next);
@@ -784,7 +785,7 @@ void l_lremove_null_parm_test(void **state)
 	// null list
 	l_lremove(NULL, item);
 	assert_int_equal(0xdead, *value);
-	assert_int_equal(123, item->key);
+	assert_true(123 == item->key);
 	assert_ptr_equal(item, item->next);
 	assert_ptr_equal(item, item->prev);
 	assert_ptr_equal(value, item->item);
@@ -796,7 +797,7 @@ void l_lremove_null_parm_test(void **state)
 	assert_int_equal(0xdead, *value);
 	assert_non_null(item);
 	assert_ptr_not_equal(delMe, item);
-	assert_int_equal(123, delMe->key);
+	assert_true(123 == delMe->key);
 	assert_ptr_equal(delMe, delMe->next);
 	assert_ptr_equal(delMe, delMe->prev);
 	assert_ptr_equal(value, delMe->item);
@@ -850,7 +851,7 @@ void l_lremove_test(void **state)
 	for (i = 0; i < max_items; i++) {
 		assert_ptr_equal(items[i], current->item);
 		assert_int_equal(i, items[i]->cnt);
-		assert_int_equal(0, current->key);
+		assert_true(0 == current->key);
 		current = current->next;
 	}
 
@@ -863,7 +864,7 @@ void l_lremove_test(void **state)
 	for (i = 1; i < max_items; i++) {
 		assert_ptr_equal(items[i], current->item);
 		assert_int_equal(i, items[i]->cnt);
-		assert_int_equal(0, current->key);
+		assert_true(0 == current->key);
 		current = current->next;
 	}
 	assert_null(list.tail->next);
@@ -876,7 +877,7 @@ void l_lremove_test(void **state)
 	for (i = 1; i < max_items - 1; i++) {
 		assert_ptr_equal(items[i], current->item);
 		assert_int_equal(i, items[i]->cnt);
-		assert_int_equal(0, current->key);
+		assert_true(0 == current->key);
 		current = current->next;
 	}
 	assert_null(list.tail->next);
@@ -890,7 +891,7 @@ void l_lremove_test(void **state)
 	for (i = 1; i < max_items - 1; i += 2) {
 		assert_ptr_equal(items[i], current->item);
 		assert_int_equal(i, items[i]->cnt);
-		assert_int_equal(0, current->key);
+		assert_true(0 == current->key);
 		current = current->next;
 	}
 	assert_null(list.tail->next);
