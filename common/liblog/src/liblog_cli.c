@@ -66,7 +66,7 @@ int LogLevelCmd(struct cli_env *env, int argc, char **argv)
 	if (argc) {
 		if (tok_parse_log_level(argv[0], &temp, 0)) {
 			LOGMSG(env, TOK_ERR_LOG_LEVEL_MSG_FMT);
-			return 1;
+			return 0;
 		}
 		if (temp > RDMA_LL)
 			temp = RDMA_LL;
@@ -108,7 +108,7 @@ int DispLevelCmd(struct cli_env *env, int argc, char **argv)
 	if (argc) {
 		if (tok_parse_log_level(argv[0], &temp, 0)) {
 			LOGMSG(env, TOK_ERR_LOG_LEVEL_MSG_FMT);
-			return 1;
+			return 0;
 		}
 		if (temp > RDMA_LL)
 			temp = RDMA_LL;
