@@ -1151,7 +1151,7 @@ uint32_t IDT_CPS_em_cfg_set  ( DAR_DEV_INFO_t        *dev_info,
    if (RIO_SUCCESS != rc)
       goto idt_CPS_em_cfg_set_exit;
 
-   if (!cfg_out.num_ports || (RIO_ALL_PORTS == cfg_out.num_ports)) {
+   if (!cfg_out.num_ports || (cfg_out.num_ports > CPS1848_MAX_PORT)) {
       rc = RIO_ERR_NO_PORT_AVAIL;
       out_parms->imp_rc = cfg_out.imp_rc;
       if (!out_parms->imp_rc) {
@@ -2516,7 +2516,7 @@ write_err_info_exit:
 // Routine to clear events, and a routine to create events
 // for software testing purposes.
 
-uint32_t IDT_CPS_em_clr_events   ( DAR_DEV_INFO_t           *dev_info, 
+uint32_t IDT_CPS_em_clr_events( DAR_DEV_INFO_t           *dev_info, 
                                  idt_em_clr_events_in_t   *in_parms, 
                                  idt_em_clr_events_out_t  *out_parms )
 {
@@ -2821,37 +2821,31 @@ uint32_t IDT_CPS_em_create_events ( DAR_DEV_INFO_t              *dev_info,
     };
 
     for (idx = 0; idx < in_parms->num_events; idx++) {
+       bool glob_event;
+       bool all_ports;
        out_parms->failure_idx = idx;
        pnum = in_parms->events[idx].port_num;
 
-       if ( ((pnum >= NUM_CPS_PORTS(dev_info)) && (RIO_ALL_PORTS != pnum)) || 
-          ((RIO_ALL_PORTS == pnum) && !((idt_em_d_log       == in_parms->events[idx].event) ||
-                                        (idt_em_i_init_fail == in_parms->events[idx].event)))  ||
-          (((idt_em_d_log       == in_parms->events[idx].event) ||
-            (idt_em_i_init_fail == in_parms->events[idx].event)) && !(RIO_ALL_PORTS == pnum)) ||
-           (idt_em_last <= in_parms->events[idx].event                                    ) ) {
+       all_ports = RIO_ALL_PORTS == pnum;
+       glob_event = (idt_em_d_log == in_parms->events[idx].event)
+                 || (idt_em_i_init_fail == in_parms->events[idx].event);
+
+       if (((pnum >= NUM_CPS_PORTS(dev_info)) && !all_ports) ||
+           (idt_em_last <= in_parms->events[idx].event)) {
           rc = RIO_ERR_INVALID_PARAMETER;
           out_parms->imp_rc = EM_CREATE_EVENTS(4);
           goto idt_CPS_em_create_events_exit;
        };
 
-       if (RIO_ALL_PORTS == pnum) {
-	  if ((in_parms->events[idx].event != idt_em_d_log      ) &&
-	      (in_parms->events[idx].event != idt_em_i_init_fail)) {
-             rc = RIO_ERR_INVALID_PARAMETER;
-             out_parms->imp_rc = EM_CREATE_EVENTS(5);
-             goto idt_CPS_em_create_events_exit;
-	  }
-       } else {
+	if ((glob_event && !all_ports) || (all_ports && !glob_event)) {
+          rc = RIO_ERR_INVALID_PARAMETER;
+          out_parms->imp_rc = EM_CREATE_EVENTS(4);
+          goto idt_CPS_em_create_events_exit;
+       };
+
+       if (!all_ports) {
           if (!( cfg_out.pc[pnum].port_available && cfg_out.pc[pnum].powered_up ))
              continue;
-
-	  if ((in_parms->events[idx].event == idt_em_d_log                   ) ||
-	      (in_parms->events[idx].event == idt_em_i_init_fail             )) {
-             rc = RIO_ERR_INVALID_PARAMETER;
-             out_parms->imp_rc = EM_CREATE_EVENTS(6);
-             goto idt_CPS_em_create_events_exit;
-	  }
        }
 
        switch (in_parms->events[idx].event) {

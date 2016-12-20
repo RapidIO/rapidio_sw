@@ -188,7 +188,9 @@ struct cli_cmd CLIConfig = {
 2,
 0,
 (char *)"display device configuration",
-(char *)"No parameters.",
+(char *)"<CT | nodename> optional parameter\n"
+"CT      : select a node based on component tag value\n"
+"nodename: select a node based on nodename\n",
 CLIConfigCmd,
 ATTR_RPT
 };
