@@ -1696,39 +1696,25 @@ ATTR_RPT
 };
 
 
-static inline void display_cpu_ss(std::stringstream& out, int cpu)
+static inline void display_cpu(struct cli_env *env, int cpu)
 {
 	if (-1 == cpu) {
-		out << "Any ";
+		LOGMSG(env, "Any ");
 		return;
 	}
 
-	char output[65] = {0};
-	snprintf(output, 64, "%3d ", cpu);
-	out << output;
+	LOGMSG(env, "%3d ", cpu);
 }
 
-static inline void display_cpu(struct cli_env *env, int cpu)
+void display_gen_status(struct cli_env *env)
 {
-	std::stringstream ss;
-	display_cpu_ss(ss, cpu);
-	LOGMSG(env, "%s", ss.str().c_str());
-}
+	LOGMSG(env, "\n W STS CPU RUN ACTION  MODE DID <<<<--ADDR-->>>> ByteCnt AccSize W H OB IB MB\n");
 
-extern "C"
-void display_gen_status_ss(std::stringstream& out)
-{
-	out << "\n W STS CPU RUN ACTION  MODE DID <<<<--ADDR-->>>> ByteCnt AccSize W H OB IB MB\n";
-
-	char output[8192+1] = {0};
 	for (int i = 0; i < MAX_WORKERS; i++) {
-		if (! (wkr[i].stat == 1 || wkr[i].stat == 2)) continue;
-
-		snprintf(output, 8192, "%2d %3s ", i, THREAD_STR(wkr[i].stat));
-		out << output;
-		display_cpu_ss(out, wkr[i].wkr_thr.cpu_req);
-		display_cpu_ss(out, wkr[i].wkr_thr.cpu_run);
-		snprintf(output, 8192,
+		LOGMSG(env, "%2d %3s ", i, THREAD_STR(wkr[i].stat));
+		display_cpu(env, wkr[i].wkr_thr.cpu_req);
+		display_cpu(env, wkr[i].wkr_thr.cpu_run);
+		LOGMSG(env, 
 			"%7s %4s %3d %16lx %7lx %7lx %1d %1d %2d %2d %2d\n",
 			ACTION_STR(wkr[i].action), 
 			MODE_STR(wkr[i].action_mode), wkr[i].did,
@@ -1736,46 +1722,24 @@ void display_gen_status_ss(std::stringstream& out)
 			wkr[i].wr, wkr[i].mp_h_is_mine,
 			wkr[i].ob_valid, wkr[i].ib_valid, 
 			wkr[i].mb_valid);
-		out << output;
 	};
 }
 
-void display_gen_status(struct cli_env *env)
+void display_ibwin_status(struct cli_env *env)
 {
-	std::stringstream ss;
-	display_gen_status_ss(ss);
-	LOGMSG(env, "%s", ss.str().c_str());
-}
+	LOGMSG(env, "\n W STS CPU RUN ACTION  MODE IB <<<< HANDLE >>>> <<<<RIO ADDR>>>> <<<<  SIZE  >>>\n");
 
-extern "C"
-void display_ibwin_status_ss(std::stringstream& out)
-{
-	out << "\n W STS CPU RUN ACTION  MODE IB <<<< HANDLE >>>> <<<<RIO ADDR>>>> <<<<  SIZE  >>>\n";
-
-	char output[8192+1] = {0};
 	for (int i = 0; i < MAX_WORKERS; i++) {
-		if (! (wkr[i].stat == 1 || wkr[i].stat == 2)) continue;
-		if (wkr[i].ib_byte_cnt == 0) continue;
-
-		snprintf(output, 8192, "%2d %3s ", i, THREAD_STR(wkr[i].stat));
-		out << output;
-		display_cpu_ss(out, wkr[i].wkr_thr.cpu_req);
-		display_cpu_ss(out, wkr[i].wkr_thr.cpu_run);
-		snprintf(output, 8192,
+		LOGMSG(env, "%2d %3s ", i, THREAD_STR(wkr[i].stat));
+		display_cpu(env, wkr[i].wkr_thr.cpu_req);
+		display_cpu(env, wkr[i].wkr_thr.cpu_run);
+		LOGMSG(env, 
 			"%7s %4s %2d %16lx %16lx %15lx\n",
 			ACTION_STR(wkr[i].action), 
 			MODE_STR(wkr[i].action_mode), 
 			wkr[i].ib_valid, wkr[i].ib_handle, wkr[i].ib_rio_addr, 
 			wkr[i].ib_byte_cnt);
-		out << output;
 	}
-}
-
-void display_ibwin_status(struct cli_env *env)
-{
-	std::stringstream ss;
-	display_ibwin_status_ss(ss);
-	LOGMSG(env, "%s", ss.str().c_str());
 }
 
 void display_msg_status(struct cli_env *env)
@@ -1838,7 +1802,7 @@ struct cli_cmd Status = {
         "Optionally enter a character to select the status type:\n"
         "i : IBWIN status\n"
         "m : Messaging status\n"
-        "s : General status\n"
+        "g : General status\n"
         "Default is general status\n",
 StatusCmd,
 ATTR_RPT

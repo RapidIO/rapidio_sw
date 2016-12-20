@@ -100,8 +100,11 @@ New functionality in RRMAP 6.0 compared to 5.0:
   - AUTO - Automatically configure all reachable nodes.  The master/enumerating
            nodes requires a /etc/rapidio/fmd.conf configuration file, all
            others just use defaults.
-  - RXS  - Support for IDTs RXS2448 and RSK1632 is now available.
+  - RXS  - Support for IDTs RXS2448 and RXS1632 is now available.
 	   Rack mountable switch boxes are available from StarBridge.
+- The content of the open source version of RRMAP has been restricted to 
+  file transfer.  For the complete RRMAP software package, join RapidIO.org
+  or contact a RapidIO.org participating company to receive a copy.
 
 New functionality in RRMAP 5.0 compared to 4.2:
 - Support for reserved memory areas in RDMA, DMA TUN, and File Transfer.

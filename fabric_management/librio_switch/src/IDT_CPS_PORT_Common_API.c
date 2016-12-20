@@ -428,16 +428,16 @@ uint32_t IDT_CPS_pc_get_config(
     idt_pc_get_config_in_t   *in_parms, 
     idt_pc_get_config_out_t  *out_parms )
 {
-    uint32_t rc = RIO_ERR_INVALID_PARAMETER;
-    uint8_t  pnum, port_idx;
-    uint8_t  quad_cfg;
-    uint8_t  lane_num, first_lane, last_lane, pll_num;
-    cps_port_info_t  pi;
-    uint32_t pll_ctl1, lane_ctl, spx_ctl1, spx_errstat, spx_ops;
-	struct DAR_ptl good_ptl;
+   uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+   uint8_t  pnum, port_idx;
+   uint8_t  quad_cfg;
+   uint8_t  lane_num, first_lane, last_lane, pll_num;
+   cps_port_info_t  pi;
+   uint32_t pll_ctl1, lane_ctl, spx_ctl1, spx_errstat, spx_ops;
+   struct DAR_ptl good_ptl;
 
-    out_parms->num_ports = 0;
-    out_parms->imp_rc    = 0;
+   out_parms->num_ports = 0;
+   out_parms->imp_rc    = 0;
 
    rc = DARrioGetPortList(dev_info, &in_parms->ptl, &good_ptl);
    if (RIO_SUCCESS != rc) {
@@ -446,233 +446,236 @@ uint32_t IDT_CPS_pc_get_config(
    };
 
    out_parms->num_ports = good_ptl.num_ports;
-   for (port_idx = 0; port_idx < good_ptl.num_ports; port_idx++) 
+   for (port_idx = 0; port_idx < good_ptl.num_ports; port_idx++)  {
 	   out_parms->pc[port_idx].pnum = good_ptl.pnums[port_idx];
+   }
 
-    rc = init_sw_pi( dev_info, &pi );
-    if (RIO_SUCCESS != rc) {
-       out_parms->imp_rc = PC_GET_CONFIG(3);
-       goto idt_CPS_pc_get_config_exit;
-    }
+   rc = init_sw_pi( dev_info, &pi );
+   if (RIO_SUCCESS != rc) {
+      out_parms->imp_rc = PC_GET_CONFIG(3);
+      goto idt_CPS_pc_get_config_exit;
+   }
     
-    rc = get_lrto( dev_info, out_parms );
-    if (RIO_SUCCESS != rc ) {
-       out_parms->imp_rc = PC_GET_CONFIG(4);
-       goto idt_CPS_pc_get_config_exit;
-    };
+   rc = get_lrto( dev_info, out_parms );
+   if (RIO_SUCCESS != rc ) {
+      out_parms->imp_rc = PC_GET_CONFIG(4);
+      goto idt_CPS_pc_get_config_exit;
+   }
 
-    /* Obtain the port status */
-    for ( port_idx = 0; port_idx < out_parms->num_ports; port_idx++ )
-    {
-        pnum     = out_parms->pc[port_idx].pnum;
-        quad_cfg = pi.quad_cfg_val[pi.cpr[pnum].quadrant];
+   /* Obtain the port status */
+   for ( port_idx = 0; port_idx < out_parms->num_ports; port_idx++ ) {
+      pnum     = out_parms->pc[port_idx].pnum;
+      quad_cfg = pi.quad_cfg_val[pi.cpr[pnum].quadrant];
 
-        out_parms->pc[port_idx].pw = idt_pc_pw_last;
-        out_parms->pc[port_idx].ls = idt_pc_ls_last;
-        out_parms->pc[port_idx].iseq = idt_pc_is_last;
-        out_parms->pc[port_idx].fc = idt_pc_fc_last;
-        out_parms->pc[port_idx].xmitter_disable = false;
-        out_parms->pc[port_idx].port_lockout = false;
-		out_parms->pc[port_idx].nmtc_xfer_enable = false;
-        out_parms->pc[port_idx].rx_lswap = false; // Not supported by CPS
-        out_parms->pc[port_idx].tx_lswap = false; // Not supported by CPS
-        for (lane_num = 0; lane_num < IDT_MAX_LANES;lane_num++) {
-           out_parms->pc[port_idx].tx_linvert[lane_num] = false;
-           out_parms->pc[port_idx].rx_linvert[lane_num] = false;
-        };
+      out_parms->pc[port_idx].pw = idt_pc_pw_last;
+      out_parms->pc[port_idx].ls = idt_pc_ls_last;
+      out_parms->pc[port_idx].iseq = idt_pc_is_last;
+      out_parms->pc[port_idx].fc = idt_pc_fc_last;
+      out_parms->pc[port_idx].xmitter_disable = false;
+      out_parms->pc[port_idx].port_lockout = false;
+      out_parms->pc[port_idx].nmtc_xfer_enable = false;
+      out_parms->pc[port_idx].rx_lswap = false; // Not supported by CPS
+      out_parms->pc[port_idx].tx_lswap = false; // Not supported by CPS
 
-        out_parms->pc[port_idx].port_available = pi.cpr[pnum].cfg[quad_cfg].lane_count?true:false;
+      for (lane_num = 0; lane_num < IDT_MAX_LANES;lane_num++) {
+         out_parms->pc[port_idx].tx_linvert[lane_num] = false;
+         out_parms->pc[port_idx].rx_linvert[lane_num] = false;
+      }
 
-        if (!out_parms->pc[port_idx].port_available) {
-           // Gen2 switches automatically power down ports with no lanes connected.
-           out_parms->pc[port_idx].powered_up   = false;
-        } else {
-           // Determine if the port is powered up...
-           // A port is powered up if all of it's lanes are powered up, 
-           // and the PLL associated with the port is powered up.
+      out_parms->pc[port_idx].port_available = pi.cpr[pnum].cfg[quad_cfg].lane_count?true:false;
 
-           out_parms->pc[port_idx].powered_up   = true;
-           first_lane =  pi.cpr[pnum].cfg[quad_cfg].first_lane; 
-           last_lane  = pi.cpr[pnum].cfg[quad_cfg].lane_count + first_lane; 
-           for (lane_num = first_lane; lane_num < last_lane; lane_num++) {
-                rc = DARRegRead( dev_info, CPS1848_LANE_X_CTL(lane_num), &lane_ctl) ;
-                if (RIO_SUCCESS != rc) {
-                   out_parms->imp_rc = PC_GET_CONFIG(0x10);
-                   goto idt_CPS_pc_get_config_exit;
+      if (!out_parms->pc[port_idx].port_available) {
+         // Gen2 switches automatically power down ports with no lanes connected.
+         out_parms->pc[port_idx].powered_up   = false;
+         continue;
+      }
+      // Determine if the port is powered up...
+      // A port is powered up if all of it's lanes are powered up, 
+      // and the PLL associated with the port is powered up.
+
+      out_parms->pc[port_idx].powered_up   = true;
+      first_lane =  pi.cpr[pnum].cfg[quad_cfg].first_lane; 
+      last_lane  = pi.cpr[pnum].cfg[quad_cfg].lane_count + first_lane; 
+      for (lane_num = first_lane; lane_num < last_lane; lane_num++) {
+         rc = DARRegRead( dev_info, CPS1848_LANE_X_CTL(lane_num), &lane_ctl) ;
+         if (RIO_SUCCESS != rc) {
+            out_parms->imp_rc = PC_GET_CONFIG(0x10);
+            goto idt_CPS_pc_get_config_exit;
+         }
+
+         if (lane_ctl & CPS1848_LANE_X_CTL_LANE_DIS) { 
+            out_parms->pc[port_idx].powered_up   = false;
+            break;
+         };
+      };
+
+      if ( out_parms->pc[port_idx].powered_up ) {
+         pll_num = pi.cpr[pnum].cfg[quad_cfg].pll[0]; 
+         if (INVALID_PLL == pll_num) {
+            rc = RIO_ERR_SW_FAILURE;
+            out_parms->imp_rc = PC_GET_CONFIG(0x11);
+            goto idt_CPS_pc_get_config_exit;
+         }
+         rc = DARRegRead( dev_info, CPS1848_PLL_X_CTL_1(pll_num), &pll_ctl1) ;
+         if (RIO_SUCCESS != rc) {
+            out_parms->imp_rc = PC_GET_CONFIG(0x12);
+            goto idt_CPS_pc_get_config_exit;
+         }
+
+         if (pll_ctl1 & CPS1848_PLL_X_CTL_1_PLL_PWR_DOWN) {
+                out_parms->pc[port_idx].powered_up   = false;
+         }
+      };
+
+      if (out_parms->pc[port_idx].powered_up) {
+         // If the port is powered up, determine the rest of the port configuration... 
+         // Determine configured port width
+         rc = DARRegRead( dev_info, CPS1848_PORT_X_CTL_1_CSR(pnum), &spx_ctl1 );
+         if (RIO_SUCCESS != rc) {
+            out_parms->imp_rc = PC_GET_CONFIG(0x20);
+            goto idt_CPS_pc_get_config_exit;
+         }
+
+         rc = DARRegRead( dev_info, CPS1848_PORT_X_ERR_STAT_CSR(pnum), &spx_errstat );
+         if (RIO_SUCCESS != rc) {
+            out_parms->imp_rc = PC_GET_CONFIG(0x21);
+            goto idt_CPS_pc_get_config_exit;
+         }
+
+         rc = DARRegRead(dev_info, CPS1848_PORT_X_OPS(pnum), &spx_ops);
+         if (RIO_SUCCESS != rc) {
+            out_parms->imp_rc = PC_GET_CONFIG(0x22);
+            goto idt_CPS_pc_get_config_exit;
+         }
+
+         switch (pi.cpr[pnum].cfg[quad_cfg].lane_count) {
+         case 1: out_parms->pc[port_idx].pw = idt_pc_pw_1x;
+                 break;
+         case 2: 
+                 switch (spx_ctl1 & RIO_SPX_CTL_PTW_OVER) {
+                 case RIO_SPX_CTL_PTW_OVER_NONE:
+                 case RIO_SPX_CTL_PTW_OVER_NONE_2:
+                 case RIO_SPX_CTL_PTW_OVER_2x_NO_4X: out_parms->pc[port_idx].pw = idt_pc_pw_2x;
+                                                     break;
+   
+                 // RIO_SPX_CTL_PTW_OVER_4x_NO_2X may have no effect
+                 case RIO_SPX_CTL_PTW_OVER_4x_NO_2X:
+                 case RIO_SPX_CTL_PTW_OVER_1x_L0: out_parms->pc[port_idx].pw = idt_pc_pw_1x_l0;
+                                                  break;
+                 case RIO_SPX_CTL_PTW_OVER_1x_LR: out_parms->pc[port_idx].pw = idt_pc_pw_1x_l1;
+                                                  break;
+                 case RIO_SPX_CTL_PTW_OVER_RSVD: out_parms->pc[port_idx].pw = idt_pc_pw_last;
+                                                  break;
+                 }
+                 break;
+         case 4: 
+                 switch (spx_ctl1 & RIO_SPX_CTL_PTW_OVER) {
+                 case RIO_SPX_CTL_PTW_OVER_NONE:
+                 case RIO_SPX_CTL_PTW_OVER_NONE_2:
+                 case RIO_SPX_CTL_PTW_OVER_4x_NO_2X: out_parms->pc[port_idx].pw = idt_pc_pw_4x;
+                                                     break;
+  
+                 case RIO_SPX_CTL_PTW_OVER_2x_NO_4X: out_parms->pc[port_idx].pw = idt_pc_pw_2x;
+                                                     break;
+                 case RIO_SPX_CTL_PTW_OVER_1x_L0: out_parms->pc[port_idx].pw = idt_pc_pw_1x_l0;
+                                                     break;
+                 case RIO_SPX_CTL_PTW_OVER_1x_LR: out_parms->pc[port_idx].pw = idt_pc_pw_1x_l2;
+                                                     break;
+                 case RIO_SPX_CTL_PTW_OVER_RSVD: out_parms->pc[port_idx].pw = idt_pc_pw_last;
+                                                     break;
+                 }
+                 break;
+   
+         default: rc = RIO_ERR_SW_FAILURE;
+                  out_parms->imp_rc = PC_GET_CONFIG(0x25);
+                  goto idt_CPS_pc_get_config_exit;
+         };
+   
+         if ( out_parms->pc[port_idx].powered_up ) {
+            if (((sps1616_cfg == pi.cpr) &&  (lane_ctl & CPS1616_LANE_X_CTL_RX_PLL_SEL  )) ||
+                ((sps1616_cfg != pi.cpr) &&  (pll_ctl1 & CPS1848_PLL_X_CTL_1_PLL_DIV_SEL))) {
+               switch ((lane_ctl & CPS1848_LANE_X_CTL_RX_RATE) >> 1) {
+               case  0: out_parms->pc[port_idx].ls = idt_pc_ls_last;
+                        break;
+               case  1: out_parms->pc[port_idx].ls = idt_pc_ls_3p125;
+                        break;
+               default: out_parms->pc[port_idx].ls = idt_pc_ls_6p25;
+                        break;
+               }
+            } else {
+                switch ((lane_ctl & CPS1848_LANE_X_CTL_RX_RATE) >> 1) {
+                case  0: out_parms->pc[port_idx].ls = idt_pc_ls_1p25;
+                         break;
+                case  1: out_parms->pc[port_idx].ls = idt_pc_ls_2p5;
+                         break;
+                default: out_parms->pc[port_idx].ls = idt_pc_ls_5p0;
+                         break;
                 }
+            }
+         }
 
-                if (lane_ctl & CPS1848_LANE_X_CTL_LANE_DIS) { 
-                   out_parms->pc[port_idx].powered_up   = false;
-                   break;
-                };
-           };
+          // Determine port disable and lockout status.
+         if (spx_ctl1 & RIO_SPX_CTL_PORT_DIS) {
+            out_parms->pc[port_idx].xmitter_disable = true;
+         }
 
-           if ( out_parms->pc[port_idx].powered_up ) {
-                pll_num = pi.cpr[pnum].cfg[quad_cfg].pll[0]; 
-                if (INVALID_PLL == pll_num) {
-                   rc = RIO_ERR_SW_FAILURE;
-                   out_parms->imp_rc = PC_GET_CONFIG(0x11);
-                   goto idt_CPS_pc_get_config_exit;
-                }
-                rc = DARRegRead( dev_info, CPS1848_PLL_X_CTL_1(pll_num), &pll_ctl1) ;
-                if (RIO_SUCCESS != rc) {
-                   out_parms->imp_rc = PC_GET_CONFIG(0x12);
-                   goto idt_CPS_pc_get_config_exit;
-                }
+         if (spx_ctl1 & RIO_SPX_CTL_LOCKOUT) {
+            out_parms->pc[port_idx].port_lockout = true;
+         }
 
-                if (pll_ctl1 & CPS1848_PLL_X_CTL_1_PLL_PWR_DOWN) 
-                   out_parms->pc[port_idx].powered_up   = false;
-           };
+         /* Determine Idle Sequence enabled  */
+	 if (spx_errstat & CPS1848_PORT_X_ERR_STAT_CSR_IDLE2_EN) {
+            out_parms->pc[port_idx].iseq = idt_pc_is_two;
+	 } else {
+            out_parms->pc[port_idx].iseq = idt_pc_is_one;
+	 };
 
-           if ( out_parms->pc[port_idx].powered_up ) {
-              // If the port is powered up, determine the rest of the port configuration... 
-              // Determine configured port width
-              //
-              rc = DARRegRead( dev_info, CPS1848_PORT_X_CTL_1_CSR(pnum), &spx_ctl1 );
-              if (RIO_SUCCESS != rc) {
-                 out_parms->imp_rc = PC_GET_CONFIG(0x20);
-                 goto idt_CPS_pc_get_config_exit;
-              };
+	 /* Determine Flow Control enabled  */
+	 if (spx_ops & CPS1848_PORT_X_OPS_TX_FLOW_CTL_DIS) {
+            out_parms->pc[port_idx].fc = idt_pc_fc_rx;
+	 } else {
+            out_parms->pc[port_idx].fc = idt_pc_fc_tx;
+	 }
 
-              rc = DARRegRead( dev_info, CPS1848_PORT_X_ERR_STAT_CSR(pnum), &spx_errstat );
-              if (RIO_SUCCESS != rc) {
-                 out_parms->imp_rc = PC_GET_CONFIG(0x21);
-                 goto idt_CPS_pc_get_config_exit;
-              };
+	 // Note: 1432 & 1848 Rev C has errata about maintenance packet handling
+	 // OUTPUT_EN should always be set.
+	 if ((DEV_CODE(dev_info) == IDT_CPS1848_DEV_ID ) || \
+             (DEV_CODE(dev_info) == IDT_CPS1432_DEV_ID )) {
+	    if (spx_ctl1 & CPS1848_PORT_X_CTL_1_CSR_INPUT_PORT_EN) {
+               out_parms->pc[port_idx].nmtc_xfer_enable = true;
+            }
+         } else { /* SPS1616 CASE */
+            if ((spx_ctl1 & CPS1848_PORT_X_CTL_1_CSR_INPUT_PORT_EN) && 
+                (spx_ctl1 & CPS1848_PORT_X_CTL_1_CSR_OUTPUT_PORT_EN)) {
+               out_parms->pc[port_idx].nmtc_xfer_enable = true;
+	    }
+         }
 
-              rc = DARRegRead(dev_info, CPS1848_PORT_X_OPS(pnum), &spx_ops);
-              if (RIO_SUCCESS != rc) {
-                 out_parms->imp_rc = PC_GET_CONFIG(0x22);
-                 goto idt_CPS_pc_get_config_exit;
-              };
+         // Check to see if any lanes are inverted...
+         //
+         rc = DARRegWrite( dev_info, CPS_ROOT_ACCESS, CPS_ROOT_ACCESS_PASSWD );
+         if (RIO_SUCCESS != rc) {
+            out_parms->imp_rc = PC_GET_CONFIG(0x30);
+            goto idt_CPS_pc_get_config_exit;
+         }
 
-              switch (pi.cpr[pnum].cfg[quad_cfg].lane_count) {
-                  case 1: out_parms->pc[port_idx].pw = idt_pc_pw_1x;
-                          break;
-                  case 2: 
-                          switch (spx_ctl1 & RIO_SPX_CTL_PTW_OVER) {
-                                  case RIO_SPX_CTL_PTW_OVER_NONE:
-                                  case RIO_SPX_CTL_PTW_OVER_NONE_2:
-                                  case RIO_SPX_CTL_PTW_OVER_2x_NO_4X: out_parms->pc[port_idx].pw = idt_pc_pw_2x;
-                                                                         break;
-   
-                                  // RIO_SPX_CTL_PTW_OVER_4x_NO_2X may have no effect
-                                  case RIO_SPX_CTL_PTW_OVER_4x_NO_2X:
-                                  case RIO_SPX_CTL_PTW_OVER_1x_L0: out_parms->pc[port_idx].pw = idt_pc_pw_1x_l0;
-                                                                      break;
-                                  case RIO_SPX_CTL_PTW_OVER_1x_LR: out_parms->pc[port_idx].pw = idt_pc_pw_1x_l1;
-                                                                      break;
-                                  case RIO_SPX_CTL_PTW_OVER_RSVD: out_parms->pc[port_idx].pw = idt_pc_pw_last;
-                                                                      break;
-                        };
-                          break;
-                  case 4: 
-                          switch (spx_ctl1 & RIO_SPX_CTL_PTW_OVER) {
-                                  case RIO_SPX_CTL_PTW_OVER_NONE:
-                                  case RIO_SPX_CTL_PTW_OVER_NONE_2:
-                                  case RIO_SPX_CTL_PTW_OVER_4x_NO_2X: out_parms->pc[port_idx].pw = idt_pc_pw_4x;
-                                                                         break;
-   
-                                  case RIO_SPX_CTL_PTW_OVER_2x_NO_4X: out_parms->pc[port_idx].pw = idt_pc_pw_2x;
-                                                                         break;
-                                  case RIO_SPX_CTL_PTW_OVER_1x_L0: out_parms->pc[port_idx].pw = idt_pc_pw_1x_l0;
-                                                                      break;
-                                  case RIO_SPX_CTL_PTW_OVER_1x_LR: out_parms->pc[port_idx].pw = idt_pc_pw_1x_l2;
-                                                                      break;
-                                  case RIO_SPX_CTL_PTW_OVER_RSVD: out_parms->pc[port_idx].pw = idt_pc_pw_last;
-                                                                      break;
-                        };
-                       break;
-   
-                  default: rc = RIO_ERR_SW_FAILURE;
-                           out_parms->imp_rc = PC_GET_CONFIG(0x25);
-                           goto idt_CPS_pc_get_config_exit;
-              };
-   
-           if ( out_parms->pc[port_idx].powered_up ) {
-              if (((sps1616_cfg == pi.cpr) &&  (lane_ctl & CPS1616_LANE_X_CTL_RX_PLL_SEL  )) ||
-                  ((sps1616_cfg != pi.cpr) &&  (pll_ctl1 & CPS1848_PLL_X_CTL_1_PLL_DIV_SEL))) {
-                 switch ((lane_ctl & CPS1848_LANE_X_CTL_RX_RATE) >> 1) {
-                    case  0: out_parms->pc[port_idx].ls = idt_pc_ls_last;
-                             break;
-                    case  1: out_parms->pc[port_idx].ls = idt_pc_ls_3p125;
-                             break;
-                    default: out_parms->pc[port_idx].ls = idt_pc_ls_6p25;
-                             break;
-                 };
-              } else {
-                 switch ((lane_ctl & CPS1848_LANE_X_CTL_RX_RATE) >> 1) {
-                    case  0: out_parms->pc[port_idx].ls = idt_pc_ls_1p25;
-                             break;
-                    case  1: out_parms->pc[port_idx].ls = idt_pc_ls_2p5;
-                             break;
-                    default: out_parms->pc[port_idx].ls = idt_pc_ls_5p0;
-                             break;
-                 };
-              };
-           };
+         for (lane_num = first_lane; lane_num < last_lane; lane_num++ ) {
+            rc = DARRegRead( dev_info, CPS_LANE_X_CTL_1_ROOT(lane_num), &lane_ctl);
+            if (RIO_SUCCESS != rc) {
+               out_parms->imp_rc = PC_GET_CONFIG(0x40);
+               goto idt_CPS_pc_get_config_exit;
+            }
 
-              // Determine port disable and lockout status.
-              if (spx_ctl1 & RIO_SPX_CTL_PORT_DIS) {
-                 out_parms->pc[port_idx].xmitter_disable = true;
-              };
+            if (lane_ctl & CPS_LANE_X_CTL_1_ROOT_TX_INV) {
+                out_parms->pc[port_idx].tx_linvert[lane_num - first_lane] = true;
+            }
 
-              if (spx_ctl1 & RIO_SPX_CTL_LOCKOUT) {
-                 out_parms->pc[port_idx].port_lockout = true;
-              };
-
-		/* Determine Idle Sequence enabled  */
-		if (spx_errstat & CPS1848_PORT_X_ERR_STAT_CSR_IDLE2_EN) {
-                 	out_parms->pc[port_idx].iseq = idt_pc_is_two;
-		} else {
-                 	out_parms->pc[port_idx].iseq = idt_pc_is_one;
-		};
-
-		/* Determine Flow Control enabled  */
-		if (spx_ops & CPS1848_PORT_X_OPS_TX_FLOW_CTL_DIS) {
-                 	out_parms->pc[port_idx].fc = idt_pc_fc_rx;
-		} else {
-                 	out_parms->pc[port_idx].fc = idt_pc_fc_tx;
-		};
-
-	  // Note: 1432 & 1848 Rev C has errata about maintenance packet handling
-	  // OUTPUT_EN should always be set.
-		if ((DEV_CODE(dev_info) == IDT_CPS1848_DEV_ID ) || \
-                   (DEV_CODE(dev_info) == IDT_CPS1432_DEV_ID )) {
-				if (spx_ctl1 & CPS1848_PORT_X_CTL_1_CSR_INPUT_PORT_EN) {
-					out_parms->pc[port_idx].nmtc_xfer_enable = true;
-				};
-              } else { /* SPS1616 CASE */
-				 if ((spx_ctl1 & CPS1848_PORT_X_CTL_1_CSR_INPUT_PORT_EN) && 
-					 (spx_ctl1 & CPS1848_PORT_X_CTL_1_CSR_OUTPUT_PORT_EN)) {
-					out_parms->pc[port_idx].nmtc_xfer_enable = true;
-				};
-			};
-
-              // Check to see if any lanes are inverted...
-              //
-              rc = DARRegWrite( dev_info, CPS_ROOT_ACCESS, CPS_ROOT_ACCESS_PASSWD );
-                 if (RIO_SUCCESS != rc) {
-                    out_parms->imp_rc = PC_GET_CONFIG(0x30);
-                    goto idt_CPS_pc_get_config_exit;
-                 };
-
-              for (lane_num = first_lane; lane_num < last_lane; lane_num++ ) {
-                 rc = DARRegRead( dev_info, CPS_LANE_X_CTL_1_ROOT(lane_num), &lane_ctl);
-                 if (RIO_SUCCESS != rc) {
-                    out_parms->imp_rc = PC_GET_CONFIG(0x40);
-                    goto idt_CPS_pc_get_config_exit;
-                 };
-
-                 if (lane_ctl & CPS_LANE_X_CTL_1_ROOT_TX_INV)
-                    out_parms->pc[port_idx].tx_linvert[lane_num - first_lane] = true;
-
-                 if (lane_ctl & CPS_LANE_X_CTL_1_ROOT_RX_INV)
-                    out_parms->pc[port_idx].rx_linvert[lane_num - first_lane] = true;
-              };
-           }; // powered up
-        }; // available
-    }; // available
+            if (lane_ctl & CPS_LANE_X_CTL_1_ROOT_RX_INV) {
+                out_parms->pc[port_idx].rx_linvert[lane_num - first_lane] = true;
+            } 
+         } // lanes
+      } // available
+   } 
 
 idt_CPS_pc_get_config_exit:
     return rc;

@@ -1240,7 +1240,7 @@ uint32_t idt_rxs_rt_probe( DAR_DEV_INFO_t      *dev_info,
     rc = RIO_SUCCESS;
 
     // Note, no failure possible...
-    idt_rxs_check_multicast_routing( dev_info, in_parms, out_parms );
+    idt_rxs_check_multicast_routing(dev_info, in_parms, out_parms);
 
     /* Done if hit in multicast masks. */
     if (RIO_ALL_PORTS != out_parms->routing_table_value) 

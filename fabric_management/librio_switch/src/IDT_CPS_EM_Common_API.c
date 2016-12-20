@@ -2555,6 +2555,8 @@ uint32_t IDT_CPS_em_clr_events   ( DAR_DEV_INFO_t           *dev_info,
    memcpy( (void *)(regs), (void *)(orig), sizeof(clr_err_info_t)*IDT_MAX_PORTS );
 
    for (idx = 0; idx < in_parms->num_events; idx++) {
+       bool glob_event;
+       bool all_ports;
        out_parms->failure_idx = idx;
        pnum = in_parms->events[idx].port_num;
        // Complex statement below enforces 
@@ -2562,14 +2564,20 @@ uint32_t IDT_CPS_em_clr_events   ( DAR_DEV_INFO_t           *dev_info,
        // - RIO_ALL_PORTS cannot be used with any other events.
        // - RIO_ALL_PORTS must be used with idt_em_d_log and idt_em_i_init_fail.
        // - valid event values
-       if ( ((pnum >= NUM_CPS_PORTS(dev_info)) && (RIO_ALL_PORTS != pnum)) || 
-          ((RIO_ALL_PORTS == pnum) && !((idt_em_d_log == in_parms->events[idx].event)
-                                     ||(idt_em_i_init_fail == in_parms->events[idx].event)))  ||
-          (((idt_em_d_log       == in_parms->events[idx].event) ||
-            (idt_em_i_init_fail == in_parms->events[idx].event)) && !(RIO_ALL_PORTS == pnum)) ||
+
+       all_ports = RIO_ALL_PORTS == pnum;
+       if ( ((pnum >= NUM_CPS_PORTS(dev_info)) && !all_ports ) || 
            (idt_em_last <= in_parms->events[idx].event) ) {
           rc = RIO_ERR_INVALID_PARAMETER;
           out_parms->imp_rc = EM_CLR_EVENTS(2);
+          goto idt_CPS_em_clr_events_exit;
+       };
+
+       glob_event = (idt_em_d_log == in_parms->events[idx].event)
+                 || (idt_em_i_init_fail == in_parms->events[idx].event);
+       if ((all_ports && !glob_event) || (!all_ports && glob_event)) {
+          rc = RIO_ERR_INVALID_PARAMETER;
+          out_parms->imp_rc = EM_CLR_EVENTS(3);
           goto idt_CPS_em_clr_events_exit;
        };
 
