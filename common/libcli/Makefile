@@ -31,17 +31,26 @@ include $(TOPDIR)/rules.mk
 
 NAME:=cli
 TARGETS:=lib$(NAME).a lib$(NAME).so
+TEST_TARGETS:=$(NAME)_test
 
 OBJECTS:=$(patsubst src/%.c,src/%.o,$(wildcard src/*.c))
+TEST_OBJECTS:=$(patsubst test/%.c,test/%.o,$(wildcard test/*.c))
 
 CXXFLAGS+=-D$(DEBUG_CTL) -DRDMA_LL=$(LOG_LEVEL)
 CXXFLAGS+=-I../../fabric_management/librio_switch/inc
 LINK_FLAGS+= -rdynamic -shared -Wl,-soname,lib$(NAME).so.$(SOVER)
+LDFLAGS+=-L. -L$(COMMONLIB) $(LIBS_RPATH) -l$(NAME)
 
 
 .PHONY: all clean test
 
+ifdef TEST
+all: $(TARGETS) $(TEST_TARGETS)
+else
 all: $(TARGETS)
+endif
+
+test: $(TEST_TARGETS) 
 
 %.a: $(OBJECTS)
 	@echo ---------- Building $@
@@ -56,5 +65,17 @@ src/%.o: src/%.c
 	@echo ---------- Building $@
 	$(CXX) -c $(CXXFLAGS) $< -o $@
 
+test/%.o: test/%.c
+	@echo ---------- Building $@
+	$(CXX) -c $(CXXFLAGS) $< -o $@ \
+	$(TST_INCS)
+
+$(TEST_TARGETS): $(TEST_OBJECTS)
+	@echo ---------- Building $@
+	$(CXX) -o $@ $< $(LDFLAGS) \
+	$(TST_LIBS)
+
 clean:
-	rm -f $(TARGETS) lib$(NAME).so.$(SOVER) $(OBJECTS) inc/*~ src/*~ *~
+	rm -f $(TARGETS) lib$(NAME).so.$(SOVER) $(OBJECTS) \
+	$(TEST_TARGETS) $(TEST_OBJECTS) \
+	inc/*~ src/*~ test/*~ *~
