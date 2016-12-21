@@ -47,15 +47,15 @@ extern struct cli_cmd DispLevel;
 extern unsigned g_level;
 extern unsigned g_disp_level;
 
-char *level_strings[RDMA_LL_DBG+1] {
-	(char *)"NOLOG",
-	(char *)"NOLOG",
-	(char *)"CRIT",
-	(char *)"ERR",
-	(char *)"WARN",
-	(char *)"HIGH",
-	(char *)"INFO",
-	(char *)"DBG"
+const char *level_strings[] = {
+	"NOLOG",
+	"NOLOG",
+	"CRIT",
+	"ERR",
+	"WARN",
+	"HIGH",
+	"INFO",
+	"DBG",
 };
 
 #define LOG_STR(x) ((x>RDMA_LL_DBG)?level_strings[RDMA_LL_DBG]:level_strings[x])
