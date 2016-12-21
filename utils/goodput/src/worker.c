@@ -60,7 +60,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sys/select.h>
 
 #include <pthread.h>
-#include <sstream>
 
 #include <sched.h>
 
@@ -264,10 +263,10 @@ void zero_stats(struct worker *info)
 	info->perf_msg_cnt = 0;
 	info->perf_byte_cnt = 0;
 	info->perf_iter_cnt = 0;
-	info->min_iter_time = {0,0};
-	info->tot_iter_time = {0,0};
-	info->max_iter_time = {0,0};
-	info->iter_time_lim = {0xFFFFFFFF,0xFFFFFFFF};
+	info->min_iter_time = (struct timespec){0,0};
+	info->tot_iter_time = (struct timespec){0,0};
+	info->max_iter_time = (struct timespec){0,0};
+	info->iter_time_lim = (struct timespec){0xFFFFFFFF,0xFFFFFFFF};
 
         info->data8_tx = 0x12;
         info->data16_tx= 0x3456;
@@ -505,7 +504,7 @@ void direct_io_tx_latency(struct worker *info)
 
 	zero_stats(info);
 	/* Set maximum latency time to 5 microseconds */
-	info->iter_time_lim = {0, 5000};
+	info->iter_time_lim = (struct timespec){0, 5000};
 	clock_gettime(CLOCK_MONOTONIC, &info->st_time);
 
 	while (!info->stop_req) {

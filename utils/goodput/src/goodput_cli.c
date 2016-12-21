@@ -43,7 +43,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <vector>
 
 #include "rio_ecosystem.h"
-#include "rapidio_mport_sock.h"
+#include "rapidio_mport_dma.h"
 #include "string_util.h"
 #include "tok_parse.h"
 #include "rio_misc.h"
@@ -950,7 +950,7 @@ ATTR_NONE
 };
 
 // "<trans>  0 NW, 1 SW, 2 NW_R, 3 SW_R 4 NW_R_ALL\n"
-riomp_dma_directio_type convert_int_to_riomp_dma_directio_type(uint16_t trans)
+enum riomp_dma_directio_type convert_int_to_riomp_dma_directio_type(uint16_t trans)
 {
 	switch (trans) {
 	default:
@@ -1418,7 +1418,7 @@ msgTxLatCmd,
 ATTR_NONE
 };
 
-int msgRxCmdExt(struct cli_env *env, int UNUSED(argc), char **argv, req_type action)
+int msgRxCmdExt(struct cli_env *env, int UNUSED(argc), char **argv, enum req_type action)
 {
 	uint16_t idx;
 	uint16_t sock_num;

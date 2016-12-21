@@ -30,12 +30,13 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
-#include "libcli.h"
-#include "goodput.h"
-#include "worker.h"
 
 #ifndef __GOODPUT_CLI_H__
 #define __GOODPUT_CLI_H__
+
+#include "libcli.h"
+#include "goodput.h"
+#include "worker.h"
 
 #ifdef __cplusplus
 extern "C" {

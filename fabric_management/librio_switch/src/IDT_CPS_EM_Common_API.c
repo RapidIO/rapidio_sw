@@ -30,11 +30,13 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
+
+#include <stddef.h>
+#include <string.h>
 #include <DAR_DB_Private.h>
 #include <IDT_DSF_DB_Private.h>
 #include <IDT_Error_Management_API.h>
 #include <IDT_CPS_Common_Test.h>
-#include <string.h>
 #include <CPS1848_registers.h>
 #include <CPS1616_registers.h>
 
