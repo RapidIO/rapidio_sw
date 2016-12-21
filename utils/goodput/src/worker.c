@@ -582,7 +582,7 @@ int alloc_dma_tx_buffer(struct worker *info)
 		if (rc) {
 			ERR("FAILED: riomp_dma_dbuf_alloc rc %d:%s\n",
 						rc, strerror(errno));
-			goto exit;;
+			goto exit;
 		};
 		info->rdma_ptr = NULL;
 		rc = riomp_dma_map_memory(info->mp_h, info->rdma_buff_size,
@@ -590,7 +590,7 @@ int alloc_dma_tx_buffer(struct worker *info)
 		if (rc) {
 			ERR("FAILED: riomp_dma_map_memory rc %d:%s\n",
 						rc, strerror(errno));
-			goto exit;;
+			goto exit;
 		};
 	} else {
 		info->rdma_ptr = malloc(info->rdma_buff_size);

@@ -1929,7 +1929,7 @@ uint32_t IDT_CPS_em_get_int_stat  ( DAR_DEV_INFO_t             *dev_info,
 
       // Lane status is the "or" of status of each lane.
       first_lane = pi.cpr[pnum].cfg[pi.quad_cfg_val[pi.cpr[pnum].quadrant]].first_lane; 
-      last_lane  = pi.cpr[pnum].cfg[pi.quad_cfg_val[pi.cpr[pnum].quadrant]].lane_count + first_lane;; 
+      last_lane  = pi.cpr[pnum].cfg[pi.quad_cfg_val[pi.cpr[pnum].quadrant]].lane_count + first_lane; 
       l_err_det = 0;
 
       for (lnum = first_lane; lnum < last_lane; lnum++) {
@@ -2231,7 +2231,7 @@ uint32_t IDT_CPS_em_get_pw_stat  ( DAR_DEV_INFO_t            *dev_info,
 
       // Lane status is the "or" of status of each lane.
       first_lane = pi.cpr[pnum].cfg[pi.quad_cfg_val[pi.cpr[pnum].quadrant]].first_lane; 
-      last_lane  = pi.cpr[pnum].cfg[pi.quad_cfg_val[pi.cpr[pnum].quadrant]].lane_count + first_lane;; 
+      last_lane  = pi.cpr[pnum].cfg[pi.quad_cfg_val[pi.cpr[pnum].quadrant]].lane_count + first_lane; 
       l_err_det  = 0;
 
       for (lnum = first_lane; lnum < last_lane; lnum++) {

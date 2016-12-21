@@ -3904,7 +3904,7 @@ void tok_parse_socket_test(void **state)
 	rc = tok_parse_socket(buf, &value, 0);
 	assert_int_equal(-1, rc);
 	assert_int_equal(ERANGE, errno);
-	assert_int_equal(0, value);;
+	assert_int_equal(0, value);
 
 	(void)state; // unused
 }

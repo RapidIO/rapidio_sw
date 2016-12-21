@@ -587,7 +587,7 @@ int generic_device_init(struct riocp_pe *pe, uint32_t *ct)
 	if (MEMORY(dev_h)) {
 		struct mport_regs regs;
 		uint8_t memsz;
-		uint32_t reg_val = RIO_PE_LL_CTL_34BIT;;
+		uint32_t reg_val = RIO_PE_LL_CTL_34BIT;
 
 		if (RIOCP_PE_IS_MPORT(pe)) {
 			if (cfg_get_mp_mem_sz(pe->minfo->id, &memsz)) {
