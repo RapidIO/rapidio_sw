@@ -2875,6 +2875,9 @@ uint32_t IDT_CPS_em_create_events ( DAR_DEV_INFO_t              *dev_info,
               break;
 
           case idt_em_f_port_err  :  
+		// Note: Static code analysis indicates that pnum can be
+		// RIO_ALL_PORTS in this clause.  This is impossible, as to
+		// get to this clause !glob_event && !all_ports must be true.
 	      { uint32_t temp;
 		// Check that port_err detection is enabled.
                 rc = DARRegRead( dev_info, CPS1848_PORT_X_IMPL_SPEC_ERR_RPT_EN(pnum), &temp );
