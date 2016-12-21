@@ -7,6 +7,6 @@ doxygen doxyconfig
 git status
 cd utils/goodput/scripts
 ## Create scripts required for DMA TUN and others...
-./create_start_scripts.sh 0 234 200000000
+./create_start_scripts.sh 0 234 0x200000000
 cd ../../../..
 chgrp -R $2 rapidio_sw
