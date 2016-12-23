@@ -31,10 +31,11 @@ include $(TOPDIR)/rules.mk
 
 NAME:=cli
 TARGETS:=lib$(NAME).a lib$(NAME).so
-TEST_TARGETS:=$(NAME)_test
+TEST_TARGET:=$(NAME)_test
 
 OBJECTS:=$(patsubst src/%.c,src/%.o,$(wildcard src/*.c))
 TEST_OBJECTS:=$(patsubst test/%.c,test/%.o,$(wildcard test/*.c))
+TEST_TARGETS:=$(patsubst test/%.c,test/%,$(wildcard test/*.c))
 
 CXXFLAGS+=-D$(DEBUG_CTL) -DRDMA_LL=$(LOG_LEVEL)
 CXXFLAGS+=-I../../fabric_management/librio_switch/inc
@@ -50,7 +51,7 @@ else
 all: $(TARGETS)
 endif
 
-test: $(TEST_TARGETS) 
+test: $(TEST_TARGET)
 
 %.a: $(OBJECTS)
 	@echo ---------- Building $@
@@ -70,10 +71,12 @@ test/%.o: test/%.c
 	$(CXX) -c $(CXXFLAGS) $< -o $@ \
 	$(TST_INCS)
 
-$(TEST_TARGETS): $(TEST_OBJECTS)
+test/%: test/%.o
 	@echo ---------- Building $@
 	$(CXX) -o $@ $< $(LDFLAGS) \
 	$(TST_LIBS)
+
+$(TEST_TARGET): $(TEST_TARGETS)
 
 clean:
 	rm -f $(TARGETS) lib$(NAME).so.$(SOVER) $(OBJECTS) \
