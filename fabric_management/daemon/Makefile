@@ -56,7 +56,11 @@ src/%.o: src/%.c
 	-I../libmport/inc \
 	-D$(DEBUG_CTL) -DRDMA_LL=$(LOG_LEVEL)
 
+ifdef TEST
+all: clean fmd
+else
 all: fmd
+endif
 
 # The Fabric Management Daemon
 fmd:  $(OBJECTS) 
@@ -68,4 +72,5 @@ fmd:  $(OBJECTS)
 	-lrt -ldl $(TST_LIBS)
 
 clean:
+	@echo ---------- Cleaning fmd...
 	rm -f $(OBJECTS) inc/*~ src/*~ *~ fmd

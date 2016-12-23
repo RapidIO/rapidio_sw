@@ -74,8 +74,13 @@ rftp: $(CLIENT_OBJS)
 	$(LIBS_RPATH) $(LIBRARIES) \
 	-D__CLI_LINUX__ -I./libfxfr/inc
 
+ifdef TEST
+all: clean $(LIB_DEPS) libfxfr fxfr_server rftp
+else
 all: $(LIB_DEPS) libfxfr fxfr_server rftp
+endif
 
 clean:
+	@echo ---------- Cleaning file_transfer...
 	rm -f *.o *~ *.exe core $(LOCAL_LIBRARY_DIR)/*.a fxfr rftp fxfr_server libs_a/*
 	$(MAKE) clean -C libfxfr

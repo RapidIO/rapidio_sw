@@ -53,7 +53,11 @@ LDFLAGS+=-L. -l$(NAME)
 
 OBJECTS:=$(patsubst src/%.c,src/%.o,$(wildcard src/*.c))
 
+ifdef TEST
+all: clean $(TARGETS)
+else
 all: $(TARGETS)
+endif
 
 %.a: $(OBJECTS)
 	$(AR) rcs $@ $^
@@ -62,6 +66,7 @@ src/%.o: src/%.c $(HEADERS)
 	$(CXX) -c $(CXXFLAGS) $< -o $@
 
 clean:
+	@echo ---------- Cleaning libdd...
 	rm -f $(TARGETS) $(OBJECTS) inc/*~ src/*~ *~ *.a
 
 .PHONY: all clean

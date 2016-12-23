@@ -54,7 +54,11 @@ OBJECTS:=$(patsubst src/%.c,src/%.o,$(wildcard src/*.c))
 
 TEST_OBJECTS:=$(patsubst test/%.c,test/%.o,$(wildcard test/*.c))
 
+ifdef TEST
+all: clean $(TARGETS)
+else
 all: $(TARGETS)
+endif
 
 %.a: $(OBJECTS)
 	$(AR) rcs $@ $^
@@ -71,6 +75,7 @@ $(TEST_TARGET) : $(OBJECTS) $(TEST_OBJECTS)
 	-L. -L$(COMMONLIBA) -L../libs_a
 
 clean:
+	@echo ---------- Cleaning libpe_mpdrv...
 	rm -f $(TARGETS) $(TEST_TARGET) $(OBJECTS) inc/*~ src/*~ *~ *.a
 
 .PHONY: all clean

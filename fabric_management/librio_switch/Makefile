@@ -32,7 +32,7 @@ TEST_TARGETS:=$(patsubst test/%.c,test/%,$(wildcard test/*.c))
 
 
 ifdef TEST
-all: $(TARGETS) $(TEST_TARGET)
+all: clean $(TARGETS) $(TEST_TARGET)
 else
 all: $(TARGETS)
 endif
@@ -61,6 +61,7 @@ test/%: test/%.o
 $(TEST_TARGET): $(TEST_TARGETS)
 
 clean:
+	@echo ---------- Cleaning librio_switch...
 	rm -f $(TARGETS) $(OBJECTS) \
         $(TEST_TARGETS) $(TEST_OBJECTS) \
 	inc/*~ src/*~ test/*~ *~

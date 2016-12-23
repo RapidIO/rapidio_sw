@@ -44,7 +44,11 @@ LINK_FLAGS+= -rdynamic -shared -Wl,-soname,lib$(NAME).so.$(SOVER)
 
 .PHONY: all clean test
 
+ifdef TEST
+all: clean $(TARGETS)
+else
 all: $(TARGETS)
+endif
 
 %.a: $(OBJECTS)
 	@echo ---------- Building $@
@@ -64,4 +68,5 @@ src/%.o:src/%.cpp
 	$(CXX) -c $(CXXFLAGS) $< -o $@
 
 clean:
+	@echo ---------- Cleaning liblog...
 	rm -f $(TARGETS) lib$(NAME).so.$(SOVER) $(OBJECTS) inc/*~ src/*~ *~

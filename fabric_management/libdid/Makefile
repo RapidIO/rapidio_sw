@@ -47,7 +47,7 @@ LDFLAGS+=-L. -L$(COMMONLIB) $(LIBS_RPATH) -l$(NAME)
 .PHONY: all clean test
 
 ifdef TEST
-all: $(TARGETS) $(TEST_TARGETS)
+all: clean $(TARGETS) $(TEST_TARGETS)
 else
 all: $(TARGETS)
 endif
@@ -74,6 +74,7 @@ $(TEST_TARGETS): $(TEST_OBJECTS)
 	$(TST_LIBS)
 
 clean:
+	@echo ---------- Cleaning libdid...
 	rm -f $(TARGETS) $(OBJECTS) \
 	$(TEST_TARGETS) $(TEST_OBJECTS) \
 	inc/*~ src/*~ test/*~ *~

@@ -47,10 +47,10 @@ LDFLAGS+=-L. -L$(COMMONLIB) $(LIBS_RPATH) -l$(NAME)
 
 .PHONY: all clean test
 
-ifndef TEST
-all: $(TARGETS)
+ifdef TEST
+all: clean $(TARGETS) $(TEST_TARGET)
 else
-all: $(TARGETS) $(TEST_TARGET)
+all: $(TARGETS)
 endif
 
 test: $(TEST_TARGET) 
@@ -78,4 +78,5 @@ $(TEST_TARGET): $(TEST_OBJECTS)
 	-lcli -pthread
 
 clean:
+	@echo ---------- Cleaning librsvdmem...
 	rm -f $(TARGETS) lib$(NAME).so.$(SOVER) $(TEST_TARGET) $(OBJECTS) $(TEST_OBJECTS) inc/*~ src/*~ *~

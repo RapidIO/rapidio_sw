@@ -51,7 +51,11 @@ SOURCES = src/goodput.c src/goodput_cli.c src/worker.c
 LIBRARIES =  -lmport -lrsvdmem -ltime_utils -llog -lcli \
 	 -lpthread -ldl -lrt 
 
+ifdef TEST
+all: clean goodput 
+else
 all: goodput 
+endif
 
 scripts:
 	@ln -s scripts mport0 &>/dev/null || true
@@ -60,6 +64,7 @@ goodput: $(SOURCES) $(INCLUDES)
 	$(CXX) $(CXXFLAGS) $(SOURCES) -o $@ $(LIBS_RPATH) $(LIBRARIES)
 
 clean:
+	@echo ---------- Cleaning goodput...
 	@rm -f *.o goodput *~ src/*~ inc/*~ gmon.out *.log
 
 FORCE:

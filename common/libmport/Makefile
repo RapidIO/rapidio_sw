@@ -48,7 +48,11 @@ INC+=-I$(FMDDIR)/libdid/inc -I$(FMDDIR)/libct/inc -I$(FMDDIR)/librio_switch/inc
 
 .PHONY: all clean samples
 
+ifdef TEST
+all: clean $(TARGETS) $(SAMPLE_TARGETS)
+else
 all: $(TARGETS) $(SAMPLE_TARGETS)
+endif
 
 samples: $(SAMPLE_TARGETS)
 
@@ -75,5 +79,6 @@ $(0)/%: $(0)/samples/%.o
 	-lcli -ltime_utils -lpthread
 
 clean:
+	@echo ---------- Cleaning libmport...
 	rm -f $(TARGETS) lib$(NAME).so.$(SOVER) $(SAMPLE_TARGETS) $(OBJECTS) $(SAMPLE_OBJECTS) inc/*~ src/*~ *~
 
