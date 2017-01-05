@@ -1873,8 +1873,19 @@ int cps1xxx_get_port_route(struct riocp_pe *sw, uint8_t lut, uint8_t port, uint3
 int cps1xxx_clear_lut(struct riocp_pe *sw, uint8_t lut)
 {
 	uint32_t i;
-	uint32_t val;
 	int ret;
+#ifdef CONFIG_IDTGEN2_DIRECT_ROUTING
+	for(i=0;i<=0x0ff;i++)
+	{
+		 ret = cps1xxx_set_route_entry(sw, lut, i & 0x00ff, RIOCP_PE_NO_ROUTE);
+		 if (ret < 0)
+			 return ret;
+		 ret = cps1xxx_set_route_entry(sw, lut, (i<<8) & 0xff00, RIOCP_PE_NO_ROUTE);
+		 if (ret < 0)
+			 return ret;
+	}
+#else
+	uint32_t val;
 
 	/* Select routing table */
 	if (lut == RIOCP_PE_ANY_PORT)
@@ -1890,7 +1901,7 @@ int cps1xxx_clear_lut(struct riocp_pe *sw, uint8_t lut)
 
 	/* clear lut table */
 	for (i = RIO_STD_RTE_CONF_EXTCFGEN;
-		i <= (RIO_STD_RTE_CONF_EXTCFGEN | 0xff); i += 4) {
+		i <= (RIO_STD_RTE_CONF_EXTCFGEN | 0xffff); i += 4) {
 
 		ret = riocp_pe_maint_write(sw, RIO_STD_RTE_CONF_DESTID_SEL_CSR, i);
 		if (ret < 0)
@@ -1905,7 +1916,7 @@ int cps1xxx_clear_lut(struct riocp_pe *sw, uint8_t lut)
 	}
 
 	RIOCP_TRACE("[%s] Clear lut %u done", sw->sw->name, lut);
-
+#endif
 	return 0;
 }
 
