@@ -25,7 +25,7 @@ LDFLAGS+=-L. -L$(COMMONLIB) -L$(FMDDIR)/libs_a $(LIBS_RPATH) -l$(NAME)
 
 
 ifdef TEST
-all: clean $(TARGETS) $(TEST_TARGETS)
+all: $(TARGETS) $(TEST_TARGETS)
 else
 all: $(TARGETS)
 endif
@@ -52,7 +52,7 @@ $(TEST_TARGETS): $(TEST_OBJECTS)
 	$(TST_LIBS) -lct -ldid -lcli
 
 clean:
-	@echo ---------- Cleaning libriocp_pe...
+	@echo ---------- Cleaning lib$(NAME)...
 	rm -f $(TARGETS) $(OBJECTS) \
 	$(TEST_TARGETS) $(TEST_OBJECTS) \
 	inc/*~ src/*~ test/*~ *~

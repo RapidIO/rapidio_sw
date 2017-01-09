@@ -39,3 +39,7 @@
 tags
 html/
 latex/
+
+# make control files
+.makeTest
+.makeAll

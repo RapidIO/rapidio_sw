@@ -55,11 +55,7 @@ OBJECTS:=$(patsubst src/%.c,src/%.o,$(wildcard src/*.c))
 
 TEST_OBJECTS:=$(patsubst test/%.c,test/%.o,$(wildcard test/*.c))
 
-ifdef TEST
-all: clean $(TARGETS)
-else
 all: $(TARGETS)
-endif
 
 %.a: $(OBJECTS)
 	$(AR) rcs $@ $^
@@ -75,7 +71,7 @@ $(TEST_TARGET) : $(TEST_OBJECTS)
 	-lcfg -lct -ldid -lcli -llog -pthread
 
 clean:
-	@echo ---------- Cleaning libcfg...
+	@echo ---------- Cleaning lib$(NAME)...
 	rm -f $(TARGETS) $(TEST_TARGET) $(OBJECTS) inc/*~ src/*~ *~ *.a
 
 .PHONY: all clean

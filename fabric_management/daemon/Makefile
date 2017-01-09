@@ -33,7 +33,7 @@
 TOPDIR?=$(shell pwd)/../..
 include $(TOPDIR)/rules.mk
 
-
+NAME=fmd
 LOG_LEVEL ?= 1
 
 LOCAL_LIBRARY_DIR ?= libs_a
@@ -56,21 +56,17 @@ src/%.o: src/%.c
 	-I../libmport/inc \
 	-D$(DEBUG_CTL) -DRDMA_LL=$(LOG_LEVEL)
 
-ifdef TEST
-all: clean fmd
-else
 all: fmd
-endif
 
 # The Fabric Management Daemon
 fmd:  $(OBJECTS) 
-	@echo ---------- Building fmd...
+	@echo ---------- Building $(NAME)...
 	$(CXX) -pthread \
 	-o $@ $(OBJECTS) $(LIB_DIRS) \
-	-lcfg -lct -ldid -lpe_mpdrv -lswitch_api -lriocp_pe \
+	-lcfg -lct -ldid -lpe_mpdrv -lrio_switch -lriocp_pe \
 	-ldd -llist -ltime_utils -lcli -llog -lmport \
 	-lrt -ldl $(TST_LIBS)
 
 clean:
-	@echo ---------- Cleaning fmd...
+	@echo ---------- Cleaning $(NAME)...
 	rm -f $(OBJECTS) inc/*~ src/*~ *~ fmd

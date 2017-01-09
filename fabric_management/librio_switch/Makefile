@@ -6,7 +6,7 @@
 TOPDIR?=$(shell pwd)/../..
 include $(TOPDIR)/rules.mk
 
-NAME:=switch_api
+NAME:=rio_switch
 HEADERS:=inc
 TARGETS:=lib$(NAME).a
 TEST_TARGET:=$(NAME)_test
@@ -32,7 +32,7 @@ TEST_TARGETS:=$(patsubst test/%.c,test/%,$(wildcard test/*.c))
 
 
 ifdef TEST
-all: clean $(TARGETS) $(TEST_TARGET)
+all: $(TARGETS) $(TEST_TARGET)
 else
 all: $(TARGETS)
 endif
@@ -61,7 +61,7 @@ test/%: test/%.o
 $(TEST_TARGET): $(TEST_TARGETS)
 
 clean:
-	@echo ---------- Cleaning librio_switch...
+	@echo ---------- Cleaning lib$(NAME)...
 	rm -f $(TARGETS) $(OBJECTS) \
         $(TEST_TARGETS) $(TEST_OBJECTS) \
 	inc/*~ src/*~ test/*~ *~

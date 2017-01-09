@@ -54,11 +54,7 @@ OBJECTS:=$(patsubst src/%.c,src/%.o,$(wildcard src/*.c))
 
 TEST_OBJECTS:=$(patsubst test/%.c,test/%.o,$(wildcard test/*.c))
 
-ifdef TEST
-all: clean $(TARGETS)
-else
 all: $(TARGETS)
-endif
 
 %.a: $(OBJECTS)
 	$(AR) rcs $@ $^
@@ -71,11 +67,11 @@ test: all $(TEST_TARGET)
 
 $(TEST_TARGET) : $(OBJECTS) $(TEST_OBJECTS)
 	$(CC) $(OBJECTS) $(TEST_OBJECTS) -o $(TEST_TARGET) -lcli -llog \
-	-lmport -lriocp_pe -lswitch_api -pthread \
+	-lmport -lriocp_pe -lrio_switch -pthread \
 	-L. -L$(COMMONLIBA) -L../libs_a
 
 clean:
-	@echo ---------- Cleaning libpe_mpdrv...
+	@echo ---------- Cleaning lib$(NAME)...
 	rm -f $(TARGETS) $(TEST_TARGET) $(OBJECTS) inc/*~ src/*~ *~ *.a
 
 .PHONY: all clean
