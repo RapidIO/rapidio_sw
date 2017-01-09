@@ -34,18 +34,26 @@ TOPDIR?=$(shell pwd)/../..
 include $(TOPDIR)/rules.mk
 
 NAME=fmd
+TARGETS=$(NAME)
+
+OBJECTS:=$(patsubst src/%.c,src/%.o,$(wildcard src/*.c))
+
 LOG_LEVEL ?= 1
 
 LOCAL_LIBRARY_DIR ?= libs_a
 
 LIB_DIRS?= -L$(COMMONLIB) -L../$(LOCAL_LIBRARY_DIR) $(LIBS_RPATH)
 
-OBJECTS:=$(patsubst src/%.c,src/%.o,$(wildcard src/*.c))
-
 CXXFLAGS+=-I$(KDIR) -I$(RIODIR)
 CXXFLAGS+=-I$(FMDDIR)/inc
 
+.PHONY: all clean fmd
+
+
+all: $(TARGETS)
+
 src/%.o: src/%.c
+	@echo ---------- Building $@
 	$(CXX) $(CXXFLAGS) -o $@ $< -c \
 	-I../libdid/inc \
 	-I../libct/inc \
@@ -56,11 +64,9 @@ src/%.o: src/%.c
 	-I../libmport/inc \
 	-D$(DEBUG_CTL) -DRDMA_LL=$(LOG_LEVEL)
 
-all: fmd
-
 # The Fabric Management Daemon
-fmd:  $(OBJECTS) 
-	@echo ---------- Building $(NAME)...
+fmd: $(OBJECTS)
+	@echo ---------- Building $@
 	$(CXX) -pthread \
 	-o $@ $(OBJECTS) $(LIB_DIRS) \
 	-lcfg -lct -ldid -lpe_mpdrv -lrio_switch -lriocp_pe \
@@ -68,5 +74,6 @@ fmd:  $(OBJECTS)
 	-lrt -ldl $(TST_LIBS)
 
 clean:
-	@echo ---------- Cleaning $(NAME)...
-	rm -f $(OBJECTS) inc/*~ src/*~ *~ fmd
+	@echo ---------- Cleaning lib$(NAME)...
+	rm -f $(OBJECTS) \
+	inc/*~ src/*~ test/*~ *~

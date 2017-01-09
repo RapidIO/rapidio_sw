@@ -44,15 +44,13 @@ CXXFLAGS+=-I$(FMDDIR)/librio_switch/inc
 LDFLAGS+=-L. -L$(COMMONLIB) $(LIBS_RPATH) -l$(NAME)
 
 
-.PHONY: all clean test
+.PHONY: all clean
 
 ifdef TEST
 all: $(TARGETS) $(TEST_TARGETS)
 else
 all: $(TARGETS)
 endif
-
-test: $(TEST_TARGETS)
 
 %.a: $(OBJECTS)
 	@echo ---------- Building $@

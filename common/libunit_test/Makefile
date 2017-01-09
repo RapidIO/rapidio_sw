@@ -45,7 +45,7 @@ LINK_FLAGS+= -rdynamic -shared -Wl,-soname,lib$(NAME).so.$(SOVER)
 LDFLAGS+=-L. -L$(COMMONLIB) $(LIBS_RPATH) -l$(NAME)
 
 
-.PHONY: all clean test
+.PHONY: all clean
 
 ifdef TEST
 all: $(TARGETS) $(TEST_TARGET)
@@ -53,8 +53,6 @@ else
 all: $(TARGETS)
 endif
 
-test: $(TEST_TARGET)
- 
 %.a: $(OBJECTS)
 	@echo ---------- Building $@
 	$(AR) rcs $@ $^

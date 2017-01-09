@@ -50,7 +50,8 @@ CCFLAGS= $(CXXFLAGS) -fPIC -Wall -I. \
 	-DRDMA_LL=$(level)
 
 LIB_DEPS= libdid libct libriocp_pe libcli librio_switch libdd libcfg libpe_mpdrv
-.PHONY: $(LIB_DEPS)
+
+.PHONY: all clean daemon libfmdd $(LIB_DEPS)
 
 all: daemon libfmdd
 
@@ -107,7 +108,7 @@ FORCE:
 
 clean:
 	rm -f fmd *.o *~ inc/*~ *.exe core $(LOCAL_LIBRARY_DIR)/*.so \
-		$(LOCAL_LIBRARY_DIR)/*.a
+	$(LOCAL_LIBRARY_DIR)/*.a
 	$(MAKE) clean -C daemon
 	$(MAKE) clean -C libcfg
 	$(MAKE) clean -C libct
