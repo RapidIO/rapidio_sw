@@ -39,27 +39,17 @@ if [ $PRINTHELP = 1 ] ; then
 fi
 
 MASTER=$1
-SLAVES=( )
 ALLNODES=( $1 )
-NODE2=""
-NODE3=""
-NODE4=""
 
 if [ $2 != 'none' ]; then
-	NODE2=$2
-	SLAVES[1]=$2
 	ALLNODES[1]=$2
 fi
 
 if [ $3 != 'none' ]; then
-	NODE3=$3
-	SLAVES[2]=$3
 	ALLNODES[2]=$3
 fi
 
 if [ $4 != 'none' ]; then
-	NODE4=$4
-	SLAVES[3]=$4
 	ALLNODES[3]=$4
 fi
 
