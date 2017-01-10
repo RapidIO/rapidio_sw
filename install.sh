@@ -12,8 +12,8 @@ if [ "$#" -lt 7 ]; then
 elif [ $5 != 'mem34' -a $5 != 'mem50' -a $5 != 'mem66' ] ; then
 	echo $'\nmemsz parameter must be mem34, mem50, or mem66.\n'
 	PRINTHELP=1
-elif [ $6 != 'PD_tor' -a $6 != 'SB_re' -a $6 != '5G' -a $6 != '5G-PWR' -a $6 != 'AUTO' -a $6 != 'RXS' ] ; then
-	echo $'\nsw parameter must be PD_tor or SB_re or 5G or 5G-PWR or AUTO\n'
+elif [ $6 != 'PD_tor' -a $6 != 'SB_re' -a $6 != 'AUTO' -a $6 != 'RXS' ] ; then
+	echo $'\nsw parameter must be PD_tor, SB_re, AUTO or RXS.\n'
 	PRINTHELP=1
 fi
 
@@ -29,8 +29,6 @@ if [ $PRINTHELP = 1 ] ; then
     echo "<sw>    Type of switch the four nodes are connected to."
     echo "        PD_tor - Prodrive Technologies Top of Rack Switch"
     echo "        SB_re  - StarBridge Inc RapidExpress Switch"
-    echo "        5G     - 5G lab configuration"
-    echo "        5G-PWR - 5G lab configuration for Power-8 nodes"
     echo "        AUTO   - configuration determined at runtime"
     echo "        RXS    - RXS configuration"
     echo "<group> Unix file ownership group which should have access to"
@@ -75,7 +73,7 @@ do
 	[ "$host" = 'none' ] && continue;
 	ping -c 1 $i > /dev/null
 	if [ $? -ne 0 ]; then
-		echo $i " Not accessible, aborting..."
+		echo $i " not accessible, aborting..."
 		exit
 	else
 		echo $i "accessible."
@@ -108,14 +106,6 @@ fi
 
 if [ "$SW_TYPE" = 'PD_tor' ]; then
 	MASTER_CONFIG_FILE=install/tor-master.conf
-fi
-
-if [ "$SW_TYPE" = '5G' ]; then
-	MASTER_CONFIG_FILE=install/5g-master.conf
-fi
-
-if [ "$SW_TYPE" = '5G-PWR' ]; then
-	MASTER_CONFIG_FILE=install/5g-pwr-master.conf
 fi
 
 if [ "$SW_TYPE" = 'RXS' ]; then
@@ -204,4 +194,4 @@ rm /tmp/nodelist.sh
 
 exit
 
-echo "Installion complete."
+echo "Installation complete."
