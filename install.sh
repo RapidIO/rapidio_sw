@@ -39,34 +39,22 @@ if [ $PRINTHELP = 1 ] ; then
 fi
 
 MASTER=$1
-ALLNODES=( $1 )
-
-if [ $2 != 'none' ]; then
-	ALLNODES[1]=$2
-fi
-
-if [ $3 != 'none' ]; then
-	ALLNODES[2]=$3
-fi
-
-if [ $4 != 'none' ]; then
-	ALLNODES[3]=$4
-fi
+ALLNODES=( $1 $2 $3 $4 )
 
 MEMSZ=$5
 SW_TYPE=$6
 GRP=$7
 REL=$8
 
-for i in "${ALLNODES[@]}"
+for host in "${ALLNODES[@]}"
 do
 	[ "$host" = 'none' ] && continue;
-	ping -c 1 $i > /dev/null
+	ping -c 1 $host > /dev/null
 	if [ $? -ne 0 ]; then
-		echo $i " not accessible, aborting..."
+		echo $host " not accessible, aborting..."
 		exit
 	else
-		echo $i "accessible."
+		echo $host "accessible."
 	fi
 done
 
@@ -99,7 +87,7 @@ if [ "$SW_TYPE" = 'PD_tor' ]; then
 fi
 
 if [ "$SW_TYPE" = 'RXS' ]; then
-        MASTER_CONFIG_FILE=install/rxs-master.conf
+	MASTER_CONFIG_FILE=install/rxs-master.conf
 fi
 
 destids=($(grep ENDPOINT $MASTER_CONFIG_FILE | grep PORT | awk '{print $12}'))
@@ -113,7 +101,6 @@ MASTDEST=${destids[0]}
 for c in $(seq 1 3); do
   host=${ALLNODES[c]};
   [ "$host" = 'none' ] && continue;
-  [ -z "$host" ] && continue;
   ssh root@"$host" "rm -f $FILENAME";
 done
 
@@ -121,7 +108,7 @@ HOSTL='';
 let c=0;
 for host in  "${ALLNODES[@]}"; do
   let c=c+1;
-  # We allow none for sake of awk substitution
+  [ "$host" = 'none' ] && continue;
   HOSTL="$HOSTL -vH$c=$host";
 done
 
