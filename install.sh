@@ -90,16 +90,11 @@ if [ "$SW_TYPE" = 'RXS' ]; then
 	MASTER_CONFIG_FILE=install/rxs-master.conf
 fi
 
-destids=($(grep ENDPOINT $MASTER_CONFIG_FILE | grep PORT | awk '{print $12}'))
-comptags=($(grep ENDPOINT $MASTER_CONFIG_FILE | grep PORT | awk '{print $5}'))
-
 FILENAME=$CONFIG_PATH/fmd.conf
-MASTDEST=${destids[0]}
 
-# FMD slaves go first.
 # Slaves do not need a configuration file - make sure it is gone.
-for c in $(seq 1 3); do
-  host=${ALLNODES[c]};
+# No harm in deleting it from master while we are at it.
+for host in  "${ALLNODES[@]}"; do
   [ "$host" = 'none' ] && continue;
   ssh root@"$host" "rm -f $FILENAME";
 done
