@@ -115,7 +115,7 @@ static void rxs_test_setup(void)
 	for (pnum = 0; pnum < MAX_DAR_PORTS; pnum++) { 
 		pp_ctrs[pnum].pnum = pnum;
 		pp_ctrs[pnum].ctrs_cnt = RXS2448_MAX_SC;
-		for (idx = 0; idx < IDT_MAX_SC; idx++) {
+		for (idx = 0; idx < RIO_MAX_SC; idx++) {
 			pp_ctrs[pnum].ctrs[idx] = init;
 		}
        }
@@ -361,32 +361,11 @@ static int teardown(void **state)
 
 void assumptions_test(void **state)
 {
-	const char *name;
-
 	// verify constants
         assert_int_equal(8, RXS2448_MAX_SC);
         assert_int_equal(24, RXS2448_MAX_PORTS);
         assert_int_equal(48, RXS2448_MAX_LANES);
 
-	// Verify that names array is correctly defined
-        assert_string_equal("Disabled__", SC_NAME(idt_sc_disabled));
-        assert_string_equal("Enabled___", SC_NAME(idt_sc_enabled));
-
-        assert_string_equal("ALL____PKT", SC_NAME(idt_sc_pkt));
-        assert_string_equal("FAB____PKT", SC_NAME(idt_sc_fab_pkt));
-        assert_string_equal("8B_DAT_PKT", SC_NAME(idt_sc_rio_pload));
-        assert_string_equal("8B_DAT_PKT", SC_NAME(idt_sc_fab_pload));
-        assert_string_equal("RAW_BWIDTH", SC_NAME(idt_sc_rio_bwidth));
-        assert_string_equal("Retry___CS", SC_NAME(idt_sc_retries));
-        assert_string_equal("PktNotA_CS", SC_NAME(idt_sc_pna));
-        assert_string_equal("Drop___PKT", SC_NAME(idt_sc_pkt_drop));
-
-        assert_string_equal("Last______", SC_NAME(idt_sc_last));
-        assert_string_equal("Invalid___", SC_NAME(idt_sc_last + 1));
-
-        assert_int_equal(RIO_SUCCESS, idt_sc_other_if_names(
-                                &mock_dev_info, &name));
-        assert_string_equal("FABRIC", name);
 	(void)state; // unused
 }
 

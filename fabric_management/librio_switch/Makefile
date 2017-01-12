@@ -25,8 +25,8 @@ CFLAGS+=-I$(FMDDIR)/librio_switch/inc
 
 LDFLAGS+=-Wl,--wrap=DARRegRead -Wl,--wrap=DARRegWrite
 LDFLAGS+=-L. -L$(COMMONLIB) -L$(FMDDIR)/libs_a $(LIBS_RPATH) -l$(NAME)
-LDFLAGS+=-lcmocka
 
+TST_LIBS+=-lcli
 
 .PHONY: all clean
 
