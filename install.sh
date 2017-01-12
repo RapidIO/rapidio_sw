@@ -39,44 +39,22 @@ if [ $PRINTHELP = 1 ] ; then
 fi
 
 MASTER=$1
-SLAVES=( )
-ALLNODES=( $1 )
-NODE2=""
-NODE3=""
-NODE4=""
-
-if [ $2 != 'none' ]; then
-	NODE2=$2
-	SLAVES[1]=$2
-	ALLNODES[1]=$2
-fi
-
-if [ $3 != 'none' ]; then
-	NODE3=$3
-	SLAVES[2]=$3
-	ALLNODES[2]=$3
-fi
-
-if [ $4 != 'none' ]; then
-	NODE4=$4
-	SLAVES[3]=$4
-	ALLNODES[3]=$4
-fi
+ALLNODES=( $1 $2 $3 $4 )
 
 MEMSZ=$5
 SW_TYPE=$6
 GRP=$7
 REL=$8
 
-for i in "${ALLNODES[@]}"
+for host in "${ALLNODES[@]}"
 do
 	[ "$host" = 'none' ] && continue;
-	ping -c 1 $i > /dev/null
+	ping -c 1 $host > /dev/null
 	if [ $? -ne 0 ]; then
-		echo $i " not accessible, aborting..."
+		echo $host " not accessible, aborting..."
 		exit
 	else
-		echo $i "accessible."
+		echo $host "accessible."
 	fi
 done
 
@@ -109,21 +87,15 @@ if [ "$SW_TYPE" = 'PD_tor' ]; then
 fi
 
 if [ "$SW_TYPE" = 'RXS' ]; then
-        MASTER_CONFIG_FILE=install/rxs-master.conf
+	MASTER_CONFIG_FILE=install/rxs-master.conf
 fi
 
-destids=($(grep ENDPOINT $MASTER_CONFIG_FILE | grep PORT | awk '{print $12}'))
-comptags=($(grep ENDPOINT $MASTER_CONFIG_FILE | grep PORT | awk '{print $5}'))
-
 FILENAME=$CONFIG_PATH/fmd.conf
-MASTDEST=${destids[0]}
 
-# FMD slaves go first.
 # Slaves do not need a configuration file - make sure it is gone.
-for c in $(seq 1 3); do
-  host=${ALLNODES[c]};
+# No harm in deleting it from master while we are at it.
+for host in  "${ALLNODES[@]}"; do
   [ "$host" = 'none' ] && continue;
-  [ -z "$host" ] && continue;
   ssh root@"$host" "rm -f $FILENAME";
 done
 
@@ -131,7 +103,7 @@ HOSTL='';
 let c=0;
 for host in  "${ALLNODES[@]}"; do
   let c=c+1;
-  # We allow none for sake of awk substitution
+  [ "$host" = 'none' ] && continue;
   HOSTL="$HOSTL -vH$c=$host";
 done
 
