@@ -479,6 +479,7 @@ uint32_t idt_sc_config_dev_ctrs(DAR_DEV_INFO_t *dev_h,
 					goto exit;
 				};
 			};
+			break;
 
 		case RIO_DEVI_IDT_TSI721: // No configuration required.
 			break;
