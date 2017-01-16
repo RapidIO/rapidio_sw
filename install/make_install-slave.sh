@@ -1,11 +1,16 @@
 #!/bin/bash
-cd $1
-make -s clean
-make -s all
-doxygen doxyconfig
-git status
-cd utils/goodput/scripts
-## Create scripts required for DMA TUN and others...
-./create_start_scripts.sh 0 234 0x200000000
-cd ../../../..
-chgrp -R $2 rapidio_sw
+# usage: ./make_install.sh <server> <rootPath> <memSize> <unixGroup>
+
+# Common to both master and slave
+#
+INSTALL_ROOT="/opt/rapidio/.install"
+. $INSTALL_ROOT/script/make_install_common.sh $1 $2 $3 $4
+
+
+# Set ownership of files
+#
+cd $SOURCE_PATH/..
+chown -R root.$GRP rapidio_sw
+
+cd $CONFIG_PATH/..
+chown -R root.$GRP rapidio
