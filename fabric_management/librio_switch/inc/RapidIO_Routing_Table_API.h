@@ -151,9 +151,9 @@ typedef enum idt_rt_disc_reason_t_TAG
    idt_rt_disc_dflt_pt_used          =0x16, // DEPRECATED
 } idt_rt_disc_reason_t;
 
-extern char *idt_em_disc_reason_names[ (uint8_t)(idt_rt_disc_last) ];
+extern char *rio_em_disc_reason_names[ (uint8_t)(idt_rt_disc_last) ];
 
-#define DISC_REASON_STR(x) ((x < (uint8_t)(idt_rt_disc_last))?(idt_em_disc_reason_names[x]):"OORange")
+#define DISC_REASON_STR(x) ((x < (uint8_t)(idt_rt_disc_last))?(rio_em_disc_reason_names[x]):"OORange")
 
 typedef struct idt_rt_mc_info_t_TAG
 {

@@ -56,15 +56,15 @@ extern void check_multicast_routing( DAR_DEV_INFO_t     *dev_info,
                                      idt_rt_probe_in_t  *in_parms, 
                                      idt_rt_probe_out_t *out_parms );
 
-extern void add_pw_event( idt_em_get_pw_stat_in_t   *in_parms, 
-                          idt_em_get_pw_stat_out_t  *out_parms,
+extern void add_pw_event( rio_em_get_pw_stat_in_t   *in_parms, 
+                          rio_em_get_pw_stat_out_t  *out_parms,
                           uint8_t                      pnum,
-                          idt_em_events_t            event );
+                          rio_em_events_t            event );
 
-extern void add_int_event( idt_em_get_int_stat_in_t   *in_parms, 
-                           idt_em_get_int_stat_out_t  *out_parms,
+extern void add_int_event( rio_em_get_int_stat_in_t   *in_parms, 
+                           rio_em_get_int_stat_out_t  *out_parms,
                            uint8_t                       pnum,
-                           idt_em_events_t             event );
+                           rio_em_events_t             event );
 
 // Generic routines for allocating/deallocating a multicast mask.
 extern uint32_t IDT_DSF_rt_alloc_mc_mask( DAR_DEV_INFO_t              *dev_info, 
@@ -178,41 +178,41 @@ typedef struct IDT_DSF_DB_t_TAG
                                     idt_rt_change_mc_mask_out_t *out_parms );
 
   // Event Management Routines
-  uint32_t (*idt_em_cfg_pw)        ( DAR_DEV_INFO_t                *dev_info, 
-                                   idt_em_cfg_pw_in_t            *in_parms, 
-                                   idt_em_cfg_pw_out_t           *out_parms );
+  uint32_t (*rio_em_cfg_pw)        ( DAR_DEV_INFO_t                *dev_info, 
+                                   rio_em_cfg_pw_in_t            *in_parms, 
+                                   rio_em_cfg_pw_out_t           *out_parms );
 
- uint32_t (*idt_em_cfg_set)        ( DAR_DEV_INFO_t                *dev_info, 
-                                   idt_em_cfg_set_in_t           *in_parms, 
-                                   idt_em_cfg_set_out_t          *out_parms );
+ uint32_t (*rio_em_cfg_set)        ( DAR_DEV_INFO_t                *dev_info, 
+                                   rio_em_cfg_set_in_t           *in_parms, 
+                                   rio_em_cfg_set_out_t          *out_parms );
 
- uint32_t (*idt_em_cfg_get)        ( DAR_DEV_INFO_t                *dev_info, 
-                                   idt_em_cfg_get_in_t           *in_parms, 
-                                   idt_em_cfg_get_out_t          *out_parms );
+ uint32_t (*rio_em_cfg_get)        ( DAR_DEV_INFO_t                *dev_info, 
+                                   rio_em_cfg_get_in_t           *in_parms, 
+                                   rio_em_cfg_get_out_t          *out_parms );
 
- uint32_t (*idt_em_dev_rpt_ctl)    ( DAR_DEV_INFO_t                *dev_info, 
-                                   idt_em_dev_rpt_ctl_in_t        *in_parms, 
-                                   idt_em_dev_rpt_ctl_out_t       *out_parms );
+ uint32_t (*rio_em_dev_rpt_ctl)    ( DAR_DEV_INFO_t                *dev_info, 
+                                   rio_em_dev_rpt_ctl_in_t        *in_parms, 
+                                   rio_em_dev_rpt_ctl_out_t       *out_parms );
 
- uint32_t (*idt_em_parse_pw)       ( DAR_DEV_INFO_t                *dev_info, 
-                                   idt_em_parse_pw_in_t          *in_parms, 
-                                   idt_em_parse_pw_out_t         *out_parms );
+ uint32_t (*rio_em_parse_pw)       ( DAR_DEV_INFO_t                *dev_info, 
+                                   rio_em_parse_pw_in_t          *in_parms, 
+                                   rio_em_parse_pw_out_t         *out_parms );
 
- uint32_t (*idt_em_get_int_stat)   ( DAR_DEV_INFO_t                *dev_info, 
-                                   idt_em_get_int_stat_in_t      *in_parms, 
-                                   idt_em_get_int_stat_out_t     *out_parms );
+ uint32_t (*rio_em_get_int_stat)   ( DAR_DEV_INFO_t                *dev_info, 
+                                   rio_em_get_int_stat_in_t      *in_parms, 
+                                   rio_em_get_int_stat_out_t     *out_parms );
 
- uint32_t (*idt_em_get_pw_stat)    ( DAR_DEV_INFO_t                *dev_info, 
-                                   idt_em_get_pw_stat_in_t       *in_parms, 
-                                   idt_em_get_pw_stat_out_t      *out_parms );
+ uint32_t (*rio_em_get_pw_stat)    ( DAR_DEV_INFO_t                *dev_info, 
+                                   rio_em_get_pw_stat_in_t       *in_parms, 
+                                   rio_em_get_pw_stat_out_t      *out_parms );
 
- uint32_t (*idt_em_clr_events)     ( DAR_DEV_INFO_t                *dev_info, 
-                                   idt_em_clr_events_in_t        *in_parms, 
-                                   idt_em_clr_events_out_t       *out_parms );
+ uint32_t (*rio_em_clr_events)     ( DAR_DEV_INFO_t                *dev_info, 
+                                   rio_em_clr_events_in_t        *in_parms, 
+                                   rio_em_clr_events_out_t       *out_parms );
  
- uint32_t (*idt_em_create_events)  ( DAR_DEV_INFO_t                *dev_info, 
-                                   idt_em_create_events_in_t     *in_parms, 
-                                   idt_em_create_events_out_t    *out_parms );
+ uint32_t (*rio_em_create_events)  ( DAR_DEV_INFO_t                *dev_info, 
+                                   rio_em_create_events_in_t     *in_parms, 
+                                   rio_em_create_events_out_t    *out_parms );
 				   
   // Statistics Counter Generic Routines
   // Note: There are implementation specific counter configuration

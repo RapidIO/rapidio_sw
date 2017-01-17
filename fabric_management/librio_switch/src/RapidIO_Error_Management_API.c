@@ -36,7 +36,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 extern "C" {
 #endif
 
-char *idt_em_events_names[ idt_em_last ] = {
+char *rio_em_events_names[ rio_em_last ] = {
     (char *)"FLossOfSig"  ,
     (char *)"FPortErr"    ,
     (char *)"F2ManyReTx"  , 
@@ -52,7 +52,7 @@ char *idt_em_events_names[ idt_em_last ] = {
     (char *)"ANoEvent"  
 };
 
-char *idt_em_notfn_names[ idt_em_notfn_last ] = {
+char *rio_em_notfn_names[ rio_em_notfn_last ] = {
      (char *)"NtfnNone"   ,
      (char *)"NtfnInt"    ,
      (char *)"NtfnPW"     ,
@@ -60,23 +60,23 @@ char *idt_em_notfn_names[ idt_em_notfn_last ] = {
      (char *)"NtfnNoChg"  
 };
 
-char *idt_em_detect_names[ idt_em_detect_last] = {
+char *rio_em_detect_names[ rio_em_detect_last] = {
      (char *)"DetOff"   ,
      (char *)"DetOn"    ,
      (char *)"DetNoChg" 
 };
 
-#define IDT_EM_REC_ERR_SET_LINK_TO       ((uint32_t)(0x0001))
-#define IDT_EM_REC_ERR_SET_CS_ACK_ILL    ((uint32_t)(0x0002))
-#define IDT_EM_REC_ERR_SET_DELIN_ERR     ((uint32_t)(0x0004))
-#define IDT_EM_REC_ERR_SET_PROT_ERR      ((uint32_t)(0x0008))
-#define IDT_EM_REC_ERR_SET_LR_ACKID_ILL  ((uint32_t)(0x0010))
-#define IDT_EM_REC_ERR_SET_PKT_ILL_SIZE  ((uint32_t)(0x0020))
-#define IDT_EM_REC_ERR_SET_PKT_CRC_ERR   ((uint32_t)(0x0040))
-#define IDT_EM_REC_ERR_SET_PKT_ILL_ACKID ((uint32_t)(0x0080))
-#define IDT_EM_REC_ERR_SET_CS_NOT_ACC    ((uint32_t)(0x0100))
-#define IDT_EM_REC_ERR_SET_CS_ILL_ID     ((uint32_t)(0x0200))
-#define IDT_EM_REC_ERR_SET_CS_CRC_ERR    ((uint32_t)(0x0400))
+#define RIO_EM_REC_ERR_SET_LINK_TO       ((uint32_t)(0x0001))
+#define RIO_EM_REC_ERR_SET_CS_ACK_ILL    ((uint32_t)(0x0002))
+#define RIO_EM_REC_ERR_SET_DELIN_ERR     ((uint32_t)(0x0004))
+#define RIO_EM_REC_ERR_SET_PROT_ERR      ((uint32_t)(0x0008))
+#define RIO_EM_REC_ERR_SET_LR_ACKID_ILL  ((uint32_t)(0x0010))
+#define RIO_EM_REC_ERR_SET_PKT_ILL_SIZE  ((uint32_t)(0x0020))
+#define RIO_EM_REC_ERR_SET_PKT_CRC_ERR   ((uint32_t)(0x0040))
+#define RIO_EM_REC_ERR_SET_PKT_ILL_ACKID ((uint32_t)(0x0080))
+#define RIO_EM_REC_ERR_SET_CS_NOT_ACC    ((uint32_t)(0x0100))
+#define RIO_EM_REC_ERR_SET_CS_ILL_ID     ((uint32_t)(0x0200))
+#define RIO_EM_REC_ERR_SET_CS_CRC_ERR    ((uint32_t)(0x0400))
 
 typedef struct rec_err_n_spx_err_t_TAG
 {
@@ -87,17 +87,17 @@ typedef struct rec_err_n_spx_err_t_TAG
 // Convert from standard bit mask encodings to consecutive bit encodings.
 
 rec_err_n_spx_err_t rec_err_spx_err_table[] = {
-   { IDT_EM_REC_ERR_SET_LINK_TO      , RIO_EMHS_SPX_ERR_DET_LINK_TO      },
-   { IDT_EM_REC_ERR_SET_CS_ACK_ILL   , RIO_EMHS_SPX_ERR_DET_CS_ACK_ILL   },
-   { IDT_EM_REC_ERR_SET_DELIN_ERR    , RIO_EMHS_SPX_ERR_DET_DELIN_ERR    },
-   { IDT_EM_REC_ERR_SET_PROT_ERR     , RIO_EMHS_SPX_ERR_DET_PROT_ERR     },
-   { IDT_EM_REC_ERR_SET_LR_ACKID_ILL , RIO_EMHS_SPX_ERR_DET_LR_ACKID_ILL },
-   { IDT_EM_REC_ERR_SET_PKT_ILL_SIZE , RIO_EMHS_SPX_ERR_DET_PKT_ILL_SIZE },
-   { IDT_EM_REC_ERR_SET_PKT_CRC_ERR  , RIO_EMHS_SPX_ERR_DET_PKT_CRC_ERR  },
-   { IDT_EM_REC_ERR_SET_PKT_ILL_ACKID, RIO_EMHS_SPX_ERR_DET_PKT_ILL_ACKID},
-   { IDT_EM_REC_ERR_SET_CS_NOT_ACC   , RIO_EMHS_SPX_ERR_DET_CS_NOT_ACC   },
-   { IDT_EM_REC_ERR_SET_CS_ILL_ID    , RIO_EMHS_SPX_ERR_DET_CS_ILL_ID    },
-   { IDT_EM_REC_ERR_SET_CS_CRC_ERR   , RIO_EMHS_SPX_ERR_DET_CS_CRC_ERR   } 
+   { RIO_EM_REC_ERR_SET_LINK_TO      , RIO_EMHS_SPX_ERR_DET_LINK_TO      },
+   { RIO_EM_REC_ERR_SET_CS_ACK_ILL   , RIO_EMHS_SPX_ERR_DET_CS_ACK_ILL   },
+   { RIO_EM_REC_ERR_SET_DELIN_ERR    , RIO_EMHS_SPX_ERR_DET_DELIN_ERR    },
+   { RIO_EM_REC_ERR_SET_PROT_ERR     , RIO_EMHS_SPX_ERR_DET_PROT_ERR     },
+   { RIO_EM_REC_ERR_SET_LR_ACKID_ILL , RIO_EMHS_SPX_ERR_DET_LR_ACKID_ILL },
+   { RIO_EM_REC_ERR_SET_PKT_ILL_SIZE , RIO_EMHS_SPX_ERR_DET_PKT_ILL_SIZE },
+   { RIO_EM_REC_ERR_SET_PKT_CRC_ERR  , RIO_EMHS_SPX_ERR_DET_PKT_CRC_ERR  },
+   { RIO_EM_REC_ERR_SET_PKT_ILL_ACKID, RIO_EMHS_SPX_ERR_DET_PKT_ILL_ACKID},
+   { RIO_EM_REC_ERR_SET_CS_NOT_ACC   , RIO_EMHS_SPX_ERR_DET_CS_NOT_ACC   },
+   { RIO_EM_REC_ERR_SET_CS_ILL_ID    , RIO_EMHS_SPX_ERR_DET_CS_ILL_ID    },
+   { RIO_EM_REC_ERR_SET_CS_CRC_ERR   , RIO_EMHS_SPX_ERR_DET_CS_CRC_ERR   } 
 };
 
 // Encoding for RB, index = RB value
@@ -115,7 +115,7 @@ uint32_t rio_spx_err_rate_err_rb_vals[] = {
 
 #define RB_SHIFT_AMT 20
 
-uint32_t idt_em_compute_f_err_rate_info( uint32_t spx_rate_en,
+uint32_t rio_em_compute_f_err_rate_info( uint32_t spx_rate_en,
 		                       uint32_t spx_err_rate,
 				       uint32_t spx_err_thresh,
 				       uint32_t *info          )
@@ -134,7 +134,7 @@ uint32_t idt_em_compute_f_err_rate_info( uint32_t spx_rate_en,
    };
 
    if (spx_rate_en & ~all_errs) {
-      goto idt_em_compute_f_err_rate_info_exit;
+      goto rio_em_compute_f_err_rate_info_exit;
    };
 
    *info |= (RIO_EMHS_SPX_RATE_RR    & spx_err_rate  );
@@ -150,16 +150,16 @@ uint32_t idt_em_compute_f_err_rate_info( uint32_t spx_rate_en,
    };
 
    if (!found_one)
-      goto idt_em_compute_f_err_rate_info_exit;
+      goto rio_em_compute_f_err_rate_info_exit;
 
    rc = RIO_SUCCESS;
 
-idt_em_compute_f_err_rate_info_exit:
+rio_em_compute_f_err_rate_info_exit:
    return rc;
 };
 
 
-uint32_t idt_em_get_f_err_rate_info( uint32_t  info          ,
+uint32_t rio_em_get_f_err_rate_info( uint32_t  info          ,
 		                   uint32_t *spx_rate_en   ,
 		                   uint32_t *spx_err_rate  ,
 				   uint32_t *spx_err_thresh )
@@ -179,22 +179,22 @@ uint32_t idt_em_get_f_err_rate_info( uint32_t  info          ,
 
    info = (info & 0x00F00000) >> RB_SHIFT_AMT;
    if (info >= sizeof(rio_spx_err_rate_err_rb_vals)/sizeof(rio_spx_err_rate_err_rb_vals[0]))
-      goto idt_em_compute_f_err_rate_info_exit;
+      goto rio_em_compute_f_err_rate_info_exit;
 
    *spx_err_rate |= rio_spx_err_rate_err_rb_vals[info];
 
    rc = RIO_SUCCESS;
 
-idt_em_compute_f_err_rate_info_exit:
+rio_em_compute_f_err_rate_info_exit:
    return rc;
 };
 
 // Routines to configure port write transmission, 
 // and set/query specific event detection/reporting.
 
-uint32_t idt_em_cfg_pw  ( DAR_DEV_INFO_t       *dev_info, 
-                        idt_em_cfg_pw_in_t   *in_parms, 
-                        idt_em_cfg_pw_out_t  *out_parms )
+uint32_t rio_em_cfg_pw  ( DAR_DEV_INFO_t       *dev_info, 
+                        rio_em_cfg_pw_in_t   *in_parms, 
+                        rio_em_cfg_pw_out_t  *out_parms )
 { 
     uint32_t rc =  DAR_DB_INVALID_HANDLE;
 
@@ -203,7 +203,7 @@ uint32_t idt_em_cfg_pw  ( DAR_DEV_INFO_t       *dev_info,
     if ( VALIDATE_DEV_INFO(dev_info) )
     {
         if ( IDT_DSF_INDEX(dev_info) < DAR_DB_MAX_DRIVERS )
-            rc = IDT_DB[IDT_DSF_INDEX(dev_info)].idt_em_cfg_pw(
+            rc = IDT_DB[IDT_DSF_INDEX(dev_info)].rio_em_cfg_pw(
                     dev_info, in_parms, out_parms
                  );
     };
@@ -211,9 +211,9 @@ uint32_t idt_em_cfg_pw  ( DAR_DEV_INFO_t       *dev_info,
     return rc;
 };
 
-uint32_t idt_em_cfg_set  ( DAR_DEV_INFO_t       *dev_info, 
-                        idt_em_cfg_set_in_t   *in_parms, 
-                        idt_em_cfg_set_out_t  *out_parms ) 
+uint32_t rio_em_cfg_set  ( DAR_DEV_INFO_t       *dev_info, 
+                        rio_em_cfg_set_in_t   *in_parms, 
+                        rio_em_cfg_set_out_t  *out_parms ) 
 { 
     uint32_t rc =  DAR_DB_INVALID_HANDLE;
 
@@ -222,7 +222,7 @@ uint32_t idt_em_cfg_set  ( DAR_DEV_INFO_t       *dev_info,
     if ( VALIDATE_DEV_INFO(dev_info) )
     {
         if ( IDT_DSF_INDEX(dev_info) < DAR_DB_MAX_DRIVERS )
-            rc = IDT_DB[IDT_DSF_INDEX(dev_info)].idt_em_cfg_set(
+            rc = IDT_DB[IDT_DSF_INDEX(dev_info)].rio_em_cfg_set(
                     dev_info, in_parms, out_parms
                  );
     };
@@ -231,9 +231,9 @@ uint32_t idt_em_cfg_set  ( DAR_DEV_INFO_t       *dev_info,
 };
 
 
-uint32_t idt_em_cfg_get  ( DAR_DEV_INFO_t       *dev_info, 
-                        idt_em_cfg_get_in_t   *in_parms, 
-                        idt_em_cfg_get_out_t  *out_parms ) 
+uint32_t rio_em_cfg_get  ( DAR_DEV_INFO_t       *dev_info, 
+                        rio_em_cfg_get_in_t   *in_parms, 
+                        rio_em_cfg_get_out_t  *out_parms ) 
 { 
     uint32_t rc =  DAR_DB_INVALID_HANDLE;
 
@@ -242,7 +242,7 @@ uint32_t idt_em_cfg_get  ( DAR_DEV_INFO_t       *dev_info,
     if ( VALIDATE_DEV_INFO(dev_info) )
     {
         if ( IDT_DSF_INDEX(dev_info) < DAR_DB_MAX_DRIVERS )
-            rc = IDT_DB[IDT_DSF_INDEX(dev_info)].idt_em_cfg_get(
+            rc = IDT_DB[IDT_DSF_INDEX(dev_info)].rio_em_cfg_get(
                     dev_info, in_parms, out_parms
                  );
     };
@@ -254,9 +254,9 @@ uint32_t idt_em_cfg_get  ( DAR_DEV_INFO_t       *dev_info,
 // Routines to query and control port-write and interrupt
 // reporting configuration for a port/device.
 
-uint32_t idt_em_dev_rpt_ctl  ( DAR_DEV_INFO_t      *dev_info, 
-                       idt_em_dev_rpt_ctl_in_t   *in_parms, 
-                       idt_em_dev_rpt_ctl_out_t  *out_parms ) 
+uint32_t rio_em_dev_rpt_ctl  ( DAR_DEV_INFO_t      *dev_info, 
+                       rio_em_dev_rpt_ctl_in_t   *in_parms, 
+                       rio_em_dev_rpt_ctl_out_t  *out_parms ) 
 { 
     uint32_t rc =  DAR_DB_INVALID_HANDLE;
 
@@ -265,7 +265,7 @@ uint32_t idt_em_dev_rpt_ctl  ( DAR_DEV_INFO_t      *dev_info,
     if ( VALIDATE_DEV_INFO(dev_info) )
     {
         if ( IDT_DSF_INDEX(dev_info) < DAR_DB_MAX_DRIVERS )
-            rc = IDT_DB[IDT_DSF_INDEX(dev_info)].idt_em_dev_rpt_ctl(
+            rc = IDT_DB[IDT_DSF_INDEX(dev_info)].rio_em_dev_rpt_ctl(
                     dev_info, in_parms, out_parms
                  );
     };
@@ -277,9 +277,9 @@ uint32_t idt_em_dev_rpt_ctl  ( DAR_DEV_INFO_t      *dev_info,
 // and to query a port/device and return a list of asserted events 
 // which are reported via interrupt or port-write, 
 
-uint32_t idt_em_parse_pw  ( DAR_DEV_INFO_t       *dev_info, 
-                        idt_em_parse_pw_in_t   *in_parms, 
-                        idt_em_parse_pw_out_t  *out_parms ) 
+uint32_t rio_em_parse_pw  ( DAR_DEV_INFO_t       *dev_info, 
+                        rio_em_parse_pw_in_t   *in_parms, 
+                        rio_em_parse_pw_out_t  *out_parms ) 
 { 
     uint32_t rc =  DAR_DB_INVALID_HANDLE;
 
@@ -288,7 +288,7 @@ uint32_t idt_em_parse_pw  ( DAR_DEV_INFO_t       *dev_info,
     if ( VALIDATE_DEV_INFO(dev_info) )
     {
         if ( IDT_DSF_INDEX(dev_info) < DAR_DB_MAX_DRIVERS )
-            rc = IDT_DB[IDT_DSF_INDEX(dev_info)].idt_em_parse_pw(
+            rc = IDT_DB[IDT_DSF_INDEX(dev_info)].rio_em_parse_pw(
                     dev_info, in_parms, out_parms
                  );
     };
@@ -296,9 +296,9 @@ uint32_t idt_em_parse_pw  ( DAR_DEV_INFO_t       *dev_info,
     return rc;
 };
 
-uint32_t idt_em_get_int_stat  ( DAR_DEV_INFO_t       *dev_info, 
-                        idt_em_get_int_stat_in_t   *in_parms, 
-                        idt_em_get_int_stat_out_t  *out_parms ) 
+uint32_t rio_em_get_int_stat  ( DAR_DEV_INFO_t       *dev_info, 
+                        rio_em_get_int_stat_in_t   *in_parms, 
+                        rio_em_get_int_stat_out_t  *out_parms ) 
 { 
     uint32_t rc =  DAR_DB_INVALID_HANDLE;
 
@@ -307,7 +307,7 @@ uint32_t idt_em_get_int_stat  ( DAR_DEV_INFO_t       *dev_info,
     if ( VALIDATE_DEV_INFO(dev_info) )
     {
         if ( IDT_DSF_INDEX(dev_info) < DAR_DB_MAX_DRIVERS )
-            rc = IDT_DB[IDT_DSF_INDEX(dev_info)].idt_em_get_int_stat(
+            rc = IDT_DB[IDT_DSF_INDEX(dev_info)].rio_em_get_int_stat(
                     dev_info, in_parms, out_parms
                  );
     };
@@ -315,9 +315,9 @@ uint32_t idt_em_get_int_stat  ( DAR_DEV_INFO_t       *dev_info,
     return rc;
 };
 
-uint32_t idt_em_get_pw_stat  ( DAR_DEV_INFO_t       *dev_info, 
-                        idt_em_get_pw_stat_in_t   *in_parms, 
-                        idt_em_get_pw_stat_out_t  *out_parms ) 
+uint32_t rio_em_get_pw_stat  ( DAR_DEV_INFO_t       *dev_info, 
+                        rio_em_get_pw_stat_in_t   *in_parms, 
+                        rio_em_get_pw_stat_out_t  *out_parms ) 
 { 
     uint32_t rc =  DAR_DB_INVALID_HANDLE;
 
@@ -326,7 +326,7 @@ uint32_t idt_em_get_pw_stat  ( DAR_DEV_INFO_t       *dev_info,
     if ( VALIDATE_DEV_INFO(dev_info) )
     {
         if ( IDT_DSF_INDEX(dev_info) < DAR_DB_MAX_DRIVERS )
-            rc = IDT_DB[IDT_DSF_INDEX(dev_info)].idt_em_get_pw_stat(
+            rc = IDT_DB[IDT_DSF_INDEX(dev_info)].rio_em_get_pw_stat(
                     dev_info, in_parms, out_parms
                  );
     };
@@ -337,9 +337,9 @@ uint32_t idt_em_get_pw_stat  ( DAR_DEV_INFO_t       *dev_info,
 // Routine to clear events, and a routine to create events
 // for software testing purposes.
 
-uint32_t idt_em_clr_events  ( DAR_DEV_INFO_t       *dev_info, 
-                        idt_em_clr_events_in_t   *in_parms, 
-                        idt_em_clr_events_out_t  *out_parms ) 
+uint32_t rio_em_clr_events  ( DAR_DEV_INFO_t       *dev_info, 
+                        rio_em_clr_events_in_t   *in_parms, 
+                        rio_em_clr_events_out_t  *out_parms ) 
 { 
     uint32_t rc =  DAR_DB_INVALID_HANDLE;
 
@@ -348,7 +348,7 @@ uint32_t idt_em_clr_events  ( DAR_DEV_INFO_t       *dev_info,
     if ( VALIDATE_DEV_INFO(dev_info) )
     {
         if ( IDT_DSF_INDEX(dev_info) < DAR_DB_MAX_DRIVERS )
-            rc = IDT_DB[IDT_DSF_INDEX(dev_info)].idt_em_clr_events(
+            rc = IDT_DB[IDT_DSF_INDEX(dev_info)].rio_em_clr_events(
                     dev_info, in_parms, out_parms
                  );
     };
@@ -356,9 +356,9 @@ uint32_t idt_em_clr_events  ( DAR_DEV_INFO_t       *dev_info,
     return rc;
 };
 
-uint32_t idt_em_create_events  ( DAR_DEV_INFO_t       *dev_info, 
-                        idt_em_create_events_in_t   *in_parms, 
-                        idt_em_create_events_out_t  *out_parms ) 
+uint32_t rio_em_create_events  ( DAR_DEV_INFO_t       *dev_info, 
+                        rio_em_create_events_in_t   *in_parms, 
+                        rio_em_create_events_out_t  *out_parms ) 
 { 
     uint32_t rc =  DAR_DB_INVALID_HANDLE;
 
@@ -367,7 +367,7 @@ uint32_t idt_em_create_events  ( DAR_DEV_INFO_t       *dev_info,
     if ( VALIDATE_DEV_INFO(dev_info) )
     {
         if ( IDT_DSF_INDEX(dev_info) < DAR_DB_MAX_DRIVERS )
-            rc = IDT_DB[IDT_DSF_INDEX(dev_info)].idt_em_create_events(
+            rc = IDT_DB[IDT_DSF_INDEX(dev_info)].rio_em_create_events(
                     dev_info, in_parms, out_parms
                  );
     };

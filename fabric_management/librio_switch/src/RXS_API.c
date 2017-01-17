@@ -1642,8 +1642,8 @@ uint32_t idt_rxs_pc_dev_reset_config( DAR_DEV_INFO_t                 *dev_info,
 }
 
 uint32_t idt_rxs_em_cfg_pw( DAR_DEV_INFO_t       *dev_info,
-	                    idt_em_cfg_pw_in_t   *in_parms,
-	                    idt_em_cfg_pw_out_t  *out_parms )
+	                    rio_em_cfg_pw_in_t   *in_parms,
+	                    rio_em_cfg_pw_out_t  *out_parms )
 {
 	if (NULL != dev_info)
 		out_parms->imp_rc = in_parms->imp_rc;
@@ -1652,8 +1652,8 @@ uint32_t idt_rxs_em_cfg_pw( DAR_DEV_INFO_t       *dev_info,
 }
 
 uint32_t idt_rxs_em_dev_rpt_ctl( DAR_DEV_INFO_t            *dev_info,
-	                         idt_em_dev_rpt_ctl_in_t   *in_parms,
-	                         idt_em_dev_rpt_ctl_out_t  *out_parms )
+	                         rio_em_dev_rpt_ctl_in_t   *in_parms,
+	                         rio_em_dev_rpt_ctl_out_t  *out_parms )
 {
 	if (NULL != dev_info)
 		out_parms->imp_rc = in_parms->ptl.num_ports;
@@ -1742,8 +1742,8 @@ uint32_t bind_rxs_DSF_support(void)
         idt_driver.idt_sc_init_dev_ctrs = idt_rxs_sc_init_dev_ctrs;
 	idt_driver.idt_sc_read_ctrs = idt_rxs_sc_read_ctrs;
 
-	idt_driver.idt_em_dev_rpt_ctl = idt_rxs_em_dev_rpt_ctl;
-	idt_driver.idt_em_cfg_pw = idt_rxs_em_cfg_pw;
+	idt_driver.rio_em_dev_rpt_ctl = idt_rxs_em_dev_rpt_ctl;
+	idt_driver.rio_em_cfg_pw = idt_rxs_em_cfg_pw;
 
 	IDT_DSF_bind_driver(&idt_driver, &RXS_driver_handle);
 

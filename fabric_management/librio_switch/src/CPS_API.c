@@ -300,15 +300,15 @@ uint32_t bind_CPS_DSF_support( void )
     idt_driver.idt_rt_change_rte      = IDT_CPS_rt_change_rte;
     idt_driver.idt_rt_change_mc_mask  = IDT_CPS_rt_change_mc_mask;
 
-    idt_driver.idt_em_cfg_pw       = IDT_CPS_em_cfg_pw       ;
-    idt_driver.idt_em_cfg_set      = IDT_CPS_em_cfg_set      ;
-    idt_driver.idt_em_cfg_get      = IDT_CPS_em_cfg_get      ;
-    idt_driver.idt_em_dev_rpt_ctl  = IDT_CPS_em_dev_rpt_ctl  ;
-    idt_driver.idt_em_parse_pw     = IDT_CPS_em_parse_pw     ;
-    idt_driver.idt_em_get_int_stat = IDT_CPS_em_get_int_stat ;
-    idt_driver.idt_em_get_pw_stat  = IDT_CPS_em_get_pw_stat  ;
-    idt_driver.idt_em_clr_events   = IDT_CPS_em_clr_events   ;
-    idt_driver.idt_em_create_events= IDT_CPS_em_create_events;
+    idt_driver.rio_em_cfg_pw       = IDT_CPS_em_cfg_pw       ;
+    idt_driver.rio_em_cfg_set      = IDT_CPS_em_cfg_set      ;
+    idt_driver.rio_em_cfg_get      = IDT_CPS_em_cfg_get      ;
+    idt_driver.rio_em_dev_rpt_ctl  = IDT_CPS_em_dev_rpt_ctl  ;
+    idt_driver.rio_em_parse_pw     = IDT_CPS_em_parse_pw     ;
+    idt_driver.rio_em_get_int_stat = IDT_CPS_em_get_int_stat ;
+    idt_driver.rio_em_get_pw_stat  = IDT_CPS_em_get_pw_stat  ;
+    idt_driver.rio_em_clr_events   = IDT_CPS_em_clr_events   ;
+    idt_driver.rio_em_create_events= IDT_CPS_em_create_events;
 
 	idt_driver.idt_sc_init_dev_ctrs= idt_cps_sc_init_dev_ctrs;
     idt_driver.idt_sc_read_ctrs    = idt_cps_sc_read_ctrs    ;

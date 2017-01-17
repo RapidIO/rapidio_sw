@@ -56,8 +56,8 @@ struct mpsw_drv_pe_state {
         idt_rt_state_t           pprt[IDT_MAX_PORTS]; /* Per port RT */
         idt_sc_p_ctrs_val_t      sc[IDT_MAX_PORTS]; /* Statistics counters */
         idt_sc_dev_ctrs_t        sc_dev; /* Device info for stats counters */
-        idt_em_cfg_pw_t          em_pw_cfg; /* Event Management Portwrite Cfg */
-        idt_em_dev_rpt_ctl_out_t em_notfn; /* Device notification control */
+        rio_em_cfg_pw_t          em_pw_cfg; /* Event Management Portwrite Cfg */
+        rio_em_dev_rpt_ctl_out_t em_notfn; /* Device notification control */
 };
 
 /** @brief Access info linked to dev_h->accessInfo

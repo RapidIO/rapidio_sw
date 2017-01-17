@@ -538,7 +538,7 @@ int generic_device_init(struct riocp_pe *pe, uint32_t *ct)
 	idt_rt_probe_all_out_t	  rt_out;
 	idt_sc_init_dev_ctrs_in_t       sc_in;
 	idt_sc_init_dev_ctrs_out_t      sc_out;
-	idt_em_dev_rpt_ctl_in_t	 rpt_in;
+	rio_em_dev_rpt_ctl_in_t	 rpt_in;
 	int rc = 1;
 	rio_port_t port;
         struct cfg_dev sw;
@@ -733,8 +733,8 @@ int generic_device_init(struct riocp_pe *pe, uint32_t *ct)
 		goto exit;
 
 	rpt_in.ptl.num_ports = RIO_ALL_PORTS;
-	rpt_in.notfn = idt_em_notfn_none;
-	rc = idt_em_dev_rpt_ctl(dev_h, &rpt_in, &priv->st.em_notfn);
+	rpt_in.notfn = rio_em_notfn_none;
+	rc = rio_em_dev_rpt_ctl(dev_h, &rpt_in, &priv->st.em_notfn);
 
 	if (RIOCP_PE_IS_MPORT(pe)) {
 		return 0;
@@ -752,7 +752,7 @@ int generic_device_init(struct riocp_pe *pe, uint32_t *ct)
 	priv->st.em_pw_cfg.CRF = true;
 	priv->st.em_pw_cfg.port_write_re_tx = 0;
 
-	rc = idt_em_cfg_pw(dev_h, &priv->st.em_pw_cfg, &priv->st.em_pw_cfg);
+	rc = rio_em_cfg_pw(dev_h, &priv->st.em_pw_cfg, &priv->st.em_pw_cfg);
 	if (rc) {
 		goto exit;
 	}
@@ -822,7 +822,7 @@ exit:
 
 int RIOCP_WU mpsw_drv_init_pe_em(struct riocp_pe *pe, bool en_em)
 {
-        idt_em_dev_rpt_ctl_in_t         rpt_in;
+        rio_em_dev_rpt_ctl_in_t         rpt_in;
 	struct mpsw_drv_private_data *priv;
 	DAR_DEV_INFO_t *dev_h;
 
@@ -839,12 +839,12 @@ int RIOCP_WU mpsw_drv_init_pe_em(struct riocp_pe *pe, bool en_em)
 	dev_h = &priv->dev_h;
 
 	if (en_em)
-        	rpt_in.notfn = idt_em_notfn_pw;
+        	rpt_in.notfn = rio_em_notfn_pw;
 	else
-        	rpt_in.notfn = idt_em_notfn_none;
+        	rpt_in.notfn = rio_em_notfn_none;
 
 	rpt_in.ptl.num_ports = RIO_ALL_PORTS;
-	return idt_em_dev_rpt_ctl(dev_h, &rpt_in, &priv->st.em_notfn);
+	return rio_em_dev_rpt_ctl(dev_h, &rpt_in, &priv->st.em_notfn);
 }
 
 int RIOCP_WU mpsw_drv_destroy_pe(struct riocp_pe *pe)

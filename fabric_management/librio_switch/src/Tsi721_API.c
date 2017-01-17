@@ -1376,8 +1376,8 @@ uint32_t idt_tsi721_rt_change_mc_mask (
 * always disabled by this routine.
 */
 uint32_t idt_tsi721_em_cfg_pw  ( DAR_DEV_INFO_t       *dev_info, 
-                               idt_em_cfg_pw_in_t   *in_parms, 
-                               idt_em_cfg_pw_out_t  *out_parms ) 
+                               rio_em_cfg_pw_in_t   *in_parms, 
+                               rio_em_cfg_pw_out_t  *out_parms ) 
 {
   uint32_t rc = RIO_ERR_INVALID_PARAMETER;
   uint32_t regData;
@@ -1492,7 +1492,7 @@ uint32_t idt_tsi721_em_cfg_pw  ( DAR_DEV_INFO_t       *dev_info,
 
 uint32_t idt_tsi721_set_int_cfg( DAR_DEV_INFO_t       *dev_info, 
                                uint8_t                 pnum    ,
-                               idt_em_notfn_ctl_t    notfn   ,
+                               rio_em_notfn_ctl_t    notfn   ,
                                uint32_t               *imp_rc  )
 {
 	if (NULL != dev_info)
@@ -1502,7 +1502,7 @@ uint32_t idt_tsi721_set_int_cfg( DAR_DEV_INFO_t       *dev_info,
 }
 
 uint32_t tsi721_em_determine_notfn( DAR_DEV_INFO_t       *dev_info  , 
-                                  idt_em_notfn_ctl_t   *notfn      ,
+                                  rio_em_notfn_ctl_t   *notfn      ,
                                   uint8_t                 pnum      ,
                                   uint32_t               *imp_rc    ) 
 {
@@ -1513,8 +1513,8 @@ uint32_t tsi721_em_determine_notfn( DAR_DEV_INFO_t       *dev_info  ,
 } 
 
 uint32_t idt_tsi721_em_cfg_set  ( DAR_DEV_INFO_t        *dev_info, 
-                                idt_em_cfg_set_in_t   *in_parms, 
-                                idt_em_cfg_set_out_t  *out_parms ) 
+                                rio_em_cfg_set_in_t   *in_parms, 
+                                rio_em_cfg_set_out_t  *out_parms ) 
 {
 	if (NULL != dev_info)
 		out_parms->imp_rc = in_parms->ptl.num_ports;
@@ -1523,8 +1523,8 @@ uint32_t idt_tsi721_em_cfg_set  ( DAR_DEV_INFO_t        *dev_info,
 };
 
 uint32_t idt_tsi721_em_cfg_get  ( DAR_DEV_INFO_t        *dev_info, 
-                                idt_em_cfg_get_in_t   *in_parms, 
-                                idt_em_cfg_get_out_t  *out_parms ) 
+                                rio_em_cfg_get_in_t   *in_parms, 
+                                rio_em_cfg_get_out_t  *out_parms ) 
 {
 	if (NULL != dev_info)
 		out_parms->imp_rc = in_parms->port_num;
@@ -1533,8 +1533,8 @@ uint32_t idt_tsi721_em_cfg_get  ( DAR_DEV_INFO_t        *dev_info,
 };
 
 uint32_t idt_tsi721_em_dev_rpt_ctl  ( DAR_DEV_INFO_t            *dev_info, 
-                                    idt_em_dev_rpt_ctl_in_t   *in_parms, 
-                                    idt_em_dev_rpt_ctl_out_t  *out_parms ) 
+                                    rio_em_dev_rpt_ctl_in_t   *in_parms, 
+                                    rio_em_dev_rpt_ctl_out_t  *out_parms ) 
 {
 	if (NULL != dev_info)
 		out_parms->imp_rc = in_parms->ptl.num_ports;
@@ -1543,8 +1543,8 @@ uint32_t idt_tsi721_em_dev_rpt_ctl  ( DAR_DEV_INFO_t            *dev_info,
 }
 
 uint32_t idt_tsi721_em_parse_pw  ( DAR_DEV_INFO_t         *dev_info, 
-                                 idt_em_parse_pw_in_t   *in_parms, 
-                                 idt_em_parse_pw_out_t  *out_parms ) 
+                                 rio_em_parse_pw_in_t   *in_parms, 
+                                 rio_em_parse_pw_out_t  *out_parms ) 
 {
 	if (NULL != dev_info)
 		out_parms->imp_rc = in_parms->num_events;
@@ -1553,8 +1553,8 @@ uint32_t idt_tsi721_em_parse_pw  ( DAR_DEV_INFO_t         *dev_info,
 }
 
 uint32_t idt_tsi721_em_get_int_stat  ( DAR_DEV_INFO_t             *dev_info, 
-                                     idt_em_get_int_stat_in_t   *in_parms, 
-                                     idt_em_get_int_stat_out_t  *out_parms ) 
+                                     rio_em_get_int_stat_in_t   *in_parms, 
+                                     rio_em_get_int_stat_out_t  *out_parms ) 
 {
 	if (NULL != dev_info)
 		out_parms->imp_rc = in_parms->num_events;
@@ -1563,8 +1563,8 @@ uint32_t idt_tsi721_em_get_int_stat  ( DAR_DEV_INFO_t             *dev_info,
 };
 
 uint32_t idt_tsi721_em_get_pw_stat  ( DAR_DEV_INFO_t            *dev_info, 
-                                    idt_em_get_pw_stat_in_t   *in_parms, 
-                                    idt_em_get_pw_stat_out_t  *out_parms )
+                                    rio_em_get_pw_stat_in_t   *in_parms, 
+                                    rio_em_get_pw_stat_out_t  *out_parms )
 {
 	if (NULL != dev_info)
 		out_parms->imp_rc = in_parms->ptl.num_ports;
@@ -1573,8 +1573,8 @@ uint32_t idt_tsi721_em_get_pw_stat  ( DAR_DEV_INFO_t            *dev_info,
 };
 
 uint32_t idt_tsi721_em_clr_events   ( DAR_DEV_INFO_t           *dev_info, 
-                                    idt_em_clr_events_in_t   *in_parms, 
-                                    idt_em_clr_events_out_t  *out_parms ) 
+                                    rio_em_clr_events_in_t   *in_parms, 
+                                    rio_em_clr_events_out_t  *out_parms ) 
 {
 	if (NULL != dev_info)
 		out_parms->imp_rc = in_parms->num_events;
@@ -1583,8 +1583,8 @@ uint32_t idt_tsi721_em_clr_events   ( DAR_DEV_INFO_t           *dev_info,
 };
 
 uint32_t idt_tsi721_em_create_events( DAR_DEV_INFO_t              *dev_info, 
-                                    idt_em_create_events_in_t   *in_parms, 
-                                    idt_em_create_events_out_t  *out_parms ) 
+                                    rio_em_create_events_in_t   *in_parms, 
+                                    rio_em_create_events_out_t  *out_parms ) 
 {
 	if (NULL != dev_info)
 		out_parms->imp_rc = in_parms->num_events;
@@ -1808,15 +1808,15 @@ uint32_t bind_tsi721_DSF_support( void )
     idt_driver.idt_rt_change_mc_mask  = idt_tsi721_rt_change_mc_mask;
 
 */
-    idt_driver.idt_em_cfg_pw       = idt_tsi721_em_cfg_pw       ;
-    idt_driver.idt_em_cfg_set      = idt_tsi721_em_cfg_set      ;
-    idt_driver.idt_em_cfg_get      = idt_tsi721_em_cfg_get      ;
-    idt_driver.idt_em_dev_rpt_ctl  = idt_tsi721_em_dev_rpt_ctl  ;
-    idt_driver.idt_em_parse_pw     = idt_tsi721_em_parse_pw     ;
-    idt_driver.idt_em_get_int_stat = idt_tsi721_em_get_int_stat ;
-    idt_driver.idt_em_get_pw_stat  = idt_tsi721_em_get_pw_stat  ;
-    idt_driver.idt_em_clr_events   = idt_tsi721_em_clr_events   ;
-    idt_driver.idt_em_create_events= idt_tsi721_em_create_events;
+    idt_driver.rio_em_cfg_pw       = idt_tsi721_em_cfg_pw       ;
+    idt_driver.rio_em_cfg_set      = idt_tsi721_em_cfg_set      ;
+    idt_driver.rio_em_cfg_get      = idt_tsi721_em_cfg_get      ;
+    idt_driver.rio_em_dev_rpt_ctl  = idt_tsi721_em_dev_rpt_ctl  ;
+    idt_driver.rio_em_parse_pw     = idt_tsi721_em_parse_pw     ;
+    idt_driver.rio_em_get_int_stat = idt_tsi721_em_get_int_stat ;
+    idt_driver.rio_em_get_pw_stat  = idt_tsi721_em_get_pw_stat  ;
+    idt_driver.rio_em_clr_events   = idt_tsi721_em_clr_events   ;
+    idt_driver.rio_em_create_events= idt_tsi721_em_create_events;
 
     idt_driver.idt_sc_init_dev_ctrs= idt_tsi721_sc_init_dev_ctrs;
     idt_driver.idt_sc_read_ctrs    = idt_tsi721_sc_read_ctrs;

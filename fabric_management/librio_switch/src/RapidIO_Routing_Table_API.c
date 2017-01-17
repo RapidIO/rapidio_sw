@@ -36,7 +36,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 extern "C" {
 #endif
 
-char *idt_em_disc_reason_names[ (uint8_t)(idt_rt_disc_last) ] = {
+char *rio_em_disc_reason_names[ (uint8_t)(idt_rt_disc_last) ] = {
    (char *)"NoDiscard" ,  // idt_rt_disc_not
    (char *)"RteInvalid",  // idt_rt_disc_rt_invalid
    (char *)"Deliberate",   // idt_rt_disc_deliberately

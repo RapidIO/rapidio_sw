@@ -508,40 +508,40 @@ default_pc_probe_exit:
 }
 
 uint32_t IDT_DSF_em_cfg_pw    ( DAR_DEV_INFO_t                *dev_info, 
-                              idt_em_cfg_pw_in_t            *in_parms, 
-                              idt_em_cfg_pw_out_t           *out_parms )
+                              rio_em_cfg_pw_in_t            *in_parms, 
+                              rio_em_cfg_pw_out_t           *out_parms )
 {
    NULL_CHECK;
    return RIO_STUBBED;
 };
 
 uint32_t IDT_DSF_em_cfg_set    ( DAR_DEV_INFO_t                *dev_info, 
-                               idt_em_cfg_set_in_t           *in_parms, 
-                               idt_em_cfg_set_out_t          *out_parms )
+                               rio_em_cfg_set_in_t           *in_parms, 
+                               rio_em_cfg_set_out_t          *out_parms )
 {
     NULL_CHECK;
     return RIO_STUBBED;
 };
 
 uint32_t IDT_DSF_em_cfg_get    ( DAR_DEV_INFO_t                *dev_info, 
-                               idt_em_cfg_get_in_t           *in_parms, 
-                               idt_em_cfg_get_out_t          *out_parms )
+                               rio_em_cfg_get_in_t           *in_parms, 
+                               rio_em_cfg_get_out_t          *out_parms )
 { 
     NULL_CHECK;
     return RIO_STUBBED;
 };
 
 uint32_t IDT_DSF_em_dev_rpt_ctl (DAR_DEV_INFO_t                *dev_info, 
-                               idt_em_dev_rpt_ctl_in_t        *in_parms, 
-                               idt_em_dev_rpt_ctl_out_t       *out_parms )
+                               rio_em_dev_rpt_ctl_in_t        *in_parms, 
+                               rio_em_dev_rpt_ctl_out_t       *out_parms )
 { 
     NULL_CHECK;
     return RIO_STUBBED;
 };
 
 uint32_t IDT_DSF_em_parse_pw   ( DAR_DEV_INFO_t                *dev_info, 
-                               idt_em_parse_pw_in_t          *in_parms, 
-                               idt_em_parse_pw_out_t         *out_parms )
+                               rio_em_parse_pw_in_t          *in_parms, 
+                               rio_em_parse_pw_out_t         *out_parms )
 { 
     NULL_CHECK;
     return RIO_STUBBED;
@@ -596,10 +596,10 @@ uint32_t IDT_DSF_sc_read_ctrs ( DAR_DEV_INFO_t         *dev_info,
     return RIO_STUBBED;
 };
 
-void add_int_event( idt_em_get_int_stat_in_t   *in_parms, 
-                    idt_em_get_int_stat_out_t  *out_parms,
+void add_int_event( rio_em_get_int_stat_in_t   *in_parms, 
+                    rio_em_get_int_stat_out_t  *out_parms,
                     uint8_t                       pnum,
-                    idt_em_events_t             event ) 
+                    rio_em_events_t             event ) 
 {
    if (out_parms->num_events < in_parms->num_events) {
       in_parms->events[out_parms->num_events].event    = event;
@@ -611,17 +611,17 @@ void add_int_event( idt_em_get_int_stat_in_t   *in_parms,
 }; 
 
 uint32_t IDT_DSF_em_get_int_stat( DAR_DEV_INFO_t                *dev_info, 
-                                idt_em_get_int_stat_in_t      *in_parms, 
-                                idt_em_get_int_stat_out_t     *out_parms )
+                                rio_em_get_int_stat_in_t      *in_parms, 
+                                rio_em_get_int_stat_out_t     *out_parms )
 { 
     NULL_CHECK;
     return RIO_STUBBED;
 };
 
-void add_pw_event( idt_em_get_pw_stat_in_t   *in_parms, 
-                   idt_em_get_pw_stat_out_t  *out_parms,
+void add_pw_event( rio_em_get_pw_stat_in_t   *in_parms, 
+                   rio_em_get_pw_stat_out_t  *out_parms,
                  uint8_t                      pnum,
-                 idt_em_events_t            event ) 
+                 rio_em_events_t            event ) 
 {
    if (out_parms->num_events < in_parms->num_events) {
       in_parms->events[out_parms->num_events].event    = event;
@@ -633,24 +633,24 @@ void add_pw_event( idt_em_get_pw_stat_in_t   *in_parms,
 } 
 
 uint32_t IDT_DSF_em_get_pw_stat( DAR_DEV_INFO_t                *dev_info, 
-                               idt_em_get_pw_stat_in_t       *in_parms, 
-                               idt_em_get_pw_stat_out_t      *out_parms )
+                               rio_em_get_pw_stat_in_t       *in_parms, 
+                               rio_em_get_pw_stat_out_t      *out_parms )
 { 
     NULL_CHECK;
     return RIO_STUBBED;
 };
 
 uint32_t IDT_DSF_em_clr_events( DAR_DEV_INFO_t                 *dev_info, 
-                              idt_em_clr_events_in_t         *in_parms, 
-                              idt_em_clr_events_out_t        *out_parms )
+                              rio_em_clr_events_in_t         *in_parms, 
+                              rio_em_clr_events_out_t        *out_parms )
 { 
     NULL_CHECK;
     return RIO_STUBBED;
 };
  
 uint32_t IDT_DSF_em_create_events( DAR_DEV_INFO_t              *dev_info,
-                                 idt_em_create_events_in_t   *in_parms, 
-                                 idt_em_create_events_out_t  *out_parms )
+                                 rio_em_create_events_in_t   *in_parms, 
+                                 rio_em_create_events_out_t  *out_parms )
 { 
     NULL_CHECK;
     return RIO_STUBBED;
@@ -678,15 +678,15 @@ void IDT_DSF_init_driver( IDT_DSF_DB_t *dsf) {
    dsf->idt_rt_change_rte        = IDT_DSF_rt_change_rte;
    dsf->idt_rt_change_mc_mask    = IDT_DSF_rt_change_mc_mask;
 
-   dsf->idt_em_cfg_pw             = IDT_DSF_em_cfg_pw;
-   dsf->idt_em_cfg_set            = IDT_DSF_em_cfg_set;
-   dsf->idt_em_cfg_get            = IDT_DSF_em_cfg_get;
-   dsf->idt_em_dev_rpt_ctl        = IDT_DSF_em_dev_rpt_ctl;
-   dsf->idt_em_parse_pw           = IDT_DSF_em_parse_pw;
-   dsf->idt_em_get_int_stat       = IDT_DSF_em_get_int_stat;
-   dsf->idt_em_get_pw_stat        = IDT_DSF_em_get_pw_stat;
-   dsf->idt_em_clr_events         = IDT_DSF_em_clr_events;
-   dsf->idt_em_create_events      = IDT_DSF_em_create_events;
+   dsf->rio_em_cfg_pw             = IDT_DSF_em_cfg_pw;
+   dsf->rio_em_cfg_set            = IDT_DSF_em_cfg_set;
+   dsf->rio_em_cfg_get            = IDT_DSF_em_cfg_get;
+   dsf->rio_em_dev_rpt_ctl        = IDT_DSF_em_dev_rpt_ctl;
+   dsf->rio_em_parse_pw           = IDT_DSF_em_parse_pw;
+   dsf->rio_em_get_int_stat       = IDT_DSF_em_get_int_stat;
+   dsf->rio_em_get_pw_stat        = IDT_DSF_em_get_pw_stat;
+   dsf->rio_em_clr_events         = IDT_DSF_em_clr_events;
+   dsf->rio_em_create_events      = IDT_DSF_em_create_events;
 
    dsf->idt_sc_init_dev_ctrs      = IDT_DSF_sc_init_dev_ctrs;
    dsf->idt_sc_read_ctrs          = IDT_DSF_sc_read_ctrs;

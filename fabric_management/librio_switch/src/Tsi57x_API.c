@@ -3139,8 +3139,8 @@ idt_tsi57x_rt_change_mc_mask_exit:
 #define EM_CFG_PW(x) (EM_CFG_PW_0+x)
 
 uint32_t idt_tsi57x_em_cfg_pw  ( DAR_DEV_INFO_t       *dev_info, 
-                               idt_em_cfg_pw_in_t   *in_parms, 
-                               idt_em_cfg_pw_out_t  *out_parms ) 
+                               rio_em_cfg_pw_in_t   *in_parms, 
+                               rio_em_cfg_pw_out_t  *out_parms ) 
 {
   uint32_t rc = RIO_ERR_INVALID_PARAMETER;
   uint32_t regData;
@@ -3203,7 +3203,7 @@ uint32_t idt_tsi57x_em_cfg_pw  ( DAR_DEV_INFO_t       *dev_info,
 
   // Configure port-write re-transmission rate.
   // Assumption: it is better to choose a longer retransmission time than the value requested.
-  regData = in_parms->port_write_re_tx / IDT_EM_TSI578_PW_RE_TX_167p7ms;
+  regData = in_parms->port_write_re_tx / RIO_EM_TSI578_PW_RE_TX_167p7ms;
 
   switch (regData) {
      case 0: // If the requested retransmission time is shorter than the 
@@ -3241,15 +3241,15 @@ uint32_t idt_tsi57x_em_cfg_pw  ( DAR_DEV_INFO_t       *dev_info,
   regData = (regData & Tsi578_RIO_PW_TIMEOUT_PW_TIMER) >> 28;
 
   switch (regData) {
-     case 0: out_parms->port_write_re_tx = IDT_EM_PW_RE_TX_DISABLED;
+     case 0: out_parms->port_write_re_tx = RIO_EM_PW_RE_TX_DISABLED;
              break;
-     case 1: out_parms->port_write_re_tx = IDT_EM_TSI578_PW_RE_TX_167p7ms;
+     case 1: out_parms->port_write_re_tx = RIO_EM_TSI578_PW_RE_TX_167p7ms;
              break;
-     case 2: out_parms->port_write_re_tx = IDT_EM_TSI578_PW_RE_TX_335p5ms;
+     case 2: out_parms->port_write_re_tx = RIO_EM_TSI578_PW_RE_TX_335p5ms;
              break;
-     case 4: out_parms->port_write_re_tx = IDT_EM_TSI578_PW_RE_TX_671p1ms;
+     case 4: out_parms->port_write_re_tx = RIO_EM_TSI578_PW_RE_TX_671p1ms;
              break;
-     case 8: out_parms->port_write_re_tx = IDT_EM_TSI578_PW_RE_TX_1340ms;
+     case 8: out_parms->port_write_re_tx = RIO_EM_TSI578_PW_RE_TX_1340ms;
              break;
              break;
      default: out_parms->port_write_re_tx = regData;
@@ -3265,7 +3265,7 @@ uint32_t idt_tsi57x_em_cfg_pw  ( DAR_DEV_INFO_t       *dev_info,
 
 uint32_t idt_tsi57x_set_pw_cfg( DAR_DEV_INFO_t       *dev_info , 
                               struct DAR_ptl       *good_ptl,  /* PTL has already been error-checked, just use it */
-                              idt_em_notfn_ctl_t    notfn    ,
+                              rio_em_notfn_ctl_t    notfn    ,
                               uint32_t               *imp_rc   )
 {
     uint32_t rc = RIO_ERR_INVALID_PARAMETER;
@@ -3273,13 +3273,13 @@ uint32_t idt_tsi57x_set_pw_cfg( DAR_DEV_INFO_t       *dev_info ,
     uint8_t  port_idx, port_num;
 
     // Validate notfn and pnum
-    if (idt_em_notfn_last <= notfn) {
+    if (rio_em_notfn_last <= notfn) {
        *imp_rc = SET_EVENT_PW(1);
        goto idt_tsi57x_set_event_pw_cfg_exit;
     };
 
     // Check if something must be done.
-    if (idt_em_notfn_0delta == notfn) {
+    if (rio_em_notfn_0delta == notfn) {
        rc = RIO_SUCCESS;
        goto idt_tsi57x_set_event_pw_cfg_exit;
     };
@@ -3294,13 +3294,13 @@ uint32_t idt_tsi57x_set_pw_cfg( DAR_DEV_INFO_t       *dev_info ,
               
        switch (notfn) {
           default:  // Default case will not be activated...
-          case idt_em_notfn_none:
-          case idt_em_notfn_int : 
+          case rio_em_notfn_none:
+          case rio_em_notfn_int : 
                               // Disable port-write event notification
                               regData |= Tsi578_SPX_MODE_PW_DIS;
                               break;
-          case idt_em_notfn_pw  :
-          case idt_em_notfn_both:
+          case rio_em_notfn_pw  :
+          case rio_em_notfn_both:
                               // Enable port-write event notification
                               regData &= ~(Tsi578_SPX_MODE_PW_DIS);
                               break;
@@ -3321,7 +3321,7 @@ idt_tsi57x_set_event_pw_cfg_exit:
 
 uint32_t idt_tsi57x_set_int_cfg( DAR_DEV_INFO_t       *dev_info, 
                                struct DAR_ptl       *good_ptl,  /* PTL has already been error-checked, just use it */
-                               idt_em_notfn_ctl_t    notfn   ,
+                               rio_em_notfn_ctl_t    notfn   ,
                                uint32_t               *imp_rc  )
 {
     uint32_t rc = RIO_ERR_INVALID_PARAMETER;
@@ -3330,13 +3330,13 @@ uint32_t idt_tsi57x_set_int_cfg( DAR_DEV_INFO_t       *dev_info,
     bool  en_mecs_int = false, en_rcs_int = false;
 
     // Validate notfn
-    if (idt_em_notfn_last <= notfn) {
+    if (rio_em_notfn_last <= notfn) {
        *imp_rc = SET_EVENT_INT(1);
        goto idt_tsi57x_set_event_int_cfg_exit;
     };
 
     // Check if something must be done.
-    if (idt_em_notfn_0delta == notfn) {
+    if (rio_em_notfn_0delta == notfn) {
        rc = RIO_SUCCESS;
        goto idt_tsi57x_set_event_int_cfg_exit;
     };
@@ -3355,7 +3355,7 @@ uint32_t idt_tsi57x_set_int_cfg( DAR_DEV_INFO_t       *dev_info,
 
     // Interrupt enable/disable is complicated by 
     // - Reset interrupts: When interrupts are enabled/disabled, the status of
-    //                     idt_em_i_rst_req must be known.  This cannot be determined
+    //                     rio_em_i_rst_req must be known.  This cannot be determined
     //                     from the state of SPx_MODE.SELF_RST.  Instead, the reserved
     //                     SPx_CTL_INDEP[30] is used to indicate whether Reset interrupts were
     //                     previously enabled, and so should be re-enabled.
@@ -3378,15 +3378,15 @@ uint32_t idt_tsi57x_set_int_cfg( DAR_DEV_INFO_t       *dev_info,
        };
        switch (notfn) {
           default:  // Default case will not be activated...
-          case idt_em_notfn_none:
-          case idt_em_notfn_pw  :
+          case rio_em_notfn_none:
+          case rio_em_notfn_pw  :
                               // Disable interrupt event notification
                               glob_int_en &= ~(1 << port_num);
                               spx_mode &= ~(Tsi578_SPX_MODE_RCS_INT_EN);
                               spx_ctl_indep &= ~Tsi578_SPX_CTL_INDEP_IRQ_EN;
                               break;
-          case idt_em_notfn_int : 
-          case idt_em_notfn_both:
+          case rio_em_notfn_int : 
+          case rio_em_notfn_both:
                               // Enable interrupt event notification
                               glob_int_en |= 1 << port_num;
                               if (spx_ctl_indep & Tsi578_SPX_CTL_INDEP_RSVD1) {
@@ -3412,15 +3412,15 @@ uint32_t idt_tsi57x_set_int_cfg( DAR_DEV_INFO_t       *dev_info,
 
     switch (notfn) {
        default:  // Default case will not be activated...
-       case idt_em_notfn_none:
-       case idt_em_notfn_pw  :
+       case rio_em_notfn_none:
+       case rio_em_notfn_pw  :
           // Disable interrupt event notification
                  if (RIO_ALL_PORTS == port_num) {
                     glob_int_en &= ~(Tsi578_GLOB_INT_ENABLE_RCS_EN | Tsi578_GLOB_INT_ENABLE_MCS_EN | Tsi578_GLOB_INT_ENABLE_I2C_EN);
                  }
                  break;
-       case idt_em_notfn_int : 
-       case idt_em_notfn_both:
+       case rio_em_notfn_int : 
+       case rio_em_notfn_both:
                  if (RIO_ALL_PORTS == port_num) {
                     if (en_rcs_int) {
                        glob_int_en |= Tsi578_GLOB_INT_ENABLE_RCS_EN;
@@ -3451,7 +3451,7 @@ idt_tsi57x_set_event_int_cfg_exit:
 #define DET_NOTFN(x) (EM_DET_NOTFN_0+x)
 
 uint32_t tsi57x_em_determine_notfn( DAR_DEV_INFO_t       *dev_info  , 
-                                  idt_em_notfn_ctl_t   *notfn      ,
+                                  rio_em_notfn_ctl_t   *notfn      ,
                                   uint8_t                 pnum      ,
                                   uint32_t               *imp_rc    ) 
 {
@@ -3473,15 +3473,15 @@ uint32_t tsi57x_em_determine_notfn( DAR_DEV_INFO_t       *dev_info  ,
     // Now figure out the current notification setting for this port.
     if ( spx_ctl_indep & Tsi578_SPX_CTL_INDEP_IRQ_EN ) {
        if (spx_mode & Tsi578_SPX_MODE_PW_DIS) {
-          *notfn = idt_em_notfn_int;
+          *notfn = rio_em_notfn_int;
        } else {
-          *notfn = idt_em_notfn_both;
+          *notfn = rio_em_notfn_both;
        }
     } else {
        if (spx_mode & Tsi578_SPX_MODE_PW_DIS) {
-          *notfn = idt_em_notfn_none;
+          *notfn = rio_em_notfn_none;
        } else {
-          *notfn = idt_em_notfn_pw;
+          *notfn = rio_em_notfn_pw;
        }
     };
 em_determine_notfn_exit:
@@ -3567,7 +3567,7 @@ idt_tsi57x_enable_err_ctr_exit:
 
 uint32_t idt_tsi57x_set_event_en_cfg( DAR_DEV_INFO_t       *dev_info, 
                                     uint8_t                 pnum    , 
-                                    idt_em_cfg_t         *event   , 
+                                    rio_em_cfg_t         *event   , 
                                     uint32_t               *imp_rc   )
 {
     uint32_t rc = RIO_SUCCESS;
@@ -3580,26 +3580,26 @@ uint32_t idt_tsi57x_set_event_en_cfg( DAR_DEV_INFO_t       *dev_info,
        goto idt_tsi57x_set_event_en_cfg_exit;
     };
 
-    if (( event->em_detect >= idt_em_detect_last ) ||
-        ( event->em_event  >= idt_em_last        )) {
+    if (( event->em_detect >= rio_em_detect_last ) ||
+        ( event->em_event  >= rio_em_last        )) {
        rc      = RIO_ERR_INVALID_PARAMETER;
        *imp_rc = SET_EVENT_EN(2);
        goto idt_tsi57x_set_event_en_cfg_exit;
     };
 
     // Nothing to do...
-    if ( event->em_detect == idt_em_detect_0delta)
+    if ( event->em_detect == rio_em_detect_0delta)
        goto idt_tsi57x_set_event_en_cfg_exit;
 
     switch ( event->em_event ) {
-       case idt_em_f_los:  
+       case rio_em_f_los:  
            // LOS is the dead link timer 
            // If a short period is required, then single Delineation errors also
            //    result in LOS.
            
           {
             bool set_delin_thresh = false;
-            if ( event->em_detect == idt_em_detect_on ) {
+            if ( event->em_detect == rio_em_detect_on ) {
                // First, set up DLT
                rc = DARRegRead( dev_info, Tsi578_SMACX_DLOOP_CLK_SEL(sw_pmr[pnum].pwr_mac_num * 2), &regData );
                if (RIO_SUCCESS != rc) {
@@ -3656,7 +3656,7 @@ uint32_t idt_tsi57x_set_event_en_cfg( DAR_DEV_INFO_t       *dev_info,
                     goto idt_tsi57x_set_event_en_cfg_exit;
                  };
               };
-            } else { // idt_em_detect_off: 
+            } else { // rio_em_detect_off: 
               rc = DARRegRead( dev_info, Tsi578_SMACX_DLOOP_CLK_SEL(sw_pmr[pnum].pwr_mac_num * 2), &regData );
               if (RIO_SUCCESS != rc) {
                  *imp_rc = SET_EVENT_EN(5);
@@ -3691,13 +3691,13 @@ uint32_t idt_tsi57x_set_event_en_cfg( DAR_DEV_INFO_t       *dev_info,
          };
             break;
 
-       case idt_em_f_port_err:
+       case rio_em_f_port_err:
             rc = DARRegRead( dev_info, Tsi578_SPX_CTL_INDEP(pnum), &regData );
             if (RIO_SUCCESS != rc) {
                *imp_rc = SET_EVENT_EN(0x10);
                goto idt_tsi57x_set_event_en_cfg_exit;
             };
-            if (event->em_detect == idt_em_detect_on) {
+            if (event->em_detect == rio_em_detect_on) {
                  uint32_t spx_err_rate, spx_err_thresh;
                  rc = DARRegRead( dev_info, Tsi578_SPX_ERR_RATE(pnum), &spx_err_rate );
                  if (RIO_SUCCESS != rc) {
@@ -3721,7 +3721,7 @@ uint32_t idt_tsi57x_set_event_en_cfg( DAR_DEV_INFO_t       *dev_info,
                if (RIO_SUCCESS != rc) {
                   goto idt_tsi57x_set_event_en_cfg_exit;
                };
-            } else { // idt_em_detect_off: 
+            } else { // rio_em_detect_off: 
                regData &= ~(Tsi578_SPX_CTL_INDEP_PORT_ERR_EN);
             };
             rc = DARRegWrite( dev_info, Tsi578_SPX_CTL_INDEP(pnum), regData );
@@ -3731,13 +3731,13 @@ uint32_t idt_tsi57x_set_event_en_cfg( DAR_DEV_INFO_t       *dev_info,
             };
             break;
 
-       case idt_em_f_2many_retx:
+       case rio_em_f_2many_retx:
                rc = DARRegRead( dev_info, Tsi578_SPX_CTL_INDEP(pnum), &regData );
                if (RIO_SUCCESS != rc) {
                   *imp_rc = SET_EVENT_EN(0x20);
                   goto idt_tsi57x_set_event_en_cfg_exit;
                };
-               if (event->em_detect == idt_em_detect_on) {
+               if (event->em_detect == rio_em_detect_on) {
                   uint32_t retry_thresh = event->em_info;
                   uint32_t spx_err_rate, spx_err_thresh;
 
@@ -3776,7 +3776,7 @@ uint32_t idt_tsi57x_set_event_en_cfg( DAR_DEV_INFO_t       *dev_info,
                  if (RIO_SUCCESS != rc) {
                     goto idt_tsi57x_set_event_en_cfg_exit;
                  };
-               } else { // idt_em_detect_off: 
+               } else { // rio_em_detect_off: 
                   // Disable events.
                   regData &= ~(Tsi578_SPX_CTL_INDEP_MAX_RETRY_EN | Tsi578_SPX_CTL_INDEP_MAX_RETRY_THRESHOLD);
                };
@@ -3788,9 +3788,9 @@ uint32_t idt_tsi57x_set_event_en_cfg( DAR_DEV_INFO_t       *dev_info,
                };
                break;
 
-       case idt_em_f_2many_pna:
+       case rio_em_f_2many_pna:
                // Enable/disable event detection
-               if (event->em_detect == idt_em_detect_on) {
+               if (event->em_detect == rio_em_detect_on) {
                   uint32_t spx_err_rate, spx_err_thresh;
                   rc = DARRegRead( dev_info, Tsi578_SPX_ERR_RATE(pnum), &spx_err_rate );
                   if (RIO_SUCCESS != rc) {
@@ -3833,9 +3833,9 @@ uint32_t idt_tsi57x_set_event_en_cfg( DAR_DEV_INFO_t       *dev_info,
                };
                break;
 
-       case idt_em_f_err_rate :
+       case rio_em_f_err_rate :
                { uint32_t spx_rate_en, spx_err_rate, spx_err_thresh;
-                 rc = idt_em_get_f_err_rate_info( event->em_info, &spx_rate_en, 
+                 rc = rio_em_get_f_err_rate_info( event->em_info, &spx_rate_en, 
                                                                   &spx_err_rate, 
                                                                   &spx_err_thresh);
                  if (RIO_SUCCESS != rc) {
@@ -3846,7 +3846,7 @@ uint32_t idt_tsi57x_set_event_en_cfg( DAR_DEV_INFO_t       *dev_info,
                  spx_rate_en &= ~EM_ERR_RATE_EVENT_EXCLUSIONS;
 
                  // Enable/disable event detection
-                 if (event->em_detect == idt_em_detect_on) {
+                 if (event->em_detect == rio_em_detect_on) {
                     uint32_t curr_thresh;
                     rc = DARRegRead( dev_info, Tsi578_SPX_ERR_THRESH(pnum), &curr_thresh );
                     if (RIO_SUCCESS != rc) {
@@ -3883,7 +3883,7 @@ uint32_t idt_tsi57x_set_event_en_cfg( DAR_DEV_INFO_t       *dev_info,
                }
                break;
 
-       case idt_em_i_init_fail:
+       case rio_em_i_init_fail:
               // Enable reporting to top level
               // There is a top-level bit which gates whether or not this
               // event is reported as an interrupt.  It cannot be reported as
@@ -3894,7 +3894,7 @@ uint32_t idt_tsi57x_set_event_en_cfg( DAR_DEV_INFO_t       *dev_info,
                   goto idt_tsi57x_set_event_en_cfg_exit;
                };
               
-               if (event->em_detect == idt_em_detect_on) {
+               if (event->em_detect == rio_em_detect_on) {
                   regData |= Tsi578_I2C_INT_ENABLE_BL_FAIL;
                } else { 
                   regData &= ~(Tsi578_I2C_INT_ENABLE_BL_FAIL);
@@ -3907,14 +3907,14 @@ uint32_t idt_tsi57x_set_event_en_cfg( DAR_DEV_INFO_t       *dev_info,
                };
                break;
 
-       case idt_em_d_log:
+       case rio_em_d_log:
               // Specific logical layer error enables are controlled by info parameter
                   rc = DARRegRead( dev_info, Tsi578_RIO_LOG_ERR_DET_EN, &regData );
                   if (RIO_SUCCESS != rc) {
                         *imp_rc = SET_EVENT_EN(0x41);
                         goto idt_tsi57x_set_event_en_cfg_exit;
                   };
-                  if (event->em_detect == idt_em_detect_on) {
+                  if (event->em_detect == rio_em_detect_on) {
                      regData = (regData & ~(TSI57X_ALL_LOG_ERRS)) | (event->em_info & TSI57X_ALL_LOG_ERRS); 
                   } else {
                      regData &= ~(TSI57X_ALL_LOG_ERRS); 
@@ -3925,17 +3925,17 @@ uint32_t idt_tsi57x_set_event_en_cfg( DAR_DEV_INFO_t       *dev_info,
                      goto idt_tsi57x_set_event_en_cfg_exit;
                   };
               break;
-       case idt_em_d_ttl:
+       case rio_em_d_ttl:
               // Nothing to do, event is not supported...
               break;
 
-       case idt_em_d_rte:
+       case rio_em_d_rte:
                   rc = DARRegRead( dev_info, Tsi578_SPX_CTL_INDEP(pnum), &regData );
                   if (RIO_SUCCESS != rc) {
                      *imp_rc = SET_EVENT_EN(0x51);
                      goto idt_tsi57x_set_event_en_cfg_exit;
                   };
-                  if (event->em_detect == idt_em_detect_on) {
+                  if (event->em_detect == rio_em_detect_on) {
                      regData |= Tsi578_SPX_CTL_INDEP_ILL_TRANS_ERR;
                   } else {
                      regData &= ~(Tsi578_SPX_CTL_INDEP_ILL_TRANS_ERR);
@@ -3947,7 +3947,7 @@ uint32_t idt_tsi57x_set_event_en_cfg( DAR_DEV_INFO_t       *dev_info,
                   };
               break;
 
-       case idt_em_i_sig_det:
+       case rio_em_i_sig_det:
                if ( !event->em_info ) { 
                   idt_pc_get_status_in_t  stat_in;
                   idt_pc_get_status_out_t stat_out;
@@ -3960,8 +3960,8 @@ uint32_t idt_tsi57x_set_event_en_cfg( DAR_DEV_INFO_t       *dev_info,
                      goto idt_tsi57x_set_event_en_cfg_exit;
                   };
 
-                  if (((idt_em_detect_off == event->em_detect) && !stat_out.ps[0].port_ok) ||
-                      ((idt_em_detect_on  == event->em_detect) &&  stat_out.ps[0].port_ok))
+                  if (((rio_em_detect_off == event->em_detect) && !stat_out.ps[0].port_ok) ||
+                      ((rio_em_detect_on  == event->em_detect) &&  stat_out.ps[0].port_ok))
                      break;
                };
 
@@ -3971,7 +3971,7 @@ uint32_t idt_tsi57x_set_event_en_cfg( DAR_DEV_INFO_t       *dev_info,
                      goto idt_tsi57x_set_event_en_cfg_exit;
                };
               
-               if (event->em_detect == idt_em_detect_on) {
+               if (event->em_detect == rio_em_detect_on) {
 
                   regData |= Tsi578_SPX_CTL_INDEP_LINK_INIT_NOTIFICATION_EN;
 
@@ -4008,14 +4008,14 @@ uint32_t idt_tsi57x_set_event_en_cfg( DAR_DEV_INFO_t       *dev_info,
               };
               break;
 
-       case idt_em_i_rst_req:
+       case rio_em_i_rst_req:
                rc = DARRegRead( dev_info, Tsi578_SPX_MODE(pnum), &regData );
                if (RIO_SUCCESS != rc) {
                      *imp_rc = SET_EVENT_EN(0x70);
                      goto idt_tsi57x_set_event_en_cfg_exit;
                   };
               
-               if (event->em_detect == idt_em_detect_on) {
+               if (event->em_detect == rio_em_detect_on) {
                  // Can't detect the event unless self_rst is disabled.
                  regData &= ~(Tsi578_SPX_MODE_SELF_RST);
                  regData |= Tsi578_SPX_MODE_RCS_INT_EN;
@@ -4032,8 +4032,8 @@ uint32_t idt_tsi57x_set_event_en_cfg( DAR_DEV_INFO_t       *dev_info,
                };
               break;
 
-      case idt_em_a_clr_pwpnd :
-      case idt_em_a_no_event  :
+      case rio_em_a_clr_pwpnd :
+      case rio_em_a_no_event  :
               break;
 
        default: 
@@ -4049,8 +4049,8 @@ idt_tsi57x_set_event_en_cfg_exit:
 #define EM_CFG_SET(x) (EM_CFG_SET_0+x)
 
 uint32_t idt_tsi57x_em_cfg_set  ( DAR_DEV_INFO_t        *dev_info, 
-                                idt_em_cfg_set_in_t   *in_parms, 
-                                idt_em_cfg_set_out_t  *out_parms ) 
+                                rio_em_cfg_set_in_t   *in_parms, 
+                                rio_em_cfg_set_out_t  *out_parms ) 
 {
     uint32_t rc = RIO_ERR_INVALID_PARAMETER;
     uint8_t pnum; 
@@ -4061,10 +4061,10 @@ uint32_t idt_tsi57x_em_cfg_set  ( DAR_DEV_INFO_t        *dev_info,
     
     out_parms->imp_rc        = RIO_SUCCESS; 
     out_parms->fail_port_num = RIO_ALL_PORTS;
-    out_parms->fail_idx      = idt_em_last;
-    out_parms->notfn         = idt_em_notfn_0delta;
+    out_parms->fail_idx      = rio_em_last;
+    out_parms->notfn         = rio_em_notfn_0delta;
 
-    if ( (in_parms->num_events > (uint8_t)(idt_em_last)) ||
+    if ( (in_parms->num_events > (uint8_t)(rio_em_last)) ||
          ( NULL == in_parms->events                  )) {
        out_parms->imp_rc = EM_CFG_SET(0x10);
        goto idt_tsi57x_em_cfg_set_exit;
@@ -4098,8 +4098,8 @@ uint32_t idt_tsi57x_em_cfg_set  ( DAR_DEV_INFO_t        *dev_info,
            out_parms->fail_idx   = 0;
 
            for (e_idx = 0; (e_idx < in_parms->num_events) && 
-                        (e_idx < (uint8_t)(idt_em_last))   ; e_idx++) {
-             if (in_parms->events[e_idx].em_detect == idt_em_detect_off ) {
+                        (e_idx < (uint8_t)(rio_em_last))   ; e_idx++) {
+             if (in_parms->events[e_idx].em_detect == rio_em_detect_off ) {
                 out_parms->fail_idx   = e_idx;
                 rc = idt_tsi57x_set_event_en_cfg( dev_info, pnum, &(in_parms->events[e_idx]), &out_parms->imp_rc );
                 if (RIO_SUCCESS != rc) {
@@ -4109,8 +4109,8 @@ uint32_t idt_tsi57x_em_cfg_set  ( DAR_DEV_INFO_t        *dev_info,
            };
 
            for (e_idx = 0; (e_idx < in_parms->num_events) && 
-                        (e_idx < (uint8_t)(idt_em_last))   ; e_idx++) {
-             if (in_parms->events[e_idx].em_detect == idt_em_detect_on ) {
+                        (e_idx < (uint8_t)(rio_em_last))   ; e_idx++) {
+             if (in_parms->events[e_idx].em_detect == rio_em_detect_on ) {
                 out_parms->fail_idx   = e_idx;
                 rc = idt_tsi57x_set_event_en_cfg( dev_info, pnum, &(in_parms->events[e_idx]), &out_parms->imp_rc );
                 if (RIO_SUCCESS != rc) {
@@ -4122,7 +4122,7 @@ uint32_t idt_tsi57x_em_cfg_set  ( DAR_DEV_INFO_t        *dev_info,
     };
 
     out_parms->fail_port_num = RIO_ALL_PORTS;
-    out_parms->fail_idx      = idt_em_last;
+    out_parms->fail_idx      = rio_em_last;
 
     rc = idt_tsi57x_set_int_cfg( dev_info, &good_ptl, in_parms->notfn, &out_parms->imp_rc );
     if (RIO_SUCCESS != rc) {
@@ -4135,7 +4135,7 @@ uint32_t idt_tsi57x_em_cfg_set  ( DAR_DEV_INFO_t        *dev_info,
     }
 
     out_parms->notfn = in_parms->notfn;
-    if (( out_parms->notfn >  idt_em_notfn_both ) && (RIO_ALL_PORTS != in_parms->ptl.num_ports))
+    if (( out_parms->notfn >  rio_em_notfn_both ) && (RIO_ALL_PORTS != in_parms->ptl.num_ports))
        rc = tsi57x_em_determine_notfn( dev_info, &out_parms->notfn, in_parms->ptl.pnums[0], &out_parms->imp_rc);
 
 idt_tsi57x_em_cfg_set_exit:
@@ -4146,8 +4146,8 @@ idt_tsi57x_em_cfg_set_exit:
 #define EM_CFG_GET(x) (EM_CFG_GET_0+x)
 
 uint32_t idt_tsi57x_em_cfg_get  ( DAR_DEV_INFO_t        *dev_info, 
-                                idt_em_cfg_get_in_t   *in_parms, 
-                                idt_em_cfg_get_out_t  *out_parms ) 
+                                rio_em_cfg_get_in_t   *in_parms, 
+                                rio_em_cfg_get_out_t  *out_parms ) 
 {
 
     uint32_t rc = RIO_ERR_INVALID_PARAMETER;
@@ -4157,9 +4157,9 @@ uint32_t idt_tsi57x_em_cfg_get  ( DAR_DEV_INFO_t        *dev_info,
     idt_pc_get_config_in_t  cfg_in;
     idt_pc_get_config_out_t cfg_out;
     
-    out_parms->fail_idx = (uint8_t)(idt_em_last); 
+    out_parms->fail_idx = (uint8_t)(rio_em_last); 
     out_parms->imp_rc   = RIO_SUCCESS;
-    out_parms->notfn    = idt_em_notfn_0delta;
+    out_parms->notfn    = rio_em_notfn_0delta;
 
     if (in_parms->port_num >= TSI57X_NUM_PORTS(dev_info)) {
        out_parms->imp_rc = EM_CFG_GET(0x01);
@@ -4169,7 +4169,7 @@ uint32_t idt_tsi57x_em_cfg_get  ( DAR_DEV_INFO_t        *dev_info,
 	   cfg_in.ptl.pnums[0] = in_parms->port_num;
     };
 
-    if ((in_parms->num_events > (uint8_t)(idt_em_last)) ||
+    if ((in_parms->num_events > (uint8_t)(rio_em_last)) ||
         (NULL == in_parms->event_list               ) ||
         (NULL == in_parms->events                   )) {
        out_parms->imp_rc = EM_CFG_GET(0x02);
@@ -4226,15 +4226,15 @@ uint32_t idt_tsi57x_em_cfg_get  ( DAR_DEV_INFO_t        *dev_info,
        goto idt_tsi57x_em_cfg_get_exit;
     }
 
-    for (e_idx = 0; ((e_idx < in_parms->num_events) && (e_idx < (uint8_t)(idt_em_last))); e_idx++) {
+    for (e_idx = 0; ((e_idx < in_parms->num_events) && (e_idx < (uint8_t)(rio_em_last))); e_idx++) {
        // Initialize event such that event is disabled.
        out_parms->fail_idx   = e_idx;
        in_parms->events[e_idx].em_event  = in_parms->event_list[e_idx];
-       in_parms->events[e_idx].em_detect = idt_em_detect_off;
+       in_parms->events[e_idx].em_detect = rio_em_detect_off;
        in_parms->events[e_idx].em_info   = 0;
 
        switch ( in_parms->events[e_idx].em_event ) {
-          case idt_em_f_los:  
+          case rio_em_f_los:  
               // Check setting of DLT, return timeout parameter if possible.
                rc = DARRegRead( dev_info, Tsi578_SMACX_DLOOP_CLK_SEL(pnum & ~1), &spx_dloop );
                if (RIO_SUCCESS != rc) {
@@ -4243,7 +4243,7 @@ uint32_t idt_tsi57x_em_cfg_get  ( DAR_DEV_INFO_t        *dev_info,
                }
 
               if ( spx_dloop & Tsi578_SMACX_DLOOP_CLK_SEL_DLT_EN ) {
-                 in_parms->events[e_idx].em_detect = idt_em_detect_on;
+                 in_parms->events[e_idx].em_detect = rio_em_detect_on;
                 if (Tsi578_SPX_ERR_DET_DELIN_ERR & spx_rate_en )
                    in_parms->events[e_idx].em_info = 1;
                 else {
@@ -4253,39 +4253,39 @@ uint32_t idt_tsi57x_em_cfg_get  ( DAR_DEV_INFO_t        *dev_info,
               };
                break;
 
-       case idt_em_f_port_err:
+       case rio_em_f_port_err:
               if (spx_ctl_indep & Tsi578_SPX_CTL_INDEP_PORT_ERR_EN ) {
-                 in_parms->events[e_idx].em_detect = idt_em_detect_on;
+                 in_parms->events[e_idx].em_detect = rio_em_detect_on;
               };
               break;
 
-       case idt_em_f_2many_retx:
+       case rio_em_f_2many_retx:
               if ((spx_ctl_indep & Tsi578_SPX_CTL_INDEP_MAX_RETRY_EN) && (spx_ctl_indep & Tsi578_SPX_CTL_INDEP_MAX_RETRY_THRESHOLD)) {
-                 in_parms->events[e_idx].em_detect = idt_em_detect_on;
+                 in_parms->events[e_idx].em_detect = rio_em_detect_on;
                  in_parms->events[e_idx].em_info = (spx_ctl_indep & Tsi578_SPX_CTL_INDEP_MAX_RETRY_THRESHOLD) >> 8;
               };
               break;
 
-       case idt_em_f_2many_pna:
+       case rio_em_f_2many_pna:
               if (spx_rate_en & Tsi578_SPX_RATE_EN_CS_NOT_ACC_EN) {
-                  in_parms->events[e_idx].em_detect = idt_em_detect_on;
+                  in_parms->events[e_idx].em_detect = rio_em_detect_on;
                   in_parms->events[e_idx].em_info   = (spx_err_thresh & Tsi578_SPX_ERR_THRESH_ERR_RFT) >> 24;
               };
               break;
 
-       case idt_em_f_err_rate:
-              rc =  idt_em_compute_f_err_rate_info( spx_rate_en & ~EM_ERR_RATE_EVENT_EXCLUSIONS, spx_err_rate, spx_err_thresh, 
+       case rio_em_f_err_rate:
+              rc =  rio_em_compute_f_err_rate_info( spx_rate_en & ~EM_ERR_RATE_EVENT_EXCLUSIONS, spx_err_rate, spx_err_thresh, 
                                                    &in_parms->events[e_idx].em_info           );
               if (RIO_SUCCESS != rc) {
                  out_parms->imp_rc = EM_CFG_GET(0x30);
                  goto idt_tsi57x_em_cfg_get_exit;
               };
               if (spx_rate_en & ~EM_ERR_RATE_EVENT_EXCLUSIONS) {
-                 in_parms->events[e_idx].em_detect = idt_em_detect_on;
+                 in_parms->events[e_idx].em_detect = rio_em_detect_on;
               };
               break;
 
-       case idt_em_i_init_fail:
+       case rio_em_i_init_fail:
                rc = DARRegRead( dev_info, Tsi578_I2C_INT_ENABLE, &i2c_int_enable );
                if (RIO_SUCCESS != rc) {
                   out_parms->imp_rc = EM_CFG_GET(0x11);
@@ -4293,31 +4293,31 @@ uint32_t idt_tsi57x_em_cfg_get  ( DAR_DEV_INFO_t        *dev_info,
                }
               
                if (i2c_int_enable & Tsi578_I2C_INT_ENABLE_BL_FAIL) {
-                  in_parms->events[e_idx].em_detect = idt_em_detect_on;
+                  in_parms->events[e_idx].em_detect = rio_em_detect_on;
                };
                break;
 
-       case idt_em_d_ttl:
+       case rio_em_d_ttl:
               // Nothing to do, event is not supported...
               break;
 
-       case idt_em_d_rte:
+       case rio_em_d_rte:
               if (spx_ctl_indep & Tsi578_SPX_CTL_INDEP_ILL_TRANS_ERR) {
-                  in_parms->events[e_idx].em_detect = idt_em_detect_on;
+                  in_parms->events[e_idx].em_detect = rio_em_detect_on;
               };
               break;
-       case idt_em_d_log:
+       case rio_em_d_log:
               rc = DARRegRead( dev_info, Tsi578_RIO_LOG_ERR_DET_EN, &log_err_en );
               if (RIO_SUCCESS != rc) {
                  out_parms->imp_rc = EM_CFG_GET(0x12);
                  goto idt_tsi57x_em_cfg_get_exit;
               }
               if (log_err_en) {
-                  in_parms->events[e_idx].em_detect = idt_em_detect_on;
+                  in_parms->events[e_idx].em_detect = rio_em_detect_on;
                   in_parms->events[e_idx].em_info   = log_err_en & TSI57X_ALL_LOG_ERRS;
               };
               break;
-       case idt_em_i_sig_det:
+       case rio_em_i_sig_det:
               rc = DARRegRead( dev_info, Tsi578_SPX_CTL(pnum), &spx_ctl );
               if (RIO_SUCCESS != rc) {
                  out_parms->imp_rc = EM_CFG_GET(0x13);
@@ -4325,18 +4325,18 @@ uint32_t idt_tsi57x_em_cfg_get  ( DAR_DEV_INFO_t        *dev_info,
               }
               if ((spx_ctl_indep & Tsi578_SPX_CTL_INDEP_LINK_INIT_NOTIFICATION_EN) &&
                   (spx_ctl       & Tsi578_SPX_CTL_PORT_LOCKOUT                   ) ) {
-                 in_parms->events[e_idx].em_detect = idt_em_detect_on;
+                 in_parms->events[e_idx].em_detect = rio_em_detect_on;
               };
               break;
 
-       case idt_em_i_rst_req:
+       case rio_em_i_rst_req:
               if (!(spx_mode & Tsi578_SPX_MODE_SELF_RST) && (spx_ctl_indep & Tsi578_SPX_CTL_INDEP_RSVD1)) {
-                 in_parms->events[e_idx].em_detect = idt_em_detect_on;
+                 in_parms->events[e_idx].em_detect = rio_em_detect_on;
               };
               break;
 
-      case idt_em_a_clr_pwpnd :
-      case idt_em_a_no_event  :
+      case rio_em_a_clr_pwpnd :
+      case rio_em_a_no_event  :
               break;
 
        default: 
@@ -4346,7 +4346,7 @@ uint32_t idt_tsi57x_em_cfg_get  ( DAR_DEV_INFO_t        *dev_info,
        };
     };
 
-    out_parms->fail_idx = (uint8_t)(idt_em_last); 
+    out_parms->fail_idx = (uint8_t)(rio_em_last); 
 
     // Now figure out the current notification setting for this port.
     rc = tsi57x_em_determine_notfn( dev_info, &out_parms->notfn, pnum, &out_parms->imp_rc);
@@ -4358,13 +4358,13 @@ idt_tsi57x_em_cfg_get_exit:
 #define DEV_RPT_CTL(x) (EM_DEV_RPT_CTL_0+x)
 
 uint32_t idt_tsi57x_em_dev_rpt_ctl  ( DAR_DEV_INFO_t            *dev_info, 
-                                    idt_em_dev_rpt_ctl_in_t   *in_parms, 
-                                    idt_em_dev_rpt_ctl_out_t  *out_parms ) 
+                                    rio_em_dev_rpt_ctl_in_t   *in_parms, 
+                                    rio_em_dev_rpt_ctl_out_t  *out_parms ) 
 {
     uint32_t rc = RIO_ERR_INVALID_PARAMETER;
 	struct DAR_ptl good_ptl;
     
-    out_parms->notfn  = idt_em_notfn_0delta;
+    out_parms->notfn  = rio_em_notfn_0delta;
     out_parms->imp_rc = RIO_SUCCESS;
        
 	rc = DARrioGetPortList(dev_info, &in_parms->ptl, &good_ptl);
@@ -4384,7 +4384,7 @@ uint32_t idt_tsi57x_em_dev_rpt_ctl  ( DAR_DEV_INFO_t            *dev_info,
     };
 
     out_parms->notfn  = in_parms->notfn;
-	if ((1 == good_ptl.num_ports) && (idt_em_notfn_0delta == in_parms->notfn)) 
+	if ((1 == good_ptl.num_ports) && (rio_em_notfn_0delta == in_parms->notfn)) 
        rc = tsi57x_em_determine_notfn( dev_info, &out_parms->notfn, good_ptl.pnums[0], &out_parms->imp_rc);
               
 idt_tsi57x_em_dev_rpt_ctl_exit:
@@ -4396,7 +4396,7 @@ typedef struct pw_parsing_info_t_TAG
    uint8_t           pw_index;  // Index of 32 bit word to test in the port write, 0-3
    uint32_t          check;     // If the bitwise and of this value and the port-write
                               //    word at "pw_index" is non-zero, then the event has occurred
-   idt_em_events_t event;     // Event checked for.
+   rio_em_events_t event;     // Event checked for.
    bool            per_port;  // true if this is a per-port event, false for GLOBAL events
 } pw_parsing_info_t;
 
@@ -4408,23 +4408,23 @@ typedef struct pw_parsing_info_t_TAG
 #define PW_PORT_ERR     0x10000000
 #define PW_LINK_INIT    0x00200000
 
-pw_parsing_info_t pw_parsing_info[ (uint8_t)(idt_em_last) ] = {
-   { 1, Tsi578_SPX_ERR_DET_DELIN_ERR, idt_em_f_los       , true },
-   { 2, PW_PORT_ERR                 , idt_em_f_port_err  , true },
-   { 2, PW_MAX_RETRY                , idt_em_f_2many_retx, true },
-   { 2, NOT_IN_PW                   , idt_em_i_init_fail , false},
-   { 2, NOT_IN_PW                   , idt_em_d_ttl       , false},
-   { 2, PW_ILL_TRANS                , idt_em_d_rte       , true },
-   { 3, 0xFFFFFFFF                  , idt_em_d_log       , false},
-   { 2, PW_LINK_INIT                , idt_em_i_sig_det   , true }, 
-   { 2, NOT_IN_PW                   , idt_em_i_rst_req   , true }  
+pw_parsing_info_t pw_parsing_info[ (uint8_t)(rio_em_last) ] = {
+   { 1, Tsi578_SPX_ERR_DET_DELIN_ERR, rio_em_f_los       , true },
+   { 2, PW_PORT_ERR                 , rio_em_f_port_err  , true },
+   { 2, PW_MAX_RETRY                , rio_em_f_2many_retx, true },
+   { 2, NOT_IN_PW                   , rio_em_i_init_fail , false},
+   { 2, NOT_IN_PW                   , rio_em_d_ttl       , false},
+   { 2, PW_ILL_TRANS                , rio_em_d_rte       , true },
+   { 3, 0xFFFFFFFF                  , rio_em_d_log       , false},
+   { 2, PW_LINK_INIT                , rio_em_i_sig_det   , true }, 
+   { 2, NOT_IN_PW                   , rio_em_i_rst_req   , true }  
 };
 
 #define PARSE_PW(x) (EM_PARSE_PW_0+x)
 
 uint32_t idt_tsi57x_em_parse_pw  ( DAR_DEV_INFO_t         *dev_info, 
-                                 idt_em_parse_pw_in_t   *in_parms, 
-                                 idt_em_parse_pw_out_t  *out_parms ) 
+                                 rio_em_parse_pw_in_t   *in_parms, 
+                                 rio_em_parse_pw_out_t  *out_parms ) 
 {
    uint32_t rc = RIO_ERR_INVALID_PARAMETER;
    uint8_t idx;
@@ -4437,7 +4437,7 @@ uint32_t idt_tsi57x_em_parse_pw  ( DAR_DEV_INFO_t         *dev_info,
    out_parms->other_events = false;
 
    if (( !in_parms->num_events                        ) 
-      || (in_parms->num_events > (uint8_t)(idt_em_last) )
+      || (in_parms->num_events > (uint8_t)(rio_em_last) )
       || (NULL == dev_info                            )
       || (NULL == in_parms->events                    )) {
       out_parms->imp_rc = PARSE_PW(1);
@@ -4445,7 +4445,7 @@ uint32_t idt_tsi57x_em_parse_pw  ( DAR_DEV_INFO_t         *dev_info,
    };
 
    // Check each bit within the port-write data for information on Error Management events
-   for (idx = 0; (idx < (uint8_t)(idt_em_last)) && !(out_parms->too_many); idx++ ) {
+   for (idx = 0; (idx < (uint8_t)(rio_em_last)) && !(out_parms->too_many); idx++ ) {
       if (in_parms->pw[pw_parsing_info[idx].pw_index] & pw_parsing_info[idx].check) {
          if (out_parms->num_events < in_parms->num_events) {
             in_parms->events[out_parms->num_events].event = pw_parsing_info[idx].event;
@@ -4462,7 +4462,7 @@ uint32_t idt_tsi57x_em_parse_pw  ( DAR_DEV_INFO_t         *dev_info,
    };
 
    // Check for "other" events that have happenned...
-   for (idx = 0; idx < (uint8_t)(idt_em_last); idx++ ) {
+   for (idx = 0; idx < (uint8_t)(rio_em_last); idx++ ) {
       oth_masks [pw_parsing_info[idx].pw_index] |= pw_parsing_info[idx].check; 
    };
    for (idx = 0; (idx < 3) && !out_parms->other_events; idx++) {
@@ -4478,8 +4478,8 @@ idt_tsi57x_em_parse_pw_exit:
 #define GET_INT_STAT(x) (EM_GET_INT_STAT_0+x)
 
 uint32_t idt_tsi57x_em_get_int_stat  ( DAR_DEV_INFO_t             *dev_info, 
-                                     idt_em_get_int_stat_in_t   *in_parms, 
-                                     idt_em_get_int_stat_out_t  *out_parms ) 
+                                     rio_em_get_int_stat_in_t   *in_parms, 
+                                     rio_em_get_int_stat_out_t  *out_parms ) 
 {
     uint32_t rc = RIO_ERR_INVALID_PARAMETER;
     uint8_t pnum; 
@@ -4590,11 +4590,11 @@ uint32_t idt_tsi57x_em_get_int_stat  ( DAR_DEV_INFO_t             *dev_info,
        || ((spx_err_stat & Tsi578_SPX_ERR_uint32_t_PORT_ERR   ) &&
           !(spx_err_det  & (Tsi578_SPX_ERR_DET_LINK_TO | Tsi578_SPX_ERR_DET_LR_ACKID_ILL)))) {
          if ( spx_dloop & Tsi578_SMACX_DLOOP_CLK_SEL_DLT_EN ) {
-            add_int_event( in_parms, out_parms, pnum, idt_em_f_los );
+            add_int_event( in_parms, out_parms, pnum, rio_em_f_los );
             if ((RIO_ALL_PORTS        != in_parms->ptl.num_ports) &&   // 
                 (Tsi577_RIO_DEVID_VAL != DEV_CODE(dev_info)) && 
                 (!sw_pmr[pnum].lane_count_4x           ) ) {
-               add_int_event( in_parms, out_parms, sw_pmr[pnum].other_mac_ports[0], idt_em_f_port_err );
+               add_int_event( in_parms, out_parms, sw_pmr[pnum].other_mac_ports[0], rio_em_f_port_err );
             }
          } else {
             out_parms->other_events = true;
@@ -4615,11 +4615,11 @@ uint32_t idt_tsi57x_em_get_int_stat  ( DAR_DEV_INFO_t             *dev_info,
       if (( spx_err_stat & Tsi578_SPX_ERR_uint32_t_PORT_ERR   ) && 
           ( spx_err_det & (Tsi578_SPX_ERR_DET_LINK_TO | Tsi578_SPX_ERR_DET_LR_ACKID_ILL))) {
          if (spx_ctl_indep & Tsi578_SPX_CTL_INDEP_PORT_ERR_EN) {
-            add_int_event( in_parms, out_parms, pnum, idt_em_f_port_err );
+            add_int_event( in_parms, out_parms, pnum, rio_em_f_port_err );
             if ((RIO_ALL_PORTS        != in_parms->ptl.num_ports) &&   // 
                 (Tsi577_RIO_DEVID_VAL != DEV_CODE(dev_info)) && 
                 (!sw_pmr[pnum].lane_count_4x           ) ) {
-               add_int_event( in_parms, out_parms, sw_pmr[pnum].other_mac_ports[0], idt_em_f_port_err );
+               add_int_event( in_parms, out_parms, sw_pmr[pnum].other_mac_ports[0], rio_em_f_port_err );
             }
          } else {
             out_parms->other_events = true;
@@ -4628,7 +4628,7 @@ uint32_t idt_tsi57x_em_get_int_stat  ( DAR_DEV_INFO_t             *dev_info,
 
       if ( spx_int_stat & Tsi578_SPX_INT_uint32_t_MAX_RETRY   ) {
          if (spx_ctl_indep & Tsi578_SPX_CTL_INDEP_MAX_RETRY_EN) {
-            add_int_event( in_parms, out_parms, pnum, idt_em_f_2many_retx );
+            add_int_event( in_parms, out_parms, pnum, rio_em_f_2many_retx );
          } else {
             out_parms->other_events = true;
          }
@@ -4637,11 +4637,11 @@ uint32_t idt_tsi57x_em_get_int_stat  ( DAR_DEV_INFO_t             *dev_info,
       // Check for too many PNA and ERR_RATE.  
       if (spx_err_stat & Tsi578_SPX_ERR_uint32_t_OUTPUT_FAIL) {
          if (Tsi578_SPX_ERR_DET_CS_NOT_ACC & spx_err_det & spx_rate_en) { 
-            add_int_event( in_parms, out_parms, pnum, idt_em_f_2many_pna );
+            add_int_event( in_parms, out_parms, pnum, rio_em_f_2many_pna );
          };
          
          if (~EM_ERR_RATE_EVENT_EXCLUSIONS & spx_err_det & spx_rate_en) {
-            add_int_event( in_parms, out_parms, pnum, idt_em_f_err_rate );
+            add_int_event( in_parms, out_parms, pnum, rio_em_f_err_rate );
          };
 
          if (spx_err_det & ~spx_rate_en) {
@@ -4651,7 +4651,7 @@ uint32_t idt_tsi57x_em_get_int_stat  ( DAR_DEV_INFO_t             *dev_info,
 
       if ( spx_int_stat & Tsi578_SPX_INT_uint32_t_ILL_TRANS_ERR   ) {
          if (spx_ctl_indep & Tsi578_SPX_CTL_INDEP_ILL_TRANS_ERR) {
-            add_int_event( in_parms, out_parms, pnum, idt_em_d_rte );
+            add_int_event( in_parms, out_parms, pnum, rio_em_d_rte );
          } else {
             out_parms->other_events = true;
          }
@@ -4659,7 +4659,7 @@ uint32_t idt_tsi57x_em_get_int_stat  ( DAR_DEV_INFO_t             *dev_info,
 
       if ( spx_int_stat & Tsi578_SPX_INT_uint32_t_LINK_INIT_NOTIFICATION   ) {
          if (spx_ctl_indep & Tsi578_SPX_CTL_INDEP_LINK_INIT_NOTIFICATION_EN) {
-            add_int_event( in_parms, out_parms, pnum, idt_em_i_sig_det );
+            add_int_event( in_parms, out_parms, pnum, rio_em_i_sig_det );
          } else {
             out_parms->other_events = true;
          }
@@ -4667,7 +4667,7 @@ uint32_t idt_tsi57x_em_get_int_stat  ( DAR_DEV_INFO_t             *dev_info,
 
       if ( spx_cs_int & Tsi578_SPX_CS_INT_uint32_t_RCS   ) {
          if (spx_ctl_indep & Tsi578_SPX_CTL_INDEP_RSVD1) {
-            add_int_event( in_parms, out_parms, pnum, idt_em_i_rst_req );
+            add_int_event( in_parms, out_parms, pnum, rio_em_i_rst_req );
          } else {
             out_parms->other_events = true;
          }
@@ -4691,7 +4691,7 @@ uint32_t idt_tsi57x_em_get_int_stat  ( DAR_DEV_INFO_t             *dev_info,
          goto idt_tsi57x_em_get_int_stat_exit;
       }
       if (regData & enData) {
-         add_int_event( in_parms, out_parms, RIO_ALL_PORTS, idt_em_d_log );
+         add_int_event( in_parms, out_parms, RIO_ALL_PORTS, rio_em_d_log );
       } else {
          out_parms->other_events = true;
       };
@@ -4712,7 +4712,7 @@ uint32_t idt_tsi57x_em_get_int_stat  ( DAR_DEV_INFO_t             *dev_info,
          goto idt_tsi57x_em_get_int_stat_exit;
       }
       if (regData & Tsi578_I2C_INT_ENABLE_BL_FAIL) {
-         add_int_event( in_parms, out_parms, RIO_ALL_PORTS, idt_em_i_init_fail );
+         add_int_event( in_parms, out_parms, RIO_ALL_PORTS, rio_em_i_init_fail );
       } else {
          out_parms->other_events = true;
       }
@@ -4725,8 +4725,8 @@ idt_tsi57x_em_get_int_stat_exit:
 #define GET_PW_STAT(x) (EM_GET_PW_STAT_0+x)
 
 uint32_t idt_tsi57x_em_get_pw_stat  ( DAR_DEV_INFO_t            *dev_info, 
-                                    idt_em_get_pw_stat_in_t   *in_parms, 
-                                    idt_em_get_pw_stat_out_t  *out_parms )
+                                    rio_em_get_pw_stat_in_t   *in_parms, 
+                                    rio_em_get_pw_stat_out_t  *out_parms )
 {
     uint32_t rc = RIO_ERR_INVALID_PARAMETER;
     uint8_t pnum; 
@@ -4785,7 +4785,7 @@ uint32_t idt_tsi57x_em_get_pw_stat  ( DAR_DEV_INFO_t            *dev_info,
 
    if (log_err_det) {
      if ( log_err_en ) {
-        add_pw_event( in_parms, out_parms, RIO_ALL_PORTS, idt_em_d_log );
+        add_pw_event( in_parms, out_parms, RIO_ALL_PORTS, rio_em_d_log );
       } else {
          out_parms->other_events = true;
       }
@@ -4848,7 +4848,7 @@ uint32_t idt_tsi57x_em_get_pw_stat  ( DAR_DEV_INFO_t            *dev_info,
        || ((spx_err_stat & Tsi578_SPX_ERR_uint32_t_PORT_ERR   ) &&
          !(spx_err_det & (Tsi578_SPX_ERR_DET_LINK_TO | Tsi578_SPX_ERR_DET_LR_ACKID_ILL)))) {
          if ( spx_dloop & Tsi578_SMACX_DLOOP_CLK_SEL_DLT_EN) {
-            add_pw_event( in_parms, out_parms, pnum, idt_em_f_los );
+            add_pw_event( in_parms, out_parms, pnum, rio_em_f_los );
          } else {
             out_parms->other_events = true;
          }
@@ -4858,10 +4858,10 @@ uint32_t idt_tsi57x_em_get_pw_stat  ( DAR_DEV_INFO_t            *dev_info,
          uint32_t errs = spx_err_det & spx_rate_en;
 
          if (Tsi578_SPX_ERR_DET_CS_NOT_ACC & errs) { 
-            add_pw_event( in_parms, out_parms, pnum, idt_em_f_2many_pna );
+            add_pw_event( in_parms, out_parms, pnum, rio_em_f_2many_pna );
          };
          if (~EM_ERR_RATE_EVENT_EXCLUSIONS & errs) {
-            add_pw_event( in_parms, out_parms, pnum, idt_em_f_err_rate );
+            add_pw_event( in_parms, out_parms, pnum, rio_em_f_err_rate );
          };
 
          if (spx_err_det & ~spx_rate_en) {
@@ -4879,7 +4879,7 @@ uint32_t idt_tsi57x_em_get_pw_stat  ( DAR_DEV_INFO_t            *dev_info,
       if (( spx_err_stat & Tsi578_SPX_ERR_uint32_t_PORT_ERR   ) && 
           ( spx_err_det & (Tsi578_SPX_ERR_DET_LINK_TO | Tsi578_SPX_ERR_DET_LR_ACKID_ILL))) {
          if (spx_ctl_indep & Tsi578_SPX_CTL_INDEP_PORT_ERR_EN) {
-            add_pw_event( in_parms, out_parms, pnum, idt_em_f_port_err );
+            add_pw_event( in_parms, out_parms, pnum, rio_em_f_port_err );
          } else {
             out_parms->other_events = true;
          }
@@ -4887,7 +4887,7 @@ uint32_t idt_tsi57x_em_get_pw_stat  ( DAR_DEV_INFO_t            *dev_info,
 
       if ( spx_int_stat & Tsi578_SPX_INT_uint32_t_MAX_RETRY   ) {
          if (spx_ctl_indep & Tsi578_SPX_CTL_INDEP_MAX_RETRY_EN) {
-           add_pw_event( in_parms, out_parms, pnum, idt_em_f_2many_retx );
+           add_pw_event( in_parms, out_parms, pnum, rio_em_f_2many_retx );
          } else {
             out_parms->other_events = true;
          }
@@ -4895,7 +4895,7 @@ uint32_t idt_tsi57x_em_get_pw_stat  ( DAR_DEV_INFO_t            *dev_info,
 
       if ( spx_int_stat & Tsi578_SPX_INT_uint32_t_ILL_TRANS_ERR   ) {
          if (spx_ctl_indep & Tsi578_SPX_CTL_INDEP_ILL_TRANS_ERR) {
-            add_pw_event( in_parms, out_parms, pnum, idt_em_d_rte );
+            add_pw_event( in_parms, out_parms, pnum, rio_em_d_rte );
          } else {
             out_parms->other_events = true;
          }
@@ -4903,7 +4903,7 @@ uint32_t idt_tsi57x_em_get_pw_stat  ( DAR_DEV_INFO_t            *dev_info,
 
       if ( spx_int_stat & Tsi578_SPX_INT_uint32_t_LINK_INIT_NOTIFICATION   ) {
          if (spx_ctl_indep & Tsi578_SPX_CTL_INDEP_LINK_INIT_NOTIFICATION_EN) {
-           add_pw_event( in_parms, out_parms, pnum, idt_em_i_sig_det );
+           add_pw_event( in_parms, out_parms, pnum, rio_em_i_sig_det );
          } else {
             out_parms->other_events = true;
          }
@@ -4917,7 +4917,7 @@ uint32_t idt_tsi57x_em_get_pw_stat  ( DAR_DEV_INFO_t            *dev_info,
       // reported by the port.  
       if ((start_idx != out_parms->num_events) ||
           (spx_err_stat & Tsi578_SPX_ERR_uint32_t_PORT_W_PEND)) {
-         add_pw_event( in_parms, out_parms, pnum, idt_em_a_clr_pwpnd );
+         add_pw_event( in_parms, out_parms, pnum, rio_em_a_clr_pwpnd );
       };
 
       // Reset request cannot trigger a port write.
@@ -4927,8 +4927,8 @@ uint32_t idt_tsi57x_em_get_pw_stat  ( DAR_DEV_INFO_t            *dev_info,
    if ((RIO_ALL_PORTS != in_parms->pw_port_num) && (!out_parms->too_many)) {
       // Recursively request events for the last port.                  
       // Note that if successful, this will detect a logical layer error.
-      idt_em_get_pw_stat_in_t  last_in_parms;
-      idt_em_get_pw_stat_out_t last_out_parms;
+      rio_em_get_pw_stat_in_t  last_in_parms;
+      rio_em_get_pw_stat_out_t last_out_parms;
 
 
       last_in_parms.ptl.num_ports = 1;
@@ -4958,8 +4958,8 @@ idt_tsi57x_em_get_pw_stat_exit:
 };
 
 uint32_t idt_tsi57x_em_clr_events   ( DAR_DEV_INFO_t           *dev_info, 
-                                    idt_em_clr_events_in_t   *in_parms, 
-                                    idt_em_clr_events_out_t  *out_parms ) 
+                                    rio_em_clr_events_in_t   *in_parms, 
+                                    rio_em_clr_events_out_t  *out_parms ) 
 {
     uint32_t rc = RIO_ERR_INVALID_PARAMETER;
     int pnum; 
@@ -4985,21 +4985,21 @@ uint32_t idt_tsi57x_em_clr_events   ( DAR_DEV_INFO_t           *dev_info,
        // Complex statement below enforces 
        // - valid port number values
        // - RIO_ALL_PORTS cannot be used with any other events.
-       // - RIO_ALL_PORTS must be used with idt_em_d_log and idt_em_i_init_fail.
+       // - RIO_ALL_PORTS must be used with rio_em_d_log and rio_em_i_init_fail.
        // - valid event values
        if ( ((pnum >= TSI57X_NUM_PORTS(dev_info)) && (RIO_ALL_PORTS != pnum)) || 
-          ((RIO_ALL_PORTS == pnum) && !((idt_em_d_log == in_parms->events[idx].event)
-                                     ||(idt_em_i_init_fail == in_parms->events[idx].event)))  ||
-          (((idt_em_d_log       == in_parms->events[idx].event) ||
-            (idt_em_i_init_fail == in_parms->events[idx].event)) && !(RIO_ALL_PORTS == pnum)) ||
-           (idt_em_last <= in_parms->events[idx].event) ) {
+          ((RIO_ALL_PORTS == pnum) && !((rio_em_d_log == in_parms->events[idx].event)
+                                     ||(rio_em_i_init_fail == in_parms->events[idx].event)))  ||
+          (((rio_em_d_log       == in_parms->events[idx].event) ||
+            (rio_em_i_init_fail == in_parms->events[idx].event)) && !(RIO_ALL_PORTS == pnum)) ||
+           (rio_em_last <= in_parms->events[idx].event) ) {
           rc = RIO_ERR_INVALID_PARAMETER;
           out_parms->imp_rc = EM_CLR_EVENTS(2);
           goto idt_tsi57x_em_clr_events_exit;
        };
 
        switch (in_parms->events[idx].event) {       
-          case idt_em_f_los       : // Clear DELIN_ERR 
+          case rio_em_f_los       : // Clear DELIN_ERR 
                rc = DARRegRead( dev_info, Tsi578_SPX_ERR_DET(pnum), &regData );
                if (RIO_SUCCESS != rc) {
                   out_parms->imp_rc = EM_CLR_EVENTS(3);
@@ -5016,11 +5016,11 @@ uint32_t idt_tsi57x_em_clr_events   ( DAR_DEV_INFO_t           *dev_info,
                clear_port_fail = true;
                break;
 
-          case idt_em_f_port_err  : // PORT_ERR occurs due to multiple causes,
+          case rio_em_f_port_err  : // PORT_ERR occurs due to multiple causes,
                clear_port_fail = true;
                break;
 
-          case idt_em_f_2many_retx: 
+          case rio_em_f_2many_retx: 
                //  Clear MAX_RETRY and IMP_SPEC_ERR events
                rc = DARRegWrite( dev_info, Tsi578_SPX_INT_uint32_t(pnum), Tsi578_SPX_INT_uint32_t_MAX_RETRY);
                if (RIO_SUCCESS != rc) {
@@ -5043,7 +5043,7 @@ uint32_t idt_tsi57x_em_clr_events   ( DAR_DEV_INFO_t           *dev_info,
                clear_port_fail = true;
                break;
 
-         case idt_em_i_init_fail :
+         case rio_em_i_init_fail :
                rc = DARRegWrite( dev_info, Tsi578_I2C_INT_STAT, Tsi578_I2C_INT_STAT_BL_FAIL);
                if (RIO_SUCCESS != rc) {
                   out_parms->imp_rc = EM_CLR_EVENTS(0x13);
@@ -5051,10 +5051,10 @@ uint32_t idt_tsi57x_em_clr_events   ( DAR_DEV_INFO_t           *dev_info,
                }
               break;
 
-         case idt_em_d_ttl       : // Do nothing
+         case rio_em_d_ttl       : // Do nothing
               break;
 
-         case idt_em_d_rte       :
+         case rio_em_d_rte       :
                rc = DARRegWrite( dev_info, Tsi578_SPX_INT_uint32_t(pnum), Tsi578_SPX_INT_uint32_t_ILL_TRANS_ERR);
                if (RIO_SUCCESS != rc) {
                   out_parms->imp_rc = EM_CLR_EVENTS(0x20);
@@ -5062,7 +5062,7 @@ uint32_t idt_tsi57x_em_clr_events   ( DAR_DEV_INFO_t           *dev_info,
                }
               break;
 
-         case idt_em_f_2many_pna :
+         case rio_em_f_2many_pna :
                rc = DARRegRead( dev_info, Tsi578_SPX_ERR_DET(pnum), &regData);
                if (RIO_SUCCESS != rc) {
                   out_parms->imp_rc = EM_CLR_EVENTS(0x22);
@@ -5076,7 +5076,7 @@ uint32_t idt_tsi57x_em_clr_events   ( DAR_DEV_INFO_t           *dev_info,
                };
               clear_port_fail = true;
               break;
-         case idt_em_f_err_rate  :
+         case rio_em_f_err_rate  :
                // Clear all events that contribute to the fatal error rate event
                rc = DARRegRead( dev_info, Tsi578_SPX_ERR_DET(pnum), &regData);
                if (RIO_SUCCESS != rc) {
@@ -5092,7 +5092,7 @@ uint32_t idt_tsi57x_em_clr_events   ( DAR_DEV_INFO_t           *dev_info,
               clear_port_fail = true;
               break;
                                      
-         case idt_em_d_log       : // Clear all logical layer errors, must write 0
+         case rio_em_d_log       : // Clear all logical layer errors, must write 0
                                    // Register will not clear if the value written is != 0.
                rc = DARRegWrite( dev_info, Tsi578_RIO_LOG_ERR_DET, 0 );
                if (RIO_SUCCESS != rc) {
@@ -5101,7 +5101,7 @@ uint32_t idt_tsi57x_em_clr_events   ( DAR_DEV_INFO_t           *dev_info,
                }
               break;
 
-         case idt_em_i_sig_det   :
+         case rio_em_i_sig_det   :
                rc = DARRegWrite( dev_info, Tsi578_SPX_INT_uint32_t(pnum), Tsi578_SPX_INT_uint32_t_LINK_INIT_NOTIFICATION);
                if (RIO_SUCCESS != rc) {
                   out_parms->imp_rc = EM_CLR_EVENTS(0x28);
@@ -5109,7 +5109,7 @@ uint32_t idt_tsi57x_em_clr_events   ( DAR_DEV_INFO_t           *dev_info,
                }
               break;
 
-         case idt_em_i_rst_req   :
+         case rio_em_i_rst_req   :
                rc = DARRegWrite( dev_info, Tsi578_SPX_ACKID_STAT(pnum)   , Tsi578_SPX_ACKID_STAT_CLR_PKTS );  
                if (RIO_SUCCESS != rc) {
                   out_parms->imp_rc = EM_CLR_EVENTS(0x2A);
@@ -5122,7 +5122,7 @@ uint32_t idt_tsi57x_em_clr_events   ( DAR_DEV_INFO_t           *dev_info,
                }
               break;
 
-         case idt_em_a_clr_pwpnd  :
+         case rio_em_a_clr_pwpnd  :
               { uint32_t err_stat;
                rc = DARRegRead( dev_info, Tsi578_SPX_ERR_uint32_t(pnum), &err_stat);
                if (RIO_SUCCESS != rc) {
@@ -5137,7 +5137,7 @@ uint32_t idt_tsi57x_em_clr_events   ( DAR_DEV_INFO_t           *dev_info,
               };
               break;
 
-         case idt_em_a_no_event  :
+         case rio_em_a_no_event  :
               break;
 
          default:
@@ -5256,8 +5256,8 @@ create_rate_event_exit:
 #define CREATE_EVENTS(x) (EM_CREATE_EVENTS_0+x)
 
 uint32_t idt_tsi57x_em_create_events( DAR_DEV_INFO_t              *dev_info, 
-                                    idt_em_create_events_in_t   *in_parms, 
-                                    idt_em_create_events_out_t  *out_parms ) 
+                                    rio_em_create_events_in_t   *in_parms, 
+                                    rio_em_create_events_out_t  *out_parms ) 
 {
     uint32_t rc = RIO_ERR_INVALID_PARAMETER;
     uint32_t regVal;
@@ -5295,11 +5295,11 @@ uint32_t idt_tsi57x_em_create_events( DAR_DEV_INFO_t              *dev_info,
        pnum = in_parms->events[idx].port_num;
 
        if ( ((pnum >= TSI57X_NUM_PORTS(dev_info)) && (RIO_ALL_PORTS != pnum)) || 
-          ((RIO_ALL_PORTS == pnum) && !((idt_em_d_log       == in_parms->events[idx].event) ||
-                                        (idt_em_i_init_fail == in_parms->events[idx].event)))  ||
-          (((idt_em_d_log       == in_parms->events[idx].event) ||
-            (idt_em_i_init_fail == in_parms->events[idx].event)) && !(RIO_ALL_PORTS == pnum)) ||
-           (idt_em_last <= in_parms->events[idx].event                                    ) ) {
+          ((RIO_ALL_PORTS == pnum) && !((rio_em_d_log       == in_parms->events[idx].event) ||
+                                        (rio_em_i_init_fail == in_parms->events[idx].event)))  ||
+          (((rio_em_d_log       == in_parms->events[idx].event) ||
+            (rio_em_i_init_fail == in_parms->events[idx].event)) && !(RIO_ALL_PORTS == pnum)) ||
+           (rio_em_last <= in_parms->events[idx].event                                    ) ) {
           rc = RIO_ERR_INVALID_PARAMETER;
           out_parms->imp_rc = CREATE_EVENTS(2);
           goto idt_tsi57x_em_create_events_exit;
@@ -5311,7 +5311,7 @@ uint32_t idt_tsi57x_em_create_events( DAR_DEV_INFO_t              *dev_info,
        }
 
        switch (in_parms->events[idx].event) {       
-          case idt_em_f_los       : 
+          case rio_em_f_los       : 
               // LOS is equal to a DELIN_ERR  
                rc = DARRegRead( dev_info, Tsi578_SPX_ERR_DET(pnum), &regVal);
                if (RIO_SUCCESS != rc) {
@@ -5325,13 +5325,13 @@ uint32_t idt_tsi57x_em_create_events( DAR_DEV_INFO_t              *dev_info,
                };
               break;
 
-          case idt_em_f_port_err  :  // Can't create a PORT_ERR
+          case rio_em_f_port_err  :  // Can't create a PORT_ERR
                rc = RIO_ERR_FEATURE_NOT_SUPPORTED;
                out_parms->imp_rc = CREATE_EVENTS(0x12);
                goto idt_tsi57x_em_create_events_exit;
               break;
 
-         case idt_em_f_2many_retx: 
+         case rio_em_f_2many_retx: 
                rc = DARRegRead( dev_info, Tsi578_SPX_INT_uint32_t(pnum), &regVal);
                if (RIO_SUCCESS != rc) {
                   out_parms->imp_rc = CREATE_EVENTS(0x13);
@@ -5344,27 +5344,27 @@ uint32_t idt_tsi57x_em_create_events( DAR_DEV_INFO_t              *dev_info,
                };
               break;
 
-         case idt_em_f_2many_pna:
+         case rio_em_f_2many_pna:
               rc = create_rate_event( dev_info, pnum, Tsi578_SPX_RATE_EN_CS_NOT_ACC_EN, &out_parms->imp_rc );
               if (RIO_SUCCESS != rc) {
                  goto idt_tsi57x_em_create_events_exit;
               };
               break;
 
-         case idt_em_f_err_rate :
+         case rio_em_f_err_rate :
               rc = create_rate_event( dev_info, pnum, ~EM_ERR_RATE_EVENT_EXCLUSIONS, &out_parms->imp_rc );
               if (RIO_SUCCESS != rc) {
                  goto idt_tsi57x_em_create_events_exit;
               };
               break;
 
-         case idt_em_d_ttl       : // Do nothing
+         case rio_em_d_ttl       : // Do nothing
                rc = RIO_ERR_FEATURE_NOT_SUPPORTED;
                out_parms->imp_rc = CREATE_EVENTS(0x21);
                goto idt_tsi57x_em_create_events_exit;
               break;
 
-         case idt_em_d_rte       :
+         case rio_em_d_rte       :
                rc = DARRegRead( dev_info, Tsi578_SPX_INT_uint32_t(pnum), &regVal);
                if (RIO_SUCCESS != rc) {
                   out_parms->imp_rc = CREATE_EVENTS(0x22);
@@ -5377,7 +5377,7 @@ uint32_t idt_tsi57x_em_create_events( DAR_DEV_INFO_t              *dev_info,
                };
               break;
 
-         case idt_em_d_log       : // Set all logical layer errors
+         case rio_em_d_log       : // Set all logical layer errors
                rc = DARRegWrite( dev_info, Tsi578_RIO_LOG_ERR_DET, TSI57X_ALL_LOG_ERRS );
                if (RIO_SUCCESS != rc) {
                   out_parms->imp_rc = CREATE_EVENTS(0x30);
@@ -5385,7 +5385,7 @@ uint32_t idt_tsi57x_em_create_events( DAR_DEV_INFO_t              *dev_info,
                };
               break;
 
-         case idt_em_i_sig_det   :
+         case rio_em_i_sig_det   :
                rc = DARRegRead( dev_info, Tsi578_SPX_INT_uint32_t(pnum), &regVal);
                if (RIO_SUCCESS != rc) {
                   out_parms->imp_rc = CREATE_EVENTS(0x31);
@@ -5398,13 +5398,13 @@ uint32_t idt_tsi57x_em_create_events( DAR_DEV_INFO_t              *dev_info,
                };
               break;
 
-         case idt_em_i_rst_req   :
+         case rio_em_i_rst_req   :
                rc = RIO_ERR_FEATURE_NOT_SUPPORTED;
                out_parms->imp_rc = CREATE_EVENTS(0x33);
                goto idt_tsi57x_em_create_events_exit;
               break;
 
-         case idt_em_i_init_fail :
+         case rio_em_i_init_fail :
                rc = DARRegWrite( dev_info, Tsi578_I2C_INT_SET, Tsi578_I2C_INT_SET_BL_FAIL);
                if (RIO_SUCCESS != rc) {
                   out_parms->imp_rc = CREATE_EVENTS(0x20);
@@ -5773,15 +5773,15 @@ uint32_t bind_tsi57x_DSF_support( void )
     idt_driver.idt_rt_change_rte      = idt_tsi57x_rt_change_rte;
     idt_driver.idt_rt_change_mc_mask  = idt_tsi57x_rt_change_mc_mask;
 
-    idt_driver.idt_em_cfg_pw       = idt_tsi57x_em_cfg_pw       ;
-    idt_driver.idt_em_cfg_set      = idt_tsi57x_em_cfg_set      ;
-    idt_driver.idt_em_cfg_get      = idt_tsi57x_em_cfg_get      ;
-    idt_driver.idt_em_dev_rpt_ctl  = idt_tsi57x_em_dev_rpt_ctl  ;
-    idt_driver.idt_em_parse_pw     = idt_tsi57x_em_parse_pw     ;
-    idt_driver.idt_em_get_int_stat = idt_tsi57x_em_get_int_stat ;
-    idt_driver.idt_em_get_pw_stat  = idt_tsi57x_em_get_pw_stat  ;
-    idt_driver.idt_em_clr_events   = idt_tsi57x_em_clr_events   ;
-    idt_driver.idt_em_create_events= idt_tsi57x_em_create_events;
+    idt_driver.rio_em_cfg_pw       = idt_tsi57x_em_cfg_pw       ;
+    idt_driver.rio_em_cfg_set      = idt_tsi57x_em_cfg_set      ;
+    idt_driver.rio_em_cfg_get      = idt_tsi57x_em_cfg_get      ;
+    idt_driver.rio_em_dev_rpt_ctl  = idt_tsi57x_em_dev_rpt_ctl  ;
+    idt_driver.rio_em_parse_pw     = idt_tsi57x_em_parse_pw     ;
+    idt_driver.rio_em_get_int_stat = idt_tsi57x_em_get_int_stat ;
+    idt_driver.rio_em_get_pw_stat  = idt_tsi57x_em_get_pw_stat  ;
+    idt_driver.rio_em_clr_events   = idt_tsi57x_em_clr_events   ;
+    idt_driver.rio_em_create_events= idt_tsi57x_em_create_events;
 
     idt_driver.idt_sc_init_dev_ctrs= idt_tsi57x_sc_init_dev_ctrs;
     idt_driver.idt_sc_read_ctrs    = idt_tsi57x_sc_read_ctrs    ;
