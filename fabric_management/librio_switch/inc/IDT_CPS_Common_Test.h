@@ -266,16 +266,16 @@ extern uint32_t IDT_CPS_em_create_events( DAR_DEV_INFO_t              *dev_info,
                                  rio_em_create_events_out_t  *out_parms );
 
 extern uint32_t idt_cps_sc_init_dev_ctrs ( DAR_DEV_INFO_t             *dev_info,
-                                         idt_sc_init_dev_ctrs_in_t  *in_parms,
-                                         idt_sc_init_dev_ctrs_out_t *out_parms);
+                                         rio_sc_init_dev_ctrs_in_t  *in_parms,
+                                         rio_sc_init_dev_ctrs_out_t *out_parms);
 
 extern uint32_t idt_cps_sc_read_ctrs( DAR_DEV_INFO_t           *dev_info,
-                                    idt_sc_read_ctrs_in_t    *in_parms,
-                                    idt_sc_read_ctrs_out_t   *out_parms);
+                                    rio_sc_read_ctrs_in_t    *in_parms,
+                                    rio_sc_read_ctrs_out_t   *out_parms);
 
-extern uint32_t idt_sc_cfg_cps_ctrs ( DAR_DEV_INFO_t            *dev_info,
-                                    idt_sc_cfg_cps_ctrs_in_t  *in_parms,
-                                    idt_sc_cfg_cps_ctrs_out_t *out_parms );
+extern uint32_t rio_sc_cfg_cps_ctrs ( DAR_DEV_INFO_t            *dev_info,
+                                    rio_sc_cfg_cps_ctrs_in_t  *in_parms,
+                                    rio_sc_cfg_cps_ctrs_out_t *out_parms );
 
 typedef struct reset_reg_vals_t_TAG {
    uint32_t val;       // Reset default value for register

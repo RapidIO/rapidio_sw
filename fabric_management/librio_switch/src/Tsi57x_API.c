@@ -5428,11 +5428,11 @@ idt_tsi57x_em_create_events_exit:
 };
 
 uint32_t idt_tsi57x_sc_init_dev_ctrs ( DAR_DEV_INFO_t             *dev_info,
-                                     idt_sc_init_dev_ctrs_in_t  *in_parms,
-                                     idt_sc_init_dev_ctrs_out_t *out_parms)
+                                     rio_sc_init_dev_ctrs_in_t  *in_parms,
+                                     rio_sc_init_dev_ctrs_out_t *out_parms)
 {
    uint32_t rc = RIO_ERR_INVALID_PARAMETER;
-   idt_sc_ctr_val_t init_val = INIT_IDT_SC_CTR_VAL;
+   rio_sc_ctr_val_t init_val = INIT_RIO_SC_CTR_VAL;
    uint8_t idx, cntr_i;
    struct DAR_ptl good_ptl;
 
@@ -5485,8 +5485,8 @@ idt_tsi57x_sc_init_dev_ctrs_exit:
 */
 
 uint32_t idt_tsi57x_sc_read_ctrs( DAR_DEV_INFO_t           *dev_info,
-                                idt_sc_read_ctrs_in_t    *in_parms,
-                                idt_sc_read_ctrs_out_t   *out_parms)
+                                rio_sc_read_ctrs_in_t    *in_parms,
+                                rio_sc_read_ctrs_out_t   *out_parms)
 {
    uint32_t rc = RIO_ERR_INVALID_PARAMETER;
    uint8_t p_to_i[Tsi578_MAX_PORTS] = {IDT_MAX_PORTS};
@@ -5551,7 +5551,7 @@ uint32_t idt_tsi57x_sc_read_ctrs( DAR_DEV_INFO_t           *dev_info,
 
             // Read the port performance counters...
             for (cntr = 0; cntr < Tsi578_NUM_PERF_CTRS; cntr++) {
-               if (idt_sc_disabled != in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc) {
+               if (rio_sc_disabled != in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc) {
                   rc = DARRegRead( dev_info, Tsi578_SPX_PSCY(port_num, cntr), &in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].last_inc);
                   if (RIO_SUCCESS != rc) {
                      rc = RIO_ERR_INVALID_PARAMETER;
@@ -5580,14 +5580,14 @@ idt_tsi57x_sc_read_ctrs_exit:
 
 
 uint8_t tsi57x_ctl_to_ctr_t[8] = {
-   idt_sc_uc_req_pkts,
-   idt_sc_uc_pkts,
-   idt_sc_retries,
-   idt_sc_all_cs,
-   idt_sc_uc_4b_data,
-   idt_sc_mc_pkts,
-   idt_sc_mecs,
-   idt_sc_mc_4b_data
+   rio_sc_uc_req_pkts,
+   rio_sc_uc_pkts,
+   rio_sc_retries,
+   rio_sc_all_cs,
+   rio_sc_uc_4b_data,
+   rio_sc_mc_pkts,
+   rio_sc_mecs,
+   rio_sc_mc_4b_data
 };
 
 #define PRIO_MASK (Tsi578_SPX_PSC0n1_CTRL_PS1_PRIO0 | \
@@ -5595,9 +5595,9 @@ uint8_t tsi57x_ctl_to_ctr_t[8] = {
                    Tsi578_SPX_PSC0n1_CTRL_PS1_PRIO2 | \
                    Tsi578_SPX_PSC0n1_CTRL_PS1_PRIO3)
 
-uint32_t idt_sc_cfg_tsi57x_ctr ( DAR_DEV_INFO_t              *dev_info,
-                               idt_sc_cfg_tsi57x_ctr_in_t  *in_parms,
-                               idt_sc_cfg_tsi57x_ctr_out_t *out_parms )
+uint32_t rio_sc_cfg_tsi57x_ctr ( DAR_DEV_INFO_t              *dev_info,
+                               rio_sc_cfg_tsi57x_ctr_in_t  *in_parms,
+                               rio_sc_cfg_tsi57x_ctr_out_t *out_parms )
 {
    uint32_t rc = RIO_ERR_INVALID_PARAMETER;
    uint32_t new_ctl = 0, ctl_reg, new_ctl_reg, reg_mask;
@@ -5610,18 +5610,18 @@ uint32_t idt_sc_cfg_tsi57x_ctr ( DAR_DEV_INFO_t              *dev_info,
   
    if (NULL == in_parms->dev_ctrs) {
       out_parms->imp_rc = SC_CFG_TSI57X_CTR(0x01);
-      goto idt_sc_cfg_tsi57x_ctr_exit;
+      goto rio_sc_cfg_tsi57x_ctr_exit;
    };
 
    if (NULL == in_parms->dev_ctrs->p_ctrs) {
       out_parms->imp_rc = SC_CFG_TSI57X_CTR(0x02);
-      goto idt_sc_cfg_tsi57x_ctr_exit;
+      goto rio_sc_cfg_tsi57x_ctr_exit;
    };
 
   rc = DARrioGetPortList( dev_info, &in_parms->ptl, &good_ptl );
   if (RIO_SUCCESS != rc) {
 	  out_parms->imp_rc = SC_CFG_TSI57X_CTR(0x4);
-	 goto idt_sc_cfg_tsi57x_ctr_exit;
+	 goto rio_sc_cfg_tsi57x_ctr_exit;
   };
 
    rc = RIO_ERR_INVALID_PARAMETER;
@@ -5630,40 +5630,40 @@ uint32_t idt_sc_cfg_tsi57x_ctr ( DAR_DEV_INFO_t              *dev_info,
          (in_parms->dev_ctrs->num_p_ctrs > IDT_MAX_PORTS) ||
 		 (in_parms->dev_ctrs->num_p_ctrs < in_parms->dev_ctrs->valid_p_ctrs)) {
       out_parms->imp_rc = SC_CFG_TSI57X_CTR(0x06);
-      goto idt_sc_cfg_tsi57x_ctr_exit;
+      goto rio_sc_cfg_tsi57x_ctr_exit;
    };
 
    if ((in_parms->dev_ctrs->num_p_ctrs   < good_ptl.num_ports) ||
 	   (in_parms->dev_ctrs->valid_p_ctrs < good_ptl.num_ports)) {
       out_parms->imp_rc = SC_CFG_TSI57X_CTR(0x08);
-      goto idt_sc_cfg_tsi57x_ctr_exit;
+      goto rio_sc_cfg_tsi57x_ctr_exit;
    };
 
    // Create SC_CTL
-   if (idt_sc_disabled != in_parms->ctr_type) {
+   if (rio_sc_disabled != in_parms->ctr_type) {
       new_ctl  = ((uint32_t)(in_parms->prio_mask) << 12) & PRIO_MASK;
       // It is a programming error to have an empty priority mask when counting
       // packets or packet data...
-      if (!new_ctl && ((idt_sc_uc_req_pkts == in_parms->ctr_type) ||
-                       (idt_sc_uc_pkts     == in_parms->ctr_type) ||
-                       (idt_sc_uc_4b_data  == in_parms->ctr_type) ||
-                       (idt_sc_mc_pkts     == in_parms->ctr_type) ||
-                       (idt_sc_mc_4b_data  == in_parms->ctr_type)))  {
+      if (!new_ctl && ((rio_sc_uc_req_pkts == in_parms->ctr_type) ||
+                       (rio_sc_uc_pkts     == in_parms->ctr_type) ||
+                       (rio_sc_uc_4b_data  == in_parms->ctr_type) ||
+                       (rio_sc_mc_pkts     == in_parms->ctr_type) ||
+                       (rio_sc_mc_4b_data  == in_parms->ctr_type)))  {
          out_parms->imp_rc = SC_CFG_TSI57X_CTR(0x20);
-         goto idt_sc_cfg_tsi57x_ctr_exit;
+         goto rio_sc_cfg_tsi57x_ctr_exit;
       };
       new_ctl |=   (in_parms->tx)? Tsi578_SPX_PSC0n1_CTRL_PS1_DIR : 0;
       switch (in_parms->ctr_type) {
-         case idt_sc_uc_req_pkts :                               break; 
-         case idt_sc_uc_pkts     :  new_ctl |= 0x1            ;  break;
-         case idt_sc_retries     :  new_ctl |= 0x2 | PRIO_MASK;  break;
-         case idt_sc_all_cs      :  new_ctl |= 0x3 | PRIO_MASK;  break;
-         case idt_sc_uc_4b_data  :  new_ctl |= 0x4            ;  break;
-         case idt_sc_mc_pkts     :  new_ctl |= 0x5            ;  break;
-         case idt_sc_mecs        :  new_ctl |= 0x6 | PRIO_MASK;  break;
-         case idt_sc_mc_4b_data  :  new_ctl |= 0x7            ;  break;
+         case rio_sc_uc_req_pkts :                               break; 
+         case rio_sc_uc_pkts     :  new_ctl |= 0x1            ;  break;
+         case rio_sc_retries     :  new_ctl |= 0x2 | PRIO_MASK;  break;
+         case rio_sc_all_cs      :  new_ctl |= 0x3 | PRIO_MASK;  break;
+         case rio_sc_uc_4b_data  :  new_ctl |= 0x4            ;  break;
+         case rio_sc_mc_pkts     :  new_ctl |= 0x5            ;  break;
+         case rio_sc_mecs        :  new_ctl |= 0x6 | PRIO_MASK;  break;
+         case rio_sc_mc_4b_data  :  new_ctl |= 0x7            ;  break;
          default: out_parms->imp_rc = SC_CFG_TSI57X_CTR(0x30);
-                  goto idt_sc_cfg_tsi57x_ctr_exit;
+                  goto rio_sc_cfg_tsi57x_ctr_exit;
       };
    };
 
@@ -5696,21 +5696,21 @@ uint32_t idt_sc_cfg_tsi57x_ctr ( DAR_DEV_INFO_t              *dev_info,
                // or number of performance counters is incorrect/uninitialized...
 		rc = RIO_ERR_INVALID_PARAMETER;
                out_parms->imp_rc = SC_CFG_TSI57X_CTR(0x40 + port_num);
-               goto idt_sc_cfg_tsi57x_ctr_exit;
+               goto rio_sc_cfg_tsi57x_ctr_exit;
             };
          
             // Always program the control value...
             rc = DARRegRead( dev_info, Tsi578_SPX_PSC_CTRL(port_num, in_parms->ctr_idx), &ctl_reg );
             if (RIO_SUCCESS != rc) {
                out_parms->imp_rc = SC_CFG_TSI57X_CTR(0x50);
-               goto idt_sc_cfg_tsi57x_ctr_exit;
+               goto rio_sc_cfg_tsi57x_ctr_exit;
             };
             new_ctl_reg  = ctl_reg & ~reg_mask;
             new_ctl_reg |= new_ctl;
             rc = DARRegWrite( dev_info, Tsi578_SPX_PSC_CTRL(port_num, in_parms->ctr_idx), new_ctl_reg );
             if (RIO_SUCCESS != rc) {
                out_parms->imp_rc = SC_CFG_TSI57X_CTR(0x51);
-               goto idt_sc_cfg_tsi57x_ctr_exit;
+               goto rio_sc_cfg_tsi57x_ctr_exit;
             };
             
             if ((in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[in_parms->ctr_idx].sc != in_parms->ctr_type) ||
@@ -5725,7 +5725,7 @@ uint32_t idt_sc_cfg_tsi57x_ctr ( DAR_DEV_INFO_t              *dev_info,
                rc = DARRegRead( dev_info, Tsi578_SPX_PSCY(port_num, in_parms->ctr_idx), &ctl_reg );
                if (RIO_SUCCESS != rc) {
                   out_parms->imp_rc = SC_CFG_TSI57X_CTR(0x52);
-                  goto idt_sc_cfg_tsi57x_ctr_exit;
+                  goto rio_sc_cfg_tsi57x_ctr_exit;
                };
             };
          };
@@ -5733,11 +5733,11 @@ uint32_t idt_sc_cfg_tsi57x_ctr ( DAR_DEV_INFO_t              *dev_info,
 	  if (!found) {
 		  rc = RIO_ERR_INVALID_PARAMETER;
 		  out_parms->imp_rc = SC_CFG_TSI57X_CTR(0x53);
-          goto idt_sc_cfg_tsi57x_ctr_exit;
+          goto rio_sc_cfg_tsi57x_ctr_exit;
       };
    };
 
-idt_sc_cfg_tsi57x_ctr_exit:
+rio_sc_cfg_tsi57x_ctr_exit:
    return rc;        
 };
 
@@ -5783,8 +5783,8 @@ uint32_t bind_tsi57x_DSF_support( void )
     idt_driver.rio_em_clr_events   = idt_tsi57x_em_clr_events   ;
     idt_driver.rio_em_create_events= idt_tsi57x_em_create_events;
 
-    idt_driver.idt_sc_init_dev_ctrs= idt_tsi57x_sc_init_dev_ctrs;
-    idt_driver.idt_sc_read_ctrs    = idt_tsi57x_sc_read_ctrs    ;
+    idt_driver.rio_sc_init_dev_ctrs= idt_tsi57x_sc_init_dev_ctrs;
+    idt_driver.rio_sc_read_ctrs    = idt_tsi57x_sc_read_ctrs    ;
 
     IDT_DSF_bind_driver( &idt_driver, &Tsi57x_driver_handle );
 

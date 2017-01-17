@@ -41,7 +41,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 extern "C" {
 #endif
 
-sc_info_t sc_info[(uint8_t)(idt_sc_last)+2] = {
+sc_info_t sc_info[(uint8_t)(rio_sc_last)+2] = {
     { (char *)"Disabled__", 0},
     { (char *)"Enabled___", 0},
     { (char *)"UC_REQ_PKT", SC_F_PKT}, // Tsi57x start
@@ -102,7 +102,7 @@ const char *sc_other_if_names_FABRIC = (char *)"FABRIC";
 const char *sc_other_if_names_Invalid = (char *)"INVALID";
 const char *sc_other_if_names_UNKNOWN = (char *)"UNKNOWN";
 
-uint32_t idt_sc_other_if_names(DAR_DEV_INFO_t *dev_h, const char **name)
+uint32_t rio_sc_other_if_names(DAR_DEV_INFO_t *dev_h, const char **name)
 {
 	if ((NULL == dev_h) || (NULL == name)) {
 		return RIO_ERR_NULL_PARM_PTR;
@@ -141,10 +141,10 @@ uint32_t idt_sc_other_if_names(DAR_DEV_INFO_t *dev_h, const char **name)
 	
 	
 /* User function calls for a routing table configuration */
-uint32_t idt_sc_init_dev_ctrs (
+uint32_t rio_sc_init_dev_ctrs (
     DAR_DEV_INFO_t             *dev_info,
-    idt_sc_init_dev_ctrs_in_t  *in_parms,
-    idt_sc_init_dev_ctrs_out_t *out_parms )
+    rio_sc_init_dev_ctrs_in_t  *in_parms,
+    rio_sc_init_dev_ctrs_out_t *out_parms )
 {
     uint32_t rc = DAR_DB_INVALID_HANDLE;
 
@@ -153,7 +153,7 @@ uint32_t idt_sc_init_dev_ctrs (
     if ( VALIDATE_DEV_INFO(dev_info) )
     {
         if ( IDT_DSF_INDEX(dev_info) < DAR_DB_MAX_DRIVERS )
-            rc = IDT_DB[IDT_DSF_INDEX(dev_info)].idt_sc_init_dev_ctrs(
+            rc = IDT_DB[IDT_DSF_INDEX(dev_info)].rio_sc_init_dev_ctrs(
                     dev_info, in_parms, out_parms
                  );
     }
@@ -161,10 +161,10 @@ uint32_t idt_sc_init_dev_ctrs (
     return rc;
 }
 
-uint32_t idt_sc_read_ctrs(
+uint32_t rio_sc_read_ctrs(
     DAR_DEV_INFO_t           *dev_info,
-    idt_sc_read_ctrs_in_t    *in_parms,
-    idt_sc_read_ctrs_out_t   *out_parms )
+    rio_sc_read_ctrs_in_t    *in_parms,
+    rio_sc_read_ctrs_out_t   *out_parms )
 {
     uint32_t rc = DAR_DB_INVALID_HANDLE;
 
@@ -173,7 +173,7 @@ uint32_t idt_sc_read_ctrs(
     if ( VALIDATE_DEV_INFO(dev_info) )
     {
         if ( IDT_DSF_INDEX(dev_info) < DAR_DB_MAX_DRIVERS )
-            rc = IDT_DB[IDT_DSF_INDEX(dev_info)].idt_sc_read_ctrs(
+            rc = IDT_DB[IDT_DSF_INDEX(dev_info)].rio_sc_read_ctrs(
                     dev_info, in_parms, out_parms
                  );
     }

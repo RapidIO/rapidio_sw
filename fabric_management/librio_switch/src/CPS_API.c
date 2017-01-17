@@ -310,8 +310,8 @@ uint32_t bind_CPS_DSF_support( void )
     idt_driver.rio_em_clr_events   = IDT_CPS_em_clr_events   ;
     idt_driver.rio_em_create_events= IDT_CPS_em_create_events;
 
-	idt_driver.idt_sc_init_dev_ctrs= idt_cps_sc_init_dev_ctrs;
-    idt_driver.idt_sc_read_ctrs    = idt_cps_sc_read_ctrs    ;
+	idt_driver.rio_sc_init_dev_ctrs= idt_cps_sc_init_dev_ctrs;
+    idt_driver.rio_sc_read_ctrs    = idt_cps_sc_read_ctrs    ;
 
     IDT_DSF_bind_driver( &idt_driver, &cpsgen2_driver_handle );
 

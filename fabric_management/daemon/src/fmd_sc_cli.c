@@ -59,8 +59,8 @@ int CLICountReadCmd(struct cli_env *env, int argc, char **argv)
 	struct mpsw_drv_private_data *priv = NULL;
 	DAR_DEV_INFO_t *dev_h = NULL;
 
-	idt_sc_read_ctrs_in_t sc_in;
-	idt_sc_read_ctrs_out_t sc_out;
+	rio_sc_read_ctrs_in_t sc_in;
+	rio_sc_read_ctrs_out_t sc_out;
 	riocp_pe_handle pe_h = (riocp_pe_handle)(env->h);
 
         if (0) {
@@ -81,7 +81,7 @@ int CLICountReadCmd(struct cli_env *env, int argc, char **argv)
 	dev_h = &priv->dev_h;
 	sc_in.ptl.num_ports = RIO_ALL_PORTS;
 	sc_in.dev_ctrs = &priv->st.sc_dev;
-	rc = idt_sc_read_ctrs(dev_h, &sc_in, &sc_out);
+	rc = rio_sc_read_ctrs(dev_h, &sc_in, &sc_out);
 
 	if (RIO_SUCCESS == rc) {
 		LOGMSG(env,"\nCounters read successfully\n");
@@ -110,7 +110,7 @@ int CLICountDisplayCmd(struct cli_env *env, int argc, char **argv)
 
         riocp_pe_handle pe_h = (riocp_pe_handle)(env->h);
 	uint32_t val_p, cntr;
-	idt_sc_dev_ctrs_t *dc;
+	rio_sc_dev_ctrs_t *dc;
 	const char *oth_name;
 	bool got_one = false;
 	bool chk_rx_tx = false;
@@ -134,7 +134,7 @@ int CLICountDisplayCmd(struct cli_env *env, int argc, char **argv)
 	dev_h = &priv->dev_h;
  	dc = &priv->st.sc_dev;
 	
-	if (idt_sc_other_if_names(dev_h, &oth_name)) {
+	if (rio_sc_other_if_names(dev_h, &oth_name)) {
 		oth_name = "??????";
 	}
 
@@ -182,7 +182,7 @@ int CLICountDisplayCmd(struct cli_env *env, int argc, char **argv)
 
 	for (val_p = 0; val_p < dc->valid_p_ctrs; ++val_p) {
 		for (cntr = 0; cntr < dc->p_ctrs[val_p].ctrs_cnt; cntr++) {
-			idt_sc_ctr_val_t *stctr = &dc->p_ctrs[val_p].ctrs[cntr];
+			rio_sc_ctr_val_t *stctr = &dc->p_ctrs[val_p].ctrs[cntr];
 			// Never print counters that are zero
 			if (!stctr->last_inc && !stctr->total) {
 				continue;

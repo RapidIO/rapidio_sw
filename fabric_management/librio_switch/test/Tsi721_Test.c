@@ -79,15 +79,15 @@ typedef struct mock_dar_reg_t_TAG
 mock_dar_reg_t mock_dar_reg[UPB_DAR_REG];
 
 static DAR_DEV_INFO_t mock_dev_info;
-static idt_sc_dev_ctrs_t *mock_dev_ctrs = (idt_sc_dev_ctrs_t *)malloc(sizeof(idt_sc_dev_ctrs_t));
-static idt_sc_p_ctrs_val_t *pp_ctrs = (idt_sc_p_ctrs_val_t *)malloc((MAX_DAR_PORTS) * sizeof(idt_sc_p_ctrs_val_t));
+static rio_sc_dev_ctrs_t *mock_dev_ctrs = (rio_sc_dev_ctrs_t *)malloc(sizeof(rio_sc_dev_ctrs_t));
+static rio_sc_p_ctrs_val_t *pp_ctrs = (rio_sc_p_ctrs_val_t *)malloc((MAX_DAR_PORTS) * sizeof(rio_sc_p_ctrs_val_t));
 
 /* Create a mock dev_info.
  */
 static void tsi721_test_setup(void)
 {
         uint8_t idx, pnum;
-	idt_sc_ctr_val_t init = INIT_IDT_SC_CTR_VAL;
+	rio_sc_ctr_val_t init = INIT_RIO_SC_CTR_VAL;
 
 	mock_dev_info.db_h = 3670020;
 	mock_dev_info.privateData = 0x0;
@@ -216,7 +216,7 @@ uint32_t __wrap_DARRegWrite(DAR_DEV_INFO_t *dev_info, uint32_t offset, uint32_t 
  */
 static int tsi721_setup(void **state)
 {
-        memset(&mock_dev_info, 0x00, sizeof(idt_sc_dev_ctrs_t));
+        memset(&mock_dev_info, 0x00, sizeof(rio_sc_dev_ctrs_t));
         DARDB_init();
 	tsi721_test_setup();
         init_mock_tsi721_reg();
@@ -255,7 +255,7 @@ void tsi721_assumptions_test(void **state)
 	(void)state; // unused
 }
 
-static void tsi721_init_ctrs(idt_sc_init_dev_ctrs_in_t *parms_in)
+static void tsi721_init_ctrs(rio_sc_init_dev_ctrs_in_t *parms_in)
 {
 	uint8_t pnum;
 
@@ -269,9 +269,9 @@ static void tsi721_init_ctrs(idt_sc_init_dev_ctrs_in_t *parms_in)
 
 void tsi721_init_dev_ctrs_test_success(void **state)
 {
-        idt_sc_init_dev_ctrs_in_t      mock_sc_in;
-        idt_sc_init_dev_ctrs_out_t     mock_sc_out;
-	idt_sc_p_ctrs_val_t *p_ctrs;
+        rio_sc_init_dev_ctrs_in_t      mock_sc_in;
+        rio_sc_init_dev_ctrs_out_t     mock_sc_out;
+	rio_sc_p_ctrs_val_t *p_ctrs;
 	unsigned int j;
 
 	// Success case, all ports
@@ -297,8 +297,8 @@ void tsi721_init_dev_ctrs_test_success(void **state)
 
 void tsi721_init_dev_ctrs_test_bad_ptrs(void **state)
 {
-        idt_sc_init_dev_ctrs_in_t      mock_sc_in;
-        idt_sc_init_dev_ctrs_out_t     mock_sc_out;
+        rio_sc_init_dev_ctrs_in_t      mock_sc_in;
+        rio_sc_init_dev_ctrs_out_t     mock_sc_out;
 
 	// Test invalid dev_ctrs pointer
 	tsi721_init_ctrs(&mock_sc_in);
@@ -318,8 +318,8 @@ void tsi721_init_dev_ctrs_test_bad_ptrs(void **state)
 
 void tsi721_init_dev_ctrs_test_bad_p_ctrs(void **state)
 {
-        idt_sc_init_dev_ctrs_in_t      mock_sc_in;
-        idt_sc_init_dev_ctrs_out_t     mock_sc_out;
+        rio_sc_init_dev_ctrs_in_t      mock_sc_in;
+        rio_sc_init_dev_ctrs_out_t     mock_sc_out;
 
 	// Test invalid number of p_ctrs
 	tsi721_init_ctrs(&mock_sc_in);
@@ -344,8 +344,8 @@ void tsi721_init_dev_ctrs_test_bad_p_ctrs(void **state)
 
 void tsi721_init_dev_ctrs_test_bad_ptl_1(void **state)
 {
-        idt_sc_init_dev_ctrs_in_t      mock_sc_in;
-        idt_sc_init_dev_ctrs_out_t     mock_sc_out;
+        rio_sc_init_dev_ctrs_in_t      mock_sc_in;
+        rio_sc_init_dev_ctrs_out_t     mock_sc_out;
 
 	// Test that a bad Port list is reported correctly.
 	tsi721_init_ctrs(&mock_sc_in);
@@ -359,8 +359,8 @@ void tsi721_init_dev_ctrs_test_bad_ptl_1(void **state)
 
 void tsi721_init_dev_ctrs_test_bad_ptl_2(void **state)
 {
-        idt_sc_init_dev_ctrs_in_t      mock_sc_in;
-        idt_sc_init_dev_ctrs_out_t     mock_sc_out;
+        rio_sc_init_dev_ctrs_in_t      mock_sc_in;
+        rio_sc_init_dev_ctrs_out_t     mock_sc_out;
 
 	tsi721_init_ctrs(&mock_sc_in);
 	mock_sc_in.ptl.num_ports = 1;
@@ -373,9 +373,9 @@ void tsi721_init_dev_ctrs_test_bad_ptl_2(void **state)
 
 void tsi721_init_dev_ctrs_test_good_ptl(void **state)
 {
-        idt_sc_init_dev_ctrs_in_t      mock_sc_in;
-        idt_sc_init_dev_ctrs_out_t     mock_sc_out;
-	idt_sc_p_ctrs_val_t *p_ctrs;
+        rio_sc_init_dev_ctrs_in_t      mock_sc_in;
+        rio_sc_init_dev_ctrs_out_t     mock_sc_out;
+	rio_sc_p_ctrs_val_t *p_ctrs;
 	unsigned int j;
 
 	// Test Port list with a few good entries...
@@ -400,7 +400,7 @@ void tsi721_init_dev_ctrs_test_good_ptl(void **state)
         (void)state; // unused
 }
 
-static void tsi721_init_read_ctrs(idt_sc_read_ctrs_in_t *parms_in)
+static void tsi721_init_read_ctrs(rio_sc_read_ctrs_in_t *parms_in)
 {
 	parms_in->ptl.num_ports = RIO_ALL_PORTS;
 	parms_in->dev_ctrs = mock_dev_ctrs;
@@ -408,12 +408,12 @@ static void tsi721_init_read_ctrs(idt_sc_read_ctrs_in_t *parms_in)
 
 void tsi721_read_dev_ctrs_test(void **state)
 {
-	idt_sc_read_ctrs_in_t      mock_sc_in;
-	idt_sc_read_ctrs_out_t     mock_sc_out;
-        idt_sc_init_dev_ctrs_in_t      init_in;
-        idt_sc_init_dev_ctrs_out_t     init_out;
+	rio_sc_read_ctrs_in_t      mock_sc_in;
+	rio_sc_read_ctrs_out_t     mock_sc_out;
+        rio_sc_init_dev_ctrs_in_t      init_in;
+        rio_sc_init_dev_ctrs_out_t     init_out;
 	unsigned int idx, ridx;
-	idt_sc_ctr_val_t *ctrs;
+	rio_sc_ctr_val_t *ctrs;
 	uint64_t wrap_base = 0x00000000FFFFFFFF;
 
 	// Initialize counters structure
@@ -547,10 +547,10 @@ void tsi721_read_dev_ctrs_test(void **state)
 
 void tsi721_read_dev_ctrs_test_bad_parms1(void **state)
 {
-	idt_sc_read_ctrs_in_t      mock_sc_in;
-	idt_sc_read_ctrs_out_t     mock_sc_out;
-        idt_sc_init_dev_ctrs_in_t      init_in;
-        idt_sc_init_dev_ctrs_out_t     init_out;
+	rio_sc_read_ctrs_in_t      mock_sc_in;
+	rio_sc_read_ctrs_out_t     mock_sc_out;
+        rio_sc_init_dev_ctrs_in_t      init_in;
+        rio_sc_init_dev_ctrs_out_t     init_out;
 
 	// Initialize counters structure
         tsi721_init_ctrs(&init_in);
@@ -592,10 +592,10 @@ void tsi721_read_dev_ctrs_test_bad_parms1(void **state)
 
 void tsi721_read_dev_ctrs_test_bad_parms2(void **state)
 {
-	idt_sc_read_ctrs_in_t      mock_sc_in;
-	idt_sc_read_ctrs_out_t     mock_sc_out;
-        idt_sc_init_dev_ctrs_in_t      init_in;
-        idt_sc_init_dev_ctrs_out_t     init_out;
+	rio_sc_read_ctrs_in_t      mock_sc_in;
+	rio_sc_read_ctrs_out_t     mock_sc_out;
+        rio_sc_init_dev_ctrs_in_t      init_in;
+        rio_sc_init_dev_ctrs_out_t     init_out;
 
 	// Initialize counters structure
         tsi721_init_ctrs(&init_in);

@@ -411,41 +411,41 @@ fail:
 }
 
 struct sc_cfg_t {
-	idt_sc_ctr_t ctr_t;
+	rio_sc_ctr_t ctr_t;
 	bool		tx;
 }; 
 
 struct sc_cfg_t tsi_sc_cfg[Tsi578_NUM_PERF_CTRS] = {
-	{idt_sc_uc_pkts, true},
-	{idt_sc_uc_pkts, false},
-	{idt_sc_uc_4b_data, true},
-	{idt_sc_uc_4b_data, false},
-	{idt_sc_retries, true},
-	{idt_sc_retries, false}
+	{rio_sc_uc_pkts, true},
+	{rio_sc_uc_pkts, false},
+	{rio_sc_uc_4b_data, true},
+	{rio_sc_uc_4b_data, false},
+	{rio_sc_retries, true},
+	{rio_sc_retries, false}
 };
 
 struct sc_cfg_t rxs_sc_cfg[RXS2448_MAX_SC] = {
-	{idt_sc_fab_pkt, true},
-	{idt_sc_fab_pkt, false},
-	{idt_sc_fab_pload, true},
-	{idt_sc_fab_pload, false},
-	{idt_sc_retries, true},
-	{idt_sc_retries, false},
-	{idt_sc_pkt_drop, false},
-	{idt_sc_rio_bwidth, true}
+	{rio_sc_fab_pkt, true},
+	{rio_sc_fab_pkt, false},
+	{rio_sc_fab_pload, true},
+	{rio_sc_fab_pload, false},
+	{rio_sc_retries, true},
+	{rio_sc_retries, false},
+	{rio_sc_pkt_drop, false},
+	{rio_sc_rio_bwidth, true}
 };
 
-uint32_t idt_sc_config_dev_ctrs(DAR_DEV_INFO_t *dev_h,
+uint32_t rio_sc_config_dev_ctrs(DAR_DEV_INFO_t *dev_h,
 			struct mpsw_drv_private_data *priv)
 {
 	uint32_t rc = RIO_SUCCESS;
 	unsigned int idx;
-	idt_sc_cfg_tsi57x_ctr_in_t tsi_in;
-	idt_sc_cfg_tsi57x_ctr_out_t tsi_out;
-	idt_sc_cfg_cps_ctrs_in_t cps_in;
-	idt_sc_cfg_cps_ctrs_out_t cps_out;
-	idt_sc_cfg_rxs_ctr_in_t rxs_in;
-	idt_sc_cfg_rxs_ctr_out_t rxs_out;
+	rio_sc_cfg_tsi57x_ctr_in_t tsi_in;
+	rio_sc_cfg_tsi57x_ctr_out_t tsi_out;
+	rio_sc_cfg_cps_ctrs_in_t cps_in;
+	rio_sc_cfg_cps_ctrs_out_t cps_out;
+	rio_sc_cfg_rxs_ctr_in_t rxs_in;
+	rio_sc_cfg_rxs_ctr_out_t rxs_out;
 
 	switch(VEND_CODE(dev_h)) {
 	case RIO_VEND_IDT:
@@ -457,7 +457,7 @@ uint32_t idt_sc_config_dev_ctrs(DAR_DEV_INFO_t *dev_h,
 			cps_in.ptl.num_ports = RIO_ALL_PORTS;
 			cps_in.enable_ctrs = true;
 			cps_in.dev_ctrs = &priv->st.sc_dev;
-			rc = idt_sc_cfg_cps_ctrs(dev_h, &cps_in, &cps_out);
+			rc = rio_sc_cfg_cps_ctrs(dev_h, &cps_in, &cps_out);
 			if (rc) {
 				goto exit;
 			};
@@ -473,7 +473,7 @@ uint32_t idt_sc_config_dev_ctrs(DAR_DEV_INFO_t *dev_h,
 				rxs_in.ctr_idx = idx;
 				rxs_in.tx = rxs_sc_cfg[idx].tx;
 				rxs_in.ctr_type = rxs_sc_cfg[idx].ctr_t;
-				rc = idt_sc_cfg_rxs_ctr(dev_h, &rxs_in, 
+				rc = rio_sc_cfg_rxs_ctr(dev_h, &rxs_in, 
 							&rxs_out);
 				if (rc) {
 					goto exit;
@@ -499,7 +499,7 @@ uint32_t idt_sc_config_dev_ctrs(DAR_DEV_INFO_t *dev_h,
 			for (idx = 0; idx < Tsi578_NUM_PERF_CTRS; idx++) {
 				tsi_in.tx = tsi_sc_cfg[idx].tx;
 				tsi_in.ctr_type = tsi_sc_cfg[idx].ctr_t;
-				rc = idt_sc_cfg_tsi57x_ctr(dev_h, &tsi_in, 
+				rc = rio_sc_cfg_tsi57x_ctr(dev_h, &tsi_in, 
 							&tsi_out);
 				if (rc) {
 					goto exit;
@@ -536,8 +536,8 @@ int generic_device_init(struct riocp_pe *pe, uint32_t *ct)
 	rio_pc_get_config_in_t	  pc_in;
 	idt_rt_probe_all_in_t	   rt_in;
 	idt_rt_probe_all_out_t	  rt_out;
-	idt_sc_init_dev_ctrs_in_t       sc_in;
-	idt_sc_init_dev_ctrs_out_t      sc_out;
+	rio_sc_init_dev_ctrs_in_t       sc_in;
+	rio_sc_init_dev_ctrs_out_t      sc_out;
 	rio_em_dev_rpt_ctl_in_t	 rpt_in;
 	int rc = 1;
 	rio_port_t port;
@@ -715,10 +715,10 @@ int generic_device_init(struct riocp_pe *pe, uint32_t *ct)
 	priv->st.sc_dev.valid_p_ctrs = 0;
 	priv->st.sc_dev.p_ctrs       = priv->st.sc;
 
-	rc = idt_sc_init_dev_ctrs(dev_h, &sc_in, &sc_out);
+	rc = rio_sc_init_dev_ctrs(dev_h, &sc_in, &sc_out);
 	if (RIO_SUCCESS != rc)
 		goto exit;
-	rc = idt_sc_config_dev_ctrs(dev_h, priv);
+	rc = rio_sc_config_dev_ctrs(dev_h, priv);
 	if (RIO_SUCCESS != rc) {
 		goto exit;
 	};

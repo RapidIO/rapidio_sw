@@ -43,7 +43,7 @@ extern "C" {
 #endif
 
 typedef struct cps_sc_info_t_TAG {
-   idt_sc_ctr_val_t sc_info;
+   rio_sc_ctr_val_t sc_info;
    uint32_t           reg_base; // Port 0 address for this counter
    uint32_t           mask;     // PORT_X_OPS setting req'd to enable counter
 } cps_sc_info_t;
@@ -52,33 +52,33 @@ typedef struct cps_sc_info_t_TAG {
 #define FILTER_0_IDX 4
 
 cps_sc_info_t cps_sc_info[] = {
-  {{0, 0, idt_sc_disabled    , DIR_TX, DIR_SRIO}, CPS1848_PORT_X_TRACE_CNTR_0(0)        , CPS1848_PORT_X_OPS_TRACE_0_EN },
-  {{0, 0, idt_sc_disabled    , DIR_TX, DIR_SRIO}, CPS1848_PORT_X_TRACE_CNTR_1(0)        , CPS1848_PORT_X_OPS_TRACE_1_EN },
-  {{0, 0, idt_sc_disabled    , DIR_TX, DIR_SRIO}, CPS1848_PORT_X_TRACE_CNTR_2(0)        , CPS1848_PORT_X_OPS_TRACE_2_EN },
-  {{0, 0, idt_sc_disabled    , DIR_TX, DIR_SRIO}, CPS1848_PORT_X_TRACE_CNTR_3(0)        , CPS1848_PORT_X_OPS_TRACE_3_EN },
-  {{0, 0, idt_sc_disabled    , DIR_TX, DIR_SRIO}, CPS1848_PORT_X_FILTER_CNTR_0(0)       , CPS1848_PORT_X_OPS_FILTER_0_EN},
-  {{0, 0, idt_sc_disabled    , DIR_TX, DIR_SRIO}, CPS1848_PORT_X_FILTER_CNTR_1(0)       , CPS1848_PORT_X_OPS_FILTER_1_EN},
-  {{0, 0, idt_sc_disabled    , DIR_TX, DIR_SRIO}, CPS1848_PORT_X_FILTER_CNTR_2(0)       , CPS1848_PORT_X_OPS_FILTER_2_EN},
-  {{0, 0, idt_sc_disabled    , DIR_TX, DIR_SRIO}, CPS1848_PORT_X_FILTER_CNTR_3(0)       , CPS1848_PORT_X_OPS_FILTER_3_EN},
-  {{0, 0, idt_sc_pa          , DIR_TX, DIR_SRIO}, CPS1848_PORT_X_VC0_PA_TX_CNTR(0)      , CPS1848_PORT_X_OPS_CNTRS_EN   },
-  {{0, 0, idt_sc_pna         , DIR_TX, DIR_SRIO}, CPS1848_PORT_X_NACK_TX_CNTR(0)        , CPS1848_PORT_X_OPS_CNTRS_EN   },
-  {{0, 0, idt_sc_retries     , DIR_TX, DIR_SRIO}, CPS1848_PORT_X_VC0_RTRY_TX_CNTR(0)    , CPS1848_PORT_X_OPS_CNTRS_EN   },
-  {{0, 0, idt_sc_pkt         , DIR_TX, DIR_SRIO}, CPS1848_PORT_X_VC0_PKT_TX_CNTR(0)     , CPS1848_PORT_X_OPS_CNTRS_EN   },
-  {{0, 0, idt_sc_pa          , DIR_RX, DIR_SRIO}, CPS1848_PORT_X_VC0_PA_RX_CNTR(0)      , CPS1848_PORT_X_OPS_CNTRS_EN   },
-  {{0, 0, idt_sc_pna         , DIR_RX, DIR_SRIO}, CPS1848_PORT_X_NACK_RX_CNTR(0)        , CPS1848_PORT_X_OPS_CNTRS_EN   },
-  {{0, 0, idt_sc_retries     , DIR_RX, DIR_SRIO}, CPS1848_PORT_X_VC0_RTRY_RX_CNTR(0)    , CPS1848_PORT_X_OPS_CNTRS_EN   },
-  {{0, 0, idt_sc_pkt         , DIR_RX, DIR_FAB }, CPS1848_PORT_X_VC0_CPB_TX_CNTR(0)     , CPS1848_PORT_X_OPS_CNTRS_EN   },
-  {{0, 0, idt_sc_pkt         , DIR_RX, DIR_SRIO}, CPS1848_PORT_X_VC0_PKT_RX_CNTR(0)     , CPS1848_PORT_X_OPS_CNTRS_EN   },
-  {{0, 0, idt_sc_pkt_drop    , DIR_RX, DIR_SRIO}, CPS1848_PORT_X_VC0_PKT_DROP_RX_CNTR(0), CPS1848_PORT_X_OPS_CNTRS_EN   },
-  {{0, 0, idt_sc_pkt_drop    , DIR_TX, DIR_SRIO}, CPS1848_PORT_X_VC0_PKT_DROP_TX_CNTR(0), CPS1848_PORT_X_OPS_CNTRS_EN   },
-  {{0, 0, idt_sc_pkt_drop_ttl, DIR_TX, DIR_SRIO}, CPS1848_PORT_X_VC0_TTL_DROP_CNTR(0)   , CPS1848_PORT_X_OPS_CNTRS_EN   } 
+  {{0, 0, rio_sc_disabled    , DIR_TX, DIR_SRIO}, CPS1848_PORT_X_TRACE_CNTR_0(0)        , CPS1848_PORT_X_OPS_TRACE_0_EN },
+  {{0, 0, rio_sc_disabled    , DIR_TX, DIR_SRIO}, CPS1848_PORT_X_TRACE_CNTR_1(0)        , CPS1848_PORT_X_OPS_TRACE_1_EN },
+  {{0, 0, rio_sc_disabled    , DIR_TX, DIR_SRIO}, CPS1848_PORT_X_TRACE_CNTR_2(0)        , CPS1848_PORT_X_OPS_TRACE_2_EN },
+  {{0, 0, rio_sc_disabled    , DIR_TX, DIR_SRIO}, CPS1848_PORT_X_TRACE_CNTR_3(0)        , CPS1848_PORT_X_OPS_TRACE_3_EN },
+  {{0, 0, rio_sc_disabled    , DIR_TX, DIR_SRIO}, CPS1848_PORT_X_FILTER_CNTR_0(0)       , CPS1848_PORT_X_OPS_FILTER_0_EN},
+  {{0, 0, rio_sc_disabled    , DIR_TX, DIR_SRIO}, CPS1848_PORT_X_FILTER_CNTR_1(0)       , CPS1848_PORT_X_OPS_FILTER_1_EN},
+  {{0, 0, rio_sc_disabled    , DIR_TX, DIR_SRIO}, CPS1848_PORT_X_FILTER_CNTR_2(0)       , CPS1848_PORT_X_OPS_FILTER_2_EN},
+  {{0, 0, rio_sc_disabled    , DIR_TX, DIR_SRIO}, CPS1848_PORT_X_FILTER_CNTR_3(0)       , CPS1848_PORT_X_OPS_FILTER_3_EN},
+  {{0, 0, rio_sc_pa          , DIR_TX, DIR_SRIO}, CPS1848_PORT_X_VC0_PA_TX_CNTR(0)      , CPS1848_PORT_X_OPS_CNTRS_EN   },
+  {{0, 0, rio_sc_pna         , DIR_TX, DIR_SRIO}, CPS1848_PORT_X_NACK_TX_CNTR(0)        , CPS1848_PORT_X_OPS_CNTRS_EN   },
+  {{0, 0, rio_sc_retries     , DIR_TX, DIR_SRIO}, CPS1848_PORT_X_VC0_RTRY_TX_CNTR(0)    , CPS1848_PORT_X_OPS_CNTRS_EN   },
+  {{0, 0, rio_sc_pkt         , DIR_TX, DIR_SRIO}, CPS1848_PORT_X_VC0_PKT_TX_CNTR(0)     , CPS1848_PORT_X_OPS_CNTRS_EN   },
+  {{0, 0, rio_sc_pa          , DIR_RX, DIR_SRIO}, CPS1848_PORT_X_VC0_PA_RX_CNTR(0)      , CPS1848_PORT_X_OPS_CNTRS_EN   },
+  {{0, 0, rio_sc_pna         , DIR_RX, DIR_SRIO}, CPS1848_PORT_X_NACK_RX_CNTR(0)        , CPS1848_PORT_X_OPS_CNTRS_EN   },
+  {{0, 0, rio_sc_retries     , DIR_RX, DIR_SRIO}, CPS1848_PORT_X_VC0_RTRY_RX_CNTR(0)    , CPS1848_PORT_X_OPS_CNTRS_EN   },
+  {{0, 0, rio_sc_pkt         , DIR_RX, DIR_FAB }, CPS1848_PORT_X_VC0_CPB_TX_CNTR(0)     , CPS1848_PORT_X_OPS_CNTRS_EN   },
+  {{0, 0, rio_sc_pkt         , DIR_RX, DIR_SRIO}, CPS1848_PORT_X_VC0_PKT_RX_CNTR(0)     , CPS1848_PORT_X_OPS_CNTRS_EN   },
+  {{0, 0, rio_sc_pkt_drop    , DIR_RX, DIR_SRIO}, CPS1848_PORT_X_VC0_PKT_DROP_RX_CNTR(0), CPS1848_PORT_X_OPS_CNTRS_EN   },
+  {{0, 0, rio_sc_pkt_drop    , DIR_TX, DIR_SRIO}, CPS1848_PORT_X_VC0_PKT_DROP_TX_CNTR(0), CPS1848_PORT_X_OPS_CNTRS_EN   },
+  {{0, 0, rio_sc_pkt_drop_ttl, DIR_TX, DIR_SRIO}, CPS1848_PORT_X_VC0_TTL_DROP_CNTR(0)   , CPS1848_PORT_X_OPS_CNTRS_EN   } 
 };
 
 #define NUM_CPS_SC (sizeof(cps_sc_info)/sizeof(cps_sc_info_t))
 
 uint32_t idt_cps_sc_init_dev_ctrs ( DAR_DEV_INFO_t             *dev_info,
-                                  idt_sc_init_dev_ctrs_in_t  *in_parms,
-                                  idt_sc_init_dev_ctrs_out_t *out_parms)
+                                  rio_sc_init_dev_ctrs_in_t  *in_parms,
+                                  rio_sc_init_dev_ctrs_out_t *out_parms)
 {
    uint32_t rc = RIO_ERR_INVALID_PARAMETER;
    uint8_t  idx, cntr_i;
@@ -134,8 +134,8 @@ idt_cps_sc_init_dev_ctrs_exit:
 #define CPS_SC_ADDR(p,i) (cps_sc_info[i].reg_base+(0x100*p))
 
 uint32_t idt_cps_sc_read_ctrs( DAR_DEV_INFO_t           *dev_info,
-                             idt_sc_read_ctrs_in_t    *in_parms,
-                             idt_sc_read_ctrs_out_t   *out_parms)
+                             rio_sc_read_ctrs_in_t    *in_parms,
+                             rio_sc_read_ctrs_out_t   *out_parms)
 {
    uint32_t rc = RIO_ERR_INVALID_PARAMETER;
    uint8_t srch_i, srch_p, port_num, cntr;
@@ -195,7 +195,7 @@ uint32_t idt_cps_sc_read_ctrs( DAR_DEV_INFO_t           *dev_info,
 
             // Read the port performance counters...
             for (cntr = 0; cntr < in_parms->dev_ctrs->p_ctrs[srch_i].ctrs_cnt; cntr++) {
-               if ((idt_sc_disabled != in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc) &&
+               if ((rio_sc_disabled != in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc) &&
 		           (ctl_reg & cps_sc_info[cntr].mask                                   )) {
                   rc = DARRegRead( dev_info, CPS_SC_ADDR(port_num, cntr), &in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].last_inc);
                   if (RIO_SUCCESS != rc) {
@@ -223,9 +223,9 @@ idt_cps_sc_read_ctrs_exit:
  * CPS device.
  */
 
-uint32_t idt_sc_cfg_cps_ctrs ( DAR_DEV_INFO_t           *dev_info,
-                            idt_sc_cfg_cps_ctrs_in_t  *in_parms,
-                            idt_sc_cfg_cps_ctrs_out_t *out_parms )
+uint32_t rio_sc_cfg_cps_ctrs ( DAR_DEV_INFO_t           *dev_info,
+                            rio_sc_cfg_cps_ctrs_in_t  *in_parms,
+                            rio_sc_cfg_cps_ctrs_out_t *out_parms )
 {
    uint32_t rc = RIO_ERR_INVALID_PARAMETER;
    uint32_t ctl_reg, new_ctl_reg = 0, unused;
@@ -238,18 +238,18 @@ uint32_t idt_sc_cfg_cps_ctrs ( DAR_DEV_INFO_t           *dev_info,
 
    if (NULL == in_parms->dev_ctrs) {
       out_parms->imp_rc = SC_CFG_CPS_CTRS(2);
-      goto idt_sc_cfg_cps_ctr_exit;
+      goto rio_sc_cfg_cps_ctr_exit;
    };
 
    if (NULL == in_parms->dev_ctrs->p_ctrs) {
       out_parms->imp_rc = SC_CFG_CPS_CTRS(4);
-      goto idt_sc_cfg_cps_ctr_exit;
+      goto rio_sc_cfg_cps_ctr_exit;
    };
 
    rc = DARrioGetPortList(dev_info, &in_parms->ptl, &good_ptl);
    if (RIO_SUCCESS != rc) {
       out_parms->imp_rc = SC_CFG_CPS_CTRS(6);
-      goto idt_sc_cfg_cps_ctr_exit;
+      goto rio_sc_cfg_cps_ctr_exit;
    };
 
    if (  !in_parms->dev_ctrs->num_p_ctrs || 
@@ -258,13 +258,13 @@ uint32_t idt_sc_cfg_cps_ctrs ( DAR_DEV_INFO_t           *dev_info,
          (in_parms->dev_ctrs->num_p_ctrs < in_parms->dev_ctrs->valid_p_ctrs)) {
 	rc = RIO_ERR_INVALID_PARAMETER;
       out_parms->imp_rc = SC_CFG_CPS_CTRS(0x08);
-      goto idt_sc_cfg_cps_ctr_exit;
+      goto rio_sc_cfg_cps_ctr_exit;
    };
 
    if (in_parms->dev_ctrs->valid_p_ctrs < good_ptl.num_ports) {
 	   rc = RIO_ERR_INVALID_PARAMETER;
       out_parms->imp_rc = SC_CFG_CPS_CTRS(0x0A);
-      goto idt_sc_cfg_cps_ctr_exit;
+      goto rio_sc_cfg_cps_ctr_exit;
    };
 
    // Update hardware and data structures to reflect change in programming.
@@ -284,7 +284,7 @@ uint32_t idt_sc_cfg_cps_ctrs ( DAR_DEV_INFO_t           *dev_info,
             rc = DARRegRead( dev_info, CPS1848_PORT_X_OPS(port_num), &ctl_reg );
             if (RIO_SUCCESS != rc) {
                out_parms->imp_rc = SC_CFG_CPS_CTRS(0x40);
-               goto idt_sc_cfg_cps_ctr_exit;
+               goto rio_sc_cfg_cps_ctr_exit;
             };
 
 			if (in_parms->enable_ctrs) {
@@ -296,7 +296,7 @@ uint32_t idt_sc_cfg_cps_ctrs ( DAR_DEV_INFO_t           *dev_info,
 			rc = DARRegWrite( dev_info, CPS1848_PORT_X_OPS(port_num), new_ctl_reg );
 			if (RIO_SUCCESS != rc) {
 				out_parms->imp_rc = SC_CFG_CPS_CTRS(0x41);
-				goto idt_sc_cfg_cps_ctr_exit;
+				goto rio_sc_cfg_cps_ctr_exit;
 			};
 	    
 			for (ctr = 0; ctr < NUM_CPS_SC; ctr++) {
@@ -305,7 +305,7 @@ uint32_t idt_sc_cfg_cps_ctrs ( DAR_DEV_INFO_t           *dev_info,
 					  rc = DARRegRead( dev_info, CPS_SC_ADDR(port_num, ctr), &unused );
 					  if (RIO_SUCCESS != rc) {
 						 out_parms->imp_rc = SC_CFG_CPS_CTRS(0x50 + ctr);
-						 goto idt_sc_cfg_cps_ctr_exit;
+						 goto rio_sc_cfg_cps_ctr_exit;
 					  };
 					  in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[ctr].total = 0;
 			          in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[ctr].last_inc = 0;
@@ -315,7 +315,7 @@ uint32_t idt_sc_cfg_cps_ctrs ( DAR_DEV_INFO_t           *dev_info,
 				   in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[ctr].srio = cps_sc_info[ctr].sc_info.srio;
 				   in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[ctr].tx   = cps_sc_info[ctr].sc_info.tx;
 			   } else {
-				   in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[ctr].sc   = idt_sc_disabled;
+				   in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[ctr].sc   = rio_sc_disabled;
 				   in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[ctr].srio = true;
 				   in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[ctr].tx   = true;
 			   };
@@ -326,11 +326,11 @@ uint32_t idt_sc_cfg_cps_ctrs ( DAR_DEV_INFO_t           *dev_info,
       if (!found) {
          rc = RIO_ERR_INVALID_PARAMETER;
          out_parms->imp_rc = SC_CFG_CPS_CTRS(0x70 + port_num);
-         goto idt_sc_cfg_cps_ctr_exit;
+         goto rio_sc_cfg_cps_ctr_exit;
       };
    };
 
-idt_sc_cfg_cps_ctr_exit:
+rio_sc_cfg_cps_ctr_exit:
    return rc;        
 };
 

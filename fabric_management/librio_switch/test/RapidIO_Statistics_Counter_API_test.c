@@ -167,7 +167,7 @@ void assumptions_test(void **state)
 	(void)state; // unused
 }
 
-void test_sc_info(idt_sc_ctr_t stctr, char *name, uint32_t flags, bool *chk_a)
+void test_sc_info(rio_sc_ctr_t stctr, char *name, uint32_t flags, bool *chk_a)
 {
 	assert_string_equal(name, SC_NAME(stctr));
 	assert_int_equal(flags, SC_FLAG(stctr));
@@ -175,7 +175,7 @@ void test_sc_info(idt_sc_ctr_t stctr, char *name, uint32_t flags, bool *chk_a)
 	chk_a[stctr] = true;
 }
 
-void test_sc_flag_info(idt_sc_ctr_flag_t sc_f, uint32_t flag, char *name, bool *chk_a)
+void test_sc_flag_info(rio_sc_ctr_flag_t sc_f, uint32_t flag, char *name, bool *chk_a)
 {
 	assert_string_equal(name, SC_FLAG_NAME(sc_f));
 	if (sc_f < sc_f_LAST) {
@@ -190,60 +190,60 @@ void test_sc_flag_info(idt_sc_ctr_flag_t sc_f, uint32_t flag, char *name, bool *
 
 void sc_info_test(void **state)
 {
-	bool chk_a[(uint8_t)(idt_sc_last)+2] = {false};
+	bool chk_a[(uint8_t)(rio_sc_last)+2] = {false};
 	unsigned int i;
 
         // Verify that sc_info array is correctly defined
         assert_int_equal(sizeof(chk_a) / sizeof(chk_a[0]),
 			sizeof(sc_info) / sizeof (sc_info[0]));
 
-        test_sc_info(idt_sc_disabled, (char *)"Disabled__", 0, chk_a);
-        test_sc_info(idt_sc_enabled, (char *)"Enabled___", 0, chk_a);
+        test_sc_info(rio_sc_disabled, (char *)"Disabled__", 0, chk_a);
+        test_sc_info(rio_sc_enabled, (char *)"Enabled___", 0, chk_a);
 
-	test_sc_info(idt_sc_uc_req_pkts, (char *)"UC_REQ_PKT", SC_F_PKT, chk_a);
-	test_sc_info(idt_sc_uc_pkts, (char *)"UC_ALL_PKT", SC_F_PKT, chk_a);
-	test_sc_info(idt_sc_retries, (char *)"Retry___CS", SC_F_CS | SC_F_RTY, chk_a);
-	test_sc_info(idt_sc_all_cs, (char *)"All_____CS", SC_F_CS, chk_a);
-	test_sc_info(idt_sc_uc_4b_data, (char *)"UC_4B_Data", SC_F_DATA, chk_a);
-	test_sc_info(idt_sc_mc_pkts, (char *)"MCast__PKT", SC_F_PKT, chk_a);
-	test_sc_info(idt_sc_mecs, (char *)"MECS____CS", SC_F_CS, chk_a);
-	test_sc_info(idt_sc_mc_4b_data, (char *)"MC_4B_Data", SC_F_DATA, chk_a);
+	test_sc_info(rio_sc_uc_req_pkts, (char *)"UC_REQ_PKT", SC_F_PKT, chk_a);
+	test_sc_info(rio_sc_uc_pkts, (char *)"UC_ALL_PKT", SC_F_PKT, chk_a);
+	test_sc_info(rio_sc_retries, (char *)"Retry___CS", SC_F_CS | SC_F_RTY, chk_a);
+	test_sc_info(rio_sc_all_cs, (char *)"All_____CS", SC_F_CS, chk_a);
+	test_sc_info(rio_sc_uc_4b_data, (char *)"UC_4B_Data", SC_F_DATA, chk_a);
+	test_sc_info(rio_sc_mc_pkts, (char *)"MCast__PKT", SC_F_PKT, chk_a);
+	test_sc_info(rio_sc_mecs, (char *)"MECS____CS", SC_F_CS, chk_a);
+	test_sc_info(rio_sc_mc_4b_data, (char *)"MC_4B_Data", SC_F_DATA, chk_a);
 
-	test_sc_info(idt_sc_pa, (char *)"PktAcc__CS", SC_F_CS, chk_a);
-	test_sc_info(idt_sc_pkt, (char *)"ALL____PKT", SC_F_PKT, chk_a);
-	test_sc_info(idt_sc_pna, (char *)"PktNotA_CS", SC_F_CS | SC_F_ERR, chk_a);
-	test_sc_info(idt_sc_pkt_drop, (char *)"Drop___PKT", SC_F_PKT | SC_F_DROP | SC_F_ERR, chk_a);
-	test_sc_info(idt_sc_pkt_drop_ttl, (char *)"DropTTLPKT", SC_F_PKT | SC_F_DROP | SC_F_ERR, chk_a);
+	test_sc_info(rio_sc_pa, (char *)"PktAcc__CS", SC_F_CS, chk_a);
+	test_sc_info(rio_sc_pkt, (char *)"ALL____PKT", SC_F_PKT, chk_a);
+	test_sc_info(rio_sc_pna, (char *)"PktNotA_CS", SC_F_CS | SC_F_ERR, chk_a);
+	test_sc_info(rio_sc_pkt_drop, (char *)"Drop___PKT", SC_F_PKT | SC_F_DROP | SC_F_ERR, chk_a);
+	test_sc_info(rio_sc_pkt_drop_ttl, (char *)"DropTTLPKT", SC_F_PKT | SC_F_DROP | SC_F_ERR, chk_a);
 
-	test_sc_info(idt_sc_fab_pkt, (char *)"FAB____PKT", SC_F_PKT, chk_a);
-	test_sc_info(idt_sc_rio_pload, (char *)"8B_DAT_PKT", SC_F_DATA, chk_a);
-	test_sc_info(idt_sc_fab_pload, (char *)"8B_DAT_PKT", SC_F_DATA, chk_a);
-	test_sc_info(idt_sc_rio_bwidth, (char *)"RAW_BWIDTH", 0, chk_a);
+	test_sc_info(rio_sc_fab_pkt, (char *)"FAB____PKT", SC_F_PKT, chk_a);
+	test_sc_info(rio_sc_rio_pload, (char *)"8B_DAT_PKT", SC_F_DATA, chk_a);
+	test_sc_info(rio_sc_fab_pload, (char *)"8B_DAT_PKT", SC_F_DATA, chk_a);
+	test_sc_info(rio_sc_rio_bwidth, (char *)"RAW_BWIDTH", 0, chk_a);
 
-	test_sc_info(idt_sc_pcie_msg_rx, (char *)"PCI_M__PKT", SC_F_PKT, chk_a);
-	test_sc_info(idt_sc_pcie_msg_tx, (char *)"PCI_M__PKT", SC_F_PKT, chk_a);
-	test_sc_info(idt_sc_pcie_dma_rx, (char *)"PCI__D_PKT", SC_F_PKT, chk_a);
-	test_sc_info(idt_sc_pcie_dma_tx, (char *)"PCI__D_PKT", SC_F_PKT, chk_a);
-	test_sc_info(idt_sc_pcie_brg_rx, (char *)"PCI_BG_PKT", SC_F_PKT, chk_a);
-	test_sc_info(idt_sc_pcie_brg_tx, (char *)"PCI_BG_PKT", SC_F_PKT, chk_a);
-	test_sc_info(idt_sc_rio_nwr_tx, (char *)"NWR____PKT", SC_F_PKT, chk_a);
-	test_sc_info(idt_sc_rio_nwr_ok_rx, (char *)"NWR_OK_PKT", SC_F_PKT, chk_a);
-	test_sc_info(idt_sc_rio_dbel_tx, (char *)"DB_____PKT", SC_F_PKT, chk_a);
-	test_sc_info(idt_sc_rio_dbel_ok_rx, (char *)"DB__OK_PKT", SC_F_PKT, chk_a);
-	test_sc_info(idt_sc_rio_msg_tx, (char *)"MSG____PKT", SC_F_PKT, chk_a);
-	test_sc_info(idt_sc_rio_msg_rx, (char *)"MSG____PKT", SC_F_PKT, chk_a);
-	test_sc_info(idt_sc_rio_msg_tx_rty, (char *)"MSG_RTYPKT", SC_F_PKT | SC_F_RTY, chk_a);
-	test_sc_info(idt_sc_rio_msg_rx_rty, (char *)"MSG_RTYPKT", SC_F_PKT | SC_F_RTY, chk_a);
-	test_sc_info(idt_sc_rio_dma_tx, (char *)"DMA____PKT", SC_F_PKT, chk_a);
-	test_sc_info(idt_sc_rio_dma_rx, (char *)"DMA____PKT", SC_F_PKT, chk_a);
-	test_sc_info(idt_sc_rio_brg_tx, (char *)"BRG____PKT", SC_F_PKT, chk_a);
-	test_sc_info(idt_sc_rio_brg_rx, (char *)"BRG____PKT", SC_F_PKT, chk_a);
-	test_sc_info(idt_sc_rio_brg_rx_err, (char *)"BRG_ERRPKT", SC_F_PKT | SC_F_ERR, chk_a);
-	test_sc_info(idt_sc_rio_mwr_tx, (char *)"MWR____PKT", SC_F_PKT, chk_a);
-	test_sc_info(idt_sc_rio_mwr_ok_rx, (char *)"MWR_OK_PKT", SC_F_PKT, chk_a);
+	test_sc_info(rio_sc_pcie_msg_rx, (char *)"PCI_M__PKT", SC_F_PKT, chk_a);
+	test_sc_info(rio_sc_pcie_msg_tx, (char *)"PCI_M__PKT", SC_F_PKT, chk_a);
+	test_sc_info(rio_sc_pcie_dma_rx, (char *)"PCI__D_PKT", SC_F_PKT, chk_a);
+	test_sc_info(rio_sc_pcie_dma_tx, (char *)"PCI__D_PKT", SC_F_PKT, chk_a);
+	test_sc_info(rio_sc_pcie_brg_rx, (char *)"PCI_BG_PKT", SC_F_PKT, chk_a);
+	test_sc_info(rio_sc_pcie_brg_tx, (char *)"PCI_BG_PKT", SC_F_PKT, chk_a);
+	test_sc_info(rio_sc_rio_nwr_tx, (char *)"NWR____PKT", SC_F_PKT, chk_a);
+	test_sc_info(rio_sc_rio_nwr_ok_rx, (char *)"NWR_OK_PKT", SC_F_PKT, chk_a);
+	test_sc_info(rio_sc_rio_dbel_tx, (char *)"DB_____PKT", SC_F_PKT, chk_a);
+	test_sc_info(rio_sc_rio_dbel_ok_rx, (char *)"DB__OK_PKT", SC_F_PKT, chk_a);
+	test_sc_info(rio_sc_rio_msg_tx, (char *)"MSG____PKT", SC_F_PKT, chk_a);
+	test_sc_info(rio_sc_rio_msg_rx, (char *)"MSG____PKT", SC_F_PKT, chk_a);
+	test_sc_info(rio_sc_rio_msg_tx_rty, (char *)"MSG_RTYPKT", SC_F_PKT | SC_F_RTY, chk_a);
+	test_sc_info(rio_sc_rio_msg_rx_rty, (char *)"MSG_RTYPKT", SC_F_PKT | SC_F_RTY, chk_a);
+	test_sc_info(rio_sc_rio_dma_tx, (char *)"DMA____PKT", SC_F_PKT, chk_a);
+	test_sc_info(rio_sc_rio_dma_rx, (char *)"DMA____PKT", SC_F_PKT, chk_a);
+	test_sc_info(rio_sc_rio_brg_tx, (char *)"BRG____PKT", SC_F_PKT, chk_a);
+	test_sc_info(rio_sc_rio_brg_rx, (char *)"BRG____PKT", SC_F_PKT, chk_a);
+	test_sc_info(rio_sc_rio_brg_rx_err, (char *)"BRG_ERRPKT", SC_F_PKT | SC_F_ERR, chk_a);
+	test_sc_info(rio_sc_rio_mwr_tx, (char *)"MWR____PKT", SC_F_PKT, chk_a);
+	test_sc_info(rio_sc_rio_mwr_ok_rx, (char *)"MWR_OK_PKT", SC_F_PKT, chk_a);
 
-        test_sc_info(idt_sc_last, (char *)"Last______", 0, chk_a);
-        test_sc_info((idt_sc_ctr_t)(idt_sc_last + 1), (char *)"Invalid___", 0, chk_a);
+        test_sc_info(rio_sc_last, (char *)"Last______", 0, chk_a);
+        test_sc_info((rio_sc_ctr_t)(rio_sc_last + 1), (char *)"Invalid___", 0, chk_a);
 
 	// Confirm that all elements of the sc_info array were tested.
 	for (i = 0; i < sizeof(sc_info) / sizeof (sc_info[0]); i++) {
@@ -268,7 +268,7 @@ void sc_ctr_flag_test(void **state)
 	test_sc_flag_info(sc_f_PKT, SC_F_PKT, (char *)"PKT", chk_f_a);
 	test_sc_flag_info(sc_f_DATA, SC_F_DATA, (char *)"DATA", chk_f_a);
 	test_sc_flag_info(sc_f_LAST, 0, (char *)"Last", chk_f_a);
-	test_sc_flag_info((idt_sc_ctr_flag_t)(sc_f_LAST + 1), 0, (char *)"Ivld", chk_f_a);
+	test_sc_flag_info((rio_sc_ctr_flag_t)(sc_f_LAST + 1), 0, (char *)"Ivld", chk_f_a);
 	
 	// Confirm that all elements of the sc_flag_names array were tested.
 	for (i = 0; i < sizeof(sc_flag_names)/sizeof (sc_flag_names[0]); i++) {
@@ -287,7 +287,7 @@ void sc_gen_flag_test(void **state)
 	(void)state; // unused
 }
 
-void idt_sc_other_if_names_test(void **state)
+void rio_sc_other_if_names_test(void **state)
 {
 	const char *name;
 	unsigned int i;
@@ -305,28 +305,28 @@ void idt_sc_other_if_names_test(void **state)
 
         mock_dev_info.devID = (RIO_DEVI_IDT_CPS8 << 16) + RIO_VEND_TI;
 	assert_int_equal(RIO_ERR_NO_DEVICE_SUPPORT,
-				idt_sc_other_if_names(&mock_dev_info, &name));
+				rio_sc_other_if_names(&mock_dev_info, &name));
 	assert_string_equal(sc_other_if_names_UNKNOWN, name);
 	
         mock_dev_info.devID = (RIO_DEVI_IDT_CPS8 << 16) + RIO_VEND_TUNDRA;
 	assert_int_equal(RIO_ERR_NO_DEVICE_SUPPORT,
-				idt_sc_other_if_names(&mock_dev_info, &name));
+				rio_sc_other_if_names(&mock_dev_info, &name));
 	assert_string_equal(sc_other_if_names_Invalid, name);
 	
         mock_dev_info.devID = (RIO_DEVI_IDT_CPS8 << 16) + RIO_VEND_IDT;
 	assert_int_equal(RIO_ERR_NO_DEVICE_SUPPORT,
-			idt_sc_other_if_names(&mock_dev_info, &name));
+			rio_sc_other_if_names(&mock_dev_info, &name));
 	assert_string_equal(sc_other_if_names_UNKNOWN, name);
 	
         mock_dev_info.devID = (RIO_DEVI_IDT_TSI721 << 16) + RIO_VEND_IDT;
         assert_int_equal(RIO_SUCCESS,
-			idt_sc_other_if_names(&mock_dev_info, &name));
+			rio_sc_other_if_names(&mock_dev_info, &name));
         assert_string_equal(sc_other_if_names_PCIe, name);
 	
 	for (i = 0; i < sizeof(IDT_switches)/sizeof(IDT_switches[0]); i++) {
         	mock_dev_info.devID = IDT_switches[i];
         	assert_int_equal(RIO_SUCCESS,
-			idt_sc_other_if_names(&mock_dev_info, &name));
+			rio_sc_other_if_names(&mock_dev_info, &name));
         	assert_string_equal(sc_other_if_names_FABRIC, name);
 	}
 	
@@ -343,7 +343,7 @@ int main(int argc, char** argv)
                 cmocka_unit_test(sc_info_test),
                 cmocka_unit_test(sc_ctr_flag_test),
                 cmocka_unit_test(sc_gen_flag_test),
-                cmocka_unit_test(idt_sc_other_if_names_test)
+                cmocka_unit_test(rio_sc_other_if_names_test)
 	};
 
 	return cmocka_run_group_tests(tests, NULL, NULL);

@@ -60,37 +60,37 @@ static uint32_t num_RXS_driver_instances;
 /* Initials counters on selected ports
  */
 uint32_t idt_rxs_sc_init_dev_ctrs( DAR_DEV_INFO_t             *dev_info,
-                                   idt_sc_init_dev_ctrs_in_t  *in_parms,
-                                   idt_sc_init_dev_ctrs_out_t *out_parms )
+                                   rio_sc_init_dev_ctrs_in_t  *in_parms,
+                                   rio_sc_init_dev_ctrs_out_t *out_parms )
 {
 	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
 	uint8_t idx, cntr_i;
-	idt_sc_ctr_val_t init_val = INIT_IDT_SC_CTR_VAL;
+	rio_sc_ctr_val_t init_val = INIT_RIO_SC_CTR_VAL;
 	struct DAR_ptl good_ptl;
 
 	out_parms->imp_rc = RIO_SUCCESS;
 
 	if (NULL == in_parms->dev_ctrs) {
 		out_parms->imp_rc = SC_INIT_RXS_CTRS(0x01);
-		goto idt_sc_init_rxs_ctr_exit;
+		goto rio_sc_init_rxs_ctr_exit;
 	};
 
 	if (NULL == in_parms->dev_ctrs->p_ctrs) {
 		out_parms->imp_rc = SC_INIT_RXS_CTRS(0x02);
-		goto idt_sc_init_rxs_ctr_exit;
+		goto rio_sc_init_rxs_ctr_exit;
 	};
 
 	if (!in_parms->dev_ctrs->num_p_ctrs ||
 		(in_parms->dev_ctrs->num_p_ctrs > IDT_MAX_PORTS) ||
 		(in_parms->dev_ctrs->num_p_ctrs < in_parms->dev_ctrs->valid_p_ctrs)) {
 		out_parms->imp_rc = SC_INIT_RXS_CTRS(0x03);
-		goto idt_sc_init_rxs_ctr_exit;
+		goto rio_sc_init_rxs_ctr_exit;
 	};
 
 	rc = DARrioGetPortList(dev_info, &in_parms->ptl, &good_ptl);
 	if (RIO_SUCCESS != rc) {
 		out_parms->imp_rc = SC_INIT_RXS_CTRS(0x10);
-		goto idt_sc_init_rxs_ctr_exit;
+		goto rio_sc_init_rxs_ctr_exit;
 	};
 
 	in_parms->dev_ctrs->valid_p_ctrs = good_ptl.num_ports;
@@ -104,15 +104,15 @@ uint32_t idt_rxs_sc_init_dev_ctrs( DAR_DEV_INFO_t             *dev_info,
 
 	rc = RIO_SUCCESS;
 
-idt_sc_init_rxs_ctr_exit:
+rio_sc_init_rxs_ctr_exit:
 	return rc;
 }
 
 /* Reads enabled counters on selected ports
  */
 uint32_t rxs_read_ctrs(DAR_DEV_INFO_t           *dev_info,
-			idt_sc_read_ctrs_in_t    *in_parms,
-			idt_sc_read_ctrs_out_t   *out_parms,
+			rio_sc_read_ctrs_in_t    *in_parms,
+			rio_sc_read_ctrs_out_t   *out_parms,
 			int			srch_i,
 			rio_port_t		port_num)
 {
@@ -121,12 +121,12 @@ uint32_t rxs_read_ctrs(DAR_DEV_INFO_t           *dev_info,
 	uint64_t l_c; // last counter value
 	uint64_t c_c; // current counter value
 	uint64_t tot; // new total counter value
-	idt_sc_ctr_val_t *counter;
+	rio_sc_ctr_val_t *counter;
 	uint32_t rc = !RIO_SUCCESS;
 
 	for (cntr = 0; cntr < RXS2448_MAX_SC; cntr++) {
 		counter = &in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr];
-		if (idt_sc_disabled == counter->sc) {
+		if (rio_sc_disabled == counter->sc) {
 			continue;
 		}
 
@@ -158,8 +158,8 @@ exit:
 };
 
 uint32_t idt_rxs_sc_read_ctrs( DAR_DEV_INFO_t           *dev_info,
-                               idt_sc_read_ctrs_in_t    *in_parms,
-                               idt_sc_read_ctrs_out_t   *out_parms )
+                               rio_sc_read_ctrs_in_t    *in_parms,
+                               rio_sc_read_ctrs_out_t   *out_parms )
 {
 	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
 	uint8_t srch_i, srch_p, port_num;
@@ -225,9 +225,9 @@ exit:
 /* Configure counters on selected ports of a
  * RXS device.
  */
-uint32_t idt_sc_cfg_rxs_ctr( DAR_DEV_INFO_t           *dev_info,
-                             idt_sc_cfg_rxs_ctr_in_t  *in_parms,
-                             idt_sc_cfg_rxs_ctr_out_t *out_parms )
+uint32_t rio_sc_cfg_rxs_ctr( DAR_DEV_INFO_t           *dev_info,
+                             rio_sc_cfg_rxs_ctr_in_t  *in_parms,
+                             rio_sc_cfg_rxs_ctr_out_t *out_parms )
 {
 	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
 	uint32_t new_ctl = 0, ctl_reg;
@@ -281,10 +281,10 @@ uint32_t idt_sc_cfg_rxs_ctr( DAR_DEV_INFO_t           *dev_info,
 	new_ctl |= (in_parms->tx) ? RXS_RIO_SPX_PCNTR_CTL_TX : 0;
 		
 	switch (in_parms->ctr_type) {
-	case idt_sc_pkt:
+	case rio_sc_pkt:
 		new_ctl |= RXS_RIO_SPX_PCNTR_CTL_SEL_RIO_PKT;
 		break;
-	case idt_sc_fab_pkt:
+	case rio_sc_fab_pkt:
 		new_ctl |= RXS_RIO_SPX_PCNTR_CTL_SEL_FAB_PKT;
 		srio = false;
 		// Fabric packet counts are prioirty specific.
@@ -295,10 +295,10 @@ uint32_t idt_sc_cfg_rxs_ctr( DAR_DEV_INFO_t           *dev_info,
 			goto exit;
 		}
 		break;
-	case idt_sc_rio_pload:
+	case rio_sc_rio_pload:
 		new_ctl |= RXS_RIO_SPX_PCNTR_CTL_SEL_RIO_PAYLOAD;
 		break;
-	case idt_sc_fab_pload:
+	case rio_sc_fab_pload:
 		new_ctl |= RXS_RIO_SPX_PCNTR_CTL_SEL_FAB_PAYLOAD;
 		srio = false;
 		// Fabric packet data counts are prioirty specific.
@@ -309,7 +309,7 @@ uint32_t idt_sc_cfg_rxs_ctr( DAR_DEV_INFO_t           *dev_info,
 			goto exit;
 		}
 		break;
-	case idt_sc_rio_bwidth:
+	case rio_sc_rio_bwidth:
 		// Count of the total number of code-groups/codewords 
 		// transmitted on the RapidIO interface per lane.
 		// Hardware does not support count for RX (!TX).
@@ -320,13 +320,13 @@ uint32_t idt_sc_cfg_rxs_ctr( DAR_DEV_INFO_t           *dev_info,
 			goto exit;
 		}
 		break;
-	case idt_sc_retries:
+	case rio_sc_retries:
 		new_ctl |= RXS_RIO_SPX_PCNTR_CTL_SEL_RETRIES;
 		break;
-	case idt_sc_pna:
+	case rio_sc_pna:
 		new_ctl |= RXS_RIO_SPX_PCNTR_CTL_SEL_PNA;
 		break;
-	case idt_sc_pkt_drop:
+	case rio_sc_pkt_drop:
 		new_ctl |= RXS_RIO_SPX_PCNTR_CTL_SEL_PKT_DROP;
 		// Packet drop counts are prioirty specific.
 		// Report a programming error if the priority mask is 0.
@@ -336,7 +336,7 @@ uint32_t idt_sc_cfg_rxs_ctr( DAR_DEV_INFO_t           *dev_info,
 			goto exit;
 		}
 		break;
-	case idt_sc_disabled:
+	case rio_sc_disabled:
 		new_ctl |= RXS_RIO_SPX_PCNTR_CTL_SEL_DISABLED;
 		break;
 	default: rc = RIO_ERR_INVALID_PARAMETER;
@@ -364,7 +364,7 @@ uint32_t idt_sc_cfg_rxs_ctr( DAR_DEV_INFO_t           *dev_info,
 			if (in_parms->dev_ctrs->p_ctrs[s_i].pnum != pt) {
 				continue;
 			};
-			idt_sc_ctr_val_t *ctr_p;
+			rio_sc_ctr_val_t *ctr_p;
 			ctr_p = &in_parms->dev_ctrs->p_ctrs[s_i].ctrs[c_i];
 			found = true;
 			// Always program the control value...
@@ -411,7 +411,7 @@ uint32_t idt_sc_cfg_rxs_ctr( DAR_DEV_INFO_t           *dev_info,
 		// Disable counters for each port after programming the counter
 		// control value.
 		if (!in_parms->ctr_en) {
-			idt_sc_ctr_val_t init_val = INIT_IDT_SC_CTR_VAL;
+			rio_sc_ctr_val_t init_val = INIT_RIO_SC_CTR_VAL;
 			int cntr_i;
 
 			rc = DARRegWrite(dev_info, RXS_RIO_SPX_PCNTR_EN(pt), 0);
@@ -1739,8 +1739,8 @@ uint32_t bind_rxs_DSF_support(void)
         idt_driver.idt_rt_dealloc_mc_mask = IDT_DSF_rt_dealloc_mc_mask;
         idt_driver.idt_rt_change_mc_mask = idt_rxs_rt_change_mc_mask;
 
-        idt_driver.idt_sc_init_dev_ctrs = idt_rxs_sc_init_dev_ctrs;
-	idt_driver.idt_sc_read_ctrs = idt_rxs_sc_read_ctrs;
+        idt_driver.rio_sc_init_dev_ctrs = idt_rxs_sc_init_dev_ctrs;
+	idt_driver.rio_sc_read_ctrs = idt_rxs_sc_read_ctrs;
 
 	idt_driver.rio_em_dev_rpt_ctl = idt_rxs_em_dev_rpt_ctl;
 	idt_driver.rio_em_cfg_pw = idt_rxs_em_cfg_pw;

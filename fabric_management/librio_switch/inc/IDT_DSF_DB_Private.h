@@ -82,7 +82,7 @@ extern uint32_t IDT_DSF_rt_dealloc_mc_mask( DAR_DEV_INFO_t                *dev_i
 // If any member of p_list_in is out of range, returns start_rc + index.
 // Otherwise, returns RIO_SUCCESS.
 
-extern uint32_t idt_sc_port_list( DAR_DEV_INFO_t  *dev_info ,
+extern uint32_t rio_sc_port_list( DAR_DEV_INFO_t  *dev_info ,
 		                uint32_t           start_rc ,
 		                uint8_t            p_cnt_in ,
 			        uint8_t           *p_list_in,
@@ -218,13 +218,13 @@ typedef struct IDT_DSF_DB_t_TAG
   // Note: There are implementation specific counter configuration
   //       routines defined in RapidIO_Statistics_Counter_API.h
   
-  uint32_t (*idt_sc_init_dev_ctrs) ( DAR_DEV_INFO_t             *dev_info,
-                                   idt_sc_init_dev_ctrs_in_t  *in_parms,
-                                   idt_sc_init_dev_ctrs_out_t *out_parms );  
+  uint32_t (*rio_sc_init_dev_ctrs) ( DAR_DEV_INFO_t             *dev_info,
+                                   rio_sc_init_dev_ctrs_in_t  *in_parms,
+                                   rio_sc_init_dev_ctrs_out_t *out_parms );  
 
-  uint32_t (*idt_sc_read_ctrs    ) ( DAR_DEV_INFO_t           *dev_info,
-                                   idt_sc_read_ctrs_in_t    *in_parms,
-                                   idt_sc_read_ctrs_out_t   *out_parms );
+  uint32_t (*rio_sc_read_ctrs    ) ( DAR_DEV_INFO_t           *dev_info,
+                                   rio_sc_read_ctrs_in_t    *in_parms,
+                                   rio_sc_read_ctrs_out_t   *out_parms );
 
 } IDT_DSF_DB_t;
 

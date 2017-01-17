@@ -547,7 +547,7 @@ uint32_t IDT_DSF_em_parse_pw   ( DAR_DEV_INFO_t                *dev_info,
     return RIO_STUBBED;
 };
 
-uint32_t idt_sc_port_list( DAR_DEV_INFO_t *dev_info ,
+uint32_t rio_sc_port_list( DAR_DEV_INFO_t *dev_info ,
 		         uint32_t          start_rc ,
 		         uint8_t           p_cnt_in ,
 			 uint8_t          *p_list_in,
@@ -581,16 +581,16 @@ uint32_t idt_sc_port_list( DAR_DEV_INFO_t *dev_info ,
 };
 
 uint32_t IDT_DSF_sc_init_dev_ctrs ( DAR_DEV_INFO_t                *dev_info, 
-                                  idt_sc_init_dev_ctrs_in_t     *in_parms, 
-                                  idt_sc_init_dev_ctrs_out_t    *out_parms )
+                                  rio_sc_init_dev_ctrs_in_t     *in_parms, 
+                                  rio_sc_init_dev_ctrs_out_t    *out_parms )
 { 
     NULL_CHECK;
     return RIO_STUBBED;
 };
 
 uint32_t IDT_DSF_sc_read_ctrs ( DAR_DEV_INFO_t         *dev_info, 
-                              idt_sc_read_ctrs_in_t  *in_parms, 
-                              idt_sc_read_ctrs_out_t *out_parms )
+                              rio_sc_read_ctrs_in_t  *in_parms, 
+                              rio_sc_read_ctrs_out_t *out_parms )
 { 
     NULL_CHECK;
     return RIO_STUBBED;
@@ -688,8 +688,8 @@ void IDT_DSF_init_driver( IDT_DSF_DB_t *dsf) {
    dsf->rio_em_clr_events         = IDT_DSF_em_clr_events;
    dsf->rio_em_create_events      = IDT_DSF_em_create_events;
 
-   dsf->idt_sc_init_dev_ctrs      = IDT_DSF_sc_init_dev_ctrs;
-   dsf->idt_sc_read_ctrs          = IDT_DSF_sc_read_ctrs;
+   dsf->rio_sc_init_dev_ctrs      = IDT_DSF_sc_init_dev_ctrs;
+   dsf->rio_sc_read_ctrs          = IDT_DSF_sc_read_ctrs;
 }
    
 void IDT_init_DSF_DB( void )

@@ -54,8 +54,8 @@ struct mpsw_drv_pe_state {
         rio_pc_get_status_out_t  ps;      /* Standard status vals */
         idt_rt_state_t           g_rt;    /* Global Routing Table for device */
         idt_rt_state_t           pprt[IDT_MAX_PORTS]; /* Per port RT */
-        idt_sc_p_ctrs_val_t      sc[IDT_MAX_PORTS]; /* Statistics counters */
-        idt_sc_dev_ctrs_t        sc_dev; /* Device info for stats counters */
+        rio_sc_p_ctrs_val_t      sc[IDT_MAX_PORTS]; /* Statistics counters */
+        rio_sc_dev_ctrs_t        sc_dev; /* Device info for stats counters */
         rio_em_cfg_pw_t          em_pw_cfg; /* Event Management Portwrite Cfg */
         rio_em_dev_rpt_ctl_out_t em_notfn; /* Device notification control */
 };

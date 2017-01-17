@@ -1593,7 +1593,7 @@ uint32_t idt_tsi721_em_create_events( DAR_DEV_INFO_t              *dev_info,
 };
 
 struct tsi721_dev_ctr {
-	idt_sc_ctr_t	ctr_t;
+	rio_sc_ctr_t	ctr_t;
 	bool		split;	// Two counters, one register
 	bool		tx;	// Transmit (true), or receive (false)
 	bool		srio;	// RapidIO, or other interface
@@ -1604,45 +1604,45 @@ struct tsi721_dev_ctr {
 
 const struct tsi721_dev_ctr tsi721_dev_ctrs[] = {
 //   Enum counter               SPLIT  TX     SRIO   OFFSET
-    {idt_sc_pcie_msg_rx,	false, false, false, TSI721_CPL_SMSG_CNT},
-    {idt_sc_pcie_msg_tx,	false, true , false, TSI721_TXTLP_SMSG_CNT},
-    {idt_sc_pcie_dma_rx,	false, false, false, TSI721_CPL_BDMA_CNT},
-    {idt_sc_pcie_dma_tx,	false, true , false, TSI721_TXTLP_BDMA_CNT},
-    {idt_sc_pcie_brg_rx,	false, false, false, TSI721_RXTLP_BRG_CNT},
-    {idt_sc_pcie_brg_tx,	false, true , false, TSI721_TXTLP_BRG_CNT},
-    {idt_sc_rio_msg_tx,		false, true , true , TSI721_TXPKT_SMSG_CNT},
-    {idt_sc_rio_msg_rx,		false, false, true , TSI721_RXPKT_SMSG_CNT},
-    {idt_sc_rio_msg_tx_rty,	false, true , true , TSI721_RETRY_GEN_CNT},
-    {idt_sc_rio_msg_rx_rty,	false, false, true , TSI721_RETRY_RX_CNT},
-    {idt_sc_rio_dma_tx,		false, true , true , TSI721_TXPKT_BDMA_CNT},
-    {idt_sc_rio_dma_rx,		false, false, true , TSI721_RXRSP_BDMA_CNT},
-    {idt_sc_rio_brg_tx,		false, true , true , TSI721_TXPKT_BRG_CNT},
-    {idt_sc_rio_brg_rx,		false, false, true , TSI721_RXPKT_BRG_CNT},
-    {idt_sc_rio_brg_rx_err,	false, false, true , TSI721_BRG_PKT_ERR_CNT},
+    {rio_sc_pcie_msg_rx,	false, false, false, TSI721_CPL_SMSG_CNT},
+    {rio_sc_pcie_msg_tx,	false, true , false, TSI721_TXTLP_SMSG_CNT},
+    {rio_sc_pcie_dma_rx,	false, false, false, TSI721_CPL_BDMA_CNT},
+    {rio_sc_pcie_dma_tx,	false, true , false, TSI721_TXTLP_BDMA_CNT},
+    {rio_sc_pcie_brg_rx,	false, false, false, TSI721_RXTLP_BRG_CNT},
+    {rio_sc_pcie_brg_tx,	false, true , false, TSI721_TXTLP_BRG_CNT},
+    {rio_sc_rio_msg_tx,		false, true , true , TSI721_TXPKT_SMSG_CNT},
+    {rio_sc_rio_msg_rx,		false, false, true , TSI721_RXPKT_SMSG_CNT},
+    {rio_sc_rio_msg_tx_rty,	false, true , true , TSI721_RETRY_GEN_CNT},
+    {rio_sc_rio_msg_rx_rty,	false, false, true , TSI721_RETRY_RX_CNT},
+    {rio_sc_rio_dma_tx,		false, true , true , TSI721_TXPKT_BDMA_CNT},
+    {rio_sc_rio_dma_rx,		false, false, true , TSI721_RXRSP_BDMA_CNT},
+    {rio_sc_rio_brg_tx,		false, true , true , TSI721_TXPKT_BRG_CNT},
+    {rio_sc_rio_brg_rx,		false, false, true , TSI721_RXPKT_BRG_CNT},
+    {rio_sc_rio_brg_rx_err,	false, false, true , TSI721_BRG_PKT_ERR_CNT},
 	// The following 6 counters are 'split':  One counter register
 	// holds two 16 bit counts.  The "total" count is always the most 
 	// significant 16 bits of the counter, and the first counter 
 	// specified in this list.  
-    {idt_sc_rio_dbel_tx,    	true , true , true , TSI721_ODB_CNTX(0)},
-    {idt_sc_rio_dbel_ok_rx,    	true , false, true , TSI721_SPLIT_2ND_CTR},
-    {idt_sc_rio_dbel_tx, 	true , true , true , TSI721_ODB_CNTX(1)},
-    {idt_sc_rio_dbel_ok_rx,    	true , false, true , TSI721_SPLIT_2ND_CTR},
-    {idt_sc_rio_dbel_tx,  	true , true , true , TSI721_ODB_CNTX(2)},
-    {idt_sc_rio_dbel_ok_rx,    	true , false, true , TSI721_SPLIT_2ND_CTR},
-    {idt_sc_rio_dbel_tx,  	true , true , true , TSI721_ODB_CNTX(3)},
-    {idt_sc_rio_dbel_ok_rx,    	true , false, true , TSI721_SPLIT_2ND_CTR},
-    {idt_sc_rio_dbel_tx,  	true , true , true , TSI721_ODB_CNTX(4)},
-    {idt_sc_rio_dbel_ok_rx,    	true , false, true , TSI721_SPLIT_2ND_CTR},
-    {idt_sc_rio_dbel_tx,  	true , true , true , TSI721_ODB_CNTX(5)},
-    {idt_sc_rio_dbel_ok_rx,    	true , false, true , TSI721_SPLIT_2ND_CTR},
-    {idt_sc_rio_dbel_tx,  	true , true , true , TSI721_ODB_CNTX(6)},
-    {idt_sc_rio_dbel_ok_rx,    	true , false, true , TSI721_SPLIT_2ND_CTR},
-    {idt_sc_rio_dbel_tx,  	true , true , true , TSI721_ODB_CNTX(7)},
-    {idt_sc_rio_dbel_ok_rx,    	true , false, true , TSI721_SPLIT_2ND_CTR},
-    {idt_sc_rio_nwr_tx,		true , true , true , TSI721_NWR_CNT},
-    {idt_sc_rio_nwr_ok_rx,	true , false, true , TSI721_SPLIT_2ND_CTR},
-    {idt_sc_rio_mwr_tx,		true , true , true , TSI721_MWR_CNT},
-    {idt_sc_rio_mwr_ok_rx,	true , false, true , TSI721_SPLIT_2ND_CTR}
+    {rio_sc_rio_dbel_tx,    	true , true , true , TSI721_ODB_CNTX(0)},
+    {rio_sc_rio_dbel_ok_rx,    	true , false, true , TSI721_SPLIT_2ND_CTR},
+    {rio_sc_rio_dbel_tx, 	true , true , true , TSI721_ODB_CNTX(1)},
+    {rio_sc_rio_dbel_ok_rx,    	true , false, true , TSI721_SPLIT_2ND_CTR},
+    {rio_sc_rio_dbel_tx,  	true , true , true , TSI721_ODB_CNTX(2)},
+    {rio_sc_rio_dbel_ok_rx,    	true , false, true , TSI721_SPLIT_2ND_CTR},
+    {rio_sc_rio_dbel_tx,  	true , true , true , TSI721_ODB_CNTX(3)},
+    {rio_sc_rio_dbel_ok_rx,    	true , false, true , TSI721_SPLIT_2ND_CTR},
+    {rio_sc_rio_dbel_tx,  	true , true , true , TSI721_ODB_CNTX(4)},
+    {rio_sc_rio_dbel_ok_rx,    	true , false, true , TSI721_SPLIT_2ND_CTR},
+    {rio_sc_rio_dbel_tx,  	true , true , true , TSI721_ODB_CNTX(5)},
+    {rio_sc_rio_dbel_ok_rx,    	true , false, true , TSI721_SPLIT_2ND_CTR},
+    {rio_sc_rio_dbel_tx,  	true , true , true , TSI721_ODB_CNTX(6)},
+    {rio_sc_rio_dbel_ok_rx,    	true , false, true , TSI721_SPLIT_2ND_CTR},
+    {rio_sc_rio_dbel_tx,  	true , true , true , TSI721_ODB_CNTX(7)},
+    {rio_sc_rio_dbel_ok_rx,    	true , false, true , TSI721_SPLIT_2ND_CTR},
+    {rio_sc_rio_nwr_tx,		true , true , true , TSI721_NWR_CNT},
+    {rio_sc_rio_nwr_ok_rx,	true , false, true , TSI721_SPLIT_2ND_CTR},
+    {rio_sc_rio_mwr_tx,		true , true , true , TSI721_MWR_CNT},
+    {rio_sc_rio_mwr_ok_rx,	true , false, true , TSI721_SPLIT_2ND_CTR}
 };
 
 #define TSI721_NUM_PERF_CTRS (sizeof(tsi721_dev_ctrs) / \
@@ -1650,14 +1650,14 @@ const struct tsi721_dev_ctr tsi721_dev_ctrs[] = {
 
 uint32_t idt_tsi721_sc_init_dev_ctrs (
 	 DAR_DEV_INFO_t				 *dev_info,
-	 idt_sc_init_dev_ctrs_in_t  *in_parms,
-	 idt_sc_init_dev_ctrs_out_t *out_parms)
+	 rio_sc_init_dev_ctrs_in_t  *in_parms,
+	 rio_sc_init_dev_ctrs_out_t *out_parms)
 {
 	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
 	uint8_t cntr_i;
-	idt_sc_ctr_val_t init_val = INIT_IDT_SC_CTR_VAL;
+	rio_sc_ctr_val_t init_val = INIT_RIO_SC_CTR_VAL;
 	struct DAR_ptl good_ptl;
-	idt_sc_ctr_val_t *ctrs;
+	rio_sc_ctr_val_t *ctrs;
 
 	out_parms->imp_rc = RIO_SUCCESS;
 
@@ -1703,13 +1703,13 @@ exit:
 };
 
 uint32_t idt_tsi721_sc_read_ctrs(DAR_DEV_INFO_t  *dev_info,
-                            idt_sc_read_ctrs_in_t    *in_parms,
-                            idt_sc_read_ctrs_out_t   *out_parms)
+                            rio_sc_read_ctrs_in_t    *in_parms,
+                            rio_sc_read_ctrs_out_t   *out_parms)
 {
 	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
 	uint8_t cntr;
 	struct DAR_ptl good_ptl;
-	idt_sc_ctr_val_t *ctrs;
+	rio_sc_ctr_val_t *ctrs;
 
 	out_parms->imp_rc = RIO_SUCCESS;
 
@@ -1818,8 +1818,8 @@ uint32_t bind_tsi721_DSF_support( void )
     idt_driver.rio_em_clr_events   = idt_tsi721_em_clr_events   ;
     idt_driver.rio_em_create_events= idt_tsi721_em_create_events;
 
-    idt_driver.idt_sc_init_dev_ctrs= idt_tsi721_sc_init_dev_ctrs;
-    idt_driver.idt_sc_read_ctrs    = idt_tsi721_sc_read_ctrs;
+    idt_driver.rio_sc_init_dev_ctrs= idt_tsi721_sc_init_dev_ctrs;
+    idt_driver.rio_sc_read_ctrs    = idt_tsi721_sc_read_ctrs;
 
     IDT_DSF_bind_driver( &idt_driver, &Tsi721_driver_handle);
 

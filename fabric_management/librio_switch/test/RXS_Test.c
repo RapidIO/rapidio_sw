@@ -71,15 +71,15 @@ typedef struct mock_dar_reg_t_TAG
 mock_dar_reg_t mock_dar_reg[UPB_DAR_REG];
 
 static DAR_DEV_INFO_t mock_dev_info;
-static idt_sc_dev_ctrs_t *mock_dev_ctrs = (idt_sc_dev_ctrs_t *)malloc(sizeof(idt_sc_dev_ctrs_t));
-static idt_sc_p_ctrs_val_t *pp_ctrs = (idt_sc_p_ctrs_val_t *)malloc((MAX_DAR_PORTS) * sizeof(idt_sc_p_ctrs_val_t));
+static rio_sc_dev_ctrs_t *mock_dev_ctrs = (rio_sc_dev_ctrs_t *)malloc(sizeof(rio_sc_dev_ctrs_t));
+static rio_sc_p_ctrs_val_t *pp_ctrs = (rio_sc_p_ctrs_val_t *)malloc((MAX_DAR_PORTS) * sizeof(rio_sc_p_ctrs_val_t));
 
 /* Create a mock dev_info.
  */
 static void rxs_test_setup(void)
 {
 	uint8_t idx, pnum;
-	idt_sc_ctr_val_t init = INIT_IDT_SC_CTR_VAL;
+	rio_sc_ctr_val_t init = INIT_RIO_SC_CTR_VAL;
 
 	mock_dev_info.db_h = 3670020;
 	mock_dev_info.privateData = 0x0;
@@ -340,7 +340,7 @@ uint32_t __wrap_DARRegWrite(DAR_DEV_INFO_t *dev_info, uint32_t offset, uint32_t 
  */
 static int setup(void **state)
 {
-        memset(&mock_dev_info, 0x00, sizeof(idt_sc_dev_ctrs_t));
+        memset(&mock_dev_info, 0x00, sizeof(rio_sc_dev_ctrs_t));
         DARDB_init();
 	rxs_test_setup();
         init_mock_rxs_reg();
@@ -399,7 +399,7 @@ void macros_test(void **state)
 	(void)state; // unused
 }
 
-static void rxs_init_ctrs(idt_sc_init_dev_ctrs_in_t *parms_in)
+static void rxs_init_ctrs(rio_sc_init_dev_ctrs_in_t *parms_in)
 {
         uint8_t pnum;
 
@@ -413,8 +413,8 @@ static void rxs_init_ctrs(idt_sc_init_dev_ctrs_in_t *parms_in)
 
 void rxs_init_dev_ctrs_test_success(void **state)
 {
-        idt_sc_init_dev_ctrs_in_t      mock_sc_in;
-        idt_sc_init_dev_ctrs_out_t     mock_sc_out;
+        rio_sc_init_dev_ctrs_in_t      mock_sc_in;
+        rio_sc_init_dev_ctrs_out_t     mock_sc_out;
 	int i, j;
 
 	// Success case, all ports
@@ -432,7 +432,7 @@ void rxs_init_dev_ctrs_test_success(void **state)
 				mock_sc_in.dev_ctrs->p_ctrs[i].ctrs[j].total);
 			assert_int_equal(0,
 				mock_sc_in.dev_ctrs->p_ctrs[i].ctrs[j].last_inc);
-			assert_int_equal(idt_sc_disabled,
+			assert_int_equal(rio_sc_disabled,
 				mock_sc_in.dev_ctrs->p_ctrs[i].ctrs[j].sc);
 			assert_int_equal(false,
 				mock_sc_in.dev_ctrs->p_ctrs[i].ctrs[j].tx);
@@ -445,8 +445,8 @@ void rxs_init_dev_ctrs_test_success(void **state)
 
 void rxs_init_dev_ctrs_test_bad_ptrs(void **state)
 {
-        idt_sc_init_dev_ctrs_in_t      mock_sc_in;
-        idt_sc_init_dev_ctrs_out_t     mock_sc_out;
+        rio_sc_init_dev_ctrs_in_t      mock_sc_in;
+        rio_sc_init_dev_ctrs_out_t     mock_sc_out;
 
 	// Test invalid dev_ctrs pointer
 	rxs_init_ctrs(&mock_sc_in);
@@ -464,8 +464,8 @@ void rxs_init_dev_ctrs_test_bad_ptrs(void **state)
 
 void rxs_init_dev_ctrs_test_bad_p_ctrs(void **state)
 {
-        idt_sc_init_dev_ctrs_in_t      mock_sc_in;
-        idt_sc_init_dev_ctrs_out_t     mock_sc_out;
+        rio_sc_init_dev_ctrs_in_t      mock_sc_in;
+        rio_sc_init_dev_ctrs_out_t     mock_sc_out;
 
 	// Test invalid number of p_ctrs
 	rxs_init_ctrs(&mock_sc_in);
@@ -487,8 +487,8 @@ void rxs_init_dev_ctrs_test_bad_p_ctrs(void **state)
 
 void rxs_init_dev_ctrs_test_bad_ptl_1(void **state)
 {
-        idt_sc_init_dev_ctrs_in_t      mock_sc_in;
-        idt_sc_init_dev_ctrs_out_t     mock_sc_out;
+        rio_sc_init_dev_ctrs_in_t      mock_sc_in;
+        rio_sc_init_dev_ctrs_out_t     mock_sc_out;
 
 	// Test that a bad Port list is reported correctly.
 	rxs_init_ctrs(&mock_sc_in);
@@ -503,8 +503,8 @@ void rxs_init_dev_ctrs_test_bad_ptl_1(void **state)
 
 void rxs_init_dev_ctrs_test_bad_ptl_2(void **state)
 {
-        idt_sc_init_dev_ctrs_in_t      mock_sc_in;
-        idt_sc_init_dev_ctrs_out_t     mock_sc_out;
+        rio_sc_init_dev_ctrs_in_t      mock_sc_in;
+        rio_sc_init_dev_ctrs_out_t     mock_sc_out;
 
 	rxs_init_ctrs(&mock_sc_in);
 	mock_sc_in.ptl.num_ports = 3;
@@ -518,8 +518,8 @@ void rxs_init_dev_ctrs_test_bad_ptl_2(void **state)
 
 void rxs_init_dev_ctrs_test_bad_ptl_3(void **state)
 {
-        idt_sc_init_dev_ctrs_in_t      mock_sc_in;
-        idt_sc_init_dev_ctrs_out_t     mock_sc_out;
+        rio_sc_init_dev_ctrs_in_t      mock_sc_in;
+        rio_sc_init_dev_ctrs_out_t     mock_sc_out;
 
 	rxs_init_ctrs(&mock_sc_in);
 	mock_sc_in.ptl.num_ports = 3;
@@ -533,8 +533,8 @@ void rxs_init_dev_ctrs_test_bad_ptl_3(void **state)
 
 void rxs_init_dev_ctrs_test_good_ptl(void **state)
 {
-        idt_sc_init_dev_ctrs_in_t      mock_sc_in;
-        idt_sc_init_dev_ctrs_out_t     mock_sc_out;
+        rio_sc_init_dev_ctrs_in_t      mock_sc_in;
+        rio_sc_init_dev_ctrs_out_t     mock_sc_out;
 	int i, j;
 
 	// Test Port list with a few good entries...
@@ -562,7 +562,7 @@ void rxs_init_dev_ctrs_test_good_ptl(void **state)
 				mock_sc_in.dev_ctrs->p_ctrs[i].ctrs[j].total);
 			assert_int_equal(0,
 				mock_sc_in.dev_ctrs->p_ctrs[i].ctrs[j].last_inc);
-			assert_int_equal(idt_sc_disabled,
+			assert_int_equal(rio_sc_disabled,
 				mock_sc_in.dev_ctrs->p_ctrs[i].ctrs[j].sc);
 			assert_int_equal(false,
 				mock_sc_in.dev_ctrs->p_ctrs[i].ctrs[j].tx);
@@ -576,12 +576,12 @@ void rxs_init_dev_ctrs_test_good_ptl(void **state)
 
 #define MAX_SC_CFG_VAL 21
 
-void test_rxs_cfg_dev_ctr(idt_sc_cfg_rxs_ctr_in_t *mock_sc_in, int sc_cfg)
+void test_rxs_cfg_dev_ctr(rio_sc_cfg_rxs_ctr_in_t *mock_sc_in, int sc_cfg)
 {
         bool tx = true;
 	uint32_t reg_val = 0;
 	int ctr_idx, idx;
-	idt_sc_cfg_rxs_ctr_out_t mock_sc_out;
+	rio_sc_cfg_rxs_ctr_out_t mock_sc_out;
 	rio_port_t st_pt, end_pt, port;
 	bool srio = true;
 	bool expect_fail = false;
@@ -593,91 +593,91 @@ void test_rxs_cfg_dev_ctr(idt_sc_cfg_rxs_ctr_in_t *mock_sc_in, int sc_cfg)
 	// counters, used by other packet counter tests...
 	mock_sc_in->tx = tx;
 	switch (sc_cfg) {
-	case 0: mock_sc_in->ctr_type = idt_sc_pkt;
+	case 0: mock_sc_in->ctr_type = rio_sc_pkt;
 		reg_val = RXS_RIO_SPX_PCNTR_CTL_SEL_RIO_PKT;
 		break;
-	case 1: mock_sc_in->ctr_type = idt_sc_pkt;
+	case 1: mock_sc_in->ctr_type = rio_sc_pkt;
 		mock_sc_in->tx = !mock_sc_in->tx;
 		reg_val = RXS_RIO_SPX_PCNTR_CTL_SEL_RIO_PKT;
 		break;
-	case 2: mock_sc_in->ctr_type = idt_sc_fab_pkt;
+	case 2: mock_sc_in->ctr_type = rio_sc_fab_pkt;
 		reg_val = RXS_RIO_SPX_PCNTR_CTL_SEL_FAB_PKT;
 		srio = false;
 		break;
-	case 3: mock_sc_in->ctr_type = idt_sc_fab_pkt;
+	case 3: mock_sc_in->ctr_type = rio_sc_fab_pkt;
 		mock_sc_in->tx = !mock_sc_in->tx;
 		reg_val = RXS_RIO_SPX_PCNTR_CTL_SEL_FAB_PKT;
 		srio = false;
 		break;
-	case 4: mock_sc_in->ctr_type = idt_sc_rio_pload;
+	case 4: mock_sc_in->ctr_type = rio_sc_rio_pload;
 		reg_val = RXS_RIO_SPX_PCNTR_CTL_SEL_RIO_PAYLOAD;
 		break;
-	case 5: mock_sc_in->ctr_type = idt_sc_rio_pload;
+	case 5: mock_sc_in->ctr_type = rio_sc_rio_pload;
 		mock_sc_in->tx = !mock_sc_in->tx;
 		reg_val = RXS_RIO_SPX_PCNTR_CTL_SEL_RIO_PAYLOAD;
 		break;
-	case 6: mock_sc_in->ctr_type = idt_sc_rio_bwidth;
+	case 6: mock_sc_in->ctr_type = rio_sc_rio_bwidth;
 		reg_val = RXS_RIO_SPX_PCNTR_CTL_SEL_RIO_TTL_PKTCNTR;
 		break;
-	case 7: mock_sc_in->ctr_type = idt_sc_disabled;
+	case 7: mock_sc_in->ctr_type = rio_sc_disabled;
 		reg_val = RXS_RIO_SPX_PCNTR_CTL_SEL_DISABLED;
 		break;
-	case 8: mock_sc_in->ctr_type = idt_sc_fab_pload;
+	case 8: mock_sc_in->ctr_type = rio_sc_fab_pload;
 		reg_val = RXS_RIO_SPX_PCNTR_CTL_SEL_FAB_PAYLOAD;
 		srio = false;
 		break;
-	case 9: mock_sc_in->ctr_type = idt_sc_fab_pload;
+	case 9: mock_sc_in->ctr_type = rio_sc_fab_pload;
 		mock_sc_in->tx = !mock_sc_in->tx;
 		reg_val = RXS_RIO_SPX_PCNTR_CTL_SEL_FAB_PAYLOAD;
 		srio = false;
 		break;
-	case 10: mock_sc_in->ctr_type = idt_sc_retries;
+	case 10: mock_sc_in->ctr_type = rio_sc_retries;
 		reg_val = RXS_RIO_SPX_PCNTR_CTL_SEL_RETRIES;
 		break;
-	case 11: mock_sc_in->ctr_type = idt_sc_retries;
+	case 11: mock_sc_in->ctr_type = rio_sc_retries;
 		mock_sc_in->tx = !mock_sc_in->tx;
 		reg_val = RXS_RIO_SPX_PCNTR_CTL_SEL_RETRIES;
 		break;
-	case 12: mock_sc_in->ctr_type = idt_sc_pna;
+	case 12: mock_sc_in->ctr_type = rio_sc_pna;
 		reg_val = RXS_RIO_SPX_PCNTR_CTL_SEL_PNA;
 		break;
-	case 13: mock_sc_in->ctr_type = idt_sc_pna;
+	case 13: mock_sc_in->ctr_type = rio_sc_pna;
 		mock_sc_in->tx = !mock_sc_in->tx;
 		reg_val = RXS_RIO_SPX_PCNTR_CTL_SEL_PNA;
 		break;
-	case 14: mock_sc_in->ctr_type = idt_sc_pkt_drop;
+	case 14: mock_sc_in->ctr_type = rio_sc_pkt_drop;
 		reg_val = RXS_RIO_SPX_PCNTR_CTL_SEL_PKT_DROP;
 		break;
-	case 15: mock_sc_in->ctr_type = idt_sc_pkt_drop;
+	case 15: mock_sc_in->ctr_type = rio_sc_pkt_drop;
 		mock_sc_in->tx = !mock_sc_in->tx;
 		reg_val = RXS_RIO_SPX_PCNTR_CTL_SEL_PKT_DROP;
 		break;
-	case 16: mock_sc_in->ctr_type = idt_sc_fab_pkt;
+	case 16: mock_sc_in->ctr_type = rio_sc_fab_pkt;
 		reg_val = RXS_RIO_SPX_PCNTR_CTL_SEL_FAB_PKT;
 		mock_sc_in->prio_mask = 0;
 		expect_fail = true;
 		break;
-	case 17: mock_sc_in->ctr_type = idt_sc_rio_bwidth;
+	case 17: mock_sc_in->ctr_type = rio_sc_rio_bwidth;
 		reg_val = RXS_RIO_SPX_PCNTR_CTL_SEL_FAB_PAYLOAD;
 		mock_sc_in->tx = !mock_sc_in->tx;
 		mock_sc_in->prio_mask = 0;
 		expect_fail = true;
 		break;
-	case 18: mock_sc_in->ctr_type = idt_sc_fab_pload;
+	case 18: mock_sc_in->ctr_type = rio_sc_fab_pload;
 		reg_val = RXS_RIO_SPX_PCNTR_CTL_SEL_FAB_PAYLOAD;
 		mock_sc_in->prio_mask = 0;
 		expect_fail = true;
 		break;
-	case 19: mock_sc_in->ctr_type = idt_sc_pkt_drop;
+	case 19: mock_sc_in->ctr_type = rio_sc_pkt_drop;
 		reg_val = RXS_RIO_SPX_PCNTR_CTL_SEL_PKT_DROP;
 		mock_sc_in->prio_mask = 0;
 		expect_fail = true;
 		break;
-	case 20: mock_sc_in->ctr_type = idt_sc_uc_req_pkts;
+	case 20: mock_sc_in->ctr_type = rio_sc_uc_req_pkts;
 		reg_val = RXS_RIO_SPX_PCNTR_CTL_SEL_DISABLED;
 		expect_fail = true;
 		break;
-	case MAX_SC_CFG_VAL: mock_sc_in->ctr_type = idt_sc_pkt_drop_ttl;
+	case MAX_SC_CFG_VAL: mock_sc_in->ctr_type = rio_sc_pkt_drop_ttl;
 		reg_val = RXS_RIO_SPX_PCNTR_CTL_SEL_DISABLED;
 		expect_fail = true;
 		break;
@@ -714,7 +714,7 @@ void test_rxs_cfg_dev_ctr(idt_sc_cfg_rxs_ctr_in_t *mock_sc_in, int sc_cfg)
 		mock_sc_out.imp_rc = RIO_SUCCESS;
 
 		assert_int_not_equal(RIO_SUCCESS,
-				idt_sc_cfg_rxs_ctr(&mock_dev_info, mock_sc_in,
+				rio_sc_cfg_rxs_ctr(&mock_dev_info, mock_sc_in,
 				&mock_sc_out));
 		assert_int_not_equal(RIO_SUCCESS, mock_sc_out.imp_rc);
 		return;
@@ -723,7 +723,7 @@ void test_rxs_cfg_dev_ctr(idt_sc_cfg_rxs_ctr_in_t *mock_sc_in, int sc_cfg)
 	// If something is expected to work, do exhaustive checking
 	mock_sc_out.imp_rc = !RIO_SUCCESS;
 
-	assert_int_equal(RIO_SUCCESS, idt_sc_cfg_rxs_ctr(&mock_dev_info,
+	assert_int_equal(RIO_SUCCESS, rio_sc_cfg_rxs_ctr(&mock_dev_info,
 						mock_sc_in, &mock_sc_out));
 	assert_int_equal(RIO_SUCCESS, mock_sc_out.imp_rc);
 
@@ -773,9 +773,9 @@ void test_rxs_cfg_dev_ctr(idt_sc_cfg_rxs_ctr_in_t *mock_sc_in, int sc_cfg)
 void rxs_cfg_dev_ctrs_test_per_port(void **state)
 {
 	int val;
-        idt_sc_init_dev_ctrs_in_t      init_in;
-        idt_sc_init_dev_ctrs_out_t     init_out;
-	idt_sc_cfg_rxs_ctr_in_t      mock_sc_in;
+        rio_sc_init_dev_ctrs_in_t      init_in;
+        rio_sc_init_dev_ctrs_out_t     init_out;
+	rio_sc_cfg_rxs_ctr_in_t      mock_sc_in;
 
 
 	// Initialize counters for all ports...
@@ -810,9 +810,9 @@ void rxs_cfg_dev_ctrs_test_per_port(void **state)
 void rxs_cfg_dev_ctrs_test_all_ports(void **state)
 {
 	int val;
-        idt_sc_init_dev_ctrs_in_t      init_in;
-        idt_sc_init_dev_ctrs_out_t     init_out;
-	idt_sc_cfg_rxs_ctr_in_t      mock_sc_in;
+        rio_sc_init_dev_ctrs_in_t      init_in;
+        rio_sc_init_dev_ctrs_out_t     init_out;
+	rio_sc_cfg_rxs_ctr_in_t      mock_sc_in;
 
 	// Initialize counters for all ports...
         rxs_init_ctrs(&init_in);
@@ -841,9 +841,9 @@ void rxs_cfg_dev_ctrs_test_all_ports(void **state)
 //
 void rxs_cfg_dev_ctrs_test_default(void **state)
 {
-        idt_sc_init_dev_ctrs_in_t      init_in;
-        idt_sc_init_dev_ctrs_out_t     init_out;
-	idt_sc_cfg_rxs_ctr_in_t      mock_sc_in;
+        rio_sc_init_dev_ctrs_in_t      init_in;
+        rio_sc_init_dev_ctrs_out_t     init_out;
+	rio_sc_cfg_rxs_ctr_in_t      mock_sc_in;
 
 	// Initialize counters for all ports...
         rxs_init_ctrs(&init_in);
@@ -864,7 +864,7 @@ void rxs_cfg_dev_ctrs_test_default(void **state)
 	(void)state; // unused
 }
 
-static void rxs_init_read_ctrs(idt_sc_read_ctrs_in_t *parms_in)
+static void rxs_init_read_ctrs(rio_sc_read_ctrs_in_t *parms_in)
 {
 	uint8_t srch_i;
 	uint32_t cntr;
@@ -875,28 +875,28 @@ static void rxs_init_read_ctrs(idt_sc_read_ctrs_in_t *parms_in)
 		for (cntr = 0; cntr < RXS2448_MAX_SC; cntr++) {
 			parms_in->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].tx = true;
 			switch (cntr) {
-			case 0: parms_in->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc = idt_sc_pkt;
+			case 0: parms_in->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc = rio_sc_pkt;
 				break;
 			case 1:
-				parms_in->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc = idt_sc_fab_pkt;
+				parms_in->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc = rio_sc_fab_pkt;
 				break;
 			case 2:
-				parms_in->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc = idt_sc_rio_pload;
+				parms_in->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc = rio_sc_rio_pload;
 				break;
 			case 3:
-				parms_in->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc = idt_sc_fab_pload;
+				parms_in->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc = rio_sc_fab_pload;
 				break;
 			case 4:
-				parms_in->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc = idt_sc_rio_bwidth;
+				parms_in->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc = rio_sc_rio_bwidth;
 				break;
 			case 5:
-				parms_in->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc = idt_sc_retries;
+				parms_in->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc = rio_sc_retries;
 				break;
 			case 6:
-				parms_in->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc = idt_sc_pna;
+				parms_in->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc = rio_sc_pna;
 				break;
 			default:
-                                parms_in->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc = idt_sc_disabled;
+                                parms_in->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc = rio_sc_disabled;
                                 break;
 			}
 		}
@@ -905,10 +905,10 @@ static void rxs_init_read_ctrs(idt_sc_read_ctrs_in_t *parms_in)
 
 void rxs_read_dev_ctrs_test(void **state)
 {
-	idt_sc_read_ctrs_in_t      mock_sc_in;
-	idt_sc_read_ctrs_out_t     mock_sc_out;
-        idt_sc_init_dev_ctrs_in_t      init_in;
-        idt_sc_init_dev_ctrs_out_t     init_out;
+	rio_sc_read_ctrs_in_t      mock_sc_in;
+	rio_sc_read_ctrs_out_t     mock_sc_out;
+        rio_sc_init_dev_ctrs_in_t      init_in;
+        rio_sc_init_dev_ctrs_out_t     init_out;
 	int ctr_idx, idx, port;
 
 	// Initialize counters structure
@@ -943,7 +943,7 @@ void rxs_read_dev_ctrs_test(void **state)
 			assert_int_not_equal(idx, UPB_DAR_REG);
 			// Do not read disabled counters, they should always
 			// be zero.
-			if (idt_sc_disabled == pp_ctrs[port].ctrs[ctr_idx].sc) {
+			if (rio_sc_disabled == pp_ctrs[port].ctrs[ctr_idx].sc) {
 				idx = 0;
 			};
 			assert_int_equal(idx,
@@ -979,7 +979,7 @@ void rxs_read_dev_ctrs_test(void **state)
 			assert_int_not_equal(idx, UPB_DAR_REG);
 			// Do not read disabled counters, they should always
 			// be zero.
-			if (idt_sc_disabled == pp_ctrs[port].ctrs[ctr_idx].sc) {
+			if (rio_sc_disabled == pp_ctrs[port].ctrs[ctr_idx].sc) {
 				idx = 0;
 			};
 			assert_int_equal(3 * idx,
@@ -1017,7 +1017,7 @@ void rxs_read_dev_ctrs_test(void **state)
 			assert_int_not_equal(idx, UPB_DAR_REG);
 			// Do not read disabled counters, they should always
 			// be zero.
-			if (idt_sc_disabled == pp_ctrs[port].ctrs[ctr_idx].sc) {
+			if (rio_sc_disabled == pp_ctrs[port].ctrs[ctr_idx].sc) {
 				idx = 0;
 				base = 0;
 			};
@@ -1035,10 +1035,10 @@ void rxs_read_dev_ctrs_test(void **state)
 
 void rxs_read_dev_ctrs_test_bad_parms1(void **state)
 {
-	idt_sc_read_ctrs_in_t      mock_sc_in;
-	idt_sc_read_ctrs_out_t     mock_sc_out;
-        idt_sc_init_dev_ctrs_in_t      init_in;
-        idt_sc_init_dev_ctrs_out_t     init_out;
+	rio_sc_read_ctrs_in_t      mock_sc_in;
+	rio_sc_read_ctrs_out_t     mock_sc_out;
+        rio_sc_init_dev_ctrs_in_t      init_in;
+        rio_sc_init_dev_ctrs_out_t     init_out;
 
 	// Initialize counters structure
         rxs_init_ctrs(&init_in);
@@ -1080,10 +1080,10 @@ void rxs_read_dev_ctrs_test_bad_parms1(void **state)
 
 void rxs_read_dev_ctrs_test_bad_parms2(void **state)
 {
-	idt_sc_read_ctrs_in_t      mock_sc_in;
-	idt_sc_read_ctrs_out_t     mock_sc_out;
-        idt_sc_init_dev_ctrs_in_t      init_in;
-        idt_sc_init_dev_ctrs_out_t     init_out;
+	rio_sc_read_ctrs_in_t      mock_sc_in;
+	rio_sc_read_ctrs_out_t     mock_sc_out;
+        rio_sc_init_dev_ctrs_in_t      init_in;
+        rio_sc_init_dev_ctrs_out_t     init_out;
 
 	// Initialize counters structure
         rxs_init_ctrs(&init_in);

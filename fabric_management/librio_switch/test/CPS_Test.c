@@ -167,7 +167,7 @@ uint32_t __wrap_DARRegWrite(DAR_DEV_INFO_t *dev_info, uint32_t offset, uint32_t 
  */
 static int setup(void **state)
 {
-        memset(&mock_dev_info, 0x00, sizeof(idt_sc_dev_ctrs_t));
+        memset(&mock_dev_info, 0x00, sizeof(rio_sc_dev_ctrs_t));
         DARDB_init();
 	cps_test_setup();
         init_mock_cps_reg();
