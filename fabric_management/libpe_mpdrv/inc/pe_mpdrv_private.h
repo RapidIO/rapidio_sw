@@ -49,9 +49,9 @@ extern "C" {
 
 struct mpsw_drv_pe_state {
         uint32_t                   rc;      /* RC of last routine call      */
-        idt_pc_rst_handling      dev_rst; /* Device reset handling config */
-        idt_pc_get_config_out_t  pc;      /* Standard config vals */
-        idt_pc_get_status_out_t  ps;      /* Standard status vals */
+        rio_pc_rst_handling      dev_rst; /* Device reset handling config */
+        rio_pc_get_config_out_t  pc;      /* Standard config vals */
+        rio_pc_get_status_out_t  ps;      /* Standard status vals */
         idt_rt_state_t           g_rt;    /* Global Routing Table for device */
         idt_rt_state_t           pprt[IDT_MAX_PORTS]; /* Per port RT */
         idt_sc_p_ctrs_val_t      sc[IDT_MAX_PORTS]; /* Statistics counters */

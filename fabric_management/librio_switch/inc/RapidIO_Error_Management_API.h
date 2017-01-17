@@ -137,8 +137,8 @@ typedef enum rio_em_events_t_TAG {
                         //        a reset request is converted to an interrupt.
                         //        rio_em_clr_events clears ackIDs to 0 for this event!
                         //        Other reset request handling options
-                        //        are accessed through idt_pc_secure_port and
-                        //        idt_pc_dev_reset_config.
+                        //        are accessed through rio_pc_secure_port and
+                        //        rio_pc_dev_reset_config.
    rio_em_i_init_fail=10,// INFO : Loading register values from I2C has failed.
                         //        em_info: Not used.
                         //        No parameters.  There is one I2C loader for

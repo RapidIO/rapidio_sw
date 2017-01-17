@@ -106,9 +106,9 @@ struct int_mport_info {
 #define CFG_SLAVE -1
 
 struct int_cfg_rapidio {
-	idt_pc_pw_t max_pw;
-	idt_pc_pw_t op_pw;
-	idt_pc_ls_t ls;
+	rio_pc_pw_t max_pw;
+	rio_pc_pw_t op_pw;
+	rio_pc_ls_t ls;
 	int idle2; /* 0 for idle1, 1 for idle2 */
 	int em; /* 0 for no error management, 1 to enable error management */
 };

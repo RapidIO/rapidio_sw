@@ -89,12 +89,12 @@ extern uint32_t idt_sc_port_list( DAR_DEV_INFO_t  *dev_info ,
 			        uint8_t           *p_cnt_out,
 			        uint8_t           *p_list_out);
 
-// Default implementation of idt_pc_probe, using standard registers and
+// Default implementation of rio_pc_probe, using standard registers and
 //    standard routines.
 
-extern uint32_t default_idt_pc_probe( DAR_DEV_INFO_t      *dev_info,
-                                    idt_pc_probe_in_t   *in_parms,
-                                    idt_pc_probe_out_t  *out_parms);
+extern uint32_t default_rio_pc_probe( DAR_DEV_INFO_t      *dev_info,
+                                    rio_pc_probe_in_t   *in_parms,
+                                    rio_pc_probe_out_t  *out_parms);
 
 // Device driver structure...
 typedef struct IDT_DSF_DB_t_TAG
@@ -102,43 +102,43 @@ typedef struct IDT_DSF_DB_t_TAG
   uint32_t dev_type; /* Device type supported by this driver... */
 
   // Port Configuration Routines
-  uint32_t (*idt_pc_get_config)  ( DAR_DEV_INFO_t           *dev_info, 
-                                 idt_pc_get_config_in_t   *in_parms, 
-                                 idt_pc_get_config_out_t  *out_parms );
+  uint32_t (*rio_pc_get_config)  ( DAR_DEV_INFO_t           *dev_info, 
+                                 rio_pc_get_config_in_t   *in_parms, 
+                                 rio_pc_get_config_out_t  *out_parms );
 
-  uint32_t (*idt_pc_set_config)  ( DAR_DEV_INFO_t           *dev_info, 
-                                 idt_pc_set_config_in_t   *in_parms, 
-                                 idt_pc_set_config_out_t  *out_parms );
+  uint32_t (*rio_pc_set_config)  ( DAR_DEV_INFO_t           *dev_info, 
+                                 rio_pc_set_config_in_t   *in_parms, 
+                                 rio_pc_set_config_out_t  *out_parms );
 
-  uint32_t (*idt_pc_get_status)  ( DAR_DEV_INFO_t           *dev_info, 
-                                 idt_pc_get_status_in_t   *in_parms, 
-                                 idt_pc_get_status_out_t  *out_parms );
+  uint32_t (*rio_pc_get_status)  ( DAR_DEV_INFO_t           *dev_info, 
+                                 rio_pc_get_status_in_t   *in_parms, 
+                                 rio_pc_get_status_out_t  *out_parms );
 
-  uint32_t (*idt_pc_reset_port)  ( DAR_DEV_INFO_t           *dev_info, 
-                                 idt_pc_reset_port_in_t   *in_parms, 
-                                 idt_pc_reset_port_out_t  *out_parms );
+  uint32_t (*rio_pc_reset_port)  ( DAR_DEV_INFO_t           *dev_info, 
+                                 rio_pc_reset_port_in_t   *in_parms, 
+                                 rio_pc_reset_port_out_t  *out_parms );
 
-  uint32_t (*idt_pc_reset_link_partner) (
+  uint32_t (*rio_pc_reset_link_partner) (
                                  DAR_DEV_INFO_t                   *dev_info, 
-                                 idt_pc_reset_link_partner_in_t   *in_parms, 
-                                 idt_pc_reset_link_partner_out_t  *out_parms );
+                                 rio_pc_reset_link_partner_in_t   *in_parms, 
+                                 rio_pc_reset_link_partner_out_t  *out_parms );
 
-  uint32_t (*idt_pc_clr_errs)    ( DAR_DEV_INFO_t         *dev_info, 
-                                 idt_pc_clr_errs_in_t   *in_parms, 
-                                 idt_pc_clr_errs_out_t  *out_parms );
+  uint32_t (*rio_pc_clr_errs)    ( DAR_DEV_INFO_t         *dev_info, 
+                                 rio_pc_clr_errs_in_t   *in_parms, 
+                                 rio_pc_clr_errs_out_t  *out_parms );
 
-  uint32_t (*idt_pc_secure_port) ( DAR_DEV_INFO_t            *dev_info, 
-                                 idt_pc_secure_port_in_t   *in_parms, 
-                                 idt_pc_secure_port_out_t  *out_parms );
+  uint32_t (*rio_pc_secure_port) ( DAR_DEV_INFO_t            *dev_info, 
+                                 rio_pc_secure_port_in_t   *in_parms, 
+                                 rio_pc_secure_port_out_t  *out_parms );
 
-  uint32_t (*idt_pc_dev_reset_config) (
+  uint32_t (*rio_pc_dev_reset_config) (
                                  DAR_DEV_INFO_t                 *dev_info, 
-                                 idt_pc_dev_reset_config_in_t   *in_parms, 
-                                 idt_pc_dev_reset_config_out_t  *out_parms );
+                                 rio_pc_dev_reset_config_in_t   *in_parms, 
+                                 rio_pc_dev_reset_config_out_t  *out_parms );
 
-  uint32_t (*idt_pc_probe) ( DAR_DEV_INFO_t      *dev_info, 
-                           idt_pc_probe_in_t   *in_parms, 
-                           idt_pc_probe_out_t  *out_parms );
+  uint32_t (*rio_pc_probe) ( DAR_DEV_INFO_t      *dev_info, 
+                           rio_pc_probe_in_t   *in_parms, 
+                           rio_pc_probe_out_t  *out_parms );
 
   // Routing Table Management Routines
   uint32_t (*idt_rt_initialize)  ( DAR_DEV_INFO_t           *dev_info, 

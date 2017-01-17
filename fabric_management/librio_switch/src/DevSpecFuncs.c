@@ -314,8 +314,8 @@ void check_unicast_routing( DAR_DEV_INFO_t     *dev_info,
 };
 
 uint32_t IDT_DSF_pc_get_config( DAR_DEV_INFO_t           *dev_info, 
-                              idt_pc_get_config_in_t   *in_parms, 
-                              idt_pc_get_config_out_t  *out_parms )
+                              rio_pc_get_config_in_t   *in_parms, 
+                              rio_pc_get_config_out_t  *out_parms )
 {
     NULL_CHECK;
     return RIO_STUBBED;
@@ -323,8 +323,8 @@ uint32_t IDT_DSF_pc_get_config( DAR_DEV_INFO_t           *dev_info,
 
 
 uint32_t IDT_DSF_pc_set_config( DAR_DEV_INFO_t           *dev_info, 
-                              idt_pc_set_config_in_t   *in_parms, 
-                              idt_pc_set_config_out_t  *out_parms )
+                              rio_pc_set_config_in_t   *in_parms, 
+                              rio_pc_set_config_out_t  *out_parms )
 {
     NULL_CHECK;
     return RIO_STUBBED;
@@ -332,8 +332,8 @@ uint32_t IDT_DSF_pc_set_config( DAR_DEV_INFO_t           *dev_info,
 
 
 uint32_t IDT_DSF_pc_get_status( DAR_DEV_INFO_t           *dev_info, 
-                              idt_pc_get_status_in_t   *in_parms, 
-                              idt_pc_get_status_out_t  *out_parms )
+                              rio_pc_get_status_in_t   *in_parms, 
+                              rio_pc_get_status_out_t  *out_parms )
 {
     NULL_CHECK;
     return RIO_STUBBED;
@@ -341,8 +341,8 @@ uint32_t IDT_DSF_pc_get_status( DAR_DEV_INFO_t           *dev_info,
 
 
 uint32_t IDT_DSF_pc_reset_port( DAR_DEV_INFO_t           *dev_info, 
-                              idt_pc_reset_port_in_t   *in_parms, 
-                              idt_pc_reset_port_out_t  *out_parms )
+                              rio_pc_reset_port_in_t   *in_parms, 
+                              rio_pc_reset_port_out_t  *out_parms )
 {
     NULL_CHECK;
     return RIO_STUBBED;
@@ -351,8 +351,8 @@ uint32_t IDT_DSF_pc_reset_port( DAR_DEV_INFO_t           *dev_info,
 
 uint32_t IDT_DSF_pc_reset_link_partner(
     DAR_DEV_INFO_t                   *dev_info, 
-    idt_pc_reset_link_partner_in_t   *in_parms, 
-    idt_pc_reset_link_partner_out_t  *out_parms )
+    rio_pc_reset_link_partner_in_t   *in_parms, 
+    rio_pc_reset_link_partner_out_t  *out_parms )
 {
     NULL_CHECK;
     return RIO_STUBBED;
@@ -360,8 +360,8 @@ uint32_t IDT_DSF_pc_reset_link_partner(
 
 
 uint32_t IDT_DSF_pc_clr_errs( DAR_DEV_INFO_t         *dev_info, 
-                            idt_pc_clr_errs_in_t   *in_parms, 
-                            idt_pc_clr_errs_out_t  *out_parms )
+                            rio_pc_clr_errs_in_t   *in_parms, 
+                            rio_pc_clr_errs_out_t  *out_parms )
 {
     NULL_CHECK;
     return RIO_STUBBED;
@@ -369,8 +369,8 @@ uint32_t IDT_DSF_pc_clr_errs( DAR_DEV_INFO_t         *dev_info,
 
 
 uint32_t IDT_DSF_pc_secure_port( DAR_DEV_INFO_t            *dev_info, 
-                               idt_pc_secure_port_in_t   *in_parms, 
-                               idt_pc_secure_port_out_t  *out_parms )
+                               rio_pc_secure_port_in_t   *in_parms, 
+                               rio_pc_secure_port_out_t  *out_parms )
 {
     NULL_CHECK;
     return RIO_STUBBED;
@@ -378,32 +378,32 @@ uint32_t IDT_DSF_pc_secure_port( DAR_DEV_INFO_t            *dev_info,
 
 
 uint32_t IDT_DSF_pc_dev_reset_config( DAR_DEV_INFO_t                 *dev_info, 
-                                    idt_pc_dev_reset_config_in_t   *in_parms, 
-                                    idt_pc_dev_reset_config_out_t  *out_parms )
+                                    rio_pc_dev_reset_config_in_t   *in_parms, 
+                                    rio_pc_dev_reset_config_out_t  *out_parms )
 {
     NULL_CHECK;
     return RIO_STUBBED;
 }
 
 uint32_t IDT_DSF_pc_probe( DAR_DEV_INFO_t      *dev_info, 
-                         idt_pc_probe_in_t   *in_parms, 
-                         idt_pc_probe_out_t  *out_parms )
+                         rio_pc_probe_in_t   *in_parms, 
+                         rio_pc_probe_out_t  *out_parms )
 {
     NULL_CHECK;
     return RIO_STUBBED;
 }
 
-uint32_t default_idt_pc_probe( DAR_DEV_INFO_t      *dev_info,
-                             idt_pc_probe_in_t   *in_parms,
-                             idt_pc_probe_out_t  *out_parms)
+uint32_t default_rio_pc_probe( DAR_DEV_INFO_t      *dev_info,
+                             rio_pc_probe_in_t   *in_parms,
+                             rio_pc_probe_out_t  *out_parms)
 {
     uint32_t rc = RIO_ERR_INVALID_PARAMETER;
     uint32_t regVal, regVal2;
 
-    idt_pc_get_status_in_t  stat_in;
-    idt_pc_get_status_out_t stat_out;
-    idt_pc_get_config_in_t  cfg_in;
-    idt_pc_get_config_out_t cfg_out;
+    rio_pc_get_status_in_t  stat_in;
+    rio_pc_get_status_out_t stat_out;
+    rio_pc_get_config_in_t  cfg_in;
+    rio_pc_get_config_out_t cfg_out;
 
     out_parms->status = port_los;
 
@@ -418,7 +418,7 @@ uint32_t default_idt_pc_probe( DAR_DEV_INFO_t      *dev_info,
 
     stat_in.ptl.num_ports = 1;
 	stat_in.ptl.pnums[0] = in_parms->port;
-    rc = idt_pc_get_status( dev_info, &stat_in, &stat_out );
+    rc = rio_pc_get_status( dev_info, &stat_in, &stat_out );
     if (RIO_SUCCESS != rc) {
        out_parms->imp_rc = stat_out.imp_rc;
        goto default_pc_probe_exit;
@@ -431,7 +431,7 @@ uint32_t default_idt_pc_probe( DAR_DEV_INFO_t      *dev_info,
 
     cfg_in.ptl.num_ports = 1;
 	cfg_in.ptl.pnums[0] = in_parms->port;
-    rc = idt_pc_get_config( dev_info, &cfg_in, &cfg_out );
+    rc = rio_pc_get_config( dev_info, &cfg_in, &cfg_out );
     if (RIO_SUCCESS != rc) {
        out_parms->imp_rc = cfg_out.imp_rc;
        goto default_pc_probe_exit;
@@ -658,15 +658,15 @@ uint32_t IDT_DSF_em_create_events( DAR_DEV_INFO_t              *dev_info,
 
 void IDT_DSF_init_driver( IDT_DSF_DB_t *dsf) {
    dsf->dev_type = 0;
-   dsf->idt_pc_get_config         = IDT_DSF_pc_get_config;
-   dsf->idt_pc_set_config         = IDT_DSF_pc_set_config;
-   dsf->idt_pc_get_status         = IDT_DSF_pc_get_status;
-   dsf->idt_pc_reset_port         = IDT_DSF_pc_reset_port;
-   dsf->idt_pc_reset_link_partner = IDT_DSF_pc_reset_link_partner;
-   dsf->idt_pc_clr_errs           = IDT_DSF_pc_clr_errs;
-   dsf->idt_pc_secure_port        = IDT_DSF_pc_secure_port;
-   dsf->idt_pc_dev_reset_config   = IDT_DSF_pc_dev_reset_config;
-   dsf->idt_pc_probe              = IDT_DSF_pc_probe;
+   dsf->rio_pc_get_config         = IDT_DSF_pc_get_config;
+   dsf->rio_pc_set_config         = IDT_DSF_pc_set_config;
+   dsf->rio_pc_get_status         = IDT_DSF_pc_get_status;
+   dsf->rio_pc_reset_port         = IDT_DSF_pc_reset_port;
+   dsf->rio_pc_reset_link_partner = IDT_DSF_pc_reset_link_partner;
+   dsf->rio_pc_clr_errs           = IDT_DSF_pc_clr_errs;
+   dsf->rio_pc_secure_port        = IDT_DSF_pc_secure_port;
+   dsf->rio_pc_dev_reset_config   = IDT_DSF_pc_dev_reset_config;
+   dsf->rio_pc_probe              = IDT_DSF_pc_probe;
 
    dsf->idt_rt_initialize        = IDT_DSF_rt_initialize;
    dsf->idt_rt_probe             = IDT_DSF_rt_probe;

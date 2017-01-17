@@ -262,10 +262,10 @@ uint32_t idt_CPS_check_port_for_discard( DAR_DEV_INFO_t     *dev_info,
    uint32_t ctlData;
    uint8_t  port;
    bool  dflt_rt = (IDT_DSF_RT_USE_DEFAULT_ROUTE == out_parms->routing_table_value)?true:false;
-   idt_pc_get_config_in_t  cfg_in;
-   idt_pc_get_config_out_t cfg_out;
-   idt_pc_get_status_in_t  stat_in;
-   idt_pc_get_status_out_t stat_out;
+   rio_pc_get_config_in_t  cfg_in;
+   rio_pc_get_config_out_t cfg_out;
+   rio_pc_get_status_in_t  stat_in;
+   rio_pc_get_status_out_t stat_out;
 
    port = (dflt_rt)?in_parms->rt->default_route:out_parms->routing_table_value;
 

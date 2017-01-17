@@ -117,56 +117,56 @@ extern uint32_t init_sw_pi( DAR_DEV_INFO_t   *dev_info,
 
 extern uint32_t IDT_CPS_pc_get_config(
     DAR_DEV_INFO_t           *dev_info, 
-    idt_pc_get_config_in_t   *in_parms, 
-    idt_pc_get_config_out_t  *out_parms
+    rio_pc_get_config_in_t   *in_parms, 
+    rio_pc_get_config_out_t  *out_parms
 );
 
 extern uint32_t IDT_CPS_pc_set_config(
     DAR_DEV_INFO_t           *dev_info, 
-    idt_pc_set_config_in_t   *in_parms, 
-    idt_pc_set_config_out_t  *out_parms
+    rio_pc_set_config_in_t   *in_parms, 
+    rio_pc_set_config_out_t  *out_parms
 );
 
 extern uint32_t IDT_CPS_pc_get_status(
     DAR_DEV_INFO_t           *dev_info, 
-    idt_pc_get_status_in_t   *in_parms, 
-    idt_pc_get_status_out_t  *out_parms
+    rio_pc_get_status_in_t   *in_parms, 
+    rio_pc_get_status_out_t  *out_parms
 );
 
 extern uint32_t IDT_CPS_pc_reset_port(
     DAR_DEV_INFO_t           *dev_info, 
-    idt_pc_reset_port_in_t   *in_parms, 
-    idt_pc_reset_port_out_t  *out_parms
+    rio_pc_reset_port_in_t   *in_parms, 
+    rio_pc_reset_port_out_t  *out_parms
 );
 
 extern uint32_t IDT_CPS_pc_reset_link_partner(
     DAR_DEV_INFO_t                   *dev_info, 
-    idt_pc_reset_link_partner_in_t   *in_parms, 
-    idt_pc_reset_link_partner_out_t  *out_parms
+    rio_pc_reset_link_partner_in_t   *in_parms, 
+    rio_pc_reset_link_partner_out_t  *out_parms
 );
 
 extern uint32_t IDT_CPS_pc_clr_errs(
     DAR_DEV_INFO_t         *dev_info, 
-    idt_pc_clr_errs_in_t   *in_parms, 
-    idt_pc_clr_errs_out_t  *out_parms
+    rio_pc_clr_errs_in_t   *in_parms, 
+    rio_pc_clr_errs_out_t  *out_parms
 );
 
 extern uint32_t IDT_CPS_pc_secure_port(
     DAR_DEV_INFO_t            *dev_info, 
-    idt_pc_secure_port_in_t   *in_parms, 
-    idt_pc_secure_port_out_t  *out_parms
+    rio_pc_secure_port_in_t   *in_parms, 
+    rio_pc_secure_port_out_t  *out_parms
 );
 
 extern uint32_t IDT_CPS_pc_dev_reset_config(
     DAR_DEV_INFO_t                 *dev_info, 
-    idt_pc_dev_reset_config_in_t   *in_parms, 
-    idt_pc_dev_reset_config_out_t  *out_parms
+    rio_pc_dev_reset_config_in_t   *in_parms, 
+    rio_pc_dev_reset_config_out_t  *out_parms
 );
 
 extern uint32_t IDT_CPS_pc_probe(
     DAR_DEV_INFO_t      *dev_info, 
-    idt_pc_probe_in_t   *in_parms, 
-    idt_pc_probe_out_t  *out_parms
+    rio_pc_probe_in_t   *in_parms, 
+    rio_pc_probe_out_t  *out_parms
 );
 
 extern uint32_t IDT_CPS_port_reinit(

@@ -113,9 +113,9 @@ int init_cfg_ptr(char *dd_mtx_fn, char *dd_fn)
 	for (i = 0; i < CFG_MAX_EP; i++) {
 		for (j = 0; j < CFG_MAX_EP_PORT; j++) {
 			int k;
-			cfg->eps[i].ports[j].rio.max_pw = idt_pc_pw_last;
-			cfg->eps[i].ports[j].rio.op_pw = idt_pc_pw_last;
-			cfg->eps[i].ports[j].rio.ls = idt_pc_ls_last;
+			cfg->eps[i].ports[j].rio.max_pw = rio_pc_pw_last;
+			cfg->eps[i].ports[j].rio.op_pw = rio_pc_pw_last;
+			cfg->eps[i].ports[j].rio.ls = rio_pc_ls_last;
 			for (k = 0; k < CFG_DEVID_MAX; k++) {
 				cfg->eps[i].ports[j].devids[k].hc = HC_MP;
 			}
@@ -125,9 +125,9 @@ int init_cfg_ptr(char *dd_mtx_fn, char *dd_fn)
 
 	for (i = 0; i < CFG_MAX_SW; i++) {
 		for (j = 0; j < CFG_MAX_SW_PORT; j++) {
-			cfg->sws[i].ports[j].rio.max_pw = idt_pc_pw_last;
-			cfg->sws[i].ports[j].rio.op_pw = idt_pc_pw_last;
-			cfg->sws[i].ports[j].rio.ls = idt_pc_ls_last;
+			cfg->sws[i].ports[j].rio.max_pw = rio_pc_pw_last;
+			cfg->sws[i].ports[j].rio.op_pw = rio_pc_pw_last;
+			cfg->sws[i].ports[j].rio.ls = rio_pc_ls_last;
 			cfg->sws[i].ports[j].conn_end = -1;
 		};
 		for (j = 0; j < CFG_DEVID_MAX; j++) {
@@ -842,8 +842,8 @@ fail:
 	return 1;
 };
 
-int get_port_width(struct int_cfg_parms *cfg, idt_pc_pw_t *pw);
-int get_lane_speed(struct int_cfg_parms *cfg, idt_pc_ls_t *ls);
+int get_port_width(struct int_cfg_parms *cfg, rio_pc_pw_t *pw);
+int get_lane_speed(struct int_cfg_parms *cfg, rio_pc_ls_t *ls);
 int get_idle_seq(struct int_cfg_parms *cfg, int *idle);
 
 int parse_rapidio(struct int_cfg_parms *cfg, struct int_cfg_rapidio *rio)
@@ -976,23 +976,23 @@ fail:
 	return 1;
 };
 
-int get_lane_speed(struct int_cfg_parms *cfg, idt_pc_ls_t *ls)
+int get_lane_speed(struct int_cfg_parms *cfg, rio_pc_ls_t *ls)
 {
 	switch (get_parm_idx(cfg, (char *)"1p25 2p5 3p125 5p0 6p25")) {
 	case 0: // 1p25
-		*ls = idt_pc_ls_1p25;
+		*ls = rio_pc_ls_1p25;
 		break;
 	case 1: // 2p5
-		*ls = idt_pc_ls_2p5;
+		*ls = rio_pc_ls_2p5;
 		break;
 	case 2: // 3p125
-		*ls = idt_pc_ls_3p125;
+		*ls = rio_pc_ls_3p125;
 		break;
 	case 3: // 5p0
-		*ls = idt_pc_ls_5p0;
+		*ls = rio_pc_ls_5p0;
 		break;
 	case 4: // 6p25
-		*ls = idt_pc_ls_6p25;
+		*ls = rio_pc_ls_6p25;
 		break;
 	default:
 		parse_err(cfg, (char *)"Unknown lane speed.");
@@ -1004,26 +1004,26 @@ fail:
 	return 1;
 };
 
-int get_port_width(struct int_cfg_parms *cfg, idt_pc_pw_t *pw)
+int get_port_width(struct int_cfg_parms *cfg, rio_pc_pw_t *pw)
 {
 	switch (get_parm_idx(cfg, (char *)"1x 2x 4x 1x_l0 1x_l1 1x_l2")) {
 	case 0: // 1x
-		*pw = idt_pc_pw_1x;
+		*pw = rio_pc_pw_1x;
 		break;
 	case 1: // 2x
-		*pw = idt_pc_pw_2x;
+		*pw = rio_pc_pw_2x;
 		break;
 	case 2: // 4x
-		*pw = idt_pc_pw_4x;
+		*pw = rio_pc_pw_4x;
 		break;
 	case 3: // 1x lane 0
-		*pw = idt_pc_pw_1x_l0;
+		*pw = rio_pc_pw_1x_l0;
 		break;
 	case 4: // 1x lane 1
-		*pw = idt_pc_pw_1x_l1;
+		*pw = rio_pc_pw_1x_l1;
 		break;
 	case 5: // 1x lane 2
-		*pw = idt_pc_pw_1x_l2;
+		*pw = rio_pc_pw_1x_l2;
 		break;
 	default:
 		parse_err(cfg, (char *)"Unknown port width.");

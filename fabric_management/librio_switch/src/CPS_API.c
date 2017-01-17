@@ -280,15 +280,15 @@ uint32_t bind_CPS_DSF_support( void )
 	IDT_DSF_init_driver( &idt_driver );
     idt_driver.dev_type = 0x0380;
 
-    idt_driver.idt_pc_clr_errs           = IDT_CPS_pc_clr_errs;
-    idt_driver.idt_pc_dev_reset_config   = IDT_CPS_pc_dev_reset_config;
-    idt_driver.idt_pc_get_config         = IDT_CPS_pc_get_config;
-    idt_driver.idt_pc_get_status         = IDT_CPS_pc_get_status;
-    idt_driver.idt_pc_reset_link_partner = IDT_CPS_pc_reset_link_partner;
-    idt_driver.idt_pc_reset_port         = IDT_CPS_pc_reset_port;
-    idt_driver.idt_pc_secure_port        = IDT_CPS_pc_secure_port;
-    idt_driver.idt_pc_set_config         = IDT_CPS_pc_set_config;
-    idt_driver.idt_pc_probe              = default_idt_pc_probe;
+    idt_driver.rio_pc_clr_errs           = IDT_CPS_pc_clr_errs;
+    idt_driver.rio_pc_dev_reset_config   = IDT_CPS_pc_dev_reset_config;
+    idt_driver.rio_pc_get_config         = IDT_CPS_pc_get_config;
+    idt_driver.rio_pc_get_status         = IDT_CPS_pc_get_status;
+    idt_driver.rio_pc_reset_link_partner = IDT_CPS_pc_reset_link_partner;
+    idt_driver.rio_pc_reset_port         = IDT_CPS_pc_reset_port;
+    idt_driver.rio_pc_secure_port        = IDT_CPS_pc_secure_port;
+    idt_driver.rio_pc_set_config         = IDT_CPS_pc_set_config;
+    idt_driver.rio_pc_probe              = default_rio_pc_probe;
 
     idt_driver.idt_rt_initialize         = IDT_CPS_rt_initialize;
     idt_driver.idt_rt_probe              = IDT_CPS_rt_probe;

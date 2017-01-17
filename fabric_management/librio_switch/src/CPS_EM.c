@@ -1125,8 +1125,8 @@ uint32_t IDT_CPS_em_cfg_set  ( DAR_DEV_INFO_t        *dev_info,
    uint32_t rc = RIO_ERR_INVALID_PARAMETER;
    uint16_t idx;
    uint8_t e_idx, pnum;
-   idt_pc_get_config_in_t  cfg_in;
-   idt_pc_get_config_out_t cfg_out;
+   rio_pc_get_config_in_t  cfg_in;
+   rio_pc_get_config_out_t cfg_out;
    idt_event_cfg_reg_values_t regs;
    cps_port_info_t pi;
    struct DAR_ptl good_ptl;
@@ -1250,8 +1250,8 @@ uint32_t IDT_CPS_em_cfg_get  ( DAR_DEV_INFO_t        *dev_info,
    uint32_t err_rpt, imp_err_rpt, imp_err_rate, lctl;
    uint8_t pnum, quadrant, quad_cfg, first_lane; 
    uint8_t e_idx;
-   idt_pc_get_config_in_t  cfg_in;
-   idt_pc_get_config_out_t cfg_out;
+   rio_pc_get_config_in_t  cfg_in;
+   rio_pc_get_config_out_t cfg_out;
 
    out_parms->imp_rc        = RIO_SUCCESS;
    out_parms->fail_idx      = rio_em_last;
@@ -1776,8 +1776,8 @@ uint32_t IDT_CPS_em_get_int_stat  ( DAR_DEV_INFO_t             *dev_info,
    uint8_t pnum; 
    uint8_t idx;
    uint32_t dev_ctl1, i2c_err_det, i2c_capt_en, i2c_mast_ctl;
-   idt_pc_get_config_in_t  cfg_in;
-   idt_pc_get_config_out_t cfg_out;
+   rio_pc_get_config_in_t  cfg_in;
+   rio_pc_get_config_out_t cfg_out;
    uint32_t                  log_err_det, log_err_en;
    cps_port_info_t         pi;
    bool   got_los;
@@ -2071,8 +2071,8 @@ uint32_t IDT_CPS_em_get_pw_stat  ( DAR_DEV_INFO_t            *dev_info,
    uint8_t idx;
    uint32_t start_idx;
    uint32_t dev_ctl1, i2c_err_det, i2c_capt_en, i2c_mast_ctl;
-   idt_pc_get_config_in_t  cfg_in;
-   idt_pc_get_config_out_t cfg_out;
+   rio_pc_get_config_in_t  cfg_in;
+   rio_pc_get_config_out_t cfg_out;
    uint32_t log_err_det, log_err_en;
    bool   got_los;
    uint32_t imp_spec_chkd = 0;
@@ -2788,8 +2788,8 @@ uint32_t IDT_CPS_em_create_events ( DAR_DEV_INFO_t              *dev_info,
    uint32_t rc = RIO_ERR_INVALID_PARAMETER;
     uint8_t  pnum; 
     uint8_t  idx;
-    idt_pc_get_config_in_t  cfg_in;
-    idt_pc_get_config_out_t cfg_out;
+    rio_pc_get_config_in_t  cfg_in;
+    rio_pc_get_config_out_t cfg_out;
    cps_port_info_t       pi;
     
     out_parms->failure_idx = 0;
@@ -2857,7 +2857,7 @@ uint32_t IDT_CPS_em_create_events ( DAR_DEV_INFO_t              *dev_info,
                // Assume that the LOA bit is reliable at 3.125 Gbaud and below,
                // and that the Sync/Ready bits are required at 5.0 Gbaud and above
                // for testing purposes only...
-               if (cfg_out.pc[pnum].ls <= idt_pc_ls_3p125) {
+               if (cfg_out.pc[pnum].ls <= rio_pc_ls_3p125) {
                   rc = cps_create_rate_event(dev_info, pnum, CPS1848_PORT_X_IMPL_SPEC_ERR_DET_LOA,
                                                          CPS1848_PORT_X_IMPL_SPEC_ERR_DET(pnum), 
                                                          CPS1848_PORT_X_IMPL_SPEC_ERR_RATE_EN(pnum), 
@@ -2936,7 +2936,7 @@ uint32_t IDT_CPS_em_create_events ( DAR_DEV_INFO_t              *dev_info,
 	       };
 		     
                // Create the fake timeout/link error indication
-               if (cfg_out.pc[pnum].ls <= idt_pc_ls_3p125) {
+               if (cfg_out.pc[pnum].ls <= rio_pc_ls_3p125) {
                   rc = DARRegWrite( dev_info, CPS1848_PORT_X_ERR_DET_CSR(pnum), CPS1848_PORT_X_ERR_DET_CSR_LR_ACKID_ILL );
                   if (RIO_SUCCESS != rc) {
                      out_parms->imp_rc = EM_CREATE_EVENTS(0x19);

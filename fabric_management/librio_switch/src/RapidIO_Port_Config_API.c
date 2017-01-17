@@ -37,10 +37,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 extern "C" {
 #endif
 
-// Converts idt_pc_pw_t to lane count
-int         pw_to_lanes[ (int)(idt_pc_pw_last)+1] = {1, 2, 4, 1, 2, 4, 0}; 
-// Converts idt_pc_pw_t to string
-char       *pw_to_str[(int)(idt_pc_pw_last)+1] = {
+// Converts rio_pc_pw_t to lane count
+int         pw_to_lanes[ (int)(rio_pc_pw_last)+1] = {1, 2, 4, 1, 2, 4, 0}; 
+// Converts rio_pc_pw_t to string
+char       *pw_to_str[(int)(rio_pc_pw_last)+1] = {
 	(char *)"1x",
 	(char *)"2x",
 	(char *)"4x",
@@ -49,16 +49,16 @@ char       *pw_to_str[(int)(idt_pc_pw_last)+1] = {
 	(char *)"1xL2",
 	(char *)"FAIL"
 }; 
-// Converts lane count to idt_pc_pw_t
-idt_pc_pw_t lanes_to_pw[5] = { idt_pc_pw_last, // 0, illegal
-	                       idt_pc_pw_1x  , // 1
-			       idt_pc_pw_2x  , // 2
-			       idt_pc_pw_last, // 3, illegal
-			       idt_pc_pw_4x  , // 4
+// Converts lane count to rio_pc_pw_t
+rio_pc_pw_t lanes_to_pw[5] = { rio_pc_pw_last, // 0, illegal
+	                       rio_pc_pw_1x  , // 1
+			       rio_pc_pw_2x  , // 2
+			       rio_pc_pw_last, // 3, illegal
+			       rio_pc_pw_4x  , // 4
 			     };
 
 // Converts lane speed to a string
-char  *ls_to_str[(int)(idt_pc_ls_last )  +1] = {
+char  *ls_to_str[(int)(rio_pc_ls_last )  +1] = {
 	(char *)"1.25",
 	(char *)"2.5",
 	(char *)"3.125",
@@ -67,7 +67,7 @@ char  *ls_to_str[(int)(idt_pc_ls_last )  +1] = {
 	(char *)"FAIL" };
 
 // Converts reset configuration to a string
-char *rst_to_str[(int)(idt_pc_rst_ignore)+1] = {
+char *rst_to_str[(int)(rio_pc_rst_ignore)+1] = {
 	(char *)"Dev ",
 	(char *)"Port",
 	(char *)"Int ",
@@ -75,22 +75,22 @@ char *rst_to_str[(int)(idt_pc_rst_ignore)+1] = {
 	(char *)"Ignr"
 };
 
-char *fc_to_str[(int)(idt_pc_fc_last)+1] = {
+char *fc_to_str[(int)(rio_pc_fc_last)+1] = {
 	(char *)"RX",
 	(char *)"TX",
 	(char *)"??"
 };
 
-char *is_to_str[(int)(idt_pc_is_last)+1] = {
+char *is_to_str[(int)(rio_pc_is_last)+1] = {
 	(char *)" 1",
 	(char *)" 2",
 	(char *)" 3",
 	(char *)"??"
 };
 
-uint32_t idt_pc_get_config( DAR_DEV_INFO_t           *dev_info, 
-                          idt_pc_get_config_in_t   *in_parms, 
-                          idt_pc_get_config_out_t  *out_parms )
+uint32_t rio_pc_get_config( DAR_DEV_INFO_t           *dev_info, 
+                          rio_pc_get_config_in_t   *in_parms, 
+                          rio_pc_get_config_out_t  *out_parms )
 {
     uint32_t rc = DAR_DB_INVALID_HANDLE;
 
@@ -99,7 +99,7 @@ uint32_t idt_pc_get_config( DAR_DEV_INFO_t           *dev_info,
     if ( VALIDATE_DEV_INFO(dev_info) )
     {
         if ( IDT_DSF_INDEX(dev_info) < DAR_DB_MAX_DRIVERS )
-            rc = IDT_DB[IDT_DSF_INDEX(dev_info)].idt_pc_get_config(
+            rc = IDT_DB[IDT_DSF_INDEX(dev_info)].rio_pc_get_config(
                     dev_info, in_parms, out_parms
                  );
     }
@@ -108,9 +108,9 @@ uint32_t idt_pc_get_config( DAR_DEV_INFO_t           *dev_info,
 }
 
 
-uint32_t idt_pc_set_config( DAR_DEV_INFO_t           *dev_info, 
-                          idt_pc_set_config_in_t   *in_parms, 
-                          idt_pc_set_config_out_t  *out_parms )
+uint32_t rio_pc_set_config( DAR_DEV_INFO_t           *dev_info, 
+                          rio_pc_set_config_in_t   *in_parms, 
+                          rio_pc_set_config_out_t  *out_parms )
 {
     uint32_t rc = DAR_DB_INVALID_HANDLE;
 
@@ -119,7 +119,7 @@ uint32_t idt_pc_set_config( DAR_DEV_INFO_t           *dev_info,
     if ( VALIDATE_DEV_INFO(dev_info) )
     {
         if ( IDT_DSF_INDEX(dev_info) < DAR_DB_MAX_DRIVERS )
-            rc = IDT_DB[IDT_DSF_INDEX(dev_info)].idt_pc_set_config(
+            rc = IDT_DB[IDT_DSF_INDEX(dev_info)].rio_pc_set_config(
                     dev_info, in_parms, out_parms
                  );
     }
@@ -128,9 +128,9 @@ uint32_t idt_pc_set_config( DAR_DEV_INFO_t           *dev_info,
 }
 
 
-uint32_t idt_pc_get_status( DAR_DEV_INFO_t           *dev_info, 
-                          idt_pc_get_status_in_t   *in_parms, 
-                          idt_pc_get_status_out_t  *out_parms )
+uint32_t rio_pc_get_status( DAR_DEV_INFO_t           *dev_info, 
+                          rio_pc_get_status_in_t   *in_parms, 
+                          rio_pc_get_status_out_t  *out_parms )
 {
     uint32_t rc = DAR_DB_INVALID_HANDLE;
 
@@ -139,7 +139,7 @@ uint32_t idt_pc_get_status( DAR_DEV_INFO_t           *dev_info,
     if ( VALIDATE_DEV_INFO(dev_info) )
     {
         if ( IDT_DSF_INDEX(dev_info) < DAR_DB_MAX_DRIVERS )
-            rc = IDT_DB[IDT_DSF_INDEX(dev_info)].idt_pc_get_status(
+            rc = IDT_DB[IDT_DSF_INDEX(dev_info)].rio_pc_get_status(
                     dev_info, in_parms, out_parms
                  );
     }
@@ -148,9 +148,9 @@ uint32_t idt_pc_get_status( DAR_DEV_INFO_t           *dev_info,
 }
 
 
-uint32_t idt_pc_reset_port( DAR_DEV_INFO_t           *dev_info, 
-                          idt_pc_reset_port_in_t   *in_parms, 
-                          idt_pc_reset_port_out_t  *out_parms )
+uint32_t rio_pc_reset_port( DAR_DEV_INFO_t           *dev_info, 
+                          rio_pc_reset_port_in_t   *in_parms, 
+                          rio_pc_reset_port_out_t  *out_parms )
 {
     uint32_t rc = DAR_DB_INVALID_HANDLE;
 
@@ -159,7 +159,7 @@ uint32_t idt_pc_reset_port( DAR_DEV_INFO_t           *dev_info,
     if ( VALIDATE_DEV_INFO(dev_info) )
     {
         if ( IDT_DSF_INDEX(dev_info) < DAR_DB_MAX_DRIVERS )
-            rc = IDT_DB[IDT_DSF_INDEX(dev_info)].idt_pc_reset_port(
+            rc = IDT_DB[IDT_DSF_INDEX(dev_info)].rio_pc_reset_port(
                     dev_info, in_parms, out_parms
                  );
     }
@@ -168,9 +168,9 @@ uint32_t idt_pc_reset_port( DAR_DEV_INFO_t           *dev_info,
 }
 
 
-uint32_t idt_pc_reset_link_partner( DAR_DEV_INFO_t                   *dev_info, 
-                                  idt_pc_reset_link_partner_in_t   *in_parms, 
-                                  idt_pc_reset_link_partner_out_t  *out_parms )
+uint32_t rio_pc_reset_link_partner( DAR_DEV_INFO_t                   *dev_info, 
+                                  rio_pc_reset_link_partner_in_t   *in_parms, 
+                                  rio_pc_reset_link_partner_out_t  *out_parms )
 {
     uint32_t rc = DAR_DB_INVALID_HANDLE;
 
@@ -179,7 +179,7 @@ uint32_t idt_pc_reset_link_partner( DAR_DEV_INFO_t                   *dev_info,
     if ( VALIDATE_DEV_INFO(dev_info) )
     {
         if ( IDT_DSF_INDEX(dev_info) < DAR_DB_MAX_DRIVERS )
-            rc = IDT_DB[IDT_DSF_INDEX(dev_info)].idt_pc_reset_link_partner(
+            rc = IDT_DB[IDT_DSF_INDEX(dev_info)].rio_pc_reset_link_partner(
                     dev_info, in_parms, out_parms
                  );
     }
@@ -188,9 +188,9 @@ uint32_t idt_pc_reset_link_partner( DAR_DEV_INFO_t                   *dev_info,
 }
 
 
-uint32_t idt_pc_clr_errs( DAR_DEV_INFO_t         *dev_info, 
-                        idt_pc_clr_errs_in_t   *in_parms, 
-                        idt_pc_clr_errs_out_t  *out_parms )
+uint32_t rio_pc_clr_errs( DAR_DEV_INFO_t         *dev_info, 
+                        rio_pc_clr_errs_in_t   *in_parms, 
+                        rio_pc_clr_errs_out_t  *out_parms )
 {
     uint32_t rc = DAR_DB_INVALID_HANDLE;
 
@@ -199,7 +199,7 @@ uint32_t idt_pc_clr_errs( DAR_DEV_INFO_t         *dev_info,
     if ( VALIDATE_DEV_INFO(dev_info) )
     {
         if ( IDT_DSF_INDEX(dev_info) < DAR_DB_MAX_DRIVERS )
-            rc = IDT_DB[IDT_DSF_INDEX(dev_info)].idt_pc_clr_errs(
+            rc = IDT_DB[IDT_DSF_INDEX(dev_info)].rio_pc_clr_errs(
                     dev_info, in_parms, out_parms
                  );
     }
@@ -208,9 +208,9 @@ uint32_t idt_pc_clr_errs( DAR_DEV_INFO_t         *dev_info,
 }
 
 
-uint32_t idt_pc_secure_port( DAR_DEV_INFO_t            *dev_info, 
-                           idt_pc_secure_port_in_t   *in_parms, 
-                           idt_pc_secure_port_out_t  *out_parms )
+uint32_t rio_pc_secure_port( DAR_DEV_INFO_t            *dev_info, 
+                           rio_pc_secure_port_in_t   *in_parms, 
+                           rio_pc_secure_port_out_t  *out_parms )
 {
     uint32_t rc = DAR_DB_INVALID_HANDLE;
 
@@ -219,7 +219,7 @@ uint32_t idt_pc_secure_port( DAR_DEV_INFO_t            *dev_info,
     if ( VALIDATE_DEV_INFO(dev_info) )
     {
         if ( IDT_DSF_INDEX(dev_info) < DAR_DB_MAX_DRIVERS )
-            rc = IDT_DB[IDT_DSF_INDEX(dev_info)].idt_pc_secure_port(
+            rc = IDT_DB[IDT_DSF_INDEX(dev_info)].rio_pc_secure_port(
                     dev_info, in_parms, out_parms
                  );
     }
@@ -227,9 +227,9 @@ uint32_t idt_pc_secure_port( DAR_DEV_INFO_t            *dev_info,
     return rc;
 }
 
-uint32_t idt_pc_dev_reset_config( DAR_DEV_INFO_t                 *dev_info, 
-                                idt_pc_dev_reset_config_in_t   *in_parms, 
-                                idt_pc_dev_reset_config_out_t  *out_parms )
+uint32_t rio_pc_dev_reset_config( DAR_DEV_INFO_t                 *dev_info, 
+                                rio_pc_dev_reset_config_in_t   *in_parms, 
+                                rio_pc_dev_reset_config_out_t  *out_parms )
 {
     uint32_t rc = DAR_DB_INVALID_HANDLE;
 
@@ -238,7 +238,7 @@ uint32_t idt_pc_dev_reset_config( DAR_DEV_INFO_t                 *dev_info,
     if ( VALIDATE_DEV_INFO(dev_info) )
     {
         if ( IDT_DSF_INDEX(dev_info) < DAR_DB_MAX_DRIVERS )
-            rc = IDT_DB[IDT_DSF_INDEX(dev_info)].idt_pc_dev_reset_config(
+            rc = IDT_DB[IDT_DSF_INDEX(dev_info)].rio_pc_dev_reset_config(
                     dev_info, in_parms, out_parms
                  );
     }
@@ -246,9 +246,9 @@ uint32_t idt_pc_dev_reset_config( DAR_DEV_INFO_t                 *dev_info,
     return rc;
 }
 
-uint32_t idt_pc_probe( DAR_DEV_INFO_t      *dev_info, 
-                     idt_pc_probe_in_t   *in_parms, 
-                     idt_pc_probe_out_t  *out_parms )
+uint32_t rio_pc_probe( DAR_DEV_INFO_t      *dev_info, 
+                     rio_pc_probe_in_t   *in_parms, 
+                     rio_pc_probe_out_t  *out_parms )
 {
     uint32_t rc = DAR_DB_INVALID_HANDLE;
 
@@ -257,7 +257,7 @@ uint32_t idt_pc_probe( DAR_DEV_INFO_t      *dev_info,
     if ( VALIDATE_DEV_INFO(dev_info) )
     {
         if ( IDT_DSF_INDEX(dev_info) < DAR_DB_MAX_DRIVERS )
-            rc = IDT_DB[IDT_DSF_INDEX(dev_info)].idt_pc_probe(
+            rc = IDT_DB[IDT_DSF_INDEX(dev_info)].rio_pc_probe(
                     dev_info, in_parms, out_parms
                  );
     }

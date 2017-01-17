@@ -529,11 +529,11 @@ int generic_device_init(struct riocp_pe *pe, uint32_t *ct)
 	struct mpsw_drv_private_data *priv = NULL;
 	DAR_DEV_INFO_t *dev_h = NULL;
 	struct DAR_ptl ptl;
-	idt_pc_set_config_in_t set_pc_in;
-	idt_pc_dev_reset_config_in_t    rst_in = {idt_pc_rst_port};
-	idt_pc_dev_reset_config_out_t   rst_out;
-	idt_pc_get_status_in_t	  ps_in;
-	idt_pc_get_config_in_t	  pc_in;
+	rio_pc_set_config_in_t set_pc_in;
+	rio_pc_dev_reset_config_in_t    rst_in = {rio_pc_rst_port};
+	rio_pc_dev_reset_config_out_t   rst_out;
+	rio_pc_get_status_in_t	  ps_in;
+	rio_pc_get_config_in_t	  pc_in;
 	idt_rt_probe_all_in_t	   rt_in;
 	idt_rt_probe_all_out_t	  rt_out;
 	idt_sc_init_dev_ctrs_in_t       sc_in;
@@ -626,7 +626,7 @@ int generic_device_init(struct riocp_pe *pe, uint32_t *ct)
 
 	/* Query port configuration and status */
 	pc_in.ptl.num_ports = RIO_ALL_PORTS;
-	rc = idt_pc_get_config(dev_h, &pc_in, &priv->st.pc);
+	rc = rio_pc_get_config(dev_h, &pc_in, &priv->st.pc);
 	if (RIO_SUCCESS != rc)
 		goto exit;
 
@@ -660,13 +660,13 @@ int generic_device_init(struct riocp_pe *pe, uint32_t *ct)
 			set_pc_in.pc[0].ls = sw.ep_pt.ls;
 		}
 	}	
-	rc = idt_pc_set_config(dev_h, &set_pc_in, &priv->st.pc);
+	rc = rio_pc_set_config(dev_h, &set_pc_in, &priv->st.pc);
 	if (RIO_SUCCESS != rc) {
 		goto exit;
 	}
 	
 	ps_in.ptl.num_ports = RIO_ALL_PORTS;
-	rc = idt_pc_get_status(dev_h, &ps_in, &priv->st.ps);
+	rc = rio_pc_get_status(dev_h, &ps_in, &priv->st.ps);
 	if (RIO_SUCCESS != rc)
 		goto exit;
 
@@ -723,12 +723,12 @@ int generic_device_init(struct riocp_pe *pe, uint32_t *ct)
 		goto exit;
 	};
 	if (RIOCP_PE_IS_MPORT(pe)) {
-		rst_in.rst = idt_pc_rst_ignore;
+		rst_in.rst = rio_pc_rst_ignore;
 	} else {
 		/* Set device reset handling to "per port" if possible */
-		rst_in.rst = idt_pc_rst_port;
+		rst_in.rst = rio_pc_rst_port;
 	}
-	rc = idt_pc_dev_reset_config(dev_h, &rst_in, &rst_out);
+	rc = rio_pc_dev_reset_config(dev_h, &rst_in, &rst_out);
 	if (RIO_SUCCESS != rc)
 		goto exit;
 
@@ -860,8 +860,8 @@ int RIOCP_WU mpsw_drv_recover_port(struct riocp_pe *pe, pe_port_t port,
 {
 	struct mpsw_drv_private_data *p_dat = NULL;
 	int ret;
-	idt_pc_clr_errs_in_t clr_errs_in;
-	idt_pc_clr_errs_out_t clr_errs_out;
+	rio_pc_clr_errs_in_t clr_errs_in;
+	rio_pc_clr_errs_out_t clr_errs_out;
 
 	DBG("ENTRY\n");
 
@@ -881,7 +881,7 @@ int RIOCP_WU mpsw_drv_recover_port(struct riocp_pe *pe, pe_port_t port,
 	clr_errs_in.num_lp_ports = 1;
 	clr_errs_in.lp_port_list[0] = lp_port;
 
-	ret = idt_pc_clr_errs(&p_dat->dev_h, &clr_errs_in, &clr_errs_out);
+	ret = rio_pc_clr_errs(&p_dat->dev_h, &clr_errs_in, &clr_errs_out);
 	if (ret) {
 		DBG("Failed clearing %s Port %d ret 0x%x imp_rc 0x%x\n",
 			pe->sysfs_name, port, ret, clr_errs_out.imp_rc);
@@ -1205,10 +1205,10 @@ int mpsw_drv_port_start(struct riocp_pe  *pe, pe_port_t port)
 	struct mpsw_drv_private_data *p_dat = NULL;
 	int ret;
 	int recover_ret = 0;
-	idt_pc_get_status_in_t st_in;
-	idt_pc_set_config_in_t cfg_in;
-	idt_pc_probe_in_t probe_in;
-	idt_pc_probe_out_t probe_out;
+	rio_pc_get_status_in_t st_in;
+	rio_pc_set_config_in_t cfg_in;
+	rio_pc_probe_in_t probe_in;
+	rio_pc_probe_out_t probe_out;
 
 	DBG("ENTRY\n");
 	if (riocp_pe_handle_get_private(pe, (void **)&p_dat)) {
@@ -1238,7 +1238,7 @@ int mpsw_drv_port_start(struct riocp_pe  *pe, pe_port_t port)
 	cfg_in.pc[port].port_lockout = false;
 	cfg_in.pc[port].nmtc_xfer_enable = true;
 
-	ret = idt_pc_set_config(&p_dat->dev_h, &cfg_in, &p_dat->st.pc);
+	ret = rio_pc_set_config(&p_dat->dev_h, &cfg_in, &p_dat->st.pc);
 	if (ret) {
 		DBG("PC_SetConfig %s port %d ret 0x%x imp_rc 0x%x\n",
 			pe->sysfs_name, port, ret, p_dat->st.pc.imp_rc);
@@ -1247,7 +1247,7 @@ int mpsw_drv_port_start(struct riocp_pe  *pe, pe_port_t port)
 	
 	probe_in.port = port;
 
-	ret = idt_pc_probe(&p_dat->dev_h, &probe_in, &probe_out);
+	ret = rio_pc_probe(&p_dat->dev_h, &probe_in, &probe_out);
 
 	if (ret) {
 		DBG("PC_Probes %s port %d ret 0x%x imp_rc 0x%x\n",
@@ -1279,7 +1279,7 @@ int mpsw_drv_port_start(struct riocp_pe  *pe, pe_port_t port)
 	
 	/* Update status of all ports on this device. */
 	st_in.ptl.num_ports = RIO_ALL_PORTS;
-	ret = idt_pc_get_status(&p_dat->dev_h, &st_in, &p_dat->st.ps);
+	ret = rio_pc_get_status(&p_dat->dev_h, &st_in, &p_dat->st.ps);
 	if (ret) {
 		DBG("PC_Status %s port %d ret 0x%x imp_rc 0x%x\n",
 			pe->sysfs_name, port, ret, p_dat->st.ps.imp_rc);
@@ -1297,7 +1297,7 @@ int mpsw_drv_port_stop(struct riocp_pe  *pe, pe_port_t port)
 {
 	struct mpsw_drv_private_data *p_dat = NULL;
 	int ret;
-	idt_pc_set_config_in_t cfg_in;
+	rio_pc_set_config_in_t cfg_in;
 
 	DBG("ENTRY\n");
 	if (riocp_pe_handle_get_private(pe, (void **)&p_dat)) {
@@ -1323,7 +1323,7 @@ int mpsw_drv_port_stop(struct riocp_pe  *pe, pe_port_t port)
 
 	cfg_in.pc[port].powered_up = false;
 
-	ret = idt_pc_set_config(&p_dat->dev_h, &cfg_in, &p_dat->st.pc);
+	ret = rio_pc_set_config(&p_dat->dev_h, &cfg_in, &p_dat->st.pc);
 	if (ret) {
 		DBG("PC_SetConfig %s port %d ret 0x%x imp_rc 0x%x\n",
 			pe->sysfs_name, port, ret, p_dat->st.pc.imp_rc);
@@ -1341,8 +1341,8 @@ int mpsw_drv_reset_port(struct riocp_pe  *pe, pe_port_t port, bool reset_lp)
 {
 	struct mpsw_drv_private_data *p_dat = NULL;
 	int ret;
-	idt_pc_reset_port_in_t reset_in;
-	idt_pc_reset_port_out_t reset_out;
+	rio_pc_reset_port_in_t reset_in;
+	rio_pc_reset_port_out_t reset_out;
 
 	DBG("ENTRY\n");
 	if (riocp_pe_handle_get_private(pe, (void **)&p_dat)) {
@@ -1366,7 +1366,7 @@ int mpsw_drv_reset_port(struct riocp_pe  *pe, pe_port_t port, bool reset_lp)
 	reset_in.reset_lp = reset_lp;
 	reset_in.preserve_config = true;
 
-	ret = idt_pc_reset_port(&p_dat->dev_h, &reset_in, &reset_out);
+	ret = rio_pc_reset_port(&p_dat->dev_h, &reset_in, &reset_out);
 	if (ret) {
 		DBG("PC_reset_port %s port %d ret 0x%x imp_rc 0x%x\n",
 			pe->sysfs_name, port, ret, reset_out.imp_rc);
@@ -1385,7 +1385,7 @@ int mpsw_drv_get_port_state(struct riocp_pe  *pe, pe_port_t port,
 {
 	struct mpsw_drv_private_data *p_dat = NULL;
 	int ret;
-	idt_pc_get_status_in_t st_in;
+	rio_pc_get_status_in_t st_in;
 
 	DBG("ENTRY\n");
 	if (riocp_pe_handle_get_private(pe, (void **)&p_dat)) {
@@ -1409,7 +1409,7 @@ int mpsw_drv_get_port_state(struct riocp_pe  *pe, pe_port_t port,
 	};
 
 	st_in.ptl.num_ports = RIO_ALL_PORTS;
-	ret = idt_pc_get_status(&p_dat->dev_h, &st_in, &p_dat->st.ps);
+	ret = rio_pc_get_status(&p_dat->dev_h, &st_in, &p_dat->st.ps);
 	if (ret) {
 		DBG("PC_Status %s port %d ret 0x%x imp_rc 0x%x\n",
 			pe->sysfs_name, port, ret, p_dat->st.ps.imp_rc);
@@ -1423,19 +1423,19 @@ int mpsw_drv_get_port_state(struct riocp_pe  *pe, pe_port_t port,
 	else
 		state->port_cur_width = 0;
 	switch (p_dat->st.pc.pc[port].ls) {
-	case idt_pc_ls_1p25:
+	case rio_pc_ls_1p25:
 		state->port_lane_speed = 1250;
 		break;
-	case idt_pc_ls_2p5:
+	case rio_pc_ls_2p5:
 		state->port_lane_speed = 2500;
 		break;
-	case idt_pc_ls_3p125:
+	case rio_pc_ls_3p125:
 		state->port_lane_speed = 3125;
 		break;
-	case idt_pc_ls_5p0:
+	case rio_pc_ls_5p0:
 		state->port_lane_speed = 5000;
 		break;
-	case idt_pc_ls_6p25:
+	case rio_pc_ls_6p25:
 		state->port_lane_speed = 6250;
 		break;
 	default:
@@ -1457,7 +1457,7 @@ int mpsw_drv_set_port_speed(struct riocp_pe  *pe, pe_port_t port,
 {
 	struct mpsw_drv_private_data *p_dat;
 	int ret = 1;
-	idt_pc_set_config_in_t pc_in;
+	rio_pc_set_config_in_t pc_in;
 
 	DBG("ENTRY\n");
 	if (riocp_pe_handle_get_private(pe, (void **)&p_dat)) {
@@ -1482,25 +1482,25 @@ int mpsw_drv_set_port_speed(struct riocp_pe  *pe, pe_port_t port,
 	memcpy(&pc_in.pc, p_dat->st.pc.pc, sizeof(pc_in.pc));
 	switch (lane_speed) {
 	case 1250:
-		pc_in.pc[port].ls = idt_pc_ls_1p25;
+		pc_in.pc[port].ls = rio_pc_ls_1p25;
 		break;
 	case 2500:
-		pc_in.pc[port].ls = idt_pc_ls_2p5;
+		pc_in.pc[port].ls = rio_pc_ls_2p5;
 		break;
 	case 3125:
-		pc_in.pc[port].ls = idt_pc_ls_3p125;
+		pc_in.pc[port].ls = rio_pc_ls_3p125;
 		break;
 	case 5000:
-		pc_in.pc[port].ls = idt_pc_ls_5p0;
+		pc_in.pc[port].ls = rio_pc_ls_5p0;
 		break;
 	case 6250:
-		pc_in.pc[port].ls = idt_pc_ls_6p25;
+		pc_in.pc[port].ls = rio_pc_ls_6p25;
 		break;
 	default :
-		pc_in.pc[port].ls = idt_pc_ls_last;
+		pc_in.pc[port].ls = rio_pc_ls_last;
 	}
 
-	return idt_pc_set_config(&p_dat->dev_h, &pc_in, &p_dat->st.pc);
+	return rio_pc_set_config(&p_dat->dev_h, &pc_in, &p_dat->st.pc);
 }
 
 int mpsw_drv_get_mport_regs(int mp_num, struct mport_regs *regs)
@@ -1575,7 +1575,7 @@ int mpsw_drv_enable_pe(struct riocp_pe *pe, pe_port_t port)
 	uint32_t reg_val, port_info;
 	uint32_t rc;
 	rio_port_t st_port = port, end_port = port;
-	idt_pc_set_config_in_t set_pc_in;
+	rio_pc_set_config_in_t set_pc_in;
 	DAR_DEV_INFO_t *dev_h = NULL;
 
 	DBG("ENTRY\n");
@@ -1623,7 +1623,7 @@ int mpsw_drv_enable_pe(struct riocp_pe *pe, pe_port_t port)
 		set_pc_in.pc[port].nmtc_xfer_enable = true;
 	};
 
-	rc = idt_pc_set_config(dev_h, &set_pc_in, &priv->st.pc);
+	rc = rio_pc_set_config(dev_h, &set_pc_in, &priv->st.pc);
 	if (RIO_SUCCESS != rc) {
 		goto fail;
 	}
