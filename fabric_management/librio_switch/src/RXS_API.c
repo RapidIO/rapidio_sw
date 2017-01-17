@@ -59,7 +59,7 @@ static uint32_t num_RXS_driver_instances;
 
 /* Initials counters on selected ports
  */
-uint32_t idt_rxs_sc_init_dev_ctrs( DAR_DEV_INFO_t             *dev_info,
+uint32_t rxs_sc_init_dev_ctrs( DAR_DEV_INFO_t             *dev_info,
                                    rio_sc_init_dev_ctrs_in_t  *in_parms,
                                    rio_sc_init_dev_ctrs_out_t *out_parms )
 {
@@ -157,7 +157,7 @@ exit:
 	return rc;
 };
 
-uint32_t idt_rxs_sc_read_ctrs( DAR_DEV_INFO_t           *dev_info,
+uint32_t rxs_sc_read_ctrs( DAR_DEV_INFO_t           *dev_info,
                                rio_sc_read_ctrs_in_t    *in_parms,
                                rio_sc_read_ctrs_out_t   *out_parms )
 {
@@ -433,7 +433,7 @@ exit:
 
 #define MC_MASK_ADDR(b,m)     ((b)+(8*m))
 
-uint32_t idt_rxs_program_mc_masks ( DAR_DEV_INFO_t        *dev_info, 
+uint32_t rxs_program_mc_masks ( DAR_DEV_INFO_t        *dev_info, 
                                     rio_rt_set_all_in_t   *in_parms,
                                     bool                   set_all, // true if all entries should be set
                                     uint32_t              *imp_rc )
@@ -453,7 +453,7 @@ uint32_t idt_rxs_program_mc_masks ( DAR_DEV_INFO_t        *dev_info,
           mask_mask = RXS1632_RIO_BC_MC_X_S_CSR_SET;
        break;
        default:
-          *imp_rc = IDT_RXS_PROGRAM_MC_MASKS(0x01);
+          *imp_rc = RXS_PROGRAM_MC_MASKS(0x01);
           goto exit;
     }
 
@@ -467,13 +467,13 @@ uint32_t idt_rxs_program_mc_masks ( DAR_DEV_INFO_t        *dev_info,
        if (in_parms->rt->mc_masks[mask_num].changed || set_all) {
 	  if ( in_parms->rt->mc_masks[mask_num].mc_mask & ~mask_mask ) {
              rc = RIO_ERR_INVALID_PARAMETER;
-             *imp_rc = IDT_RXS_PROGRAM_MC_MASKS(3);
+             *imp_rc = RXS_PROGRAM_MC_MASKS(3);
              goto exit; 
           }
           rc = DARRegWrite( dev_info, MC_MASK_ADDR(base_addr, mask_num), 
                             in_parms->rt->mc_masks[mask_num].mc_mask & mask_mask );
           if (RIO_SUCCESS != rc) {
-             *imp_rc = IDT_RXS_PROGRAM_MC_MASKS(4);
+             *imp_rc = RXS_PROGRAM_MC_MASKS(4);
              goto exit; 
           }
 	  in_parms->rt->mc_masks[mask_num].changed = false;
@@ -487,7 +487,7 @@ exit:
 #define DEV_RTE_ADDR(b,n) ((b)+(4*n))
 #define DOM_RTE_ADDR(b,n) ((b)+(4*n))
 
-uint32_t idt_rxs_program_rte_entries ( DAR_DEV_INFO_t        *dev_info, 
+uint32_t rxs_program_rte_entries ( DAR_DEV_INFO_t        *dev_info, 
                                        rio_rt_set_all_in_t   *in_parms, 
                                        bool                   set_all, // true if all entries should be set
                                        uint32_t              *imp_rc ) 
@@ -500,7 +500,7 @@ uint32_t idt_rxs_program_rte_entries ( DAR_DEV_INFO_t        *dev_info,
 
     rc = DARRegWrite( dev_info, RXS_RIO_ROUTE_DFLT_PORT, in_parms->rt->default_route );
     if (RIO_SUCCESS != rc) {
-       *imp_rc = IDT_RXS_PROGRAM_RTE_ENTRIES(0x10);
+       *imp_rc = RXS_PROGRAM_RTE_ENTRIES(0x10);
        goto exit; 
     }
 
@@ -521,7 +521,7 @@ uint32_t idt_rxs_program_rte_entries ( DAR_DEV_INFO_t        *dev_info,
 	         (in_parms->rt->dom_table[rte_num].rte_val != RIO_DSF_RT_USE_DEFAULT_ROUTE   ) &&
 	         (in_parms->rt->dom_table[rte_num].rte_val != RIO_DSF_RT_NO_ROUTE            ) ) {
                 rc = RIO_ERR_INVALID_PARAMETER;
-                *imp_rc = IDT_RXS_PROGRAM_RTE_ENTRIES(1);
+                *imp_rc = RXS_PROGRAM_RTE_ENTRIES(1);
                 goto exit; 
              } 
           } 
@@ -529,7 +529,7 @@ uint32_t idt_rxs_program_rte_entries ( DAR_DEV_INFO_t        *dev_info,
           rc = DARRegWrite( dev_info, DOM_RTE_ADDR(dom_rte_base, rte_num), 
                             (uint32_t)(in_parms->rt->dom_table[rte_num].rte_val) );
           if (RIO_SUCCESS != rc) {
-             *imp_rc = IDT_RXS_PROGRAM_RTE_ENTRIES(2);
+             *imp_rc = RXS_PROGRAM_RTE_ENTRIES(2);
              goto exit; 
           } 
 	  in_parms->rt->dom_table[rte_num].changed = false;
@@ -546,7 +546,7 @@ uint32_t idt_rxs_program_rte_entries ( DAR_DEV_INFO_t        *dev_info,
 	         (in_parms->rt->dev_table[rte_num].rte_val != RIO_DSF_RT_USE_DEFAULT_ROUTE) &&
 	         (in_parms->rt->dev_table[rte_num].rte_val != RIO_DSF_RT_NO_ROUTE         ) ) {
                 rc = RIO_ERR_INVALID_PARAMETER;
-                *imp_rc = IDT_RXS_PROGRAM_RTE_ENTRIES(3);
+                *imp_rc = RXS_PROGRAM_RTE_ENTRIES(3);
                 goto exit; 
              } 
           } 
@@ -554,7 +554,7 @@ uint32_t idt_rxs_program_rte_entries ( DAR_DEV_INFO_t        *dev_info,
           rc = DARRegWrite( dev_info, DEV_RTE_ADDR(dev_rte_base, rte_num),
                             (uint32_t)(in_parms->rt->dev_table[rte_num].rte_val) );
           if (RIO_SUCCESS != rc) {
-             *imp_rc = IDT_RXS_PROGRAM_RTE_ENTRIES(4);
+             *imp_rc = RXS_PROGRAM_RTE_ENTRIES(4);
              goto exit; 
           } 
           in_parms->rt->dev_table[rte_num].changed = false;
@@ -565,7 +565,7 @@ exit:
     return rc;
 }
 
-uint32_t idt_rxs_rt_set_common( DAR_DEV_INFO_t        *dev_info, 
+uint32_t rxs_rt_set_common( DAR_DEV_INFO_t        *dev_info, 
                                 rio_rt_set_all_in_t   *in_parms, 
                                 rio_rt_set_all_out_t  *out_parms,
                                 bool                   set_all  ) // true if all entries should be set
@@ -578,23 +578,23 @@ uint32_t idt_rxs_rt_set_common( DAR_DEV_INFO_t        *dev_info,
            ( in_parms->set_on_port >= NUM_RXS_PORTS(dev_info)    ) ) ||
          ( !in_parms->rt) ) 
     {
-        out_parms->imp_rc = IDT_RXS_RTE_SET_COMMON(1);
+        out_parms->imp_rc = RXS_RTE_SET_COMMON(1);
         goto exit;
     }
 
     if ((NUM_RXS_PORTS(dev_info) <= in_parms->rt->default_route) &&
         !(RIO_DSF_RT_NO_ROUTE == in_parms->rt->default_route))   {
-        out_parms->imp_rc = IDT_RXS_RTE_SET_COMMON(2);
+        out_parms->imp_rc = RXS_RTE_SET_COMMON(2);
         goto exit;
     }
 
     out_parms->imp_rc = RIO_SUCCESS;
-    rc = idt_rxs_program_mc_masks( dev_info, in_parms, set_all, &out_parms->imp_rc );
+    rc = rxs_program_mc_masks( dev_info, in_parms, set_all, &out_parms->imp_rc );
     if (RIO_SUCCESS != rc) {
        goto exit;
     }
 
-    rc = idt_rxs_program_rte_entries( dev_info, in_parms, set_all, &out_parms->imp_rc );
+    rc = rxs_program_rte_entries( dev_info, in_parms, set_all, &out_parms->imp_rc );
     if (RIO_SUCCESS != rc) 
        goto exit;
 
@@ -608,11 +608,11 @@ exit:
  * After rio_rt_set_all is called, no entries are marked as changed in
  * the routing table state structure.
  */
-uint32_t idt_rxs_rt_set_all( DAR_DEV_INFO_t        *dev_info, 
+uint32_t rxs_rt_set_all( DAR_DEV_INFO_t        *dev_info, 
                              rio_rt_set_all_in_t   *in_parms, 
                              rio_rt_set_all_out_t  *out_parms )
 {
-    return idt_rxs_rt_set_common(dev_info, in_parms, out_parms, IDT_RXS_SET_ALL);
+    return rxs_rt_set_common(dev_info, in_parms, out_parms, RXS_SET_ALL);
 }
 
 /* This function sets the the routing table hardware to match every entry
@@ -622,17 +622,17 @@ uint32_t idt_rxs_rt_set_all( DAR_DEV_INFO_t        *dev_info,
  * After rio_rt_set_changed is called, no entries are marked as changed in
  * the routing table state structure.
  */
-uint32_t idt_rxs_rt_set_changed( DAR_DEV_INFO_t            *dev_info, 
+uint32_t rxs_rt_set_changed( DAR_DEV_INFO_t            *dev_info, 
                                  rio_rt_set_changed_in_t   *in_parms, 
                                  rio_rt_set_changed_out_t  *out_parms ) 
 {
-    return idt_rxs_rt_set_common(dev_info, in_parms, out_parms, IDT_RXS_SET_CHANGED);
+    return rxs_rt_set_common(dev_info, in_parms, out_parms, RXS_SET_CHANGED);
 }
 
 /* This function updates an rio_rt_state_t structure to
  * change a routing table entry, and tracks changes.
  */
-uint32_t idt_rxs_rt_change_rte( DAR_DEV_INFO_t           *dev_info, 
+uint32_t rxs_rt_change_rte( DAR_DEV_INFO_t           *dev_info, 
                                 rio_rt_change_rte_in_t   *in_parms, 
                                 rio_rt_change_rte_out_t  *out_parms ) 
 {
@@ -662,7 +662,7 @@ uint32_t idt_rxs_rt_change_rte( DAR_DEV_INFO_t           *dev_info,
    rc = RIO_SUCCESS;
 
    // Do not allow any changes to index 0 of the domain table.
-   // This must be set to "IDT_RXS_DSF_RT_USE_PACKET_ROUTE" at all times,
+   // This must be set to "RXS_DSF_RT_USE_PACKET_ROUTE" at all times,
    // as this is the behavior required by the RXS RIO Domain register.
 
    if (in_parms->dom_entry && !in_parms->idx)
@@ -687,7 +687,7 @@ exit:
    return rc;
 }
 
-uint32_t idt_rxs_rt_initialize( DAR_DEV_INFO_t           *dev_info,
+uint32_t rxs_rt_initialize( DAR_DEV_INFO_t           *dev_info,
                                 rio_rt_initialize_in_t   *in_parms,
                                 rio_rt_initialize_out_t  *out_parms ) 
 {
@@ -760,7 +760,7 @@ uint32_t idt_rxs_rt_initialize( DAR_DEV_INFO_t           *dev_info,
        all_in.rt->mc_masks[mc_idx].mc_mask   = 0;
        all_in.rt->mc_masks[mc_idx].in_use    = false;
        all_in.rt->mc_masks[mc_idx].allocd    = false;
-       if ((mc_idx < IDT_RXS_MAX_MC_MASKS) && (mc_idx < RIO_DSF_MAX_MC_MASK)) {
+       if ((mc_idx < RXS_MAX_MC_MASKS) && (mc_idx < RIO_DSF_MAX_MC_MASK)) {
           all_in.rt->mc_masks[mc_idx].changed   = true ;
        } else {
           all_in.rt->mc_masks[mc_idx].changed   = false ;
@@ -768,7 +768,7 @@ uint32_t idt_rxs_rt_initialize( DAR_DEV_INFO_t           *dev_info,
     } 
 
     if (in_parms->update_hw) {
-       rc = idt_rxs_rt_set_changed(dev_info, &all_in, &all_out );
+       rc = rxs_rt_set_changed(dev_info, &all_in, &all_out );
     } else {
        rc = RIO_SUCCESS;
     }
@@ -800,7 +800,7 @@ spx_ctl2_ls_check_info_t rxs_ls_check[] = {
 	{ 0x00000000              , 0x00000000           , rio_pc_ls_last ,  0 }
 };
 //TODO: Maybe it needs to add lane to port mapping for this routine.
-uint32_t idt_rxs_pc_set_config( DAR_DEV_INFO_t           *dev_info,
+uint32_t rxs_pc_set_config( DAR_DEV_INFO_t           *dev_info,
                                 rio_pc_set_config_in_t   *in_parms,
                                 rio_pc_set_config_out_t  *out_parms )
 {
@@ -816,7 +816,7 @@ uint32_t idt_rxs_pc_set_config( DAR_DEV_INFO_t           *dev_info,
 	return RIO_SUCCESS;
 }
 
-uint32_t idt_rxs_pc_get_config( DAR_DEV_INFO_t           *dev_info,
+uint32_t rxs_pc_get_config( DAR_DEV_INFO_t           *dev_info,
                                 rio_pc_get_config_in_t   *in_parms,
                                 rio_pc_get_config_out_t  *out_parms )
 {
@@ -982,7 +982,7 @@ exit:
 	return rc;
 }
 
-uint32_t idt_rxs_pc_get_status( DAR_DEV_INFO_t           *dev_info,
+uint32_t rxs_pc_get_status( DAR_DEV_INFO_t           *dev_info,
                                 rio_pc_get_status_in_t   *in_parms,
                                 rio_pc_get_status_out_t  *out_parms )
 {
@@ -1059,7 +1059,7 @@ exit:
 	return rc;
 }
 
-uint32_t idt_rxs_check_port_for_discard( DAR_DEV_INFO_t     *dev_info, 
+uint32_t rxs_check_port_for_discard( DAR_DEV_INFO_t     *dev_info, 
                                          rio_rt_probe_in_t  *in_parms, 
                                          rio_rt_probe_out_t *out_parms ) 
 {
@@ -1082,7 +1082,7 @@ uint32_t idt_rxs_check_port_for_discard( DAR_DEV_INFO_t     *dev_info,
 
    cfg_in.ptl.num_ports = 1;
    cfg_in.ptl.pnums[0] = port;
-   rc = idt_rxs_pc_get_config( dev_info, &cfg_in, &cfg_out );
+   rc = rxs_pc_get_config( dev_info, &cfg_in, &cfg_out );
    if (RIO_SUCCESS != rc) {
       out_parms->reason_for_discard = rio_rt_disc_probe_abort;
       out_parms->imp_rc = RT_PROBE(2);
@@ -1091,7 +1091,7 @@ uint32_t idt_rxs_check_port_for_discard( DAR_DEV_INFO_t     *dev_info,
 
    stat_in.ptl.num_ports = 1;
    stat_in.ptl.pnums[0] = port;
-   rc = idt_rxs_pc_get_status( dev_info, &stat_in, &stat_out );
+   rc = rxs_pc_get_status( dev_info, &stat_in, &stat_out );
    if (RIO_SUCCESS != rc) {
       out_parms->reason_for_discard = rio_rt_disc_probe_abort;
       out_parms->imp_rc = RT_PROBE(3);
@@ -1146,7 +1146,7 @@ exit:
     return rc;
 }
 
-void idt_rxs_check_multicast_routing ( DAR_DEV_INFO_t     *dev_info, 
+void rxs_check_multicast_routing ( DAR_DEV_INFO_t     *dev_info, 
                                        rio_rt_probe_in_t  *in_parms, 
                                        rio_rt_probe_out_t *out_parms ) 
 {
@@ -1191,7 +1191,7 @@ void idt_rxs_check_multicast_routing ( DAR_DEV_INFO_t     *dev_info,
    return;
 }
 
-void idt_rxs_check_unicast_routing( DAR_DEV_INFO_t     *dev_info, 
+void rxs_check_unicast_routing( DAR_DEV_INFO_t     *dev_info, 
                                     rio_rt_probe_in_t  *in_parms, 
                                     rio_rt_probe_out_t *out_parms ) 
 {
@@ -1223,7 +1223,7 @@ void idt_rxs_check_unicast_routing( DAR_DEV_INFO_t     *dev_info,
     return;
 }
 
-uint32_t idt_rxs_rt_probe( DAR_DEV_INFO_t      *dev_info,
+uint32_t rxs_rt_probe( DAR_DEV_INFO_t      *dev_info,
                            rio_rt_probe_in_t   *in_parms,
                            rio_rt_probe_out_t  *out_parms )
 {
@@ -1258,7 +1258,7 @@ uint32_t idt_rxs_rt_probe( DAR_DEV_INFO_t      *dev_info,
     rc = RIO_SUCCESS;
 
     // Note, no failure possible...
-    idt_rxs_check_multicast_routing(dev_info, in_parms, out_parms);
+    rxs_check_multicast_routing(dev_info, in_parms, out_parms);
 
     /* Done if hit in multicast masks. */
     if (RIO_ALL_PORTS != out_parms->routing_table_value) 
@@ -1273,17 +1273,17 @@ uint32_t idt_rxs_rt_probe( DAR_DEV_INFO_t      *dev_info,
      *  default route is a valid switch port number.
      */
 
-    idt_rxs_check_unicast_routing( dev_info, in_parms, out_parms );
+    rxs_check_unicast_routing( dev_info, in_parms, out_parms );
 
     if (out_parms->valid_route) {
-       rc = idt_rxs_check_port_for_discard( dev_info, in_parms, out_parms );
+       rc = rxs_check_port_for_discard( dev_info, in_parms, out_parms );
     }
     
 exit:
     return rc;
 }
 
-uint32_t idt_rxs_read_mc_masks( DAR_DEV_INFO_t            *dev_info,
+uint32_t rxs_read_mc_masks( DAR_DEV_INFO_t            *dev_info,
                                 uint8_t                    pnum,
                                 rio_rt_state_t            *rt,
                                 uint32_t                  *imp_rc )  
@@ -1326,7 +1326,7 @@ uint32_t idt_rxs_read_mc_masks( DAR_DEV_INFO_t            *dev_info,
    for (mask_idx = 0; mask_idx < NUM_MC_MASKS(dev_info); mask_idx++)  {
       rc = DARRegRead(dev_info, RXS_RIO_SPX_MC_Y_S_CSR(pnum, mask_idx), &reg_val);
       if (RIO_SUCCESS != rc) {
-         *imp_rc = IDT_RXS_READ_MC_MASKS(1);
+         *imp_rc = RXS_READ_MC_MASKS(1);
          goto exit;
       }
 
@@ -1344,7 +1344,7 @@ exit:
 
 // Make sure that we're not orphaning a multicast mask...
 
-uint32_t idt_rxs_tidy_routing_table( DAR_DEV_INFO_t  *dev_info, 
+uint32_t rxs_tidy_routing_table( DAR_DEV_INFO_t  *dev_info, 
                                      uint8_t          idx, 
                                      rio_rt_state_t  *rt,
                                      uint32_t        *fail_pt,
@@ -1406,7 +1406,7 @@ uint32_t idt_rxs_tidy_routing_table( DAR_DEV_INFO_t  *dev_info,
 /* This function updates an rio_rt_state_t structure to
  * change a multicast mask value, and tracks changes.
  */
-uint32_t idt_rxs_rt_change_mc_mask( DAR_DEV_INFO_t               *dev_info,
+uint32_t rxs_rt_change_mc_mask( DAR_DEV_INFO_t               *dev_info,
                                     rio_rt_change_mc_mask_in_t   *in_parms, 
                                     rio_rt_change_mc_mask_out_t  *out_parms )
 {
@@ -1470,7 +1470,7 @@ uint32_t idt_rxs_rt_change_mc_mask( DAR_DEV_INFO_t               *dev_info,
    dom_idx = (in_parms->mc_info.mc_destID & 0xFF00) >> 8;
    if ((tt_dev16 == in_parms->mc_info.tt) && (dom_idx) 
        && (in_parms->mc_mask_rte != in_parms->rt->dom_table[dom_idx].rte_val)) {
-      rc = idt_rxs_tidy_routing_table(dev_info, dom_idx, in_parms->rt, &out_parms->imp_rc, false);
+      rc = rxs_tidy_routing_table(dev_info, dom_idx, in_parms->rt, &out_parms->imp_rc, false);
       if (RIO_SUCCESS != rc)
          goto exit; 
 
@@ -1480,7 +1480,7 @@ uint32_t idt_rxs_rt_change_mc_mask( DAR_DEV_INFO_t               *dev_info,
 
    dev_idx = (in_parms->mc_info.mc_destID & 0x00FF);
    if (in_parms->mc_mask_rte != in_parms->rt->dev_table[dev_idx].rte_val) {
-      rc = idt_rxs_tidy_routing_table(dev_info, dev_idx, in_parms->rt, &out_parms->imp_rc, true);
+      rc = rxs_tidy_routing_table(dev_info, dev_idx, in_parms->rt, &out_parms->imp_rc, true);
       if (RIO_SUCCESS != rc) 
          goto exit;
 
@@ -1498,7 +1498,7 @@ exit:
    return rc;
 }
 
-uint32_t idt_rxs_read_rte_entries( DAR_DEV_INFO_t            *dev_info,
+uint32_t rxs_read_rte_entries( DAR_DEV_INFO_t            *dev_info,
                                    uint8_t                    pnum,
                                    rio_rt_state_t            *rt,
                                    uint32_t                  *imp_rc )  
@@ -1511,7 +1511,7 @@ uint32_t idt_rxs_read_rte_entries( DAR_DEV_INFO_t            *dev_info,
    
    rc = DARRegRead(dev_info, RXS_RIO_ROUTE_DFLT_PORT, &rte_val);
    if (RIO_SUCCESS != rc) {
-      *imp_rc = IDT_RXS_READ_RTE_ENTRIES(1);
+      *imp_rc = RXS_READ_RTE_ENTRIES(1);
       goto exit;
    }
 
@@ -1532,7 +1532,7 @@ uint32_t idt_rxs_read_rte_entries( DAR_DEV_INFO_t            *dev_info,
       // Read routing table entry for deviceID
       rc = DARRegRead(dev_info, RXS_RIO_SPX_L1_GY_ENTRYZ_CSR(pnum, 0, destID), &rte_val);
       if (RIO_SUCCESS != rc) {
-         *imp_rc = IDT_RXS_READ_RTE_ENTRIES(4);
+         *imp_rc = RXS_READ_RTE_ENTRIES(4);
          goto exit;
       }
       rte_val &= RXS_RIO_BC_L1_GX_ENTRYY_CSR_ROUTING_VALUE;
@@ -1561,7 +1561,7 @@ uint32_t idt_rxs_read_rte_entries( DAR_DEV_INFO_t            *dev_info,
       rt->dev_table[destID].changed = false;
       rc = DARRegRead(dev_info, RXS_RIO_BC_L2_GX_ENTRYY_CSR(pnum, destID), &rte_val);
       if (RIO_SUCCESS != rc) {
-         *imp_rc = IDT_RXS_READ_RTE_ENTRIES(8);
+         *imp_rc = RXS_READ_RTE_ENTRIES(8);
          goto exit;
       }
 
@@ -1593,7 +1593,7 @@ exit:
  * The routing table hardware must be initialized using rio_rt_initialize() 
  * before calling this routine.
  */
-uint32_t idt_rxs_rt_probe_all( DAR_DEV_INFO_t          *dev_info,
+uint32_t rxs_rt_probe_all( DAR_DEV_INFO_t          *dev_info,
                                rio_rt_probe_all_in_t   *in_parms,
                                rio_rt_probe_all_out_t  *out_parms ) 
 {
@@ -1611,17 +1611,17 @@ uint32_t idt_rxs_rt_probe_all( DAR_DEV_INFO_t          *dev_info,
 
     probe_port = (RIO_ALL_PORTS == in_parms->probe_on_port)?0:in_parms->probe_on_port;
 
-    rc = idt_rxs_read_mc_masks( dev_info, probe_port, in_parms->rt, &out_parms->imp_rc );
+    rc = rxs_read_mc_masks( dev_info, probe_port, in_parms->rt, &out_parms->imp_rc );
     if (RIO_SUCCESS != rc)
        goto exit;
     
-    rc = idt_rxs_read_rte_entries( dev_info, probe_port, in_parms->rt, &out_parms->imp_rc );
+    rc = rxs_read_rte_entries( dev_info, probe_port, in_parms->rt, &out_parms->imp_rc );
 
 exit:
     return rc;
 }
 
-uint32_t idt_rxs_rioSetEnumBound( DAR_DEV_INFO_t *dev_info,
+uint32_t rxs_rioSetEnumBound( DAR_DEV_INFO_t *dev_info,
                                   struct DAR_ptl *ptl,
 			          int             enum_bnd_val )
 {
@@ -1631,7 +1631,7 @@ uint32_t idt_rxs_rioSetEnumBound( DAR_DEV_INFO_t *dev_info,
 	return RIO_SUCCESS;
 }
 
-uint32_t idt_rxs_pc_dev_reset_config( DAR_DEV_INFO_t                 *dev_info,
+uint32_t rxs_pc_dev_reset_config( DAR_DEV_INFO_t                 *dev_info,
 	                              rio_pc_dev_reset_config_in_t   *in_parms,
 	                              rio_pc_dev_reset_config_out_t  *out_parms )
 {
@@ -1641,7 +1641,7 @@ uint32_t idt_rxs_pc_dev_reset_config( DAR_DEV_INFO_t                 *dev_info,
 	return RIO_SUCCESS;
 }
 
-uint32_t idt_rxs_em_cfg_pw( DAR_DEV_INFO_t       *dev_info,
+uint32_t rxs_em_cfg_pw( DAR_DEV_INFO_t       *dev_info,
 	                    rio_em_cfg_pw_in_t   *in_parms,
 	                    rio_em_cfg_pw_out_t  *out_parms )
 {
@@ -1651,7 +1651,7 @@ uint32_t idt_rxs_em_cfg_pw( DAR_DEV_INFO_t       *dev_info,
 	return RIO_SUCCESS;
 }
 
-uint32_t idt_rxs_em_dev_rpt_ctl( DAR_DEV_INFO_t            *dev_info,
+uint32_t rxs_em_dev_rpt_ctl( DAR_DEV_INFO_t            *dev_info,
 	                         rio_em_dev_rpt_ctl_in_t   *in_parms,
 	                         rio_em_dev_rpt_ctl_out_t  *out_parms )
 {
@@ -1661,7 +1661,7 @@ uint32_t idt_rxs_em_dev_rpt_ctl( DAR_DEV_INFO_t            *dev_info,
 	return RIO_SUCCESS;
 }
 
-uint32_t idt_rxs_DeviceSupported( DAR_DEV_INFO_t *DAR_info )
+uint32_t rxs_DeviceSupported( DAR_DEV_INFO_t *DAR_info )
 {
 	uint32_t rc = DAR_DB_NO_DRIVER;
 
@@ -1703,9 +1703,9 @@ uint32_t bind_rxs_DAR_support(void)
 
 	DARDB_Init_Driver_Info(IDT_TSI_VENDOR_ID, &DAR_info);
 
-	DAR_info.rioDeviceSupported = idt_rxs_DeviceSupported;
+	DAR_info.rioDeviceSupported = rxs_DeviceSupported;
 
-	DAR_info.rioSetEnumBound = idt_rxs_rioSetEnumBound;
+	DAR_info.rioSetEnumBound = rxs_rioSetEnumBound;
 
 	DARDB_Bind_Driver(&DAR_info);
 
@@ -1724,26 +1724,26 @@ uint32_t bind_rxs_DSF_support(void)
 
 	idt_driver.dev_type = IDT_RXSx_RIO_DEVICE_ID;
 
-	idt_driver.rio_pc_set_config = idt_rxs_pc_set_config;
-	idt_driver.rio_pc_get_config = idt_rxs_pc_get_config;
-	idt_driver.rio_pc_get_status = idt_rxs_pc_get_status;
-	idt_driver.rio_pc_dev_reset_config = idt_rxs_pc_dev_reset_config;
+	idt_driver.rio_pc_set_config = rxs_pc_set_config;
+	idt_driver.rio_pc_get_config = rxs_pc_get_config;
+	idt_driver.rio_pc_get_status = rxs_pc_get_status;
+	idt_driver.rio_pc_dev_reset_config = rxs_pc_dev_reset_config;
 
-	idt_driver.rio_rt_initialize = idt_rxs_rt_initialize;
-	idt_driver.rio_rt_probe = idt_rxs_rt_probe;
-	idt_driver.rio_rt_probe_all = idt_rxs_rt_probe_all;
-	idt_driver.rio_rt_set_all = idt_rxs_rt_set_all;
-        idt_driver.rio_rt_set_changed = idt_rxs_rt_set_changed;
-        idt_driver.rio_rt_change_rte = idt_rxs_rt_change_rte;
-        idt_driver.rio_rt_alloc_mc_mask = RIO_DSF_rt_alloc_mc_mask;
-        idt_driver.rio_rt_dealloc_mc_mask = RIO_DSF_rt_dealloc_mc_mask;
-        idt_driver.rio_rt_change_mc_mask = idt_rxs_rt_change_mc_mask;
+	idt_driver.rio_rt_initialize = rxs_rt_initialize;
+	idt_driver.rio_rt_probe = rxs_rt_probe;
+	idt_driver.rio_rt_probe_all = rxs_rt_probe_all;
+	idt_driver.rio_rt_set_all = rxs_rt_set_all;
+	idt_driver.rio_rt_set_changed = rxs_rt_set_changed;
+	idt_driver.rio_rt_change_rte = rxs_rt_change_rte;
+	idt_driver.rio_rt_alloc_mc_mask = RIO_DSF_rt_alloc_mc_mask;
+	idt_driver.rio_rt_dealloc_mc_mask = RIO_DSF_rt_dealloc_mc_mask;
+	idt_driver.rio_rt_change_mc_mask = rxs_rt_change_mc_mask;
 
-        idt_driver.rio_sc_init_dev_ctrs = idt_rxs_sc_init_dev_ctrs;
-	idt_driver.rio_sc_read_ctrs = idt_rxs_sc_read_ctrs;
+	idt_driver.rio_sc_init_dev_ctrs = rxs_sc_init_dev_ctrs;
+	idt_driver.rio_sc_read_ctrs = rxs_sc_read_ctrs;
 
-	idt_driver.rio_em_dev_rpt_ctl = idt_rxs_em_dev_rpt_ctl;
-	idt_driver.rio_em_cfg_pw = idt_rxs_em_cfg_pw;
+	idt_driver.rio_em_dev_rpt_ctl = rxs_em_dev_rpt_ctl;
+	idt_driver.rio_em_cfg_pw = rxs_em_cfg_pw;
 
 	IDT_DSF_bind_driver(&idt_driver, &RXS_driver_handle);
 

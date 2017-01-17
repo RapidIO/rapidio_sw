@@ -39,143 +39,22 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 extern "C" {
 #endif
 
-#define IDT_RXS_MAX_MC_MASKS                      0xFF
+#define RXS_MAX_MC_MASKS                      0xFF
 
-#define IDT_RXS_RTE_SET_COMMON_0                  (RT_FIRST_SUBROUTINE_0+0x0100)
-#define IDT_RXS_PROGRAM_RTE_ENTRIES_0             (RT_FIRST_SUBROUTINE_0+0x1900)
-#define IDT_RXS_PROGRAM_MC_MASKS_0                (RT_FIRST_SUBROUTINE_0+0x1A00)
-#define IDT_RXS_READ_MC_MASKS_0                   (RT_FIRST_SUBROUTINE_0+0x1B00)
-#define IDT_RXS_READ_RTE_ENTRIES_0                (RT_FIRST_SUBROUTINE_0+0x1C00)
+#define RXS_RTE_SET_COMMON_0                  (RT_FIRST_SUBROUTINE_0+0x0100)
+#define RXS_PROGRAM_RTE_ENTRIES_0             (RT_FIRST_SUBROUTINE_0+0x1900)
+#define RXS_PROGRAM_MC_MASKS_0                (RT_FIRST_SUBROUTINE_0+0x1A00)
+#define RXS_READ_MC_MASKS_0                   (RT_FIRST_SUBROUTINE_0+0x1B00)
+#define RXS_READ_RTE_ENTRIES_0                (RT_FIRST_SUBROUTINE_0+0x1C00)
 
-#define IDT_RXS_PROGRAM_MC_MASKS(x)               (IDT_RXS_PROGRAM_MC_MASKS_0+x)
-#define IDT_RXS_PROGRAM_RTE_ENTRIES(x)            (IDT_RXS_PROGRAM_RTE_ENTRIES_0+x)
-#define IDT_RXS_RTE_SET_COMMON(x)                 (IDT_RXS_RTE_SET_COMMON_0+x)
-#define IDT_RXS_READ_MC_MASKS(x)                  (IDT_RXS_READ_MC_MASKS_0+x)
-#define IDT_RXS_READ_RTE_ENTRIES(x)               (IDT_RXS_READ_RTE_ENTRIES_0+x)
+#define RXS_PROGRAM_MC_MASKS(x)               (RXS_PROGRAM_MC_MASKS_0+x)
+#define RXS_PROGRAM_RTE_ENTRIES(x)            (RXS_PROGRAM_RTE_ENTRIES_0+x)
+#define RXS_RTE_SET_COMMON(x)                 (RXS_RTE_SET_COMMON_0+x)
+#define RXS_READ_MC_MASKS(x)                  (RXS_READ_MC_MASKS_0+x)
+#define RXS_READ_RTE_ENTRIES(x)               (RXS_READ_RTE_ENTRIES_0+x)
 
-#define IDT_RXS_SET_ALL                           true
-#define IDT_RXS_SET_CHANGED                       false
-
-/* initializes the routing table hardware and/or routing table state structure.
- */
-
-//#define IDT_RXS_RT_INITIALIZE(x)                  (RT_INITIALIZE_0+x)
-
-/*uint32_t idt_rxs_rt_initialize(
-    DAR_DEV_INFO_t           *dev_info,
-    rio_rt_initialize_in_t   *in_parms,
-    rio_rt_initialize_out_t  *out_parms
-);*/
-
-/* This function probes the hardware status of a routing table entry for 
- * the specified port and destination ID
- */
-
-//#define IDT_RXS_RT_PROBE(x)                       (RT_PROBE_0+x)
-
-/*uint32_t idt_rxs_rt_probe(
-    DAR_DEV_INFO_t      *dev_info,
-    rio_rt_probe_in_t   *in_parms,
-    rio_rt_probe_out_t  *out_parms
-);*/
-
-/* This function returns the complete hardware state of packet routing
- * in a routing table state structure.
- * 
- * The routing table hardware must be initialized using rio_rt_initialize()
- * before calling this routine.
- */
-
-//#define IDT_RXS_RT_PROBE_ALL(x)                   (RT_PROBE_ALL_0+x)
-
-/*uint32_t idt_rxs_rt_probe_all(
-    DAR_DEV_INFO_t          *dev_info,
-    rio_rt_probe_all_in_t   *in_parms,
-    rio_rt_probe_all_out_t  *out_parms
-);*/
-
-/* This function sets the routing table hardware to match every entry
- * in the routing table state structure. 
- * After rio_rt_set_all is called, no entries are marked as changed in
- * the routing table state structure.
- */
-
-//#define IDT_RXS_RT_SET_ALL(x)                     (RT_SET_ALL_0+x)
-
-/*uint32_t idt_rxs_rt_set_all (
-    DAR_DEV_INFO_t        *dev_info,
-    rio_rt_set_all_in_t   *in_parms,
-    rio_rt_set_all_out_t  *out_parms
-);*/
-
-/* This function sets the the routing table hardware to match every entry
- * that has been changed in the routing table state structure. 
- * Changes must be made using rio_rt_alloc_mc_mask, rio_rt_deallocate_mc_mask,
- * rio_rt_change_rte, and rio_rt_change_mc.
- * After rio_rt_set_changed is called, no entries are marked as changed in
- * the routing table state structure.
- */
-
-//#define IDT_RXS_RT_SET_CHANGED(x)                 (RT_SET_CHANGED_0+x)
-
-/*uint32_t idt_rxs_rt_set_changed (
-    DAR_DEV_INFO_t            *dev_info,
-    rio_rt_set_changed_in_t   *in_parms,
-    rio_rt_set_changed_out_t  *out_parms
-);*/
-
-/* This function updates an rio_rt_state_t structure to
- * find the first previously unused multicast mask.  
- * Can be called consecutively to allocate multiple 
- * multicast masks.
- */
-
-//#define IDT_RXS_RT_ALLOC_MC_MASK(x)               (RT_ALLOC_MC_MASK_0+x)
-
-/*uint32_t idt_rxs_rt_alloc_mc_mask(
-    DAR_DEV_INFO_t              *dev_info,
-    rio_rt_alloc_mc_mask_in_t   *in_parms,
-    rio_rt_alloc_mc_mask_out_t  *out_parms
-);*/
-
-/* This function updates an rio_rt_state_t structure to
- * deallocate a specified multicast mask.  Routing tables
- * are updated to remove all references to the multicast mask.
- * After deallocation, the hardware state must be updated by
- * calling rio_rt_set_all() or rio_rt_set_changed().
- */
-
-//#define IDT_RXS_RT_DEALLOC_MC_MASK(x)             (RT_DEALLOC_MC_MASK_0+x)
-
-/*uint32_t idt_rxs_rt_dealloc_mc_mask(
-    DAR_DEV_INFO_t                *dev_info,
-    rio_rt_dealloc_mc_mask_in_t   *in_parms,
-    rio_rt_dealloc_mc_mask_out_t  *out_parms
-);*/
-
-/* This function updates an rio_rt_state_t structure to
- * change a routing table entry, and tracks changes.
- */
-
-//#define IDT_RXS_RT_CHANGE_RTE(x)                  (RT_CHANGE_RTE_0+x)
-
-/*uint32_t idt_rxs_rt_change_rte(
-    DAR_DEV_INFO_t           *dev_info,
-    rio_rt_change_rte_in_t   *in_parms,
-    rio_rt_change_rte_out_t  *out_parms
-);*/
-
-/* This function updates an rio_rt_state_t structure to
- * change a multicast mask value, and tracks changes.
- */
-
-//#define IDT_RXS_CHANGE_MC_MASK(x)                 (RT_CHANGE_MC_MASK_0+x)
-
-/*uint32_t idt_rxs_rt_change_mc_mask(
-    DAR_DEV_INFO_t               *dev_info,
-    rio_rt_change_mc_mask_in_t   *in_parms,
-    rio_rt_change_mc_mask_out_t  *out_parms
-);*/
+#define RXS_SET_ALL                           true
+#define RXS_SET_CHANGED                       false
 
 #ifdef __cplusplus
 }
