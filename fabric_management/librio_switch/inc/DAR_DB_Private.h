@@ -33,7 +33,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "rio_standard.h"
 #include <DAR_DB.h>
-#include <DAR_DevDriver.h>
+#include <RapidIO_Device_Access_Routines_API.h>
 
 #ifndef __DAR_DB_PRIVATE_H__
 #define __DAR_DB_PRIVATE_H__

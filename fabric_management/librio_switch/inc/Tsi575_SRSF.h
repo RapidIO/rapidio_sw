@@ -30,8 +30,8 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
-#ifndef _TS_Tsi575_SRSF_H_ 
-#define _TS_Tsi575_SRSF_H_ 
+#ifndef __TSI575_SRSF_H__
+#define __TSI575_SRSF_H__
 
 #ifdef __cplusplus
 extern "C" {
@@ -39,7 +39,6 @@ extern "C" {
 
 #define Tsi575_SRSF_NUM_REGS_TO_TEST                                0x00000295
 
-                                                                               
 
 #ifndef SRSF_BASE
 #define SRSF_BASE                                                  (0x00000000)
@@ -221,7 +220,6 @@ extern "C" {
 /* Tsi575 : Register Bit Masks and Reset Values     */
 /*           definitions for every register         */
 /* ************************************************ */
-
 
 
 /* Tsi575_RIO_DEV_ID : Register Bits Masks Definitions */
@@ -1254,10 +1252,9 @@ extern "C" {
 #define Tsi575_SMACX_MPLL_CTL_GEARSGIFT_VAL                        (0x40000000)
 #define Tsi575_SMACX_MPLL_CTL_OVRD_CTL                             (0x80000000)
 
-                                                                               
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* _TS_Tsi575_H_ */
+#endif /* __TSI575_SRSF_H__ */

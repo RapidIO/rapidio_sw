@@ -36,10 +36,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <DAR_DB_Private.h>
 #include <IDT_Common.h>
-#include <IDT_Routing_Table_Config_API.h>
-#include <IDT_Port_Config_API.h>
-#include <IDT_Error_Management_API.h>
-#include <IDT_Statistics_Counter_API.h>
+#include <RapidIO_Routing_Table_API.h>
+#include <RapidIO_Port_Config_API.h>
+#include <RapidIO_Error_Management_API.h>
+#include <RapidIO_Statistics_Counter_API.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -216,7 +216,7 @@ typedef struct IDT_DSF_DB_t_TAG
 				   
   // Statistics Counter Generic Routines
   // Note: There are implementation specific counter configuration
-  //       routines defined in IDT_Statistics_Counter_API.h
+  //       routines defined in RapidIO_Statistics_Counter_API.h
   
   uint32_t (*idt_sc_init_dev_ctrs) ( DAR_DEV_INFO_t             *dev_info,
                                    idt_sc_init_dev_ctrs_in_t  *in_parms,

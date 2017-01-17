@@ -30,8 +30,8 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
-#ifndef _TS_Tsi575_GPIO_H_ 
-#define _TS_Tsi575_GPIO_H_ 
+#ifndef __TSI575_GPIO_H__
+#define __TSI575_GPIO_H__
 
 #ifdef __cplusplus
 extern "C" {
@@ -39,7 +39,6 @@ extern "C" {
 
 #define Tsi575_GPIO_NUM_REGS_TO_TEST                               0x00000008
 
-                                                                               
 
 #ifndef GPIO_BASE
 #define GPIO_BASE                                                 (0x0001ACE0)
@@ -61,7 +60,6 @@ extern "C" {
 /* ************************************************ */
 
 
-
 /* Tsi575_GPIOX_DATA_n : Register Bits Masks Definitions */
 #define Tsi575_GPIOX_DATA_n_GPIO_DATA_OUT                          (0x0000ffff)
 #define Tsi575_GPIOX_DATA_n_GPIO_DATA_IN                           (0xffff0000)
@@ -78,11 +76,9 @@ extern "C" {
 #define Tsi575_GPIOX_INT_uint32_t_n_ENABLE                           (0x0000ffff)
 #define Tsi575_GPIOX_INT_uint32_t_n_uint32_t                           (0xffff0000)
 
-                                                                               
-
 
 #ifdef __cplusplus
 }
 #endif
-                                                                               
-#endif /* _TS_Tsi575_H_ */
+
+#endif /* __TSI575_GPIO_H__ */

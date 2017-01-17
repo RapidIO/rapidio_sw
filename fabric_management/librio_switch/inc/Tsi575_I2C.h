@@ -30,8 +30,8 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
-#ifndef _TS_Tsi575_I2C_H_ 
-#define _TS_Tsi575_I2C_H_ 
+#ifndef __TSI575_I2C_H__
+#define __TSI575_I2C_H__
 
 #ifdef __cplusplus
 extern "C" {
@@ -39,7 +39,6 @@ extern "C" {
 
 #define Tsi575_I2C_NUM_REGS_TO_TEST                                 0x00000034
 
-                                                                               
 
 #ifndef I2C_BASE
 #define I2C_BASE                                                   (0x0001D000)
@@ -107,7 +106,6 @@ extern "C" {
 /* Tsi575 : Register Bit Masks and Reset Values    */
 /*           definitions for every register         */
 /* ************************************************ */
-
 
 
 /* Tsi575_I2C_DEVID : Register Bits Masks Definitions */
@@ -532,10 +530,9 @@ extern "C" {
 #define Tsi575_I2C_DIAG_SLV_BYTE_TRAN_TRAN_TO_CNT                  (0x0000ffff)
 #define Tsi575_I2C_DIAG_SLV_BYTE_TRAN_BYTE_TO_CNT                  (0xffff0000)
 
-                                                                               
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* _TS_Tsi575_H_ */
+#endif /* __TSI575_I2C_H__ */

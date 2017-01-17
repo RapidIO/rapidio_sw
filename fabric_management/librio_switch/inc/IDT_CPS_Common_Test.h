@@ -40,13 +40,13 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef __IDT_CPS_COMMON_TEST_H__
 #define __IDT_CPS_COMMON_TEST_H__
 
-#include "CPS1848_registers.h"
-#include "DAR_DevDriver.h"
+#include "CPS1848.h"
+#include "RapidIO_Device_Access_Routines_API.h"
 #include "IDT_Common.h"
-#include "IDT_Port_Config_API.h"
-#include "IDT_Routing_Table_Config_API.h"
-#include "IDT_Error_Management_API.h"
-#include "IDT_Statistics_Counter_API.h"
+#include "RapidIO_Port_Config_API.h"
+#include "RapidIO_Routing_Table_API.h"
+#include "RapidIO_Error_Management_API.h"
+#include "RapidIO_Statistics_Counter_API.h"
 
 #ifdef __cplusplus
 extern "C" {

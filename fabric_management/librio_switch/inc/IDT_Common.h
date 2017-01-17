@@ -41,14 +41,13 @@ extern "C" {
 
 /* Controls what device drivers are bound into the DAR 
 */
-#define IDT_TSI57X_DAR_WANTED
-#define IDT_CPS_GEN2_DAR_WANTED
-#define IDT_CPS_GEN1_DAR_WANTED
-#define IDT_RXSx_DAR_WANTED
+#define TSI57X_DAR_WANTED
+#define CPS_DAR_WANTED
+#define RXSx_DAR_WANTED
 
 
-#ifdef IDT_TSI721_SUPPORT
-#define IDT_TSI721_DAR_WANTED
+#ifdef TSI721_SUPPORT
+#define TSI721_DAR_WANTED
 #endif
 
 #define IDT_CPS_VENDOR_ID                           0x0038

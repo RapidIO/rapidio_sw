@@ -30,17 +30,15 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
-#ifndef _TS_Tsi575_CG_H_ 
-#define _TS_Tsi575_CG_H_ 
+#ifndef __TSI575_CG_H__
+#define __TSI575_CG_H__
 
-                                                                               
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 #define Tsi575_CG_NUM_REGS_TO_TEST                                 0x00000009
 
-                                                                               
 
 #ifndef CG_BASE
 #define CG_BASE                                                   (0x0001AD00)
@@ -65,7 +63,6 @@ extern "C" {
 /* Tsi575 : Register Bit Masks and Reset Values     */
 /*           definitions for every register         */
 /* ************************************************ */
-
 
 
 /* Tsi575_CG_INT_uint32_t : Register Bits Masks Definitions */
@@ -127,11 +124,10 @@ extern "C" {
 /* Tsi575_CG_PCI_OUT_DLY : Register Bits Masks Definitions */
 #define Tsi575_CG_PCI_OUT_DLY_PCI_DLY                              (0x00000003)
 
-                                                                               
 
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* _TS_Tsi575_H_ */
+#endif /* __TSI575_CG_H__ */

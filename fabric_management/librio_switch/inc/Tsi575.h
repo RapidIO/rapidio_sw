@@ -35,8 +35,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ** of the Tsi575.  This has an internal id of 0x575. 
 ***************************************************************************/
 
-#ifndef _TSI575_H_
-#define _TSI575_H_
+#ifndef __TSI575_H__
+#define __TSI575_H__
 
 #include "Tsi575_SRSF.h"
 #include "Tsi575_EM.h"
@@ -45,4 +45,4 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "Tsi575_CG.h"
 #include "Tsi575_I2C.h"
 
-#endif /* _TSI575_H_ */
+#endif /* __TSI575_H__ */

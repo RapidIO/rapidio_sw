@@ -43,7 +43,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "string_util.h"
 #include "DAR_DB.h"
 #include "DAR_DB_Private.h"
-#include "DAR_Utilities.h"
+#include "RapidIO_Utilities_API.h"
 
 #ifdef __cplusplus
 extern "C" {

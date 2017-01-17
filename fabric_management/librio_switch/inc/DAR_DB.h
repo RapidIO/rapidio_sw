@@ -34,7 +34,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define __DAR_DB_H__
 
 #include <stdbool.h>
-#include <DAR_DevDriver.h>
+#include <RapidIO_Device_Access_Routines_API.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -162,9 +162,9 @@ uint32_t DARDB_init( void );
 /* DARDB Device Driver Structure
 * 
 *  Function names beginning with "rio" are defined in the RapidIO Specification,
-*  Annex 1.  Function names beginning with "dev" are defined in DAR_DevDriver.h
+*  Annex 1.  Function names beginning with "dev" are defined in RapidIO_Device_Access_Routines_API.h
 * 
-*  Refer to DAR_DevDriver.h to the functions used to invoke these functions in 
+*  Refer to RapidIO_Device_Access_Routines_API.h to the functions used to invoke these functions in 
 *  the device driver.
 */
 typedef struct DAR_DB_Driver_t_TAG

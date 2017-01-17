@@ -44,10 +44,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "string_util.h"
 
 #include "rio_standard.h"
-#include "IDT_RXS2448.h"
-#include "IDT_RXS_API.h"
-#include "IDT_RXS_Routing_Table_Config_API.h"
-#include "IDT_Routing_Table_Config_API.h"
+#include "RXS2448.h"
+#include "RXS_API.h"
+#include "RXS_Routing_Table_API.h"
+#include "RapidIO_Routing_Table_API.h"
 
 #ifdef __cplusplus
 extern "C" {

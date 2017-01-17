@@ -41,11 +41,12 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "cmocka.h"
 
 #include "DAR_DB.h"
-#include "DAR_DevDriver.h"
+#include "RapidIO_Device_Access_Routines_API.h"
 #include "rio_standard.h"
 #include "rio_ecosystem.h"
 
-#include "src/IDT_Tsi721_API.c"
+#include "Tsi721.h"
+#include "src/Tsi721_API.c"
 
 #ifdef __cplusplus
 extern "C" {

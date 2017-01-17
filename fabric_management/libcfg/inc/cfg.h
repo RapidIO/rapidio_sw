@@ -40,8 +40,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <dirent.h>
 #include <errno.h>
 #include "rrmap_config.h"
-#include "IDT_Routing_Table_Config_API.h"
-#include "IDT_Port_Config_API.h"
+#include "RapidIO_Routing_Table_API.h"
+#include "RapidIO_Port_Config_API.h"
 #include "ct.h"
 
 #ifndef _CFG_H_

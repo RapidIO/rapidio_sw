@@ -30,17 +30,15 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
-#ifndef _TS_Tsi575_EM_H_ 
-#define _TS_Tsi575_EM_H_ 
+#ifndef __TSI575_EM_H__
+#define __TSI575_EM_H__
 
-                                                                               
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 #define Tsi575_EM_NUM_REGS_TO_TEST                                  0x00000004
 
-                                                                               
 
 #ifndef EM_BASE
 #define EM_BASE                                                    (0x0001AC00)
@@ -100,4 +98,4 @@ extern "C" {
 }
 #endif
 
-#endif /* _TS_Tsi575_H_ */
+#endif /* __TSI575_EM_H__ */

@@ -34,7 +34,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 #include "riocp_pe.h"
-#include "DAR_DevDriver.h"
+#include "RapidIO_Device_Access_Routines_API.h"
 
 #ifndef __PE_MPDRV_H__
 #define __PE_MPDRV_H__

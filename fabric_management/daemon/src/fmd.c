@@ -56,18 +56,17 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <pthread.h>
 
 #include <linux/rio_mport_cdev.h>
-#include "DAR_DevDriver.h"
+#include "RapidIO_Device_Access_Routines_API.h"
 #include "rio_standard.h"
 #include "rio_ecosystem.h"
 
 #include "IDT_DSF_DB_Private.h"
-#include "DAR_Utilities.h"
+#include "RapidIO_Utilities_API.h"
 
 #include "string_util.h"
 #include "rio_ecosystem.h"
 #include "libcli.h"
 #include "riocp_pe.h"
-#include "DAR_DevDriver.h"
 #include "fmd_dd.h"
 #include "fmd_dd_priv.h"
 #include "fmd_app_msg.h"
@@ -89,8 +88,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "fmd_opts.h"
 #include "libfmdd.h"
 #include "pe_mpdrv_private.h"
-#include "IDT_Routing_Table_Config_API.h"
-#include "IDT_Tsi721.h"
+#include "RapidIO_Routing_Table_API.h"
+#include "Tsi721.h"
 #include "fmd_errmsg.h"
 
 #ifdef __cplusplus

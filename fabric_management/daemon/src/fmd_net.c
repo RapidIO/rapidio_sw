@@ -45,7 +45,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "cfg.h"
 #include "liblist.h"
 #include "liblog.h"
-#include "IDT_Tsi721.h"
+#include "Tsi721.h"
 #include "fmd_state.h"
 #include "fmd_errmsg.h"
 

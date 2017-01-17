@@ -33,10 +33,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 
-#include "IDT_Port_Config_API.h"
-#include "IDT_Routing_Table_Config_API.h"
-#include "IDT_Statistics_Counter_API.h"
-#include "IDT_Error_Management_API.h"
+#include "RapidIO_Port_Config_API.h"
+#include "RapidIO_Routing_Table_API.h"
+#include "RapidIO_Statistics_Counter_API.h"
+#include "RapidIO_Error_Management_API.h"
 #include "rapidio_mport_mgmt.h"
 #include "pe_mpdrv.h"
 
