@@ -578,7 +578,7 @@ uint32_t IDT_CPS_set_event_en_cfg( DAR_DEV_INFO_t        *dev_info,
    };
 
    switch (event->em_event) {
-      case rio_em_f_los: // CPS Gen2 does not have a "dead link timer", just a simple
+      case rio_em_f_los: // CPS does not have a "dead link timer", just a simple
                          //    indication of whether or not the link partner is no longer
                          //    transmitting.
                          // Indy has the ability to "infer" silence by detecting the lack
@@ -590,7 +590,7 @@ uint32_t IDT_CPS_set_event_en_cfg( DAR_DEV_INFO_t        *dev_info,
          rc = RIO_SUCCESS;
          break;
            
-      case rio_em_f_port_err: // CPS Gen2 has indirect notification of a port error.
+      case rio_em_f_port_err: // CPS has indirect notification of a port error.
                               // A port error occurs for a FATAL_TO, or whenever a 
                               // link response with an illegal ackID is received.
                               // Isolation is controlled by the 
@@ -1340,7 +1340,7 @@ uint32_t IDT_CPS_em_cfg_get  ( DAR_DEV_INFO_t        *dev_info,
                             };
                             break;
            
-         case rio_em_f_port_err: // CPS Gen2 has indirect notification of a port error.
+         case rio_em_f_port_err: // CPS has indirect notification of a port error.
                             if (  ( imp_err_rpt & CPS1848_PORT_X_IMPL_SPEC_ERR_RPT_EN_FATAL_TO_EN ) 
                                || (     err_rpt & CPS1848_PORT_X_ERR_RPT_EN_LR_ACKID_ILL_EN       )) {
                                 in_parms->events[e_idx].em_detect = rio_em_detect_on;
