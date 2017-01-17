@@ -476,7 +476,7 @@ uint32_t default_rio_pc_probe( DAR_DEV_INFO_t      *dev_info,
 
     // NOTE: If ackIDs aren't in sync, querying the link partner's ackID 
     // will cause an output error-stopped condition and a PORT_FAIL condition 
-    // on CPS Gen2 devices.
+    // on CPS devices.
        
     rc = DARRegWrite( dev_info, RIO_SPX_LM_REQ(dev_info->extFPtrForPort, dev_info->extFPtrPortType, in_parms->port),
 													RIO_SPX_LM_REQ_CMD_LR_IS);

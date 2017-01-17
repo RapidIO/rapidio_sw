@@ -46,7 +46,7 @@ XFLAGS+=-I../cli
 XFLAGS+=-I../libriocp_pe/inc
 XFLAGS+=-I../libdid/inc
 XFLAGS+=-I../libct/inc
-XFLAGS+=-I../librio_switch/inc
+XFLAGS+=-I../librio/inc
 
 CFLAGS += $(XFLAGS)
 CXXFLAGS += $(XFLAGS)

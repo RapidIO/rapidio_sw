@@ -61,10 +61,6 @@ extern "C" {
 #define READ_MC_MASKS_0       (RT_FIRST_SUBROUTINE_0+0x1B00)
 #define READ_RTE_ENTRIES_0    (RT_FIRST_SUBROUTINE_0+0x1C00)
 
-// CPS Gen1 and Gen2 switches have exactly the same Routing Table programming
-// model.  The routing table routines are therefore implemented in this 
-// file for both switch families.
-//
 uint32_t rt_rte_translate_std_to_CPS(DAR_DEV_INFO_t *dev_info,
 				uint32_t std_in, uint32_t *cps_out) 
 {

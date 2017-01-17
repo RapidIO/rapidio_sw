@@ -165,7 +165,6 @@ typedef uint8_t prio_mask_g1_t;
 #define SC_PRIO_MASK_G1_ALL	((prio_mask_g1_t)(0x0F))
 
 typedef uint8_t prio_mask_t;
-// Gen2 and beyond definitions for priority
 #define SC_PRIO_MASK_0	((prio_mask_t)(0x01))
 #define SC_PRIO_MASK_0C	((prio_mask_t)(0x02))
 #define SC_PRIO_MASK_1	((prio_mask_t)(0x04))
@@ -347,9 +346,7 @@ extern uint32_t rio_sc_cfg_tsi57x_ctr (
     rio_sc_cfg_tsi57x_ctr_out_t *out_parms
 );
 
-/* Configure counters on selected ports   
- *    of a CPS Gen2 device.
-*/
+/* Configure counters on selected ports of a CPS device. */
 #define SC_CFG_CPS_CTRS(x) (SC_CFG_CPS_CTRS_0+x)
 
 extern uint32_t rio_sc_cfg_cps_ctrs(

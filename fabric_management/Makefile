@@ -44,12 +44,12 @@ level ?= $(LOG_LEVEL)
 export LOCAL_LIBRARY_DIR
 
 CCFLAGS= $(CXXFLAGS) -fPIC -Wall -I. \
-	-I./librio_switch/inc \
+	-I./librio/inc \
 	-I./libriocp_pe/inc -I./librio_maint/inc \
 	-I./libriocp_pe/src \
 	-DRDMA_LL=$(level)
 
-LIB_DEPS= libdid libct libriocp_pe libcli librio_switch libdd libcfg libpe_mpdrv
+LIB_DEPS= libdid libct libriocp_pe libcli librio libdd libcfg libpe_mpdrv
 
 .PHONY: all clean daemon libfmdd $(LIB_DEPS)
 
@@ -73,10 +73,10 @@ libriocp_pe: FORCE
 	mkdir -p $(LOCAL_LIBRARY_DIR)
 	cp libriocp_pe/libriocp_pe.a $(LOCAL_LIBRARY_DIR)
 
-librio_switch: FORCE
-	$(MAKE) all -C librio_switch
+librio: FORCE
+	$(MAKE) all -C librio
 	mkdir -p $(LOCAL_LIBRARY_DIR)
-	cp librio_switch/librio_switch.a $(LOCAL_LIBRARY_DIR)
+	cp librio/librio.a $(LOCAL_LIBRARY_DIR)
 
 libdd: FORCE
 	$(MAKE) all -C libdd
@@ -116,5 +116,5 @@ clean:
 	$(MAKE) clean -C libdid
 	$(MAKE) clean -C libfmdd
 	$(MAKE) clean -C libpe_mpdrv
-	$(MAKE) clean -C librio_switch
+	$(MAKE) clean -C librio
 	$(MAKE) clean -C libriocp_pe

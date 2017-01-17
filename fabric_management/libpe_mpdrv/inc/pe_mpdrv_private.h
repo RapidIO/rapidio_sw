@@ -1,5 +1,5 @@
 /* Data structures for libriocp_pe register read/write driver  and         */
-/* libriocp_pe PE driver based on librio_switch and libmport.              */
+/* libriocp_pe PE driver based on librio and libmport.              */
 /*
 ****************************************************************************
 Copyright (c) 2015, Integrated Device Technology Inc.

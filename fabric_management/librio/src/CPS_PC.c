@@ -394,7 +394,7 @@ uint32_t set_lrto( DAR_DEV_INFO_t           *dev_info ,
     lrto = 0xFFFFFF;
  };
  
- // Never set LRTO to 0 on CPS Gen2 devices.
+ // Never set LRTO to 0 on CPS devices.
  if (!lrto)
     lrto = 1;
 
@@ -485,7 +485,7 @@ uint32_t IDT_CPS_pc_get_config(
       out_parms->pc[port_idx].port_available = pi.cpr[pnum].cfg[quad_cfg].lane_count?true:false;
 
       if (!out_parms->pc[port_idx].port_available) {
-         // Gen2 switches automatically power down ports with no lanes connected.
+         // switches automatically power down ports with no lanes connected.
          out_parms->pc[port_idx].powered_up   = false;
          continue;
       }
@@ -2807,7 +2807,7 @@ uint32_t IDT_CPS_pc_dev_reset_config(
                                     };
                                     break;
 
-            case rio_pc_rst_int   : // CPS Gen2 devices do not support interrupt or PW notification.
+            case rio_pc_rst_int   : // CPS devices do not support interrupt or PW notification.
             case rio_pc_rst_pw    : // CPS1616/SPS1616 does support ignoring reset requests.
                                     //    For these devices, translate the reset configuration to "ignore"
             case rio_pc_rst_ignore: //    For all other devices, translate the reset configuration to "reset port".

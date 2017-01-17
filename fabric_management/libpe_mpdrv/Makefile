@@ -49,7 +49,7 @@ CFLAGS+=-I../inc
 CFLAGS+=-I../libdid/inc
 CFLAGS+=-I../libct/inc
 CFLAGS+=-I../libriocp_pe/inc -I../libriocp_pe/src
-CFLAGS+=-I../librio_switch/inc
+CFLAGS+=-I../librio/inc
 CFLAGS+=-I../libcfg/inc
 
 LDFLAGS+=-L. -l$(NAME)
@@ -74,7 +74,7 @@ src/%.o: src/%.c $(HEADERS)
 $(TEST_TARGET) : $(OBJECTS) $(TEST_OBJECTS)
 	@echo ---------- Building $@
 	$(CC) $(OBJECTS) $(TEST_OBJECTS) -o $(TEST_TARGET) -lcli -llog \
-	-lmport -lriocp_pe -lrio_switch -pthread \
+	-lmport -lriocp_pe -lrio -pthread \
 	-L. -L$(COMMONLIBA) -L../libs_a
 
 clean:

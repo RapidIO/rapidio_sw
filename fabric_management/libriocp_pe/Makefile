@@ -19,7 +19,7 @@ CFLAGS+=$(addprefix -W,all extra) -fPIC
 CFLAGS+=-D$(DEBUG_CTL) -DRDMA_LL=$(LOG_LEVEL)
 CFLAGS+=-I../inc
 CFLAGS+=-I./inc -I./src
-CFLAGS+=-I../librio_switch/inc -I../libct/inc -I../libdid/inc
+CFLAGS+=-I../librio/inc -I../libct/inc -I../libdid/inc
 
 LDFLAGS+=-L. -L$(COMMONLIB) -L$(FMDDIR)/libs_a $(LIBS_RPATH) -l$(NAME)
 
