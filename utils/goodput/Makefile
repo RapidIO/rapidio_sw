@@ -37,7 +37,7 @@ DEBUG?=DEBUG
 
 config?=NODEBUG
 LIBMPINCDIR=$(COMMONDIR)/libmport/inc
-REGSDIR=$(FMDDIR)/librio_switch/inc
+REGSDIR=$(FMDDIR)/librio/inc
 
 # Kernel-mode flags
 CXXFLAGS+=-Wno-sign-compare

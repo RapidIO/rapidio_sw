@@ -46,7 +46,7 @@ CFLAGS+=-I../inc
 CFLAGS+=-I../libdid/inc
 CFLAGS+=-I../libct/inc
 CFLAGS+=-I../libriocp_pe/inc
-CFLAGS+=-I../librio_switch/inc
+CFLAGS+=-I../librio/inc
 
 LDFLAGS+=-L. -l$(NAME)
 

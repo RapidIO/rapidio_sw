@@ -41,7 +41,7 @@ TEST_OBJECTS:=$(patsubst test/%.c,test/%.o,$(wildcard test/*.c))
 
 CXXFLAGS+=-D$(DEBUG_CTL) -DRDMA_LL=$(LOG_LEVEL)
 CXXFLAGS+=-I$(FMDDIR)/libdid/inc
-CXXFLAGS+=-I$(FMDDIR)/librio_switch/inc
+CXXFLAGS+=-I$(FMDDIR)/librio/inc
 LDFLAGS+=-L. -L$(COMMONLIB) -L$(FMDDIR)/libs_a $(LIBS_RPATH) -l$(NAME)
 
 

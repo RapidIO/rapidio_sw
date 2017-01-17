@@ -1,5 +1,5 @@
 /* Implementation for libriocp_pe register read/write driver  and	 */
-/* libriocp_pe PE driver based on librio_switch and libmport.	      */
+/* libriocp_pe PE driver based on librio and libmport.	      */
 /*
 ****************************************************************************
 Copyright (c) 2014, Integrated Device Technology Inc.
@@ -520,7 +520,7 @@ int mpsw_drv_get_mport_regs(int mp_num, struct mport_regs *regs);
 // NOTE: generic_device_init is called when the
 // pe->cap structure has not yet been filled in.
 //
-// Only librio_switch macros for checking register/capability
+// Only librio macros for checking register/capability
 // values work at this point.
 
 int generic_device_init(struct riocp_pe *pe, uint32_t *ct)

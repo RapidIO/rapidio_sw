@@ -6,7 +6,7 @@
 TOPDIR?=$(shell pwd)/../..
 include $(TOPDIR)/rules.mk
 
-NAME:=rio_switch
+NAME:=rio
 TARGETS:=lib$(NAME).a
 TEST_TARGET:=$(NAME)_test
 
@@ -21,7 +21,7 @@ DEBUG?=DEBUG
 CFLAGS+=$(addprefix -W,all extra) -fPIC
 CFLAGS+=-DNDEBUG -DTSI721_SUPPORT
 CFLAGS+=-I./inc
-CFLAGS+=-I$(FMDDIR)/librio_switch/inc
+CFLAGS+=-I$(FMDDIR)/librio/inc
 
 LDFLAGS+=-Wl,--wrap=DARRegRead -Wl,--wrap=DARRegWrite
 LDFLAGS+=-L. -L$(COMMONLIB) -L$(FMDDIR)/libs_a $(LIBS_RPATH) -l$(NAME)

@@ -57,7 +57,7 @@ src/%.o: src/%.c
 	$(CXX) $(CXXFLAGS) -o $@ $< -c \
 	-I../libdid/inc \
 	-I../libct/inc \
-	-I../librio_switch/inc \
+	-I../librio/inc \
 	-I../libriocp_pe/inc \
 	-I../libpe_mpdrv/inc \
 	-I../libcfg/inc \
@@ -69,7 +69,7 @@ fmd: $(OBJECTS)
 	@echo ---------- Building $@
 	$(CXX) -pthread \
 	-o $@ $(OBJECTS) $(LIB_DIRS) \
-	-lcfg -lct -ldid -lpe_mpdrv -lrio_switch -lriocp_pe \
+	-lcfg -lct -ldid -lpe_mpdrv -lrio -lriocp_pe \
 	-ldd -llist -ltime_utils -lcli -llog -lmport \
 	-lrt -ldl $(TST_LIBS)
 

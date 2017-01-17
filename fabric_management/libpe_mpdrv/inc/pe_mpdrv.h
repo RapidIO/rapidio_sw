@@ -1,5 +1,5 @@
-/* libriocp_pe register read/write driver based on librio_switch and libmport */
-/* libriocp_pe PE driver based on librio_switch.                              */
+/* libriocp_pe register read/write driver based on librio and libmport */
+/* libriocp_pe PE driver based on librio.                              */
 /*
 ****************************************************************************
 Copyright (c) 2015, Integrated Device Technology Inc.
