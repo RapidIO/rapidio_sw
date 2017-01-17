@@ -1597,12 +1597,13 @@ void rxs_change_rte_rt_test_success(bool dom)
         rio_rt_change_rte_out_t     mock_chg_out;
         rio_rt_state_t              rt;
         uint32_t                    port;
-	uint32_t		    chg_rte_val, rte_num;
-        uint32_t                    rte_num_upb = (dom)?RIO_DAR_RT_DOM_TABLE_SIZE:RIO_DAR_RT_DEV_TABLE_SIZE;
+	uint32_t		    chg_rte_val, rte_num, rte_idx;
+	uint32_t rte_nums[] = {0, 1, 7, 127, 128, 195, 255, RIO_RTE_BAD};
 
         for (port = 0; port <= RXS2448_MAX_PORTS; port++) {
-            for (rte_num = 0; rte_num < rte_num_upb; rte_num++) {
+            for (rte_idx = 0; RIO_RTE_BAD != rte_nums[rte_idx]; rte_idx++) {
                 rxs_init_mock_rt(&rt);
+		rte_num = rte_nums[rte_idx];
 
 		if (RXS2448_MAX_PORTS == port) {
             		mock_init_in.set_on_port = RIO_ALL_PORTS;
@@ -1688,12 +1689,15 @@ void rxs_change_rte_rt_bad_rte_test(void **state)
         rio_rt_change_rte_in_t      mock_chg_in;
         rio_rt_change_rte_out_t     mock_chg_out;
         rio_rt_state_t              rt;
-        uint32_t rte_num;
+        uint32_t rte_num, rte_idx;
+	uint32_t rte_nums[] = {0, 1, 7, 127, 128, 195, 255, RIO_RTE_BAD};
         uint8_t port;
 
         for (port = 0; port <= RXS2448_MAX_PORTS; port++) {
-            for (rte_num = 0; rte_num < RIO_DAR_RT_DEV_TABLE_SIZE; rte_num++) {
+            for (rte_idx = 0; RIO_RTE_BAD != rte_nums[rte_idx]; rte_idx++) {
                 rxs_init_mock_rt(&rt);
+
+		rte_num = rte_nums[rte_idx];
                 if (RXS2448_MAX_PORTS == port) {
                         mock_init_in.set_on_port = RIO_ALL_PORTS;
                         mock_init_in.default_route =
@@ -1751,12 +1755,15 @@ void rxs_change_rte_rt_bad_rte_dev_test(void **state)
         rio_rt_change_rte_in_t      mock_chg_in;
         rio_rt_change_rte_out_t     mock_chg_out;
         rio_rt_state_t              rt;
-        uint32_t rte_num;
+        uint32_t rte_num, rte_idx;
+	uint32_t rte_nums[] = {0, 1, 7, 127, 128, 195, 255, RIO_RTE_BAD};
         uint8_t port;
 
         for (port = 0; port <= RXS2448_MAX_PORTS; port++) {
-            for (rte_num = 0; rte_num < RIO_DAR_RT_DEV_TABLE_SIZE; rte_num++) {
+            for (rte_idx = 0; RIO_RTE_BAD != rte_nums[rte_idx]; rte_idx++) {
                 rxs_init_mock_rt(&rt);
+
+		rte_num = rte_nums[rte_idx];
                 if (RXS2448_MAX_PORTS == port) {
                         mock_init_in.set_on_port = RIO_ALL_PORTS;
                         mock_init_in.default_route =
