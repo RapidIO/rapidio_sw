@@ -318,21 +318,21 @@ int mpsw_destroy_priv_data(struct riocp_pe *pe)
 int mpdrv_auto_init_rt(struct riocp_pe *pe, DAR_DEV_INFO_t *dh,
 			struct mpsw_drv_private_data *priv, pe_port_t acc_port)
 {
-	idt_rt_set_all_in_t set_in;
-	idt_rt_set_all_out_t set_out;
-	idt_rt_initialize_in_t init_in;
-	idt_rt_initialize_out_t init_out;
-	idt_rt_change_rte_in_t rte_in;
-	idt_rt_change_rte_out_t rte_out;
+	rio_rt_set_all_in_t set_in;
+	rio_rt_set_all_out_t set_out;
+	rio_rt_initialize_in_t init_in;
+	rio_rt_initialize_out_t init_out;
+	rio_rt_change_rte_in_t rte_in;
+	rio_rt_change_rte_out_t rte_out;
 	uint32_t rc;
 
 	init_in.set_on_port = RIO_ALL_PORTS;
-	init_in.default_route = IDT_DSF_RT_NO_ROUTE;
-	init_in.default_route_table_port = IDT_DSF_RT_NO_ROUTE;
+	init_in.default_route = RIO_DSF_RT_NO_ROUTE;
+	init_in.default_route_table_port = RIO_DSF_RT_NO_ROUTE;
 	init_in.update_hw = false;
 	init_in.rt = &priv->st.g_rt;
 
-	rc = idt_rt_initialize(dh, &init_in, &init_out);
+	rc = rio_rt_initialize(dh, &init_in, &init_out);
 	if (rc) {
 		goto fail;
 	}
@@ -342,7 +342,7 @@ int mpdrv_auto_init_rt(struct riocp_pe *pe, DAR_DEV_INFO_t *dh,
 	rte_in.rte_value = acc_port;
 	rte_in.rt = &priv->st.g_rt;
 
-	rc = idt_rt_change_rte(dh, &rte_in, &rte_out);
+	rc = rio_rt_change_rte(dh, &rte_in, &rte_out);
 	if (rc) {
 		goto fail;
 	}
@@ -350,7 +350,7 @@ int mpdrv_auto_init_rt(struct riocp_pe *pe, DAR_DEV_INFO_t *dh,
 	set_in.set_on_port = RIO_ALL_PORTS;
 	set_in.rt = &priv->st.g_rt;
 
-	rc = idt_rt_set_all(dh, &set_in, &set_out);
+	rc = rio_rt_set_all(dh, &set_in, &set_out);
 	if (rc) {
 		goto fail;
 	}
@@ -363,8 +363,8 @@ int mpdrv_init_rt(struct riocp_pe *pe, uint32_t ct, DAR_DEV_INFO_t *dh,
 		struct mpsw_drv_private_data *priv, pe_port_t acc_port)
 {
         struct cfg_dev sw;
-        idt_rt_set_all_in_t set_in;
-        idt_rt_set_all_out_t set_out;
+        rio_rt_set_all_in_t set_in;
+        rio_rt_set_all_out_t set_out;
         pe_port_t port;
         int rc;
 
@@ -383,7 +383,7 @@ int mpdrv_init_rt(struct riocp_pe *pe, uint32_t ct, DAR_DEV_INFO_t *dh,
                 set_in.set_on_port = RIO_ALL_PORTS;
                 set_in.rt = sw.sw_info.rt[CFG_DEV08];
 
-                rc = idt_rt_set_all(dh, &set_in, &set_out);
+                rc = rio_rt_set_all(dh, &set_in, &set_out);
                 if (RIO_SUCCESS != rc) {
                         ERR("Error programming global rt on ct 0x%x rc %d\n",
                                 sw.ct, rc);
@@ -398,7 +398,7 @@ int mpdrv_init_rt(struct riocp_pe *pe, uint32_t ct, DAR_DEV_INFO_t *dh,
                 set_in.set_on_port = port;
                 set_in.rt = sw.sw_info.sw_pt[port].rt[CFG_DEV08];
 
-                rc = idt_rt_set_all(dh, &set_in, &set_out);
+                rc = rio_rt_set_all(dh, &set_in, &set_out);
                 if (RIO_SUCCESS != rc) {
                         ERR("Error programming port %d rt on ct 0x%x rc %d\n",
                                 port, ct, rc);
@@ -534,8 +534,8 @@ int generic_device_init(struct riocp_pe *pe, uint32_t *ct)
 	rio_pc_dev_reset_config_out_t   rst_out;
 	rio_pc_get_status_in_t	  ps_in;
 	rio_pc_get_config_in_t	  pc_in;
-	idt_rt_probe_all_in_t	   rt_in;
-	idt_rt_probe_all_out_t	  rt_out;
+	rio_rt_probe_all_in_t	  rt_in;
+	rio_rt_probe_all_out_t	  rt_out;
 	rio_sc_init_dev_ctrs_in_t       sc_in;
 	rio_sc_init_dev_ctrs_out_t      sc_out;
 	rio_em_dev_rpt_ctl_in_t	 rpt_in;
@@ -674,13 +674,13 @@ int generic_device_init(struct riocp_pe *pe, uint32_t *ct)
 		pe_port_t port;
 		rt_in.probe_on_port = RIO_ALL_PORTS;
 		rt_in.rt	    = &priv->st.g_rt;
-		rc = idt_rt_probe_all(dev_h, &rt_in, &rt_out);
+		rc = rio_rt_probe_all(dev_h, &rt_in, &rt_out);
 		if (RIO_SUCCESS != rc)
 			goto exit;
 		for (port = 0; port < NUM_PORTS((&priv->dev_h)); port++) {
 			rt_in.probe_on_port = port;
 			rt_in.rt	    = &priv->st.pprt[port];
-			rc = idt_rt_probe_all(dev_h, &rt_in, &rt_out);
+			rc = rio_rt_probe_all(dev_h, &rt_in, &rt_out);
 			if (RIO_SUCCESS != rc)
 				goto exit;
 		}
@@ -695,13 +695,13 @@ int generic_device_init(struct riocp_pe *pe, uint32_t *ct)
 
 		rt_in.probe_on_port = RIO_ALL_PORTS;
 		rt_in.rt	    = &priv->st.g_rt;
-		rc = idt_rt_probe_all(dev_h, &rt_in, &rt_out);
+		rc = rio_rt_probe_all(dev_h, &rt_in, &rt_out);
 		if (RIO_SUCCESS != rc)
 			goto exit;
 		for (port = 0; port < NUM_PORTS((&priv->dev_h)); port++) {
 			rt_in.probe_on_port = port;
 			rt_in.rt	    = &priv->st.pprt[port];
-			rc = idt_rt_probe_all(dev_h, &rt_in, &rt_out);
+			rc = rio_rt_probe_all(dev_h, &rt_in, &rt_out);
 			if (RIO_SUCCESS != rc)
 				goto exit;
 		}
@@ -901,8 +901,8 @@ int mpsw_drv_get_route_entry(struct riocp_pe  *pe, pe_port_t port,
 {
 	struct mpsw_drv_private_data *p_dat = NULL;
 	int ret;
-	idt_rt_probe_in_t probe_in;
-	idt_rt_probe_out_t probe_out;
+	rio_rt_probe_in_t probe_in;
+	rio_rt_probe_out_t probe_out;
 
 	DBG("ENTRY\n");
 
@@ -921,7 +921,7 @@ int mpsw_drv_get_route_entry(struct riocp_pe  *pe, pe_port_t port,
 	probe_in.destID = did;
 	probe_in.rt = &p_dat->st.g_rt;
 	
-	ret = idt_rt_probe(&p_dat->dev_h, &probe_in, &probe_out);
+	ret = rio_rt_probe(&p_dat->dev_h, &probe_in, &probe_out);
 	if (ret) {
 		DBG("Failed probing %s port %d did %d ret 0x%x imp_rc 0x%x\n",
 			pe->sysfs_name, port, did, ret, probe_out.imp_rc);
@@ -942,10 +942,10 @@ int mpsw_drv_set_route_entry(struct riocp_pe  *pe,
 {
 	struct mpsw_drv_private_data *p_dat = NULL;
 	int ret;
-	idt_rt_change_rte_in_t chg_in;
-	idt_rt_change_rte_out_t chg_out;
-	idt_rt_set_changed_in_t set_in;
-	idt_rt_set_changed_out_t set_out;
+	rio_rt_change_rte_in_t chg_in;
+	rio_rt_change_rte_out_t chg_out;
+	rio_rt_set_changed_in_t set_in;
+	rio_rt_set_changed_out_t set_out;
 
 	DBG("ENTRY\n");
 	if (riocp_pe_handle_get_private(pe, (void **)&p_dat)) {
@@ -971,7 +971,7 @@ int mpsw_drv_set_route_entry(struct riocp_pe  *pe,
 		chg_in.rt = &p_dat->st.pprt[port];
 	}
 	
-	ret = idt_rt_change_rte(&p_dat->dev_h, &chg_in, &chg_out);
+	ret = rio_rt_change_rte(&p_dat->dev_h, &chg_in, &chg_out);
 	if (ret) {
 		DBG("RT_CHG %s port %d did %d rte %x ret 0x%x imp_rc 0x%x\n",
 			pe->sysfs_name, port, did, rt_val, ret, chg_out.imp_rc);
@@ -981,7 +981,7 @@ int mpsw_drv_set_route_entry(struct riocp_pe  *pe,
 	set_in.set_on_port = port;
 	set_in.rt = chg_in.rt;
 
-	ret = idt_rt_set_changed(&p_dat->dev_h, &set_in, &set_out);
+	ret = rio_rt_set_changed(&p_dat->dev_h, &set_in, &set_out);
 	if (ret) {
 		DBG("RT_SET %s port %d did %d rte 0x%x ret 0x%x imp_rc 0x%x\n",
 			pe->sysfs_name, port, did, rt_val, ret, set_out.imp_rc);
@@ -1000,12 +1000,12 @@ int mpsw_drv_alloc_mcast_mask(struct riocp_pe *sw, pe_port_t port,
 {
 	struct mpsw_drv_private_data *p_dat = NULL;
 	int ret;
-	idt_rt_alloc_mc_mask_in_t alloc_in;
-	idt_rt_alloc_mc_mask_out_t alloc_out;
-	idt_rt_change_mc_mask_in_t chg_in;
-	idt_rt_change_mc_mask_out_t chg_out;
-	idt_rt_set_changed_in_t set_in;
-	idt_rt_set_changed_out_t set_out;
+	rio_rt_alloc_mc_mask_in_t alloc_in;
+	rio_rt_alloc_mc_mask_out_t alloc_out;
+	rio_rt_change_mc_mask_in_t chg_in;
+	rio_rt_change_mc_mask_out_t chg_out;
+	rio_rt_set_changed_in_t set_in;
+	rio_rt_set_changed_out_t set_out;
 
 	DBG("ENTRY\n");
 	if (!(RIOCP_PE_IS_SWITCH(sw->cap))) {
@@ -1039,7 +1039,7 @@ int mpsw_drv_alloc_mcast_mask(struct riocp_pe *sw, pe_port_t port,
 		alloc_in.rt = &p_dat->st.pprt[port];
 	}
 
-	ret = idt_rt_alloc_mc_mask(&p_dat->dev_h, &alloc_in, &alloc_out);
+	ret = rio_rt_alloc_mc_mask(&p_dat->dev_h, &alloc_in, &alloc_out);
 	if (ret) {
 		DBG("ALLOC_MC %s port %d ret 0x%x imp_rc 0x%x\n",
 			sw->sysfs_name,  port, ret, alloc_out.imp_rc);
@@ -1052,7 +1052,7 @@ int mpsw_drv_alloc_mcast_mask(struct riocp_pe *sw, pe_port_t port,
 	chg_in.mc_info.mc_mask = port_mask;
 	chg_in.rt = alloc_in.rt;
 
-	ret = idt_rt_change_mc_mask(&p_dat->dev_h, &chg_in, &chg_out);
+	ret = rio_rt_change_mc_mask(&p_dat->dev_h, &chg_in, &chg_out);
 	if (ret) {
 		DBG("CHG_MC %s port %d mask %x ret 0x%x imp_rc 0x%x\n",
 			sw->sysfs_name, port, port_mask, ret, alloc_out.imp_rc);
@@ -1062,7 +1062,7 @@ int mpsw_drv_alloc_mcast_mask(struct riocp_pe *sw, pe_port_t port,
 	set_in.set_on_port = port;
 	set_in.rt = alloc_in.rt;
 
-	ret = idt_rt_set_changed(&p_dat->dev_h, &set_in, &set_out);
+	ret = rio_rt_set_changed(&p_dat->dev_h, &set_in, &set_out);
 	if (ret) {
 		DBG("RT_SET %s port %d rte 0x%x ret 0x%x imp_rc 0x%x\n",
 			sw->sysfs_name, port, *rt_val, ret, set_out.imp_rc);
@@ -1081,8 +1081,8 @@ int mpsw_drv_free_mcast_mask(struct riocp_pe *sw, pe_port_t port,
 {
 	struct mpsw_drv_private_data *p_dat = NULL;
 	int ret;
-	idt_rt_dealloc_mc_mask_in_t free_in;
-	idt_rt_dealloc_mc_mask_out_t free_out;
+	rio_rt_dealloc_mc_mask_in_t free_in;
+	rio_rt_dealloc_mc_mask_out_t free_out;
 
 	DBG("ENTRY\n");
 	if (!(RIOCP_PE_IS_SWITCH(sw->cap))) {
@@ -1117,7 +1117,7 @@ int mpsw_drv_free_mcast_mask(struct riocp_pe *sw, pe_port_t port,
 		free_in.rt = &p_dat->st.pprt[port];
 	free_in.mc_mask_rte = rt_val;
 
-	ret = idt_rt_dealloc_mc_mask(&p_dat->dev_h, &free_in, &free_out);
+	ret = rio_rt_dealloc_mc_mask(&p_dat->dev_h, &free_in, &free_out);
 	if (ret) {
 		DBG("FREE_MC %s port %d ret 0x%x imp_rc 0x%x\n",
 			sw->sysfs_name, port, ret, free_out.imp_rc);
@@ -1136,10 +1136,10 @@ int mpsw_drv_change_mcast_mask(struct riocp_pe *sw, pe_port_t port,
 {
 	struct mpsw_drv_private_data *p_dat = NULL;
 	int ret;
-	idt_rt_change_mc_mask_in_t chg_in;
-	idt_rt_change_mc_mask_out_t chg_out;
-	idt_rt_set_changed_in_t set_in;
-	idt_rt_set_changed_out_t set_out;
+	rio_rt_change_mc_mask_in_t chg_in;
+	rio_rt_change_mc_mask_out_t chg_out;
+	rio_rt_set_changed_in_t set_in;
+	rio_rt_set_changed_out_t set_out;
 
 	DBG("ENTRY\n");
 	if (!(RIOCP_PE_IS_SWITCH(sw->cap))) {
@@ -1176,7 +1176,7 @@ int mpsw_drv_change_mcast_mask(struct riocp_pe *sw, pe_port_t port,
 	chg_in.mc_mask_rte = rt_val;
 	chg_in.mc_info.mc_mask = port_mask;
 
-	ret = idt_rt_change_mc_mask(&p_dat->dev_h, &chg_in, &chg_out);
+	ret = rio_rt_change_mc_mask(&p_dat->dev_h, &chg_in, &chg_out);
 	if (ret) {
 		DBG("CHG_MC %s port %d mask 0x%x ret 0x%x imp_rc 0x%x\n",
 			sw->sysfs_name, port, port_mask, ret, chg_out.imp_rc);
@@ -1186,7 +1186,7 @@ int mpsw_drv_change_mcast_mask(struct riocp_pe *sw, pe_port_t port,
 	set_in.set_on_port = port;
 	set_in.rt = chg_in.rt;
 
-	ret = idt_rt_set_changed(&p_dat->dev_h, &set_in, &set_out);
+	ret = rio_rt_set_changed(&p_dat->dev_h, &set_in, &set_out);
 	if (ret) {
 		DBG("CHG_MC %s port %d rte 0x%x ret 0x%x imp_rc 0x%x\n",
 			sw->sysfs_name, port, rt_val, ret, set_out.imp_rc);

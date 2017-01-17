@@ -382,7 +382,7 @@ int test_case_5(void)
 	if (!dev.is_sw)
 		goto fail;
 
-	if (dev.sw_info.rt[CFG_DEV08]->default_route != IDT_DSF_RT_NO_ROUTE)
+	if (dev.sw_info.rt[CFG_DEV08]->default_route != RIO_DSF_RT_NO_ROUTE)
 		goto fail;
 
 	if (dev.sw_info.rt[CFG_DEV08]->dev_table[0x12].rte_val  != 2)

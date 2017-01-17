@@ -68,17 +68,17 @@ struct int_cfg_parms *cfg = NULL;
 FILE *cfg_fd = NULL;
 const char *DEV_TYPE = "ENDPOINT";
 
-void init_rt(idt_rt_state_t *rt)
+void init_rt(rio_rt_state_t *rt)
 { 
 	int k;
 
-	memset(rt, 0, sizeof(idt_rt_state_t));
-	rt->default_route = IDT_DSF_RT_NO_ROUTE;
-	for (k = 0; k < IDT_DAR_RT_DEV_TABLE_SIZE; k++) {
-		rt->dev_table[k].rte_val = IDT_DSF_RT_NO_ROUTE;
-		rt->dom_table[k].rte_val = IDT_DSF_RT_NO_ROUTE;
+	memset(rt, 0, sizeof(rio_rt_state_t));
+	rt->default_route = RIO_DSF_RT_NO_ROUTE;
+	for (k = 0; k < RIO_DAR_RT_DEV_TABLE_SIZE; k++) {
+		rt->dev_table[k].rte_val = RIO_DSF_RT_NO_ROUTE;
+		rt->dom_table[k].rte_val = RIO_DSF_RT_NO_ROUTE;
 	};
-	for (k = 0; k < IDT_DSF_MAX_MC_MASK; k++) {
+	for (k = 0; k < RIO_DSF_MAX_MC_MASK; k++) {
 		rt->mc_masks[k].mc_destID = 0xFF;
 		rt->mc_masks[k].tt = tt_dev8;
 	};
@@ -365,21 +365,21 @@ int get_rt_v(struct int_cfg_parms *cfg, uint32_t *rt_val)
 	case 0: // MC
 		if (get_dec_int(cfg, &val))
 			goto fail;
-		*rt_val = (val<IDT_DSF_MAX_MC_MASK)?
-			(val + IDT_DSF_MAX_MC_MASK):IDT_DSF_RT_NO_ROUTE;
-		if (IDT_DSF_RT_NO_ROUTE == *rt_val) {
+		*rt_val = (val<RIO_DSF_MAX_MC_MASK)?
+			(val + RIO_DSF_MAX_MC_MASK):RIO_DSF_RT_NO_ROUTE;
+		if (RIO_DSF_RT_NO_ROUTE == *rt_val) {
 			parse_err(cfg, (char *)"Illegal MC Mask number.");
 			goto fail;
 		};
 		break;
 	case 1: // NEXT_BYTE
-		*rt_val = IDT_DSF_RT_USE_DEVICE_TABLE;
+		*rt_val = RIO_DSF_RT_USE_DEVICE_TABLE;
 		break;
 	case 2: // DEFAULT
-		*rt_val = IDT_DSF_RT_USE_DEFAULT_ROUTE;
+		*rt_val = RIO_DSF_RT_USE_DEFAULT_ROUTE;
 		break;
 	case 3: // DROP
-		*rt_val = IDT_DSF_RT_NO_ROUTE;
+		*rt_val = RIO_DSF_RT_NO_ROUTE;
 		break;
 	default:
 		if (tok_parse_port_num(tok, &val, 0)) {
@@ -801,14 +801,14 @@ fail:
 	return 1;
 };
 
-int parse_mc_mask(struct int_cfg_parms *cfg, idt_rt_mc_info_t *mc_info)
+int parse_mc_mask(struct int_cfg_parms *cfg, rio_rt_mc_info_t *mc_info)
 {
 	uint32_t mc_mask_idx, done = 0, pnum;
 	char *tok = NULL;
 
 	if (get_dec_int(cfg, &mc_mask_idx))
 		goto fail;
-	if (mc_mask_idx >= IDT_DSF_MAX_MC_MASK) {
+	if (mc_mask_idx >= RIO_DSF_MAX_MC_MASK) {
 		parse_err(cfg, (char *)"Illegal multicast mask index.");
 		goto fail;
 	};
@@ -938,14 +938,14 @@ fail:
 };
 
 int assign_rt_v(int rt_sz, int st_destid, int end_destid, pe_rt_val rtv, 
-			idt_rt_state_t *rt, struct int_cfg_parms *cfg)
+			rio_rt_state_t *rt, struct int_cfg_parms *cfg)
 {
 	int i;
 
 	switch (rt_sz) {
 	case 0: // dev08
-		if ((st_destid >= IDT_DAR_RT_DEV_TABLE_SIZE) ||
-				(end_destid >= IDT_DAR_RT_DEV_TABLE_SIZE)) {
+		if ((st_destid >= RIO_DAR_RT_DEV_TABLE_SIZE) ||
+				(end_destid >= RIO_DAR_RT_DEV_TABLE_SIZE)) {
 			parse_err(cfg, (char *)"DestID value too large.");
 			goto fail;
 		};
@@ -1072,7 +1072,7 @@ int parse_switch(struct int_cfg_parms *cfg)
 	uint32_t destid, destid1;
 	uint32_t rtv;
 	uint32_t tmp;
-	idt_rt_state_t *rt = NULL;
+	rio_rt_state_t *rt = NULL;
 
 	if (cfg->sw_cnt >= CFG_MAX_SW) {
 		parse_err(cfg, (char *)"Too many switches.");
@@ -1127,7 +1127,7 @@ int parse_switch(struct int_cfg_parms *cfg)
 				cfg->sws[i].ports[port].rt_valid[rt_sz] = true;
 				if (cfg->sws[i].rt_valid[rt_sz])
 					memcpy(rt, &cfg->sws[i].rt[rt_sz],
-						sizeof(idt_rt_state_t));
+						sizeof(rio_rt_state_t));
 				break;
 			};
 				

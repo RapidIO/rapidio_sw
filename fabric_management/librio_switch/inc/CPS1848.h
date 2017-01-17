@@ -367,15 +367,15 @@ extern "C" {
 /* Validate Default Route Value
 */
 #define IS_CPS_VALID_DEFAULT_ROUTE(dflt_route) \
-            ( ((uint8_t)dflt_route == (uint8_t)IDT_DSF_RT_USE_DEVICE_TABLE) || \
-              ((uint8_t)dflt_route == (uint8_t)IDT_DSF_RT_USE_DEFAULT_ROUTE) || \
-              ((uint8_t)dflt_route == (uint8_t)IDT_DSF_RT_NO_ROUTE) )
+            ( ((uint8_t)dflt_route == (uint8_t)RIO_DSF_RT_USE_DEVICE_TABLE) || \
+              ((uint8_t)dflt_route == (uint8_t)RIO_DSF_RT_USE_DEFAULT_ROUTE) || \
+              ((uint8_t)dflt_route == (uint8_t)RIO_DSF_RT_NO_ROUTE) )
 
 /* Validate Default Route Table_Port
 */
 #define IS_CPS_VALID_DEFAULT_ROUTE_TABLE_PORT(dflt_route_table_port) \
             ( (uint8_t)dflt_route_table_port == \
-              (uint8_t)IDT_DSF_RT_USE_DEFAULT_ROUTE )
+              (uint8_t)RIO_DSF_RT_USE_DEFAULT_ROUTE )
 
 /* Validate Port-based Default Route Value
 */

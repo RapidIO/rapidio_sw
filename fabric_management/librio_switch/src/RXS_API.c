@@ -434,7 +434,7 @@ exit:
 #define MC_MASK_ADDR(b,m)     ((b)+(8*m))
 
 uint32_t idt_rxs_program_mc_masks ( DAR_DEV_INFO_t        *dev_info, 
-                                    idt_rt_set_all_in_t   *in_parms,
+                                    rio_rt_set_all_in_t   *in_parms,
                                     bool                   set_all, // true if all entries should be set
                                     uint32_t              *imp_rc )
 {
@@ -488,7 +488,7 @@ exit:
 #define DOM_RTE_ADDR(b,n) ((b)+(4*n))
 
 uint32_t idt_rxs_program_rte_entries ( DAR_DEV_INFO_t        *dev_info, 
-                                       idt_rt_set_all_in_t   *in_parms, 
+                                       rio_rt_set_all_in_t   *in_parms, 
                                        bool                   set_all, // true if all entries should be set
                                        uint32_t              *imp_rc ) 
 {
@@ -512,14 +512,14 @@ uint32_t idt_rxs_program_rte_entries ( DAR_DEV_INFO_t        *dev_info,
        dom_rte_base = RXS_RIO_SPX_L1_GY_ENTRYZ_CSR(in_parms->set_on_port, 0, 0);
     } 
     
-    for (rte_num = 0; rte_num < IDT_DAR_RT_DOM_TABLE_SIZE; rte_num++) {
+    for (rte_num = 0; rte_num < RIO_DAR_RT_DOM_TABLE_SIZE; rte_num++) {
        if (in_parms->rt->dom_table[rte_num].changed || set_all) {
           // Validate value to be programmed.
           if (in_parms->rt->dom_table[rte_num].rte_val >= NUM_RXS_PORTS(dev_info)) {
 	     // Domain table can be a port number, use device table, use default route, or drop.
-	     if ((in_parms->rt->dom_table[rte_num].rte_val != IDT_DSF_RT_USE_DEVICE_TABLE    ) &&
-	         (in_parms->rt->dom_table[rte_num].rte_val != IDT_DSF_RT_USE_DEFAULT_ROUTE   ) &&
-	         (in_parms->rt->dom_table[rte_num].rte_val != IDT_DSF_RT_NO_ROUTE            ) ) {
+	     if ((in_parms->rt->dom_table[rte_num].rte_val != RIO_DSF_RT_USE_DEVICE_TABLE    ) &&
+	         (in_parms->rt->dom_table[rte_num].rte_val != RIO_DSF_RT_USE_DEFAULT_ROUTE   ) &&
+	         (in_parms->rt->dom_table[rte_num].rte_val != RIO_DSF_RT_NO_ROUTE            ) ) {
                 rc = RIO_ERR_INVALID_PARAMETER;
                 *imp_rc = IDT_RXS_PROGRAM_RTE_ENTRIES(1);
                 goto exit; 
@@ -536,15 +536,15 @@ uint32_t idt_rxs_program_rte_entries ( DAR_DEV_INFO_t        *dev_info,
        } 
     } 
         
-    for (rte_num = 0; rte_num < IDT_DAR_RT_DEV_TABLE_SIZE; rte_num++) {
+    for (rte_num = 0; rte_num < RIO_DAR_RT_DEV_TABLE_SIZE; rte_num++) {
        if (in_parms->rt->dev_table[rte_num].changed || set_all) {
 	  // Validate value to be programmed.
           if (in_parms->rt->dev_table[rte_num].rte_val >= NUM_RXS_PORTS(dev_info)) {
 	     // Device table can be a port number, a multicast mask, use default route, or drop.
 	     if ((MC_MASK_IDX_FROM_ROUTE(in_parms->rt->dev_table[rte_num].rte_val)
-				                           == IDT_DSF_BAD_MC_MASK         ) &&
-	         (in_parms->rt->dev_table[rte_num].rte_val != IDT_DSF_RT_USE_DEFAULT_ROUTE) &&
-	         (in_parms->rt->dev_table[rte_num].rte_val != IDT_DSF_RT_NO_ROUTE         ) ) {
+				                           == RIO_DSF_BAD_MC_MASK         ) &&
+	         (in_parms->rt->dev_table[rte_num].rte_val != RIO_DSF_RT_USE_DEFAULT_ROUTE) &&
+	         (in_parms->rt->dev_table[rte_num].rte_val != RIO_DSF_RT_NO_ROUTE         ) ) {
                 rc = RIO_ERR_INVALID_PARAMETER;
                 *imp_rc = IDT_RXS_PROGRAM_RTE_ENTRIES(3);
                 goto exit; 
@@ -566,8 +566,8 @@ exit:
 }
 
 uint32_t idt_rxs_rt_set_common( DAR_DEV_INFO_t        *dev_info, 
-                                idt_rt_set_all_in_t   *in_parms, 
-                                idt_rt_set_all_out_t  *out_parms,
+                                rio_rt_set_all_in_t   *in_parms, 
+                                rio_rt_set_all_out_t  *out_parms,
                                 bool                   set_all  ) // true if all entries should be set
 {
     uint32_t rc = RIO_ERR_INVALID_PARAMETER;
@@ -583,7 +583,7 @@ uint32_t idt_rxs_rt_set_common( DAR_DEV_INFO_t        *dev_info,
     }
 
     if ((NUM_RXS_PORTS(dev_info) <= in_parms->rt->default_route) &&
-        !(IDT_DSF_RT_NO_ROUTE == in_parms->rt->default_route))   {
+        !(RIO_DSF_RT_NO_ROUTE == in_parms->rt->default_route))   {
         out_parms->imp_rc = IDT_RXS_RTE_SET_COMMON(2);
         goto exit;
     }
@@ -605,36 +605,36 @@ exit:
 
 /* This function sets the routing table hardware to match every entry
  * in the routing table state structure. 
- * After idt_rt_set_all is called, no entries are marked as changed in
+ * After rio_rt_set_all is called, no entries are marked as changed in
  * the routing table state structure.
  */
 uint32_t idt_rxs_rt_set_all( DAR_DEV_INFO_t        *dev_info, 
-                             idt_rt_set_all_in_t   *in_parms, 
-                             idt_rt_set_all_out_t  *out_parms )
+                             rio_rt_set_all_in_t   *in_parms, 
+                             rio_rt_set_all_out_t  *out_parms )
 {
     return idt_rxs_rt_set_common(dev_info, in_parms, out_parms, IDT_RXS_SET_ALL);
 }
 
 /* This function sets the the routing table hardware to match every entry
  * that has been changed in the routing table state structure. 
- * Changes must be made using idt_rt_alloc_mc_mask, idt_rt_deallocate_mc_mask,
- * idt_rt_change_rte, and idt_rt_change_mc.
- * After idt_rt_set_changed is called, no entries are marked as changed in
+ * Changes must be made using rio_rt_alloc_mc_mask, rio_rt_deallocate_mc_mask,
+ * rio_rt_change_rte, and rio_rt_change_mc.
+ * After rio_rt_set_changed is called, no entries are marked as changed in
  * the routing table state structure.
  */
 uint32_t idt_rxs_rt_set_changed( DAR_DEV_INFO_t            *dev_info, 
-                                 idt_rt_set_changed_in_t   *in_parms, 
-                                 idt_rt_set_changed_out_t  *out_parms ) 
+                                 rio_rt_set_changed_in_t   *in_parms, 
+                                 rio_rt_set_changed_out_t  *out_parms ) 
 {
     return idt_rxs_rt_set_common(dev_info, in_parms, out_parms, IDT_RXS_SET_CHANGED);
 }
 
-/* This function updates an idt_rt_state_t structure to
+/* This function updates an rio_rt_state_t structure to
  * change a routing table entry, and tracks changes.
  */
 uint32_t idt_rxs_rt_change_rte( DAR_DEV_INFO_t           *dev_info, 
-                                idt_rt_change_rte_in_t   *in_parms, 
-                                idt_rt_change_rte_out_t  *out_parms ) 
+                                rio_rt_change_rte_in_t   *in_parms, 
+                                rio_rt_change_rte_out_t  *out_parms ) 
 {
    uint32_t rc = RIO_ERR_INVALID_PARAMETER;
 
@@ -646,15 +646,15 @@ uint32_t idt_rxs_rt_change_rte( DAR_DEV_INFO_t           *dev_info,
    } 
 
    // Validate rte_value 
-   if ( (IDT_DSF_RT_USE_DEVICE_TABLE  != in_parms->rte_value) &&
-        (IDT_DSF_RT_USE_DEFAULT_ROUTE != in_parms->rte_value) &&
-        (IDT_DSF_RT_NO_ROUTE         != in_parms->rte_value) &&
+   if ( (RIO_DSF_RT_USE_DEVICE_TABLE  != in_parms->rte_value) &&
+        (RIO_DSF_RT_USE_DEFAULT_ROUTE != in_parms->rte_value) &&
+        (RIO_DSF_RT_NO_ROUTE         != in_parms->rte_value) &&
         (in_parms->rte_value         >= NUM_RXS_PORTS(dev_info))) {
       out_parms->imp_rc = RT_CHANGE_RTE(2);
       goto exit;
    }
 
-   if ( (IDT_DSF_RT_USE_DEVICE_TABLE == in_parms->rte_value) && (!in_parms->dom_entry)) {
+   if ( (RIO_DSF_RT_USE_DEVICE_TABLE == in_parms->rte_value) && (!in_parms->dom_entry)) {
       out_parms->imp_rc = RT_CHANGE_RTE(3);
       goto exit;
    } 
@@ -688,28 +688,28 @@ exit:
 }
 
 uint32_t idt_rxs_rt_initialize( DAR_DEV_INFO_t           *dev_info,
-                                idt_rt_initialize_in_t   *in_parms,
-                                idt_rt_initialize_out_t  *out_parms ) 
+                                rio_rt_initialize_in_t   *in_parms,
+                                rio_rt_initialize_out_t  *out_parms ) 
 {
     uint32_t rc = RIO_ERR_INVALID_PARAMETER;
     uint32_t destID;
     uint32_t mc_idx;
-    idt_rt_set_changed_in_t  all_in;
-    idt_rt_set_changed_out_t all_out;
-    idt_rt_state_t           rt_state;
+    rio_rt_set_changed_in_t  all_in;
+    rio_rt_set_changed_out_t all_out;
+    rio_rt_state_t           rt_state;
     // Validate parameters
 
    
     if (  (in_parms->default_route      >= NUM_RXS_PORTS(dev_info))  &&
-        !(IDT_DSF_RT_NO_ROUTE == in_parms->default_route)  )
+        !(RIO_DSF_RT_NO_ROUTE == in_parms->default_route)  )
     {
         out_parms->imp_rc = RT_INITIALIZE(1);
         goto exit;
     }
 
     if ( (in_parms->default_route_table_port >= NUM_RXS_PORTS(dev_info)) &&
-         !((IDT_DSF_RT_USE_DEFAULT_ROUTE == in_parms->default_route_table_port) ||
-           (IDT_DSF_RT_NO_ROUTE              == in_parms->default_route_table_port)) )
+         !((RIO_DSF_RT_USE_DEFAULT_ROUTE == in_parms->default_route_table_port) ||
+           (RIO_DSF_RT_NO_ROUTE              == in_parms->default_route_table_port)) )
     {
         out_parms->imp_rc = RT_INITIALIZE(2);
         goto exit;
@@ -737,30 +737,30 @@ uint32_t idt_rxs_rt_initialize( DAR_DEV_INFO_t           *dev_info,
     all_in.rt->default_route = in_parms->default_route;
 
     // Configure initialization of all of the routing table entries
-    for (destID = 0; destID < IDT_DAR_RT_DEV_TABLE_SIZE; destID++)
+    for (destID = 0; destID < RIO_DAR_RT_DEV_TABLE_SIZE; destID++)
     {
         all_in.rt->dev_table[destID].changed = true ;
         all_in.rt->dev_table[destID].rte_val = in_parms->default_route_table_port;
     } 
     
     all_in.rt->dom_table[0].changed = true ;
-    all_in.rt->dom_table[0].rte_val = IDT_DSF_RT_USE_DEVICE_TABLE;
+    all_in.rt->dom_table[0].rte_val = RIO_DSF_RT_USE_DEVICE_TABLE;
 
-    for (destID = 1; destID < IDT_DAR_RT_DOM_TABLE_SIZE; destID++)
+    for (destID = 1; destID < RIO_DAR_RT_DOM_TABLE_SIZE; destID++)
     {
         all_in.rt->dom_table[destID].changed = true ;
         all_in.rt->dom_table[destID].rte_val = in_parms->default_route_table_port;
     } 
     
     // Configure initialization of multicast masks and associations as necessary. 
-    for (mc_idx = 0; mc_idx < IDT_DSF_MAX_MC_MASK; mc_idx++) 
+    for (mc_idx = 0; mc_idx < RIO_DSF_MAX_MC_MASK; mc_idx++) 
     {
        all_in.rt->mc_masks[mc_idx].mc_destID = 0;
        all_in.rt->mc_masks[mc_idx].tt        = tt_dev8;
        all_in.rt->mc_masks[mc_idx].mc_mask   = 0;
        all_in.rt->mc_masks[mc_idx].in_use    = false;
        all_in.rt->mc_masks[mc_idx].allocd    = false;
-       if ((mc_idx < IDT_RXS_MAX_MC_MASKS) && (mc_idx < IDT_DSF_MAX_MC_MASK)) {
+       if ((mc_idx < IDT_RXS_MAX_MC_MASKS) && (mc_idx < RIO_DSF_MAX_MC_MASK)) {
           all_in.rt->mc_masks[mc_idx].changed   = true ;
        } else {
           all_in.rt->mc_masks[mc_idx].changed   = false ;
@@ -1060,13 +1060,13 @@ exit:
 }
 
 uint32_t idt_rxs_check_port_for_discard( DAR_DEV_INFO_t     *dev_info, 
-                                         idt_rt_probe_in_t  *in_parms, 
-                                         idt_rt_probe_out_t *out_parms ) 
+                                         rio_rt_probe_in_t  *in_parms, 
+                                         rio_rt_probe_out_t *out_parms ) 
 {
    uint32_t rc = RIO_ERR_INVALID_PARAMETER;
    uint32_t ctlData;
    uint8_t  port;
-   bool  dflt_rt = (IDT_DSF_RT_USE_DEFAULT_ROUTE == out_parms->routing_table_value)?true:false;
+   bool  dflt_rt = (RIO_DSF_RT_USE_DEFAULT_ROUTE == out_parms->routing_table_value)?true:false;
    rio_pc_get_config_in_t  cfg_in;
    rio_pc_get_config_out_t cfg_out;
    rio_pc_get_status_in_t  stat_in;
@@ -1075,7 +1075,7 @@ uint32_t idt_rxs_check_port_for_discard( DAR_DEV_INFO_t     *dev_info,
    port = (dflt_rt)?in_parms->rt->default_route:out_parms->routing_table_value;
 
    if (NUM_RXS_PORTS(dev_info) <= port) {
-      out_parms->reason_for_discard = idt_rt_disc_probe_abort;
+      out_parms->reason_for_discard = rio_rt_disc_probe_abort;
       out_parms->imp_rc = RT_PROBE(1);
       goto exit;
    }
@@ -1084,7 +1084,7 @@ uint32_t idt_rxs_check_port_for_discard( DAR_DEV_INFO_t     *dev_info,
    cfg_in.ptl.pnums[0] = port;
    rc = idt_rxs_pc_get_config( dev_info, &cfg_in, &cfg_out );
    if (RIO_SUCCESS != rc) {
-      out_parms->reason_for_discard = idt_rt_disc_probe_abort;
+      out_parms->reason_for_discard = rio_rt_disc_probe_abort;
       out_parms->imp_rc = RT_PROBE(2);
       goto exit;
    }
@@ -1093,42 +1093,42 @@ uint32_t idt_rxs_check_port_for_discard( DAR_DEV_INFO_t     *dev_info,
    stat_in.ptl.pnums[0] = port;
    rc = idt_rxs_pc_get_status( dev_info, &stat_in, &stat_out );
    if (RIO_SUCCESS != rc) {
-      out_parms->reason_for_discard = idt_rt_disc_probe_abort;
+      out_parms->reason_for_discard = rio_rt_disc_probe_abort;
       out_parms->imp_rc = RT_PROBE(3);
       goto exit;
    }
 
    if (!cfg_out.pc[0].port_available) {
-      out_parms->reason_for_discard = (dflt_rt)?idt_rt_disc_dflt_pt_unavail:idt_rt_disc_port_unavail;
+      out_parms->reason_for_discard = (dflt_rt)?rio_rt_disc_dflt_pt_unavail:rio_rt_disc_port_unavail;
    } else { 
       if (!cfg_out.pc[0].powered_up) {
-         out_parms->reason_for_discard = (dflt_rt)?idt_rt_disc_dflt_pt_pwdn:idt_rt_disc_port_pwdn;
+         out_parms->reason_for_discard = (dflt_rt)?rio_rt_disc_dflt_pt_pwdn:rio_rt_disc_port_pwdn;
       } else {
           if (!stat_out.ps[0].port_ok) {
              if (cfg_out.pc[0].xmitter_disable) {
-                out_parms->reason_for_discard = (dflt_rt)?idt_rt_disc_dflt_pt_lkout_or_dis:
-		                                      idt_rt_disc_port_lkout_or_dis;
+                out_parms->reason_for_discard = (dflt_rt)?rio_rt_disc_dflt_pt_lkout_or_dis:
+		                                      rio_rt_disc_port_lkout_or_dis;
              } else {
-                out_parms->reason_for_discard = (dflt_rt)?idt_rt_disc_dflt_pt_no_lp:idt_rt_disc_port_no_lp;
+                out_parms->reason_for_discard = (dflt_rt)?rio_rt_disc_dflt_pt_no_lp:rio_rt_disc_port_no_lp;
 	     }
 	  } else {
              if (stat_out.ps[0].port_error) {
-                out_parms->reason_for_discard = (dflt_rt)?idt_rt_disc_dflt_pt_fail:idt_rt_disc_port_fail;
+                out_parms->reason_for_discard = (dflt_rt)?rio_rt_disc_dflt_pt_fail:rio_rt_disc_port_fail;
              } else {
                 if (cfg_out.pc[0].port_lockout) {
-                   out_parms->reason_for_discard = (dflt_rt)?idt_rt_disc_dflt_pt_lkout_or_dis:
-			                                 idt_rt_disc_port_lkout_or_dis;
+                   out_parms->reason_for_discard = (dflt_rt)?rio_rt_disc_dflt_pt_lkout_or_dis:
+			                                 rio_rt_disc_port_lkout_or_dis;
 		} else {
                    rc = DARRegRead( dev_info, RXS_RIO_SPX_CTL(port), &ctlData );
                    if (RIO_SUCCESS != rc) {
-                      out_parms->reason_for_discard = idt_rt_disc_probe_abort;
+                      out_parms->reason_for_discard = rio_rt_disc_probe_abort;
                       out_parms->imp_rc = RT_PROBE(4);
                       goto exit;
                    }
             
                   if ( (RIO_SPX_CTL_INP_EN | RIO_SPX_CTL_OTP_EN) != 
                       ((RIO_SPX_CTL_INP_EN | RIO_SPX_CTL_OTP_EN) & ctlData)) {
-                     out_parms->reason_for_discard = (dflt_rt)?idt_rt_disc_dflt_pt_in_out_dis:idt_rt_disc_port_in_out_dis;
+                     out_parms->reason_for_discard = (dflt_rt)?rio_rt_disc_dflt_pt_in_out_dis:rio_rt_disc_port_in_out_dis;
                   }
                }
             }
@@ -1140,15 +1140,15 @@ uint32_t idt_rxs_check_port_for_discard( DAR_DEV_INFO_t     *dev_info,
 
 exit:
 
-    if (idt_rt_disc_not != out_parms->reason_for_discard)
+    if (rio_rt_disc_not != out_parms->reason_for_discard)
        out_parms->valid_route = false;
 
     return rc;
 }
 
 void idt_rxs_check_multicast_routing ( DAR_DEV_INFO_t     *dev_info, 
-                                       idt_rt_probe_in_t  *in_parms, 
-                                       idt_rt_probe_out_t *out_parms ) 
+                                       rio_rt_probe_in_t  *in_parms, 
+                                       rio_rt_probe_out_t *out_parms ) 
 {
    uint8_t  mc_idx, bit;
    uint32_t mc_mask;
@@ -1165,23 +1165,23 @@ void idt_rxs_check_multicast_routing ( DAR_DEV_INFO_t     *dev_info,
 
          if ((in_parms->destID & mc_mask) == (in_parms->rt->mc_masks[mc_idx].mc_destID & mc_mask)) {
             if (found) {
-               out_parms->reason_for_discard = idt_rt_disc_mc_mult_masks;
+               out_parms->reason_for_discard = rio_rt_disc_mc_mult_masks;
                out_parms->valid_route        = false;
 	       break;
 	    } else {
 	       found = true;
-               out_parms->routing_table_value = mc_idx + IDT_DSF_FIRST_MC_MASK;
+               out_parms->routing_table_value = mc_idx + RIO_DSF_FIRST_MC_MASK;
 	       for (bit = 0; bit < NUM_RXS_PORTS(dev_info); bit++)
 	          out_parms->mcast_ports[bit] = ((uint32_t)(1 << bit) & in_parms->rt->mc_masks[mc_idx].mc_mask)?true:false;
 	       if (in_parms->rt->mc_masks[mc_idx].mc_mask) {
                   if ((uint32_t)((uint32_t)(1) << in_parms->probe_on_port) == in_parms->rt->mc_masks[mc_idx].mc_mask) {
-                     out_parms->reason_for_discard = idt_rt_disc_mc_one_bit;
+                     out_parms->reason_for_discard = rio_rt_disc_mc_one_bit;
 	          } else {
-                     out_parms->reason_for_discard = idt_rt_disc_not;
+                     out_parms->reason_for_discard = rio_rt_disc_not;
 		     out_parms->valid_route        = true;
 		  }
 	       } else {
-                  out_parms->reason_for_discard     = idt_rt_disc_mc_empty;
+                  out_parms->reason_for_discard     = rio_rt_disc_mc_empty;
 	       }
 	    }
          }
@@ -1192,8 +1192,8 @@ void idt_rxs_check_multicast_routing ( DAR_DEV_INFO_t     *dev_info,
 }
 
 void idt_rxs_check_unicast_routing( DAR_DEV_INFO_t     *dev_info, 
-                                    idt_rt_probe_in_t  *in_parms, 
-                                    idt_rt_probe_out_t *out_parms ) 
+                                    rio_rt_probe_in_t  *in_parms, 
+                                    rio_rt_probe_out_t *out_parms ) 
 {
     uint8_t idx;
     uint32_t rte = 0;
@@ -1206,26 +1206,26 @@ void idt_rxs_check_unicast_routing( DAR_DEV_INFO_t     *dev_info,
        rte = in_parms->rt->dom_table[idx].rte_val;
     }
 
-    if ((tt_dev8 == in_parms->tt) || (IDT_DSF_RT_USE_DEVICE_TABLE == rte)) {
+    if ((tt_dev8 == in_parms->tt) || (RIO_DSF_RT_USE_DEVICE_TABLE == rte)) {
        idx = (uint8_t)(in_parms->destID & 0x00FF) ;
        rte = in_parms->rt->dev_table[idx].rte_val;
     }
 
     out_parms->routing_table_value = rte;
     out_parms->valid_route         = true;
-    out_parms->reason_for_discard  = idt_rt_disc_not;
+    out_parms->reason_for_discard  = rio_rt_disc_not;
 
     if (in_parms->rt->default_route >= NUM_RXS_PORTS(dev_info)) {
         out_parms->valid_route         = false;
-        out_parms->reason_for_discard  = idt_rt_disc_dflt_pt_invalid;
+        out_parms->reason_for_discard  = rio_rt_disc_dflt_pt_invalid;
     }
    
     return;
 }
 
 uint32_t idt_rxs_rt_probe( DAR_DEV_INFO_t      *dev_info,
-                           idt_rt_probe_in_t   *in_parms,
-                           idt_rt_probe_out_t  *out_parms )
+                           rio_rt_probe_in_t   *in_parms,
+                           rio_rt_probe_out_t  *out_parms )
 {
     uint32_t rc = RIO_ERR_INVALID_PARAMETER;
     uint8_t bit;
@@ -1239,7 +1239,7 @@ uint32_t idt_rxs_rt_probe( DAR_DEV_INFO_t      *dev_info,
 
     for (bit = 0; bit < NUM_RXS_PORTS(dev_info); bit++)
         out_parms->mcast_ports[bit] = false;
-    out_parms->reason_for_discard     = idt_rt_disc_probe_abort;
+    out_parms->reason_for_discard     = rio_rt_disc_probe_abort;
 
     if (   ((NUM_RXS_PORTS(dev_info) <= in_parms->probe_on_port) &&
             (RIO_ALL_PORTS       != in_parms->probe_on_port))  ||
@@ -1268,8 +1268,8 @@ uint32_t idt_rxs_rt_probe( DAR_DEV_INFO_t      *dev_info,
      *  If out_parms->valid_route is true 
      *  the valid values for out_parms->routing_table_value are
      *  - a valid port number, OR
-     *  - IDT_DSF_RT_USE_DEFAULT_ROUTE
-     *  When out_parms->routing_table_value is IDT_DSF_RT_USE_DEFAULT_ROUTE, the
+     *  - RIO_DSF_RT_USE_DEFAULT_ROUTE
+     *  When out_parms->routing_table_value is RIO_DSF_RT_USE_DEFAULT_ROUTE, the
      *  default route is a valid switch port number.
      */
 
@@ -1285,14 +1285,14 @@ exit:
 
 uint32_t idt_rxs_read_mc_masks( DAR_DEV_INFO_t            *dev_info,
                                 uint8_t                    pnum,
-                                idt_rt_state_t            *rt,
+                                rio_rt_state_t            *rt,
                                 uint32_t                  *imp_rc )  
 {
    uint32_t rc = RIO_ERR_INVALID_PARAMETER;
    uint8_t  mask_idx;
    uint32_t reg_val, port_mask;
-   idt_rt_dealloc_mc_mask_in_t  d_in_parm;
-   idt_rt_dealloc_mc_mask_out_t d_out_parm;
+   rio_rt_dealloc_mc_mask_in_t  d_in_parm;
+   rio_rt_dealloc_mc_mask_out_t d_out_parm;
 
    uint32_t vend_id = dev_info->devID & RXS_RIO_DEV_IDENT_VEND;
    uint32_t dev_id = (dev_info->devID & RXS_RIO_DEV_IDENT_DEVI) >> 16;
@@ -1312,10 +1312,10 @@ uint32_t idt_rxs_read_mc_masks( DAR_DEV_INFO_t            *dev_info,
    }
 
    d_in_parm.rt = rt;
-   for (mask_idx = NUM_MC_MASKS(dev_info); mask_idx < IDT_DSF_MAX_MC_MASK; mask_idx++ )
+   for (mask_idx = NUM_MC_MASKS(dev_info); mask_idx < RIO_DSF_MAX_MC_MASK; mask_idx++ )
    {
-      d_in_parm.mc_mask_rte = IDT_DSF_FIRST_MC_MASK + mask_idx;
-      rc = IDT_DSF_rt_dealloc_mc_mask( dev_info, &d_in_parm, &d_out_parm );
+      d_in_parm.mc_mask_rte = RIO_DSF_FIRST_MC_MASK + mask_idx;
+      rc = RIO_DSF_rt_dealloc_mc_mask( dev_info, &d_in_parm, &d_out_parm );
       if (RIO_SUCCESS != rc) 
       {
          *imp_rc = d_out_parm.imp_rc;
@@ -1346,7 +1346,7 @@ exit:
 
 uint32_t idt_rxs_tidy_routing_table( DAR_DEV_INFO_t  *dev_info, 
                                      uint8_t          idx, 
-                                     idt_rt_state_t  *rt,
+                                     rio_rt_state_t  *rt,
                                      uint32_t        *fail_pt,
                                      bool             is_dev_table )
 {
@@ -1356,9 +1356,9 @@ uint32_t idt_rxs_tidy_routing_table( DAR_DEV_INFO_t  *dev_info,
 
    if (is_dev_table) {
       dev_idx = idx;
-      if ((rt->dev_table[dev_idx].rte_val >= IDT_DSF_FIRST_MC_MASK) &&
-          (rt->dev_table[dev_idx].rte_val < IDT_DSF_BAD_MC_MASK)) {
-         for (srch_idx = 0; (srch_idx < IDT_DAR_RT_DEV_TABLE_SIZE) && !found_one; srch_idx++) {
+      if ((rt->dev_table[dev_idx].rte_val >= RIO_DSF_FIRST_MC_MASK) &&
+          (rt->dev_table[dev_idx].rte_val < RIO_DSF_BAD_MC_MASK)) {
+         for (srch_idx = 0; (srch_idx < RIO_DAR_RT_DEV_TABLE_SIZE) && !found_one; srch_idx++) {
              if (dev_idx == srch_idx)
                 continue;
              if (rt->dev_table[dev_idx].rte_val == rt->dev_table[srch_idx].rte_val)
@@ -1366,11 +1366,11 @@ uint32_t idt_rxs_tidy_routing_table( DAR_DEV_INFO_t  *dev_info,
          }
 
          if (!found_one) {
-            idt_rt_dealloc_mc_mask_in_t  in_parms;
-            idt_rt_dealloc_mc_mask_out_t out_parms;
+            rio_rt_dealloc_mc_mask_in_t  in_parms;
+            rio_rt_dealloc_mc_mask_out_t out_parms;
             in_parms.rt = rt;
             in_parms.mc_mask_rte = rt->dev_table[dev_idx].rte_val;
-            rc = IDT_DSF_rt_dealloc_mc_mask(dev_info, &in_parms, &out_parms);
+            rc = RIO_DSF_rt_dealloc_mc_mask(dev_info, &in_parms, &out_parms);
             if (RIO_SUCCESS != rc) {
                *fail_pt = out_parms.imp_rc;
             }
@@ -1379,9 +1379,9 @@ uint32_t idt_rxs_tidy_routing_table( DAR_DEV_INFO_t  *dev_info,
    }
    else {
       dom_idx = idx;
-      if ((rt->dom_table[dom_idx].rte_val >= IDT_DSF_FIRST_MC_MASK) &&
-          (rt->dom_table[dom_idx].rte_val < IDT_DSF_BAD_MC_MASK)) {
-         for (srch_idx = 0; (srch_idx < IDT_DAR_RT_DEV_TABLE_SIZE) && !found_one; srch_idx++) {
+      if ((rt->dom_table[dom_idx].rte_val >= RIO_DSF_FIRST_MC_MASK) &&
+          (rt->dom_table[dom_idx].rte_val < RIO_DSF_BAD_MC_MASK)) {
+         for (srch_idx = 0; (srch_idx < RIO_DAR_RT_DEV_TABLE_SIZE) && !found_one; srch_idx++) {
              if (dom_idx == srch_idx)
                 continue;
              if (rt->dom_table[dom_idx].rte_val == rt->dom_table[srch_idx].rte_val)
@@ -1389,11 +1389,11 @@ uint32_t idt_rxs_tidy_routing_table( DAR_DEV_INFO_t  *dev_info,
          }
 
          if (!found_one) {
-            idt_rt_dealloc_mc_mask_in_t  in_parms;
-            idt_rt_dealloc_mc_mask_out_t out_parms;
+            rio_rt_dealloc_mc_mask_in_t  in_parms;
+            rio_rt_dealloc_mc_mask_out_t out_parms;
             in_parms.rt = rt;
             in_parms.mc_mask_rte = rt->dom_table[dom_idx].rte_val;
-            rc = IDT_DSF_rt_dealloc_mc_mask(dev_info, &in_parms, &out_parms);
+            rc = RIO_DSF_rt_dealloc_mc_mask(dev_info, &in_parms, &out_parms);
             if (RIO_SUCCESS != rc) {
                *fail_pt = out_parms.imp_rc;
             }
@@ -1403,12 +1403,12 @@ uint32_t idt_rxs_tidy_routing_table( DAR_DEV_INFO_t  *dev_info,
    return rc;
 }
 
-/* This function updates an idt_rt_state_t structure to
+/* This function updates an rio_rt_state_t structure to
  * change a multicast mask value, and tracks changes.
  */
 uint32_t idt_rxs_rt_change_mc_mask( DAR_DEV_INFO_t               *dev_info,
-                                    idt_rt_change_mc_mask_in_t   *in_parms, 
-                                    idt_rt_change_mc_mask_out_t  *out_parms )
+                                    rio_rt_change_mc_mask_in_t   *in_parms, 
+                                    rio_rt_change_mc_mask_out_t  *out_parms )
 {
    uint32_t rc = RIO_ERR_INVALID_PARAMETER;
    uint8_t  chg_idx, dom_idx, dev_idx;
@@ -1424,8 +1424,8 @@ uint32_t idt_rxs_rt_change_mc_mask( DAR_DEV_INFO_t               *dev_info,
 
    // Check destination ID value against tt, and that the multicast mask
    // does not select ports which do not exist on the RXS device.
-   if ( (in_parms->mc_info.mc_destID > IDT_LAST_DEV16_DESTID   ) ||
-        ((in_parms->mc_info.mc_destID > IDT_LAST_DEV8_DESTID) &&
+   if ( (in_parms->mc_info.mc_destID > RIO_LAST_DEV16_DESTID   ) ||
+        ((in_parms->mc_info.mc_destID > RIO_LAST_DEV8_DESTID) &&
          (tt_dev8 == in_parms->mc_info.tt                     )) ||
         (in_parms->mc_info.mc_mask & illegal_ports             )) {
       out_parms->imp_rc = CHANGE_MC_MASK(2);
@@ -1433,13 +1433,13 @@ uint32_t idt_rxs_rt_change_mc_mask( DAR_DEV_INFO_t               *dev_info,
    }
  
    if (!in_parms->mc_info.in_use) {
-      idt_rt_dealloc_mc_mask_in_t  d_in_parm;
-      idt_rt_dealloc_mc_mask_out_t d_out_parm;
+      rio_rt_dealloc_mc_mask_in_t  d_in_parm;
+      rio_rt_dealloc_mc_mask_out_t d_out_parm;
 
       d_in_parm.mc_mask_rte = in_parms->mc_mask_rte;
       d_in_parm.rt          = in_parms->rt;
 
-      rc = IDT_DSF_rt_dealloc_mc_mask( dev_info, &d_in_parm, &d_out_parm );
+      rc = RIO_DSF_rt_dealloc_mc_mask( dev_info, &d_in_parm, &d_out_parm );
       if (RIO_SUCCESS != rc) {
 	 out_parms->imp_rc = d_out_parm.imp_rc;
       }
@@ -1500,7 +1500,7 @@ exit:
 
 uint32_t idt_rxs_read_rte_entries( DAR_DEV_INFO_t            *dev_info,
                                    uint8_t                    pnum,
-                                   idt_rt_state_t            *rt,
+                                   rio_rt_state_t            *rt,
                                    uint32_t                  *imp_rc )  
 {
    uint32_t rc = RIO_ERR_INVALID_PARAMETER;
@@ -1517,15 +1517,15 @@ uint32_t idt_rxs_read_rte_entries( DAR_DEV_INFO_t            *dev_info,
 
    rt->default_route = (uint8_t)(rte_val & RXS_RIO_ROUTE_DFLT_PORT_DEFAULT_OUT_PORT);
    if ( rt->default_route >= NUM_RXS_PORTS(dev_info)) {
-      rt->default_route = IDT_DSF_RT_NO_ROUTE;
+      rt->default_route = RIO_DSF_RT_NO_ROUTE;
    }
 
    // Read all of the domain routing table entries.
-   rt->dom_table[0].rte_val = IDT_DSF_RT_USE_DEVICE_TABLE;
+   rt->dom_table[0].rte_val = RIO_DSF_RT_USE_DEVICE_TABLE;
    rt->dom_table[0].changed = false;
    first_mc_destID = 0;
 
-   for (destID = 1; destID < IDT_DAR_RT_DOM_TABLE_SIZE; destID++)
+   for (destID = 1; destID < RIO_DAR_RT_DOM_TABLE_SIZE; destID++)
    {
       rt->dom_table[destID].changed = false;
 
@@ -1538,23 +1538,23 @@ uint32_t idt_rxs_read_rte_entries( DAR_DEV_INFO_t            *dev_info,
       rte_val &= RXS_RIO_BC_L1_GX_ENTRYY_CSR_ROUTING_VALUE;
       rt->dom_table[destID].rte_val = (uint8_t)(rte_val);
 
-      if (IDT_DSF_RT_USE_DEVICE_TABLE == rte_val) {
+      if (RIO_DSF_RT_USE_DEVICE_TABLE == rte_val) {
          if (!found_one) {
             first_mc_destID = (uint16_t)(destID) << 8;
             found_one = true;
          }
       } else {
-        if ((IDT_DSF_RT_USE_DEFAULT_ROUTE != rte_val) &&
-            (IDT_DSF_RT_NO_ROUTE          != rte_val) &&
+        if ((RIO_DSF_RT_USE_DEFAULT_ROUTE != rte_val) &&
+            (RIO_DSF_RT_NO_ROUTE          != rte_val) &&
             (NUM_RXS_PORTS(dev_info)          <= rte_val) ) { 
-            rt->dom_table[destID].rte_val = IDT_DSF_RT_NO_ROUTE;
+            rt->dom_table[destID].rte_val = RIO_DSF_RT_NO_ROUTE;
         }
       }
    }
    
    // Read all of the device routing table entries.
    // Update multicast entries as we go...
-   for (destID = 0; destID < IDT_DAR_RT_DEV_TABLE_SIZE; destID++)
+   for (destID = 0; destID < RIO_DAR_RT_DEV_TABLE_SIZE; destID++)
    {
       uint32_t mask_idx;
 
@@ -1570,16 +1570,16 @@ uint32_t idt_rxs_read_rte_entries( DAR_DEV_INFO_t            *dev_info,
       rt->dev_table[destID].rte_val = (uint32_t)(rte_val);
 
       mask_idx = MC_MASK_IDX_FROM_ROUTE(rte_val);
-      if ((IDT_DSF_BAD_MC_MASK != mask_idx) && !(rt->mc_masks[mask_idx].in_use)) {
+      if ((RIO_DSF_BAD_MC_MASK != mask_idx) && !(rt->mc_masks[mask_idx].in_use)) {
          rt->mc_masks[mask_idx].tt        = tt_dev16;
          rt->mc_masks[mask_idx].in_use    = true;
          rt->mc_masks[mask_idx].mc_destID = first_mc_destID + destID;
       }
          
-      if (  ((rte_val >= NUM_RXS_PORTS(dev_info)) && (rte_val < IDT_DSF_FIRST_MC_MASK))    ||
-            ((rte_val >= IDT_DSF_BAD_MC_MASK) && (IDT_DSF_RT_NO_ROUTE         != rte_val) 
-                                              && (IDT_DSF_RT_USE_DEFAULT_ROUTE != rte_val)) ) {
-         rt->dev_table[destID].rte_val = IDT_DSF_RT_NO_ROUTE;
+      if (  ((rte_val >= NUM_RXS_PORTS(dev_info)) && (rte_val < RIO_DSF_FIRST_MC_MASK))    ||
+            ((rte_val >= RIO_DSF_BAD_MC_MASK) && (RIO_DSF_RT_NO_ROUTE         != rte_val) 
+                                              && (RIO_DSF_RT_USE_DEFAULT_ROUTE != rte_val)) ) {
+         rt->dev_table[destID].rte_val = RIO_DSF_RT_NO_ROUTE;
       }
    }
    
@@ -1590,12 +1590,12 @@ exit:
 /* This function returns the complete hardware state of packet routing
  * in a routing table state structure.
  *
- * The routing table hardware must be initialized using idt_rt_initialize() 
+ * The routing table hardware must be initialized using rio_rt_initialize() 
  * before calling this routine.
  */
 uint32_t idt_rxs_rt_probe_all( DAR_DEV_INFO_t          *dev_info,
-                               idt_rt_probe_all_in_t   *in_parms,
-                               idt_rt_probe_all_out_t  *out_parms ) 
+                               rio_rt_probe_all_in_t   *in_parms,
+                               rio_rt_probe_all_out_t  *out_parms ) 
 {
     uint32_t rc = RIO_ERR_INVALID_PARAMETER;
     uint8_t  probe_port;
@@ -1729,15 +1729,15 @@ uint32_t bind_rxs_DSF_support(void)
 	idt_driver.rio_pc_get_status = idt_rxs_pc_get_status;
 	idt_driver.rio_pc_dev_reset_config = idt_rxs_pc_dev_reset_config;
 
-	idt_driver.idt_rt_initialize = idt_rxs_rt_initialize;
-	idt_driver.idt_rt_probe = idt_rxs_rt_probe;
-	idt_driver.idt_rt_probe_all = idt_rxs_rt_probe_all;
-	idt_driver.idt_rt_set_all = idt_rxs_rt_set_all;
-        idt_driver.idt_rt_set_changed = idt_rxs_rt_set_changed;
-        idt_driver.idt_rt_change_rte = idt_rxs_rt_change_rte;
-        idt_driver.idt_rt_alloc_mc_mask = IDT_DSF_rt_alloc_mc_mask;
-        idt_driver.idt_rt_dealloc_mc_mask = IDT_DSF_rt_dealloc_mc_mask;
-        idt_driver.idt_rt_change_mc_mask = idt_rxs_rt_change_mc_mask;
+	idt_driver.rio_rt_initialize = idt_rxs_rt_initialize;
+	idt_driver.rio_rt_probe = idt_rxs_rt_probe;
+	idt_driver.rio_rt_probe_all = idt_rxs_rt_probe_all;
+	idt_driver.rio_rt_set_all = idt_rxs_rt_set_all;
+        idt_driver.rio_rt_set_changed = idt_rxs_rt_set_changed;
+        idt_driver.rio_rt_change_rte = idt_rxs_rt_change_rte;
+        idt_driver.rio_rt_alloc_mc_mask = RIO_DSF_rt_alloc_mc_mask;
+        idt_driver.rio_rt_dealloc_mc_mask = RIO_DSF_rt_dealloc_mc_mask;
+        idt_driver.rio_rt_change_mc_mask = idt_rxs_rt_change_mc_mask;
 
         idt_driver.rio_sc_init_dev_ctrs = idt_rxs_sc_init_dev_ctrs;
 	idt_driver.rio_sc_read_ctrs = idt_rxs_sc_read_ctrs;

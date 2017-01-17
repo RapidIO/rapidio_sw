@@ -1610,19 +1610,19 @@ idt_tsi57x_pc_get_status_exit:
 }
 
 uint32_t idt_tsi57x_rt_probe_all   ( DAR_DEV_INFO_t            *dev_info, 
-                                 idt_rt_probe_all_in_t     *in_parms, 
-                                 idt_rt_probe_all_out_t    *out_parms );
+                                 rio_rt_probe_all_in_t     *in_parms, 
+                                 rio_rt_probe_all_out_t    *out_parms );
 
 uint32_t idt_tsi57x_rt_set_all   ( DAR_DEV_INFO_t            *dev_info, 
-                                 idt_rt_set_all_in_t       *in_parms, 
-                                 idt_rt_set_all_out_t      *out_parms );
+                                 rio_rt_set_all_in_t       *in_parms, 
+                                 rio_rt_set_all_out_t      *out_parms );
 
 uint32_t restore_luts( DAR_DEV_INFO_t         *dev_info, 
                    uint8_t                   port_num,
-                     idt_rt_state_t         *lut_save_in ) 
+                     rio_rt_state_t         *lut_save_in ) 
 {
-    idt_rt_set_all_in_t    lut_restore_in;
-    idt_rt_set_all_out_t   lut_restore_out;
+    rio_rt_set_all_in_t    lut_restore_in;
+    rio_rt_set_all_out_t   lut_restore_out;
 
     lut_restore_in.set_on_port = port_num;
     lut_restore_in.rt          = lut_save_in;
@@ -2280,33 +2280,33 @@ idt_tsi57x_pc_dev_reset_config_exit:
 }
 
 uint32_t idt_tsi57x_rt_set_changed ( DAR_DEV_INFO_t            *dev_info, 
-                                   idt_rt_set_changed_in_t   *in_parms, 
-                                   idt_rt_set_changed_out_t  *out_parms );
+                                   rio_rt_set_changed_in_t   *in_parms, 
+                                   rio_rt_set_changed_out_t  *out_parms );
 
 uint32_t idt_tsi57x_rt_initialize  ( DAR_DEV_INFO_t         *dev_info, 
-                                 idt_rt_initialize_in_t   *in_parms, 
-                                 idt_rt_initialize_out_t  *out_parms )
+                                 rio_rt_initialize_in_t   *in_parms, 
+                                 rio_rt_initialize_out_t  *out_parms )
 {
     uint32_t rc = RIO_ERR_INVALID_PARAMETER;
     uint32_t destID, spx_mode;
     uint32_t mc_idx;
     uint8_t  port, start_port, end_port;
-    idt_rt_set_changed_in_t  all_in;
-    idt_rt_set_changed_out_t all_out;
-    idt_rt_state_t           rt_state; 
+    rio_rt_set_changed_in_t  all_in;
+    rio_rt_set_changed_out_t all_out;
+    rio_rt_state_t           rt_state; 
 
     // Validate parameters
     
     if (  ((in_parms->default_route      >= TSI57X_NUM_PORTS(dev_info))  &&
-         !( (IDT_DSF_RT_USE_DEFAULT_ROUTE == in_parms->default_route) ||
-            (IDT_DSF_RT_NO_ROUTE          == in_parms->default_route))) )
+         !( (RIO_DSF_RT_USE_DEFAULT_ROUTE == in_parms->default_route) ||
+            (RIO_DSF_RT_NO_ROUTE          == in_parms->default_route))) )
     {
         out_parms->imp_rc = RT_INITIALIZE(1);
         goto idt_tsi57x_rt_initialize_exit;
     }
 
     if ( (in_parms->default_route_table_port >= TSI57X_NUM_PORTS(dev_info)) &&
-        !(IDT_DSF_RT_NO_ROUTE == in_parms->default_route_table_port)  )
+        !(RIO_DSF_RT_NO_ROUTE == in_parms->default_route_table_port)  )
     {
         out_parms->imp_rc = RT_INITIALIZE(2);
         goto idt_tsi57x_rt_initialize_exit;
@@ -2357,23 +2357,23 @@ uint32_t idt_tsi57x_rt_initialize  ( DAR_DEV_INFO_t         *dev_info,
     };
 
     // Configure initialization of all of the routing table entries
-    for (destID = 0; destID < IDT_DAR_RT_DEV_TABLE_SIZE; destID++)
+    for (destID = 0; destID < RIO_DAR_RT_DEV_TABLE_SIZE; destID++)
     {
         all_in.rt->dev_table[destID].changed = true ;
         all_in.rt->dev_table[destID].rte_val = in_parms->default_route_table_port;
     };
     
     all_in.rt->dom_table[0].changed = true ;
-    all_in.rt->dom_table[0].rte_val = IDT_DSF_RT_USE_DEVICE_TABLE;
+    all_in.rt->dom_table[0].rte_val = RIO_DSF_RT_USE_DEVICE_TABLE;
 
-    for (destID = 1; destID < IDT_DAR_RT_DOM_TABLE_SIZE; destID++)
+    for (destID = 1; destID < RIO_DAR_RT_DOM_TABLE_SIZE; destID++)
     {
         all_in.rt->dom_table[destID].changed = true ;
         all_in.rt->dom_table[destID].rte_val = in_parms->default_route_table_port;
     };
     
     // Configure initialization of multicast masks and associations as necessary. 
-    for (mc_idx = 0; mc_idx < IDT_DSF_MAX_MC_MASK; mc_idx++) 
+    for (mc_idx = 0; mc_idx < RIO_DSF_MAX_MC_MASK; mc_idx++) 
     {
        all_in.rt->mc_masks[mc_idx].mc_destID = 0;
        all_in.rt->mc_masks[mc_idx].tt        = tt_dev8;
@@ -2406,13 +2406,13 @@ uint32_t idt_tsi57x_rt_initialize  ( DAR_DEV_INFO_t         *dev_info,
 }
 
 uint32_t idt_check_port_for_discard( DAR_DEV_INFO_t     *dev_info, 
-                                   idt_rt_probe_in_t  *in_parms, 
-                                   idt_rt_probe_out_t *out_parms ) 
+                                   rio_rt_probe_in_t  *in_parms, 
+                                   rio_rt_probe_out_t *out_parms ) 
 {
    uint32_t rc = RIO_ERR_INVALID_PARAMETER;
    uint32_t ctlData;
    uint8_t  port;
-   bool  dflt_rt = (IDT_DSF_RT_USE_DEFAULT_ROUTE == out_parms->routing_table_value)?true:false;
+   bool  dflt_rt = (RIO_DSF_RT_USE_DEFAULT_ROUTE == out_parms->routing_table_value)?true:false;
    rio_pc_get_config_in_t  cfg_in;
    rio_pc_get_config_out_t cfg_out;
    rio_pc_get_status_in_t  stat_in;
@@ -2421,7 +2421,7 @@ uint32_t idt_check_port_for_discard( DAR_DEV_INFO_t     *dev_info,
    port = (dflt_rt)?in_parms->rt->default_route:out_parms->routing_table_value;
 
    if (TSI57X_NUM_PORTS(dev_info) <= port) {
-      out_parms->reason_for_discard = idt_rt_disc_probe_abort;
+      out_parms->reason_for_discard = rio_rt_disc_probe_abort;
       out_parms->imp_rc = RT_PROBE(1);
       goto idt_check_port_for_discard_exit;
    };
@@ -2430,7 +2430,7 @@ uint32_t idt_check_port_for_discard( DAR_DEV_INFO_t     *dev_info,
    cfg_in.ptl.pnums[0] = port;
    rc = idt_tsi57x_pc_get_config( dev_info, &cfg_in, &cfg_out );
    if (RIO_SUCCESS != rc) {
-      out_parms->reason_for_discard = idt_rt_disc_probe_abort;
+      out_parms->reason_for_discard = rio_rt_disc_probe_abort;
       out_parms->imp_rc = RT_PROBE(2);
       goto idt_check_port_for_discard_exit;
    };
@@ -2439,42 +2439,42 @@ uint32_t idt_check_port_for_discard( DAR_DEV_INFO_t     *dev_info,
    stat_in.ptl.pnums[0] = port;
    rc = idt_tsi57x_pc_get_status( dev_info, &stat_in, &stat_out );
    if (RIO_SUCCESS != rc) {
-      out_parms->reason_for_discard = idt_rt_disc_probe_abort;
+      out_parms->reason_for_discard = rio_rt_disc_probe_abort;
       out_parms->imp_rc = RT_PROBE(3);
       goto idt_check_port_for_discard_exit;
    };
 
    if (!cfg_out.pc[0].port_available) {
-      out_parms->reason_for_discard = (dflt_rt)?idt_rt_disc_dflt_pt_unavail:idt_rt_disc_port_unavail;
+      out_parms->reason_for_discard = (dflt_rt)?rio_rt_disc_dflt_pt_unavail:rio_rt_disc_port_unavail;
    } else { 
       if (!cfg_out.pc[0].powered_up) {
-         out_parms->reason_for_discard = (dflt_rt)?idt_rt_disc_dflt_pt_pwdn:idt_rt_disc_port_pwdn;
+         out_parms->reason_for_discard = (dflt_rt)?rio_rt_disc_dflt_pt_pwdn:rio_rt_disc_port_pwdn;
       } else {
           if (!stat_out.ps[0].port_ok) {
              if (cfg_out.pc[0].xmitter_disable) {
-                out_parms->reason_for_discard = (dflt_rt)?idt_rt_disc_dflt_pt_lkout_or_dis:
-                                                      idt_rt_disc_port_lkout_or_dis;
+                out_parms->reason_for_discard = (dflt_rt)?rio_rt_disc_dflt_pt_lkout_or_dis:
+                                                      rio_rt_disc_port_lkout_or_dis;
              } else {
-                out_parms->reason_for_discard = (dflt_rt)?idt_rt_disc_dflt_pt_no_lp:idt_rt_disc_port_no_lp;
+                out_parms->reason_for_discard = (dflt_rt)?rio_rt_disc_dflt_pt_no_lp:rio_rt_disc_port_no_lp;
              };
           } else {
              if (stat_out.ps[0].port_error) {
-                out_parms->reason_for_discard = (dflt_rt)?idt_rt_disc_dflt_pt_fail:idt_rt_disc_port_fail;
+                out_parms->reason_for_discard = (dflt_rt)?rio_rt_disc_dflt_pt_fail:rio_rt_disc_port_fail;
              } else {
                 if (cfg_out.pc[0].port_lockout) {
-                   out_parms->reason_for_discard = (dflt_rt)?idt_rt_disc_dflt_pt_lkout_or_dis:
-                                                         idt_rt_disc_port_lkout_or_dis;
+                   out_parms->reason_for_discard = (dflt_rt)?rio_rt_disc_dflt_pt_lkout_or_dis:
+                                                         rio_rt_disc_port_lkout_or_dis;
                 } else {
                    rc = DARRegRead( dev_info, Tsi578_SPX_CTL(port), &ctlData );
                    if (RIO_SUCCESS != rc) {
-                      out_parms->reason_for_discard = idt_rt_disc_probe_abort;
+                      out_parms->reason_for_discard = rio_rt_disc_probe_abort;
                       out_parms->imp_rc = RT_PROBE(4);
                       goto idt_check_port_for_discard_exit;
                    };
             
                   if ( (RIO_SPX_CTL_INP_EN | RIO_SPX_CTL_OTP_EN) != 
                       ((RIO_SPX_CTL_INP_EN | RIO_SPX_CTL_OTP_EN) & ctlData)) {
-                     out_parms->reason_for_discard = (dflt_rt)?idt_rt_disc_dflt_pt_in_out_dis:idt_rt_disc_port_in_out_dis;
+                     out_parms->reason_for_discard = (dflt_rt)?rio_rt_disc_dflt_pt_in_out_dis:rio_rt_disc_port_in_out_dis;
                   };
                }
             }
@@ -2486,15 +2486,15 @@ uint32_t idt_check_port_for_discard( DAR_DEV_INFO_t     *dev_info,
 
 idt_check_port_for_discard_exit:
 
-    if (idt_rt_disc_not != out_parms->reason_for_discard)
+    if (rio_rt_disc_not != out_parms->reason_for_discard)
        out_parms->valid_route = false;
 
     return rc;
 }
 
 uint32_t idt_tsi57x_rt_probe     ( DAR_DEV_INFO_t            *dev_info, 
-                                 idt_rt_probe_in_t         *in_parms, 
-                                 idt_rt_probe_out_t        *out_parms )
+                                 rio_rt_probe_in_t         *in_parms, 
+                                 rio_rt_probe_out_t        *out_parms )
 {
     uint32_t rc = RIO_ERR_INVALID_PARAMETER;
     uint8_t bit;
@@ -2507,7 +2507,7 @@ uint32_t idt_tsi57x_rt_probe     ( DAR_DEV_INFO_t            *dev_info,
     out_parms->time_to_live_active    = false; /* not supported on Tsi */
     for (bit = 0; bit < TSI57X_NUM_PORTS(dev_info); bit++)
         out_parms->mcast_ports[bit] = false;
-    out_parms->reason_for_discard     = idt_rt_disc_probe_abort;
+    out_parms->reason_for_discard     = rio_rt_disc_probe_abort;
 
     if (   ((TSI57X_NUM_PORTS(dev_info) <= in_parms->probe_on_port) &&
             (RIO_ALL_PORTS       != in_parms->probe_on_port))  ||
@@ -2529,8 +2529,8 @@ uint32_t idt_tsi57x_rt_probe     ( DAR_DEV_INFO_t            *dev_info,
      *  If out_parms->valid_route is true 
      *  the valid values for out_parms->routing_table_value are
      *  - a valid port number, OR
-     *  - IDT_DSF_RT_USE_DEFAULT_ROUTE
-     *  When out_parms->routing_table_value is IDT_DSF_RT_USE_DEFAULT_ROUTE, the
+     *  - RIO_DSF_RT_USE_DEFAULT_ROUTE
+     *  When out_parms->routing_table_value is RIO_DSF_RT_USE_DEFAULT_ROUTE, the
      *  default route is a valid switch port number.
      */
 
@@ -2547,20 +2547,20 @@ idt_tsi57x_rt_probe_exit:
 #define READ_MC_MASKS(x) (READ_MC_MASKS_0+x)
 
 uint32_t tsi57x_read_mc_masks( DAR_DEV_INFO_t            *dev_info, 
-                             idt_rt_state_t            *rt,
+                             rio_rt_state_t            *rt,
                              uint32_t                    *imp_rc  )  
 {
    uint32_t rc = RIO_ERR_INVALID_PARAMETER;
    uint8_t  mask_idx;
    uint32_t reg_val;
-   idt_rt_dealloc_mc_mask_in_t  d_in_parm;
-   idt_rt_dealloc_mc_mask_out_t d_out_parm;
+   rio_rt_dealloc_mc_mask_in_t  d_in_parm;
+   rio_rt_dealloc_mc_mask_out_t d_out_parm;
 
    d_in_parm.rt = rt;
-   for (mask_idx = Tsi578_MAX_MC_MASKS; mask_idx < IDT_DSF_MAX_MC_MASK; mask_idx++ ) 
+   for (mask_idx = Tsi578_MAX_MC_MASKS; mask_idx < RIO_DSF_MAX_MC_MASK; mask_idx++ ) 
    {
-      d_in_parm.mc_mask_rte = IDT_DSF_FIRST_MC_MASK + mask_idx;
-      rc = IDT_DSF_rt_dealloc_mc_mask( dev_info, &d_in_parm, &d_out_parm );
+      d_in_parm.mc_mask_rte = RIO_DSF_FIRST_MC_MASK + mask_idx;
+      rc = RIO_DSF_rt_dealloc_mc_mask( dev_info, &d_in_parm, &d_out_parm );
       if (RIO_SUCCESS != rc) 
       {
          *imp_rc = d_out_parm.imp_rc;
@@ -2607,7 +2607,7 @@ read_mc_masks_exit:
 
 uint32_t tsi57x_read_rte_entries( DAR_DEV_INFO_t            *dev_info,
                                 uint8_t                      pnum,
-                                idt_rt_state_t            *rt,
+                                rio_rt_state_t            *rt,
                                 uint32_t                    *imp_rc  )  
 {
    uint32_t rc = RIO_ERR_INVALID_PARAMETER;
@@ -2622,7 +2622,7 @@ uint32_t tsi57x_read_rte_entries( DAR_DEV_INFO_t            *dev_info,
    };
 
    if ( HW_DFLT_RT == (rte_val & Tsi578_RIO_LUT_ATTR_DEFAULT_PORT))
-      rt->default_route = IDT_DSF_RT_NO_ROUTE;
+      rt->default_route = RIO_DSF_RT_NO_ROUTE;
    else
       rt->default_route = rte_val & Tsi578_RIO_LUT_ATTR_DEFAULT_PORT;
 
@@ -2635,7 +2635,7 @@ uint32_t tsi57x_read_rte_entries( DAR_DEV_INFO_t            *dev_info,
 
    // Read all of the domain routing table entries.
    //
-   for (destID = 0; destID < IDT_DAR_RT_DOM_TABLE_SIZE; destID++)
+   for (destID = 0; destID < RIO_DAR_RT_DOM_TABLE_SIZE; destID++)
    {
       rt->dom_table[destID].changed = false;
 
@@ -2654,20 +2654,20 @@ uint32_t tsi57x_read_rte_entries( DAR_DEV_INFO_t            *dev_info,
       }
 
       if (HW_DFLT_RT == rte_val) {
-         rt->dom_table[destID].rte_val = IDT_DSF_RT_USE_DEFAULT_ROUTE;
+         rt->dom_table[destID].rte_val = RIO_DSF_RT_USE_DEFAULT_ROUTE;
       } else {
          rt->dom_table[destID].rte_val = (uint8_t)(rte_val & Tsi578_SPX_ROUTE_CFG_PORT_PORT);
       };
    };
    
    destID = (base_reg & Tsi578_SPX_ROUTE_BASE_BASE) >> 24;
-   rt->dom_table[destID].rte_val = IDT_DSF_RT_USE_DEVICE_TABLE;
+   rt->dom_table[destID].rte_val = RIO_DSF_RT_USE_DEVICE_TABLE;
    base_reg = destID << 8;
 
    // Read all of the device routing table entries.
    //
    //
-   for (destID = 0; destID < IDT_DAR_RT_DEV_TABLE_SIZE; destID++)
+   for (destID = 0; destID < RIO_DAR_RT_DEV_TABLE_SIZE; destID++)
    {
       rt->dev_table[destID].changed = false;
 
@@ -2687,7 +2687,7 @@ uint32_t tsi57x_read_rte_entries( DAR_DEV_INFO_t            *dev_info,
       }
 
       if (HW_DFLT_RT == rte_val) {
-         rt->dev_table[destID].rte_val = IDT_DSF_RT_USE_DEFAULT_ROUTE;
+         rt->dev_table[destID].rte_val = RIO_DSF_RT_USE_DEFAULT_ROUTE;
       } else {
          rt->dev_table[destID].rte_val = (uint8_t)(rte_val & Tsi578_SPX_ROUTE_CFG_PORT_PORT);
       };
@@ -2700,8 +2700,8 @@ read_rte_entries_exit:
 #define RT_PROBE_ALL(x) (RT_PROBE_ALL_0+x)
 
 uint32_t idt_tsi57x_rt_probe_all  ( DAR_DEV_INFO_t           *dev_info, 
-                                 idt_rt_probe_all_in_t     *in_parms, 
-                                 idt_rt_probe_all_out_t    *out_parms )
+                                 rio_rt_probe_all_in_t     *in_parms, 
+                                 rio_rt_probe_all_out_t    *out_parms )
 {
     uint32_t rc = RIO_ERR_INVALID_PARAMETER;
     uint8_t  probe_port;
@@ -2732,7 +2732,7 @@ idt_tsi57x_rt_probe_all_exit:
 #define PROGRAM_RTE_ENTRIES(x) (PROGRAM_RTE_ENTRIES_0+x)
 
 uint32_t program_rte_entries( DAR_DEV_INFO_t            *dev_info,
-                            idt_rt_state_t            *rt,
+                            rio_rt_state_t            *rt,
                             uint8_t                      pnum,
                             bool                       prog_all, // Use ALL_ENTRIES/CHG_ENTRIES
                             uint32_t                    *imp_rc  )  
@@ -2753,7 +2753,7 @@ uint32_t program_rte_entries( DAR_DEV_INFO_t            *dev_info,
 
    // Set the default route output port
    
-   if ( IDT_DSF_RT_NO_ROUTE  == rt->default_route )
+   if ( RIO_DSF_RT_NO_ROUTE  == rt->default_route )
       rte_val = HW_DFLT_RT & Tsi578_RIO_LUT_ATTR_DEFAULT_PORT;
    else
       rte_val = rt->default_route & Tsi578_RIO_LUT_ATTR_DEFAULT_PORT;
@@ -2765,11 +2765,11 @@ uint32_t program_rte_entries( DAR_DEV_INFO_t            *dev_info,
    };
 
    // Find base ID, and set it.
-   for (destID = 0; destID < IDT_DAR_RT_DOM_TABLE_SIZE; destID++)
+   for (destID = 0; destID < RIO_DAR_RT_DOM_TABLE_SIZE; destID++)
    {
       idx_val = destID << 8;
       rte_val = rt->dom_table[destID].rte_val;
-      if (IDT_DSF_RT_USE_DEVICE_TABLE == rte_val) {
+      if (RIO_DSF_RT_USE_DEVICE_TABLE == rte_val) {
          if (set_base) {
                rc = RIO_ERR_INVALID_PARAMETER;
                *imp_rc = PROGRAM_RTE_ENTRIES(2);
@@ -2790,17 +2790,17 @@ uint32_t program_rte_entries( DAR_DEV_INFO_t            *dev_info,
    };
 
    // Set all of the domain routing table entries
-   for (destID = 0; destID < IDT_DAR_RT_DOM_TABLE_SIZE; destID++)
+   for (destID = 0; destID < RIO_DAR_RT_DOM_TABLE_SIZE; destID++)
    {
       if (prog_all || rt->dom_table[destID].changed ) {
          idx_val = destID << 8;
          rte_val = rt->dom_table[destID].rte_val;
 
-         if (IDT_DSF_RT_USE_DEVICE_TABLE != rte_val) {
-            if (IDT_DSF_RT_USE_DEFAULT_ROUTE == rte_val) {
+         if (RIO_DSF_RT_USE_DEVICE_TABLE != rte_val) {
+            if (RIO_DSF_RT_USE_DEFAULT_ROUTE == rte_val) {
                rte_val = HW_DFLT_RT;
             } else {
-               if (IDT_DSF_RT_NO_ROUTE == rte_val) {
+               if (RIO_DSF_RT_NO_ROUTE == rte_val) {
                   rte_val = HW_DFLT_RT;
                   idx_val |= Tsi578_SPX_ROUTE_CFG_DESTID_PAR_INVERT;
                } else {
@@ -2830,19 +2830,19 @@ uint32_t program_rte_entries( DAR_DEV_INFO_t            *dev_info,
    }
 
    // Set all of the device routing table entries
-   for (destID = 0; destID < IDT_DAR_RT_DEV_TABLE_SIZE; destID++)
+   for (destID = 0; destID < RIO_DAR_RT_DEV_TABLE_SIZE; destID++)
    {
       if (prog_all || rt->dev_table[destID].changed ) {
          idx_val = baseID + destID;
          rte_val = rt->dev_table[destID].rte_val;
-         if (IDT_DSF_RT_USE_DEFAULT_ROUTE == rte_val) {
+         if (RIO_DSF_RT_USE_DEFAULT_ROUTE == rte_val) {
             rte_val = HW_DFLT_RT;
          } else {
-            if (IDT_DSF_RT_NO_ROUTE == rte_val) {
+            if (RIO_DSF_RT_NO_ROUTE == rte_val) {
                rte_val = HW_DFLT_RT;
                idx_val |= Tsi578_SPX_ROUTE_CFG_DESTID_PAR_INVERT;
             } else {
-               if ((IDT_DSF_RT_USE_DEVICE_TABLE == rte_val) ||
+               if ((RIO_DSF_RT_USE_DEVICE_TABLE == rte_val) ||
                    (TSI57X_NUM_PORTS(dev_info)        <= rte_val)) {
                   rc = RIO_ERR_INVALID_PARAMETER;
                   *imp_rc = PROGRAM_RTE_ENTRIES(7);
@@ -2882,7 +2882,7 @@ program_rte_entries_exit:
 #define PROGRAM_MC_MASKS(x) (PROGRAM_MC_MASKS_0+x)
 
 uint32_t program_mc_masks( DAR_DEV_INFO_t            *dev_info, 
-                         idt_rt_state_t            *rt,
+                         rio_rt_state_t            *rt,
                          bool                      prog_all,  // Use ALL_MASKS or CHG_MASKS
                          uint32_t                    *imp_rc  )  
 {
@@ -2891,7 +2891,7 @@ uint32_t program_mc_masks( DAR_DEV_INFO_t            *dev_info,
    uint32_t reg_val;
    uint32_t invalid_mc_mask = ~(uint32_t)((1 << TSI57X_NUM_PORTS(dev_info)) - 1);
 
-   for (mask_idx = Tsi578_MAX_MC_MASKS; mask_idx < IDT_DSF_MAX_MC_MASK; mask_idx++ ) {
+   for (mask_idx = Tsi578_MAX_MC_MASKS; mask_idx < RIO_DSF_MAX_MC_MASK; mask_idx++ ) {
       if (rt->mc_masks[mask_idx].in_use || rt->mc_masks[mask_idx].changed || rt->mc_masks[mask_idx].allocd)  {
          *imp_rc = PROGRAM_MC_MASKS(1);
          goto program_mc_masks_exit;
@@ -2931,8 +2931,8 @@ program_mc_masks_exit:
 }
 
 uint32_t idt_tsi57x_rt_set_all   ( DAR_DEV_INFO_t            *dev_info, 
-                                 idt_rt_set_all_in_t       *in_parms, 
-                                 idt_rt_set_all_out_t      *out_parms )
+                                 rio_rt_set_all_in_t       *in_parms, 
+                                 rio_rt_set_all_out_t      *out_parms )
 {
     uint32_t rc = RIO_ERR_INVALID_PARAMETER;
 
@@ -2945,7 +2945,7 @@ uint32_t idt_tsi57x_rt_set_all   ( DAR_DEV_INFO_t            *dev_info,
     }
 
     if (( TSI57X_NUM_PORTS(dev_info) <= in_parms->rt->default_route) &&
-        !(IDT_DSF_RT_NO_ROUTE == in_parms->rt->default_route))   {
+        !(RIO_DSF_RT_NO_ROUTE == in_parms->rt->default_route))   {
         out_parms->imp_rc = RT_SET_ALL(2);
         goto idt_tsi57x_rt_set_all_exit;
     }
@@ -2965,8 +2965,8 @@ idt_tsi57x_rt_set_all_exit:
 }
 
 uint32_t idt_tsi57x_rt_set_changed   ( DAR_DEV_INFO_t            *dev_info, 
-                                 idt_rt_set_changed_in_t       *in_parms, 
-                                 idt_rt_set_changed_out_t      *out_parms )
+                                 rio_rt_set_changed_in_t       *in_parms, 
+                                 rio_rt_set_changed_out_t      *out_parms )
 {
     uint32_t rc = RIO_ERR_INVALID_PARAMETER;
 
@@ -2979,7 +2979,7 @@ uint32_t idt_tsi57x_rt_set_changed   ( DAR_DEV_INFO_t            *dev_info,
     }
 
     if (( TSI57X_NUM_PORTS(dev_info) <= in_parms->rt->default_route) &&
-        !(IDT_DSF_RT_NO_ROUTE == in_parms->rt->default_route))   {
+        !(RIO_DSF_RT_NO_ROUTE == in_parms->rt->default_route))   {
         out_parms->imp_rc = RT_SET_CHANGED(2);
         goto idt_tsi57x_rt_set_changed_exit;
     }
@@ -3001,8 +3001,8 @@ idt_tsi57x_rt_set_changed_exit:
 
 uint32_t idt_tsi57x_rt_change_rte (
     DAR_DEV_INFO_t           *dev_info, 
-    idt_rt_change_rte_in_t   *in_parms, 
-    idt_rt_change_rte_out_t  *out_parms
+    rio_rt_change_rte_in_t   *in_parms, 
+    rio_rt_change_rte_out_t  *out_parms
 )
 {
    uint32_t rc = RIO_ERR_INVALID_PARAMETER;
@@ -3016,15 +3016,15 @@ uint32_t idt_tsi57x_rt_change_rte (
    };
 
    // Validate rte_value 
-   if ( (IDT_DSF_RT_USE_DEVICE_TABLE  != in_parms->rte_value) &&
-        (IDT_DSF_RT_USE_DEFAULT_ROUTE != in_parms->rte_value) &&
-        (IDT_DSF_RT_NO_ROUTE          != in_parms->rte_value) &&
+   if ( (RIO_DSF_RT_USE_DEVICE_TABLE  != in_parms->rte_value) &&
+        (RIO_DSF_RT_USE_DEFAULT_ROUTE != in_parms->rte_value) &&
+        (RIO_DSF_RT_NO_ROUTE          != in_parms->rte_value) &&
         (in_parms->rte_value >= TSI57X_NUM_PORTS(dev_info))) {
       out_parms->imp_rc = RT_CHANGE_RTE(2);
       goto idt_tsi57x_rt_change_rte_exit;
    }
 
-   if ( (IDT_DSF_RT_USE_DEVICE_TABLE  == in_parms->rte_value) && (!in_parms->dom_entry)) {
+   if ( (RIO_DSF_RT_USE_DEVICE_TABLE  == in_parms->rte_value) && (!in_parms->dom_entry)) {
       out_parms->imp_rc = RT_CHANGE_RTE(3);
       goto idt_tsi57x_rt_change_rte_exit;
    };
@@ -3040,14 +3040,14 @@ uint32_t idt_tsi57x_rt_change_rte (
       in_parms->rt->dom_table[in_parms->idx].rte_val = in_parms->rte_value;
 
       // Since only one entry in the domain table can have a value of 
-      // IDT_DSF_RT_USE_DEVICE_TABLE, if that entry is marked changed
+      // RIO_DSF_RT_USE_DEVICE_TABLE, if that entry is marked changed
       // then it is possible that another entry has this value.  Search
       // to clear all other entries with this value, and mark them changed.
-      if (IDT_DSF_RT_USE_DEVICE_TABLE == in_parms->rte_value) {
-         for (idx = 0; idx < IDT_DAR_RT_DOM_TABLE_SIZE; idx++) {
-            if ((IDT_DSF_RT_USE_DEVICE_TABLE == in_parms->rt->dom_table[idx].rte_val) &&
+      if (RIO_DSF_RT_USE_DEVICE_TABLE == in_parms->rte_value) {
+         for (idx = 0; idx < RIO_DAR_RT_DOM_TABLE_SIZE; idx++) {
+            if ((RIO_DSF_RT_USE_DEVICE_TABLE == in_parms->rt->dom_table[idx].rte_val) &&
                 (idx                         != in_parms->idx                       )) {
-               in_parms->rt->dom_table[idx].rte_val = IDT_DSF_RT_NO_ROUTE;
+               in_parms->rt->dom_table[idx].rte_val = RIO_DSF_RT_NO_ROUTE;
                in_parms->rt->dom_table[idx].changed = true;
             };
          };
@@ -3066,8 +3066,8 @@ idt_tsi57x_rt_change_rte_exit:
 
 uint32_t idt_tsi57x_rt_change_mc_mask (
     DAR_DEV_INFO_t               *dev_info, 
-    idt_rt_change_mc_mask_in_t   *in_parms, 
-    idt_rt_change_mc_mask_out_t  *out_parms
+    rio_rt_change_mc_mask_in_t   *in_parms, 
+    rio_rt_change_mc_mask_out_t  *out_parms
 )
 {
    uint32_t rc = RIO_ERR_INVALID_PARAMETER;
@@ -3083,8 +3083,8 @@ uint32_t idt_tsi57x_rt_change_mc_mask (
 
    // Check destination ID value against tt, and that the multicast mask
    // does not select ports which do not exist on the Tsi57x device.
-   if ( (in_parms->mc_info.mc_destID > IDT_LAST_DEV16_DESTID   ) ||
-        ((in_parms->mc_info.mc_destID > IDT_LAST_DEV8_DESTID) &&
+   if ( (in_parms->mc_info.mc_destID > RIO_LAST_DEV16_DESTID   ) ||
+        ((in_parms->mc_info.mc_destID > RIO_LAST_DEV8_DESTID) &&
          (tt_dev8 == in_parms->mc_info.tt                     )) ||
         (in_parms->mc_info.mc_mask & illegal_ports             )  ) {
       out_parms->imp_rc = CHANGE_MC_MASK(2);
@@ -3094,7 +3094,7 @@ uint32_t idt_tsi57x_rt_change_mc_mask (
    // Check that the destination ID is not duplicated elsewhere in the
    // multicast table.
 
-   chg_idx = in_parms->mc_mask_rte - IDT_DSF_FIRST_MC_MASK;
+   chg_idx = in_parms->mc_mask_rte - RIO_DSF_FIRST_MC_MASK;
 
    for (mc_idx = 0; mc_idx < Tsi578_MAX_MC_MASKS; mc_idx++)  {
       if ((mc_idx != chg_idx)                                                      &&
@@ -3110,7 +3110,7 @@ uint32_t idt_tsi57x_rt_change_mc_mask (
 
    // Allow requests to change masks not supported by TSI57x family
    // but there's nothing to do...
-   if ((IDT_DSF_FIRST_MC_MASK + Tsi578_MAX_MC_MASKS) <= in_parms->mc_mask_rte)
+   if ((RIO_DSF_FIRST_MC_MASK + Tsi578_MAX_MC_MASKS) <= in_parms->mc_mask_rte)
       goto idt_tsi57x_rt_change_mc_mask_exit;
 
    // If entry has not already been changed, see if it is being changed
@@ -5763,15 +5763,15 @@ uint32_t bind_tsi57x_DSF_support( void )
     idt_driver.rio_pc_set_config         = idt_tsi57x_pc_set_config;
     idt_driver.rio_pc_probe              = default_rio_pc_probe;
 
-    idt_driver.idt_rt_initialize      = idt_tsi57x_rt_initialize;
-    idt_driver.idt_rt_probe           = idt_tsi57x_rt_probe;
-    idt_driver.idt_rt_probe_all       = idt_tsi57x_rt_probe_all;
-    idt_driver.idt_rt_set_all         = idt_tsi57x_rt_set_all;
-    idt_driver.idt_rt_set_changed     = idt_tsi57x_rt_set_changed;
-    idt_driver.idt_rt_alloc_mc_mask   = IDT_DSF_rt_alloc_mc_mask;
-    idt_driver.idt_rt_dealloc_mc_mask = IDT_DSF_rt_dealloc_mc_mask;
-    idt_driver.idt_rt_change_rte      = idt_tsi57x_rt_change_rte;
-    idt_driver.idt_rt_change_mc_mask  = idt_tsi57x_rt_change_mc_mask;
+    idt_driver.rio_rt_initialize      = idt_tsi57x_rt_initialize;
+    idt_driver.rio_rt_probe           = idt_tsi57x_rt_probe;
+    idt_driver.rio_rt_probe_all       = idt_tsi57x_rt_probe_all;
+    idt_driver.rio_rt_set_all         = idt_tsi57x_rt_set_all;
+    idt_driver.rio_rt_set_changed     = idt_tsi57x_rt_set_changed;
+    idt_driver.rio_rt_alloc_mc_mask   = RIO_DSF_rt_alloc_mc_mask;
+    idt_driver.rio_rt_dealloc_mc_mask = RIO_DSF_rt_dealloc_mc_mask;
+    idt_driver.rio_rt_change_rte      = idt_tsi57x_rt_change_rte;
+    idt_driver.rio_rt_change_mc_mask  = idt_tsi57x_rt_change_mc_mask;
 
     idt_driver.rio_em_cfg_pw       = idt_tsi57x_em_cfg_pw       ;
     idt_driver.rio_em_cfg_set      = idt_tsi57x_em_cfg_set      ;

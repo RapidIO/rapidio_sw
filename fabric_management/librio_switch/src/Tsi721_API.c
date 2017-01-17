@@ -1313,8 +1313,8 @@ idt_tsi721_pc_dev_reset_config_exit:
 
 /*
 uint32_t idt_tsi721_rt_initialize  ( DAR_DEV_INFO_t         *dev_info, 
-                                 idt_rt_initialize_in_t   *in_parms, 
-                                 idt_rt_initialize_out_t  *out_parms )
+                                 rio_rt_initialize_in_t   *in_parms, 
+                                 rio_rt_initialize_out_t  *out_parms )
 {
     return RIO_ERR_FEATURE_NOT_SUPPORTED;
 }
@@ -1323,8 +1323,8 @@ uint32_t idt_tsi721_rt_initialize  ( DAR_DEV_INFO_t         *dev_info,
 //        rather than the routing table...  Should probably make this a 
 //        separate capability...
 uint32_t idt_tsi721_rt_probe     ( DAR_DEV_INFO_t            *dev_info, 
-                                 idt_rt_probe_in_t         *in_parms, 
-                                 idt_rt_probe_out_t        *out_parms )
+                                 rio_rt_probe_in_t         *in_parms, 
+                                 rio_rt_probe_out_t        *out_parms )
 {
     return RIO_ERR_FEATURE_NOT_SUPPORTED;
 }
@@ -1333,30 +1333,30 @@ uint32_t idt_tsi721_rt_probe     ( DAR_DEV_INFO_t            *dev_info,
 //        rather than the routing table...  Should probably make this a 
 //        separate capability...
 uint32_t idt_tsi721_rt_probe_all  ( DAR_DEV_INFO_t           *dev_info, 
-                                 idt_rt_probe_all_in_t     *in_parms, 
-                                 idt_rt_probe_all_out_t    *out_parms )
+                                 rio_rt_probe_all_in_t     *in_parms, 
+                                 rio_rt_probe_all_out_t    *out_parms )
 {
     return RIO_ERR_FEATURE_NOT_SUPPORTED;
 }
 
 uint32_t idt_tsi721_rt_set_all   ( DAR_DEV_INFO_t            *dev_info, 
-                                 idt_rt_set_all_in_t       *in_parms, 
-                                 idt_rt_set_all_out_t      *out_parms )
+                                 rio_rt_set_all_in_t       *in_parms, 
+                                 rio_rt_set_all_out_t      *out_parms )
 {
     return RIO_ERR_FEATURE_NOT_SUPPORTED;
 }
 
 uint32_t idt_tsi721_rt_set_changed   ( DAR_DEV_INFO_t            *dev_info, 
-                                 idt_rt_set_changed_in_t       *in_parms, 
-                                 idt_rt_set_changed_out_t      *out_parms )
+                                 rio_rt_set_changed_in_t       *in_parms, 
+                                 rio_rt_set_changed_out_t      *out_parms )
 {
     return RIO_ERR_FEATURE_NOT_SUPPORTED;
 };
 
 uint32_t idt_tsi721_rt_change_rte (
     DAR_DEV_INFO_t           *dev_info, 
-    idt_rt_change_rte_in_t   *in_parms, 
-    idt_rt_change_rte_out_t  *out_parms
+    rio_rt_change_rte_in_t   *in_parms, 
+    rio_rt_change_rte_out_t  *out_parms
 )
 {
     return RIO_ERR_FEATURE_NOT_SUPPORTED;
@@ -1364,8 +1364,8 @@ uint32_t idt_tsi721_rt_change_rte (
 
 uint32_t idt_tsi721_rt_change_mc_mask (
     DAR_DEV_INFO_t               *dev_info, 
-    idt_rt_change_mc_mask_in_t   *in_parms, 
-    idt_rt_change_mc_mask_out_t  *out_parms
+    rio_rt_change_mc_mask_in_t   *in_parms, 
+    rio_rt_change_mc_mask_out_t  *out_parms
 )
 {
     return RIO_ERR_FEATURE_NOT_SUPPORTED;
@@ -1797,15 +1797,15 @@ uint32_t bind_tsi721_DSF_support( void )
     idt_driver.rio_pc_probe              = default_rio_pc_probe;
 
 /*
-    idt_driver.idt_rt_initialize      = idt_tsi721_rt_initialize;
-    idt_driver.idt_rt_probe           = idt_tsi721_rt_probe;
-    idt_driver.idt_rt_probe_all       = idt_tsi721_rt_probe_all;
-    idt_driver.idt_rt_set_all         = idt_tsi721_rt_set_all;
-    idt_driver.idt_rt_set_changed     = idt_tsi721_rt_set_changed;
-    idt_driver.idt_rt_alloc_mc_mask   = IDT_DSF_rt_alloc_mc_mask;
-    idt_driver.idt_rt_dealloc_mc_mask = IDT_DSF_rt_dealloc_mc_mask;
-    idt_driver.idt_rt_change_rte      = idt_tsi721_rt_change_rte;
-    idt_driver.idt_rt_change_mc_mask  = idt_tsi721_rt_change_mc_mask;
+    idt_driver.rio_rt_initialize      = idt_tsi721_rt_initialize;
+    idt_driver.rio_rt_probe           = idt_tsi721_rt_probe;
+    idt_driver.rio_rt_probe_all       = idt_tsi721_rt_probe_all;
+    idt_driver.rio_rt_set_all         = idt_tsi721_rt_set_all;
+    idt_driver.rio_rt_set_changed     = idt_tsi721_rt_set_changed;
+    idt_driver.rio_rt_alloc_mc_mask   = RIO_DSF_rt_alloc_mc_mask;
+    idt_driver.rio_rt_dealloc_mc_mask = RIO_DSF_rt_dealloc_mc_mask;
+    idt_driver.rio_rt_change_rte      = idt_tsi721_rt_change_rte;
+    idt_driver.rio_rt_change_mc_mask  = idt_tsi721_rt_change_mc_mask;
 
 */
     idt_driver.rio_em_cfg_pw       = idt_tsi721_em_cfg_pw       ;

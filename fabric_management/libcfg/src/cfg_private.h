@@ -139,7 +139,7 @@ struct int_cfg_sw_port {
 	struct int_cfg_conn *conn;
 	int conn_end; /* index of *conn for this switch */
 	bool rt_valid[CFG_DEVID_MAX];
-	idt_rt_state_t rt[CFG_DEVID_MAX];
+	rio_rt_state_t rt[CFG_DEVID_MAX];
 };
 
 struct int_cfg_sw {
@@ -155,7 +155,7 @@ struct int_cfg_sw {
 	struct int_cfg_sw_port ports[CFG_MAX_SW_PORT];
 	// One routing table for each devID size
 	bool rt_valid[CFG_DEVID_MAX]; 
-	idt_rt_state_t rt[CFG_DEVID_MAX]; 
+	rio_rt_state_t rt[CFG_DEVID_MAX];
 };
 
 struct int_cfg_conn_pe {

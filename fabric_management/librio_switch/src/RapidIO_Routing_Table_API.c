@@ -36,34 +36,34 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 extern "C" {
 #endif
 
-char *rio_em_disc_reason_names[ (uint8_t)(idt_rt_disc_last) ] = {
-   (char *)"NoDiscard" ,  // idt_rt_disc_not
-   (char *)"RteInvalid",  // idt_rt_disc_rt_invalid
-   (char *)"Deliberate",   // idt_rt_disc_deliberately
-   (char *)"PrtUnavail",   // idt_rt_disc_port_unavail
-   (char *)"PrtPwrDwn" ,   // idt_rt_disc_port_pwdn
-   (char *)"PrtFail"   ,   // idt_rt_disc_port_fail
-   (char *)"PrtNoLp"   ,   // idt_rt_disc_port_no_lp
-   (char *)"LkoutOrDis",   // idt_rt_disc_port_lkout_or_dis
-   (char *)"InpOutpDis",   // idt_rt_disc_port_in_out_dis
-   (char *)"MCEmpty"   ,   // idt_rt_disc_mc_empty
-   (char *)"MC1bit"    ,   // idt_rt_disc_mc_one_bit
-   (char *)"MCMultMask",   // idt_rt_disc_mc_mult_masks
-   (char *)"DPInvalid" ,   // idt_rt_disc_dflt_pt_invalid
-   (char *)"DPDelibrat",   // idt_rt_disc_dflt_pt_deliberately
-   (char *)"DPPrtUaval",   // idt_rt_disc_dflt_pt_unavail
-   (char *)"DPPwrDwn"  ,   // idt_rt_disc_dflt_pt_pwdn
-   (char *)"DPFail"    ,   // idt_rt_disc_dflt_pt_fail
-   (char *)"DPNoLp"    ,   // idt_rt_disc_dflt_pt_no_lp
-   (char *)"DPLkoutDis",   // idt_rt_disc_dflt_pt_lkout_or_dis
-   (char *)"DPInpOutpD",   // idt_rt_disc_dflt_pt_in_out_dis
-   (char *)"ProbeABORT"    // idt_rt_disc_probe_abort
+char *rio_em_disc_reason_names[ (uint8_t)(rio_rt_disc_last) ] = {
+   (char *)"NoDiscard" ,  // rio_rt_disc_not
+   (char *)"RteInvalid",  // rio_rt_disc_rt_invalid
+   (char *)"Deliberate",   // rio_rt_disc_deliberately
+   (char *)"PrtUnavail",   // rio_rt_disc_port_unavail
+   (char *)"PrtPwrDwn" ,   // rio_rt_disc_port_pwdn
+   (char *)"PrtFail"   ,   // rio_rt_disc_port_fail
+   (char *)"PrtNoLp"   ,   // rio_rt_disc_port_no_lp
+   (char *)"LkoutOrDis",   // rio_rt_disc_port_lkout_or_dis
+   (char *)"InpOutpDis",   // rio_rt_disc_port_in_out_dis
+   (char *)"MCEmpty"   ,   // rio_rt_disc_mc_empty
+   (char *)"MC1bit"    ,   // rio_rt_disc_mc_one_bit
+   (char *)"MCMultMask",   // rio_rt_disc_mc_mult_masks
+   (char *)"DPInvalid" ,   // rio_rt_disc_dflt_pt_invalid
+   (char *)"DPDelibrat",   // rio_rt_disc_dflt_pt_deliberately
+   (char *)"DPPrtUaval",   // rio_rt_disc_dflt_pt_unavail
+   (char *)"DPPwrDwn"  ,   // rio_rt_disc_dflt_pt_pwdn
+   (char *)"DPFail"    ,   // rio_rt_disc_dflt_pt_fail
+   (char *)"DPNoLp"    ,   // rio_rt_disc_dflt_pt_no_lp
+   (char *)"DPLkoutDis",   // rio_rt_disc_dflt_pt_lkout_or_dis
+   (char *)"DPInpOutpD",   // rio_rt_disc_dflt_pt_in_out_dis
+   (char *)"ProbeABORT"    // rio_rt_disc_probe_abort
 };
 
 /* User function calls for a routing table configuration */
-uint32_t idt_rt_initialize  ( DAR_DEV_INFO_t           *dev_info,
-                            idt_rt_initialize_in_t   *in_parms,
-                            idt_rt_initialize_out_t  *out_parms )
+uint32_t rio_rt_initialize  ( DAR_DEV_INFO_t           *dev_info,
+                            rio_rt_initialize_in_t   *in_parms,
+                            rio_rt_initialize_out_t  *out_parms )
 {
     uint32_t rc = DAR_DB_INVALID_HANDLE;
 
@@ -72,7 +72,7 @@ uint32_t idt_rt_initialize  ( DAR_DEV_INFO_t           *dev_info,
     if ( VALIDATE_DEV_INFO(dev_info) )
     {
         if ( IDT_DSF_INDEX(dev_info) < DAR_DB_MAX_DRIVERS )
-            rc = IDT_DB[IDT_DSF_INDEX(dev_info)].idt_rt_initialize(
+            rc = IDT_DB[IDT_DSF_INDEX(dev_info)].rio_rt_initialize(
                     dev_info, in_parms, out_parms
                  );
     }
@@ -80,9 +80,9 @@ uint32_t idt_rt_initialize  ( DAR_DEV_INFO_t           *dev_info,
     return rc;
 }
 
-uint32_t idt_rt_probe       ( DAR_DEV_INFO_t           *dev_info,
-                            idt_rt_probe_in_t        *in_parms,
-                            idt_rt_probe_out_t       *out_parms )
+uint32_t rio_rt_probe       ( DAR_DEV_INFO_t           *dev_info,
+                            rio_rt_probe_in_t        *in_parms,
+                            rio_rt_probe_out_t       *out_parms )
 {
     uint32_t rc = DAR_DB_INVALID_HANDLE;
 
@@ -91,7 +91,7 @@ uint32_t idt_rt_probe       ( DAR_DEV_INFO_t           *dev_info,
     if ( VALIDATE_DEV_INFO(dev_info) )
     {
         if ( IDT_DSF_INDEX(dev_info) < DAR_DB_MAX_DRIVERS )
-            rc = IDT_DB[IDT_DSF_INDEX(dev_info)].idt_rt_probe(
+            rc = IDT_DB[IDT_DSF_INDEX(dev_info)].rio_rt_probe(
                     dev_info, in_parms, out_parms
                  );
     }
@@ -100,9 +100,9 @@ uint32_t idt_rt_probe       ( DAR_DEV_INFO_t           *dev_info,
 }
 
 
-uint32_t idt_rt_probe_all( DAR_DEV_INFO_t          *dev_info,
-                         idt_rt_probe_all_in_t   *in_parms,
-                         idt_rt_probe_all_out_t  *out_parms )
+uint32_t rio_rt_probe_all( DAR_DEV_INFO_t          *dev_info,
+                         rio_rt_probe_all_in_t   *in_parms,
+                         rio_rt_probe_all_out_t  *out_parms )
 {
     uint32_t rc = DAR_DB_INVALID_HANDLE;
 
@@ -111,7 +111,7 @@ uint32_t idt_rt_probe_all( DAR_DEV_INFO_t          *dev_info,
     if ( VALIDATE_DEV_INFO(dev_info) )
     {
         if ( IDT_DSF_INDEX(dev_info) < DAR_DB_MAX_DRIVERS )
-            rc = IDT_DB[IDT_DSF_INDEX(dev_info)].idt_rt_probe_all(
+            rc = IDT_DB[IDT_DSF_INDEX(dev_info)].rio_rt_probe_all(
                     dev_info, in_parms, out_parms
                  );
     }
@@ -119,9 +119,9 @@ uint32_t idt_rt_probe_all( DAR_DEV_INFO_t          *dev_info,
     return rc;
 }
 
-uint32_t idt_rt_set_all( DAR_DEV_INFO_t        *dev_info,
-                       idt_rt_set_all_in_t   *in_parms,
-                       idt_rt_set_all_out_t  *out_parms )
+uint32_t rio_rt_set_all( DAR_DEV_INFO_t        *dev_info,
+                       rio_rt_set_all_in_t   *in_parms,
+                       rio_rt_set_all_out_t  *out_parms )
 {
     uint32_t rc = DAR_DB_INVALID_HANDLE;
 
@@ -130,7 +130,7 @@ uint32_t idt_rt_set_all( DAR_DEV_INFO_t        *dev_info,
     if ( VALIDATE_DEV_INFO(dev_info) )
     {
         if ( IDT_DSF_INDEX(dev_info) < DAR_DB_MAX_DRIVERS )
-            rc = IDT_DB[IDT_DSF_INDEX(dev_info)].idt_rt_set_all(
+            rc = IDT_DB[IDT_DSF_INDEX(dev_info)].rio_rt_set_all(
                     dev_info, in_parms, out_parms
                  );
     }
@@ -138,9 +138,9 @@ uint32_t idt_rt_set_all( DAR_DEV_INFO_t        *dev_info,
     return rc;
 }
 
-uint32_t idt_rt_set_changed( DAR_DEV_INFO_t            *dev_info,
-                           idt_rt_set_changed_in_t   *in_parms,
-                           idt_rt_set_changed_out_t  *out_parms )
+uint32_t rio_rt_set_changed( DAR_DEV_INFO_t            *dev_info,
+                           rio_rt_set_changed_in_t   *in_parms,
+                           rio_rt_set_changed_out_t  *out_parms )
 {
     uint32_t rc = DAR_DB_INVALID_HANDLE;
 
@@ -149,7 +149,7 @@ uint32_t idt_rt_set_changed( DAR_DEV_INFO_t            *dev_info,
     if ( VALIDATE_DEV_INFO(dev_info) )
     {
         if ( IDT_DSF_INDEX(dev_info) < DAR_DB_MAX_DRIVERS )
-            rc = IDT_DB[IDT_DSF_INDEX(dev_info)].idt_rt_set_changed(
+            rc = IDT_DB[IDT_DSF_INDEX(dev_info)].rio_rt_set_changed(
                     dev_info, in_parms, out_parms
                  );
     }
@@ -157,9 +157,9 @@ uint32_t idt_rt_set_changed( DAR_DEV_INFO_t            *dev_info,
     return rc;
 }
 
-uint32_t idt_rt_alloc_mc_mask( DAR_DEV_INFO_t        *dev_info,
-                       idt_rt_alloc_mc_mask_in_t   *in_parms,
-                       idt_rt_alloc_mc_mask_out_t  *out_parms )
+uint32_t rio_rt_alloc_mc_mask( DAR_DEV_INFO_t        *dev_info,
+                       rio_rt_alloc_mc_mask_in_t   *in_parms,
+                       rio_rt_alloc_mc_mask_out_t  *out_parms )
 {
     uint32_t rc = DAR_DB_INVALID_HANDLE;
 
@@ -168,16 +168,16 @@ uint32_t idt_rt_alloc_mc_mask( DAR_DEV_INFO_t        *dev_info,
     if ( VALIDATE_DEV_INFO(dev_info) )
     {
         if ( IDT_DSF_INDEX(dev_info) < DAR_DB_MAX_DRIVERS )
-            rc = IDT_DB[IDT_DSF_INDEX(dev_info)].idt_rt_alloc_mc_mask(
+            rc = IDT_DB[IDT_DSF_INDEX(dev_info)].rio_rt_alloc_mc_mask(
                     dev_info, in_parms, out_parms
                  );
     }
 
     return rc;
 }
-uint32_t idt_rt_dealloc_mc_mask( DAR_DEV_INFO_t        *dev_info,
-                       idt_rt_dealloc_mc_mask_in_t   *in_parms,
-                       idt_rt_dealloc_mc_mask_out_t  *out_parms )
+uint32_t rio_rt_dealloc_mc_mask( DAR_DEV_INFO_t        *dev_info,
+                       rio_rt_dealloc_mc_mask_in_t   *in_parms,
+                       rio_rt_dealloc_mc_mask_out_t  *out_parms )
 {
     uint32_t rc = DAR_DB_INVALID_HANDLE;
 
@@ -186,16 +186,16 @@ uint32_t idt_rt_dealloc_mc_mask( DAR_DEV_INFO_t        *dev_info,
     if ( VALIDATE_DEV_INFO(dev_info) )
     {
         if ( IDT_DSF_INDEX(dev_info) < DAR_DB_MAX_DRIVERS )
-            rc = IDT_DB[IDT_DSF_INDEX(dev_info)].idt_rt_dealloc_mc_mask(
+            rc = IDT_DB[IDT_DSF_INDEX(dev_info)].rio_rt_dealloc_mc_mask(
                     dev_info, in_parms, out_parms
                  );
     }
 
     return rc;
 }
-uint32_t idt_rt_change_rte( DAR_DEV_INFO_t        *dev_info,
-                       idt_rt_change_rte_in_t   *in_parms,
-                       idt_rt_change_rte_out_t  *out_parms )
+uint32_t rio_rt_change_rte( DAR_DEV_INFO_t        *dev_info,
+                       rio_rt_change_rte_in_t   *in_parms,
+                       rio_rt_change_rte_out_t  *out_parms )
 {
     uint32_t rc = DAR_DB_INVALID_HANDLE;
 
@@ -204,16 +204,16 @@ uint32_t idt_rt_change_rte( DAR_DEV_INFO_t        *dev_info,
     if ( VALIDATE_DEV_INFO(dev_info) )
     {
         if ( IDT_DSF_INDEX(dev_info) < DAR_DB_MAX_DRIVERS )
-            rc = IDT_DB[IDT_DSF_INDEX(dev_info)].idt_rt_change_rte(
+            rc = IDT_DB[IDT_DSF_INDEX(dev_info)].rio_rt_change_rte(
                     dev_info, in_parms, out_parms
                  );
     }
 
     return rc;
 }
-uint32_t idt_rt_change_mc_mask( DAR_DEV_INFO_t        *dev_info,
-                       idt_rt_change_mc_mask_in_t   *in_parms,
-                       idt_rt_change_mc_mask_out_t  *out_parms )
+uint32_t rio_rt_change_mc_mask( DAR_DEV_INFO_t        *dev_info,
+                       rio_rt_change_mc_mask_in_t   *in_parms,
+                       rio_rt_change_mc_mask_out_t  *out_parms )
 {
     uint32_t rc = DAR_DB_INVALID_HANDLE;
 
@@ -222,7 +222,7 @@ uint32_t idt_rt_change_mc_mask( DAR_DEV_INFO_t        *dev_info,
     if ( VALIDATE_DEV_INFO(dev_info) )
     {
         if ( IDT_DSF_INDEX(dev_info) < DAR_DB_MAX_DRIVERS )
-            rc = IDT_DB[IDT_DSF_INDEX(dev_info)].idt_rt_change_mc_mask(
+            rc = IDT_DB[IDT_DSF_INDEX(dev_info)].rio_rt_change_mc_mask(
                     dev_info, in_parms, out_parms
                  );
     }

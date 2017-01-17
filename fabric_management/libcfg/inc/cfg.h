@@ -95,13 +95,13 @@ struct cfg_sw_port {
 	rio_pc_pw_t max_pw;
 	rio_pc_pw_t op_pw;
 	rio_pc_ls_t ls;
-	idt_rt_state_t *rt[CFG_DEVID_MAX];
+	rio_rt_state_t *rt[CFG_DEVID_MAX];
 };
 
 struct cfg_sw {
 	int num_ports;
 	struct cfg_sw_port sw_pt[CFG_MAX_SW_PORT];
-	idt_rt_state_t *rt[CFG_DEVID_MAX]; 
+	rio_rt_state_t *rt[CFG_DEVID_MAX];
 };
 
 struct cfg_dev {

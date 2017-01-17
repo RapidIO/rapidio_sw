@@ -290,15 +290,15 @@ uint32_t bind_CPS_DSF_support( void )
     idt_driver.rio_pc_set_config         = IDT_CPS_pc_set_config;
     idt_driver.rio_pc_probe              = default_rio_pc_probe;
 
-    idt_driver.idt_rt_initialize         = IDT_CPS_rt_initialize;
-    idt_driver.idt_rt_probe              = IDT_CPS_rt_probe;
-    idt_driver.idt_rt_probe_all          = IDT_CPS_rt_probe_all;
-    idt_driver.idt_rt_set_all            = IDT_CPS_rt_set_all;
-    idt_driver.idt_rt_set_changed     = IDT_CPS_rt_set_changed;
-    idt_driver.idt_rt_alloc_mc_mask   = IDT_DSF_rt_alloc_mc_mask;
-    idt_driver.idt_rt_dealloc_mc_mask = IDT_DSF_rt_dealloc_mc_mask;
-    idt_driver.idt_rt_change_rte      = IDT_CPS_rt_change_rte;
-    idt_driver.idt_rt_change_mc_mask  = IDT_CPS_rt_change_mc_mask;
+    idt_driver.rio_rt_initialize         = IDT_CPS_rt_initialize;
+    idt_driver.rio_rt_probe              = IDT_CPS_rt_probe;
+    idt_driver.rio_rt_probe_all          = IDT_CPS_rt_probe_all;
+    idt_driver.rio_rt_set_all            = IDT_CPS_rt_set_all;
+    idt_driver.rio_rt_set_changed     = IDT_CPS_rt_set_changed;
+    idt_driver.rio_rt_alloc_mc_mask   = RIO_DSF_rt_alloc_mc_mask;
+    idt_driver.rio_rt_dealloc_mc_mask = RIO_DSF_rt_dealloc_mc_mask;
+    idt_driver.rio_rt_change_rte      = IDT_CPS_rt_change_rte;
+    idt_driver.rio_rt_change_mc_mask  = IDT_CPS_rt_change_mc_mask;
 
     idt_driver.rio_em_cfg_pw       = IDT_CPS_em_cfg_pw       ;
     idt_driver.rio_em_cfg_set      = IDT_CPS_em_cfg_set      ;

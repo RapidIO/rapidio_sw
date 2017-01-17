@@ -1629,8 +1629,8 @@ uint32_t set_regs_to_reset_defaults( DAR_DEV_INFO_t *dev_info  ,
    for (reg_idx = 0; reg_idx < ARRAY_SIZE_CPS_RESET_REG_VALS; reg_idx++) {
       if (CPS1848_PORT_X_DEV_RTE_TABLE_Y(0,0) == CPS_reset_reg_vals[reg_idx].addr) {
 	 // Initialize routing table, and multicast masks, for port
-	 idt_rt_initialize_in_t  in_parm;
-	 idt_rt_initialize_out_t out_parm;
+	 rio_rt_initialize_in_t  in_parm;
+	 rio_rt_initialize_out_t out_parm;
 	 uint32_t                  temp;
 
          rc = DARRegRead(dev_info, CPS1848_RTE_DEFAULT_PORT_CSR, &temp);
@@ -1639,10 +1639,10 @@ uint32_t set_regs_to_reset_defaults( DAR_DEV_INFO_t *dev_info  ,
          };
 	 in_parm.set_on_port = pnum;
 	 in_parm.default_route = (uint8_t)(temp & CPS1848_RTE_DEFAULT_PORT_CSR_DEFAULT_PORT);
-	 in_parm.default_route_table_port = IDT_DSF_RT_USE_DEFAULT_ROUTE;
+	 in_parm.default_route_table_port = RIO_DSF_RT_USE_DEFAULT_ROUTE;
 	 in_parm.update_hw = true;
 	 in_parm.rt        = NULL;
-	 rc = idt_rt_initialize(dev_info, &in_parm, &out_parm);
+	 rc = rio_rt_initialize(dev_info, &in_parm, &out_parm);
 	 if (RIO_SUCCESS != rc) {
             *fail_pt = out_parm.imp_rc;
             goto reset_reg_vals_exit;
