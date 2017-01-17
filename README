@@ -112,6 +112,9 @@ New functionality in RRMAP 7.0 compared to 6.0:
       configuration file.
   - Bug fixes for Prodrive Top-of-Rack switch configuration template
 
+- Goodput
+  - OBDIO command enhanced to robustly set the size of the outbound window
+
 - Installation Scripts
   - The installation scripts have been modified to use the following approach:
     - A server node is specified which acts as the source for all installed
