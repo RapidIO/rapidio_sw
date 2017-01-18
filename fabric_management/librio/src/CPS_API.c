@@ -243,20 +243,6 @@ uint32_t IDT_CPSGEN2_DeviceSupported( DAR_DEV_INFO_t *dev_info )
 }
 
 
-uint32_t IDT_CPSGEN2_DeviceRemoved( DAR_DEV_INFO_t *dev_info )
-{
-    uint32_t rc = RIO_SUCCESS ;
-
-    num_cpsgen2_driver_instances-- ;
-    dev_info->privateData = 0 ;
-    dev_info->dsf_h = INVALID_HANDLE ;
-    dev_info->db_h = 0 ;
-    dev_info->devID = 0 ;
-    dev_info->accessInfo = 0 ;
-
-    return rc;
-}     
-
 uint32_t bind_CPS_DAR_support( void )
 {
     DAR_DB_Driver_t DB_info;
@@ -264,7 +250,7 @@ uint32_t bind_CPS_DAR_support( void )
     /* Now bind the device driver... */
     DARDB_Init_Driver_Info( IDT_CPS_VENDOR_ID, &DB_info ) ;
 
-	DB_info.rioGetPortList = IDT_CPSGEN2_GetPortList;
+    DB_info.rioGetPortList = IDT_CPSGEN2_GetPortList;
     DB_info.rioDeviceSupported = IDT_CPSGEN2_DeviceSupported ;
     DB_info.rioSetAssmblyInfo  = CPS_rioSetAssmblyInfo;
 

@@ -201,8 +201,7 @@ uint32_t DAR_Release_Driver_for_Device ( DAR_DEV_INFO_t *dev_info );
 uint32_t DARRegRead ( DAR_DEV_INFO_t *dev_info, uint32_t offset, uint32_t *readdata );
 uint32_t DARRegWrite( DAR_DEV_INFO_t *dev_info, uint32_t offset, uint32_t writedata );
 
-/* Routines which invoke the associated device driver function bound into the 
-*  DAR DB.
+/* Routines which invoke the associated device driver function.
 * 
 *  All of these routines have default DAR implementations which rely on 
 *  RapidIO standard registers.
@@ -268,7 +267,7 @@ uint32_t DARrioLinkReqNResp ( DAR_DEV_INFO_t *dev_info,
 *  Because this API is aimed at system bring up, there is no support 
 *      for multicast.
 */
-/* Use RIO_ALL_PORTS to cause packets with that routedestid to be discarded.
+/* Use RIO_ALL_PORTS to cause packets with that route destid to be discarded.
 */
 #define RIO_ALL_PORTS ((uint8_t)(0xFF))
 
@@ -279,12 +278,12 @@ uint32_t DARrioStdRouteGetEntry ( DAR_DEV_INFO_t *dev_info,
                                         uint16_t  routedestid, 
                                          uint8_t *routeportno );
 
-/* NEW DAR ROUTINE, initializes all routing table entries to use routeportno.
+/* NEW DAR ROUTINE, initializes all routing table entries to use route portno.
 */
 uint32_t DARrioStdRouteInitAll ( DAR_DEV_INFO_t *dev_info, 
                                         uint8_t  routeportno );
 
-/* NEW DAR ROUTINE, invalidates the routing for the routedestid
+/* NEW DAR ROUTINE, invalidates the routing for the route destid
 */
 uint32_t DARrioStdRouteRemoveEntry ( DAR_DEV_INFO_t *dev_info, 
                                            uint16_t  routedestid );
