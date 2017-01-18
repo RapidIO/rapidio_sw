@@ -44,7 +44,7 @@
 extern "C" {
 #endif
 
-#define BUFLEN 512
+#define BUFLEN 1024
 
 #define PROMPTLEN 29
 
