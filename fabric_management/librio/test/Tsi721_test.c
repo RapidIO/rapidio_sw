@@ -46,7 +46,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rio_ecosystem.h"
 
 #include "Tsi721.h"
-#include "src/Tsi721_API.c"
+#include "src/Tsi721_SC.c"
 
 #ifdef __cplusplus
 extern "C" {
