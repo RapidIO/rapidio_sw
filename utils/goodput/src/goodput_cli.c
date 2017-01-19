@@ -1604,7 +1604,7 @@ int GoodputCmd(struct cli_env *env, int argc, char **UNUSED(argv))
 
 		MBps = (float)(byte_cnt / (1024*1024)) / 
 			((float)nsec / 1000000000.0);
-		Gbps = (MBps * 8.0) / 1000.0;
+		Gbps = (MBps * 1024.0 * 1024.0 * 8.0) / 1000000000.0;
 		link_occ = Gbps/0.95;
 
 		memset(MBps_str, 0, FLOAT_STR_SIZE);
