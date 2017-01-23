@@ -44,7 +44,7 @@ extern "C" {
 #define RETURNED_FAILURE 1
 
 // initialize the seq_ts structure with a known pattern
-void set_seq_ts(struct seq_ts *ts)
+static void set_seq_ts(struct seq_ts *ts)
 {
 	ts->max_idx = 0xca;
 	ts->ts_idx = 0xfe;
@@ -55,7 +55,7 @@ void set_seq_ts(struct seq_ts *ts)
 /**
  * @brief Verify the internal structures and defined constants
  */
-void assumptions(void **state)
+static void assumptions(void **state)
 {
 	assert_int_equal(4096, MAX_TIMESTAMPS);
 
@@ -75,7 +75,7 @@ void assumptions(void **state)
 
 /** @brief Test handling of null parameters for init_seq_ts
  */
-void init_seq_ts_null_parm_test(void **state)
+static void init_seq_ts_null_parm_test(void **state)
 {
 
 	// null ts
@@ -86,7 +86,7 @@ void init_seq_ts_null_parm_test(void **state)
 
 /** @brief Test correct operation of init_seq_ts
  */
-void init_seq_ts_test(void **state)
+static void init_seq_ts_test(void **state)
 {
 	struct seq_ts ts;
 
@@ -145,7 +145,7 @@ void init_seq_ts_test(void **state)
 
 /** @brief Test handling of null parameters for ts_now
  */
-void ts_now_null_parm_test(void **state)
+static void ts_now_null_parm_test(void **state)
 {
 	// just make sure it doesn't blow chunks, no rc
 	ts_now(NULL);
@@ -155,7 +155,7 @@ void ts_now_null_parm_test(void **state)
 
 /** @brief Test correct operation of ts_now
  */
-void ts_now_test(void **state)
+static void ts_now_test(void **state)
 {
 	struct seq_ts ts;
 
@@ -204,7 +204,7 @@ void ts_now_test(void **state)
 
 /** @brief Test handling of null parameters for ts_now_mark
  */
-void ts_now_mark_null_parm_test(void **state)
+static void ts_now_mark_null_parm_test(void **state)
 {
 	// just make sure it doesn't blow chunks, no rc
 	ts_now_mark(NULL, 0xdead);
@@ -214,7 +214,7 @@ void ts_now_mark_null_parm_test(void **state)
 
 /** @brief Test correct operation of ts_now_mark
  */
-void ts_now_mark_test(void **state)
+static void ts_now_mark_test(void **state)
 {
 	struct seq_ts ts;
 
@@ -271,7 +271,7 @@ void ts_now_mark_test(void **state)
 
 /** @brief Test correct operation of time_difference
  */
-void time_difference_test(void **state)
+static void time_difference_test(void **state)
 {
 	struct timespec start_ts, end_ts, result_ts;
 
@@ -320,7 +320,7 @@ void time_difference_test(void **state)
 
 /** @brief Test correct operation of time_add
  */
-void time_add_test(void **state)
+static void time_add_test(void **state)
 {
 	struct timespec start_ts, end_ts, result_ts;
 
@@ -361,7 +361,7 @@ void time_add_test(void **state)
 
 /** @brief Test correct operation of time_div
  */
-void time_div_test(void **state)
+static void time_div_test(void **state)
 {
 	struct timespec start_ts, result_ts;
 
@@ -394,7 +394,7 @@ void time_div_test(void **state)
 
 /** @brief Test correct operation of time_track
  */
-void time_track_test(void **state)
+static void time_track_test(void **state)
 {
 	struct timespec start_ts, end_ts, totaltime, mintime, maxtime;
 	struct timespec test_total_time = {0, 0}, test_mintime, test_maxtime;
@@ -434,7 +434,7 @@ void time_track_test(void **state)
 
 /** @brief Test correct operation of time_track_lim
  */
-void time_track_lim_test(void **state)
+static void time_track_lim_test(void **state)
 {
 	struct timespec start_ts, end_ts, lim;
 	struct timespec test_total_time = {0, 0}, test_mintime, test_maxtime;

@@ -46,7 +46,7 @@
 extern "C" {
 #endif
 
-void set_initialize(struct set_t *set)
+static void set_initialize(struct set_t *set)
 {
 	set->capacity = 123;
 	set->expand_size = 456;
@@ -54,100 +54,7 @@ void set_initialize(struct set_t *set)
 	set->arr = (uint32_t *)0xdeadbeef;
 }
 
-// Not used. Was causing a segmentation fault on the build system
-// so broke into smaller pieces to isolate the issue
-void set_create_test(void **state)
-{
-	int rc;
-	struct set_t set;
-
-	// array may not be null
-	set_initialize(&set);
-	rc = set_create(NULL, 1, 1);
-	assert_int_equal(-EINVAL, rc);
-	assert_int_equal(123, set.capacity);
-	assert_int_equal(456, set.expand_size);
-	assert_int_equal(789, set.next);
-	assert_ptr_equal(0xdeadbeef, set.arr);
-
-	// must allocate at least one item
-	rc = set_create(&set, 0, UINT16_MAX);
-	assert_int_equal(-EINVAL, rc);
-	assert_int_equal(123, set.capacity);
-	assert_int_equal(456, set.expand_size);
-	assert_int_equal(789, set.next);
-	assert_ptr_equal(0xdeadbeef, set.arr);
-
-	// may not allocate more than UINT16_MAX items
-	rc = set_create(&set, UINT16_MAX, 1); // size + gr
-	assert_int_equal(-EINVAL, rc);
-	assert_int_equal(123, set.capacity);
-	assert_int_equal(456, set.expand_size);
-	assert_int_equal(789, set.next);
-	assert_ptr_equal(0xdeadbeef, set.arr);
-
-	rc = set_create(&set, UINT16_MAX, 0);
-	assert_int_equal(0, rc);
-	assert_int_equal(UINT16_MAX, set.capacity);
-	assert_int_equal(0, set.expand_size);
-	assert_int_equal(0, set.next);
-	assert_non_null(set.arr);
-	assert_int_equal(sizeof(uint32_t *), sizeof(set.arr));
-	free(set.arr);
-
-	// may not have a size + grow_by greater than UINT16_MAX items
-	set_initialize(&set);
-	rc = set_create(&set, 1, UINT16_MAX); // size + gr
-	assert_int_equal(-EINVAL, rc);
-	assert_int_equal(123, set.capacity);
-	assert_int_equal(456, set.expand_size);
-	assert_int_equal(789, set.next);
-	assert_ptr_equal(0xdeadbeef, set.arr);
-
-	rc = set_create(&set, 1, UINT16_MAX - 1);
-	assert_int_equal(0, rc);
-	assert_int_equal(1, set.capacity);
-	assert_int_equal(UINT16_MAX-1, set.expand_size);
-	assert_int_equal(0, set.next);
-	assert_non_null(set.arr);
-	assert_int_equal(sizeof(uint32_t *), sizeof(set.arr));
-	free(set.arr);
-
-	// some more normal values
-	set_initialize(&set);
-	rc = set_create(&set, 1, 2);
-	assert_int_equal(0, rc);
-	assert_int_equal(1, set.capacity);
-	assert_int_equal(2, set.expand_size);
-	assert_int_equal(0, set.next);
-	assert_non_null(set.arr);
-	assert_int_equal(sizeof(uint32_t *), sizeof(set.arr));
-	free(set.arr);
-
-	set_initialize(&set);
-	rc = set_create(&set, 2, 1);
-	assert_int_equal(0, rc);
-	assert_int_equal(2, set.capacity);
-	assert_int_equal(1, set.expand_size);
-	assert_int_equal(0, set.next);
-	assert_non_null(set.arr);
-	assert_int_equal(sizeof(uint32_t *), sizeof(set.arr));
-	free(set.arr);
-
-	set_initialize(&set);
-	rc = set_create(&set, 5, 6);
-	assert_int_equal(0, rc);
-	assert_int_equal(5, set.capacity);
-	assert_int_equal(6, set.expand_size);
-	assert_int_equal(0, set.next);
-	assert_non_null(set.arr);
-	assert_int_equal(sizeof(uint32_t *), sizeof(set.arr));
-	free(set.arr);
-
-	(void)state; // unused
-}
-
-void set_create_invalid_test(void **state)
+static void set_create_invalid_test(void **state)
 {
 	int rc;
 	struct set_t set;
@@ -191,7 +98,7 @@ void set_create_invalid_test(void **state)
 	(void)state; // unused
 }
 
-void set_create_max_capacity_test(void **state)
+static void set_create_max_capacity_test(void **state)
 {
 	int rc;
 	struct set_t set;
@@ -208,7 +115,7 @@ void set_create_max_capacity_test(void **state)
 	(void)state; // unused
 }
 
-void set_create_max_expand_test(void **state)
+static void set_create_max_expand_test(void **state)
 {
 	int rc;
 	struct set_t set;
@@ -225,7 +132,7 @@ void set_create_max_expand_test(void **state)
 	(void)state; // unused
 }
 
-void set_create_normal_test(void **state)
+static void set_create_normal_test(void **state)
 {
 	int rc;
 	struct set_t set;
@@ -261,7 +168,7 @@ void set_create_normal_test(void **state)
 	(void)state; // unused
 }
 
-void set_destroy_test(void **state)
+static void set_destroy_test(void **state)
 {
 	int rc;
 	struct set_t set;
@@ -290,7 +197,7 @@ void set_destroy_test(void **state)
 	(void)state; // unused
 }
 
-void set_add_test(void **state)
+static void set_add_test(void **state)
 {
 	int rc;
 	struct set_t set;
@@ -419,7 +326,7 @@ void set_add_test(void **state)
 	(void)state; // unused
 }
 
-void set_remove_test(void **state)
+static void set_remove_test(void **state)
 {
 	int rc;
 	struct set_t set;
@@ -518,7 +425,7 @@ void set_remove_test(void **state)
 	(void)state; // unused
 }
 
-void set_contains_test(void **state)
+static void set_contains_test(void **state)
 {
 	struct set_t set;
 	uint16_t i;
@@ -557,7 +464,7 @@ void set_contains_test(void **state)
 	(void)state; // unused
 }
 
-void set_size_test(void **state)
+static void set_size_test(void **state)
 {
 	struct set_t set;
 	uint16_t i;

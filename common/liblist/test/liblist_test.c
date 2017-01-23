@@ -46,7 +46,7 @@ extern "C" {
 #endif
 
 // frees the allocated item memory
-inline void free_list_items(struct l_head_t *list)
+static inline void free_list_items(struct l_head_t *list)
 {
 	struct l_item_t *current = list->head;
 	while (NULL != current) {
@@ -59,7 +59,7 @@ inline void free_list_items(struct l_head_t *list)
 	assert_int_equal(0, list->cnt);
 }
 
-void assumptions(void **state)
+static void assumptions(void **state)
 {
 	// although it appears a little bogus, duplicate the two internal
 	// structures for testing. Ensure they remain the same and other
@@ -82,14 +82,14 @@ void assumptions(void **state)
 	(void)state; // unused
 }
 
-void l_init_null_parm_test(void **state)
+static void l_init_null_parm_test(void **state)
 {
 	l_init(NULL); // returns silently
 
 	(void)state; // unused
 }
 
-void l_init_initial_state_test(void **state)
+static void l_init_initial_state_test(void **state)
 {
 	struct l_head_t list;
 	struct l_item_t head, tail;
@@ -112,7 +112,7 @@ void l_init_initial_state_test(void **state)
 	(void)state; // unused
 }
 
-void l_init_initial_memory_test(void **state)
+static void l_init_initial_memory_test(void **state)
 {
 	struct l_head_t *list;
 	struct l_item_t *head, *tail;
@@ -148,7 +148,7 @@ void l_init_initial_memory_test(void **state)
 	(void)state; // unused
 }
 
-void l_push_tail_null_parm_test(void **state)
+static void l_push_tail_null_parm_test(void **state)
 {
 	struct l_head_t list;
 	struct l_item_t item;
@@ -180,7 +180,7 @@ void l_push_tail_null_parm_test(void **state)
 	(void)state; // unused
 }
 
-void l_push_tail_test(void **state)
+static void l_push_tail_test(void **state)
 {
 	const int max_items = 10;
 	struct l_head_t list;
@@ -251,14 +251,14 @@ void l_push_tail_test(void **state)
 	(void)state; // unused
 }
 
-void l_pop_head_null_parm_test(void **state)
+static void l_pop_head_null_parm_test(void **state)
 {
 	assert_null(l_pop_head(NULL));
 
 	(void)state; // unused
 }
 
-void l_pop_head_test(void **state)
+static void l_pop_head_test(void **state)
 {
 	const int max_items = 15;
 	struct l_head_t list;
@@ -331,7 +331,7 @@ void l_pop_head_test(void **state)
 	(void)state; // unused
 }
 
-void l_add_null_parm_test(void **state)
+static void l_add_null_parm_test(void **state)
 {
 	struct l_head_t list;
 	struct l_item_t item;
@@ -349,7 +349,7 @@ void l_add_null_parm_test(void **state)
 	(void)state; // unused
 }
 
-void l_add_equal_test(void **state)
+static void l_add_equal_test(void **state)
 {
 	// all keys have same value
 	const int max_items = 26;
@@ -424,7 +424,7 @@ void l_add_equal_test(void **state)
 	(void)state; // unused
 }
 
-void l_add_greater_test(void **state)
+static void l_add_greater_test(void **state)
 {
 	// add values with keys in ascending order - tail enqueue
 	const int max_items = 13;
@@ -499,7 +499,7 @@ void l_add_greater_test(void **state)
 	(void)state; // unused
 }
 
-void l_add_lessthan_test(void **state)
+static void l_add_lessthan_test(void **state)
 {
 	// add values with keys in descending order - head enqueue
 	const int max_items = 7;
@@ -576,7 +576,7 @@ void l_add_lessthan_test(void **state)
 	(void)state; // unused
 }
 
-void l_add_test(void **state)
+static void l_add_test(void **state)
 {
 	// keys jump around
 	const int max_items = 5;
@@ -617,7 +617,7 @@ void l_add_test(void **state)
 	(void)state; // unused
 }
 
-void l_remove_null_parm_test(void **state)
+static void l_remove_null_parm_test(void **state)
 {
 	struct l_head_t list;
 	struct l_item_t *item;
@@ -676,7 +676,7 @@ void l_remove_null_parm_test(void **state)
 	(void)state; // unused
 }
 
-void l_remove_test(void **state)
+static void l_remove_test(void **state)
 {
 	const int max_items = 5;
 	struct l_head_t list;
@@ -765,7 +765,7 @@ void l_remove_test(void **state)
 	(void)state; // unused
 }
 
-void l_lremove_null_parm_test(void **state)
+static void l_lremove_null_parm_test(void **state)
 {
 	struct l_head_t list;
 	struct l_item_t *item;
@@ -825,7 +825,7 @@ void l_lremove_null_parm_test(void **state)
 	(void)state; // unused
 }
 
-void l_lremove_test(void **state)
+static void l_lremove_test(void **state)
 {
 	const int max_items = 5;
 	struct l_head_t list;
@@ -905,7 +905,7 @@ void l_lremove_test(void **state)
 	(void)state; // unused
 }
 
-void l_find_null_parm_test(void **state)
+static void l_find_null_parm_test(void **state)
 {
 	int anInt;
 	struct l_head_t list;
@@ -933,7 +933,7 @@ void l_find_null_parm_test(void **state)
 	(void)state; // unused
 }
 
-void l_find_default_test(void **state)
+static void l_find_default_test(void **state)
 {
 	// find based on key (from head)
 	// note there is nothing guaranteeing that key is unique
@@ -993,7 +993,7 @@ void l_find_default_test(void **state)
 	(void)state; // unused
 }
 
-void l_find_duplicates_test(void **state)
+static void l_find_duplicates_test(void **state)
 {
 	// find based on key (from head)
 	// note there is nothing guaranteeing that key is unique
@@ -1053,7 +1053,7 @@ void l_find_duplicates_test(void **state)
 	(void)state; // unused
 }
 
-void l_find_unique_test(void **state)
+static void l_find_unique_test(void **state)
 {
 	// find based on key (from head)
 	// note there is nothing guaranteeing that key is unique
@@ -1107,14 +1107,14 @@ void l_find_unique_test(void **state)
 	(void)state; // unused
 }
 
-void l_size_null_parm_test(void **state)
+static void l_size_null_parm_test(void **state)
 {
 	assert_int_equal(0, l_size(NULL));
 
 	(void)state; // unused
 }
 
-void l_size_test(void **state)
+static void l_size_test(void **state)
 {
 	const int max_items = 11;
 	int items[max_items];
@@ -1142,7 +1142,7 @@ void l_size_test(void **state)
 	(void)state; // unused
 }
 
-void l_head_null_parm_test(void **state)
+static void l_head_null_parm_test(void **state)
 {
 	int anInt;
 	struct l_head_t list;
@@ -1170,7 +1170,7 @@ void l_head_null_parm_test(void **state)
 	(void)state; // unused
 }
 
-void l_head_empty_list_test(void **state)
+static void l_head_empty_list_test(void **state)
 {
 	struct l_head_t list;
 	struct l_item_t *item;
@@ -1186,7 +1186,7 @@ void l_head_empty_list_test(void **state)
 	(void)state; // unused
 }
 
-void l_head_test(void **state)
+static void l_head_test(void **state)
 {
 	const int max_items = 3;
 	struct l_head_t list;
@@ -1245,7 +1245,7 @@ void l_head_test(void **state)
 	(void)state; // unused
 }
 
-void l_next_null_parm_test(void **state)
+static void l_next_null_parm_test(void **state)
 {
 	int *anInt;
 	struct l_item_t *item = NULL;
@@ -1266,7 +1266,7 @@ void l_next_null_parm_test(void **state)
 	(void)state; // unused
 }
 
-void l_next_test(void **state)
+static void l_next_test(void **state)
 {
 	int anInt;
 	const int max_items = 3;

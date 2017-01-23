@@ -48,7 +48,7 @@
 extern "C" {
 #endif
 
-void assumptions(void **state)
+static void assumptions(void **state)
 {
 	// ensure enumerated values are correct
 	assert_int_equal(4, sizeof(did_sz_t));
@@ -84,7 +84,7 @@ void assumptions(void **state)
 	(void)state; // unused
 }
 
-void did_size_from_int_null_parms_test(void **state)
+static void did_size_from_int_null_parms_test(void **state)
 {
 	int i;
 	for (i = 0; i < (dev32_sz + 5); i++) {
@@ -94,7 +94,7 @@ void did_size_from_int_null_parms_test(void **state)
 	(void)state; // unused
 }
 
-void did_size_from_int_test(void **state)
+static void did_size_from_int_test(void **state)
 {
 	int rc;
 	did_sz_t size;
@@ -126,7 +126,7 @@ void did_size_from_int_test(void **state)
 	(void)state; // unused
 }
 
-void did_create_null_parms_test(void **state)
+static void did_create_null_parms_test(void **state)
 {
 	// would be nice to iterate over the enum, but not contiguous
 	// since it is test code, just hit the values
@@ -138,7 +138,7 @@ void did_create_null_parms_test(void **state)
 	(void)state; // unused
 }
 
-void did_create_test(void **state)
+static void did_create_test(void **state)
 {
 	did_t did;
 
@@ -295,7 +295,7 @@ void did_create_test(void **state)
 	(void)state; // unused
 }
 
-void did_create_from_data_null_parms_test(void **state)
+static void did_create_from_data_null_parms_test(void **state)
 {
 	// would be nice to iterate over the enum, but not contiguous
 	// since it is test code, just hit the values
@@ -307,7 +307,7 @@ void did_create_from_data_null_parms_test(void **state)
 	(void)state; // unused
 }
 
-void did_create_from_data_test(void **state)
+static void did_create_from_data_test(void **state)
 {
 	did_t did;
 
@@ -409,7 +409,7 @@ void did_create_from_data_test(void **state)
 	(void)state; // unused
 }
 
-void did_get_null_parms_test(void **state)
+static void did_get_null_parms_test(void **state)
 {
 	// would be nice to iterate over the enum, but not contiguous
 	// since it is test code, just hit the values
@@ -421,7 +421,7 @@ void did_get_null_parms_test(void **state)
 	(void)state; // unused
 }
 
-void did_get_test(void **state)
+static void did_get_test(void **state)
 {
 	did_t did;
 
@@ -531,7 +531,7 @@ void did_get_test(void **state)
 	(void)state; // unused
 }
 
-void did_release_test(void **state)
+static void did_release_test(void **state)
 {
 	did_t did;
 
@@ -609,7 +609,7 @@ void did_release_test(void **state)
 	(void)state; // unused
 }
 
-void did_not_inuse_test(void **state)
+static void did_not_inuse_test(void **state)
 {
 	did_t did;
 
@@ -660,7 +660,7 @@ void did_not_inuse_test(void **state)
 	(void)state; // unused
 }
 
-void did_get_value_test(void **state)
+static void did_get_value_test(void **state)
 {
 	did_t did;
 
@@ -702,7 +702,7 @@ void did_get_value_test(void **state)
 	(void)state; // unused
 }
 
-void did_get_size_test(void **state)
+static void did_get_size_test(void **state)
 {
 	did_t did;
 

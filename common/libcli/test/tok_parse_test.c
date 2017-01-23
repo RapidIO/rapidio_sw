@@ -51,7 +51,7 @@
 extern "C" {
 #endif
 
-void msg_fmt_test(void **state)
+static void msg_fmt_test(void **state)
 {
 	char buf[256];
 
@@ -139,7 +139,7 @@ void msg_fmt_test(void **state)
 	(void)state; // unused
 }
 
-void tok_parse_ulonglong_null_parm_test(void **state)
+static void tok_parse_ulonglong_null_parm_test(void **state)
 {
 	uint64_t value;
 	char buf[128];
@@ -174,7 +174,7 @@ void tok_parse_ulonglong_null_parm_test(void **state)
 	(void)state; // unused
 }
 
-void tok_parse_ulonglong_implicit_base_test(void **state)
+static void tok_parse_ulonglong_implicit_base_test(void **state)
 {
 	const uint64_t min = 0;
 	const uint64_t max = 0xffff;
@@ -263,7 +263,7 @@ void tok_parse_ulonglong_implicit_base_test(void **state)
 	(void)state; // unused
 }
 
-void tok_parse_ulonglong_explicit_base_test(void **state)
+static void tok_parse_ulonglong_explicit_base_test(void **state)
 {
 	const uint64_t min = 0;
 	const uint64_t max = 0xffffffff;
@@ -341,7 +341,7 @@ void tok_parse_ulonglong_explicit_base_test(void **state)
 	(void)state; // unused
 }
 
-void tok_parse_ulonglong_bounds_test(void **state)
+static void tok_parse_ulonglong_bounds_test(void **state)
 {
 	uint64_t value;
 	char buf[128];
@@ -420,7 +420,7 @@ void tok_parse_ulonglong_bounds_test(void **state)
 	(void)state; // unused
 }
 
-void tok_parse_ulonglong_nan_test(void **state)
+static void tok_parse_ulonglong_nan_test(void **state)
 {
 	const uint64_t min = 0;
 	const uint64_t max = INT32_MAX;
@@ -451,7 +451,7 @@ void tok_parse_ulonglong_nan_test(void **state)
 	(void)state; // unused
 }
 
-void tok_parse_ulong_null_parm_test(void **state)
+static void tok_parse_ulong_null_parm_test(void **state)
 {
 	uint32_t value;
 	char buf[128];
@@ -486,7 +486,7 @@ void tok_parse_ulong_null_parm_test(void **state)
 	(void)state; // unused
 }
 
-void tok_parse_ulong_implicit_base_test(void **state)
+static void tok_parse_ulong_implicit_base_test(void **state)
 {
 	const uint32_t min = 0;
 	const uint32_t max = 0xffff;
@@ -575,7 +575,7 @@ void tok_parse_ulong_implicit_base_test(void **state)
 	(void)state; // unused
 }
 
-void tok_parse_ulong_explicit_base_test(void **state)
+static void tok_parse_ulong_explicit_base_test(void **state)
 {
 	const uint32_t min = 0;
 	const uint32_t max = 0xffffffff;
@@ -653,7 +653,7 @@ void tok_parse_ulong_explicit_base_test(void **state)
 	(void)state; // unused
 }
 
-void tok_parse_ulong_bounds_test(void **state)
+static void tok_parse_ulong_bounds_test(void **state)
 {
 	uint32_t value;
 	char buf[128];
@@ -732,7 +732,7 @@ void tok_parse_ulong_bounds_test(void **state)
 	(void)state; // unused
 }
 
-void tok_parse_ulong_nan_test(void **state)
+static void tok_parse_ulong_nan_test(void **state)
 {
 	const uint32_t min = 0;
 	const uint32_t max = INT32_MAX;
@@ -763,7 +763,7 @@ void tok_parse_ulong_nan_test(void **state)
 	(void)state; // unused
 }
 
-void tok_parse_ushort_null_parm_test(void **state)
+static void tok_parse_ushort_null_parm_test(void **state)
 {
 	uint16_t value;
 	char buf[128];
@@ -798,7 +798,7 @@ void tok_parse_ushort_null_parm_test(void **state)
 	(void)state; // unused
 }
 
-void tok_parse_ushort_implicit_base_test(void **state)
+static void tok_parse_ushort_implicit_base_test(void **state)
 {
 	const uint16_t min = 0;
 	const uint16_t max = 0xffff;
@@ -887,7 +887,7 @@ void tok_parse_ushort_implicit_base_test(void **state)
 	(void)state; // unused
 }
 
-void tok_parse_ushort_explicit_base_test(void **state)
+static void tok_parse_ushort_explicit_base_test(void **state)
 {
 	const uint16_t min = 0;
 	const uint16_t max = 0xffff;
@@ -965,7 +965,7 @@ void tok_parse_ushort_explicit_base_test(void **state)
 	(void)state; // unused
 }
 
-void tok_parse_ushort_bounds_test(void **state)
+static void tok_parse_ushort_bounds_test(void **state)
 {
 	uint16_t value;
 	char buf[128];
@@ -1044,7 +1044,7 @@ void tok_parse_ushort_bounds_test(void **state)
 	(void)state; // unused
 }
 
-void tok_parse_ushort_nan_test(void **state)
+static void tok_parse_ushort_nan_test(void **state)
 {
 	const uint16_t min = 0;
 	const uint16_t max = INT16_MAX;
@@ -1075,7 +1075,7 @@ void tok_parse_ushort_nan_test(void **state)
 	(void)state; // unused
 }
 
-void tok_parse_longlong_null_parm_test(void **state)
+static void tok_parse_longlong_null_parm_test(void **state)
 {
 	int64_t value;
 	char buf[128];
@@ -1110,7 +1110,7 @@ void tok_parse_longlong_null_parm_test(void **state)
 	(void)state; // unused
 }
 
-void tok_parse_longlong_implicit_base_test(void **state)
+static void tok_parse_longlong_implicit_base_test(void **state)
 {
 	const int64_t min = -0xffff;
 	const int64_t max = 0xffff;
@@ -1199,7 +1199,7 @@ void tok_parse_longlong_implicit_base_test(void **state)
 	(void)state; // unused
 }
 
-void tok_parse_longlong_explicit_base_test(void **state)
+static void tok_parse_longlong_explicit_base_test(void **state)
 {
 	const int64_t min = 0;
 	const int64_t max = 0xffffffff;
@@ -1277,7 +1277,7 @@ void tok_parse_longlong_explicit_base_test(void **state)
 	(void)state; // unused
 }
 
-void tok_parse_longlong_bounds_test(void **state)
+static void tok_parse_longlong_bounds_test(void **state)
 {
 	int64_t value;
 	char buf[128];
@@ -1356,7 +1356,7 @@ void tok_parse_longlong_bounds_test(void **state)
 	(void)state; // unused
 }
 
-void tok_parse_longlong_nan_test(void **state)
+static void tok_parse_longlong_nan_test(void **state)
 {
 	const int64_t min = 0;
 	const int64_t max = INT32_MAX;
@@ -1387,7 +1387,7 @@ void tok_parse_longlong_nan_test(void **state)
 	(void)state; // unused
 }
 
-void tok_parse_long_null_parm_test(void **state)
+static void tok_parse_long_null_parm_test(void **state)
 {
 	int32_t value;
 	char buf[128];
@@ -1422,7 +1422,7 @@ void tok_parse_long_null_parm_test(void **state)
 	(void)state; // unused
 }
 
-void tok_parse_long_implicit_base_test(void **state)
+static void tok_parse_long_implicit_base_test(void **state)
 {
 	const int32_t min = 0;
 	const int32_t max = 0xffff;
@@ -1511,7 +1511,7 @@ void tok_parse_long_implicit_base_test(void **state)
 	(void)state; // unused
 }
 
-void tok_parse_long_explicit_base_test(void **state)
+static void tok_parse_long_explicit_base_test(void **state)
 {
 	const int32_t min = 0;
 	const int32_t max = INT32_MAX;
@@ -1589,7 +1589,7 @@ void tok_parse_long_explicit_base_test(void **state)
 	(void)state; // unused
 }
 
-void tok_parse_long_bounds_test(void **state)
+static void tok_parse_long_bounds_test(void **state)
 {
 	int32_t value;
 	char buf[128];
@@ -1668,7 +1668,7 @@ void tok_parse_long_bounds_test(void **state)
 	(void)state; // unused
 }
 
-void tok_parse_long_nan_test(void **state)
+static void tok_parse_long_nan_test(void **state)
 {
 	const int32_t min = 0;
 	const int32_t max = INT32_MAX;
@@ -1699,7 +1699,7 @@ void tok_parse_long_nan_test(void **state)
 	(void)state; // unused
 }
 
-void tok_parse_short_null_parm_test(void **state)
+static void tok_parse_short_null_parm_test(void **state)
 {
 	int16_t value;
 	char buf[128];
@@ -1734,7 +1734,7 @@ void tok_parse_short_null_parm_test(void **state)
 	(void)state; // unused
 }
 
-void tok_parse_short_implicit_base_test(void **state)
+static void tok_parse_short_implicit_base_test(void **state)
 {
 	const int16_t min = 0;
 	const int16_t max = INT16_MAX;
@@ -1823,7 +1823,7 @@ void tok_parse_short_implicit_base_test(void **state)
 	(void)state; // unused
 }
 
-void tok_parse_short_explicit_base_test(void **state)
+static void tok_parse_short_explicit_base_test(void **state)
 {
 	const int16_t min = 0;
 	const int16_t max = INT16_MAX;
@@ -1901,7 +1901,7 @@ void tok_parse_short_explicit_base_test(void **state)
 	(void)state; // unused
 }
 
-void tok_parse_short_bounds_test(void **state)
+static void tok_parse_short_bounds_test(void **state)
 {
 	int16_t value;
 	char buf[128];
@@ -1980,7 +1980,7 @@ void tok_parse_short_bounds_test(void **state)
 	(void)state; // unused
 }
 
-void tok_parse_short_nan_test(void **state)
+static void tok_parse_short_nan_test(void **state)
 {
 	const int16_t min = 0;
 	const int16_t max = INT16_MAX;
@@ -2011,7 +2011,7 @@ void tok_parse_short_nan_test(void **state)
 	(void)state; // unused
 }
 
-void tok_parse_ull_null_parm_test(void **state)
+static void tok_parse_ull_null_parm_test(void **state)
 {
 	uint64_t value;
 	char buf[128];
@@ -2046,7 +2046,7 @@ void tok_parse_ull_null_parm_test(void **state)
 	(void)state; // unused
 }
 
-void tok_parse_ull_implicit_base_test(void **state)
+static void tok_parse_ull_implicit_base_test(void **state)
 {
 	uint64_t value;
 	char buf[128];
@@ -2133,7 +2133,7 @@ void tok_parse_ull_implicit_base_test(void **state)
 	(void)state; // unused
 }
 
-void tok_parse_ull_explicit_base_test(void **state)
+static void tok_parse_ull_explicit_base_test(void **state)
 {
 	uint64_t value;
 	char buf[128];
@@ -2208,7 +2208,7 @@ void tok_parse_ull_explicit_base_test(void **state)
 	(void)state; // unused
 }
 
-void tok_parse_ull_bounds_test(void **state)
+static void tok_parse_ull_bounds_test(void **state)
 {
 	uint64_t value;
 	char buf[128];
@@ -2287,7 +2287,7 @@ void tok_parse_ull_bounds_test(void **state)
 	(void)state; // unused
 }
 
-void tok_parse_ull_nan_test(void **state)
+static void tok_parse_ull_nan_test(void **state)
 {
 	uint64_t value;
 	char buf[128];
@@ -2315,7 +2315,7 @@ void tok_parse_ull_nan_test(void **state)
 	(void)state; // unused
 }
 
-void tok_parse_ul_null_parm_test(void **state)
+static void tok_parse_ul_null_parm_test(void **state)
 {
 	uint32_t value;
 	char buf[128];
@@ -2350,7 +2350,7 @@ void tok_parse_ul_null_parm_test(void **state)
 	(void)state; // unused
 }
 
-void tok_parse_ul_implicit_base_test(void **state)
+static void tok_parse_ul_implicit_base_test(void **state)
 {
 	uint32_t value;
 	char buf[128];
@@ -2436,7 +2436,7 @@ void tok_parse_ul_implicit_base_test(void **state)
 	(void)state; // unused
 }
 
-void tok_parse_ul_explicit_base_test(void **state)
+static void tok_parse_ul_explicit_base_test(void **state)
 {
 	uint32_t value;
 	char buf[128];
@@ -2511,7 +2511,7 @@ void tok_parse_ul_explicit_base_test(void **state)
 	(void)state; // unused
 }
 
-void tok_parse_ul_bounds_test(void **state)
+static void tok_parse_ul_bounds_test(void **state)
 {
 	uint32_t value;
 	char buf[128];
@@ -2590,7 +2590,7 @@ void tok_parse_ul_bounds_test(void **state)
 	(void)state; // unused
 }
 
-void tok_parse_ul_nan_test(void **state)
+static void tok_parse_ul_nan_test(void **state)
 {
 	uint32_t value;
 	char buf[128];
@@ -2618,7 +2618,7 @@ void tok_parse_ul_nan_test(void **state)
 	(void)state; // unused
 }
 
-void tok_parse_us_null_parm_test(void **state)
+static void tok_parse_us_null_parm_test(void **state)
 {
 	uint16_t value;
 	char buf[128];
@@ -2653,7 +2653,7 @@ void tok_parse_us_null_parm_test(void **state)
 	(void)state; // unused
 }
 
-void tok_parse_us_implicit_base_test(void **state)
+static void tok_parse_us_implicit_base_test(void **state)
 {
 	uint16_t value;
 	char buf[128];
@@ -2739,7 +2739,7 @@ void tok_parse_us_implicit_base_test(void **state)
 	(void)state; // unused
 }
 
-void tok_parse_us_explicit_base_test(void **state)
+static void tok_parse_us_explicit_base_test(void **state)
 {
 	uint16_t value;
 	char buf[128];
@@ -2814,7 +2814,7 @@ void tok_parse_us_explicit_base_test(void **state)
 	(void)state; // unused
 }
 
-void tok_parse_us_bounds_test(void **state)
+static void tok_parse_us_bounds_test(void **state)
 {
 	uint16_t value;
 	char buf[128];
@@ -2893,7 +2893,7 @@ void tok_parse_us_bounds_test(void **state)
 	(void)state; // unused
 }
 
-void tok_parse_us_nan_test(void **state)
+static void tok_parse_us_nan_test(void **state)
 {
 	uint16_t value;
 	char buf[128];
@@ -2921,7 +2921,7 @@ void tok_parse_us_nan_test(void **state)
 	(void)state; // unused
 }
 
-void tok_parse_ll_null_parm_test(void **state)
+static void tok_parse_ll_null_parm_test(void **state)
 {
 	int64_t value;
 	char buf[128];
@@ -2956,7 +2956,7 @@ void tok_parse_ll_null_parm_test(void **state)
 	(void)state; // unused
 }
 
-void tok_parse_ll_implicit_base_test(void **state)
+static void tok_parse_ll_implicit_base_test(void **state)
 {
 	int64_t value;
 	char buf[128];
@@ -3042,7 +3042,7 @@ void tok_parse_ll_implicit_base_test(void **state)
 	(void)state; // unused
 }
 
-void tok_parse_ll_explicit_base_test(void **state)
+static void tok_parse_ll_explicit_base_test(void **state)
 {
 	int64_t value;
 	char buf[128];
@@ -3117,7 +3117,7 @@ void tok_parse_ll_explicit_base_test(void **state)
 	(void)state; // unused
 }
 
-void tok_parse_ll_bounds_test(void **state)
+static void tok_parse_ll_bounds_test(void **state)
 {
 	int64_t value;
 	char buf[128];
@@ -3166,7 +3166,7 @@ void tok_parse_ll_bounds_test(void **state)
 	(void)state; // unused
 }
 
-void tok_parse_ll_nan_test(void **state)
+static void tok_parse_ll_nan_test(void **state)
 {
 	int64_t value;
 	char buf[128];
@@ -3194,7 +3194,7 @@ void tok_parse_ll_nan_test(void **state)
 	(void)state; // unused
 }
 
-void tok_parse_l_null_parm_test(void **state)
+static void tok_parse_l_null_parm_test(void **state)
 {
 	int32_t value;
 	char buf[128];
@@ -3229,7 +3229,7 @@ void tok_parse_l_null_parm_test(void **state)
 	(void)state; // unused
 }
 
-void tok_parse_l_implicit_base_test(void **state)
+static void tok_parse_l_implicit_base_test(void **state)
 {
 	int32_t value;
 	char buf[128];
@@ -3315,7 +3315,7 @@ void tok_parse_l_implicit_base_test(void **state)
 	(void)state; // unused
 }
 
-void tok_parse_l_explicit_base_test(void **state)
+static void tok_parse_l_explicit_base_test(void **state)
 {
 	int32_t value;
 	char buf[128];
@@ -3390,7 +3390,7 @@ void tok_parse_l_explicit_base_test(void **state)
 	(void)state; // unused
 }
 
-void tok_parse_l_bounds_test(void **state)
+static void tok_parse_l_bounds_test(void **state)
 {
 	int32_t value;
 	char buf[128];
@@ -3439,7 +3439,7 @@ void tok_parse_l_bounds_test(void **state)
 	(void)state; // unused
 }
 
-void tok_parse_l_nan_test(void **state)
+static void tok_parse_l_nan_test(void **state)
 {
 	int32_t value;
 	char buf[128];
@@ -3467,7 +3467,7 @@ void tok_parse_l_nan_test(void **state)
 	(void)state; // unused
 }
 
-void tok_parse_s_null_parm_test(void **state)
+static void tok_parse_s_null_parm_test(void **state)
 {
 	int16_t value;
 	char buf[128];
@@ -3502,7 +3502,7 @@ void tok_parse_s_null_parm_test(void **state)
 	(void)state; // unused
 }
 
-void tok_parse_s_implicit_base_test(void **state)
+static void tok_parse_s_implicit_base_test(void **state)
 {
 	int16_t value;
 	char buf[128];
@@ -3588,7 +3588,7 @@ void tok_parse_s_implicit_base_test(void **state)
 	(void)state; // unused
 }
 
-void tok_parse_s_explicit_base_test(void **state)
+static void tok_parse_s_explicit_base_test(void **state)
 {
 	int16_t value;
 	char buf[128];
@@ -3663,7 +3663,7 @@ void tok_parse_s_explicit_base_test(void **state)
 	(void)state; // unused
 }
 
-void tok_parse_s_bounds_test(void **state)
+static void tok_parse_s_bounds_test(void **state)
 {
 	int16_t value;
 	char buf[128];
@@ -3712,7 +3712,7 @@ void tok_parse_s_bounds_test(void **state)
 	(void)state; // unused
 }
 
-void tok_parse_s_nan_test(void **state)
+static void tok_parse_s_nan_test(void **state)
 {
 	int16_t value;
 	char buf[128];
@@ -3741,7 +3741,7 @@ void tok_parse_s_nan_test(void **state)
 	(void)state; // unused
 }
 
-void tok_parse_did_test(void **state)
+static void tok_parse_did_test(void **state)
 {
 	uint32_t value;
 	char buf[128];
@@ -3769,7 +3769,7 @@ void tok_parse_did_test(void **state)
 	(void)state; // unused
 }
 
-void tok_parse_ct_test(void **state)
+static void tok_parse_ct_test(void **state)
 {
 	uint32_t value;
 	char buf[128];
@@ -3797,7 +3797,7 @@ void tok_parse_ct_test(void **state)
 	(void)state; // unused
 }
 
-void tok_parse_hc_test(void **state)
+static void tok_parse_hc_test(void **state)
 {
 	uint8_t value;
 	char buf[128];
@@ -3825,7 +3825,7 @@ void tok_parse_hc_test(void **state)
 	(void)state; // unused
 }
 
-void tok_parse_mport_test(void **state)
+static void tok_parse_mport_test(void **state)
 {
 	uint32_t value;
 	char buf[128];
@@ -3853,7 +3853,7 @@ void tok_parse_mport_test(void **state)
 	(void)state; // unused
 }
 
-void tok_parse_log_level_test(void **state)
+static void tok_parse_log_level_test(void **state)
 {
 	uint32_t value;
 	char buf[128];
@@ -3881,7 +3881,7 @@ void tok_parse_log_level_test(void **state)
 	(void)state; // unused
 }
 
-void tok_parse_socket_test(void **state)
+static void tok_parse_socket_test(void **state)
 {
 	uint16_t value;
 	char buf[128];
@@ -3909,7 +3909,7 @@ void tok_parse_socket_test(void **state)
 	(void)state; // unused
 }
 
-void tok_parse_port_num_test(void **state)
+static void tok_parse_port_num_test(void **state)
 {
 	uint32_t value;
 	char buf[128];

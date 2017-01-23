@@ -49,7 +49,7 @@
 extern "C" {
 #endif
 
-void math_util_roundup_pw2_success(void **state)
+static void math_util_roundup_pw2_success(void **state)
 {
 	assert_int_equal( 0x20000000, roundup_pw2(0x12345678));
 	assert_int_equal(0x100000000, roundup_pw2(0x87654321));
@@ -58,7 +58,7 @@ void math_util_roundup_pw2_success(void **state)
 	(void)state; // unused
 }
 
-void math_util_roundup_pw2_pow2(void **state)
+static void math_util_roundup_pw2_pow2(void **state)
 {
 	uint64_t value = 1;
 
@@ -71,7 +71,7 @@ void math_util_roundup_pw2_pow2(void **state)
 	(void)state; // unused
 }
 
-void math_util_roundup_pw2_minus1(void **state)
+static void math_util_roundup_pw2_minus1(void **state)
 {
 	uint64_t value = 3, check = 4;
 
@@ -85,7 +85,7 @@ void math_util_roundup_pw2_minus1(void **state)
 	(void)state; // unused
 }
 
-void math_util_roundup_pw2_limit(void **state)
+static void math_util_roundup_pw2_limit(void **state)
 {
 	assert_int_equal(0, roundup_pw2(0x8000000000000001));
 	assert_int_equal(0, roundup_pw2(0xFFFFFFFFFFFFFFFF));

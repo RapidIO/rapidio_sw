@@ -36,6 +36,7 @@
 #include <stdlib.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <stdbool.h>
 #define __STDC_FORMAT_MACROS
 #include <inttypes.h>
 #include <errno.h>
@@ -65,11 +66,11 @@ extern "C" {
 
 #define MAX_OUTPUT (2 * MAX_CMDS)
 
-char output[MAX_OUTPUT][100];
-int out_idx;
-bool output_overflow;
+static char output[MAX_OUTPUT][100];
+static int out_idx;
+static bool output_overflow;
 
-struct cli_env *unused_env; 
+static struct cli_env *unused_env;
 
 void LOG_MSG(struct cli_env *env, char *format, ...)
 {
@@ -94,7 +95,7 @@ void LOG_MSG(struct cli_env *env, char *format, ...)
 	va_end(args);
 }
 
-void setup_output(void)
+static void setup_output(void)
 {
 	out_idx = 0;
 	output_overflow = false;
@@ -103,16 +104,16 @@ void setup_output(void)
 #define NUM_CMDS_AFTER_INIT 1
 #define NUM_FREE_CMDS (MAX_CMDS - NUM_CMDS_AFTER_INIT)
 
-char cmd_names[MAX_CMDS][100];
-char short_help[MAX_CMDS][100];
-char long_help[MAX_CMDS][100];
+static char cmd_names[MAX_CMDS][100];
+static char short_help[MAX_CMDS][100];
+static char long_help[MAX_CMDS][100];
 
-char *nomatch = (char*)"nomatch";
+static char *nomatch = (char*)"nomatch";
 
-struct cli_cmd test_cmds[MAX_CMDS];
-struct cli_cmd *test_cmd_array[MAX_CMDS];
+static struct cli_cmd test_cmds[MAX_CMDS];
+static struct cli_cmd *test_cmd_array[MAX_CMDS];
 
-int test_func(struct cli_env *env, int argc, char **argv)
+static int test_func(struct cli_env *env, int argc, char **argv)
 {
 	if (0) {
 		unused_env = env;
@@ -121,7 +122,7 @@ int test_func(struct cli_env *env, int argc, char **argv)
 	return argc;
 }
 
-void setup_commands(void)
+static void setup_commands(void)
 {
 	int i;
 	char *c_pfix = (char *)"CMD_";
@@ -149,7 +150,7 @@ void setup_commands(void)
 	}
 }
 
-void assumptions_test(void **state)
+static void assumptions_test(void **state)
 {
 	assert_int_not_equal(0, MAX_CMDS);
 	assert_int_not_equal(0, NUM_CMDS_AFTER_INIT);
@@ -157,10 +158,11 @@ void assumptions_test(void **state)
 	assert_int_equal(1, MIN(1,2));
 	assert_int_equal(2, MIN(3,2));
 	assert_int_equal(2, MIN(2,2));
+
 	(void)state; // unused
 }
 
-void cli_print_help_success_test(void **state)
+static void cli_print_help_success_test(void **state)
 {
 	char test_buffer[100];
 	struct cli_env *unused = NULL; 
@@ -171,12 +173,10 @@ void cli_print_help_success_test(void **state)
 		test_cmds[0].name, test_cmds[0].longHelp);
 	assert_string_equal(test_buffer, output[0]); 
 
-	if (0) {
-		*state = NULL; // unused
-	}
+	(void)*state; // unused
 }
 
-void init_cmd_db_success_test(void **state)
+static void init_cmd_db_success_test(void **state)
 {
 	struct cli_cmd *cmd_rc;
 
@@ -188,12 +188,10 @@ void init_cmd_db_success_test(void **state)
 	assert_ptr_equal(cmds[0], &CLIHelp);
 	assert_int_equal(-1, find_cmd(nomatch, &cmd_rc));
 
-	if (0) {
-		*state = NULL; // unused
-	}
+	(void)*state; // unused
 }
 
-void add_commands_to_cmd_db_test(void **state)
+static void add_commands_to_cmd_db_test(void **state)
 {
 	int i, j;
 
@@ -219,7 +217,7 @@ void add_commands_to_cmd_db_test(void **state)
 	(void)state; // unused
 }
 
-void find_cmd_exact_match_test(void **state)
+static void find_cmd_exact_match_test(void **state)
 {
 	int i;
 
@@ -239,7 +237,7 @@ void find_cmd_exact_match_test(void **state)
 	(void)state; // unused
 }
 
-void find_cmd_partial_match_test(void **state)
+static void find_cmd_partial_match_test(void **state)
 {
 	int i;
 
@@ -262,7 +260,7 @@ void find_cmd_partial_match_test(void **state)
 	(void)state; // unused
 }
 
-void find_cmd_no_match_test(void **state)
+static void find_cmd_no_match_test(void **state)
 {
 	unsigned int i, j;
 	const int num_names = 3;

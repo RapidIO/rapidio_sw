@@ -46,7 +46,7 @@
 extern "C" {
 #endif
 
-void assumptions(void **state)
+static void assumptions(void **state)
 {
 	// verify constants
 	assert_int_equal(0, COMPTAG_UNSET);
@@ -65,7 +65,7 @@ void assumptions(void **state)
 	(void)state; // unused
 }
 
-void macros_test(void **state)
+static void macros_test(void **state)
 {
 	// the macro doesn't care if you give it values out of range
 	// technically not true, it will die if a value > 32 bits is
@@ -81,7 +81,7 @@ void macros_test(void **state)
 	(void)state; // unused
 }
 
-void ct_next_nr_test(void **state)
+static void ct_next_nr_test(void **state)
 {
 	ct_nr_t nr;
 
@@ -148,7 +148,7 @@ void ct_next_nr_test(void **state)
 
 	(void)state; // unused
 }
-void ct_create_all_test_null_parms(void **state)
+static void ct_create_all_test_null_parms(void **state)
 {
 	ct_t ct;
 	did_t did;
@@ -172,7 +172,7 @@ void ct_create_all_test_null_parms(void **state)
 	(void)state; // unused
 }
 
-void ct_create_all_test(void **state)
+static void ct_create_all_test(void **state)
 {
 	ct_t ct;
 	did_t did;
@@ -256,7 +256,7 @@ void ct_create_all_test(void **state)
 	(void)state; // unused
 }
 
-void ct_create_from_data_test_null_parms(void **state)
+static void ct_create_from_data_test_null_parms(void **state)
 {
 	ct_t ct;
 	did_t did;
@@ -289,7 +289,7 @@ void ct_create_from_data_test_null_parms(void **state)
 	(void)state; // unused
 }
 
-void ct_create_from_data_test(void **state)
+static void ct_create_from_data_test(void **state)
 {
 	ct_t ct;
 	did_t did;
@@ -429,7 +429,7 @@ void ct_create_from_data_test(void **state)
 	(void)state; // unused
 }
 
-void ct_create_from_nr_and_did_null_parms_test(void **state)
+static void ct_create_from_nr_and_did_null_parms_test(void **state)
 {
 	// ct_idx is not updated
 
@@ -479,7 +479,7 @@ void ct_create_from_nr_and_did_null_parms_test(void **state)
 	(void)state; // unused
 }
 
-void ct_create_from_nr_and_did_test(void **state)
+static void ct_create_from_nr_and_did_test(void **state)
 {
 	// ct_idx is not updated
 
@@ -600,7 +600,7 @@ void ct_create_from_nr_and_did_test(void **state)
 	(void)state; // unused
 }
 
-void ct_create_from_did_null_parms_test(void **state)
+static void ct_create_from_did_null_parms_test(void **state)
 {
 	ct_t ct;
 	did_t did;
@@ -624,7 +624,7 @@ void ct_create_from_did_null_parms_test(void **state)
 	(void)state; // unused
 }
 
-void ct_create_from_did_test(void **state)
+static void ct_create_from_did_test(void **state)
 {
 	ct_t ct;
 	did_t did;
@@ -661,7 +661,7 @@ void ct_create_from_did_test(void **state)
 	(void)state; // unused
 }
 
-void ct_release_test(void **state)
+static void ct_release_test(void **state)
 {
 	ct_t ct;
 	did_t did;
@@ -761,7 +761,7 @@ void ct_release_test(void **state)
 	(void)state; // unused
 }
 
-void ct_internal_create_release_test(void **state)
+static void ct_internal_create_release_test(void **state)
 {
 	ct_t ct;
 	did_t did;
@@ -792,7 +792,7 @@ void ct_internal_create_release_test(void **state)
 	(void)state; // unused
 }
 
-void ct_get_nr_test(void **state)
+static void ct_get_nr_test(void **state)
 {
 	// no verification if the ct is valid by this procedure call
 
@@ -817,7 +817,7 @@ void ct_get_nr_test(void **state)
 	(void)state; // unused
 }
 
-void ct_get_destid_test(void **state)
+static void ct_get_destid_test(void **state)
 {
 	// no verification if the ct is valid by this procedure call
 
@@ -861,7 +861,7 @@ void ct_get_destid_test(void **state)
 	(void)state; // unused
 }
 
-void ct_not_inuse_test(void **state)
+static void ct_not_inuse_test(void **state)
 {
 	ct_t ct;
 	did_t did;
