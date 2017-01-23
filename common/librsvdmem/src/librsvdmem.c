@@ -127,10 +127,12 @@ int get_phys_mem(const char *filename, char *parm_name, uint64_t *sa, uint64_t *
 
 		token = strtok_r(NULL, delim, &saveptr);
 		if (NULL == token) {
+			*sa = RIO_ANY_ADDR;
 			errno = EDOM;
 			goto fail;
 		}
 		if (tok_parse_ull(token, sz, 0)) {
+			*sa = RIO_ANY_ADDR;
 			errno = EDOM;
 			goto fail;
 		}

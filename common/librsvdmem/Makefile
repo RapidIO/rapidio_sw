@@ -34,7 +34,7 @@ include $(TOPDIR)/rules.mk
 
 NAME:=rsvdmem
 TARGETS:=lib$(NAME).a lib$(NAME).so
-TEST_TARGET:=$(NAME)_test
+TEST_TARGETS:=$(NAME)_test
 
 OBJECTS:=$(patsubst src/%.c,src/%.o,$(wildcard src/*.c))
 TEST_OBJECTS:=$(patsubst test/%.c,test/%.o,$(wildcard test/*.c))
@@ -48,7 +48,7 @@ LDFLAGS+=-L. -L$(COMMONLIB) $(LIBS_RPATH) -l$(NAME)
 .PHONY: all clean
 
 ifdef TEST
-all: $(TARGETS) $(TEST_TARGET)
+all: $(TARGETS) $(TEST_TARGETS)
 else
 all: $(TARGETS)
 endif
@@ -64,17 +64,21 @@ endif
 
 src/%.o: src/%.c
 	@echo ---------- Building $@
-	$(CXX) -c $(CXXFLAGS) $< -o $@
+	$(CXX) -c $(CXXFLAGS) $< -o $@ \
+	$(TST_INCS)
 
 test/%.o: test/%.c
 	@echo ---------- Building $@
-	$(CXX) -c $(CXXFLAGS) $< -o $@
+	$(CXX) -c $(CXXFLAGS) $< -o $@ \
+	$(TST_INCS)
 
-$(TEST_TARGET): $(TEST_OBJECTS)
+$(TEST_TARGETS): $(TEST_OBJECTS)
 	@echo ---------- Building $@
 	$(CXX) -o $@ $< $(LDFLAGS) \
-	-lcli -pthread
+	$(TST_LIBS) -lcli
 
 clean:
 	@echo ---------- Cleaning lib$(NAME)...
-	rm -f $(TARGETS) lib$(NAME).so.$(SOVER) $(TEST_TARGET) $(OBJECTS) $(TEST_OBJECTS) inc/*~ src/*~ *~
+	rm -f $(TARGETS) lib$(NAME).so.$(SOVER) $(OBJECTS) \
+	$(TEST_TARGETS) $(TEST_OBJECTS) \
+	inc/*~ src/*~ test/*~ *~
