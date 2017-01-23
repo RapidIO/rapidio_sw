@@ -97,7 +97,7 @@ uint32_t idt_cps_sc_init_dev_ctrs ( DAR_DEV_INFO_t             *dev_info,
    };
 
    if (  !in_parms->dev_ctrs->num_p_ctrs || 
-         (in_parms->dev_ctrs->num_p_ctrs > IDT_MAX_PORTS)) {
+         (in_parms->dev_ctrs->num_p_ctrs > RIO_MAX_PORTS)) {
       out_parms->imp_rc = SC_INIT_DEV_CTRS(6);
       goto idt_cps_sc_init_dev_ctrs_exit;
    };
@@ -162,7 +162,7 @@ uint32_t idt_cps_sc_read_ctrs( DAR_DEV_INFO_t           *dev_info,
    };
 		
    if (   !in_parms->dev_ctrs->num_p_ctrs || 
-         (in_parms->dev_ctrs->num_p_ctrs > IDT_MAX_PORTS) ||
+         (in_parms->dev_ctrs->num_p_ctrs > CPS_MAX_PORTS) ||
 	     !in_parms->dev_ctrs->valid_p_ctrs || 
          (in_parms->dev_ctrs->num_p_ctrs < in_parms->dev_ctrs->valid_p_ctrs)) {
 	rc = RIO_ERR_INVALID_PARAMETER;
@@ -253,7 +253,7 @@ uint32_t rio_sc_cfg_cps_ctrs ( DAR_DEV_INFO_t           *dev_info,
    };
 
    if (  !in_parms->dev_ctrs->num_p_ctrs || 
-         (in_parms->dev_ctrs->num_p_ctrs > IDT_MAX_PORTS) ||
+         (in_parms->dev_ctrs->num_p_ctrs > RIO_MAX_PORTS) ||
 	     !in_parms->dev_ctrs->valid_p_ctrs || 
          (in_parms->dev_ctrs->num_p_ctrs < in_parms->dev_ctrs->valid_p_ctrs)) {
 	rc = RIO_ERR_INVALID_PARAMETER;

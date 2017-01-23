@@ -41,8 +41,14 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 extern "C" {
 #endif
 
+#define CPS_MAX_PORTS 18
+#define CPS_MAX_QUADRANT_PORTS 5
+#define CPS_MAX_PLLS 12
+#define CPS_MAX_PORT_LANES 4
+#define CPS_MAX_LANES 48
+
 #define CPS_MAX_MC_MASKS 40
-#define CPS1848_MAX_PORT 18
+
 
 /**************************************************/
 /* CPS1848 : Register address offset definitions  */

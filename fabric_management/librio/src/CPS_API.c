@@ -63,7 +63,7 @@ uint32_t IDT_CPSGEN2_GetPortList ( DAR_DEV_INFO_t  *dev_info ,
 {
 	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
     
-    if ( IDT_CPS1432_DEV_ID == ( DECODE_DEVICE_ID( dev_info->devID ) ) ) {
+    if ( RIO_DEVI_IDT_CPS1432 == ( DECODE_DEVICE_ID( dev_info->devID ) ) ) {
 		if ((ptl_in->num_ports > NUM_CPS_PORTS(dev_info)) &&
 					(ptl_in->num_ports != RIO_ALL_PORTS))
 			goto exit;
@@ -81,12 +81,12 @@ uint32_t IDT_CPSGEN2_GetPortList ( DAR_DEV_INFO_t  *dev_info ,
 			rc = RIO_SUCCESS;
 			goto exit;
 		} else {
-			bool dup_ports[DAR_MAX_PORTS];
+			bool dup_ports[RIO_MAX_PORTS];
 			uint8_t idx;
 
-			if (ptl_in->num_ports > DAR_MAX_PORTS) {
+			if (ptl_in->num_ports > RIO_MAX_PORTS) {
 			}
-			for (idx = 0; idx < DAR_MAX_PORTS; idx++)
+			for (idx = 0; idx < RIO_MAX_PORTS; idx++)
 				dup_ports[idx] = false;
 			dup_ports[8] = true;
 			dup_ports[9] = true;
@@ -114,9 +114,9 @@ uint32_t IDT_CPSGEN2_DeviceSupported( DAR_DEV_INFO_t *dev_info )
 {
     uint32_t rc = DAR_DB_NO_DRIVER;
 
-    if ( IDT_CPS_VENDOR_ID == ( DECODE_VENDOR_ID( dev_info->devID ) ) )
+    if ( RIO_VEND_IDT == ( DECODE_VENDOR_ID( dev_info->devID ) ) )
     {
-        if ( IDT_CPS1848_DEV_ID == ( DECODE_DEVICE_ID( dev_info->devID ) ) )
+        if ( RIO_DEVI_IDT_CPS1848 == ( DECODE_DEVICE_ID( dev_info->devID ) ) )
         {
             SAFE_STRNCPY(dev_info->name,"CPS1848", sizeof(dev_info->name));
             dev_info->dsf_h = cpsgen2_driver_handle ;
@@ -138,7 +138,7 @@ uint32_t IDT_CPSGEN2_DeviceSupported( DAR_DEV_INFO_t *dev_info )
             rc = RIO_SUCCESS ;
             num_cpsgen2_driver_instances++ ;
         }
-	else if ( IDT_CPS1432_DEV_ID == ( DECODE_DEVICE_ID( dev_info->devID ) ) )
+	else if ( RIO_DEVI_IDT_CPS1432 == ( DECODE_DEVICE_ID( dev_info->devID ) ) )
         {
             SAFE_STRNCPY(dev_info->name,"CPS1432", sizeof(dev_info->name));
             dev_info->dsf_h = cpsgen2_driver_handle ;
@@ -160,7 +160,7 @@ uint32_t IDT_CPSGEN2_DeviceSupported( DAR_DEV_INFO_t *dev_info )
             rc = RIO_SUCCESS ;
             num_cpsgen2_driver_instances++ ;
         }
-        else if ( IDT_CPS1616_DEV_ID == ( DECODE_DEVICE_ID( dev_info->devID ) ) )
+        else if ( RIO_DEVI_IDT_CPS1616 == ( DECODE_DEVICE_ID( dev_info->devID ) ) )
         {
             SAFE_STRNCPY(dev_info->name,"CPS1616", sizeof(dev_info->name));
             dev_info->dsf_h = cpsgen2_driver_handle ;
@@ -182,7 +182,7 @@ uint32_t IDT_CPSGEN2_DeviceSupported( DAR_DEV_INFO_t *dev_info )
             rc = RIO_SUCCESS ;
             num_cpsgen2_driver_instances++ ;
         }
-        else if ( IDT_VPS1616_DEV_ID == ( DECODE_DEVICE_ID( dev_info->devID ) ) )
+        else if ( RIO_DEVI_IDT_VPS1616 == ( DECODE_DEVICE_ID( dev_info->devID ) ) )
         {
             SAFE_STRNCPY(dev_info->name,"VPS1616", sizeof(dev_info->name));
             dev_info->dsf_h = cpsgen2_driver_handle ;
@@ -204,7 +204,7 @@ uint32_t IDT_CPSGEN2_DeviceSupported( DAR_DEV_INFO_t *dev_info )
             rc = RIO_SUCCESS ;
             num_cpsgen2_driver_instances++ ;
         }
-        else if ( IDT_SPS1616_DEV_ID == ( DECODE_DEVICE_ID( dev_info->devID ) ) )
+        else if ( RIO_DEVI_IDT_SPS1616 == ( DECODE_DEVICE_ID( dev_info->devID ) ) )
         {
             SAFE_STRNCPY(dev_info->name,"SPS1616", sizeof(dev_info->name));
             dev_info->dsf_h = cpsgen2_driver_handle ;
@@ -248,7 +248,7 @@ uint32_t bind_CPS_DAR_support( void )
     DAR_DB_Driver_t DB_info;
 
     /* Now bind the device driver... */
-    DARDB_Init_Driver_Info( IDT_CPS_VENDOR_ID, &DB_info ) ;
+    DARDB_Init_Driver_Info( RIO_VEND_IDT, &DB_info ) ;
 
     DB_info.rioGetPortList = IDT_CPSGEN2_GetPortList;
     DB_info.rioDeviceSupported = IDT_CPSGEN2_DeviceSupported ;

@@ -624,7 +624,7 @@ uint32_t CPS_program_mc_masks ( DAR_DEV_INFO_t        *dev_info,
     uint32_t mask_num;
     uint32_t base_addr, mask_mask;
 
-    if (IDT_CPS1848_DEV_ID == DEV_CODE(dev_info)) {
+    if (RIO_DEVI_IDT_CPS1848 == DEV_CODE(dev_info)) {
        mask_mask = CPS1848_BCAST__MCAST_MASK_X_PORT_MASK;
     } else {
        mask_mask = CPS1616_BCAST__MCAST_MASK_X_PORT_MASK;
@@ -941,7 +941,7 @@ uint32_t IDT_CPS_rt_change_mc_mask(
 {
    uint32_t rc = RIO_ERR_INVALID_PARAMETER;
    uint8_t  chg_idx, dom_idx, dev_idx;
-   uint32_t illegal_ports   = ~((1 << IDT_MAX_PORTS      ) - 1);
+   uint32_t illegal_ports   = ~((1 << CPS_MAX_PORTS      ) - 1);
    uint32_t avail_ports     =   (1 << NUM_CPS_PORTS(dev_info)) - 1;
 
    out_parms->imp_rc = RIO_SUCCESS;

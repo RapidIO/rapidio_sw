@@ -36,10 +36,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define Tsi578_NUM_REGS_TO_TEST                                     0x000004e7
 
-#define Tsi578_MAX_MAC      8
-#define Tsi578_MAX_PORTS   16
-#define Tsi578_MAX_LANES    4  
-#define Tsi578_MAX_MC_MASKS 8
+#define Tsi578_MAX_MAC         8
+#define Tsi578_MAX_PORTS      16
+#define Tsi578_MAX_PORT_LANES  4
+#define Tsi578_MAX_MC_MASKS    8
 
 
 /* ************************************************ */

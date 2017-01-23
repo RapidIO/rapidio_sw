@@ -714,7 +714,7 @@ int generic_device_init(struct riocp_pe *pe, uint32_t *ct)
 	// set default hardware performance counter configuration
 	sc_in.ptl.num_ports = RIO_ALL_PORTS;
 	sc_in.dev_ctrs = &priv->st.sc_dev;
-	priv->st.sc_dev.num_p_ctrs   = IDT_MAX_PORTS;
+	priv->st.sc_dev.num_p_ctrs   = RIO_MAX_PORTS;
 	priv->st.sc_dev.valid_p_ctrs = 0;
 	priv->st.sc_dev.p_ctrs       = priv->st.sc;
 
@@ -967,8 +967,8 @@ int mpsw_drv_set_route_entry(struct riocp_pe  *pe,
 	if (RIO_ALL_PORTS == port) {
 		chg_in.rt = &p_dat->st.g_rt;
 	} else {
-		if (port >= IDT_MAX_PORTS) {
-			DBG("Invalid port #, max is %d", IDT_MAX_PORTS);
+		if (port >= RIO_MAX_PORTS) {
+			DBG("Invalid port #, max is %d", RIO_MAX_PORTS);
 			goto fail;
 		}
 		chg_in.rt = &p_dat->st.pprt[port];
@@ -1034,9 +1034,9 @@ int mpsw_drv_alloc_mcast_mask(struct riocp_pe *sw, pe_port_t port,
 	if (RIOCP_PE_ALL_PORTS == port) {
 		alloc_in.rt = &p_dat->st.g_rt;
 	} else {
-		if (port >= IDT_MAX_PORTS) {
+		if (port >= RIO_MAX_PORTS) {
 			DBG("Illegal Table %d Selected - max %d. EXITING!",
-				port, IDT_MAX_PORTS);
+				port, RIO_MAX_PORTS);
 			goto fail;
 		}
 		alloc_in.rt = &p_dat->st.pprt[port];
@@ -1108,9 +1108,9 @@ int mpsw_drv_free_mcast_mask(struct riocp_pe *sw, pe_port_t port,
 		goto fail;
 	};
 
-	if ((port != RIOCP_PE_ALL_PORTS) && (port >= IDT_MAX_PORTS)) {
+	if ((port != RIOCP_PE_ALL_PORTS) && (port >= RIO_MAX_PORTS)) {
 		DBG("Unsupported Look Up Table Selected - max is %d. EXITING!",
-			IDT_MAX_PORTS - 1);
+			RIO_MAX_PORTS - 1);
 		goto fail;
 	};
 
@@ -1168,7 +1168,7 @@ int mpsw_drv_change_mcast_mask(struct riocp_pe *sw, pe_port_t port,
 	if (RIOCP_PE_ALL_PORTS == port) {
 		chg_in.rt = &p_dat->st.g_rt;
 	} else {
-		if (port >= IDT_MAX_PORTS) {
+		if (port >= RIO_MAX_PORTS) {
 			DBG("Illegal Port Selected - max is %d. EXITING!",
 			(sizeof(p_dat->st.pprt)/sizeof(p_dat->st.pprt[0])) - 1);
 			goto fail;
@@ -1614,9 +1614,9 @@ int mpsw_drv_enable_pe(struct riocp_pe *pe, pe_port_t port)
 		st_port = 0;
 		end_port = RIOCP_PE_PORT_COUNT(pe->cap) - 1;
 	} else {
-		if (port >= IDT_MAX_PORTS) {
+		if (port >= RIO_MAX_PORTS) {
 			ERR("Illegal port number %d max is %d", port,
-				IDT_MAX_PORTS -1 );
+				RIO_MAX_PORTS -1 );
 			goto fail;
 		}
 	}

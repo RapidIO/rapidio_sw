@@ -80,7 +80,7 @@ mock_dar_reg_t mock_dar_reg[UPB_DAR_REG];
 
 static DAR_DEV_INFO_t mock_dev_info;
 static rio_sc_dev_ctrs_t *mock_dev_ctrs = (rio_sc_dev_ctrs_t *)malloc(sizeof(rio_sc_dev_ctrs_t));
-static rio_sc_p_ctrs_val_t *pp_ctrs = (rio_sc_p_ctrs_val_t *)malloc((MAX_DAR_PORTS) * sizeof(rio_sc_p_ctrs_val_t));
+static rio_sc_p_ctrs_val_t *pp_ctrs = (rio_sc_p_ctrs_val_t *)malloc((RIO_MAX_PORTS) * sizeof(rio_sc_p_ctrs_val_t));
 
 /* Create a mock dev_info.
  */
@@ -109,7 +109,7 @@ static void tsi721_test_setup(void)
 	mock_dev_info.srcOps = 0x0000FC04;
 	mock_dev_info.dstOps = 0x0000FC04;
 	mock_dev_info.swMcastInfo = 0;
-	for (idx = 0; idx < MAX_DAR_PORTS; idx++) {
+	for (idx = 0; idx < RIO_MAX_PORTS; idx++) {
 		mock_dev_info.ctl1_reg[idx] = 0;
         }
 
@@ -117,10 +117,10 @@ static void tsi721_test_setup(void)
 		mock_dev_info.scratchpad[idx] = 0;
         }
 
-	mock_dev_ctrs->num_p_ctrs = MAX_DAR_PORTS;
+	mock_dev_ctrs->num_p_ctrs = RIO_MAX_PORTS;
 	mock_dev_ctrs->valid_p_ctrs = 0;
 
-        for (pnum = 0; pnum < MAX_DAR_PORTS; pnum++) { 
+        for (pnum = 0; pnum < RIO_MAX_PORTS; pnum++) {
             pp_ctrs[pnum].pnum = pnum;
             pp_ctrs[pnum].ctrs_cnt = TSI721_NUM_PERF_CTRS;
             for (idx = 0; idx < RIO_MAX_SC; idx++) {
@@ -329,7 +329,7 @@ void tsi721_init_dev_ctrs_test_bad_p_ctrs(void **state)
         assert_int_not_equal(RIO_SUCCESS, mock_sc_out.imp_rc);
 
 	tsi721_init_ctrs(&mock_sc_in);
-	mock_sc_in.dev_ctrs->num_p_ctrs = IDT_MAX_PORTS + 1;
+	mock_sc_in.dev_ctrs->num_p_ctrs = RIO_MAX_PORTS + 1;
         assert_int_not_equal(RIO_SUCCESS, idt_tsi721_sc_init_dev_ctrs(
 				&mock_dev_info, &mock_sc_in, &mock_sc_out));
         assert_int_not_equal(RIO_SUCCESS, mock_sc_out.imp_rc);

@@ -35,7 +35,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define __IDT_DSF_DB_PRIVATE_H__
 
 #include <DAR_DB_Private.h>
-#include <IDT_Common.h>
 #include <RapidIO_Routing_Table_API.h>
 #include <RapidIO_Port_Config_API.h>
 #include <RapidIO_Error_Management_API.h>

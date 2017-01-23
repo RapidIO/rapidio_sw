@@ -92,7 +92,7 @@ static void cps_test_setup(void)
 	mock_dev_info.srcOps = 4;
 	mock_dev_info.dstOps = 0;
 	mock_dev_info.swMcastInfo = 0x00FF0028;
-	for (idx = 0; idx < MAX_DAR_PORTS; idx++) {
+	for (idx = 0; idx < RIO_MAX_PORTS; idx++) {
 		mock_dev_info.ctl1_reg[idx] = 0;
 	}
 

@@ -35,8 +35,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <stdint.h>
 #include <stdbool.h>
-#include <rio_standard.h>
-#include <IDT_Common.h>
+#include "rio_standard.h"
+#include "rio_ecosystem.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -69,7 +69,6 @@ typedef uint32_t DSF_Handle_t;    /* Device Specific Function Handle, not */
 *     accessed.
 */
 #define HOST_REGS_DEVID 0xFFFFFFFF
-#define MAX_DAR_PORTS   24 //18
 #define NAME_SIZE	15
 #define MAX_DAR_SCRPAD_IDX  30
 
@@ -157,7 +156,7 @@ typedef struct DAR_DEV_INFO_t_TAG
 	/* ctl1_reg values are tracked to implement EmergencyLockout as a 
 	 * single write, instead of a read/modify/write, for all devices.
 	 */
-    uint32_t  ctl1_reg[MAX_DAR_PORTS]; // Last register value read from or 
+    uint32_t  ctl1_reg[RIO_MAX_PORTS]; // Last register value read from or
                                          // written to the Port x Control 1 CSR
 	/* Scratchpad to be used by different devices as they see fit. */
 	uint32_t scratchpad[MAX_DAR_SCRPAD_IDX]; 
@@ -316,11 +315,9 @@ uint32_t DARrioGetAssmblyInfo ( DAR_DEV_INFO_t *dev_info,
 	or have a trained link.
 */
 
-#define DAR_MAX_PORTS 24 //18
-
 struct DAR_ptl {
 	uint8_t	num_ports; /* Number of valid entries in port */
-	uint8_t	pnums[DAR_MAX_PORTS]; /* List of port numbers available */
+	uint8_t	pnums[RIO_MAX_PORTS]; /* List of port numbers available */
 };
 
 #define PTL_ALL_PORTS { RIO_ALL_PORTS, {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}}

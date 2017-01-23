@@ -23,7 +23,6 @@
 #include "DAR_DB.h"
 #include "DAR_DB_Private.h"
 #include "RapidIO_Utilities_API.h"
-#include "IDT_Common.h"
 #include "RapidIO_Port_Config_API.h"
 #include "RapidIO_Routing_Table_API.h"
 #include "RapidIO_Error_Management_API.h"

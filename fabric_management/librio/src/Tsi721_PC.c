@@ -35,7 +35,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "DAR_DB.h"
 #include "DAR_DB_Private.h"
 #include "RapidIO_Utilities_API.h"
-#include "IDT_Common.h"
 #include "RapidIO_Port_Config_API.h"
 #include "RapidIO_Routing_Table_API.h"
 #include "RapidIO_Error_Management_API.h"
@@ -127,7 +126,7 @@ uint32_t idt_tsi721_pc_get_config  ( DAR_DEV_INFO_t           *dev_info,
         out_parms->pc[port_idx].nmtc_xfer_enable = false;
         out_parms->pc[port_idx].rx_lswap = false;
         out_parms->pc[port_idx].tx_lswap = false;
-        for (lane_num = 0; lane_num < RIO_PC_MAX_LANES; lane_num++) {
+        for (lane_num = 0; lane_num < RIO_MAX_PORT_LANES; lane_num++) {
            out_parms->pc[port_idx].tx_linvert[lane_num] = false;
            out_parms->pc[port_idx].rx_linvert[lane_num] = false;
         };
@@ -866,7 +865,7 @@ uint32_t idt_tsi721_pc_clr_errs  ( DAR_DEV_INFO_t       *dev_info,
     if (in_parms->clr_lp_port_err) 
     {
        if (!in_parms->num_lp_ports                  ||
-          ( in_parms->num_lp_ports > IDT_MAX_PORTS) ||
+          ( in_parms->num_lp_ports > RIO_MAX_PORTS) ||
           (NULL == in_parms->lp_dev_info          )) 
        {
           out_parms->imp_rc = PC_CLR_ERRS(2);

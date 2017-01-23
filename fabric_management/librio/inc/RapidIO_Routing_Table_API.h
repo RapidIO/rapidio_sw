@@ -34,10 +34,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef __RAPIDIO_ROUTING_TABLE_API_H__
 #define __RAPIDIO_ROUTING_TABLE_API_H__
 
-#include <RapidIO_Device_Access_Routines_API.h>
-#include <IDT_Common.h>
 #include <stdbool.h>
 
+#include "rio_ecosystem.h"
+#include "RapidIO_Device_Access_Routines_API.h"
 #include "RXS_Routing_Table_API.h"
 
 #ifdef __cplusplus
@@ -243,7 +243,7 @@ typedef struct rio_rt_probe_out_t_TAG
                                     //   copied to the trace port.
     bool  time_to_live_active;  // If true, packets buffered for longer than
                                 //   the time-to-live period may be discarded.
-    bool mcast_ports[IDT_MAX_PORTS];
+    bool mcast_ports[RIO_MAX_PORTS];
                                 // True if packet will be multicast to this
                                 //   port, false if not.
                                 // For completeness, will return true for

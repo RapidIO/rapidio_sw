@@ -33,7 +33,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef __RAPIDIO_ERROR_MANAGEMENT_API_H__
 #define __RAPIDIO_ERROR_MANAGEMENT_API_H__
 
-#include <IDT_Common.h>
+#include "rio_ecosystem.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -213,7 +213,7 @@ typedef struct rio_em_cfg_t_TAG
                                       //   of an event.
 } rio_em_cfg_t;
  
-#define EM_MAX_EVENT_LIST_SIZE ((uint8_t)(rio_em_last) * IDT_MAX_PORTS)
+#define EM_MAX_EVENT_LIST_SIZE ((uint8_t)(rio_em_last) * RIO_MAX_PORTS)
 
 typedef struct rio_em_cfg_set_in_t_TAG
 {
@@ -316,7 +316,7 @@ typedef struct rio_em_get_int_stat_out_t_TAG
 {
     uint32_t           imp_rc;         // Implementation specific return code, useful for debug
     uint8_t            num_events;     // Number of entries in events[] which are valid.  
-                                     //    Maximum value is IDT_MAX_PORTS * rio_em_last.
+                                     //    Maximum value is RIO_MAX_PORTS * rio_em_last.
     bool             too_many;       // true if there were more events present than could be
                                      //    returned 
     bool             other_events;   // true if debug events are present in the port-write.

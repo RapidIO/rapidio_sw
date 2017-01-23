@@ -40,9 +40,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef __IDT_CPS_COMMON_TEST_H__
 #define __IDT_CPS_COMMON_TEST_H__
 
+#include "rio_ecosystem.h"
 #include "CPS1848.h"
 #include "RapidIO_Device_Access_Routines_API.h"
-#include "IDT_Common.h"
 #include "RapidIO_Port_Config_API.h"
 #include "RapidIO_Routing_Table_API.h"
 #include "RapidIO_Error_Management_API.h"
@@ -52,8 +52,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 extern "C" {
 #endif
 
-#define NUM_CPS_PORTS(dev_info) ((NUM_PORTS(dev_info) > CPS1848_MAX_PORT) ? \
-                        CPS1848_MAX_PORT : NUM_PORTS(dev_info))
+#define NUM_CPS_PORTS(dev_info) ((NUM_PORTS(dev_info) > CPS_MAX_PORTS) ? \
+                        CPS_MAX_PORTS : NUM_PORTS(dev_info))
 
 // Common implementation of rioSetAssmblyInfo for all CPS Gen 1 & 2
 //
@@ -86,7 +86,7 @@ typedef struct cps_port_relations_t_TAG {
 #define NO_QUADRANT 4
 
 typedef struct cps_quadrant_ports_t_TAG {
-   uint8_t     port_num[IDT_MAX_QUADRANT_PORTS]; 
+   uint8_t     port_num[CPS_MAX_QUADRANT_PORTS];
 } cps_quadrant_ports_t;
 
 typedef struct cps_ports_per_quadrant_t_TAG  {

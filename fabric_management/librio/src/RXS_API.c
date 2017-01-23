@@ -81,7 +81,7 @@ uint32_t rxs_sc_init_dev_ctrs( DAR_DEV_INFO_t             *dev_info,
 	};
 
 	if (!in_parms->dev_ctrs->num_p_ctrs ||
-		(in_parms->dev_ctrs->num_p_ctrs > IDT_MAX_PORTS) ||
+		(in_parms->dev_ctrs->num_p_ctrs > RIO_MAX_PORTS) ||
 		(in_parms->dev_ctrs->num_p_ctrs < in_parms->dev_ctrs->valid_p_ctrs)) {
 		out_parms->imp_rc = SC_INIT_RXS_CTRS(0x03);
 		goto rio_sc_init_rxs_ctr_exit;
@@ -179,7 +179,7 @@ uint32_t rxs_sc_read_ctrs( DAR_DEV_INFO_t           *dev_info,
 	}
 
 	if (!in_parms->dev_ctrs->num_p_ctrs ||
-		(in_parms->dev_ctrs->num_p_ctrs > IDT_MAX_PORTS) ||
+		(in_parms->dev_ctrs->num_p_ctrs > RIO_MAX_PORTS) ||
 		(in_parms->dev_ctrs->num_p_ctrs < in_parms->dev_ctrs->valid_p_ctrs)) {
 		out_parms->imp_rc = SC_READ_RXS_CTRS(0x03);
 		goto exit;
@@ -250,7 +250,7 @@ uint32_t rio_sc_cfg_rxs_ctr( DAR_DEV_INFO_t           *dev_info,
 	}
 
 	if (!in_parms->dev_ctrs->num_p_ctrs ||
-		(in_parms->dev_ctrs->num_p_ctrs > IDT_MAX_PORTS) ||
+		(in_parms->dev_ctrs->num_p_ctrs > RIO_MAX_PORTS) ||
 		(in_parms->dev_ctrs->num_p_ctrs < in_parms->dev_ctrs->valid_p_ctrs)) {
 		out_parms->imp_rc = SC_CFG_RXS_CTRS(0x03);
 		goto exit;
@@ -446,10 +446,10 @@ uint32_t rxs_program_mc_masks ( DAR_DEV_INFO_t        *dev_info,
    
 
     switch (DEV_CODE(dev_info)) {
-       case IDT_RXS2448_RIO_DEVICE_ID:
+       case RIO_DEVI_IDT_RXS2448:
           mask_mask = RXS2448_RIO_BC_MC_X_S_CSR_SET;
        break;
-       case IDT_RXS1632_RIO_DEVICE_ID:
+       case RIO_DEVI_IDT_RXS1632:
           mask_mask = RXS1632_RIO_BC_MC_X_S_CSR_SET;
        break;
        default:
@@ -812,7 +812,7 @@ uint32_t rxs_pc_set_config( DAR_DEV_INFO_t           *dev_info,
 	out_parms->log_rto = 0;
 	out_parms->num_ports = in_parms->num_ports;
         memcpy(out_parms->pc, in_parms->pc,
-			IDT_MAX_PORTS * sizeof(out_parms->pc[0]));
+			RIO_MAX_PORTS * sizeof(out_parms->pc[0]));
 	return RIO_SUCCESS;
 }
 
@@ -862,7 +862,7 @@ uint32_t rxs_pc_get_config( DAR_DEV_INFO_t           *dev_info,
 		out_parms->pc[port_idx].nmtc_xfer_enable = false;
 		out_parms->pc[port_idx].rx_lswap = false;
 		out_parms->pc[port_idx].tx_lswap = false;
-		for (lane_num = 0; lane_num < RIO_PC_MAX_LANES; lane_num++) {
+		for (lane_num = 0; lane_num < RIO_MAX_PORT_LANES; lane_num++) {
 			out_parms->pc[port_idx].tx_linvert[lane_num] = false;
 			out_parms->pc[port_idx].rx_linvert[lane_num] = false;
 		} 
@@ -1301,10 +1301,10 @@ uint32_t rxs_read_mc_masks( DAR_DEV_INFO_t            *dev_info,
 	   goto exit;
 
    switch (dev_id) {
-   case IDT_RXS2448_RIO_DEVICE_ID:
+   case RIO_DEVI_IDT_RXS2448:
 	   port_mask = RXS2448_RIO_SPX_MC_Y_S_CSR_SET;
 	   break;
-   case IDT_RXS1632_RIO_DEVICE_ID:
+   case RIO_DEVI_IDT_RXS1632:
 	   port_mask = RXS1632_RIO_SPX_MC_Y_S_CSR_SET;
 	   break;
    default:
@@ -1412,7 +1412,7 @@ uint32_t rxs_rt_change_mc_mask( DAR_DEV_INFO_t               *dev_info,
 {
    uint32_t rc = RIO_ERR_INVALID_PARAMETER;
    uint8_t  chg_idx, dom_idx, dev_idx;
-   uint32_t illegal_ports   = ~((1 << IDT_MAX_PORTS      ) - 1);
+   uint32_t illegal_ports   = ~((1 << RXS2448_MAX_PORTS      ) - 1);
    uint32_t avail_ports     =   (1 << NUM_RXS_PORTS(dev_info)) - 1;
 
    out_parms->imp_rc = RIO_SUCCESS;
@@ -1667,7 +1667,7 @@ uint32_t rxs_DeviceSupported( DAR_DEV_INFO_t *DAR_info )
 
 	if (RXS_RIO_DEVICE_VENDOR == (DAR_info->devID & RIO_DEV_IDENT_VEND))
 	{
-		if ((IDT_RXS2448_RIO_DEVICE_ID) == ((DAR_info->devID & RIO_DEV_IDENT_DEVI) >> 16))
+		if ((RIO_DEVI_IDT_RXS2448) == ((DAR_info->devID & RIO_DEV_IDENT_DEVI) >> 16))
 		{
 			/* Now fill out the DAR_info structure... */
 			rc = DARDB_rioDeviceSupportedDefault(DAR_info);
@@ -1680,7 +1680,7 @@ uint32_t rxs_DeviceSupported( DAR_DEV_INFO_t *DAR_info )
 				strncpy(DAR_info->name, "RXS2448", sizeof(DAR_info->name));
 			}
 		}
-		else if ((IDT_RXS1632_RIO_DEVICE_ID) == ((DAR_info->devID & RIO_DEV_IDENT_DEVI) >> 16))
+		else if ((RIO_DEVI_IDT_RXS1632) == ((DAR_info->devID & RIO_DEV_IDENT_DEVI) >> 16))
                 {
                         /* Now fill out the DAR_info structure... */
                         rc = DARDB_rioDeviceSupportedDefault(DAR_info);
@@ -1701,7 +1701,7 @@ uint32_t bind_rxs_DAR_support(void)
 {
 	DAR_DB_Driver_t DAR_info;
 
-	DARDB_Init_Driver_Info(IDT_TSI_VENDOR_ID, &DAR_info);
+	DARDB_Init_Driver_Info(RIO_VEND_IDT, &DAR_info);
 
 	DAR_info.rioDeviceSupported = rxs_DeviceSupported;
 
@@ -1722,7 +1722,7 @@ uint32_t bind_rxs_DSF_support(void)
 
 	IDT_DSF_init_driver(&idt_driver);
 
-	idt_driver.dev_type = IDT_RXSx_RIO_DEVICE_ID;
+	idt_driver.dev_type = RIO_DEVI_IDT_RXSx;
 
 	idt_driver.rio_pc_set_config = rxs_pc_set_config;
 	idt_driver.rio_pc_get_config = rxs_pc_get_config;

@@ -30,12 +30,14 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
-#include <DAR_DB_Private.h>
-#include <IDT_DSF_DB_Private.h>
-#include <IDT_CPS_Common_Test.h>
 #include <string.h>
-#include <CPS1848.h>
-#include <CPS1616.h>
+
+#include "rio_ecosystem.h"
+#include "DAR_DB_Private.h"
+#include "IDT_DSF_DB_Private.h"
+#include "IDT_CPS_Common_Test.h"
+#include "CPS1848.h"
+#include "CPS1616.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -74,15 +76,15 @@ typedef struct set_cfg_glob_info_t_TAG {
    uint8_t  quad_cfg_vals[4];
    uint32_t reset_vals[4];   // Contains the reset value to use when
                            //   changing the quadrant configuration
-   uint32_t pll_ctl_vals[IDT_MAX_PLLS];
+   uint32_t pll_ctl_vals[CPS_MAX_PLLS];
    uint8_t  master_port;     // If set to "RIO_ALL_PORTS", OOB register access is used to access the switch.
    uint8_t  master_pll;      // If set to "INVALID_PLL", OOB register access is used to access the switch.
 } set_cfg_glob_info_t;
    
 typedef struct set_cfg_info_t_TAG {
    set_cfg_glob_info_t glob_info;
-   set_cfg_lane_info_t lanes[IDT_MAX_DEV_LANES];
-   set_cfg_port_info_t ports[IDT_MAX_PORTS];
+   set_cfg_lane_info_t lanes[CPS_MAX_LANES];
+   set_cfg_port_info_t ports[CPS_MAX_PORTS];
 } set_cfg_info_t;
 
 const cps_ports_per_quadrant_t cps1848_ppq = {
@@ -341,17 +343,17 @@ uint32_t init_sw_pi( DAR_DEV_INFO_t   *dev_info,
    uint32_t shift_val = 2;
    uint8_t  quad_idx;
 
-   if (IDT_CPS_VENDOR_ID != vend_id)
+   if (RIO_VEND_IDT != vend_id)
       goto init_sw_pi_exit;
 
    switch (dev_id) {
-           case IDT_CPS1848_DEV_ID: pi->cpr =  cps1848_cfg;
+           case RIO_DEVI_IDT_CPS1848: pi->cpr =  cps1848_cfg;
                                     pi->ppq = &cps1848_ppq;
                                     break;
-           case IDT_CPS1432_DEV_ID: pi->cpr =  cps1432_cfg;
+           case RIO_DEVI_IDT_CPS1432: pi->cpr =  cps1432_cfg;
                                     pi->ppq = &cps1432_ppq;
                                     break;
-           case IDT_SPS1616_DEV_ID: pi->cpr =  sps1616_cfg;
+           case RIO_DEVI_IDT_SPS1616: pi->cpr =  sps1616_cfg;
                                     pi->ppq = &sps1616_ppq;
                                     shift_val = 4;
                                     break;
@@ -477,7 +479,7 @@ uint32_t IDT_CPS_pc_get_config(
       out_parms->pc[port_idx].rx_lswap = false; // Not supported by CPS
       out_parms->pc[port_idx].tx_lswap = false; // Not supported by CPS
 
-      for (lane_num = 0; lane_num < IDT_MAX_LANES;lane_num++) {
+      for (lane_num = 0; lane_num < CPS_MAX_PORT_LANES;lane_num++) {
          out_parms->pc[port_idx].tx_linvert[lane_num] = false;
          out_parms->pc[port_idx].rx_linvert[lane_num] = false;
       }
@@ -639,8 +641,8 @@ uint32_t IDT_CPS_pc_get_config(
 
 	 // Note: 1432 & 1848 Rev C has errata about maintenance packet handling
 	 // OUTPUT_EN should always be set.
-	 if ((DEV_CODE(dev_info) == IDT_CPS1848_DEV_ID ) || \
-             (DEV_CODE(dev_info) == IDT_CPS1432_DEV_ID )) {
+	 if ((DEV_CODE(dev_info) == RIO_DEVI_IDT_CPS1848 ) || \
+             (DEV_CODE(dev_info) == RIO_DEVI_IDT_CPS1432 )) {
 	    if (spx_ctl1 & CPS1848_PORT_X_CTL_1_CSR_INPUT_PORT_EN) {
                out_parms->pc[port_idx].nmtc_xfer_enable = true;
             }
@@ -765,7 +767,7 @@ uint32_t CPS_set_config_init_parms_check_conflict( DAR_DEV_INFO_t          *dev_
        found_port = false;
        // First, check to see if there are any ports to be configured
        // in this quadrant...
-       for (port_idx = 0; (port_idx < IDT_MAX_QUADRANT_PORTS) && 
+       for (port_idx = 0; (port_idx < CPS_MAX_QUADRANT_PORTS) &&
                           (RIO_ALL_PORTS != pi->ppq->qdrt[quadrant].port_num[port_idx]) && !found_port; port_idx++) {
           pnum = pi->ppq->qdrt[quadrant].port_num[port_idx];
           if (sorted->pc[pnum].pnum == pnum) {
@@ -784,7 +786,7 @@ uint32_t CPS_set_config_init_parms_check_conflict( DAR_DEV_INFO_t          *dev_
        // requested to be configured for this quadrant.
        for (quad_cfg = 0; (quad_cfg < 4) && found_flt; quad_cfg++ ) {
           found_flt  = false;
-          for (port_idx = 0; (port_idx < IDT_MAX_QUADRANT_PORTS) && 
+          for (port_idx = 0; (port_idx < CPS_MAX_QUADRANT_PORTS) &&
                              (RIO_ALL_PORTS != pi->ppq->qdrt[quadrant].port_num[port_idx]) && !found_flt; port_idx++) {
              pnum = pi->ppq->qdrt[quadrant].port_num[port_idx];
              // When INVALID_PLL is the first PLL number, this indicates that the
@@ -800,10 +802,10 @@ uint32_t CPS_set_config_init_parms_check_conflict( DAR_DEV_INFO_t          *dev_
           };
           // If this quad config value works for the ports, check that it works for the PLL values.
           // There are PLL restrictions for CPS1848 and CPS1432, none for SPS1616.
-          if (!found_flt && !(IDT_SPS1616_DEV_ID == DEV_CODE(dev_info) )
-                         && !(IDT_CPS1616_DEV_ID == DEV_CODE(dev_info) ) ) {
+          if (!found_flt && !(RIO_DEVI_IDT_SPS1616 == DEV_CODE(dev_info) )
+                         && !(RIO_DEVI_IDT_CPS1616 == DEV_CODE(dev_info) ) ) {
              uint8_t dep_pnum, dep_pidx;
-             for (port_idx = 0; (port_idx < IDT_MAX_QUADRANT_PORTS) && (RIO_ALL_PORTS != pi->ppq->qdrt[quadrant].port_num[port_idx]) && !found_flt; port_idx++) {
+             for (port_idx = 0; (port_idx < CPS_MAX_QUADRANT_PORTS) && (RIO_ALL_PORTS != pi->ppq->qdrt[quadrant].port_num[port_idx]) && !found_flt; port_idx++) {
                 pnum = pi->ppq->qdrt[quadrant].port_num[port_idx];
                 if ((pnum == sorted->pc[pnum].pnum) && sorted->pc[pnum].powered_up) {
                    // This port is being configured, and is requested to be available and powered up.  
@@ -844,7 +846,7 @@ uint32_t CPS_set_config_init_parms_check_conflict( DAR_DEV_INFO_t          *dev_
     };
 
     // Get PLL register values
-    for (pll = 0; pll < IDT_MAX_PLLS; pll++) {
+    for (pll = 0; pll < CPS_MAX_PLLS; pll++) {
        rc = DARRegRead( dev_info, CPS1848_PLL_X_CTL_1(pll), &regs->glob_info.pll_ctl_vals[pll] ) ;
        if ( RIO_SUCCESS != rc ) {
           *fail_pt = PC_SET_CONFIG(0x30);
@@ -859,7 +861,7 @@ uint32_t CPS_set_config_init_parms_check_conflict( DAR_DEV_INFO_t          *dev_
        goto chk_parms_exit;
     };
 
-    for (lane = 0; lane < IDT_MAX_DEV_LANES; lane++) {
+    for (lane = 0; lane < CPS_MAX_LANES; lane++) {
        rc = DARRegRead( dev_info, CPS1848_LANE_X_CTL(lane), &regs->lanes[lane].l_ctl );
        if (RIO_SUCCESS != rc) {
           *fail_pt = PC_SET_CONFIG(0x32);
@@ -921,7 +923,7 @@ uint32_t compute_quad_config( cps_port_info_t         *pi,
       found_flt = false;
 
       quad_val  = chgd->glob_info.quad_cfg_vals[quadrant];
-      for (port_idx = 0; (port_idx < IDT_MAX_QUADRANT_PORTS) && 
+      for (port_idx = 0; (port_idx < CPS_MAX_QUADRANT_PORTS) &&
                          (RIO_ALL_PORTS != pi->ppq->qdrt[quadrant].port_num[port_idx]) && !found_flt; port_idx++) {
          pnum = pi->ppq->qdrt[quadrant].port_num[port_idx];
          if (sorted->pc[pnum].pnum == pnum) {
@@ -948,7 +950,7 @@ uint32_t compute_quad_config( cps_port_info_t         *pi,
 
          found_flt = false;
          rst_val   = CPS1848_DEVICE_RESET_CTL_DO_RESET;
-         for (port_idx = 0; (port_idx < IDT_MAX_QUADRANT_PORTS) && 
+         for (port_idx = 0; (port_idx < CPS_MAX_QUADRANT_PORTS) &&
                             (RIO_ALL_PORTS != pi->ppq->qdrt[quadrant].port_num[port_idx]) && 
                              !found_flt; port_idx++) {
             pnum = pi->ppq->qdrt[quadrant].port_num[port_idx];
@@ -988,11 +990,11 @@ uint32_t compute_quad_config( cps_port_info_t         *pi,
       if (old_qcfg == new_qcfg)
          continue;
 
-      for (port_idx = 0; port_idx < IDT_MAX_QUADRANT_PORTS; port_idx++) {
+      for (port_idx = 0; port_idx < CPS_MAX_QUADRANT_PORTS; port_idx++) {
           pnum = pi->ppq->qdrt[quadrant].port_num[port_idx];
 		  if (RIO_ALL_PORTS == pnum)
 			 continue;
-		if (pnum >= CPS1848_MAX_PORT) {
+		if (pnum >= CPS_MAX_PORTS) {
          		rc = RIO_ERR_SW_FAILURE;
          		*fail_pt = PC_SET_CONFIG(0x51);
          		goto compute_quad_config_exit;
@@ -1191,8 +1193,8 @@ uint32_t compute_laneswap_config( DAR_DEV_INFO_t        *dev_info,
       } else {
 		 // Note: 1432 & 1848 Rev C has errata about maintenance packet handling
 		// OUTPUT_EN should always be set.
-		 if ((DEV_CODE(dev_info) == IDT_CPS1848_DEV_ID ) || \
-             (DEV_CODE(dev_info) == IDT_CPS1432_DEV_ID )) {
+		 if ((DEV_CODE(dev_info) == RIO_DEVI_IDT_CPS1848 ) || \
+             (DEV_CODE(dev_info) == RIO_DEVI_IDT_CPS1432 )) {
 			chgd->ports[pnum].p_ctl1 &= ~CPS1848_PORT_X_CTL_1_CSR_INPUT_PORT_EN;
 			chgd->ports[pnum].p_ctl1 |= CPS1848_PORT_X_CTL_1_CSR_OUTPUT_PORT_EN;
          } else { /* SPS1616 CASE */
@@ -1343,8 +1345,8 @@ uint32_t compute_powerdown_config( DAR_DEV_INFO_t          *dev_info,
          };
 
          // Shortcut to get correct range of lanes for the PLL...
-         start_lane &= ~(uint8_t)(IDT_MAX_LANES - 1);
-         end_lane = start_lane + IDT_MAX_LANES;
+         start_lane &= ~(uint8_t)(CPS_MAX_PORT_LANES - 1);
+         end_lane = start_lane + CPS_MAX_PORT_LANES;
          found_one = false;
 
          for (lane_num = start_lane; (lane_num < end_lane) && !found_one; lane_num++) {
@@ -1498,8 +1500,8 @@ uint32_t CPS_set_config_preserve_host_port( DAR_DEV_INFO_t          *dev_info,
    if ( chgd->glob_info.pll_ctl_vals[chgd->glob_info.master_pll] != 
         regs->glob_info.pll_ctl_vals[regs->glob_info.master_pll] ) {
       chgd->glob_info.pll_ctl_vals[chgd->glob_info.master_pll] = regs->glob_info.pll_ctl_vals[regs->glob_info.master_pll];
-      first_lane = pi->cpr[pnum].cfg[quad_cfg].first_lane & ~((uint8_t)(IDT_MAX_LANES - 1));
-      last_lane  = first_lane + IDT_MAX_LANES;
+      first_lane = pi->cpr[pnum].cfg[quad_cfg].first_lane & ~((uint8_t)(CPS_MAX_PORT_LANES - 1));
+      last_lane  = first_lane + CPS_MAX_PORT_LANES;
       for (lane_num = first_lane; lane_num < last_lane; lane_num++) {
          chgd->lanes[lane_num].l_ctl    = regs->lanes[lane_num].l_ctl;
          chgd->lanes[lane_num].l_ctl_r  = regs->lanes[lane_num].l_ctl_r;
@@ -1732,7 +1734,7 @@ uint32_t CPS_set_config_write_changes( DAR_DEV_INFO_t          *dev_info,
       if (regs->glob_info.quad_cfg_vals[quadrant] ==chgd->glob_info.quad_cfg_vals[quadrant]) 
          continue;
 
-      for (port_idx = 0; (port_idx < IDT_MAX_QUADRANT_PORTS) && (RIO_ALL_PORTS != pi->ppq->qdrt[quadrant].port_num[port_idx]); port_idx++) {
+      for (port_idx = 0; (port_idx < CPS_MAX_QUADRANT_PORTS) && (RIO_ALL_PORTS != pi->ppq->qdrt[quadrant].port_num[port_idx]); port_idx++) {
          pnum = pi->ppq->qdrt[quadrant].port_num[port_idx]; 
          if ((sorted->pc[pnum].pnum == pnum) && (pnum != chgd->glob_info.master_port)) {
             rc = DARRegWrite( dev_info, CPS1848_PORT_X_CTL_1_CSR(pnum), regs->ports[pnum].p_ctl1 | CPS1848_PORT_X_CTL_1_CSR_PORT_DIS );
@@ -1759,7 +1761,7 @@ uint32_t CPS_set_config_write_changes( DAR_DEV_INFO_t          *dev_info,
       };
 
       // Remove PORT_DIS...
-      for (port_idx = 0; (port_idx < IDT_MAX_QUADRANT_PORTS) && (RIO_ALL_PORTS != pi->ppq->qdrt[quadrant].port_num[port_idx]); port_idx++) {
+      for (port_idx = 0; (port_idx < CPS_MAX_QUADRANT_PORTS) && (RIO_ALL_PORTS != pi->ppq->qdrt[quadrant].port_num[port_idx]); port_idx++) {
          pnum = pi->ppq->qdrt[quadrant].port_num[port_idx]; 
          if (sorted->pc[pnum].pnum == pnum) {
             // Write register twice to maintain port width override setting.
@@ -2165,7 +2167,7 @@ uint32_t IDT_CPS_pc_get_status(
     out_parms->imp_rc    = 0;
 
 	rc = DARrioGetPortList(dev_info, &in_parms->ptl, &good_ptl);
-	if ((RIO_SUCCESS != rc) || (good_ptl.num_ports > CPS1848_MAX_PORT)) {
+	if ((RIO_SUCCESS != rc) || (good_ptl.num_ports > CPS_MAX_PORTS)) {
           out_parms->imp_rc = PC_GET_uint32_t(1);
           goto idt_CPS_pc_get_status_exit;
     }
@@ -2497,10 +2499,10 @@ uint32_t IDT_CPS_pc_clr_errs(
    if ((regVal & CPS1848_PORT_X_ERR_STAT_CSR_PORT_OK) && 
         in_parms->clr_lp_port_err                     &&
         in_parms->lp_dev_info                         &&
-       (IDT_CPS_VENDOR_ID == VEND_CODE(in_parms->lp_dev_info))) {
+       (RIO_VEND_IDT == VEND_CODE(in_parms->lp_dev_info))) {
       rst_port_in.reset_lp = true;  // Expect CPS link partner to support per-port reset.
-      if ((DEV_CODE(in_parms->lp_dev_info) == IDT_SPS1616_DEV_ID) ||
-          (DEV_CODE(in_parms->lp_dev_info) == IDT_CPS1616_DEV_ID)) {
+      if ((DEV_CODE(in_parms->lp_dev_info) == RIO_DEVI_IDT_SPS1616) ||
+          (DEV_CODE(in_parms->lp_dev_info) == RIO_DEVI_IDT_CPS1616)) {
 
          uint8_t port_idx;
 
@@ -2551,9 +2553,9 @@ uint32_t set_int_pw_ignore_reset( DAR_DEV_INFO_t      *dev_info,
       start_port = end_port = port_num;
    };
 
-   if (( IDT_CPS_VENDOR_ID  == VEND_CODE(dev_info) ) &&
-       ((IDT_SPS1616_DEV_ID == DEV_CODE(dev_info)) ||
-        (IDT_CPS1616_DEV_ID == DEV_CODE(dev_info)))  ) {
+   if (( RIO_VEND_IDT  == VEND_CODE(dev_info) ) &&
+       ((RIO_DEVI_IDT_SPS1616 == DEV_CODE(dev_info)) ||
+        (RIO_DEVI_IDT_CPS1616 == DEV_CODE(dev_info)))  ) {
       *policy_out = rio_pc_rst_ignore;
 
       for (pnum = start_port; pnum <= end_port; pnum++) {
@@ -2651,7 +2653,7 @@ uint32_t IDT_CPS_pc_secure_port (
 			continue;
 
 		/* Only SPS1616 supports ignoring MECS */
-		if ((IDT_SPS1616_DEV_ID == DEV_CODE(dev_info)) || (IDT_CPS1616_DEV_ID == DEV_CODE(dev_info))) {
+		if ((RIO_DEVI_IDT_SPS1616 == DEV_CODE(dev_info)) || (RIO_DEVI_IDT_CPS1616 == DEV_CODE(dev_info))) {
 		   rc = DARRegRead( dev_info, CPS1616_PORT_X_STATUS_AND_CTL(pnum), &regVal );
 		   if ( RIO_SUCCESS != rc ) {
 			  out_parms->imp_rc = PC_SECURE_PORT(0x10);

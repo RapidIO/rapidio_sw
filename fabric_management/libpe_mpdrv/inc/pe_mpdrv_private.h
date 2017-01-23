@@ -33,6 +33,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 
+#include "rio_ecosystem.h"
 #include "RapidIO_Port_Config_API.h"
 #include "RapidIO_Routing_Table_API.h"
 #include "RapidIO_Statistics_Counter_API.h"
@@ -53,8 +54,8 @@ struct mpsw_drv_pe_state {
         rio_pc_get_config_out_t  pc;      /* Standard config vals */
         rio_pc_get_status_out_t  ps;      /* Standard status vals */
         rio_rt_state_t           g_rt;    /* Global Routing Table for device */
-        rio_rt_state_t           pprt[IDT_MAX_PORTS]; /* Per port RT */
-        rio_sc_p_ctrs_val_t      sc[IDT_MAX_PORTS]; /* Statistics counters */
+        rio_rt_state_t           pprt[RIO_MAX_PORTS]; /* Per port RT */
+        rio_sc_p_ctrs_val_t      sc[RIO_MAX_PORTS]; /* Statistics counters */
         rio_sc_dev_ctrs_t        sc_dev; /* Device info for stats counters */
         rio_em_cfg_pw_t          em_pw_cfg; /* Event Management Portwrite Cfg */
         rio_em_dev_rpt_ctl_out_t em_notfn; /* Device notification control */

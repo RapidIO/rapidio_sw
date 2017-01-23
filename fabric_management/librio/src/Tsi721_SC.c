@@ -35,7 +35,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "DAR_DB.h"
 #include "DAR_DB_Private.h"
 #include "RapidIO_Utilities_API.h"
-#include "IDT_Common.h"
 #include "RapidIO_Port_Config_API.h"
 #include "RapidIO_Routing_Table_API.h"
 #include "RapidIO_Error_Management_API.h"
@@ -127,7 +126,7 @@ uint32_t idt_tsi721_sc_init_dev_ctrs (
 	};
 
 	if (!in_parms->dev_ctrs->num_p_ctrs ||
-			(in_parms->dev_ctrs->num_p_ctrs > IDT_MAX_PORTS) ||
+			(in_parms->dev_ctrs->num_p_ctrs > RIO_MAX_PORTS) ||
 			(in_parms->dev_ctrs->num_p_ctrs <
 			in_parms->dev_ctrs->valid_p_ctrs)) {
 		out_parms->imp_rc = SC_INIT_DEV_CTRS(0x03);
@@ -179,7 +178,7 @@ uint32_t idt_tsi721_sc_read_ctrs(DAR_DEV_INFO_t  *dev_info,
 	};
 
 	if (!in_parms->dev_ctrs->num_p_ctrs ||
-		(in_parms->dev_ctrs->num_p_ctrs > IDT_MAX_PORTS) ||
+		(in_parms->dev_ctrs->num_p_ctrs > RIO_MAX_PORTS) ||
 		(in_parms->dev_ctrs->num_p_ctrs < in_parms->dev_ctrs->valid_p_ctrs)) {
 		out_parms->imp_rc = SC_READ_CTRS(0x03);
 		goto exit;

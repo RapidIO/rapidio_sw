@@ -35,7 +35,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "DAR_DB.h"
 #include "DAR_DB_Private.h"
 #include "RapidIO_Utilities_API.h"
-#include "IDT_Common.h"
 #include "RapidIO_Port_Config_API.h"
 #include "RapidIO_Routing_Table_API.h"
 #include "RapidIO_Error_Management_API.h"
@@ -123,7 +122,7 @@ uint32_t IDT_tsi721DeviceSupported( DAR_DEV_INFO_t *DAR_info )
 
 	if (TSI721_RIO_DEVICE_VENDOR == (DAR_info->devID & RIO_DEV_IDENT_VEND))
 	{
-		if ((TSI721_RIO_DEVICE_ID) ==
+		if ((RIO_DEVI_IDT_TSI721) ==
 			((DAR_info->devID & RIO_DEV_IDENT_DEVI) >> 16)) {
 			// Now fill out the DAR_info structure...
 			rc = DARDB_rioDeviceSupportedDefault( DAR_info );
@@ -146,7 +145,7 @@ uint32_t bind_tsi721_DAR_support( void )
 {
 	DAR_DB_Driver_t DAR_info;
 
-	DARDB_Init_Driver_Info( IDT_TSI_VENDOR_ID, &DAR_info );
+	DARDB_Init_Driver_Info( RIO_VEND_IDT, &DAR_info );
 	DAR_info.WriteReg = IDT_tsi721WriteReg;
 	DAR_info.ReadReg = IDT_tsi721ReadReg;
 
@@ -163,7 +162,7 @@ uint32_t bind_tsi721_DSF_support( void )
  
 	IDT_DSF_init_driver( &idt_driver );
 
-	idt_driver.dev_type = TSI721_RIO_DEVICE_ID;
+	idt_driver.dev_type = RIO_DEVI_IDT_TSI721;
 
 	idt_driver.rio_pc_clr_errs = idt_tsi721_pc_clr_errs;
 	idt_driver.rio_pc_dev_reset_config = idt_tsi721_pc_dev_reset_config;

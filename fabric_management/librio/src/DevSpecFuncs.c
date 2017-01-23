@@ -30,7 +30,8 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
-#include <IDT_Common.h>
+
+#include <RapidIO_Source_Config.h>
 #include <DAR_DB_Private.h>
 #include <CPS_API.h>
 #include <Tsi57x_API.h>
@@ -556,14 +557,14 @@ uint32_t rio_sc_port_list( DAR_DEV_INFO_t *dev_info ,
 {
    uint8_t idx;
    uint32_t rc = RIO_SUCCESS;
-   bool dup_port_num[IDT_MAX_PORTS];
+   bool dup_port_num[RIO_MAX_PORTS];
 
    if (RIO_ALL_PORTS == p_cnt_in) {
       *p_cnt_out = NUM_PORTS(dev_info);
       for (idx = 0; idx < NUM_PORTS(dev_info); idx++)
          p_list_out[idx] = idx;
    } else {
-      for (idx = 0; idx < IDT_MAX_PORTS; idx++)
+      for (idx = 0; idx < RIO_MAX_PORTS; idx++)
          dup_port_num[idx] = false;
 
       *p_cnt_out = p_cnt_in;

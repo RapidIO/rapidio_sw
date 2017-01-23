@@ -187,7 +187,7 @@ typedef struct idt_event_cfg_reg_values_t_TAG {
    uint32_t imp_err_rpt    ; // CPS1848_PORT_X_IMPL_SPEC_ERR_RPT_EN(pnum)
    uint32_t imp_err_rate   ; // CPS1848_PORT_X_IMPL_SPEC_ERR_RATE_EN(pnum)
    uint32_t retry_lim      ; // CPS1848_PORT_X_RETRY_CNTR(pnum)
-   uint32_t lane_err_rate[IDT_MAX_LANES]; // CPS1848_LANE_X_ERR_RATE_EN(lnum)
+   uint32_t lane_err_rate[CPS_MAX_PORT_LANES]; // CPS1848_LANE_X_ERR_RATE_EN(lnum)
    uint32_t stat_n_ctl     ; // CPS1848_PORT_X_STATUS_AND_CTL(pnum)
    bool   wr_dev_ctl_regs; // true if dev_ctl1, i2c_mast_ctl, aux_port capture 
                            //      should be written
@@ -278,7 +278,7 @@ uint32_t get_event_cfg_reg_vals(  DAR_DEV_INFO_t             *dev_info,
      goto get_event_cfg_reg_vals_exit;
   };
 
-  for (lnum = start_lane; (lnum < end_lane) && ((lnum - start_lane) < IDT_MAX_LANES);lnum ++) {
+  for (lnum = start_lane; (lnum < end_lane) && ((lnum - start_lane) < CPS_MAX_PORT_LANES);lnum ++) {
       rc = DARRegRead( dev_info, CPS1848_LANE_X_ERR_RATE_EN(lnum), &vals->lane_err_rate[lnum - start_lane]);
       if (RIO_SUCCESS != rc) {
          *fail_pt = EM_GET_EC_REGS(0x08);
@@ -431,7 +431,7 @@ uint32_t set_event_cfg_reg_vals(  DAR_DEV_INFO_t             *dev_info,
      goto set_event_cfg_reg_vals_exit;
   };
 
-  for (lnum = start_lane; (lnum < end_lane) && ((lnum - start_lane) < IDT_MAX_LANES);lnum ++) {
+  for (lnum = start_lane; (lnum < end_lane) && ((lnum - start_lane) < CPS_MAX_PORT_LANES);lnum ++) {
       rc = DARRegWrite( dev_info, CPS1848_LANE_X_ERR_RATE_EN(lnum), vals->lane_err_rate[lnum - start_lane]);
       if (RIO_SUCCESS != rc) {
          *fail_pt = EM_SET_EC_REGS(0x08);
@@ -1143,7 +1143,7 @@ uint32_t IDT_CPS_em_cfg_set  ( DAR_DEV_INFO_t        *dev_info,
    };
 
    rc = DARrioGetPortList(dev_info, &in_parms->ptl, &good_ptl);
-   if ((RIO_SUCCESS != rc) || (good_ptl.num_ports > CPS1848_MAX_PORT)) {
+   if ((RIO_SUCCESS != rc) || (good_ptl.num_ports > CPS_MAX_PORTS)) {
          out_parms->imp_rc = EM_CFG_SET(0x10);
          goto idt_CPS_em_cfg_set_exit;
    };
@@ -1153,7 +1153,7 @@ uint32_t IDT_CPS_em_cfg_set  ( DAR_DEV_INFO_t        *dev_info,
    if (RIO_SUCCESS != rc)
       goto idt_CPS_em_cfg_set_exit;
 
-   if (!cfg_out.num_ports || (cfg_out.num_ports > CPS1848_MAX_PORT)) {
+   if (!cfg_out.num_ports || (cfg_out.num_ports > CPS_MAX_PORTS)) {
       rc = RIO_ERR_NO_PORT_AVAIL;
       out_parms->imp_rc = cfg_out.imp_rc;
       if (!out_parms->imp_rc) {
@@ -2528,8 +2528,8 @@ uint32_t IDT_CPS_em_clr_events( DAR_DEV_INFO_t           *dev_info,
    uint8_t lnum, quadrant, quad_cfg;
    bool clear_port_fail = false;
    cps_port_info_t       pi;
-   clr_err_info_t   regs[IDT_MAX_PORTS];
-   clr_err_info_t   orig[IDT_MAX_PORTS];
+   clr_err_info_t   regs[CPS_MAX_PORTS];
+   clr_err_info_t   orig[CPS_MAX_PORTS];
     
    out_parms->imp_rc            = RIO_SUCCESS;
    out_parms->failure_idx       = 0;
@@ -2554,7 +2554,7 @@ uint32_t IDT_CPS_em_clr_events( DAR_DEV_INFO_t           *dev_info,
       goto idt_CPS_em_clr_events_exit;
    }
 
-   memcpy( (void *)(regs), (void *)(orig), sizeof(clr_err_info_t)*IDT_MAX_PORTS );
+   memcpy( (void *)(regs), (void *)(orig), sizeof(clr_err_info_t)*CPS_MAX_PORTS );
 
    for (idx = 0; idx < in_parms->num_events; idx++) {
        bool glob_event;

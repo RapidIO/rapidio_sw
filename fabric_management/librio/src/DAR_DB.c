@@ -137,13 +137,13 @@ uint32_t DARDB_rioGetPortListDefault ( DAR_DEV_INFO_t  *dev_info ,
 {
    uint8_t idx;
    uint32_t rc = RIO_ERR_INVALID_PARAMETER;
-   bool dup_port_num[DAR_MAX_PORTS] = {false};
+   bool dup_port_num[RIO_MAX_PORTS] = {false};
 
    ptl_out->num_ports = 0;
 
    if ((ptl_in->num_ports > NUM_PORTS(dev_info)) && (ptl_in->num_ports != RIO_ALL_PORTS))
 	   goto exit;
-   if ((ptl_in->num_ports > DAR_MAX_PORTS) && (ptl_in->num_ports != RIO_ALL_PORTS))
+   if ((ptl_in->num_ports > RIO_MAX_PORTS) && (ptl_in->num_ports != RIO_ALL_PORTS))
 	   goto exit;
 
    if (!(ptl_in->num_ports))

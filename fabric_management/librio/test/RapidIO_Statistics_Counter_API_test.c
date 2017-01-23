@@ -78,7 +78,7 @@ static void test_setup(void)
         mock_dev_info.srcOps = 0x0000FC04;
         mock_dev_info.dstOps = 0x0000FC04;
         mock_dev_info.swMcastInfo = 0;
-        for (idx = 0; idx < MAX_DAR_PORTS; idx++) {
+        for (idx = 0; idx < RIO_MAX_PORTS; idx++) {
                 mock_dev_info.ctl1_reg[idx] = 0;
         }
 
@@ -303,17 +303,17 @@ void rio_sc_other_if_names_test(void **state)
 	init_mock_regs();
 	test_setup();
 
-        mock_dev_info.devID = (RIO_DEVI_IDT_CPS8 << 16) + RIO_VEND_TI;
+        mock_dev_info.devID = (RIO_DEVI_RESERVED << 16) + RIO_VEND_RESERVED;
 	assert_int_equal(RIO_ERR_NO_DEVICE_SUPPORT,
 				rio_sc_other_if_names(&mock_dev_info, &name));
 	assert_string_equal(sc_other_if_names_UNKNOWN, name);
 	
-        mock_dev_info.devID = (RIO_DEVI_IDT_CPS8 << 16) + RIO_VEND_TUNDRA;
+        mock_dev_info.devID = (RIO_DEVI_RESERVED << 16) + RIO_VEND_TUNDRA;
 	assert_int_equal(RIO_ERR_NO_DEVICE_SUPPORT,
 				rio_sc_other_if_names(&mock_dev_info, &name));
 	assert_string_equal(sc_other_if_names_Invalid, name);
 	
-        mock_dev_info.devID = (RIO_DEVI_IDT_CPS8 << 16) + RIO_VEND_IDT;
+        mock_dev_info.devID = (RIO_DEVI_RESERVED << 16) + RIO_VEND_IDT;
 	assert_int_equal(RIO_ERR_NO_DEVICE_SUPPORT,
 			rio_sc_other_if_names(&mock_dev_info, &name));
 	assert_string_equal(sc_other_if_names_UNKNOWN, name);

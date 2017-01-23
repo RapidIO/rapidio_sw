@@ -34,7 +34,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define __RAPIDIO_PORT_CONFIG_API_H__
 
 #include <stdbool.h>
-#include <RapidIO_Device_Access_Routines_API.h>
+#include "rio_ecosystem.h"
+#include "RapidIO_Device_Access_Routines_API.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -45,7 +46,6 @@ extern "C" {
    Generic structure which contains the parameters which describe the
    configuration of a port.
 */
-#define RIO_PC_MAX_LANES                    4
 #define RIO_PC_NO_ASSIGNED_LANE             0
 
 #define RIO_PC_UNINIT_PARM                  0xFF
@@ -179,7 +179,7 @@ typedef struct rio_pc_one_port_config_t_TAG
                                    a port in order of highest numbered lane to
                                    lowest numbered
                                 */
-    bool        tx_linvert[RIO_PC_MAX_LANES];
+    bool        tx_linvert[RIO_MAX_PORT_LANES];
                                 /* True if the tracks of a differential pair
                                    are inverted.                            
                                    Does not reflect lane swapping status.
@@ -188,7 +188,7 @@ typedef struct rio_pc_one_port_config_t_TAG
                                    a port in order of highest numbered lane to
                                    lowest numbered.
                                 */
-    bool        rx_linvert[RIO_PC_MAX_LANES];
+    bool        rx_linvert[RIO_MAX_PORT_LANES];
                                 /* True if the tracks of a differential pair
                                    are inverted.                            
                                    Does not reflect lane swapping status. 
@@ -270,7 +270,7 @@ typedef struct rio_pc_set_config_in_t_TAG
                                All ports will be configured according to
                                  this entry.
                             */
-    rio_pc_one_port_config_t pc[IDT_MAX_PORTS];
+    rio_pc_one_port_config_t pc[RIO_MAX_PORTS];
 } rio_pc_set_config_in_t;
 
 typedef struct rio_pc_set_config_out_t_TAG
@@ -288,7 +288,7 @@ typedef struct rio_pc_set_config_out_t_TAG
                                  this reflects the actual number of ports
                                  present after the configuration was changed.
                             */
-    rio_pc_one_port_config_t pc[IDT_MAX_PORTS];
+    rio_pc_one_port_config_t pc[RIO_MAX_PORTS];
                             /* Current configuration of the devices ports. 
                             */
 } rio_pc_set_config_out_t;
@@ -310,7 +310,7 @@ typedef struct rio_pc_get_status_out_t_TAG
                                   reflects the number of ports which have
                                   information present in pc.
                              */
-    rio_pc_one_port_status_t ps[IDT_MAX_PORTS];    
+    rio_pc_one_port_status_t ps[RIO_MAX_PORTS];
 } rio_pc_get_status_out_t;
 
 // The RapidIO port used to access the switch will not be reset 
@@ -434,7 +434,7 @@ typedef struct rio_pc_clr_errs_in_t_TAG
 				    *   port is supplied, response timeouts may
 				    *   occur for maintenance packets.
 				    */
-    uint8_t           lp_port_list[IDT_MAX_PORTS]; 
+    uint8_t           lp_port_list[RIO_MAX_PORTS];
                                    /* List of possible link partner port numbers 
 				    *   that the local port could be connected to.  
 				    */

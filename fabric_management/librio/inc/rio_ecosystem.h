@@ -64,12 +64,14 @@ typedef uint8_t hc_t; /* hopcount */
 	dest = (hc_t)((src + 1) == HC_MP ? HC_MAX : ((src + 1) & HC_MP)); \
 }
 
+
 /** @brief max number of RIO mports supported by platform */
 #define RIO_MAX_MPORTS 8
 
 /** @brief max number of ports and lanes supported by silicon */
 #define RIO_SW_PORT_INF_PORT_MAX ((RIO_SW_PORT_INF_T)(24))
 #define RIO_SW_PORT_INF_LANE_MAX ((RIO_SW_PORT_INF_T)(48))
+#define RIO_MAX_PORTS RIO_SW_PORT_INF_PORT_MAX
 
 #define RIO_BAD_PORT_NUM(x) (x >= RIO_SW_PORT_INF_PORT_MAX)
 
@@ -89,8 +91,10 @@ typedef uint8_t hc_t; /* hopcount */
 
 #define RIO_VEND_FREESCALE      0x0002
 #define RIO_VEND_TUNDRA         0x000d
+
 #define RIO_DEVI_TSI500         0x0500
 #define RIO_DEVI_TSI568         0x0568
+#define RIO_DEVI_TSI57x         0x0570
 #define RIO_DEVI_TSI572         0x0572
 #define RIO_DEVI_TSI574         0x0574
 #define RIO_DEVI_TSI576         0x0578 /* Same ID as Tsi578 */
@@ -100,12 +104,7 @@ typedef uint8_t hc_t; /* hopcount */
 #define RIO_VEND_TI             0x0030
 
 #define RIO_VEND_IDT            0x0038
-#define RIO_DEVI_IDT_70K200     0x0310
-#define RIO_DEVI_IDT_CPS8       0x035c
-#define RIO_DEVI_IDT_CPS12      0x035d
-#define RIO_DEVI_IDT_CPS16      0x035b
-#define RIO_DEVI_IDT_CPS6Q      0x035f
-#define RIO_DEVI_IDT_CPS10Q     0x035e
+
 #define RIO_DEVI_IDT_CPS1848    0x0374
 #define RIO_DEVI_IDT_CPS1432    0x0375
 #define RIO_DEVI_IDT_CPS1616    0x0379
@@ -113,8 +112,10 @@ typedef uint8_t hc_t; /* hopcount */
 #define RIO_DEVI_IDT_SPS1616    0x0378
 
 #define RIO_DEVI_IDT_TSI721     0x80ab
-#define RIO_DEVI_IDT_RXS2448    0x80E6
-#define RIO_DEVI_IDT_RXS1632    0x80E5
+
+#define RIO_DEVI_IDT_RXSx       0x80e0
+#define RIO_DEVI_IDT_RXS2448    0x80e6
+#define RIO_DEVI_IDT_RXS1632    0x80e5
 
 #define RIO_VEND_PRODRIVE       0x00a4
 
@@ -225,12 +226,6 @@ static const struct riocp_pe_dev_id riocp_pe_device_ids[] = {
         {RIO_VEND_TUNDRA, RIO_DEVI_TSI578,        "Tsi578"},
 
         /* IDT */
-        {RIO_VEND_IDT, RIO_DEVI_IDT_70K200,       "70K200"},
-        {RIO_VEND_IDT, RIO_DEVI_IDT_CPS8,         "CPS8"},
-        {RIO_VEND_IDT, RIO_DEVI_IDT_CPS12,        "CPS12"},
-        {RIO_VEND_IDT, RIO_DEVI_IDT_CPS16,        "CPS16"},
-        {RIO_VEND_IDT, RIO_DEVI_IDT_CPS6Q,        "CPS6Q"},
-        {RIO_VEND_IDT, RIO_DEVI_IDT_CPS10Q,       "CPS10Q"},
         {RIO_VEND_IDT, RIO_DEVI_IDT_CPS1432,      "CPS1432"},
         {RIO_VEND_IDT, RIO_DEVI_IDT_CPS1848,      "CPS1848"},
         {RIO_VEND_IDT, RIO_DEVI_IDT_CPS1616,      "CPS1616"},

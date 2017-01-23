@@ -34,7 +34,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef __RAPIDIO_STATISTICS_COUNTER_API_H__
 #define __RAPIDIO_STATISTICS_COUNTER_API_H__
 
-#include <IDT_Common.h>
 #include "rio_ecosystem.h"
 
 #ifdef __cplusplus
@@ -203,7 +202,7 @@ typedef struct rio_sc_p_ctrs_val_t_TAG
 typedef struct rio_sc_dev_ctrs_t_TAG
 {
     uint8_t                num_p_ctrs;    // Number of allocated entries in p_ctrs[], 
-                                        //    Maximum value is IDT_MAX_PORTS
+                                        //    Maximum value is RIO_MAX_PORTS
 	uint8_t                valid_p_ctrs;  // Number of valid entries in p_ctrs[],
 	                                    //    Maximum value is num_p_ctrs;
 	                                    // Initialized by rio_sc_init_dev_ctrs()...
