@@ -34,7 +34,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include <stdarg.h>
 #include <semaphore.h>
 #include <pthread.h>
 #include <sys/types.h>
@@ -55,6 +54,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <netinet/tcp.h>
 #include <pthread.h>
 
+#include <stdarg.h>
+#include <setjmp.h>
+#include "cmocka.h"
+
 #include "cfg.h"
 #include "cfg_private.h"
 #include "libcli.h"
@@ -71,382 +74,337 @@ extern "C" {
 #define TOR_SUCCESS   (char *)("test/tor_success.cfg")
 #define RXS_SUCCESS (char *)("test/rxs_success.cfg")
 
-int test_case_1(void)
+static int count = 0;
+
+static int grp_setup(void **state)
 {
-	char *dd_mtx_fn = NULL, *dd_fn = NULL;
+	rdma_log_init("cfg_test.log", 1);
+	g_level = RDMA_LL_OFF;
+
+	(void)state; // unused
+	return 0;
+}
+
+static int grp_teardown(void **state)
+{
+	if (0 != count) {
+		rdma_log_dump();
+	}
+	rdma_log_close();
+
+	(void)state; // unused
+	return 0;
+}
+
+static int setup(void **state)
+{
+	did_reset();
+	ct_reset();
+
+	(void)state; // unused
+	return 0;
+}
+
+static void cfg_parse_mport_size_test(void **state)
+{
+	char *dd_mtx_fn = NULL;
+	char *dd_fn = NULL;
 	char *test_dd_mtx_fn = (char *)FMD_DFLT_DD_MTX_FN;
 	char *test_dd_fn  = (char *)FMD_DFLT_DD_FN;
 	uint8_t mem_sz;
-
 	uint32_t m_did, m_cm_port, m_mode;
 
-	if (cfg_parse_file(MASTER_SUCCESS, &dd_mtx_fn, &dd_fn, &m_did,
-			&m_cm_port, &m_mode))
-		goto fail;
+	m_did = 0xcafe;
+	m_cm_port = 0xbabe;
+	m_mode = 0xdead;
+	assert_int_equal(0, cfg_parse_file(MASTER_SUCCESS, &dd_mtx_fn, &dd_fn, &m_did,
+			&m_cm_port, &m_mode));
+	assert_int_equal(0, strncmp(dd_mtx_fn, test_dd_mtx_fn, strlen(dd_mtx_fn)));
+	assert_int_equal(0, strncmp(dd_fn, test_dd_fn, strlen(test_dd_fn)));
+	assert_int_equal(5, m_did);
+	assert_int_equal(FMD_DFLT_MAST_CM_PORT, m_cm_port);
+	assert_int_equal(1, m_mode);
 
-	if (strncmp(dd_mtx_fn, test_dd_mtx_fn, strlen(dd_mtx_fn)))
-		goto fail;
+	mem_sz = 0xca;
+	assert_int_equal(0, cfg_get_mp_mem_sz(0, &mem_sz));
+	assert_int_equal(CFG_MEM_SZ_34, mem_sz);
 
-	if (strncmp(dd_fn, test_dd_fn, strlen(test_dd_fn)))
-		goto fail;
+	mem_sz = 0xfe;
+	assert_int_equal(0, cfg_get_mp_mem_sz(1, &mem_sz));
+	assert_int_equal(CFG_MEM_SZ_50, mem_sz);
 
-	if (5 != m_did) 
-		goto fail;
+	mem_sz = 0xba;
+	assert_int_equal(0, cfg_get_mp_mem_sz(2, &mem_sz));
+	assert_int_equal (CFG_MEM_SZ_66, mem_sz);
 
-	if (FMD_DFLT_MAST_CM_PORT != m_cm_port)
-		goto fail;
+	count++;
+	free(cfg);
+	(void)state; // unused
+}
 
-	if (cfg_get_mp_mem_sz(0, &mem_sz))
-		goto fail;
-	if (mem_sz != CFG_MEM_SZ_34)
-		goto fail;
-
-	if (cfg_get_mp_mem_sz(1, &mem_sz))
-		goto fail;
-	if (mem_sz != CFG_MEM_SZ_50)
-		goto fail;
-
-	if (cfg_get_mp_mem_sz(2, &mem_sz))
-		goto fail;
-	if (mem_sz != CFG_MEM_SZ_66)
-		goto fail;
-
-	if (!m_mode)
-		goto fail;
-
-	return 0;
-fail:
-	return 1;
-
-};
-
-int test_case_2(void)
+static void cfg_parse_fail(char *filename)
 {
-	int i;
-	int rc = 1;
-	char fn[90];
+	char *dd_mtx_fn = NULL;
+	char *dd_fn = NULL;
+	uint32_t m_did = 0xdead;
+	uint32_t m_cm_port = 0xbeef;
+	uint32_t m_mode = 0xcafe;
 
-	char *dd_mtx_fn = NULL, *dd_fn = NULL;
-	uint32_t m_did, m_cm_port, m_mode;
-	
+	assert_int_not_equal(0, cfg_parse_file(filename, &dd_mtx_fn, &dd_fn, &m_did,
+		&m_cm_port, &m_mode));
+	free(cfg);
+}
 
-	for (i = 0; (i < 10) && rc; i++) {
-		snprintf(fn, 90, "test/parse_fail_%d.cfg", i);
-	
-		rc = cfg_parse_file(fn, &dd_mtx_fn, &dd_fn, &m_did,
-			&m_cm_port, &m_mode);
-		free(cfg);
-		if (rc)
-			printf("\nTest case 2 test %d passed", i);
-		else
-			printf("\nTest case 2 test %d FAILED", i);
-	};
+static void cfg_parse_fail_no_file_test(void **state)
+{
+	cfg_parse_fail((char *)"test/parse_fail_0.cfg");
 
-	return !rc;
-};
+	count++;
+	(void)state; // unused
+}
 
-int test_case_3(void)
+static void cfg_parse_fail_1_test(void **state)
+{
+	cfg_parse_fail((char *)"test/parse_fail_1.cfg");
+
+	count++;
+	(void)state; // unused
+}
+
+static void cfg_parse_fail_2_test(void **state)
+{
+	cfg_parse_fail((char *)"test/parse_fail_2.cfg");
+
+	count++;
+	(void)state; // unused
+}
+
+static void cfg_parse_fail_3_test(void **state)
+{
+	cfg_parse_fail((char *)"test/parse_fail_3.cfg");
+
+	count++;
+	(void)state; // unused
+}
+
+static void cfg_parse_fail_4_test(void **state)
+{
+	cfg_parse_fail((char *)"test/parse_fail_4.cfg");
+
+	count++;
+	(void)state; // unused
+}
+
+static void cfg_parse_fail_5_test(void **state)
+{
+	cfg_parse_fail((char *)"test/parse_fail_5.cfg");
+
+	count++;
+	(void)state; // unused
+}
+
+static void cfg_parse_fail_6_test(void **state)
+{
+	cfg_parse_fail((char *)"test/parse_fail_6.cfg");
+
+	count++;
+	(void)state; // unused
+}
+
+static void cfg_parse_fail_7_test(void **state)
+{
+	cfg_parse_fail((char *)"test/parse_fail_7.cfg");
+
+	count++;
+	(void)state; // unused
+}
+
+static void cfg_parse_fail_8_test(void **state)
+{
+	cfg_parse_fail((char *)"test/parse_fail_8.cfg");
+
+	count++;
+	(void)state; // unused
+}
+
+static void cfg_parse_fail_9_test(void **state)
+{
+	cfg_parse_fail((char *)"test/parse_fail_9.cfg");
+
+	count++;
+	(void)state; // unused
+}
+
+static void cfg_parse_master_test(void **state)
 {
 	struct cfg_mport_info mp;
 	struct cfg_dev dev;
 	int conn_pt;
-	char *dd_mtx_fn = NULL, *dd_fn = NULL;
-	uint32_t m_did, m_cm_port, m_mode;
+	char *dd_mtx_fn = NULL;
+	char *dd_fn = NULL;
+	uint32_t m_did = 0xdead;
+	uint32_t m_cm_port = 0xbeef;
+	uint32_t m_mode = 0xcafe;
 
-	did_reset();
-	ct_reset();
 	memset(&dev, 0, sizeof(dev));
-	if (cfg_parse_file(MASTER_SUCCESS, &dd_mtx_fn, &dd_fn, &m_did,
-			&m_cm_port, &m_mode))
-		goto fail;
+	assert_int_equal(0, cfg_parse_file(MASTER_SUCCESS, &dd_mtx_fn, &dd_fn, &m_did,
+			&m_cm_port, &m_mode));
 
-	if (cfg_find_mport(0, &mp))
-		goto fail;
+	assert_int_equal(0, cfg_find_mport(0, &mp));
+	assert_int_equal(0, mp.num);
+	assert_int_equal(0x10005, mp.ct);
+	assert_int_equal(1, mp.op_mode);
+	assert_int_not_equal(0, cfg_find_mport(3, &mp));
 
-	if (mp.num != 0)
-		goto fail;
-	if (mp.ct != 0x10005)
-		goto fail;
-	if (mp.op_mode != 1)
-		goto fail;
+	assert_int_equal(0, cfg_find_dev_by_ct(0x10005, &dev));
+	assert_int_equal(rio_pc_pw_4x, dev.ep_pt.max_pw);
+	assert_int_equal(rio_pc_pw_4x, dev.ep_pt.op_pw);
+	assert_int_equal(rio_pc_ls_5p0, dev.ep_pt.ls);
 
-	if (!cfg_find_mport(3, &mp))
-		goto fail;
+	assert_int_equal(0, cfg_find_dev_by_ct(0x20006, &dev));
+	assert_int_equal(rio_pc_pw_2x, dev.ep_pt.max_pw);
+	assert_int_equal(rio_pc_pw_2x, dev.ep_pt.op_pw);
+	assert_int_equal(rio_pc_ls_6p25, dev.ep_pt.ls);
 
-	if (cfg_find_dev_by_ct(0x10005, &dev))
-		goto fail;
+	assert_int_equal(0, cfg_find_dev_by_ct(0x30007, &dev));
+	assert_int_equal(rio_pc_pw_4x, dev.ep_pt.max_pw);
+	assert_int_equal(rio_pc_pw_2x, dev.ep_pt.op_pw);
+	assert_int_equal(rio_pc_ls_1p25, dev.ep_pt.ls);
 
-	if (dev.ep_pt.max_pw != rio_pc_pw_4x)
-		goto fail;
-	if (dev.ep_pt.op_pw != rio_pc_pw_4x)
-		goto fail;
-	if (dev.ep_pt.ls != rio_pc_ls_5p0)
-		goto fail;
+	assert_int_equal(0, cfg_find_dev_by_ct(0x40008, &dev));
 
-	if (cfg_find_dev_by_ct(0x20006, &dev))
-		goto fail;
+	assert_int_equal(0, cfg_find_dev_by_ct(0x70009, &dev));
+	assert_int_equal(rio_pc_pw_4x, dev.sw_info.sw_pt[0].max_pw);
+	assert_int_equal(rio_pc_pw_4x, dev.sw_info.sw_pt[0].op_pw);
+	assert_int_equal(rio_pc_ls_6p25, dev.sw_info.sw_pt[0].ls);
 
-	if (dev.ep_pt.max_pw != rio_pc_pw_2x)
-		goto fail;
-	if (dev.ep_pt.op_pw != rio_pc_pw_2x)
-		goto fail;
-	if (dev.ep_pt.ls != rio_pc_ls_6p25)
-		goto fail;
+	assert_int_equal(rio_pc_pw_2x, dev.sw_info.sw_pt[1].max_pw);
+	assert_int_equal(rio_pc_pw_2x, dev.sw_info.sw_pt[1].op_pw);
+	assert_int_equal(rio_pc_ls_5p0, dev.sw_info.sw_pt[1].ls);
 
-	if (cfg_find_dev_by_ct(0x30007, &dev))
-		goto fail;
+	assert_int_equal(rio_pc_pw_2x, dev.sw_info.sw_pt[2].max_pw);
+	assert_int_equal(rio_pc_pw_1x, dev.sw_info.sw_pt[2].op_pw);
+	assert_int_equal(rio_pc_ls_3p125, dev.sw_info.sw_pt[2].ls);
 
-	if (dev.ep_pt.max_pw != rio_pc_pw_4x)
-		goto fail;
-	if (dev.ep_pt.op_pw != rio_pc_pw_2x)
-		goto fail;
-	if (dev.ep_pt.ls != rio_pc_ls_1p25)
-		goto fail;
+	assert_int_equal(rio_pc_pw_4x, dev.sw_info.sw_pt[3].max_pw);
+	assert_int_equal(rio_pc_pw_1x, dev.sw_info.sw_pt[3].op_pw);
+	assert_int_equal(rio_pc_ls_2p5, dev.sw_info.sw_pt[3].ls);
 
-	if (cfg_find_dev_by_ct(0x40008, &dev))
-		goto fail;
+	assert_int_equal(rio_pc_pw_4x, dev.sw_info.sw_pt[4].max_pw);
+	assert_int_equal(rio_pc_pw_4x, dev.sw_info.sw_pt[4].op_pw);
+	assert_int_equal(rio_pc_ls_1p25, dev.sw_info.sw_pt[4].ls);
 
-	if (cfg_find_dev_by_ct(0x70009, &dev))
-		goto fail;
+	assert_int_equal(0, cfg_get_conn_dev(0x70009, 0, &dev, &conn_pt));
+	assert_int_equal(0, cfg_get_conn_dev(0x70009, 1, &dev, &conn_pt));
+	assert_int_equal(0, cfg_get_conn_dev(0x70009, 4, &dev, &conn_pt));
+	assert_int_equal(0, cfg_get_conn_dev(0x70009, 5, &dev, &conn_pt));
+	assert_int_not_equal(0, cfg_get_conn_dev(0x70009, 7, &dev, &conn_pt));
+	assert_int_equal(0, cfg_get_conn_dev(0x10005, 0, &dev, &conn_pt));
+	assert_int_equal(0, cfg_get_conn_dev(0x20006, 0, &dev, &conn_pt));
+	assert_int_equal(0, cfg_get_conn_dev(0x30007, 0, &dev, &conn_pt));
+	assert_int_equal(0, cfg_get_conn_dev(0x40008, 0, &dev, &conn_pt));
+	assert_int_not_equal(0, cfg_get_conn_dev(0x40008, 1, &dev, &conn_pt));
+	assert_int_not_equal(0,cfg_find_dev_by_ct(0x99999, &dev));
 
-	if (dev.sw_info.sw_pt[0].max_pw != rio_pc_pw_4x)
-		goto fail;
-	if (dev.sw_info.sw_pt[0].op_pw != rio_pc_pw_4x)
-		goto fail;
-	if (dev.sw_info.sw_pt[0].ls != rio_pc_ls_6p25)
-		goto fail;
-
-	if (dev.sw_info.sw_pt[1].max_pw != rio_pc_pw_2x)
-		goto fail;
-	if (dev.sw_info.sw_pt[1].op_pw != rio_pc_pw_2x)
-		goto fail;
-	if (dev.sw_info.sw_pt[1].ls != rio_pc_ls_5p0)
-		goto fail;
-
-	if (dev.sw_info.sw_pt[2].max_pw != rio_pc_pw_2x)
-		goto fail;
-	if (dev.sw_info.sw_pt[2].op_pw != rio_pc_pw_1x)
-		goto fail;
-	if (dev.sw_info.sw_pt[2].ls != rio_pc_ls_3p125)
-		goto fail;
-
-	if (dev.sw_info.sw_pt[3].max_pw != rio_pc_pw_4x)
-		goto fail;
-	if (dev.sw_info.sw_pt[3].op_pw != rio_pc_pw_1x)
-		goto fail;
-	if (dev.sw_info.sw_pt[3].ls != rio_pc_ls_2p5)
-		goto fail;
-
-	if (dev.sw_info.sw_pt[4].max_pw != rio_pc_pw_4x)
-		goto fail;
-	if (dev.sw_info.sw_pt[4].op_pw != rio_pc_pw_4x)
-		goto fail;
-	if (dev.sw_info.sw_pt[4].ls != rio_pc_ls_1p25)
-		goto fail;
-
-	if (cfg_get_conn_dev(0x70009, 0, &dev, &conn_pt))
-		goto fail;
-
-	if (cfg_get_conn_dev(0x70009, 1, &dev, &conn_pt))
-		goto fail;
-
-	if (cfg_get_conn_dev(0x70009, 4, &dev, &conn_pt))
-		goto fail;
-
-	if (cfg_get_conn_dev(0x70009, 5, &dev, &conn_pt))
-		goto fail;
-
-	if (!cfg_get_conn_dev(0x70009, 7, &dev, &conn_pt))
-		goto fail;
-
-	if (cfg_get_conn_dev(0x10005, 0, &dev, &conn_pt))
-		goto fail;
-
-	if (cfg_get_conn_dev(0x20006, 0, &dev, &conn_pt))
-		goto fail;
-
-	if (cfg_get_conn_dev(0x30007, 0, &dev, &conn_pt))
-		goto fail;
-
-	if (cfg_get_conn_dev(0x40008, 0, &dev, &conn_pt))
-		goto fail;
-
-	if (!cfg_get_conn_dev(0x40008, 1, &dev, &conn_pt))
-		goto fail;
-
-	if (!cfg_find_dev_by_ct(0x99999, &dev))
-		goto fail;
-
-	return 0;
-fail:
-	return 1;
-};
+	count++;
+	free(cfg);
+	(void)state; // unused
+}
 	
-int test_case_4(void)
+static void cfg_parse_slave_test(void **state)
 {
 	struct cfg_mport_info mp;
 	struct cfg_dev dev;
-	char *dd_mtx_fn = NULL, *dd_fn = NULL;
+	char *dd_mtx_fn = NULL;
+	char *dd_fn = NULL;
 	char *test_dd_mtx_fn = (char *)FMD_DFLT_DD_MTX_FN;
 	char *test_dd_fn = (char *)FMD_DFLT_DD_FN;
-	uint32_t m_did, m_cm_port, m_mode;
+	uint32_t m_did = 0xcafe;
+	uint32_t m_cm_port = 0xbabe;
+	uint32_t m_mode = 0xdead;
 
-	did_reset();
-	ct_reset();
-	if (cfg_parse_file(SLAVE_SUCCESS, &dd_mtx_fn, &dd_fn, &m_did,
-			&m_cm_port, &m_mode))
-		goto fail;
+	memset(&dev, 0, sizeof(dev));
+	assert_int_equal(0, cfg_parse_file(SLAVE_SUCCESS, &dd_mtx_fn, &dd_fn, &m_did,
+			&m_cm_port, &m_mode));
+	assert_int_equal(0, strncmp(dd_mtx_fn, test_dd_mtx_fn, strlen(dd_mtx_fn)));
+	assert_int_equal(0, strncmp(dd_fn, test_dd_fn, strlen(test_dd_fn)));
+	assert_int_equal(5, m_did);
+	assert_int_equal(FMD_DFLT_MAST_CM_PORT,m_cm_port);
+	assert_int_equal(0, m_mode);
 
-	if (strncmp(dd_mtx_fn, test_dd_mtx_fn, strlen(dd_mtx_fn)))
-		goto fail;
+	assert_int_equal(0, cfg_find_mport(0, &mp));
+	assert_int_not_equal(0, cfg_find_mport(3, &mp));
+	assert_int_equal(0, cfg_find_dev_by_ct(0x20006, &dev));
+	assert_int_not_equal(0, cfg_find_dev_by_ct(0x70000, &dev));
 
-	if (strncmp(dd_fn, test_dd_fn, strlen(test_dd_fn)))
-		goto fail;
-
-	if (5 != m_did)
-		goto fail;
-
-	if (FMD_DFLT_MAST_CM_PORT != m_cm_port)
-		goto fail;
-
-	if (m_mode)
-		goto fail;
-
-	if (cfg_find_mport(0, &mp))
-		goto fail;
-
-	if (!cfg_find_mport(3, &mp))
-		goto fail;
-
-	if (cfg_find_dev_by_ct(0x20006, &dev))
-		goto fail;
-
-	if (!cfg_find_dev_by_ct(0x70000, &dev))
-		goto fail;
-
-	return 0;
-fail:
-	return 1;
-};
+	count++;
+	free(cfg);
+	(void)state; // unused
+}
 	
-int test_case_5(void)
+static void cfg_parse_tor_test(void **state)
 {
 	struct cfg_mport_info mp;
 	struct cfg_dev dev;
-	char *dd_mtx_fn = NULL, *dd_fn = NULL;
+	char *dd_mtx_fn = NULL;
+	char *dd_fn = NULL;
 	char *test_dd_mtx_fn = (char *)FMD_DFLT_DD_MTX_FN;
 	char *test_dd_fn = (char *)FMD_DFLT_DD_FN;
-	uint32_t m_did, m_cm_port, m_mode;
+	uint32_t m_did = 0xcafe;
+	uint32_t m_cm_port = 0xbabe;
+	uint32_t m_mode = 0xdead;
 	int p_idx, idx;
 	int pnums[6] = {2, 3, 5, 6, 10, 11};
 	uint8_t chk_pnum[6] = {0, 1, 4, 7, 8, 9};
-	int x = 1;
 
-	did_reset();
-	ct_reset();
-	if (cfg_parse_file(TOR_SUCCESS, &dd_mtx_fn, &dd_fn, &m_did,
-			&m_cm_port, &m_mode))
-		goto fail;
+	memset(&dev, 0, sizeof(dev));
+	assert_int_equal(0, cfg_parse_file(TOR_SUCCESS, &dd_mtx_fn, &dd_fn, &m_did,
+			&m_cm_port, &m_mode));
 
-	if (strncmp(dd_mtx_fn, test_dd_mtx_fn, strlen(dd_mtx_fn)))
-		goto fail;
+	assert_int_equal(0, strncmp(dd_mtx_fn, test_dd_mtx_fn, strlen(dd_mtx_fn)));
+	assert_int_equal(0, strncmp(dd_fn, test_dd_fn, strlen(test_dd_fn)));
+	assert_int_equal(0x1A, m_did);
+	assert_int_equal(FMD_DFLT_MAST_CM_PORT, m_cm_port);
+	assert_int_equal(1, m_mode);
 
-	if (strncmp(dd_fn, test_dd_fn, strlen(test_dd_fn)))
-		goto fail;
-
-	if (0x1A != m_did)
-		goto fail;
-
-	if (FMD_DFLT_MAST_CM_PORT != m_cm_port)
-		goto fail;
-
-	if (!m_mode)
-		goto fail;
-
-	if (cfg_find_mport(0, &mp))
-		goto fail;
-
-	if (!cfg_find_mport(3, &mp))
-		goto fail;
-
-	if (cfg_find_dev_by_ct(0x21001A, &dev))
-		goto fail;
-
-	if (cfg_find_dev_by_ct(0x700F7, &dev))
-		goto fail;
+	assert_int_equal(0, cfg_find_mport(0, &mp));
+	assert_int_not_equal(0, cfg_find_mport(3, &mp));
+	assert_int_equal(0, cfg_find_dev_by_ct(0x21001A, &dev));
+	assert_int_equal(0, cfg_find_dev_by_ct(0x700F7, &dev));
 
 	/* Check out the switch routing table parsing in detail. */
-	if (cfg_find_dev_by_ct(0x100f1, &dev))
-		goto fail;
-
-	if (!dev.is_sw)
-		goto fail;
-
-	if (dev.sw_info.rt[CFG_DEV08]->default_route != RIO_DSF_RT_NO_ROUTE)
-		goto fail;
-
-	if (dev.sw_info.rt[CFG_DEV08]->dev_table[0x12].rte_val  != 2)
-		goto fail;
-
-	if (dev.sw_info.rt[CFG_DEV08]->dev_table[0x13].rte_val  != 3)
-		goto fail;
-
-	if (dev.sw_info.rt[CFG_DEV08]->dev_table[0x15].rte_val  != 5)
-		goto fail;
-
-	if (dev.sw_info.rt[CFG_DEV08]->dev_table[0x16].rte_val  != 6)
-		goto fail;
-
-	if (dev.sw_info.rt[CFG_DEV08]->dev_table[0x1A].rte_val  != 10)
-		goto fail;
-
-	if (dev.sw_info.rt[CFG_DEV08]->dev_table[0x1B].rte_val  != 11)
-		goto fail;
+	assert_int_equal(0, cfg_find_dev_by_ct(0x100f1, &dev));
+	assert_int_equal(1, dev.is_sw);
+	assert_int_equal(RIO_DSF_RT_NO_ROUTE, dev.sw_info.rt[CFG_DEV08]->default_route);
+	assert_int_equal(2, dev.sw_info.rt[CFG_DEV08]->dev_table[0x12].rte_val);
+	assert_int_equal(3, dev.sw_info.rt[CFG_DEV08]->dev_table[0x13].rte_val);
+	assert_int_equal(5, dev.sw_info.rt[CFG_DEV08]->dev_table[0x15].rte_val);
+	assert_int_equal(6, dev.sw_info.rt[CFG_DEV08]->dev_table[0x16].rte_val);
+	assert_int_equal(10, dev.sw_info.rt[CFG_DEV08]->dev_table[0x1A].rte_val);
+	assert_int_equal(11, dev.sw_info.rt[CFG_DEV08]->dev_table[0x1B].rte_val);
 
 	for (p_idx = 0; p_idx < 6; p_idx++) {
 		int pnum = pnums[p_idx];
 		for (idx = 0; idx <= RIO_LAST_DEV8; idx++) {
-			if (dev.sw_info.sw_pt[pnum].rt[CFG_DEV08]->dev_table[idx].rte_val  != chk_pnum[p_idx]) {
-				if ((2 == pnum) && ((idx >= 0xf7) && (idx <= 0xfc))) 
-					continue;
-				goto fail;
-			};
-		};
-	};
+			assert_int_equal(chk_pnum[p_idx], dev.sw_info.sw_pt[pnum].rt[CFG_DEV08]->dev_table[idx].rte_val);
+			// INFW - BEW - if this fails look at old code and reproduce faithfully
+		}
+	}
 
 	/* Check out connection parsing between endpoints & switches,
 	* and between switches.
 	*/
-
 	for (int idx = 0; idx < 4; idx++) {
 		struct cfg_dev ep, sw, rev_ep;
 		int sw_pt, rev_pt;
 		uint32_t ct[4] = { 0x21001A, 0x220015, 0x230012, 0x240013 };
 
-		if (cfg_find_dev_by_ct(ct[idx], &ep)) {
-			x = 5;
-			goto fail;
-		}
-
-		if (cfg_get_conn_dev(ct[idx], 0, &sw, &sw_pt)) {
-			x = 6;
-			goto fail;
-		}
-
-		if (cfg_get_conn_dev(sw.ct, sw_pt, &rev_ep, &rev_pt)) {
-			x = 7;
-			goto fail;
-		}
-
-		if (memcmp(&ep, &rev_ep, sizeof(ep))) {
-			x = 8;
-			goto fail;
-		}
-		if (0 != rev_pt) {
-			x = 9;
-			goto fail;
-		}
-	};
+		assert_int_equal(0, cfg_find_dev_by_ct(ct[idx], &ep));
+		assert_int_equal(0, cfg_get_conn_dev(ct[idx], 0, &sw, &sw_pt));
+		assert_int_equal(0, cfg_get_conn_dev(sw.ct, sw_pt, &rev_ep, &rev_pt));
+		assert_int_equal(0, memcmp(&ep, &rev_ep, sizeof(ep)));
+		assert_int_equal(0, rev_pt);
+	}
 
 	for (int sw = 1; sw < 7; sw++) {
 		struct cfg_dev l0_sw, l1_sw, rev_dev;
@@ -455,170 +413,96 @@ int test_case_5(void)
 		int pt_idx;
 		int l0_pt, l1_pt, rev_pt;
 
-		if (cfg_find_dev_by_ct(ct, &l0_sw))
-			goto fail;
+		assert_int_equal(0, cfg_find_dev_by_ct(ct, &l0_sw));
 		for (pt_idx = 0; pt_idx < 6; pt_idx++) {
 			l0_pt = port_list[pt_idx];
 
-			if (cfg_get_conn_dev(ct, l0_pt, &l1_sw, &l1_pt))
-				goto fail;
+			assert_int_equal(0, cfg_get_conn_dev(ct, l0_pt, &l1_sw, &l1_pt));
+			assert_int_equal(0, cfg_get_conn_dev(l1_sw.ct, l1_pt, &rev_dev, &rev_pt));
+			assert_int_equal(0, memcmp(&l0_sw, &rev_dev, sizeof(l0_sw)));
+			assert_int_equal(l0_pt, rev_pt);
+		}
+	}
 
-			if (cfg_get_conn_dev(l1_sw.ct, l1_pt, &rev_dev, &rev_pt))
-				goto fail;
-			if (memcmp(&l0_sw, &rev_dev, sizeof(l0_sw)))
-				goto fail;
-			if (rev_pt != l0_pt)
-				goto fail;
-		};
-	};
+	count++;
+	free(cfg);
+	(void)state; // unused
+}
 
-
-	return 0;
-fail:
-	return x;
-};
-
-int test_case_6(void)
+static void cfg_parse_rxs_test(void **state)
 {
 	struct cfg_dev dev;
-	char *dd_mtx_fn = NULL, *dd_fn = NULL;
+	char *dd_mtx_fn = NULL;
+	char *dd_fn = NULL;
 	char *test_dd_mtx_fn = (char *)FMD_DFLT_DD_MTX_FN;
 	char *test_dd_fn = (char *)FMD_DFLT_DD_FN;
-	uint32_t m_did, m_cm_port, m_mode;
+	uint32_t m_did = 0xdead;
+	uint32_t m_cm_port = 0xbeef;
+	uint32_t m_mode = 0xcafe;
 	int conn_pt;
-	int x = 1;
 
-	if (cfg_parse_file(RXS_SUCCESS, &dd_mtx_fn, &dd_fn, &m_did,
-		&m_cm_port, &m_mode))
-		goto fail;
+	memset(&dev, 0, sizeof(dev));
+	assert_int_equal(0, cfg_parse_file(RXS_SUCCESS, &dd_mtx_fn, &dd_fn, &m_did,
+		&m_cm_port, &m_mode));
+	assert_int_equal(0, strncmp(dd_mtx_fn, test_dd_mtx_fn, strlen(dd_mtx_fn)));
+	assert_int_equal(0, strncmp(dd_fn, test_dd_fn, strlen(test_dd_fn)));
+	assert_int_equal (5, m_did);
+	assert_int_equal(FMD_DFLT_MAST_CM_PORT, m_cm_port);
 
-	if (strncmp(dd_mtx_fn, test_dd_mtx_fn, strlen(dd_mtx_fn)))
-		goto fail;
+	assert_int_equal(0, cfg_find_dev_by_ct(0x10005, &dev));
+	assert_int_equal(rio_pc_pw_4x, dev.ep_pt.max_pw);
+	assert_int_equal(rio_pc_pw_4x, dev.ep_pt.op_pw);
+	assert_int_equal(rio_pc_ls_5p0, dev.ep_pt.ls);
 
-	if (strncmp(dd_fn, test_dd_fn, strlen(test_dd_fn)))
-		goto fail;
+	assert_int_equal(0, cfg_find_dev_by_ct(0x20006, &dev));
+	assert_int_equal(rio_pc_pw_2x, dev.ep_pt.max_pw);
+	assert_int_equal(rio_pc_pw_2x, dev.ep_pt.op_pw);
+	assert_int_equal(rio_pc_ls_6p25, dev.ep_pt.ls);
 
-	if (5 != m_did)
-		goto fail;
+	assert_int_equal(0, cfg_find_dev_by_ct(0x30007, &dev));
+	assert_int_equal(rio_pc_pw_4x, dev.ep_pt.max_pw);
+	assert_int_equal(rio_pc_pw_4x, dev.ep_pt.op_pw);
+	assert_int_equal(rio_pc_ls_1p25, dev.ep_pt.ls);
 
-	if (FMD_DFLT_MAST_CM_PORT != m_cm_port)
-		goto fail;
+	assert_int_equal(0, cfg_find_dev_by_ct(0x40008, &dev));
+	assert_int_equal(rio_pc_pw_4x, dev.ep_pt.max_pw);
+	assert_int_equal(rio_pc_pw_4x, dev.ep_pt.op_pw);
+	assert_int_equal(rio_pc_ls_2p5, dev.ep_pt.ls);
 
-	if (cfg_find_dev_by_ct(0x10005, &dev))
-		goto fail;
+	assert_int_equal(0, cfg_find_dev_by_ct(0x70000, &dev));
+	assert_int_equal(0, memcmp("RXS2448", dev.dev_type, sizeof("RXS2448")));
+	assert_int_equal(0,cfg_get_conn_dev(0x70000, 0, &dev, &conn_pt));
 
-	if (dev.ep_pt.max_pw != rio_pc_pw_4x)
-		goto fail;
-	if (dev.ep_pt.op_pw != rio_pc_pw_4x)
-		goto fail;
-	if (dev.ep_pt.ls != rio_pc_ls_5p0)
-		goto fail;
-
-	if (cfg_find_dev_by_ct(0x20006, &dev))
-		goto fail;
-
-	if (dev.ep_pt.max_pw != rio_pc_pw_2x)
-		goto fail;
-	if (dev.ep_pt.op_pw != rio_pc_pw_2x)
-		goto fail;
-	if (dev.ep_pt.ls != rio_pc_ls_6p25)
-		goto fail;
-
-	if (cfg_find_dev_by_ct(0x30007, &dev))
-		goto fail;
-
-	if (dev.ep_pt.max_pw != rio_pc_pw_4x)
-		goto fail;
-	if (dev.ep_pt.op_pw != rio_pc_pw_4x)
-		goto fail;
-	if (dev.ep_pt.ls != rio_pc_ls_1p25)
-		goto fail;
-
-	if (cfg_find_dev_by_ct(0x40008, &dev))
-		goto fail;
-
-	if (dev.ep_pt.max_pw != rio_pc_pw_4x)
-		goto fail;
-	if (dev.ep_pt.op_pw != rio_pc_pw_4x)
-		goto fail;
-	if (dev.ep_pt.ls != rio_pc_ls_2p5)
-		goto fail;
-
-	if (cfg_find_dev_by_ct(0x70000, &dev)) 
-		goto fail;
-
-	if (memcmp("RXS2448", dev.dev_type, sizeof("RXS2448")))
-		goto fail;
-
-        if (cfg_get_conn_dev(0x70000, 0, &dev, &conn_pt))
-		goto fail;
-
-	return 0;
-fail:
-	return x;
+	count++;
+	free(cfg);
+	(void)state; // unused
 }
-	
+
+
 int main(int argc, char *argv[])
 {
-	int rc = EXIT_FAILURE;
+	(void)argv; // not used
+	argc++; // not used
 
-	if (0)
-		argv[0][0] = argc;
-
-	rdma_log_init("cfg_test.log", 1);
-
-	g_level = RDMA_LL_OFF;
-
-	if (test_case_1()) {
-		printf("\nTest_case_1 FAILED.");
-		goto fail;
+	const struct CMUnitTest tests[] = {
+	cmocka_unit_test_setup(cfg_parse_mport_size_test, setup),
+	cmocka_unit_test_setup(cfg_parse_fail_no_file_test, setup),
+	cmocka_unit_test_setup(cfg_parse_fail_1_test, setup),
+	cmocka_unit_test_setup(cfg_parse_fail_2_test, setup),
+	cmocka_unit_test_setup(cfg_parse_fail_3_test, setup),
+	cmocka_unit_test_setup(cfg_parse_fail_4_test, setup),
+	cmocka_unit_test_setup(cfg_parse_fail_5_test, setup),
+	cmocka_unit_test_setup(cfg_parse_fail_6_test, setup),
+	cmocka_unit_test_setup(cfg_parse_fail_7_test, setup),
+	cmocka_unit_test_setup(cfg_parse_fail_8_test, setup),
+	cmocka_unit_test_setup(cfg_parse_fail_9_test, setup),
+	cmocka_unit_test_setup(cfg_parse_master_test, setup),
+	cmocka_unit_test_setup(cfg_parse_slave_test, setup),
+	cmocka_unit_test_setup(cfg_parse_tor_test, setup),
+	cmocka_unit_test_setup(cfg_parse_rxs_test, setup),
 	};
-	printf("\nTest_case_1 passed.");
-	free(cfg);
-
-	if (test_case_2()) {
-		printf("\nTest_case_2 FAILED.");
-		goto fail;
-	};
-	printf("\nTest_case_2 passed.");
-
-	if (test_case_3()) {
-		printf("\nTest_case_3 FAILED.");
-		goto fail;
-	};
-	printf("\nTest_case_3 passed.");
-	free(cfg);
-
-	if (test_case_4()) {
-		printf("\nTest_case_4 FAILED.");
-		goto fail;
-	};
-	printf("\nTest_case_4 passed.");
-	free(cfg);
-
-	if (test_case_5()) {
-		printf("\nTest_case_5 FAILED.");
-		goto fail;
-	};
-	printf("\nTest_case_5 passed.");
-	free(cfg);
-
-	if (test_case_6()) {
-		printf("\nTest_case_6 FAILED.");
-		goto fail;
-        }
-	printf("\nTest_case_6 passed.");
-	free(cfg);
-
-        rc = EXIT_SUCCESS;
-fail:
-	printf("\n");
-	if (rc != EXIT_SUCCESS)
-		rdma_log_dump();
-	printf("\n");
-	rdma_log_close();
-	exit(rc);
-};
+	return cmocka_run_group_tests(tests, grp_setup, grp_teardown);
+}
 
 #ifdef __cplusplus
 }

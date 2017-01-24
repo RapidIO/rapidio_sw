@@ -60,6 +60,12 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "libcli.h"
 #include "liblog.h"
 
+#ifdef UNIT_TESTING
+#include <stdarg.h>
+#include <setjmp.h>
+#include "cmocka.h"
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
