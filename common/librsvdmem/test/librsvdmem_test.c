@@ -60,7 +60,7 @@ static void rsvd_phys_mem_32_bit_test(void **state)
 	assert_int_equal(0x18000000, start_addr);
 	assert_int_equal(0x04000000, size);
 
-	(void)*state; // unused
+	(void)state; // unused
 }
 
 static void rsvd_phys_mem_rdmad_32_bit_test(void **state)
@@ -95,7 +95,7 @@ static void rsvd_phys_mem_rdmad_32_bit_test(void **state)
 	assert_int_equal(0x1B000000, start_addr);
 	assert_int_equal(0x01000000, size);
 
-	(void)*state; // unused
+	(void)state; // unused
 }
 
 static void rsvd_phys_mem_rsktd_32_bit_test(void **state)
@@ -123,7 +123,7 @@ static void rsvd_phys_mem_rsktd_32_bit_test(void **state)
 	assert_int_equal(0x1B000000, start_addr);
 	assert_int_equal(0x01000000, size);
 
-	(void)*state; // unused
+	(void)state; // unused
 }
 
 static void rsvd_phys_mem_dma_tun_32_bit_test(void **state)
@@ -144,7 +144,7 @@ static void rsvd_phys_mem_dma_tun_32_bit_test(void **state)
 	assert_int_equal(0x1B000000, start_addr);
 	assert_int_equal(0x01000000, size);
 
-	(void)*state; // unused
+	(void)state; // unused
 }
 
 static void rsvd_phys_mem_fxfr_32_bit_test(void **state)
@@ -158,7 +158,7 @@ static void rsvd_phys_mem_fxfr_32_bit_test(void **state)
 	assert_int_equal(0x1B000000, start_addr);
 	assert_int_equal(0x01000000, size);
 
-	(void)*state; // unused
+	(void)state; // unused
 }
 
 static void rsvd_phys_mem_64_bit_test(void **state)
@@ -172,7 +172,7 @@ static void rsvd_phys_mem_64_bit_test(void **state)
 	assert_int_equal(0x1800000000000000, start_addr);
 	assert_int_equal(0x0400000000000000, size);
 
-	(void)*state; // unused
+	(void)state; // unused
 }
 
 static void rsvd_phys_mem_rdmad_64_bit_test(void **state)
@@ -186,7 +186,7 @@ static void rsvd_phys_mem_rdmad_64_bit_test(void **state)
 	assert_int_equal(0x1800000000000000, start_addr);
 	assert_int_equal(0x0100000000000000, size);
 
-	(void)*state; // unused
+	(void)state; // unused
 }
 
 static void rsvd_phys_mem_rsktd_64_bit_test(void **state)
@@ -200,7 +200,7 @@ static void rsvd_phys_mem_rsktd_64_bit_test(void **state)
 	assert_int_equal(0x1900000000000000, start_addr);
 	assert_int_equal(0x0100000000000000, size);
 
-	(void)*state; // unused
+	(void)state; // unused
 }
 
 static void rsvd_phys_mem_dma_tun_64_bit_test(void **state)
@@ -214,7 +214,7 @@ static void rsvd_phys_mem_dma_tun_64_bit_test(void **state)
 	assert_int_equal(0x1A00000000000000, start_addr);
 	assert_int_equal(0x0100000000000000, size);
 
-	(void)*state; // unused
+	(void)state; // unused
 }
 
 static void rsvd_phys_mem_fxfr_64_bit_test(void **state)
@@ -228,7 +228,7 @@ static void rsvd_phys_mem_fxfr_64_bit_test(void **state)
 	assert_int_equal(0x1B00000000000000, start_addr);
 	assert_int_equal(0x0100000000000000, size);
 
-	(void)*state; // unused
+	(void)state; // unused
 }
 
 static void empty_file_test(void **state)
@@ -242,7 +242,7 @@ static void empty_file_test(void **state)
 	assert_int_equal(RIO_ANY_ADDR, start_addr);
 	assert_int_equal(0, size);
 
-	(void)*state; // unused
+	(void)state; // unused
 }
 
 static void blank_line_test(void **state)
@@ -256,7 +256,7 @@ static void blank_line_test(void **state)
 	assert_int_equal(RIO_ANY_ADDR, start_addr);
 	assert_int_equal(0, size);
 
-	(void)*state; // unused
+	(void)state; // unused
 }
 
 static void missing_token_test(void **state)
@@ -272,7 +272,7 @@ static void missing_token_test(void **state)
 	assert_int_equal(RIO_ANY_ADDR, start_addr);
 	assert_int_equal(0, size);
 
-	(void)*state; // unused
+	(void)state; // unused
 }
 
 static void missing_address_and_size_test(void **state)
@@ -288,7 +288,7 @@ static void missing_address_and_size_test(void **state)
 	assert_int_equal(RIO_ANY_ADDR, start_addr);
 	assert_int_equal(0, size);
 
-	(void)*state; // unused
+	(void)state; // unused
 }
 
 static void missing_size_test(void **state)
@@ -303,7 +303,7 @@ static void missing_size_test(void **state)
 	assert_int_equal(RIO_ANY_ADDR, start_addr);
 	assert_int_equal(0, size);
 
-	(void)*state; // unused
+	(void)state; // unused
 }
 
 static void invalid_line_format_test(void **state)
@@ -319,7 +319,7 @@ static void invalid_line_format_test(void **state)
 	assert_int_equal(0x1800000000000000, start_addr);
 	assert_int_equal(0x010000000000000, size);
 
-	(void)*state; // unused
+	(void)state; // unused
 }
 
 static void misaligned_address_test(void **state)
@@ -360,7 +360,7 @@ static void misaligned_address_test(void **state)
 
 	}
 
-	(void)*state; // unused
+	(void)state; // unused
 }
 
 static void illegal_address_characters_test(void **state)
@@ -385,7 +385,7 @@ static void illegal_address_characters_test(void **state)
 		assert_int_equal(EDOM, errno);
 	}
 
-	(void)*state; // unused
+	(void)state; // unused
 }
 
 int main(int argc, char *argv[])
