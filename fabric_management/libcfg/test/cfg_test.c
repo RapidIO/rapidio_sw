@@ -387,7 +387,6 @@ static void cfg_parse_tor_test(void **state)
 		int pnum = pnums[p_idx];
 		for (idx = 0; idx <= RIO_LAST_DEV8; idx++) {
 			assert_int_equal(chk_pnum[p_idx], dev.sw_info.sw_pt[pnum].rt[CFG_DEV08]->dev_table[idx].rte_val);
-			// INFW - BEW - if this fails look at old code and reproduce faithfully
 		}
 	}
 
