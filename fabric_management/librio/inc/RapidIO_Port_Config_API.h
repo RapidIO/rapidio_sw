@@ -535,7 +535,7 @@ typedef struct rio_pc_probe_out_t_TAG
 
 #define PC_GET_CONFIG_0       (DAR_FIRST_IMP_SPEC_ERROR+0x0100)
 #define PC_SET_CONFIG_0       (DAR_FIRST_IMP_SPEC_ERROR+0x0200)
-#define PC_GET_uint32_t_0       (DAR_FIRST_IMP_SPEC_ERROR+0x0300)
+#define PC_GET_STATUS_0       (DAR_FIRST_IMP_SPEC_ERROR+0x0300)
 #define PC_RESET_PORT_0       (DAR_FIRST_IMP_SPEC_ERROR+0x0400)
 #define PC_RESET_LP_0         (DAR_FIRST_IMP_SPEC_ERROR+0x0500)
 #define PC_CLR_ERRS_0         (DAR_FIRST_IMP_SPEC_ERROR+0x0600)
@@ -570,7 +570,7 @@ uint32_t rio_pc_set_config(
 
 /* This function returns the status of port
 */
-#define PC_GET_uint32_t(x) (PC_GET_uint32_t_0+x)
+#define PC_GET_STATUS(x) (PC_GET_STATUS_0+x)
 
 uint32_t rio_pc_get_status(
     DAR_DEV_INFO_t           *dev_info,

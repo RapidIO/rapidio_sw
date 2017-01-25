@@ -313,7 +313,7 @@ int fmd_enable_all_endpoints(riocp_pe_handle mp_pe)
 		uint32_t cm_sock = fmd->opts->mast_cm_port;
 
 		if (RIOCP_PE_IS_BRIDGE(pes[i]->cap)) {
-			riocp_pe_maint_write(pes[i], TSI721_RIO_WHITEBOARD,
+			riocp_pe_maint_write(pes[i], TSI721_WHITEBOARD,
 								cm_sock);
 		}
 		riocp_pe_maint_read(pes[i], RIO_HOST_LOCK, &lockval);

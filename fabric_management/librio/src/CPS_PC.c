@@ -2166,7 +2166,7 @@ uint32_t IDT_CPS_pc_get_status(
 
 	rc = DARrioGetPortList(dev_info, &in_parms->ptl, &good_ptl);
 	if ((RIO_SUCCESS != rc) || (good_ptl.num_ports > CPS_MAX_PORTS)) {
-          out_parms->imp_rc = PC_GET_uint32_t(1);
+          out_parms->imp_rc = PC_GET_STATUS(1);
           goto idt_CPS_pc_get_status_exit;
     }
 
@@ -2176,7 +2176,7 @@ uint32_t IDT_CPS_pc_get_status(
 
     rc = init_sw_pi( dev_info, &pi );
     if (RIO_SUCCESS != rc) {
-       out_parms->imp_rc = PC_GET_uint32_t(3);
+       out_parms->imp_rc = PC_GET_STATUS(3);
        goto idt_CPS_pc_get_status_exit;
     }
 
@@ -2200,7 +2200,7 @@ uint32_t IDT_CPS_pc_get_status(
         if (out_parms->ps[port_idx].num_lanes) {
            rc = DARRegRead( dev_info, CPS1848_PORT_X_ERR_STAT_CSR(pnum), &err_stat);
            if (RIO_SUCCESS != rc) {
-              out_parms->imp_rc = PC_GET_uint32_t(4);
+              out_parms->imp_rc = PC_GET_STATUS(4);
               goto idt_CPS_pc_get_status_exit;
            };
 
@@ -2212,13 +2212,13 @@ uint32_t IDT_CPS_pc_get_status(
               //
               rc = DARRegRead( dev_info, CPS1848_PORT_X_CTL_1_CSR(pnum), &ctl1);
               if (RIO_SUCCESS != rc) {
-                 out_parms->imp_rc = PC_GET_uint32_t(4);
+                 out_parms->imp_rc = PC_GET_STATUS(4);
                  goto idt_CPS_pc_get_status_exit;
               };
 
               rc = DARRegRead( dev_info, CPS1848_PORT_X_STATUS_AND_CTL(pnum), &stat_ctl);
               if (RIO_SUCCESS != rc) {
-                 out_parms->imp_rc = PC_GET_uint32_t(5);
+                 out_parms->imp_rc = PC_GET_STATUS(5);
                  goto idt_CPS_pc_get_status_exit;
               };
 
@@ -2277,7 +2277,7 @@ uint32_t IDT_CPS_pc_get_status(
 
               rc = DARRegRead( dev_info, CPS1848_PORT_X_IMPL_SPEC_ERR_DET(pnum), &err_det);
               if (RIO_SUCCESS != rc) {
-                 out_parms->imp_rc = PC_GET_uint32_t(4);
+                 out_parms->imp_rc = PC_GET_STATUS(4);
                  goto idt_CPS_pc_get_status_exit;
               };
 

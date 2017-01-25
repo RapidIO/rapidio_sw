@@ -712,13 +712,13 @@ int generic_device_init(struct riocp_pe *pe, uint32_t *ct)
 	if (RIO_SUCCESS != rc)
 		goto exit;
 
-	rpt_in.ptl.num_ports = RIO_ALL_PORTS;
-	rpt_in.notfn = rio_em_notfn_none;
-	rc = rio_em_dev_rpt_ctl(dev_h, &rpt_in, &priv->st.em_notfn);
-
 	if (RIOCP_PE_IS_MPORT(pe)) {
 		return 0;
 	}
+
+	rpt_in.ptl.num_ports = RIO_ALL_PORTS;
+	rpt_in.notfn = rio_em_notfn_none;
+	rc = rio_em_dev_rpt_ctl(dev_h, &rpt_in, &priv->st.em_notfn);
 
 	// Set up port-write reporting.
 	// Note that this tells the endpoints the destination ID of the
@@ -1510,7 +1510,7 @@ int mpsw_drv_get_mport_regs(int mp_num, struct mport_regs *regs)
 	//
 	// For now, works with Tsi721.
 
-	if (riomp_mgmt_lcfg_read(mp_h, TSI721_RIO_PW_TGT_ID, 4,
+	if (riomp_mgmt_lcfg_read(mp_h, TSI721_PW_TGT_ID, 4,
 							&regs->host_destID)) {
 		goto close;
 	}
@@ -1521,18 +1521,18 @@ int mpsw_drv_get_mport_regs(int mp_num, struct mport_regs *regs)
 	//
 	// For now, works with Tsi721.
 
-	if (riomp_mgmt_lcfg_read(mp_h, TSI721_RIO_SP_GEN_CTL, 4, &regs->disc)) {
+	if (riomp_mgmt_lcfg_read(mp_h, TSI721_SP_GEN_CTL, 4, &regs->disc)) {
 		goto close;
 	}
-	if (riomp_mgmt_lcfg_read(mp_h, TSI721_RIO_SP_ERR_STAT, 4,
+	if (riomp_mgmt_lcfg_read(mp_h, TSI721_SP_ERR_STAT, 4,
 							&regs->p_err_stat)) {
 		goto close;
 	}
-	if (riomp_mgmt_lcfg_read(mp_h, TSI721_RIO_SP_CTL, 4, &regs->p_ctl1)) {
+	if (riomp_mgmt_lcfg_read(mp_h, TSI721_SP_CTL, 4, &regs->p_ctl1)) {
 		goto close;
 	}
 
-	if (riomp_mgmt_lcfg_read(mp_h, TSI721_RIO_WHITEBOARD, 4,
+	if (riomp_mgmt_lcfg_read(mp_h, TSI721_WHITEBOARD, 4,
 						&regs->scratch_cm_sock)) {
 		goto close;
 	}

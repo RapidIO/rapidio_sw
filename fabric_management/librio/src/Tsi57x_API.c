@@ -1509,7 +1509,7 @@ uint32_t idt_tsi57x_pc_get_status  ( DAR_DEV_INFO_t         *dev_info,
 
 	rc = DARrioGetPortList(dev_info, &in_parms->ptl, &good_ptl);
 	if (RIO_SUCCESS != rc) {
-		out_parms->imp_rc = PC_GET_uint32_t(1);
+		out_parms->imp_rc = PC_GET_STATUS(1);
         goto idt_tsi57x_pc_get_status_exit;       
     };
 
@@ -1519,7 +1519,7 @@ uint32_t idt_tsi57x_pc_get_status  ( DAR_DEV_INFO_t         *dev_info,
 
     rc = init_sw_pmr( dev_info, &sw_pmr );
     if (RIO_SUCCESS != rc) {
-       out_parms->imp_rc = PC_GET_uint32_t(3);
+       out_parms->imp_rc = PC_GET_STATUS(3);
        goto idt_tsi57x_pc_get_status_exit;
     };
 
@@ -1529,7 +1529,7 @@ uint32_t idt_tsi57x_pc_get_status  ( DAR_DEV_INFO_t         *dev_info,
 
        rc = DARRegRead( dev_info, Tsi578_SMACX_DLOOP_CLK_SEL(sw_pmr[port_num].mac_num*2), &dloop );
        if (RIO_SUCCESS != rc) {
-          out_parms->imp_rc = PC_GET_uint32_t(0x10+port_idx);
+          out_parms->imp_rc = PC_GET_STATUS(0x10+port_idx);
           goto idt_tsi57x_pc_get_status_exit;
        };
 
@@ -1543,7 +1543,7 @@ uint32_t idt_tsi57x_pc_get_status  ( DAR_DEV_INFO_t         *dev_info,
              rc = DARRegRead( dev_info, Tsi578_SMACX_DLOOP_CLK_SEL(sw_pmr[port_num].pwr_mac_num*2),
                              &dloop );
              if (RIO_SUCCESS != rc) {
-                out_parms->imp_rc = PC_GET_uint32_t(0x20+port_idx);
+                out_parms->imp_rc = PC_GET_STATUS(0x20+port_idx);
                 goto idt_tsi57x_pc_get_status_exit;
              };
           };
@@ -1564,13 +1564,13 @@ uint32_t idt_tsi57x_pc_get_status  ( DAR_DEV_INFO_t         *dev_info,
        // Port is available and powered up, so let's figure out the status...
        rc = DARRegRead( dev_info, Tsi578_SPX_ERR_uint32_t(port_num), &err_n_stat );
        if (RIO_SUCCESS != rc) {
-          out_parms->imp_rc = PC_GET_uint32_t(0x30+port_idx);
+          out_parms->imp_rc = PC_GET_STATUS(0x30+port_idx);
           goto idt_tsi57x_pc_get_status_exit;
        };
 
        rc = DARRegRead( dev_info, Tsi578_SPX_CTL(port_num), &spx_ctl );
        if (RIO_SUCCESS != rc) {
-          out_parms->imp_rc = PC_GET_uint32_t(0x40+port_idx);
+          out_parms->imp_rc = PC_GET_STATUS(0x40+port_idx);
           goto idt_tsi57x_pc_get_status_exit;
        };
 
@@ -3547,7 +3547,9 @@ uint32_t idt_tsi57x_enable_err_ctr( DAR_DEV_INFO_t  *dev_info        ,
     // See the errata sheet for these devices.
     //
     // The Tsi578A device, which is otherwise identical to Tsi578,
-    // does perform continuous packet discard for PORT_FAIL.
+    // does perform continuous packet discard for PORT_FAIL 
+    // BUT only when the port is not in an output error state - which makes
+    // the fix useless in most scenarios.
 
     rc = DARRegRead( dev_info, Tsi578_SPX_CTL(pnum), &regData );
     if (RIO_SUCCESS != rc) {

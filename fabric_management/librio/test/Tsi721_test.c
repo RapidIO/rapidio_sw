@@ -53,15 +53,15 @@ extern "C" {
 #endif
 
 uint32_t tsi721_regs[] = {
-	TSI721_RIO_SP_LT_CTL,
-	TSI721_RIO_SR_RSP_TO,
-	TSI721_RIO_SP_GEN_CTL,
-	TSI721_RIO_SP_LM_REQ,
-	TSI721_RIO_SP_LM_RESP,
-	TSI721_RIO_SP_ACKID_STAT,
-	TSI721_RIO_SP_CTL2,
-	TSI721_RIO_SP_ERR_STAT,
-	TSI721_RIO_SP_CTL,
+	TSI721_SP_LT_CTL,
+	TSI721_SR_RSP_TO,
+	TSI721_SP_GEN_CTL,
+	TSI721_SP_LM_REQ,
+	TSI721_SP_LM_RESP,
+	TSI721_SP_ACKID_STAT,
+	TSI721_SP_CTL2,
+	TSI721_SP_ERR_STAT,
+	TSI721_SP_CTL,
 };
 
 #define TSI721_NUM_MOCK_REGS (sizeof(tsi721_regs)/sizeof(tsi721_regs[0]))
@@ -94,10 +94,10 @@ static void tsi721_test_setup(void)
         mock_dev_info.accessInfo = 0x0;
 	strcpy(mock_dev_info.name, "Tsi721");
 	mock_dev_info.dsf_h = 0x80E50005;
-        mock_dev_info.extFPtrForPort = TSI721_RIO_SP_MB_HEAD;
+        mock_dev_info.extFPtrForPort = TSI721_SP_MB_HEAD;
 	mock_dev_info.extFPtrPortType = RIO_EFB_T_SP_EP_SAER;
-	mock_dev_info.extFPtrForLane = TSI721_RIO_PER_LANE_BH;
-	mock_dev_info.extFPtrForErr = TSI721_RIO_ERR_RPT_BH;
+	mock_dev_info.extFPtrForLane = TSI721_PER_LANE_BH;
+	mock_dev_info.extFPtrForErr = TSI721_ERR_RPT_BH;
 	mock_dev_info.extFPtrForVC = 0;
 	mock_dev_info.extFPtrForVOQ = 0;
 	mock_dev_info.devID = 0x80AB0038;
@@ -248,6 +248,18 @@ void tsi721_assumptions_test(void **state)
 	assert_int_equal(0x0000FFFF, TSI721_ODB_CNTX_ODB_OK_CNT);
 	assert_int_equal(0x0000FFFF, TSI721_NWR_CNT_NW_OK_CNT);
 	assert_int_equal(0x0000FFFF, TSI721_MWR_CNT_MW_OK_CNT);
+	assert_int_equal(TSI721_PLM_STATUS_MAX_DENIAL,
+			 TSI721_PLM_INT_ENABLE_MAX_DENIAL);
+	assert_int_equal(TSI721_PLM_STATUS_MAX_DENIAL,
+			 TSI721_PLM_PW_ENABLE_MAX_DENIAL);
+	assert_int_equal(TSI721_PLM_INT_ENABLE_PORT_ERR,
+			 TSI721_PLM_STATUS_PORT_ERR);
+	assert_int_equal(TSI721_PLM_PW_ENABLE_PORT_ERR,
+			 TSI721_PLM_STATUS_PORT_ERR);
+	assert_int_equal(TSI721_PLM_INT_ENABLE_DLT,
+			 TSI721_PLM_STATUS_DLT);
+	assert_int_equal(TSI721_PLM_PW_ENABLE_DLT,
+			 TSI721_PLM_STATUS_DLT);
 
 	// Verify ranges are sane
 	assert_in_range(TSI721_NUM_PERF_CTRS, 0, RIO_MAX_SC);

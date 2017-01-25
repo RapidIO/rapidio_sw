@@ -1,7 +1,7 @@
 /*
 ****************************************************************************
-Copyright (c) 2014, Integrated Device Technology Inc.
-Copyright (c) 2014, RapidIO Trade Association
+Copyright (c) 2017, Integrated Device Technology Inc.
+Copyright (c) 2017, RapidIO Trade Association
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -64,14 +64,14 @@ uint32_t IDT_tsi721ReadReg( DAR_DEV_INFO_t *dev_info,
 	switch(offset) {
 	case RIO_SW_PORT_INF: *readdata = 0x00000100;
 				break;
-	case TSI721_RIO_SR_RSP_TO: *readdata = 0x00000100;
+	case TSI721_SR_RSP_TO: *readdata = 0x00000100;
 		rc = ReadReg(dev_info, offset, readdata);
 		*readdata = (*readdata) << 8; 
 				break;
 	/* Never enable reliable port-write reception.  Ever. */
-	case TSI721_RIO_PW_CTL:
+	case TSI721_PW_CTL:
 		rc = ReadReg(dev_info, offset, readdata);
-		*readdata &= ~TSI721_RIO_PW_CTL_PWC_MODE;
+		*readdata &= ~TSI721_PW_CTL_PWC_MODE;
 		break;
 		
 	default:
@@ -90,21 +90,21 @@ uint32_t IDT_tsi721WriteReg( DAR_DEV_INFO_t *dev_info,
 
 	switch (offset) {
 	/* Correct register errata in Tsi721 */
-	case TSI721_RIO_SR_RSP_TO: writedata = writedata >> 8;
+	case TSI721_SR_RSP_TO: writedata = writedata >> 8;
 			rc = WriteReg(dev_info, offset, writedata);
 			break;
 	/* Only support 8 bit device IDs */
-	case TSI721_RIO_BASE_ID:
-			temp_data = (writedata & TSI721_RIO_BASE_ID_BASE_ID)
+	case TSI721_BASE_ID:
+			temp_data = (writedata & TSI721_BASE_ID_BASE_ID)
 				>> 16;
 			rc = WriteReg(dev_info, offset, writedata);
 			if (rc)
 				break;
 			rc = WriteReg(dev_info, TSI721_IB_DEVID, temp_data);
 			break;
-	case TSI721_RIO_PW_CTL:
+	case TSI721_PW_CTL:
 		/* Never enable reliable port-write reception.  Ever. */
-		writedata &= ~TSI721_RIO_PW_CTL_PWC_MODE;
+		writedata &= ~TSI721_PW_CTL_PWC_MODE;
 		rc = WriteReg(dev_info, offset, writedata);
 		break;
 	default:
@@ -120,7 +120,7 @@ uint32_t IDT_tsi721DeviceSupported( DAR_DEV_INFO_t *DAR_info )
 {
 	uint32_t rc = DAR_DB_NO_DRIVER;
 
-	if (TSI721_RIO_DEVICE_VENDOR == (DAR_info->devID & RIO_DEV_IDENT_VEND))
+	if (TSI721_DEVICE_VENDOR == (DAR_info->devID & RIO_DEV_IDENT_VEND))
 	{
 		if ((RIO_DEVI_IDT_TSI721) ==
 			((DAR_info->devID & RIO_DEV_IDENT_DEVI) >> 16)) {

@@ -996,7 +996,7 @@ uint32_t rxs_pc_get_status( DAR_DEV_INFO_t           *dev_info,
 
 	rc = DARrioGetPortList(dev_info, &in_parms->ptl, &good_ptl);
 	if (RIO_SUCCESS != rc) {
-		out_parms->imp_rc = PC_GET_uint32_t(1);
+		out_parms->imp_rc = PC_GET_STATUS(1);
 		goto exit;
 	}
 
@@ -1014,13 +1014,13 @@ uint32_t rxs_pc_get_status( DAR_DEV_INFO_t           *dev_info,
 		// Port is available and powered up, so let's figure out the status...
 		rc = DARRegRead(dev_info, RXS_RIO_SPX_ERR_STAT(port_idx), &errStat);
 		if (RIO_SUCCESS != rc) {
-			out_parms->imp_rc = PC_GET_uint32_t(0x30 + port_idx);
+			out_parms->imp_rc = PC_GET_STATUS(0x30 + port_idx);
 			goto exit;
 		}
 
 		rc = DARRegRead(dev_info, RXS_RIO_SPX_CTL(port_idx), &spxCtl);
 		if (RIO_SUCCESS != rc) {
-			out_parms->imp_rc = PC_GET_uint32_t(0x40 + port_idx);
+			out_parms->imp_rc = PC_GET_STATUS(0x40 + port_idx);
 			goto exit;
 		}
 

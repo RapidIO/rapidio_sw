@@ -45,32 +45,45 @@ extern "C" {
 
 #define PORT_WRITE_RE_TX_NSEC 352
 
-typedef struct rio_em_cfg_pw_t_TAG
-{
-  uint32_t imp_rc;            // Implementation specific return code, useful for debug.  
-                            //     Only valid on output, not useful for input.
-  tt_t   deviceID_tt;       // tt_dev16 if this is a 16-bit destID, 
-                            // tt_dev8  if this is an 8-bit destID. 
-  uint16_t port_write_destID; // Where to send the port-write
-  bool   srcID_valid;       // True if the sourceID can be set on this device, and should be set on this device.
-  uint16_t port_write_srcID;  // Control of the source ID of the port-write, which is a reserved field.
-  uint8_t  priority;          // Priority of the port-write.  Value is 0-3.  Generally should be 3.
-  bool   CRF;               // Set Critical Request Flow bit for port-write priority. Not available on all devices.
-                            //    Should be set whenever possible.
-  uint32_t port_write_re_tx;  // Controls the rate at which port-writes are retransmitted.
-                            //    Max value is 0xFFFFFF.  Granularity is 352 nsec.  0 means retransmission is disabled.
-                            //    Some implementations restrict the retransmit granularity further.  Refer to 
-                            //    definitions of constants below.
+typedef struct rio_em_cfg_pw_t_TAG {
+	uint32_t imp_rc; // Implementation specific return code,
+			// useful for debug.  Only valid on output,
+			// not useful for input.
+	tt_t deviceID_tt; // tt_dev16 if this is a 16-bit destID, 
+				// tt_dev8  if this is an 8-bit destID. 
+	uint16_t port_write_destID; // Where to send the port-write
+	bool srcID_valid;  // True if the sourceID can be set on this device,
+				// and should be set on this device.
+	uint16_t port_write_srcID; // Control of the source ID of the
+				// port-write, which is a reserved field.
+	uint8_t priority; // Priority of the port-write.  Value is 0-3.
+			// Generally should be 3.
+	bool CRF; // Set Critical Request Flow bit for port-write priority.
+		// Not available on all devices.
+		// Should be set whenever possible.
+	uint32_t port_write_re_tx; // Controls the rate at which port-writes
+			// are retransmitted.  Max value is 0xFFFFFF.
+			// Granularity is 352 nsec.
+			// 0 means retransmission is disabled, and usually means
+			//   one port write is received for each event.
+			// Some devices restrict the retransmit granularity.
+			// Refer to definitions of constants below.
 } rio_em_cfg_pw_t;
 
 typedef rio_em_cfg_pw_t rio_em_cfg_pw_in_t; 
 typedef rio_em_cfg_pw_t rio_em_cfg_pw_out_t; 
 
 #define RIO_EM_PW_RE_TX_DISABLED       (0)
+
 #define RIO_EM_TSI578_PW_RE_TX_167p7ms (167700000/PORT_WRITE_RE_TX_NSEC)
 #define RIO_EM_TSI578_PW_RE_TX_335p5ms (335500000/PORT_WRITE_RE_TX_NSEC)
 #define RIO_EM_TSI578_PW_RE_TX_671p1ms (671100000/PORT_WRITE_RE_TX_NSEC)
 #define RIO_EM_TSI578_PW_RE_TX_1340ms (1340000000/PORT_WRITE_RE_TX_NSEC)
+
+#define RIO_EM_TSI721_PW_RE_TX_103us (103000/PORT_WRITE_RE_TX_NSEC)
+#define RIO_EM_TSI721_PW_RE_TX_205us (205000/PORT_WRITE_RE_TX_NSEC)
+#define RIO_EM_TSI721_PW_RE_TX_410us (410000/PORT_WRITE_RE_TX_NSEC)
+#define RIO_EM_TSI721_PW_RE_TX_820us (820000/PORT_WRITE_RE_TX_NSEC)
 
 // Note that the actual configuration of the port-write transmission is 
 // set in the output parameter of this routine.  This might not match
@@ -181,12 +194,12 @@ extern char *rio_em_events_names[ (uint8_t)(rio_em_last) ];
 #define EVENT_NAME_STR(x) ((x < (uint8_t)(rio_em_last))?(rio_em_events_names[x]):"OORange") 
 
 typedef enum rio_em_notfn_ctl_t_TAG {
-   rio_em_notfn_none  ,    // Disable event notification
-   rio_em_notfn_int   ,    // Use interrupt  notification mechanism
-   rio_em_notfn_pw    ,    // Use port-write notification mechanism
-   rio_em_notfn_both  ,    // Use interrupt and port-write notification mechanisms
-   rio_em_notfn_0delta,    // Do not change  notification mechanism settings
-   rio_em_notfn_last       // Last control value, used for loop comparisons
+   rio_em_notfn_none = 0,    // Disable event notification
+   rio_em_notfn_int = 1,    // Use interrupt  notification mechanism
+   rio_em_notfn_pw = 2,    // Use port-write notification mechanism
+   rio_em_notfn_both = 3,    // Use interrupt and port-write notification mechanisms
+   rio_em_notfn_0delta = 4,    // Do not change  notification mechanism settings
+   rio_em_notfn_last = 5   // Last control value, used for loop comparisons
 } rio_em_notfn_ctl_t;
 
 extern char *rio_em_notfn_names[ (uint8_t)(rio_em_notfn_last) ];
@@ -272,17 +285,17 @@ typedef struct rio_em_event_n_loc_t_TAG
     rio_em_events_t  event;          // One of the events which triggered the notification
 } rio_em_event_n_loc_t;
 
-#define RIO_EM_PW_COMP_TAG_IDX  0
-#define RIO_EM_PW_P_ERR_DET_IDX 1
-#define RIO_EM_PW_IMP_SPEC_IDX  2
-#define RIO_EM_PW_L_ERR_DET_IDX 3
+#define RIO_EM_PW_COMP_TAG_IDX  RIO_EMHS_PW_COMPTAG_IDX
+#define RIO_EM_PW_P_ERR_DET_IDX RIO_EMHS_PW_P_ERR_DET_IDX
+#define RIO_EM_PW_IMP_SPEC_IDX  RIO_EMHS_PW_IMP_SPEC_IDX
+#define RIO_EM_PW_L_ERR_DET_IDX RIO_EMHS_PW_LL_DET_IDX
 
-#define RIO_EM_PW_IMP_SPEC_PORT_MASK 0x000000FF
-#define RIO_EM_PW_IMP_SPEC_MASK      0xFFFFFF00
+#define RIO_EM_PW_IMP_SPEC_PORT_MASK RIO_EMHS_PW_IMP_SPEC_PORT
+#define RIO_EM_PW_IMP_SPEC_MASK      RIO_EMHS_PW_IMP_SPEC_BITS
 
 typedef struct rio_em_parse_pw_in_t_TAG
 {
-   uint32_t            pw[4];          // Payload of a port-write packet.
+   uint32_t            pw[RIO_EMHS_PW_WORDS];          // Payload of a port-write packet.
                                      // Note that the handling routine must select the correct
                                      // device to decode the port-write format based on the
                                      //   component tag value in the port-write.
@@ -319,7 +332,7 @@ typedef struct rio_em_get_int_stat_out_t_TAG
                                      //    Maximum value is RIO_MAX_PORTS * rio_em_last.
     bool             too_many;       // true if there were more events present than could be
                                      //    returned 
-    bool             other_events;   // true if debug events are present in the port-write.
+    bool             other_events;   // true if debug events are present in the interrupt status
 } rio_em_get_int_stat_out_t;
 
 typedef struct rio_em_get_pw_stat_in_t_TAG
@@ -363,10 +376,10 @@ typedef struct rio_em_clr_events_in_t_TAG
 
 typedef struct rio_em_clr_events_out_t_TAG
 {
-   uint32_t imp_rc;             // Implementation specific return code.
-   uint16_t failure_idx;        // Index in *events where failure occurred.
-   bool   pw_events_remain;   // True if there are still events reported via interrupt asserted by the device
-   bool   int_events_remain;  // True if there are still events reported via port-write asserted by the device
+   uint32_t imp_rc;          // Implementation specific return code.
+   uint16_t failure_idx;     // Index in *events where failure occurred.
+   bool   pw_events_remain;  // True if there are still events reported via port-write asserted by the device
+   bool   int_events_remain; // True if there are still events reported via interrupt asserted by the device
 } rio_em_clr_events_out_t;
 
 typedef struct rio_em_create_events_in_t_TAG

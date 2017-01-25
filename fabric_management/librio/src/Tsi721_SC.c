@@ -1,7 +1,7 @@
 /*
 ****************************************************************************
-Copyright (c) 2014, Integrated Device Technology Inc.
-Copyright (c) 2014, RapidIO Trade Association
+Copyright (c) 2017, Integrated Device Technology Inc.
+Copyright (c) 2017, RapidIO Trade Association
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
