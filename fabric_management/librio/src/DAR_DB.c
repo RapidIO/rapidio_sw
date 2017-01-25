@@ -262,6 +262,7 @@ uint32_t DARDB_rioDeviceSupportedDefault( DAR_DEV_INFO_t *dev_info )
     rc = ReadReg( dev_info, RIO_DEV_IDENT, &dev_info->devID ) ;
     if ( RIO_SUCCESS != rc )
         return rc;
+    dev_info->driver_family = rio_get_driver_family(dev_info->devID);
 
     rc = ReadReg( dev_info, RIO_DEV_INF, &dev_info->devInfo ) ;
     if ( RIO_SUCCESS != rc )
@@ -393,8 +394,10 @@ uint32_t DAR_Find_Driver_for_Device( bool    dev_info_devID_valid,
     if ( !dev_info_devID_valid )
     {
         rc = ReadReg( dev_info, RIO_DEV_IDENT, &dev_info->devID ) ;
-        if ( RIO_SUCCESS != rc )
-			goto exit;
+        if ( RIO_SUCCESS != rc ) {
+                goto exit;
+        }
+        dev_info->driver_family = rio_get_driver_family(dev_info->devID);
     };
 
     rc = DAR_DB_NO_DRIVER ;

@@ -35,6 +35,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <stdint.h>
 #include <stdbool.h>
+
 #include "rio_standard.h"
 #include "rio_ecosystem.h"
 
@@ -51,6 +52,19 @@ extern "C" {
 *  There are also hooks to extend the use of the DAR to support Device 
 *  Specific Functions (DSF)
 */
+
+
+/* Device type based on the Vendor and Device code of the DAR_DEV_INFO_t.
+ * See rio_get_driver_family(uint32_t)
+ */
+typedef enum rio_driver_family_t_TAG {
+	RIO_UNITIALIZED_DEVICE	= 0x00,
+	RIO_CPS_DEVICE		= 0x01,
+	RIO_RXS_DEVICE		= 0x02,
+	RIO_TSI721_DEVICE	= 0x04,
+	RIO_TSI57X_DEVICE	= 0x08,
+	RIO_UNKNOWN_DEVICE	= 0x10,
+} rio_driver_family_t;
 
 /* Each unique device driver is identified with a handle.
 *  The structure of the handle is hidden from the user.
@@ -83,6 +97,8 @@ typedef struct DAR_DEV_INFO_t_TAG
                           */
     char   name[NAME_SIZE];  /* Text name of this device.
 			      */
+    rio_driver_family_t driver_family; /* Based on value of devID */
+
     DSF_Handle_t  dsf_h;  /* Handle for access to device-specific functions, 
                                 if provided. 
                              The following fields are used by the ReadReg and 
@@ -169,6 +185,12 @@ typedef struct DAR_DEV_INFO_t_TAG
 #define DEV_CODE(x)     ((uint16_t)((((x)->devID      ) & RIO_DEV_IDENT_DEVI             ) >> 16))
 #define SWITCH(x)	((bool)(((x)->features & RIO_PE_FEAT_SW)?true:false))
 #define MEMORY(x)	((bool)(((x)->features & RIO_PE_FEAT_MEM)?true:false))
+
+/* Determine the Device family as per the DAR_DEV_INFO_t
+ * @param[in] the device ID as read from the RIO_DEV_IDENT register
+ * @return the rio_driver_family_t
+ */
+rio_driver_family_t rio_get_driver_family(uint32_t devID);
 
 /* DAR_Find_Driver_for_Device
 * 

@@ -32,6 +32,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 #include <stddef.h>
+
+#include "RapidIO_Source_Config.h"
+#include "rio_ecosystem.h"
 #include "DAR_DB.h"
 #include "DAR_DB_Private.h"
 
@@ -48,6 +51,62 @@ const struct DAR_ptl ptl_all_ports = PTL_ALL_PORTS;
    - Validate the dev_info parameter passed in
    - Invoke the device driver routine
 */
+
+rio_driver_family_t rio_get_driver_family(uint32_t devID)
+{
+	uint16_t vend_code = (uint16_t)(devID & RIO_DEV_IDENT_VEND);
+	uint16_t dev_code = (uint16_t)((devID & RIO_DEV_IDENT_DEVI) >> 16);
+
+	switch (vend_code) {
+	case RIO_VEND_IDT:
+		switch (dev_code) {
+		case RIO_DEVI_IDT_CPS1848:
+		case RIO_DEVI_IDT_CPS1432:
+		case RIO_DEVI_IDT_CPS1616:
+		case RIO_DEVI_IDT_SPS1616:
+#ifdef CPS_DAR_WANTED
+			return RIO_CPS_DEVICE;
+#endif
+			break;
+
+		case RIO_DEVI_IDT_RXS2448:
+		case RIO_DEVI_IDT_RXS1632:
+#ifdef RXSx_DAR_WANTED
+			return RIO_RXS_DEVICE;
+#endif
+			break;
+
+		case RIO_DEVI_IDT_TSI721:
+#ifdef TSI721_DAR_WANTED
+			return RIO_TSI721_DEVICE;
+#endif
+			break;
+
+		default:
+			break;
+		}
+		break;
+	case RIO_VEND_TUNDRA:
+		switch (dev_code) {
+		case RIO_DEVI_TSI572:
+		case RIO_DEVI_TSI574:
+		case RIO_DEVI_TSI577:
+		case RIO_DEVI_TSI578:
+#ifdef TSI57X_DAR_WANTED
+			return RIO_TSI57X_DEVICE;
+#endif
+			break;
+
+		default:
+			break;
+		}
+		break;
+	default:
+		break;
+	}
+	return RIO_UNKNOWN_DEVICE;
+}
+
 
 uint32_t update_dev_info_regvals(DAR_DEV_INFO_t *dev_info, uint32_t offset,
 		uint32_t reg_val)

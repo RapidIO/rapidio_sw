@@ -104,38 +104,34 @@ const char *sc_other_if_names_UNKNOWN = (char *)"UNKNOWN";
 
 uint32_t rio_sc_other_if_names(DAR_DEV_INFO_t *dev_h, const char **name)
 {
+	uint32_t rc;
+
 	if ((NULL == dev_h) || (NULL == name)) {
 		return RIO_ERR_NULL_PARM_PTR;
-	};
+	}
 
-	*name = sc_other_if_names_Invalid;
-	switch(VEND_CODE(dev_h)) {
-	case RIO_VEND_IDT:
-		switch(DEV_CODE(dev_h)) {
-		case RIO_DEVI_IDT_CPS1848:
-		case RIO_DEVI_IDT_CPS1432:
-		case RIO_DEVI_IDT_CPS1616:
-		case RIO_DEVI_IDT_SPS1616:
-		case RIO_DEVI_IDT_RXS2448:
-		case RIO_DEVI_IDT_RXS1632:
-			*name = sc_other_if_names_FABRIC;
-			break;
-
-		case RIO_DEVI_IDT_TSI721: // No configuration required.
-			*name = sc_other_if_names_PCIe;
-			break;
-
-		default: *name = sc_other_if_names_UNKNOWN;
-			return RIO_ERR_NO_DEVICE_SUPPORT;
-		}
+	switch (dev_h->driver_family) {
+	case RIO_CPS_DEVICE:
+	case RIO_RXS_DEVICE:
+		*name = sc_other_if_names_FABRIC;
+		rc = RIO_SUCCESS;
 		break;
-	case RIO_VEND_TUNDRA:
+
+	case RIO_TSI721_DEVICE:
+		*name = sc_other_if_names_PCIe;
+		rc = RIO_SUCCESS;
+		break;
+
+	case RIO_TSI57X_DEVICE:
 		*name = sc_other_if_names_Invalid;
-		return RIO_ERR_NO_DEVICE_SUPPORT;
-	default: *name = sc_other_if_names_UNKNOWN;
-		return RIO_ERR_NO_DEVICE_SUPPORT;
-	};
-	return RIO_SUCCESS;
+		rc = RIO_ERR_NO_DEVICE_SUPPORT;
+		break;
+
+	default:
+		*name = sc_other_if_names_UNKNOWN;
+		rc = RIO_ERR_NO_DEVICE_SUPPORT;
+	}
+	return rc;
 }
 
 	

@@ -439,7 +439,7 @@ struct sc_cfg_t rxs_sc_cfg[RXS2448_MAX_SC] = {
 };
 
 uint32_t rio_sc_config_dev_ctrs(DAR_DEV_INFO_t *dev_h,
-			struct mpsw_drv_private_data *priv)
+		struct mpsw_drv_private_data *priv)
 {
 	uint32_t rc = RIO_SUCCESS;
 	unsigned int idx;
@@ -450,71 +450,48 @@ uint32_t rio_sc_config_dev_ctrs(DAR_DEV_INFO_t *dev_h,
 	rio_sc_cfg_rxs_ctr_in_t rxs_in;
 	rio_sc_cfg_rxs_ctr_out_t rxs_out;
 
-	switch(VEND_CODE(dev_h)) {
-	case RIO_VEND_IDT:
-		switch(DEV_CODE(dev_h)) {
-		case RIO_DEVI_IDT_CPS1848:
-		case RIO_DEVI_IDT_CPS1432:
-		case RIO_DEVI_IDT_CPS1616:
-		case RIO_DEVI_IDT_SPS1616:// Enable counters on all ports.
-			cps_in.ptl.num_ports = RIO_ALL_PORTS;
-			cps_in.enable_ctrs = true;
-			cps_in.dev_ctrs = &priv->st.sc_dev;
-			rc = rio_sc_cfg_cps_ctrs(dev_h, &cps_in, &cps_out);
+	switch (dev_h->driver_family) {
+	case RIO_CPS_DEVICE:
+		// Enable counters on all ports.
+		cps_in.ptl.num_ports = RIO_ALL_PORTS;
+		cps_in.enable_ctrs = true;
+		cps_in.dev_ctrs = &priv->st.sc_dev;
+		rc = rio_sc_cfg_cps_ctrs(dev_h, &cps_in, &cps_out);
+		break;
+	case RIO_RXS_DEVICE:
+		rxs_in.ptl.num_ports = RIO_ALL_PORTS;
+		rxs_in.prio_mask = SC_PRIO_MASK_ALL;
+		rxs_in.ctr_en = true;
+		rxs_in.dev_ctrs = &priv->st.sc_dev;
+		for (idx = 0; idx < RXS2448_MAX_SC; idx++) {
+			rxs_in.ctr_idx = idx;
+			rxs_in.tx = rxs_sc_cfg[idx].tx;
+			rxs_in.ctr_type = rxs_sc_cfg[idx].ctr_t;
+			rc = rio_sc_cfg_rxs_ctr(dev_h, &rxs_in, &rxs_out);
 			if (rc) {
-				goto exit;
-			};
-			break;
-
-		case RIO_DEVI_IDT_RXS2448:
-		case RIO_DEVI_IDT_RXS1632:
-			rxs_in.ptl.num_ports = RIO_ALL_PORTS;
-			rxs_in.prio_mask = SC_PRIO_MASK_ALL;
-			rxs_in.ctr_en = true;
-			rxs_in.dev_ctrs = &priv->st.sc_dev;
-			for (idx = 0; idx < RXS2448_MAX_SC; idx++) {
-				rxs_in.ctr_idx = idx;
-				rxs_in.tx = rxs_sc_cfg[idx].tx;
-				rxs_in.ctr_type = rxs_sc_cfg[idx].ctr_t;
-				rc = rio_sc_cfg_rxs_ctr(dev_h, &rxs_in, 
-							&rxs_out);
-				if (rc) {
-					goto exit;
-				};
-			};
-			break;
-
-		case RIO_DEVI_IDT_TSI721: // No configuration required.
-			break;
-
-		default: break;
+				break;
+			}
 		}
 		break;
-	case RIO_VEND_TUNDRA:
-		switch(DEV_CODE(dev_h)) {
-		case RIO_DEVI_TSI572:
-		case RIO_DEVI_TSI574:
-		case RIO_DEVI_TSI577:
-		case RIO_DEVI_TSI578:
-			tsi_in.ptl.num_ports = RIO_ALL_PORTS;
-			tsi_in.prio_mask = SC_PRIO_MASK_G1_ALL;
-			tsi_in.dev_ctrs = &priv->st.sc_dev;
-			for (idx = 0; idx < Tsi578_NUM_PERF_CTRS; idx++) {
-				tsi_in.tx = tsi_sc_cfg[idx].tx;
-				tsi_in.ctr_type = tsi_sc_cfg[idx].ctr_t;
-				rc = rio_sc_cfg_tsi57x_ctr(dev_h, &tsi_in, 
-							&tsi_out);
-				if (rc) {
-					goto exit;
-				};
-			};
-			break;			
-		default: break;
+	case RIO_TSI721_DEVICE:
+		// No configuration required.
+		break;
+	case RIO_TSI57X_DEVICE:
+		tsi_in.ptl.num_ports = RIO_ALL_PORTS;
+		tsi_in.prio_mask = SC_PRIO_MASK_G1_ALL;
+		tsi_in.dev_ctrs = &priv->st.sc_dev;
+		for (idx = 0; idx < Tsi578_NUM_PERF_CTRS; idx++) {
+			tsi_in.tx = tsi_sc_cfg[idx].tx;
+			tsi_in.ctr_type = tsi_sc_cfg[idx].ctr_t;
+			rc = rio_sc_cfg_tsi57x_ctr(dev_h, &tsi_in, &tsi_out);
+			if (rc) {
+				break;
+			}
 		}
 		break;
-	default: break;
-	};
-exit:
+	default:
+		break;
+	}
 	return rc;
 }
 
@@ -798,6 +775,7 @@ int RIOCP_WU mpsw_drv_init_pe(struct riocp_pe *pe, uint32_t *ct,
 	}
 	
 	p_dat->dev_h.devID = temp_devid;
+	p_dat->dev_h.driver_family = rio_get_driver_family(temp_devid);
 	ret = DAR_Find_Driver_for_Device(1, &p_dat->dev_h);
 	if (RIO_SUCCESS != ret) {
 		ERR("Unable to find driver for device, type 0x%x\n, ret 0x%x",
