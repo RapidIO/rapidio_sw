@@ -40,6 +40,7 @@
 #include <setjmp.h>
 #include "cmocka.h"
 
+#include "RapidIO_Source_Config.h"
 #include "RapidIO_Device_Access_Routines_API.h"
 #include "rio_ecosystem.h"
 
@@ -79,34 +80,56 @@ static void assumptions(void **state)
 
 static void rio_get_driver_family_test(void **state)
 {
+	rio_driver_family_t expected;
+
 	// obvious wrong values
 	assert_int_equal(RIO_UNKNOWN_DEVICE, rio_get_driver_family(0));
 	assert_int_equal(RIO_UNKNOWN_DEVICE, rio_get_driver_family(0xffffffff));
 
 	// CPS
-	assert_int_equal(RIO_CPS_DEVICE, rio_get_driver_family(0x03740038)); // CPS1848
-	assert_int_equal(RIO_CPS_DEVICE, rio_get_driver_family(0x03750038)); // CPS1432
-	assert_int_equal(RIO_CPS_DEVICE, rio_get_driver_family(0x03790038)); // CPS1616
+#ifdef CPS_DAR_WANTED
+	expected = RIO_CPS_DEVICE;
+#else
+	expected = RIO_UNKNOWN_DEVICE;
+#endif
+	assert_int_equal(expected, rio_get_driver_family(0x03740038)); // CPS1848
+	assert_int_equal(expected, rio_get_driver_family(0x03750038)); // CPS1432
+	assert_int_equal(expected, rio_get_driver_family(0x03790038)); // CPS1616
 	assert_int_equal(RIO_UNKNOWN_DEVICE, rio_get_driver_family(0x03770038)); // VPS1616
-	assert_int_equal(RIO_CPS_DEVICE, rio_get_driver_family(0x03780038)); // SPS1848
+	assert_int_equal(expected, rio_get_driver_family(0x03780038)); // SPS1848
 
 	// RXS
-	assert_int_equal(RIO_RXS_DEVICE, rio_get_driver_family(0x80e60038)); // RXS2448
-	assert_int_equal(RIO_RXS_DEVICE, rio_get_driver_family(0x80e50038)); // RXS1632
+#ifdef RXSx_DAR_WANTED
+	expected = RIO_RXS_DEVICE;
+#else
+	expected = RIO_UNKNOWN_DEVICE;
+#endif
+	assert_int_equal(expected, rio_get_driver_family(0x80e60038)); // RXS2448
+	assert_int_equal(expected, rio_get_driver_family(0x80e50038)); // RXS1632
 	assert_int_equal(RIO_UNKNOWN_DEVICE, rio_get_driver_family(0x80e00038)); // RXSx
 
 	// TSI721
-	assert_int_equal(RIO_TSI721_DEVICE, rio_get_driver_family(0x80ab0038)); // TSI721
+#ifdef TSI721_DAR_WANTED
+	expected = RIO_TSI721_DEVICE;
+#else
+	expected = RIO_UNKNOWN_DEVICE;
+#endif
+	assert_int_equal(expected, rio_get_driver_family(0x80ab0038)); // TSI721
 
 	// TSI5X
+#ifdef TSI57X_DAR_WANTED
+	expected = RIO_TSI57X_DEVICE;
+#else
+	expected = RIO_UNKNOWN_DEVICE;
+#endif
 	assert_int_equal(RIO_UNKNOWN_DEVICE, rio_get_driver_family(0x0568000d)); // TSI500
 	assert_int_equal(RIO_UNKNOWN_DEVICE, rio_get_driver_family(0x0568000d)); // TSI568
 	assert_int_equal(RIO_UNKNOWN_DEVICE, rio_get_driver_family(0x0570000d)); // TSI570
-	assert_int_equal(RIO_TSI57X_DEVICE, rio_get_driver_family(0x0572000d)); // TSI572
-	assert_int_equal(RIO_TSI57X_DEVICE, rio_get_driver_family(0x0574000d)); // TSI574
-	assert_int_equal(RIO_TSI57X_DEVICE, rio_get_driver_family(0x0578000d)); // TSI576
-	assert_int_equal(RIO_TSI57X_DEVICE, rio_get_driver_family(0x0577000d)); // TSI577
-	assert_int_equal(RIO_TSI57X_DEVICE, rio_get_driver_family(0x0578000d)); // TSI578
+	assert_int_equal(expected, rio_get_driver_family(0x0572000d)); // TSI572
+	assert_int_equal(expected, rio_get_driver_family(0x0574000d)); // TSI574
+	assert_int_equal(expected, rio_get_driver_family(0x0578000d)); // TSI576
+	assert_int_equal(expected, rio_get_driver_family(0x0577000d)); // TSI577
+	assert_int_equal(expected, rio_get_driver_family(0x0578000d)); // TSI578
 
 	// CPS with wrong vendor code (Tundra for example)
 	assert_int_equal(RIO_UNKNOWN_DEVICE, rio_get_driver_family(0x0374000d)); // CPS1848
