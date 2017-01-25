@@ -641,16 +641,15 @@ uint32_t IDT_CPS_pc_get_config(
 
 	 // Note: 1432 & 1848 Rev C has errata about maintenance packet handling
 	 // OUTPUT_EN should always be set.
-	 if ((DEV_CODE(dev_info) == RIO_DEVI_IDT_CPS1848 ) || \
-             (DEV_CODE(dev_info) == RIO_DEVI_IDT_CPS1432 )) {
+	 if (DEV_CODE(dev_info) == RIO_DEVI_IDT_SPS1616) {
+	    if ((spx_ctl1 & CPS1848_PORT_X_CTL_1_CSR_INPUT_PORT_EN) &&
+	        (spx_ctl1 & CPS1848_PORT_X_CTL_1_CSR_OUTPUT_PORT_EN)) {
+	            out_parms->pc[port_idx].nmtc_xfer_enable = true;
+	    }
+         } else {
 	    if (spx_ctl1 & CPS1848_PORT_X_CTL_1_CSR_INPUT_PORT_EN) {
                out_parms->pc[port_idx].nmtc_xfer_enable = true;
             }
-         } else { /* SPS1616 CASE */
-            if ((spx_ctl1 & CPS1848_PORT_X_CTL_1_CSR_INPUT_PORT_EN) && 
-                (spx_ctl1 & CPS1848_PORT_X_CTL_1_CSR_OUTPUT_PORT_EN)) {
-               out_parms->pc[port_idx].nmtc_xfer_enable = true;
-	    }
          }
 
          // Check to see if any lanes are inverted...
@@ -1191,15 +1190,14 @@ uint32_t compute_laneswap_config( DAR_DEV_INFO_t        *dev_info,
       if (sorted->pc[pnum].nmtc_xfer_enable) {
          chgd->ports[pnum].p_ctl1 |= CPS1848_PORT_X_CTL_1_CSR_INPUT_PORT_EN | CPS1848_PORT_X_CTL_1_CSR_OUTPUT_PORT_EN;
       } else {
-		 // Note: 1432 & 1848 Rev C has errata about maintenance packet handling
+		// Note: 1432 & 1848 Rev C has errata about maintenance packet handling
 		// OUTPUT_EN should always be set.
-		 if ((DEV_CODE(dev_info) == RIO_DEVI_IDT_CPS1848 ) || \
-             (DEV_CODE(dev_info) == RIO_DEVI_IDT_CPS1432 )) {
+		if (DEV_CODE(dev_info) == RIO_DEVI_IDT_SPS1616) {
+			chgd->ports[pnum].p_ctl1 &= ~(CPS1848_PORT_X_CTL_1_CSR_INPUT_PORT_EN | CPS1848_PORT_X_CTL_1_CSR_OUTPUT_PORT_EN);
+		} else {
 			chgd->ports[pnum].p_ctl1 &= ~CPS1848_PORT_X_CTL_1_CSR_INPUT_PORT_EN;
 			chgd->ports[pnum].p_ctl1 |= CPS1848_PORT_X_CTL_1_CSR_OUTPUT_PORT_EN;
-         } else { /* SPS1616 CASE */
-			chgd->ports[pnum].p_ctl1 &= ~(CPS1848_PORT_X_CTL_1_CSR_INPUT_PORT_EN | CPS1848_PORT_X_CTL_1_CSR_OUTPUT_PORT_EN);
-		 };
+		}
       };
 
       switch (sorted->pc[pnum].iseq) {
