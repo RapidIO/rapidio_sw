@@ -33,9 +33,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 
+#include "DSF_DB_Private.h"
 #include "pe_mpdrv_private.h"
 #include "riocp_pe_internal.h"
-#include "IDT_DSF_DB_Private.h"
 #include "RapidIO_Utilities_API.h"
 
 #ifdef __cplusplus

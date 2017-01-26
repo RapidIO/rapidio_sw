@@ -33,12 +33,13 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <stddef.h>
 #include <string.h>
-#include <DAR_DB_Private.h>
-#include <IDT_DSF_DB_Private.h>
-#include <RapidIO_Error_Management_API.h>
-#include <IDT_CPS_Common_Test.h>
-#include <CPS1848.h>
-#include <CPS1616.h>
+
+#include "DAR_DB_Private.h"
+#include "DSF_DB_Private.h"
+#include "RapidIO_Error_Management_API.h"
+#include "IDT_CPS_Common_Test.h"
+#include "CPS1848.h"
+#include "CPS1616.h"
 
 #ifdef __cplusplus
 extern "C" {

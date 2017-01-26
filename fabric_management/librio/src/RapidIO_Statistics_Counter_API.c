@@ -30,10 +30,12 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
+
 #include <stddef.h>
+
 #include "RapidIO_Device_Access_Routines_API.h"
-#include "IDT_DSF_DB_Private.h"
 #include "RapidIO_Statistics_Counter_API.h"
+#include "DSF_DB_Private.h"
 #include "rio_standard.h"
 #include "rio_ecosystem.h"
 

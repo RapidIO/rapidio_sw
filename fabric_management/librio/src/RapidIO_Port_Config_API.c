@@ -30,8 +30,9 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
-#include <DAR_DB_Private.h>
-#include <IDT_DSF_DB_Private.h>
+
+#include "DAR_DB_Private.h"
+#include "DSF_DB_Private.h"
 
 #ifdef __cplusplus
 extern "C" {

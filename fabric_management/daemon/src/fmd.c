@@ -60,7 +60,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rio_standard.h"
 #include "rio_ecosystem.h"
 
-#include "IDT_DSF_DB_Private.h"
 #include "RapidIO_Utilities_API.h"
 
 #include "string_util.h"
@@ -78,6 +77,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "fmd_cfg_cli.h"
 #include "fmd_state.h"
 #include <rapidio_mport_mgmt.h>
+#include "DSF_DB_Private.h"
 #include "fmd_app.h"
 #include "fmd_cli.h"
 #include "fmd_dev_rw_cli.h"

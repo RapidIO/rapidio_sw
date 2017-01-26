@@ -30,13 +30,15 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
-#include <DAR_DB_Private.h>
-#include <IDT_DSF_DB_Private.h>
-#include <IDT_CPS_Common_Test.h>
-#include <RapidIO_Statistics_Counter_API.h>
-#include <CPS1848.h>
-#include <CPS1616.h>
+
 #include <string.h>
+
+#include "DAR_DB_Private.h"
+#include "DSF_DB_Private.h"
+#include "IDT_CPS_Common_Test.h"
+#include "RapidIO_Statistics_Counter_API.h"
+#include "CPS1848.h"
+#include "CPS1616.h"
 
 #ifdef __cplusplus
 extern "C" {

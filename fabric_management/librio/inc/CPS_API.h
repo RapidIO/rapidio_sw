@@ -33,7 +33,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef __CPS_API_H__
 #define __CPS_API_H__
 
-#include <IDT_DSF_DB_Private.h>
+#include "DSF_DB_Private.h"
 
 #ifdef __cplusplus
 extern "C" {

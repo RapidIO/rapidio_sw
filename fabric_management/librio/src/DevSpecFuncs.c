@@ -31,15 +31,16 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 
-#include <RapidIO_Source_Config.h>
-#include <DAR_DB_Private.h>
-#include <CPS_API.h>
-#include <Tsi57x_API.h>
-#include <IDT_DSF_DB_Private.h>
-#include <CPS1848.h>
-#include <RapidIO_Utilities_API.h>
-#include "RXS_API.h"
 #include <string.h>
+
+#include "RapidIO_Source_Config.h"
+#include "DAR_DB_Private.h"
+#include "DSF_DB_Private.h"
+#include "CPS_API.h"
+#include "Tsi57x_API.h"
+#include "CPS1848.h"
+#include "RapidIO_Utilities_API.h"
+#include "RXS_API.h"
 
 #ifdef TSI721_SUPPORT
 #include <Tsi721_API.h>

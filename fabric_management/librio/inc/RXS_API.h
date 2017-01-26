@@ -34,11 +34,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef __RXS_API_H__
 #define __RXS_API_H__
 
-#include <DAR_DB.h>
-#include <DAR_DB_Private.h>
-#include <RapidIO_Device_Access_Routines_API.h>
-#include <RapidIO_Statistics_Counter_API.h>
-#include <IDT_DSF_DB_Private.h>
+#include "DAR_DB.h"
+#include "DAR_DB_Private.h"
+#include "DSF_DB_Private.h"
+#include "RapidIO_Device_Access_Routines_API.h"
+#include "RapidIO_Statistics_Counter_API.h"
 #include "RapidIO_Port_Config_API.h"
 #include "RapidIO_Utilities_API.h"
 #include "RapidIO_Error_Management_API.h"

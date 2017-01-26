@@ -39,14 +39,14 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef __TSI57X_API_PRIVATE_H__
 #define __TSI57X_API_PRIVATE_H__
 
-#include <DAR_DB.h>
-#include <DAR_DB_Private.h>
-#include <RapidIO_Utilities_API.h>
-#include <RapidIO_Port_Config_API.h>
-#include <RapidIO_Routing_Table_API.h>
-#include <RapidIO_Statistics_Counter_API.h>
-#include <IDT_DSF_DB_Private.h>
-#include <Tsi57x_API.h>
+#include "DAR_DB.h"
+#include "DAR_DB_Private.h"
+#include "DSF_DB_Private.h"
+#include "RapidIO_Utilities_API.h"
+#include "RapidIO_Port_Config_API.h"
+#include "RapidIO_Routing_Table_API.h"
+#include "RapidIO_Statistics_Counter_API.h"
+#include "Tsi57x_API.h"
 
 #ifdef __cplusplus
 extern "C" {

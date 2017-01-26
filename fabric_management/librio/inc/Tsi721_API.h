@@ -20,13 +20,14 @@
 #define __TSI721_API_H__
 
 #include <stdint.h>
+
 #include "DAR_DB.h"
 #include "DAR_DB_Private.h"
+#include "DSF_DB_Private.h"
 #include "RapidIO_Utilities_API.h"
 #include "RapidIO_Port_Config_API.h"
 #include "RapidIO_Routing_Table_API.h"
 #include "RapidIO_Error_Management_API.h"
-#include "IDT_DSF_DB_Private.h"
 
 #ifdef __cplusplus
 extern "C" {
