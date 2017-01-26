@@ -64,7 +64,13 @@ uint32_t idt_tsi721_em_cfg_pw (DAR_DEV_INFO_t *dev_info,
 		out_parms->imp_rc = EM_CFG_PW(1);
 		goto exit;
 	};
-			
+
+	if ((in_parms->deviceID_tt != tt_dev16) &&
+					(in_parms->deviceID_tt != tt_dev8)) {
+		out_parms->imp_rc = EM_CFG_PW(2);
+		goto exit;
+	};
+
 	// Set all port-write configuration information.
 	// For Tsi721, this is limitted to port-write 
 	// destination ID and retransmission rate.
@@ -89,6 +95,12 @@ uint32_t idt_tsi721_em_cfg_pw (DAR_DEV_INFO_t *dev_info,
 	// Configure port-write re-transmission rate.
 	// Assumption: it is better to choose a longer retransmission time
 	// than the value requested.
+	//
+	// NOTE: NEVER ENABLE TSI721_PW_CTL_PWC_MODE
+	// (RELIABLE PORT-WRITE RECEPTION).  If software is not processing 
+	// port writes as fast as the network is generating them, the
+	// RapidIO receive port will not be able to process non-maintenance 
+	// transactions.
  
 	regData = 0;
 	retx = in_parms->port_write_re_tx;
@@ -102,8 +114,8 @@ uint32_t idt_tsi721_em_cfg_pw (DAR_DEV_INFO_t *dev_info,
 			regData = TSI721_PW_CTL_PW_TIMER_410us;
 		} else {
 			regData = TSI721_PW_CTL_PW_TIMER_820us;
-		};
-	};
+		}
+	}
 
 	rc = DARRegWrite(dev_info, TSI721_PW_CTL, regData);
 	if (RIO_SUCCESS != rc) {

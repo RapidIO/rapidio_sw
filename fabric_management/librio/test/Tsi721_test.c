@@ -62,6 +62,10 @@ uint32_t tsi721_regs[] = {
 	TSI721_SP_CTL2,
 	TSI721_SP_ERR_STAT,
 	TSI721_SP_CTL,
+	TSI721_PW_TGT_ID,
+	TSI721_PW_CTL,
+	TSI721_PW_ROUTE,
+	TSI721_BASE_ID,
 };
 
 #define TSI721_NUM_MOCK_REGS (sizeof(tsi721_regs)/sizeof(tsi721_regs[0]))
@@ -130,8 +134,26 @@ static void tsi721_test_setup(void)
        mock_dev_ctrs->p_ctrs = pp_ctrs;
 }
 
+/* The function tries to find the index of the offset in the dar_reg array and returns the idx,
+ * otherwise it returns UPB_DAR_REG.
+ */
+uint32_t find_offset(uint32_t offset)
+{
+	uint32_t idx;
+	for (idx = 0; idx < NUM_DAR_REG; idx++) {
+            if (mock_dar_reg[idx].offset == offset) {
+               return idx;
+            }
+	}
+	return UPB_DAR_REG;
+}
+
 /* Initialize the mock register structure for different registers.
  */
+
+#define TSI721_TEST_DEV16_ID 0x2233
+#define TSI721_TEST_DEV08_ID 0x11
+
 static void init_mock_tsi721_reg(void) 
 {
 	// idx is always should be less than UPB_DAR_REG.
@@ -150,20 +172,12 @@ static void init_mock_tsi721_reg(void)
 		mock_dar_reg[idx].data = 0;
                 idx++;
         }
-}
 
-/* The function tries to find the index of the offset in the dar_reg array and returns the idx,
- * otherwise it returns UPB_DAR_REG.
- */
-uint32_t find_offset(uint32_t offset)
-{
-	uint32_t idx;
-	for (idx = 0; idx < NUM_DAR_REG; idx++) {
-            if (mock_dar_reg[idx].offset == offset) {
-               return idx;
-            }
-	}
-	return UPB_DAR_REG;
+	// Set base device ID...
+	idx = find_offset(TSI721_BASE_ID);
+	assert_int_not_equal(UPB_DAR_REG, idx);
+	mock_dar_reg[idx].data = (TSI721_TEST_DEV08_ID << 16) |
+				TSI721_TEST_DEV16_ID;
 }
 
 /* The function reads the value data of offset from the dar_reg array.
@@ -229,6 +243,7 @@ static int tsi721_setup(void **state)
  */
 static int tsi721_teardown(void **state) 
 {
+        // free(pp_ctrs);
         free(mock_dev_ctrs);
 
         (void)state; //unused
@@ -260,6 +275,7 @@ void tsi721_assumptions_test(void **state)
 			 TSI721_PLM_STATUS_DLT);
 	assert_int_equal(TSI721_PLM_PW_ENABLE_DLT,
 			 TSI721_PLM_STATUS_DLT);
+	assert_int_equal(TSI721_BASE_ID, RIO_DEVID);
 
 	// Verify ranges are sane
 	assert_in_range(TSI721_NUM_PERF_CTRS, 0, RIO_MAX_SC);
@@ -644,14 +660,194 @@ void tsi721_init_read_dev_ctrs_test(void **state)
         (void)state; // unused
 }
 
+void tsi721_em_cfg_pw_success_test(void **state)
+{
+	rio_em_cfg_pw_in_t in_parms;
+	rio_em_cfg_pw_out_t out_parms;
+	uint32_t idx;
+	uint32_t targ_id = 0x1234;
+
+	// Test for dev16 destIDs...
+	in_parms.imp_rc = 0xFFFFFFFF;
+	in_parms.deviceID_tt = tt_dev16;
+	in_parms.port_write_destID = targ_id;
+	in_parms.srcID_valid = false;
+	in_parms.port_write_srcID = 0;
+	in_parms.priority = 1;
+	in_parms.CRF = false;
+	in_parms.port_write_re_tx = RIO_EM_TSI721_PW_RE_TX_103us;
+	memset(&out_parms, 0, sizeof(out_parms));
+	in_parms.imp_rc = 0xFFFFFFFF;
+
+	assert_int_equal(RIO_SUCCESS,
+		idt_tsi721_em_cfg_pw(&mock_dev_info, &in_parms, &out_parms));
+	assert_int_equal(0, out_parms.imp_rc);
+	assert_int_equal(tt_dev16, out_parms.deviceID_tt);
+	assert_int_equal(targ_id, out_parms.port_write_destID);
+	assert_true(out_parms.srcID_valid);
+	assert_int_equal(TSI721_TEST_DEV16_ID, out_parms.port_write_srcID);
+	assert_int_equal(3, out_parms.priority);
+	assert_true(out_parms.CRF);
+	assert_int_equal(RIO_EM_TSI721_PW_RE_TX_103us,
+						in_parms.port_write_re_tx);
+
+	idx = find_offset(TSI721_PW_TGT_ID);
+	assert_int_not_equal(UPB_DAR_REG, idx);
+	assert_int_equal(mock_dar_reg[idx].data,
+		(targ_id << 16) | TSI721_PW_TGT_ID_LRG_TRANS);
+	
+	idx = find_offset(TSI721_PW_CTL);
+	assert_int_not_equal(UPB_DAR_REG, idx);
+	assert_int_equal(mock_dar_reg[idx].data, TSI721_PW_CTL_PW_TIMER_103us);
+	
+	idx = find_offset(TSI721_PW_ROUTE);
+	assert_int_not_equal(UPB_DAR_REG, idx);
+	assert_int_equal(mock_dar_reg[idx].data, TSI721_PW_ROUTE_PORT);
+
+	// Test for dev8 destIDs...
+	in_parms.imp_rc = 0xFFFFFFFF;
+	in_parms.deviceID_tt = tt_dev8;
+	in_parms.port_write_destID = targ_id;
+	in_parms.srcID_valid = false;
+	in_parms.port_write_srcID = 0;
+	in_parms.priority = 1;
+	in_parms.CRF = false;
+	in_parms.port_write_re_tx = RIO_EM_TSI721_PW_RE_TX_820us;
+	memset(&out_parms, 0, sizeof(out_parms));
+	in_parms.imp_rc = 0xFFFFFFFF;
+
+	assert_int_equal(RIO_SUCCESS,
+		idt_tsi721_em_cfg_pw(&mock_dev_info, &in_parms, &out_parms));
+	assert_int_equal(0, out_parms.imp_rc);
+	assert_int_equal(tt_dev8, out_parms.deviceID_tt);
+	assert_int_equal(targ_id & 0xFF, out_parms.port_write_destID);
+	assert_true(out_parms.srcID_valid);
+	assert_int_equal(TSI721_TEST_DEV08_ID, out_parms.port_write_srcID);
+	assert_int_equal(3, out_parms.priority);
+	assert_true(out_parms.CRF);
+	assert_int_equal(RIO_EM_TSI721_PW_RE_TX_820us,
+						in_parms.port_write_re_tx);
+
+	idx = find_offset(TSI721_PW_TGT_ID);
+	assert_int_not_equal(UPB_DAR_REG, idx);
+	assert_int_equal(mock_dar_reg[idx].data,
+		(targ_id << 16) & TSI721_PW_TGT_ID_PW_TGT_ID);
+	
+	idx = find_offset(TSI721_PW_CTL);
+	assert_int_not_equal(UPB_DAR_REG, idx);
+	assert_int_equal(mock_dar_reg[idx].data, TSI721_PW_CTL_PW_TIMER_820us);
+	
+	idx = find_offset(TSI721_PW_ROUTE);
+	assert_int_not_equal(UPB_DAR_REG, idx);
+	assert_int_equal(mock_dar_reg[idx].data, TSI721_PW_ROUTE_PORT);
+
+        (void)state; // unused
+}
+
+void tsi721_em_cfg_pw_bad_parms_test(void **state)
+{
+	rio_em_cfg_pw_in_t in_parms;
+	rio_em_cfg_pw_out_t out_parms;
+	uint32_t targ_id = 0x12345678;
+
+	// Test for dev16 destIDs...
+	in_parms.imp_rc = 0xFFFFFFFF;
+	in_parms.deviceID_tt = tt_dev16;
+	in_parms.port_write_destID = targ_id;
+	in_parms.srcID_valid = false;
+	in_parms.port_write_srcID = 0;
+	in_parms.priority = 1;
+	in_parms.CRF = false;
+	in_parms.port_write_re_tx = RIO_EM_TSI721_PW_RE_TX_103us;
+	memset(&out_parms, 0, sizeof(out_parms));
+	
+	in_parms.deviceID_tt = tt_dev16;
+	in_parms.priority = 4;
+	assert_int_not_equal(RIO_SUCCESS,
+		idt_tsi721_em_cfg_pw(&mock_dev_info, &in_parms, &out_parms));
+	assert_int_not_equal(0, out_parms.imp_rc);
+
+        (void)state; // unused
+}
+
+typedef struct tsi721_pw_retx_info_t_TAG {
+	uint32_t timer_val_in;
+	uint32_t timer_val_out;
+	uint32_t reg_val_out;
+} tsi721_pw_retx_info_t;
+
+void tsi721_em_cfg_pw_retx_compute_test(void **state)
+{
+	rio_em_cfg_pw_in_t in_p;
+	rio_em_cfg_pw_out_t out_p;
+	uint32_t idx;
+	uint32_t targ_id = 0x1234;
+	const tsi721_pw_retx_info_t tests[] = {
+	{1,
+		RIO_EM_TSI721_PW_RE_TX_103us,
+			TSI721_PW_CTL_PW_TIMER_103us},
+	{RIO_EM_TSI721_PW_RE_TX_103us + 1,
+		RIO_EM_TSI721_PW_RE_TX_205us, 
+			TSI721_PW_CTL_PW_TIMER_205us}, 
+	{RIO_EM_TSI721_PW_RE_TX_205us + 1,
+		RIO_EM_TSI721_PW_RE_TX_410us, 
+			TSI721_PW_CTL_PW_TIMER_410us}, 
+	{RIO_EM_TSI721_PW_RE_TX_410us + 1,
+		RIO_EM_TSI721_PW_RE_TX_820us, 
+			TSI721_PW_CTL_PW_TIMER_820us}, 
+	{RIO_EM_TSI721_PW_RE_TX_820us + 1,
+		RIO_EM_TSI721_PW_RE_TX_820us, 
+			TSI721_PW_CTL_PW_TIMER_820us}, 
+	{0x00FFFFFF,
+		RIO_EM_TSI721_PW_RE_TX_820us, 
+			TSI721_PW_CTL_PW_TIMER_820us}, 
+	};
+	const int num_tests = sizeof(tests)/sizeof(tests[0]);
+	int i;
+
+	// Test for dev16 destIDs...
+	in_p.imp_rc = 0xFFFFFFFF;
+	in_p.deviceID_tt = tt_dev16;
+	in_p.port_write_destID = targ_id;
+	in_p.srcID_valid = false;
+	in_p.port_write_srcID = 0;
+	in_p.priority = 1;
+	in_p.CRF = false;
+	memset(&out_p, 0, sizeof(out_p));
+	in_p.imp_rc = 0xFFFFFFFF;
+
+	for (i = 0; i < num_tests; i++) {
+		in_p.port_write_re_tx = tests[i].timer_val_in;
+		assert_int_equal(RIO_SUCCESS,
+			idt_tsi721_em_cfg_pw(&mock_dev_info, &in_p, &out_p));
+
+		assert_int_equal(0, out_p.imp_rc);
+		assert_int_equal(tt_dev16, out_p.deviceID_tt);
+		assert_int_equal(targ_id, out_p.port_write_destID);
+		assert_true(out_p.srcID_valid);
+		assert_int_equal(TSI721_TEST_DEV16_ID, out_p.port_write_srcID);
+		assert_int_equal(3, out_p.priority);
+		assert_true(out_p.CRF);
+		assert_int_equal(tests[i].timer_val_out, out_p.port_write_re_tx);
+
+		idx = find_offset(TSI721_PW_CTL);
+		assert_int_not_equal(UPB_DAR_REG, idx);
+		assert_int_equal(mock_dar_reg[idx].data, tests[i].reg_val_out);
+	}
+	
+        (void)state; // unused
+}
+
 int main(int argc, char** argv)
 {
 	(void)argv; // not used
 	argc++; // not used
 
 	const struct CMUnitTest tests[] = {
+// Basiec tests
                 cmocka_unit_test_setup_teardown(
 			tsi721_assumptions_test, tsi721_setup, NULL),
+// Device counters tests
                 cmocka_unit_test_setup_teardown(
 			tsi721_init_dev_ctrs_test_success, tsi721_setup, NULL),
                 cmocka_unit_test_setup_teardown(
@@ -672,7 +868,14 @@ int main(int argc, char** argv)
                 cmocka_unit_test_setup_teardown(
 			tsi721_read_dev_ctrs_test_bad_parms2, tsi721_setup, NULL),
                 cmocka_unit_test_setup_teardown(
-			tsi721_init_read_dev_ctrs_test, tsi721_setup, tsi721_teardown),
+			tsi721_init_read_dev_ctrs_test, tsi721_setup, NULL),
+// Event management tests
+                cmocka_unit_test_setup_teardown(
+			tsi721_em_cfg_pw_success_test, tsi721_setup, NULL),
+                cmocka_unit_test_setup_teardown(
+			tsi721_em_cfg_pw_bad_parms_test, tsi721_setup, NULL),
+                cmocka_unit_test_setup_teardown(
+			tsi721_em_cfg_pw_retx_compute_test, tsi721_setup, tsi721_teardown),
 	};
 
 	return cmocka_run_group_tests(tests, NULL, NULL);
