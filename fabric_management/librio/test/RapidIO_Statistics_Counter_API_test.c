@@ -40,7 +40,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <setjmp.h>
 #include "cmocka.h"
 
-#include "DAR_DB.h"
 #include "RapidIO_Device_Access_Routines_API.h"
 #include "RapidIO_Statistics_Counter_API.h"
 #include "src/RapidIO_Statistics_Counter_API.c"

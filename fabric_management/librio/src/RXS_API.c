@@ -1647,17 +1647,6 @@ uint32_t rxs_em_dev_rpt_ctl( DAR_DEV_INFO_t            *dev_info,
 	return RIO_SUCCESS;
 }
 
-
-uint32_t bind_rxs_DAR_support(void)
-{
-	DAR_DB_Driver_t DAR_info;
-
-	DARDB_Init_Driver_Info(RIO_VEND_IDT, &DAR_info);
-	DARDB_Bind_Driver(&DAR_info);
-
-	return RIO_SUCCESS;
-}
-
 /* Routine to bind in all RXSs specific Device Specific Function routines.
  * Supports RXSs
  */

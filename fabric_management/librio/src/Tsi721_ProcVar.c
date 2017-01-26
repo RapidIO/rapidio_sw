@@ -33,7 +33,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "Tsi721.h"
 #include "Tsi721_API.h"
-#include "DAR_DB.h"
 #include "DAR_DB_Private.h"
 #include "DSF_DB_Private.h"
 #include "RapidIO_Utilities_API.h"
@@ -114,19 +113,6 @@ uint32_t IDT_tsi721WriteReg( DAR_DEV_INFO_t *dev_info,
 // Routing table entry value to use when requesting
 // default route or packet discard (no route)
 #define HW_DFLT_RT 0xFF
-
-uint32_t bind_tsi721_DAR_support( void )
-{
-	DAR_DB_Driver_t DAR_info;
-
-	DARDB_Init_Driver_Info( RIO_VEND_IDT, &DAR_info );
-	DAR_info.WriteReg = IDT_tsi721WriteReg;
-	DAR_info.ReadReg = IDT_tsi721ReadReg;
-
-	DARDB_Bind_Driver( &DAR_info );
-	
-	return RIO_SUCCESS;
-}
 
 uint32_t bind_tsi721_DSF_support( void )
 {

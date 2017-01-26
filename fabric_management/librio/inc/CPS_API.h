@@ -39,11 +39,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 extern "C" {
 #endif
 
-/* Routine to bind in all CPS specific DAR support routines.
-   Supports CPS1848, CPS1616, VPS1616, SPS1616
-*/
-uint32_t bind_CPS_DAR_support( void );
-
 /* Routine to bind in all CPS specific Device Specific Function routines.
    Supports CPS1848, CPS1616, VPS1616, SPS1616
 */

@@ -45,9 +45,8 @@ extern "C" {
 
 /* Device Access Routine (DAR) Device Driver Interface
 * 
-*  RapidIO_Device_Access_Routines_API.h defines the interface for invoking the device driver routines
-*  defined in the RapidIO Specification Annex 1.  Device drivers are bound in 
-*  using the DAR_DB.h interface.
+*  RapidIO_Device_Access_Routines_API.h defines the interface for invoking
+*  the device driver routines defined in the RapidIO Specification Annex 1.
 * 
 *  There are also hooks to extend the use of the DAR to support Device 
 *  Specific Functions (DSF)
@@ -76,13 +75,6 @@ typedef uint32_t DAR_DB_Handle_t; /* DARDB Device Driver Handle */
 typedef uint32_t DSF_Handle_t;    /* Device Specific Function Handle, not */
                                 /*     defined by the DAR. */
 
-/* Structure which defines the location of the device being accessed.
-*  Also defines a reference to the device driver bound into the DAR DB,
-*     and the pointer to the private data structure for the DAR.
-*  A destid value of HOST_REGS will cause the local hosts registers to be 
-*     accessed.
-*/
-#define HOST_REGS_DEVID 0xFFFFFFFF
 #define NAME_SIZE	15
 #define MAX_DAR_SCRPAD_IDX  30
 
@@ -219,8 +211,29 @@ uint32_t DAR_Release_Driver_for_Device ( DAR_DEV_INFO_t *dev_info );
 *      with registers.  Could also be used as a hook for debugging.
 *  The default definition of these routines is a call to ReadReg/WriteReg.
 */
+uint32_t DAR_proc_ptr_init(
+    uint32_t (*ReadRegCall )( DAR_DEV_INFO_t *dev_info,
+                                    uint32_t  offset,
+                                    uint32_t *readdata ),
+    uint32_t (*WriteRegCall)( DAR_DEV_INFO_t *dev_info,
+                                    uint32_t  offset,
+                                    uint32_t  writedata ),
+    void   (*WaitSecCall) ( uint32_t delay_nsec,
+                            uint32_t delay_sec )); 
+
+extern uint32_t (*ReadReg)(DAR_DEV_INFO_t *dev_info,
+				uint32_t offset,
+				uint32_t *readdata);
+
+extern uint32_t (*WriteReg)(DAR_DEV_INFO_t *dev_info,
+				uint32_t offset,
+				uint32_t writedata);
+
+extern void (*WaitSec)(uint32_t delay_nsec, uint32_t delay_sec);
+
 uint32_t DARRegRead ( DAR_DEV_INFO_t *dev_info, uint32_t offset, uint32_t *readdata );
 uint32_t DARRegWrite( DAR_DEV_INFO_t *dev_info, uint32_t offset, uint32_t writedata );
+void DAR_WaitSec( uint32_t delay_nsec, uint32_t delay_sec);
 
 /* Routines which invoke the associated device driver function.
 * 
@@ -494,31 +507,16 @@ uint32_t DARrioEmergencyLockout  ( DAR_DEV_INFO_t *dev_info,
 /* DAR DB Standard errors
    No devices have been bound to the DAR
 */
-#define DAR_DB_NO_DEVICES            ((uint32_t)(0x70000001))  
 /* The DAR DB cannot accept more device drivers. See DAR_DB.h to increase 
-      the size of the database.
-*/
-#define DAR_DB_NO_HANDLES            ((uint32_t)(0x70000002))  
-/* DAR DB initialization has been attempted more than once.
-*/
-#define DAR_DB_MULTI_INIT            ((uint32_t)(0x70000003))  
+ *       the size of the database.
+ *       */
+#define DAR_DB_NO_HANDLES            ((uint32_t)(0x70000002)) 
 /* dev_info.db_h parameter passed in is invalid.
 */
 #define DAR_DB_INVALID_HANDLE        ((uint32_t)(0x70000004))  
-/* Warning that a previously bound device specific function has 
-       been overwritten
-*/
-#define DAR_DB_OVERWRITE_FUNC        ((uint32_t)(0x70000005))  
 /* No device driver bound in supports the device.
 */
 #define DAR_DB_NO_DRIVER             ((uint32_t)(0x70000006))  
-/* Device driver could not allocate device specific info
-*/
-#define DAR_DB_DRIVER_INFO           ((uint32_t)(0x70000007))
-
-/* Device driver no exceed maximum device driver bound in supports the device.
-*/
-#define DAR_DB_NO_EXCEED_MAXIMUM     ((uint32_t)(0x70000008))  
 
 /* Standard Register access errors
    Register Access Interface invalid
@@ -579,4 +577,3 @@ uint32_t DARrioEmergencyLockout  ( DAR_DEV_INFO_t *dev_info,
 #endif
 
 #endif /* __RAPIDIO_DEVICE_ACCESS_ROUTINES_API_H__ */
-

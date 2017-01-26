@@ -33,7 +33,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "Tsi721.h"
 #include "Tsi721_API.h"
-#include "DAR_DB.h"
 #include "DAR_DB_Private.h"
 #include "DSF_DB_Private.h"
 #include "RapidIO_Utilities_API.h"

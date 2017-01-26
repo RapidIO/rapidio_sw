@@ -30,7 +30,7 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
-#include <Tsi57x_API_Private.h>
+#include "Tsi57x_API_Private.h"
 #include "Tsi578.h"
 #include "Tsi575.h"
 #include <string.h>
@@ -341,19 +341,6 @@ uint32_t init_scratchpad( DAR_DEV_INFO_t *DAR_info )
 	};
 	return rc;
 };
-
-uint32_t bind_tsi57x_DAR_support(void)
-{
-	DAR_DB_Driver_t DAR_info;
-
-	DARDB_Init_Driver_Info( RIO_VEND_TUNDRA, &DAR_info);
-	DAR_info.WriteReg = IDT_tsi57xWriteReg;
-	DAR_info.ReadReg = IDT_tsi57xReadReg;
-
-	DARDB_Bind_Driver(&DAR_info);
-
-	return RIO_SUCCESS;
-}
 
 #define TSI57X_HIDDEN_SERDES_REG(xx,yy) ((uint32_t)(0x1E00C+(2*0x100*xx)+(0x40*yy)))
 #define TSI57X_HIDDEN_SERDES_TX_INV 0x00080000

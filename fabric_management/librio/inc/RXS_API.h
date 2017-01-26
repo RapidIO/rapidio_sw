@@ -34,7 +34,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef __RXS_API_H__
 #define __RXS_API_H__
 
-#include "DAR_DB.h"
 #include "DAR_DB_Private.h"
 #include "DSF_DB_Private.h"
 #include "RapidIO_Device_Access_Routines_API.h"

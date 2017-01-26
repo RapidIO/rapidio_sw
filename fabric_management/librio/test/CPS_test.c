@@ -40,7 +40,6 @@
 #include <setjmp.h>
 #include "cmocka.h"
 
-#include "DAR_DB.h"
 #include "RapidIO_Device_Access_Routines_API.h"
 #include "CPS1848.h"
 #include "RXS_Routing_Table_API.h"

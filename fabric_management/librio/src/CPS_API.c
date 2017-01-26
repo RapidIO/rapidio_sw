@@ -58,17 +58,6 @@ extern "C" {
 
 DSF_Handle_t cpsgen2_driver_handle;
 
-uint32_t bind_CPS_DAR_support( void )
-{
-	DAR_DB_Driver_t DB_info;
-
-	/* Now bind the device driver... */
-	DARDB_Init_Driver_Info( RIO_VEND_IDT, &DB_info);
-	DARDB_Bind_Driver(&DB_info);
-
-	return RIO_SUCCESS;
-}
-
 uint32_t bind_CPS_DSF_support( void )
 {
     IDT_DSF_DB_t idt_driver;

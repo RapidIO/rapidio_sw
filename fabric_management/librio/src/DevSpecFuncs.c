@@ -729,32 +729,24 @@ uint32_t IDT_DSF_bind_DAR_routines(
                             uint32_t delay_sec )
     )
 {
-    DARDB_init();
+    DAR_proc_ptr_init(ReadRegCall, WriteRegCall, WaitSecCall);
 	IDT_init_DSF_DB();
 
 #ifdef CPS_DAR_WANTED
-    bind_CPS_DAR_support();
     bind_CPS_DSF_support();
 #endif
 
 #ifdef TSI57X_DAR_WANTED
-    bind_tsi57x_DAR_support();
     bind_tsi57x_DSF_support();
 #endif
 
 #ifdef TSI721_DAR_WANTED
-    bind_tsi721_DAR_support();
     bind_tsi721_DSF_support();
 #endif
 
 #ifdef RXSx_DAR_WANTED
-    bind_rxs_DAR_support();
     bind_rxs_DSF_support();
 #endif
-
-    ReadReg  = ReadRegCall;
-    WriteReg = WriteRegCall;
-    WaitSec  = WaitSecCall;
 
     return RIO_SUCCESS;
 }

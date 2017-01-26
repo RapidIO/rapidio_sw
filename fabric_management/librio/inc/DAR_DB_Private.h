@@ -32,7 +32,6 @@
  */
 
 #include "rio_standard.h"
-#include "DAR_DB.h"
 #include "RapidIO_Device_Access_Routines_API.h"
 
 #ifndef __DAR_DB_PRIVATE_H__
@@ -42,25 +41,13 @@
 extern "C" {
 #endif
 
-/* Device Access Routines (DAR) Private interface.
- *
- *  Private interface, contains implementation specific details of the DAR.
- *
- *  Trust me, you don't want to use this in your implementation of DAR routines.
- */
-
-extern DAR_DB_Driver_t driver_db[DAR_DB_MAX_DRIVERS];
-
 /* Hide these two macros in order to preserve details of
- *  the device handle implementation.
- */
-#define VALIDATE_DEV_INFO(dev_info) ( (0 != dev_info) \
-		&& (((dev_info->db_h >> 16) & RIO_DEV_IDENT_VEND) \
-				== (dev_info->devID & RIO_DEV_IDENT_VEND)) \
-		&& ((DAR_DB_INDEX(dev_info)) < DAR_DB_MAX_DRIVERS))
-
-#define DAR_DB_INDEX(dev_info) (((dev_info->db_h & 0x0000FFFF) >= DAR_DB_MAX_DRIVERS) \
-		? (DAR_DB_MAX_DRIVERS - 1):(dev_info->db_h & 0x0000FFFF))
+*  the device handle implementation.
+*/
+#define DAR_DB_MAX_DRIVERS 0x20
+#define VALIDATE_DEV_INFO(dev_info) ((0 != dev_info) \
+                 && (   ((dev_info->db_h >> 16) & RIO_DEV_IDENT_VEND)    \
+                        == (dev_info->devID       & RIO_DEV_IDENT_VEND)))
 
 #define VENDOR_ID(dev_info) ((uint16_t)(dev_info->devID & RIO_DEV_IDENT_VEND))
 

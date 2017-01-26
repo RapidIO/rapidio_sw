@@ -75,9 +75,6 @@ typedef struct DAR_read_entry_out_t_TAG {
 /* Host Specific routine for performing a delay.
    Delays can be longer than specified, but must not be shorter.
 */
-extern void (*WaitSec) ( uint32_t delay_nsec,
-                         uint32_t delay_sec );
-
 void DAR_WaitSec( uint32_t delay_nsec, uint32_t delay_sec );
 
 /* Read num_entries worth of register offsets passed in as in_parms,

@@ -20,8 +20,6 @@
 #define __TSI721_API_H__
 
 #include <stdint.h>
-
-#include "DAR_DB.h"
 #include "DAR_DB_Private.h"
 #include "DSF_DB_Private.h"
 #include "RapidIO_Utilities_API.h"
@@ -42,6 +40,13 @@ uint32_t bind_tsi721_DAR_support( void );
 uint32_t bind_tsi721_DSF_support( void );
 
 /* All Tsi721 routines */
+extern uint32_t IDT_tsi721ReadReg( DAR_DEV_INFO_t *dev_info,
+                                uint32_t  offset,
+                                uint32_t  *readdata );
+
+extern uint32_t IDT_tsi721WriteReg( DAR_DEV_INFO_t *dev_info,
+                                uint32_t  offset,
+                                uint32_t  writedata );
 
 // Port configuration routines
 uint32_t idt_tsi721_pc_get_config  ( DAR_DEV_INFO_t           *dev_info,
