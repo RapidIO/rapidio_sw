@@ -86,7 +86,7 @@ int CLICountReadCmd(struct cli_env *env, int argc, char **argv)
 	if (RIO_SUCCESS == rc) {
 		LOGMSG(env,"\nCounters read successfully\n");
 	} else {
-		LOGMSG(env, "\nFAILED: rc: %d imp rc %d\n",
+		LOGMSG(env, "\nFAILED: rc: %d imp rc 0x%x\n",
 							rc, sc_out.imp_rc);
 	}
 exit:

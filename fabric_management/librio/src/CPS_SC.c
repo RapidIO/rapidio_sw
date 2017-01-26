@@ -164,7 +164,7 @@ uint32_t idt_cps_sc_read_ctrs( DAR_DEV_INFO_t           *dev_info,
    };
 		
    if (   !in_parms->dev_ctrs->num_p_ctrs || 
-         (in_parms->dev_ctrs->num_p_ctrs > CPS_MAX_PORTS) ||
+         (in_parms->dev_ctrs->num_p_ctrs > RIO_MAX_PORTS) ||
 	     !in_parms->dev_ctrs->valid_p_ctrs || 
          (in_parms->dev_ctrs->num_p_ctrs < in_parms->dev_ctrs->valid_p_ctrs)) {
 	rc = RIO_ERR_INVALID_PARAMETER;
