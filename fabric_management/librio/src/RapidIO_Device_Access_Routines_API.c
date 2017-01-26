@@ -35,6 +35,12 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "RapidIO_Source_Config.h"
 #include "rio_ecosystem.h"
+
+#include "CPS_DeviceDriver.h"
+#include "RXS_DeviceDriver.h"
+#include "Tsi721_DeviceDriver.h"
+#include "Tsi57x_DeviceDriver.h"
+
 #include "DAR_DB.h"
 #include "DAR_DB_Private.h"
 
@@ -640,14 +646,17 @@ uint32_t DARrioStdRouteSetDefault(DAR_DEV_INFO_t *dev_info, uint8_t routeportno)
 }
 
 
-uint32_t DARrioSetAssmblyInfo(DAR_DEV_INFO_t *dev_info, uint32_t AsmblyVendID,
-		uint16_t AsmblyRev)
+uint32_t DARrioSetAssmblyInfo(DAR_DEV_INFO_t *dev_info, uint32_t asmblyVendID,
+		uint16_t asmblyRev)
 {
 	if (!VALIDATE_DEV_INFO(dev_info)) {
 		return DAR_DB_INVALID_HANDLE;
 	}
-	return driver_db[DAR_DB_INDEX(dev_info)].rioSetAssmblyInfo(dev_info,
-			AsmblyVendID, AsmblyRev);
+
+	if (RIO_CPS_DEVICE == dev_info->driver_family) {
+		return CPS_rioSetAssmblyInfo(dev_info, asmblyVendID, asmblyRev);
+	}
+	return DARDB_rioSetAssmblyInfo(dev_info, asmblyVendID, asmblyRev);
 }
 
 
@@ -683,8 +692,11 @@ uint32_t DARrioGetPortList(DAR_DEV_INFO_t *dev_info, struct DAR_ptl *ptl_in,
 	if (!ptl_in || !ptl_out) {
 		return RIO_ERR_NULL_PARM_PTR;
 	}
-	return driver_db[DAR_DB_INDEX(dev_info)].rioGetPortList(dev_info,
-			ptl_in, ptl_out);
+
+	if (RIO_CPS_DEVICE == dev_info->driver_family) {
+		return CPS_rioGetPortList(dev_info, ptl_in, ptl_out);
+	}
+	return DARDB_rioGetPortList(dev_info, ptl_in, ptl_out);
 }
 
 
@@ -698,8 +710,11 @@ uint32_t DARrioSetEnumBound(DAR_DEV_INFO_t *dev_info, struct DAR_ptl *ptl,
 	if (!ptl) {
 		return RIO_ERR_NULL_PARM_PTR;
 	}
-	return driver_db[DAR_DB_INDEX(dev_info)].rioSetEnumBound(dev_info, ptl,
-			enum_bnd_val);
+
+	if (RIO_RXS_DEVICE == dev_info->driver_family) {
+		return rxs_rioSetEnumBound(dev_info, ptl, enum_bnd_val);
+	}
+	return DARDB_rioSetEnumBound(dev_info, ptl, enum_bnd_val);
 }
 
 
@@ -800,6 +815,30 @@ uint32_t DARrioDeviceRemoved(DAR_DEV_INFO_t *dev_info)
 		return DAR_DB_DRIVER_INFO;
 	}
 	return RIO_SUCCESS;
+}
+
+uint32_t DARrioDeviceSupported(DAR_DEV_INFO_t *dev_info)
+{
+	if (!VALIDATE_DEV_INFO(dev_info)) {
+		return DAR_DB_INVALID_HANDLE;
+	}
+
+	switch(dev_info->driver_family)
+	{
+	case RIO_CPS_DEVICE:
+		return CPS_rioDeviceSupported(dev_info);
+	case RIO_RXS_DEVICE:
+		return rxs_rioDeviceSupported(dev_info);
+	case RIO_TSI721_DEVICE:
+		return tsi721_rioDeviceSupported(dev_info);
+	case RIO_TSI57X_DEVICE:
+		return tsi57x_rioDeviceSupported(dev_info);
+	case RIO_UNKNOWN_DEVICE:
+		return DARDB_rioDeviceSupported(dev_info);
+	case RIO_UNITIALIZED_DEVICE:
+	default:
+		return DARDB_rioDeviceSupportedStub(dev_info);
+	}
 }
 
 #ifdef __cplusplus

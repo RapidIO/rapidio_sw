@@ -48,8 +48,7 @@ extern "C" {
 // Check set_config with "all ports" as an input parameter.  Endless loop?
 //
 
-static DSF_Handle_t Tsi57x_driver_handle;
-static uint32_t num_Tsi57x_driver_instances;
+DSF_Handle_t Tsi57x_driver_handle;
 
 // Routing table entry value to use when requesting
 // default route or packet discard (no route)
@@ -140,55 +139,37 @@ port_mac_relations_t tsi572_pmr[] = {
   END_PMR_ARRAY
 };
 
-struct {
-        const char   *name;  /* Constant name string */
-        const uint32_t devID;  /* Vendor + Device ID   */
-} device_names[] = {
-{"Tsi572", ((uint32_t)(Tsi572_RIO_DEVID_VAL) << 16) + RIO_VEND_TUNDRA },
-{"Tsi574", ((uint32_t)(Tsi574_RIO_DEVID_VAL) << 16) + RIO_VEND_TUNDRA },
-{"Tsi578", ((uint32_t)(Tsi578_RIO_DEVID_VAL) << 16) + RIO_VEND_TUNDRA },
-{"Tsi576", ((uint32_t)(Tsi576_RIO_DEVID_VAL) << 16) + RIO_VEND_TUNDRA },
-{"Tsi620", ((uint32_t)(Tsi575_RIO_DEVID_VAL) << 16) + RIO_VEND_TUNDRA },
-{"Tsi577", ((uint32_t)(Tsi577_RIO_DEVID_VAL) << 16) + RIO_VEND_TUNDRA },
-};
-
-void getTsiName(DAR_DEV_INFO_t *dev_info)
-{
-        uint32_t i;
-
-        for (i = 0; i < (sizeof(device_names)/sizeof(device_names[0])); i++) {
-                if (device_names[i].devID == dev_info->devID) {
-                        strcpy(dev_info->name, device_names[i].name);
-                        break;
-                };
-        };
-};
-
 #define SCRPAD_EOF_OFFSET 0xFFFFFFFF
 #define SCRPAD_FLAGS_IDX    0
 #define SCRPAD_FIRST_IDX    0
 #define SCRPAD_MASK_IDX     (SCRPAD_FIRST_IDX+Tsi578_MAX_MC_MASKS)
 
 #define ALL_BITS ((uint32_t)(0xFFFFFFFF))
+
 #define MC_IDX_MASK (Tsi578_RIO_MC_IDX_MC_ID| \
 		Tsi578_RIO_MC_IDX_LARGE_SYS| \
 		Tsi578_RIO_MC_IDX_MC_EN)
+
 #define PW_MASK (Tsi578_RIO_PW_DESTID_LARGE_DESTID | \
 		Tsi578_RIO_PW_DESTID_DESTID_LSB | \
 		Tsi578_RIO_PW_DESTID_DESTID_MSB)
+
 #define ERR_DET_MASK (Tsi578_RIO_LOG_ERR_DET_EN_UNSUP_TRANS_EN | \
 		Tsi578_RIO_LOG_ERR_DET_EN_ILL_RESP_EN | \
 		Tsi578_RIO_LOG_ERR_DET_EN_ILL_TRANS_EN)
+
 #define MC_MASK_CFG_MASK ((uint32_t)(Tsi578_RIO_MC_MASK_CFG_PORT_PRESENT | \
-			  Tsi578_RIO_MC_MASK_CFG_MASK_CMD | \
-			Tsi578_RIO_MC_MASK_CFG_EG_PORT_NUM | \
-			Tsi578_RIO_MC_MASK_CFG_MC_MASK_NUM))
+		Tsi578_RIO_MC_MASK_CFG_MASK_CMD | \
+		Tsi578_RIO_MC_MASK_CFG_EG_PORT_NUM | \
+		Tsi578_RIO_MC_MASK_CFG_MC_MASK_NUM))
+
 #define MC_DESTID_MASK ((uint32_t)(Tsi578_RIO_MC_DESTID_CFG_DESTID_BASE | \
-			Tsi578_RIO_MC_DESTID_CFG_DESTID_BASE_LT | \
-			Tsi578_RIO_MC_DESTID_CFG_MASK_NUM_BASE))
+		Tsi578_RIO_MC_DESTID_CFG_DESTID_BASE_LT | \
+		Tsi578_RIO_MC_DESTID_CFG_MASK_NUM_BASE))
+
 #define MC_ASSOC_MASK ((uint32_t)(Tsi578_RIO_MC_DESTID_ASSOC_ASSOC_PRESENT | \
-			Tsi578_RIO_MC_DESTID_ASSOC_CMD | \
-			Tsi578_RIO_MC_DESTID_ASSOC_LARGE))
+		Tsi578_RIO_MC_DESTID_ASSOC_CMD | \
+		Tsi578_RIO_MC_DESTID_ASSOC_LARGE))
 
 const struct scrpad_info scratchpad_const[MAX_DAR_SCRPAD_IDX] = {
 	{Tsi578_RIO_MC_IDX(0) , MC_IDX_MASK},  
@@ -209,17 +190,17 @@ const struct scrpad_info scratchpad_const[MAX_DAR_SCRPAD_IDX] = {
 	{Tsi578_RIO_MC_MSKX(7),Tsi578_RIO_MC_MSKX_MC_MSK},
 	{Tsi578_RIO_COMP_TAG   , Tsi578_RIO_COMP_TAG_CTAG },
 	{Tsi575_RIO_LUT_ATTR   , Tsi578_RIO_LUT_ATTR_DEFAULT_PORT},
-		{Tsi578_RIO_SW_LT_CTL  , Tsi578_RIO_SW_LT_CTL_TVAL},
-		{Tsi578_RIO_PW_DESTID  , PW_MASK},
-		{Tsi578_RIO_LOG_ERR_DET_EN, ERR_DET_MASK},
-		{Tsi578_RIO_PKT_TTL   ,  Tsi578_RIO_PKT_TTL_TTL },
-		{Tsi578_RIO_MC_MASK_CFG, MC_MASK_CFG_MASK},
-		{Tsi578_RIO_MC_DESTID_CFG,   MC_DESTID_MASK},  /* Code expects that this 
-								* is the register immediately before 
-								* Tsi578_RIO_MC_DESTID_ASSOC.
-								*/
-		{Tsi578_RIO_MC_DESTID_ASSOC, MC_ASSOC_MASK},
-		{SCRPAD_EOF_OFFSET, ALL_BITS}
+	{Tsi578_RIO_SW_LT_CTL  , Tsi578_RIO_SW_LT_CTL_TVAL},
+	{Tsi578_RIO_PW_DESTID  , PW_MASK},
+	{Tsi578_RIO_LOG_ERR_DET_EN, ERR_DET_MASK},
+	{Tsi578_RIO_PKT_TTL   ,  Tsi578_RIO_PKT_TTL_TTL },
+	{Tsi578_RIO_MC_MASK_CFG, MC_MASK_CFG_MASK},
+	{Tsi578_RIO_MC_DESTID_CFG,   MC_DESTID_MASK},  /* Code expects that this
+							* is the register immediately before
+							* Tsi578_RIO_MC_DESTID_ASSOC.
+							*/
+	{Tsi578_RIO_MC_DESTID_ASSOC, MC_ASSOC_MASK},
+	{SCRPAD_EOF_OFFSET, ALL_BITS}
 };
 
 const struct scrpad_info *get_scrpad_info( void ) 
@@ -361,43 +342,17 @@ uint32_t init_scratchpad( DAR_DEV_INFO_t *DAR_info )
 	return rc;
 };
 
-uint32_t IDT_tsi57xDeviceSupported( DAR_DEV_INFO_t *DAR_info )
+uint32_t bind_tsi57x_DAR_support(void)
 {
-    uint32_t rc = DAR_DB_NO_DRIVER;
+	DAR_DB_Driver_t DAR_info;
 
-    if ( RIO_VEND_TUNDRA ==  ( DAR_info->devID & RIO_DEV_IDENT_VEND ) )
-    {
-        if ( (RIO_DEVI_TSI57x >> 4) == ( (DAR_info->devID & RIO_DEV_IDENT_DEVI) >> 20) )
-        {
-            /* Now fill out the DAR_info structure... */
-            rc = DARDB_rioDeviceSupportedDefault( DAR_info );
-
-            /* Index and information for DSF is the same as the DAR handle */
-            DAR_info->dsf_h = Tsi57x_driver_handle;
-	rc = init_scratchpad( DAR_info );
-
-            if ( rc == RIO_SUCCESS ) {
-                num_Tsi57x_driver_instances++ ;
-                getTsiName( DAR_info );
-            };
-        }
-    }
-    return rc;
-}
-
-uint32_t bind_tsi57x_DAR_support( void )
-{
-    DAR_DB_Driver_t DAR_info;
-
-    DARDB_Init_Driver_Info( RIO_VEND_TUNDRA, &DAR_info );
-
+	DARDB_Init_Driver_Info( RIO_VEND_TUNDRA, &DAR_info);
 	DAR_info.WriteReg = IDT_tsi57xWriteReg;
 	DAR_info.ReadReg = IDT_tsi57xReadReg;
-    DAR_info.rioDeviceSupported = IDT_tsi57xDeviceSupported;
 
-    DARDB_Bind_Driver( &DAR_info );
-    
-    return RIO_SUCCESS;
+	DARDB_Bind_Driver(&DAR_info);
+
+	return RIO_SUCCESS;
 }
 
 #define TSI57X_HIDDEN_SERDES_REG(xx,yy) ((uint32_t)(0x1E00C+(2*0x100*xx)+(0x40*yy)))

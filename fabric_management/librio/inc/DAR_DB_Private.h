@@ -71,6 +71,37 @@ extern DAR_DB_Driver_t driver_db[DAR_DB_MAX_DRIVERS];
 
 #define DECODE_DEVICE_ID(device) ((uint16_t)((device & RIO_DEV_IDENT_DEVI) >> 16))
 
+/* DARDB_rioGetPortList
+ * Default implementation of rioGetPortList, intended to be called by
+ * driver routines that support different devices which do and do not
+ * have contiguous port numbers.
+ */
+uint32_t DARDB_rioGetPortList(DAR_DEV_INFO_t *dev_info,
+		struct DAR_ptl *ptl_in, struct DAR_ptl *ptl_out);
+
+uint32_t DARDB_rioSetAssmblyInfo(DAR_DEV_INFO_t *dev_info,
+		uint32_t asmblyVendID, uint16_t asmblyRev);
+
+uint32_t DARDB_rioSetEnumBound(DAR_DEV_INFO_t *dev_info,
+		struct DAR_ptl *ptl, int enum_bnd_val);
+
+/* DARDB_rioDeviceSupported
+*  Initializes the dev_info fields by reading RapidIO standard registers from
+*  the device..
+*
+*  Each device driver may call DARDB_rioDeviceSupported to
+*    initialize the device driver information structure.
+*
+*  If this is not a device supported by the driver, rioDeviceSupported
+*    implementations must return DAR_DB_NO_DRIVER.
+*
+*  If this is a device supported by the driver, rioDeviceSupported must
+*    return RIO_SUCCESS.
+*/
+uint32_t DARDB_rioDeviceSupported( DAR_DEV_INFO_t *dev_info );
+
+uint32_t DARDB_rioDeviceSupportedStub(DAR_DEV_INFO_t *dev_info);
+
 #ifdef __cplusplus
 }
 #endif

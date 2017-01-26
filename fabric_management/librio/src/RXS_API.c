@@ -51,11 +51,7 @@ extern "C" {
 #define NUM_RXS_PORTS(x) ((NUM_PORTS(x) > RXS2448_MAX_PORTS) ? \
 				RXS2448_MAX_PORTS : NUM_PORTS(x))
 
-static DSF_Handle_t RXS_driver_handle;
-static uint32_t num_RXS_driver_instances;
-
-
-
+DSF_Handle_t RXS_driver_handle;
 
 /* Initials counters on selected ports
  */
@@ -1621,16 +1617,6 @@ exit:
     return rc;
 }
 
-uint32_t rxs_rioSetEnumBound( DAR_DEV_INFO_t *dev_info,
-                                  struct DAR_ptl *ptl,
-			          int             enum_bnd_val )
-{
-	if (NULL != dev_info || !ptl || enum_bnd_val)
-		return RIO_SUCCESS;
-
-	return RIO_SUCCESS;
-}
-
 uint32_t rxs_pc_dev_reset_config( DAR_DEV_INFO_t                 *dev_info,
 	                              rio_pc_dev_reset_config_in_t   *in_parms,
 	                              rio_pc_dev_reset_config_out_t  *out_parms )
@@ -1661,52 +1647,12 @@ uint32_t rxs_em_dev_rpt_ctl( DAR_DEV_INFO_t            *dev_info,
 	return RIO_SUCCESS;
 }
 
-uint32_t rxs_DeviceSupported( DAR_DEV_INFO_t *DAR_info )
-{
-	uint32_t rc = DAR_DB_NO_DRIVER;
-
-	if (RXS_RIO_DEVICE_VENDOR == (DAR_info->devID & RIO_DEV_IDENT_VEND))
-	{
-		if ((RIO_DEVI_IDT_RXS2448) == ((DAR_info->devID & RIO_DEV_IDENT_DEVI) >> 16))
-		{
-			/* Now fill out the DAR_info structure... */
-			rc = DARDB_rioDeviceSupportedDefault(DAR_info);
-
-			/* Index and information for DSF is the same as the DAR handle */
-			DAR_info->dsf_h = RXS_driver_handle;
-
-			if (rc == RIO_SUCCESS) {
-				num_RXS_driver_instances++;
-				strncpy(DAR_info->name, "RXS2448", sizeof(DAR_info->name));
-			}
-		}
-		else if ((RIO_DEVI_IDT_RXS1632) == ((DAR_info->devID & RIO_DEV_IDENT_DEVI) >> 16))
-                {
-                        /* Now fill out the DAR_info structure... */
-                        rc = DARDB_rioDeviceSupportedDefault(DAR_info);
-
-                        /* Index and information for DSF is the same as the DAR handle */
-                        DAR_info->dsf_h = RXS_driver_handle;
-
-                        if (rc == RIO_SUCCESS) {
-                                num_RXS_driver_instances++;
-                                strncpy(DAR_info->name, "RXS1632", sizeof(DAR_info->name));
-                        }
-                }
-	}
-	return rc;
-}
 
 uint32_t bind_rxs_DAR_support(void)
 {
 	DAR_DB_Driver_t DAR_info;
 
 	DARDB_Init_Driver_Info(RIO_VEND_IDT, &DAR_info);
-
-	DAR_info.rioDeviceSupported = rxs_DeviceSupported;
-
-	DAR_info.rioSetEnumBound = rxs_rioSetEnumBound;
-
 	DARDB_Bind_Driver(&DAR_info);
 
 	return RIO_SUCCESS;

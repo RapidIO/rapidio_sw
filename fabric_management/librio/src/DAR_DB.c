@@ -117,129 +117,130 @@ uint32_t DARDB_WriteReg( DAR_DEV_INFO_t *dev_info,
   
    Device drivers MUST implement their own versions of these routines.
 */
-uint32_t DARDB_rioSetAssmblyInfo( DAR_DEV_INFO_t *dev_info,
-                                               uint32_t  AsmblyVendID, 
-                                               uint16_t  AsmblyRev    )
+uint32_t DARDB_rioSetAssmblyInfo(DAR_DEV_INFO_t *dev_info,
+		uint32_t asmblyVendID, uint16_t asmblyRev)
 {
-    if (NULL == dev_info)
-       return RIO_ERR_NULL_PARM_PTR;
+	if (NULL == dev_info) {
+		return RIO_ERR_NULL_PARM_PTR;
+	}
 
-    if (AsmblyVendID || AsmblyRev)
-       return RIO_ERR_FEATURE_NOT_SUPPORTED;
+	if (asmblyVendID || asmblyRev) {
+		return RIO_ERR_FEATURE_NOT_SUPPORTED;
+	}
 
-    return RIO_ERR_FEATURE_NOT_SUPPORTED;
+	return RIO_ERR_FEATURE_NOT_SUPPORTED;
 }
 
 
-uint32_t DARDB_rioGetPortListDefault ( DAR_DEV_INFO_t  *dev_info ,
-									struct DAR_ptl	*ptl_in,
-									struct DAR_ptl	*ptl_out )
+uint32_t DARDB_rioGetPortList(DAR_DEV_INFO_t *dev_info, struct DAR_ptl *ptl_in,
+		struct DAR_ptl *ptl_out)
 {
-   uint8_t idx;
-   uint32_t rc = RIO_ERR_INVALID_PARAMETER;
-   bool dup_port_num[RIO_MAX_PORTS] = {false};
+	uint8_t idx;
+	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+	bool dup_port_num[RIO_MAX_PORTS] = {false};
 
-   ptl_out->num_ports = 0;
+	ptl_out->num_ports = 0;
 
-   if ((ptl_in->num_ports > NUM_PORTS(dev_info)) && (ptl_in->num_ports != RIO_ALL_PORTS))
-	   goto exit;
-   if ((ptl_in->num_ports > RIO_MAX_PORTS) && (ptl_in->num_ports != RIO_ALL_PORTS))
-	   goto exit;
+	if ((ptl_in->num_ports > NUM_PORTS(dev_info))
+			&& (ptl_in->num_ports != RIO_ALL_PORTS)) {
+		goto exit;
+	}
+	if ((ptl_in->num_ports > RIO_MAX_PORTS)
+			&& (ptl_in->num_ports != RIO_ALL_PORTS)) {
+		goto exit;
+	}
 
-   if (!(ptl_in->num_ports))
-	   goto exit;
+	if (!(ptl_in->num_ports)) {
+		goto exit;
+	}
 
-   if (RIO_ALL_PORTS == ptl_in->num_ports) {
-      ptl_out->num_ports = NUM_PORTS(dev_info);
-      for (idx = 0; idx < NUM_PORTS(dev_info); idx++)
-         ptl_out->pnums[idx] = idx;
-   } else {
-      ptl_out->num_ports = ptl_in->num_ports;
-      for (idx = 0; idx < ptl_in->num_ports; idx++) {
-         ptl_out->pnums[idx] = ptl_in->pnums[idx];
-	     if ((ptl_out->pnums[idx] >= NUM_PORTS(dev_info)) ||
-	        (dup_port_num[ptl_out->pnums[idx]]          )) {
-			ptl_out->num_ports = 0;
-			rc = RIO_ERR_PORT_ILLEGAL(idx);
-	        goto exit;
-	     };
-	     dup_port_num[ptl_out->pnums[idx]] = true;
-      };
-   };
-   rc = RIO_SUCCESS;
+	if (RIO_ALL_PORTS == ptl_in->num_ports) {
+		ptl_out->num_ports = NUM_PORTS(dev_info);
+		for (idx = 0; idx < NUM_PORTS(dev_info); idx++) {
+			ptl_out->pnums[idx] = idx;
+		}
+	} else {
+		ptl_out->num_ports = ptl_in->num_ports;
+		for (idx = 0; idx < ptl_in->num_ports; idx++) {
+			ptl_out->pnums[idx] = ptl_in->pnums[idx];
+			if ((ptl_out->pnums[idx] >= NUM_PORTS(dev_info))
+					|| (dup_port_num[ptl_out->pnums[idx]])) {
+				ptl_out->num_ports = 0;
+				rc = RIO_ERR_PORT_ILLEGAL(idx);
+				goto exit;
+			}
+			dup_port_num[ptl_out->pnums[idx]] = true;
+		}
+	}
+	rc = RIO_SUCCESS;
 
 exit:
-   return rc;
-};
+	return rc;
+}
 
-static uint32_t DARDB_rioSetEnumBound( DAR_DEV_INFO_t *dev_info,
-                                     struct DAR_ptl *ptl,
-					int enum_bnd_val )
+uint32_t DARDB_rioSetEnumBound(DAR_DEV_INFO_t *dev_info,
+		struct DAR_ptl *ptl, int enum_bnd_val)
 {
-    uint32_t rc = RIO_ERR_FEATURE_NOT_SUPPORTED;
-    uint32_t currCSR, tempCSR;
+	uint32_t rc = RIO_ERR_FEATURE_NOT_SUPPORTED;
+	uint32_t currCSR, tempCSR;
 	struct DAR_ptl good_ptl;
 	uint8_t idx;
-    enum_bnd_val = !!enum_bnd_val;
-	
-    if ( dev_info->extFPtrForPort )
-    {
-		rc = DARrioGetPortList( dev_info, ptl, &good_ptl);
-		if (rc != RIO_SUCCESS)
+	enum_bnd_val = !!enum_bnd_val;
+
+	if (dev_info->extFPtrForPort) {
+		rc = DARrioGetPortList(dev_info, ptl, &good_ptl);
+		if (rc != RIO_SUCCESS) {
 			goto exit;
+		}
 
-        for ( idx = 0; idx < good_ptl.num_ports; idx++) 
-        {
-            rc = DARRegRead( dev_info,
-                             RIO_SPX_CTL( dev_info->extFPtrForPort,
-						dev_info->extFPtrPortType, 
-                                                     good_ptl.pnums[idx] ),
-                            &currCSR ) ;
-            if ( RIO_SUCCESS == rc )
-            {
-		if (enum_bnd_val) {
-                	tempCSR = currCSR | RIO_SPX_CTL_ENUM_B;
-		} else {
-                	tempCSR = currCSR & ~RIO_SPX_CTL_ENUM_B;
-		};
-		if (tempCSR == currCSR)
-			continue;
+		for (idx = 0; idx < good_ptl.num_ports; idx++) {
+			rc =
+					DARRegRead(dev_info,
+							RIO_SPX_CTL(
+									dev_info->extFPtrForPort,
+									dev_info->extFPtrPortType,
+									good_ptl.pnums[idx]),
+							&currCSR);
+			if ( RIO_SUCCESS == rc) {
+				if (enum_bnd_val) {
+					tempCSR = currCSR | RIO_SPX_CTL_ENUM_B;
+				} else {
+					tempCSR = currCSR & ~RIO_SPX_CTL_ENUM_B;
+				}
 
-                rc = DARRegWrite( dev_info,
-                                  RIO_SPX_CTL(
-                                                      dev_info->extFPtrForPort,
-						dev_info->extFPtrPortType, 
-                                                      good_ptl.pnums[idx] ),
-                                  tempCSR ) ;
-                if ( RIO_SUCCESS == rc )
-                {
-                    rc = DARRegRead( dev_info,
-                                     RIO_SPX_CTL(
-                                                      dev_info->extFPtrForPort,
-						dev_info->extFPtrPortType, 
-                                                      good_ptl.pnums[idx] ),
-                                    &tempCSR ) ;
-                    if ( tempCSR != currCSR )
-                        rc = RIO_ERR_FEATURE_NOT_SUPPORTED ;
-                }
-            }
-        }
-    }
+				if (tempCSR == currCSR) {
+					continue;
+				}
+
+				rc =
+						DARRegWrite(dev_info,
+								RIO_SPX_CTL(
+										dev_info->extFPtrForPort,
+										dev_info->extFPtrPortType,
+										good_ptl.pnums[idx]),
+								tempCSR);
+				if ( RIO_SUCCESS == rc) {
+					rc =
+							DARRegRead(dev_info,
+									RIO_SPX_CTL(
+											dev_info->extFPtrForPort,
+											dev_info->extFPtrPortType,
+											good_ptl.pnums[idx]),
+									&tempCSR);
+					if (tempCSR != currCSR) {
+						rc =
+								RIO_ERR_FEATURE_NOT_SUPPORTED;
+					}
+				}
+			}
+		}
+	}
 exit:
-    return rc;
+	return rc;
 }
 
 
-static uint32_t DARDB_rioDeviceSupportedStub( DAR_DEV_INFO_t *dev_info )
-{
-    if (NULL == dev_info)
-       return RIO_ERR_NULL_PARM_PTR;
-
-    return DAR_DB_NO_DRIVER;
-}
-
-
-/* DARDB_rioDeviceSupportedDefault updates the database handle field,
+/* DARDB_rioDeviceSupported updates the database handle field,
    db_h, in dev_info to reflect the passed in index.
   
    The dev_info->devID field must be valid when this routine is called.
@@ -252,134 +253,145 @@ static uint32_t DARDB_rioDeviceSupportedStub( DAR_DEV_INFO_t *dev_info )
    their DAR_DEV_INFO_t fields are correctly filled in.  Device specific
    fixups can be added after a call to this routine.
 */
-uint32_t DARDB_rioDeviceSupportedDefault( DAR_DEV_INFO_t *dev_info )
+uint32_t DARDB_rioDeviceSupported(DAR_DEV_INFO_t *dev_info)
 {
-    uint32_t rc;
+	uint32_t rc;
 
-    /* The reading devID should be unnecessary,
-       but it should not hurt to do so here.
-    */
-    rc = ReadReg( dev_info, RIO_DEV_IDENT, &dev_info->devID ) ;
-    if ( RIO_SUCCESS != rc )
-        return rc;
-    dev_info->driver_family = rio_get_driver_family(dev_info->devID);
+	/* The reading devID should be unnecessary,
+	 but it should not hurt to do so here.
+	 */
+	rc = ReadReg(dev_info, RIO_DEV_IDENT, &dev_info->devID);
+	if ( RIO_SUCCESS != rc) {
+		return rc;
+	}
+	dev_info->driver_family = rio_get_driver_family(dev_info->devID);
 
-    rc = ReadReg( dev_info, RIO_DEV_INF, &dev_info->devInfo ) ;
-    if ( RIO_SUCCESS != rc )
-        return rc;
+	rc = ReadReg(dev_info, RIO_DEV_INF, &dev_info->devInfo);
+	if ( RIO_SUCCESS != rc) {
+		return rc;
+	}
 
-    rc = ReadReg( dev_info, RIO_ASSY_INF, &dev_info->assyInfo ) ;
-    if ( RIO_SUCCESS != rc )
-        return rc;
+	rc = ReadReg(dev_info, RIO_ASSY_INF, &dev_info->assyInfo);
+	if ( RIO_SUCCESS != rc)
+		return rc;
 
-    rc = ReadReg( dev_info, RIO_PE_FEAT, &dev_info->features ) ;
-    if ( RIO_SUCCESS != rc )
-        return rc;
+	rc = ReadReg(dev_info, RIO_PE_FEAT, &dev_info->features);
+	if ( RIO_SUCCESS != rc) {
+		return rc;
+	}
 
-    /* swPortInfo can be supported by endpoints.
-       May as well read the register...
-    */
-    rc = ReadReg( dev_info, RIO_SW_PORT_INF, &dev_info->swPortInfo ) ;
-    if ( RIO_SUCCESS != rc )
-        return rc;
+	/* swPortInfo can be supported by endpoints.
+	 May as well read the register...
+	 */
+	rc = ReadReg(dev_info, RIO_SW_PORT_INF, &dev_info->swPortInfo);
+	if ( RIO_SUCCESS != rc) {
+		return rc;
+	}
 
-    if ( !dev_info->swPortInfo )
-        dev_info->swPortInfo = 0x00000100 ; /* Default for endpoints is 1 port
-                                            */
+	if (!dev_info->swPortInfo)
+		dev_info->swPortInfo = 0x00000100; /* Default for endpoints is 1 port
+		 */
 
-    if ( dev_info->features & RIO_PE_FEAT_SW )
-    {
-        rc = ReadReg( dev_info, RIO_SW_RT_TBL_LIM, &dev_info->swRtInfo ) ;
-        if ( RIO_SUCCESS != rc )
-            return rc;
-    }
+	if (dev_info->features & RIO_PE_FEAT_SW) {
+		rc = ReadReg(dev_info, RIO_SW_RT_TBL_LIM, &dev_info->swRtInfo);
+		if ( RIO_SUCCESS != rc) {
+			return rc;
+		}
+	}
 
-    rc = ReadReg( dev_info, RIO_SRC_OPS, &dev_info->srcOps ) ;
-    if ( RIO_SUCCESS != rc )
-        return rc;
+	rc = ReadReg(dev_info, RIO_SRC_OPS, &dev_info->srcOps);
+	if ( RIO_SUCCESS != rc) {
+		return rc;
+	}
 
-    rc = ReadReg( dev_info, RIO_DST_OPS, &dev_info->dstOps ) ;
-    if ( RIO_SUCCESS != rc )
-        return rc;
+	rc = ReadReg(dev_info, RIO_DST_OPS, &dev_info->dstOps);
+	if ( RIO_SUCCESS != rc) {
+		return rc;
+	}
 
-    if (dev_info->features & RIO_PE_FEAT_MC)
-    {
-	rc = ReadReg(dev_info, RIO_SW_MC_INF, &dev_info->swMcastInfo);
-        if ( RIO_SUCCESS != rc )
-            return rc;
-    }
+	if (dev_info->features & RIO_PE_FEAT_MC) {
+		rc = ReadReg(dev_info, RIO_SW_MC_INF, &dev_info->swMcastInfo);
+		if ( RIO_SUCCESS != rc) {
+			return rc;
+		}
+	}
 
-    if ( dev_info->features & RIO_PE_FEAT_EFB_VALID )
-    {
-        uint32_t curr_ext_feat;
-        uint32_t prev_addr;
+	if (dev_info->features & RIO_PE_FEAT_EFB_VALID) {
+		uint32_t curr_ext_feat;
+		uint32_t prev_addr;
 
-        rc = DARrioGetExtFeaturesPtr( dev_info, &prev_addr ) ;
-        while ( ( RIO_SUCCESS == rc ) && prev_addr )
-        {
-            rc = ReadReg(dev_info, prev_addr, &curr_ext_feat);
-            if (RIO_SUCCESS != rc)
-                return rc;
+		rc = DARrioGetExtFeaturesPtr(dev_info, &prev_addr);
+		while (( RIO_SUCCESS == rc) && prev_addr) {
+			rc = ReadReg(dev_info, prev_addr, &curr_ext_feat);
+			if (RIO_SUCCESS != rc) {
+				return rc;
+			}
 
-            switch( curr_ext_feat & RIO_EFB_T )
-            {
-                case RIO_EFB_T_SP_EP           :
-                case RIO_EFB_T_SP_EP_SAER      :
-                case RIO_EFB_T_SP_NOEP      :
-                case RIO_EFB_T_SP_NOEP_SAER :
-	            dev_info->extFPtrPortType = curr_ext_feat & 
-			                         RIO_EFB_T;
-                    dev_info->extFPtrForPort = prev_addr;
-                    break;
+			switch (curr_ext_feat & RIO_EFB_T) {
+			case RIO_EFB_T_SP_EP:
+			case RIO_EFB_T_SP_EP_SAER:
+			case RIO_EFB_T_SP_NOEP:
+			case RIO_EFB_T_SP_NOEP_SAER:
+				dev_info->extFPtrPortType = curr_ext_feat &
+				RIO_EFB_T;
+				dev_info->extFPtrForPort = prev_addr;
+				break;
 
-                case RIO_EFB_T_EMHS :
-                    dev_info->extFPtrForErr = prev_addr;
-                    break;
+			case RIO_EFB_T_EMHS:
+				dev_info->extFPtrForErr = prev_addr;
+				break;
 
-                case RIO_EFB_T_HS:
-                    dev_info->extFPtrForHS = prev_addr;
-                    break;
+			case RIO_EFB_T_HS:
+				dev_info->extFPtrForHS = prev_addr;
+				break;
 
-                case RIO_EFB_T_LANE :
-                    dev_info->extFPtrForLane = prev_addr;
-                    break;
+			case RIO_EFB_T_LANE:
+				dev_info->extFPtrForLane = prev_addr;
+				break;
 
-                case RIO_EFB_T_VC:
-                    dev_info->extFPtrForLane = prev_addr;
-                    break;
+			case RIO_EFB_T_VC:
+				dev_info->extFPtrForLane = prev_addr;
+				break;
 
-                case RIO_EFB_T_V0Q:
-                    dev_info->extFPtrForVOQ = prev_addr;
-                    break;
+			case RIO_EFB_T_V0Q:
+				dev_info->extFPtrForVOQ = prev_addr;
+				break;
 
-                case RIO_EFB_T_RT:
-                    dev_info->extFPtrForRT = prev_addr;
-                    break;
+			case RIO_EFB_T_RT:
+				dev_info->extFPtrForRT = prev_addr;
+				break;
 
-                case RIO_EFB_T_TS:
-                    dev_info->extFPtrForTS = prev_addr;
-                    break;
+			case RIO_EFB_T_TS:
+				dev_info->extFPtrForTS = prev_addr;
+				break;
 
-                case RIO_EFB_T_MISC:
-                    dev_info->extFPtrForMISC = prev_addr;
-                    break;
+			case RIO_EFB_T_MISC:
+				dev_info->extFPtrForMISC = prev_addr;
+				break;
 
-                default:
-					if (0xFFFFFFFF == curr_ext_feat) {
-						// Register access has failed.
-						rc = RIO_ERR_ACCESS;
-						goto DARDB_rioDeviceSupportedDefault_fail;
-					};
-                    break;
-            }
-            prev_addr = curr_ext_feat >> 16 ;
-        }
-    }
-DARDB_rioDeviceSupportedDefault_fail:
-    return rc;
+			default:
+				if (0xFFFFFFFF == curr_ext_feat) {
+					// Register access has failed.
+					return RIO_ERR_ACCESS;
+				}
+				break;
+			}
+			prev_addr = curr_ext_feat >> 16;
+		}
+	}
+	return rc;
 }
 
+uint32_t DARDB_rioDeviceSupportedStub(DAR_DEV_INFO_t *dev_info)
+{
+	if (NULL == dev_info) {
+		return RIO_ERR_NULL_PARM_PTR;
 
+	}
+	return DAR_DB_NO_DRIVER;
+}
+
+extern uint32_t DARrioDeviceSupported(DAR_DEV_INFO_t *dev_info);
 uint32_t DAR_Find_Driver_for_Device( bool    dev_info_devID_valid,
                            DAR_DEV_INFO_t *dev_info )
 {
@@ -414,7 +426,7 @@ uint32_t DAR_Find_Driver_for_Device( bool    dev_info_devID_valid,
           driverIdx++ )
     {
         update_db_h( dev_info, driverIdx ) ;
-        rc = driver_db[driverIdx].rioDeviceSupported( dev_info ) ;
+        rc = DARrioDeviceSupported(dev_info) ;
     }
 
 	if (RIO_SUCCESS == rc) {
@@ -441,18 +453,11 @@ exit:
 
 
 /* Initialize driver_db with defined max number of driver */
-
-void init_DAR_driver( DAR_DB_Driver_t *DAR_info )
+void init_DAR_driver(DAR_DB_Driver_t *DAR_info)
 {
-    DAR_info->ReadReg                  = DARDB_ReadReg;
-    DAR_info->WriteReg                 = DARDB_WriteReg;
-    DAR_info->WaitSec                  = DAR_WaitSec;
-
-    DAR_info->rioSetAssmblyInfo        = DARDB_rioSetAssmblyInfo;
-    DAR_info->rioGetPortList           = DARDB_rioGetPortListDefault;
-    DAR_info->rioSetEnumBound          = DARDB_rioSetEnumBound;
-
-    DAR_info->rioDeviceSupported       = DARDB_rioDeviceSupportedStub;
+	DAR_info->ReadReg = DARDB_ReadReg;
+	DAR_info->WriteReg = DARDB_WriteReg;
+	DAR_info->WaitSec = DAR_WaitSec;
 }
 
 uint32_t DARDB_init()
@@ -469,8 +474,6 @@ uint32_t DARDB_init()
 		init_DAR_driver( &driver_db[idx] );
     }
 
-    driver_db[DAR_DB_MAX_INDEX].rioDeviceSupported
-                                              = DARDB_rioDeviceSupportedDefault;
     driver_db[DAR_DB_MAX_INDEX].db_h          = DAR_DB_MAX_INDEX ;
 
     return RIO_SUCCESS;

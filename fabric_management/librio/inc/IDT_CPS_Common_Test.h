@@ -55,12 +55,6 @@ extern "C" {
 #define NUM_CPS_PORTS(dev_info) ((NUM_PORTS(dev_info) > CPS_MAX_PORTS) ? \
                         CPS_MAX_PORTS : NUM_PORTS(dev_info))
 
-// Common implementation of rioSetAssmblyInfo for all CPS Gen 1 & 2
-//
-extern uint32_t CPS_rioSetAssmblyInfo( DAR_DEV_INFO_t *dev_info, 
-                                             uint32_t  AsmblyVendID, 
-                                             uint16_t  AsmblyRev    );
-
 // Structures and routines exposed for software test purposes...
 
 #define INVALID_PLL 0xFF

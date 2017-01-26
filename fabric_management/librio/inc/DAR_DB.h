@@ -109,44 +109,7 @@ typedef struct DAR_DB_Driver_t_TAG
     void   (*WaitSec) ( uint32_t delay_nsec,
                         uint32_t delay_sec );
 
-    /* Device Specific routines for system bring up.
-    *  Device drivers MUST implement their own versions of these routines.
-    */
-    uint32_t (*rioSetAssmblyInfo       )( DAR_DEV_INFO_t *dev_info,
-                                                uint32_t AsmblyVendID,
-                                                uint16_t AsmblyRev);
-
-    uint32_t (*rioGetPortList          )( DAR_DEV_INFO_t  *dev_info ,
-                                                struct DAR_ptl  *ptl_in,
-                                                struct DAR_ptl  *ptl_out);
-
-    uint32_t (*rioSetEnumBound         )( DAR_DEV_INFO_t  *dev_info,
-                                                struct DAR_ptl  *ptl_in,
-                                                int             enum_bnd_val);
-
-    /* rioDeviceSupported will be invoked by DAR_Find_Driver_for_Device to see 
-    *    if the device type specified by dev_info->devID (device manufacturer,
-    *    device number) is supported by this driver.  Note that dev_info->db_h 
-    *    is also valid, so all DAR driver routines can be called.
-    *
-    *  Each device driver may call DARDB_rioDeviceSupportedDefault to 
-    *    initialize the device driver information structure.
-    *
-    *  If this is not a device supported by the driver, rioDeviceSupported
-    *    implementations must return DAR_DB_NO_DRIVER.
-    *
-    *  If this is a device supported by the driver, rioDeviceSupported must 
-    *    return RIO_SUCCESS.
-    */ 
-    uint32_t (*rioDeviceSupported)( DAR_DEV_INFO_t *dev_info );
 } DAR_DB_Driver_t;
-
-/* Default implementation of DARRioGetPortList, made available for
- * device specific implementations.
- */
-uint32_t DARDB_rioGetPortList(DAR_DEV_INFO_t  *dev_info ,
-							struct DAR_ptl	*ptl_in,
-							struct DAR_ptl	*ptl_out );
 
 /* DARDB_Init_Device_Info
 *
@@ -168,24 +131,6 @@ uint32_t DARDB_Init_Driver_Info( uint32_t VendorID, DAR_DB_Driver_t *DAR_info );
 *  Will fail if implementation specific versions of rioDeviceSupported is not bound in.
 */
 uint32_t DARDB_Bind_Driver( DAR_DB_Driver_t *dev_info );
-
-/* DARDB_rioDeviceSupporetedDefault 
-*  Initializes the dev_info fields by reading RapidIO standard registers from 
-*  the device.
-*
-*  Intended to be called by any implementation of rioDeviceSupported to 
-*  initialize dev_info.
-*/
-uint32_t DARDB_rioDeviceSupportedDefault( DAR_DEV_INFO_t *dev_info );
-
-/* DARDB_rioGetPortListDefault
- * Default implementation of rioGetPortList, intended to be called by
- * driver routines that support different devices which do and do not 
- * have contiguous port numbers.
- */
-uint32_t DARDB_rioGetPortListDefault ( DAR_DEV_INFO_t  *dev_info ,
-									struct DAR_ptl	*ptl_in,
-									struct DAR_ptl	*ptl_out );
 
 #ifdef __cplusplus
 }

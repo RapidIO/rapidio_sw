@@ -53,17 +53,6 @@ extern "C" {
 uint32_t num_idt_drivers_in_use;
 IDT_DSF_DB_t IDT_DB[DAR_DB_MAX_DRIVERS];
 
-uint32_t CPS_rioSetAssmblyInfo( DAR_DEV_INFO_t *dev_info, 
-                                      uint32_t  AsmblyVendID, 
-                                      uint16_t  AsmblyRev    ) 
-{
-   uint32_t rc = DARRegWrite( dev_info, CPS1848_ASSY_IDENT_CAR_OVRD, AsmblyVendID );
-
-   if (RIO_SUCCESS == rc) 
-     rc = DARRegWrite(dev_info, CPS1848_ASSY_INF_CAR_OVRD, (uint32_t)(AsmblyRev));
-
-   return rc;
-}
 
 /* Default routines */
 uint32_t RIO_DSF_rt_initialize( DAR_DEV_INFO_t           *dev_info, 

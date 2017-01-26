@@ -52,8 +52,7 @@ extern "C" {
 // Check set_config with "all ports" as an input parameter.  Endless loop?
 //
 
-static DSF_Handle_t Tsi721_driver_handle;
-static uint32_t num_Tsi721_driver_instances;
+DSF_Handle_t Tsi721_driver_handle;
 
 uint32_t IDT_tsi721ReadReg( DAR_DEV_INFO_t *dev_info,
 				uint32_t  offset,
@@ -116,31 +115,6 @@ uint32_t IDT_tsi721WriteReg( DAR_DEV_INFO_t *dev_info,
 // default route or packet discard (no route)
 #define HW_DFLT_RT 0xFF
 
-uint32_t IDT_tsi721DeviceSupported( DAR_DEV_INFO_t *DAR_info )
-{
-	uint32_t rc = DAR_DB_NO_DRIVER;
-
-	if (TSI721_DEVICE_VENDOR == (DAR_info->devID & RIO_DEV_IDENT_VEND))
-	{
-		if ((RIO_DEVI_IDT_TSI721) ==
-			((DAR_info->devID & RIO_DEV_IDENT_DEVI) >> 16)) {
-			// Now fill out the DAR_info structure...
-			rc = DARDB_rioDeviceSupportedDefault( DAR_info );
-
-			// Index and information for DSF is the same
- 			// as the DAR handle
-			DAR_info->dsf_h = Tsi721_driver_handle;
-
-			if ( rc == RIO_SUCCESS ) {
-				num_Tsi721_driver_instances++;
-				SAFE_STRNCPY(DAR_info->name, "Tsi721",
-							sizeof(DAR_info->name));
-			}
-		}
-	}
-	return rc;
-}
-
 uint32_t bind_tsi721_DAR_support( void )
 {
 	DAR_DB_Driver_t DAR_info;
@@ -148,8 +122,6 @@ uint32_t bind_tsi721_DAR_support( void )
 	DARDB_Init_Driver_Info( RIO_VEND_IDT, &DAR_info );
 	DAR_info.WriteReg = IDT_tsi721WriteReg;
 	DAR_info.ReadReg = IDT_tsi721ReadReg;
-
-	DAR_info.rioDeviceSupported = IDT_tsi721DeviceSupported;
 
 	DARDB_Bind_Driver( &DAR_info );
 	

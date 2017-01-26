@@ -345,15 +345,14 @@ struct DAR_ptl {
 #define PTL_ALL_PORTS { RIO_ALL_PORTS, {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}}
 extern const struct DAR_ptl ptl_all_ports;
 
-uint32_t DARrioGetPortList ( DAR_DEV_INFO_t  *dev_info ,
-		                struct DAR_ptl	*ptl_in,  
-						struct DAR_ptl	*ptl_out );
+uint32_t DARrioGetPortList(DAR_DEV_INFO_t *dev_info,
+		struct DAR_ptl *ptl_in, struct DAR_ptl *ptl_out);
 
 /* NEW DAR ROUTINE, sets enumeration boundary bit for specified port(s)
 */
 
-uint32_t DARrioSetEnumBound (DAR_DEV_INFO_t *dev_info, struct DAR_ptl *ptl,
-			int enum_bnd_val);
+uint32_t DARrioSetEnumBound(DAR_DEV_INFO_t *dev_info,
+		struct DAR_ptl *ptl, int enum_bnd_val);
 
 /* NEW DAR ROUTINE, gets status of device reset initialization
    Returns either RIO_SUCCESS or a non-zero failure code.
