@@ -41,11 +41,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "CPS1848.h"
 #include "RapidIO_Utilities_API.h"
 #include "RXS_API.h"
-
-#ifdef TSI721_SUPPORT
-#include <Tsi721_API.h>
-#endif
-
+#include "Tsi721_API.h"
 
 #ifdef __cplusplus
 extern "C" {

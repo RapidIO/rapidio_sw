@@ -45,7 +45,7 @@
 extern "C" {
 #endif
 
-#ifdef TSI57X_DAR_WANTED
+#ifdef TSI721_DAR_WANTED
 
 extern DSF_Handle_t Tsi721_driver_handle;
 
@@ -72,7 +72,7 @@ uint32_t tsi721_rioDeviceSupported(DAR_DEV_INFO_t *dev_info)
 	return rc;
 }
 
-#endif /* TSI57X_DAR_WANTED */
+#endif /* TSI721_DAR_WANTED */
 
 #ifdef __cplusplus
 }

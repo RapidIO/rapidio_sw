@@ -44,11 +44,7 @@ extern "C" {
 #define TSI57X_DAR_WANTED
 #define CPS_DAR_WANTED
 #define RXSx_DAR_WANTED
-
-
-#ifdef TSI721_SUPPORT
 #define TSI721_DAR_WANTED
-#endif
 
 #ifdef __cplusplus
 }

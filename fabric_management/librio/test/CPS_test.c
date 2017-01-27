@@ -121,7 +121,6 @@ static void cps_test_setup(void)
  */
 static int setup(void **state)
 {
-	DARDB_init();
 	cps_test_setup();
 
 	(void)state; // unused

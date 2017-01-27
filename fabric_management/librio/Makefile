@@ -19,7 +19,7 @@ LOG_LEVEL?=4
 DEBUG?=DEBUG
 
 CFLAGS+=$(addprefix -W,all extra) -fPIC
-CFLAGS+=-DNDEBUG -DTSI721_SUPPORT
+CFLAGS+=-DNDEBUG
 CFLAGS+=-I./inc
 CFLAGS+=-I$(FMDDIR)/librio/inc
 
