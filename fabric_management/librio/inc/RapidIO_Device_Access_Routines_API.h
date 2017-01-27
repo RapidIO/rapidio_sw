@@ -78,103 +78,99 @@ typedef uint32_t DSF_Handle_t;    /* Device Specific Function Handle, not */
 #define NAME_SIZE	15
 #define MAX_DAR_SCRPAD_IDX  30
 
+typedef struct rio_perf_opt_reg_t_TAG {
+	uint32_t offset;
+	uint32_t data;
+} rio_perf_opt_reg_t;
+
 typedef struct DAR_DEV_INFO_t_TAG
 {
-    DAR_DB_Handle_t db_h; /* Handle value used to access DAR routines
-                          */
-    void   *privateData;  /* Pointer to a fabric management private data
-			   * for this device.
-                           */
-    void   *accessInfo;   /* Pointer to an access info structure
-                          */
-    char   name[NAME_SIZE];  /* Text name of this device.
-			      */
-    rio_driver_family_t driver_family; /* Based on value of devID */
+    DAR_DB_Handle_t db_h; // Handle value used to access DAR routines
+    void   *privateData;  // Pointer to a fabric management private data
+			  // for this device.
+    void   *accessInfo;   // Pointer to an access info structure
+    char   name[NAME_SIZE];  // Text name of this device.
+    rio_driver_family_t driver_family; // Based on value of devID
+    DSF_Handle_t  dsf_h;  // Handle for access to device-specific functions,
+			  //    if provided.
+			  // The following fields are used by the ReadReg and
+			  // WriteReg host specific routines to determine where
+			  // to access registers (Host or RapidIO network) and
+			  // to specify parameters for routine maintenance
+			  // requests in the RapidIO network.
 
-    DSF_Handle_t  dsf_h;  /* Handle for access to device-specific functions, 
-                                if provided. 
-                             The following fields are used by the ReadReg and 
-                             WriteReg host specific routines to determine where
-                             to access registers (Host or RapidIO network) and
-                             to specify parameters for routine maintenance 
-                             requests in the RapidIO network.
-                          */
-
-    /* Address offsets for various register blocks.
-       A value of 0x00000000 means that the block does not exist on this device.
-    */
-    uint32_t    extFPtrForPort;    /* Offset of LP-Serial Register Extensions 
-                                        block.
-                                 */
+    // Address offsets for various register blocks.
+    // A value of 0x00000000 means that the block does not exist on this device.
+    uint32_t    extFPtrForPort; // Offset of LP-Serial Register Extensions
+				//   block.
     uint32_t    extFPtrPortType;
-                /* RO: ID
-                       0x01: Generic End Point Device
-                       0x02: Generic End Point Device with Software Assisted 
-                                 Error Recovery Opt
-                       0x03: Generic End Point Free Device
-                       0x09: Generic End Point Free Device with Software 
-                                 Assisted Error Recovery Opt
-                */
-    uint32_t    extFPtrForLane; /* RO: ID  0x0D: Lane Status
-                              */
-    uint32_t    extFPtrForErr;  /* RO: ID  0x07: Error Management
-                              */
-    uint32_t    extFPtrForVC;   /* RO: ID  0x0A: Virtual Channel
-                              */
-    uint32_t    extFPtrForVOQ;  /* RO: ID  0x0B: Virtual Output Queueing
-                              */
-    uint32_t    extFPtrForRT;  /* RO: ID  0x0E: Routing Tablet
-                              */
-    uint32_t    extFPtrForTS;  /* RO: ID  0x0F: Timestamp Synchronization
-                              */
-    uint32_t    extFPtrForMISC;  /* RO: ID  0x10: Miscellaneous Register Block
-                              */
-    uint32_t    extFPtrForHS;  /* RO: ID  0x17: Hot Swap
-                              */
-    /* Values of RapidIO Standard Registers, useful for understanding device
-           capabilities without reading registers.
-    */
-    uint32_t  devID;       /* Contents of RapidIO Standard register 
-                                RIO_DEV_IDENT
-                         */
-    uint32_t  devInfo;     /* Contents of RapidIO Standard register 
-                                RIO_DEV_INF
-                         */
-    uint32_t  assyInfo;    /* Contents of RapidIO Standard register 
-                                RIO_ASSY_INF_CAR
-                         */
-    uint32_t  features;    /* Contents of RapidIO Standard register 
-                                RIO_PE_FEAT
-                         */ 
-    uint32_t  swPortInfo;  /* Contents of RapidIO Standard register 
-                                RIO_SW_PORT_INF
-                         */
-    uint32_t  swRtInfo;    /* Contents of RapidIO Standard register 
-                                RIO_SW_RT_TBL_LIM
-                         */
-    uint32_t  srcOps;      /* Contents of RapidIO Standard register 
-                                RIO_SRC_OPS
-                         */
-    uint32_t  dstOps;      /* Contents of RapidIO Standard register 
-                                RIO_DST_OPS
-                         */
-    uint32_t  swMcastInfo; /* Contents of RapidIO Standard register 
-                                RIO_SW_RT_TBL_LIM_MAX_DESTID
-                         */
-	/* ctl1_reg values are tracked to implement EmergencyLockout as a 
-	 * single write, instead of a read/modify/write, for all devices.
-	 */
+	// RO: ID
+	//     0x01: Generic End Point Device
+	//     0x02: Generic End Point Device with Software Assisted
+	//		Error Recovery Opt
+	//     0x03: Generic End Point Free Device
+	//     0x09: Generic End Point Free Device with Software
+	//		Assisted Error Recovery Opt
+    uint32_t    extFPtrForLane; // RO: ID  0x0D: Lane Status
+    uint32_t    extFPtrForErr;  // RO: ID  0x07: Error Management
+    uint32_t    extFPtrForVC;   // RO: ID  0x0A: Virtual Channel
+    uint32_t    extFPtrForVOQ;  // RO: ID  0x0B: Virtual Output Queueing
+    uint32_t    extFPtrForRT;  // RO: ID  0x0E: Routing Tablet
+    uint32_t    extFPtrForTS;  // RO: ID  0x0F: Timestamp Synchronization
+    uint32_t    extFPtrForMISC;  // RO: ID  0x10: Miscellaneous Register Block
+    uint32_t    extFPtrForHS;  // RO: ID  0x17: Hot Swap
+
+    // Values of RapidIO Standard Registers, useful for understanding device
+    //     capabilities without reading registers.
+    uint32_t  devID;	// Contents of RapidIO Standard register
+			//     RIO_DEV_IDENT
+    uint32_t  devInfo;	// Contents of RapidIO Standard register
+			//     RIO_DEV_INF
+    uint32_t  assyInfo;	// Contents of RapidIO Standard register
+			//     RIO_ASSY_INF_CAR
+    uint32_t  features;	// Contents of RapidIO Standard register
+			//     RIO_PE_FEAT
+    uint32_t  swPortInfo;// Contents of RapidIO Standard register
+			//   RIO_SW_PORT_INF
+    uint32_t  swRtInfo;	// Contents of RapidIO Standard register
+			//   RIO_SW_RT_TBL_LIM
+    uint32_t  srcOps;	// Contents of RapidIO Standard register
+			//   RIO_SRC_OPS
+    uint32_t  dstOps;	// Contents of RapidIO Standard register
+			//   RIO_DST_OPS
+    uint32_t  swMcastInfo; // Contents of RapidIO Standard register
+			//   RIO_SW_RT_TBL_LIM_MAX_DESTID
+	// ctl1_reg values are tracked to implement EmergencyLockout as a
+	// single write, instead of a read/modify/write, for all devices.
+	//
     uint32_t  ctl1_reg[RIO_MAX_PORTS]; // Last register value read from or
-                                         // written to the Port x Control 1 CSR
-	/* Scratchpad to be used by different devices as they see fit. */
+				// written to the Port x Control 1 CSR
+	// Scratchpad to be used by different devices as they see fit.
 	uint32_t scratchpad[MAX_DAR_SCRPAD_IDX]; 
 
+	// Register access performance optimization facility.
+	// poregs_max indicates the total number of poregs available.
+	// poreg_cnt indicates the number of poregs that are valid.
+	//
+	// poregs are searched as part of DARRegRead, and if the offset is
+	// found, the poregs[x].data value is returned without performing
+	// an external register read.
+	//
+	// Similarly, DARRegWrite searches poregs and updates poregs[x].data
+	// if the offset matches the register just written.
+	//
+	// Use add_poreg to add a register with a known value.
+	uint32_t poregs_max;
+	uint32_t poreg_cnt;
+	rio_perf_opt_reg_t *poregs;
 } DAR_DEV_INFO_t;
 
+uint32_t DAR_add_poreg(DAR_DEV_INFO_t *dev_info, uint32_t oset, uint32_t data);
+
 #define NUM_PORTS(x)    (( uint8_t)((((x)->swPortInfo ) & RIO_SW_PORT_INF_TOT) >>  8))
-#define NUM_MC_MASKS(x) ( (uint8_t)((((x)->swMcastInfo) & RIO_SW_MC_INF_MC_MSK  )      ))
+#define NUM_MC_MASKS(x) ( (uint8_t)((((x)->swMcastInfo) & RIO_SW_MC_INF_MC_MSK)     ))
 #define VEND_CODE(x)    ((uint16_t)(((x)->devID      ) & RIO_DEV_IDENT_VEND))
-#define DEV_CODE(x)     ((uint16_t)((((x)->devID      ) & RIO_DEV_IDENT_DEVI             ) >> 16))
+#define DEV_CODE(x)     ((uint16_t)((((x)->devID      ) & RIO_DEV_IDENT_DEVI  ) >> 16))
 #define SWITCH(x)	((bool)(((x)->features & RIO_PE_FEAT_SW)?true:false))
 #define MEMORY(x)	((bool)(((x)->features & RIO_PE_FEAT_MEM)?true:false))
 

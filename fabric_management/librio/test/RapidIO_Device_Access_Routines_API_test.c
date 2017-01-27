@@ -159,6 +159,122 @@ static void rio_get_driver_family_test(void **state)
 	(void)state; // unused
 }
 
+static uint32_t ReadRegCall_test (DAR_DEV_INFO_t *dev_info,
+					uint32_t offset, uint32_t *readdata)
+{
+	if ((NULL == dev_info) || (NULL == readdata)) {
+		return RIO_ERR_NULL_PARM_PTR;
+	}
+	return offset;
+}
+
+uint32_t WriteRegCall_test(DAR_DEV_INFO_t *dev_info,
+				uint32_t  offset,
+				uint32_t  writedata)
+{
+	if (NULL == dev_info) {
+		return RIO_ERR_NULL_PARM_PTR;
+	}
+	return offset & writedata;
+}
+
+void WaitSecCall_test(uint32_t delay_nsec, uint32_t delay_sec)
+{
+	uint64_t waitcycles = delay_nsec + (delay_sec * 1000000000);
+
+	for ( ; waitcycles; waitcycles--) {
+	}
+}
+
+static void DAR_proc_ptr_init_test(void **state)
+{
+	assert_int_equal(RIO_SUCCESS,
+		DAR_proc_ptr_init(ReadRegCall_test,
+				WriteRegCall_test,
+				WaitSecCall_test));
+	assert_ptr_equal(ReadRegCall_test, ReadReg);
+	assert_ptr_equal(WriteRegCall_test, WriteReg);
+	assert_ptr_equal(WaitSecCall_test, WaitSec);
+	(void)state; // unused
+};
+
+static void DAR_add_poreg_bad_parms_test(void **state)
+{
+	DAR_DEV_INFO_t dev_i;
+
+	memset(&dev_i, 0, sizeof(dev_i));
+
+	assert_int_not_equal(RIO_SUCCESS,
+		DAR_add_poreg(NULL, 0, 0));
+	assert_int_not_equal(RIO_SUCCESS,
+		DAR_add_poreg(&dev_i, 0, 0));
+	(void)state; // unused
+}
+
+static void DAR_add_poreg_success_test(void **state)
+{
+	unsigned int i;
+	DAR_DEV_INFO_t dev_i;
+	rio_perf_opt_reg_t po_regs[5] = {0,0};
+	rio_perf_opt_reg_t tregs[5] = {
+	{ 0x00, 0x12345678 },
+	{ 0x04, 0x11223344 },
+	{ 0x08, 0x55667788 },
+	{ 0x0C, 0x99aabbcc },
+	{ 0x10, 0xddeeff00 }
+	};
+	const int max_po_regs = sizeof(po_regs)/sizeof(po_regs[0]);
+
+	memset(&dev_i, 0, sizeof(dev_i));
+	dev_i.poregs_max = max_po_regs;
+	dev_i.poregs = po_regs;
+
+	for (i = 0; i < max_po_regs; i++) {
+		assert_int_equal(RIO_SUCCESS,
+			DAR_add_poreg(&dev_i, tregs[i].offset, tregs[i].data));
+		assert_int_equal(tregs[i].offset, po_regs[i].offset);
+		assert_int_equal(tregs[i].data, po_regs[i].data);
+		assert_int_equal(i + 1, dev_i.poreg_cnt);
+	}
+
+	(void)state; // unused
+}
+
+static void DAR_add_poreg_limit_test(void **state)
+{
+	unsigned int i;
+	DAR_DEV_INFO_t dev_i;
+	rio_perf_opt_reg_t po_regs[4] = {0,0};
+	rio_perf_opt_reg_t tregs[5] = {
+	{ 0x00, 0x12345678 },
+	{ 0x04, 0x11223344 },
+	{ 0x08, 0x55667788 },
+	{ 0x0C, 0x99aabbcc },
+	{ 0x10, 0xddeeff00 }
+	};
+	const int max_po_regs = sizeof(po_regs)/sizeof(po_regs[0]);
+	const int max_tregs = sizeof(tregs)/sizeof(tregs[0]);
+
+	memset(&dev_i, 0, sizeof(dev_i));
+	dev_i.poregs_max = max_po_regs;
+	dev_i.poregs = po_regs;
+
+	assert_int_not_equal(max_po_regs, max_tregs);
+
+	for (i = 0; i < max_po_regs; i++) {
+		assert_int_equal(RIO_SUCCESS,
+			DAR_add_poreg(&dev_i, tregs[i].offset, tregs[i].data));
+		assert_int_equal(tregs[i].offset, po_regs[i].offset);
+		assert_int_equal(tregs[i].data, po_regs[i].data);
+		assert_int_equal(i + 1, dev_i.poreg_cnt);
+	}
+	assert_int_not_equal(RIO_SUCCESS,
+		DAR_add_poreg(&dev_i, tregs[i].offset, tregs[i].data));
+	assert_int_equal(max_po_regs, dev_i.poreg_cnt);
+
+	(void)state; // unused
+}
+
 int main(int argc, char** argv)
 {
 	(void)argv; // not used
@@ -167,6 +283,10 @@ int main(int argc, char** argv)
 	const struct CMUnitTest tests[] = {
 	cmocka_unit_test(assumptions),
 	cmocka_unit_test(rio_get_driver_family_test),
+	cmocka_unit_test(DAR_proc_ptr_init_test),
+	cmocka_unit_test(DAR_add_poreg_bad_parms_test),
+	cmocka_unit_test(DAR_add_poreg_success_test),
+	cmocka_unit_test(DAR_add_poreg_limit_test),
 	};
 	return cmocka_run_group_tests(tests, NULL, NULL);
 }

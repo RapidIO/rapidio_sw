@@ -72,6 +72,7 @@ uint32_t DARRegRead(DAR_DEV_INFO_t *dev_info, uint32_t offset,
 						uint32_t *readdata)
 {
 	int rc;
+	unsigned int i;
 
 	if (!VALIDATE_DEV_INFO(dev_info)) {
 		return DAR_DB_INVALID_HANDLE;
@@ -83,6 +84,14 @@ uint32_t DARRegRead(DAR_DEV_INFO_t *dev_info, uint32_t offset,
 
 	if (!ReadReg) {
 		return DAR_DB_NO_DRIVER;
+	}
+
+	// Performance optimization, search for cached regs...
+	for (i = 0; (i < dev_info->poreg_cnt) && dev_info->poregs; i++) {
+		if (dev_info->poregs[i].offset == offset) {
+			*readdata = dev_info->poregs[i].data;
+			return RIO_SUCCESS;
+		}
 	}
 
 	switch (dev_info->driver_family) {
@@ -110,6 +119,7 @@ uint32_t DARRegWrite(DAR_DEV_INFO_t *dev_info, uint32_t offset,
 		uint32_t writedata)
 {
 	uint32_t rc;
+	unsigned int i;
 
 	if (!VALIDATE_DEV_INFO(dev_info)) {
 		return DAR_DB_INVALID_HANDLE;
@@ -141,7 +151,39 @@ uint32_t DARRegWrite(DAR_DEV_INFO_t *dev_info, uint32_t offset,
 		rc = RIO_ERR_SW_FAILURE;
 		break;
 	}
+	if (RIO_SUCCESS != rc) {
+		return rc;
+	}
+
+	// Performance optimization, search for cached regs...
+	for (i = 0; (i < dev_info->poreg_cnt) && dev_info->poregs; i++) {
+		if (dev_info->poregs[i].offset == offset) {
+			dev_info->poregs[i].data = writedata;
+			break;
+		}
+	}
 	return rc;
+}
+
+uint32_t DAR_add_poreg(DAR_DEV_INFO_t *dev_info, uint32_t oset, uint32_t data)
+{
+	if (NULL == dev_info) {
+		return RIO_ERR_NULL_PARM_PTR;
+	}
+
+	if (NULL == dev_info->poregs) {
+		return RIO_ERR_NULL_PARM_PTR;
+	}
+
+	if (dev_info->poregs_max <= dev_info->poreg_cnt) {
+		return RIO_ERR_INSUFFICIENT_RESOURCES;
+	}
+
+	dev_info->poregs[dev_info->poreg_cnt].offset = oset;
+	dev_info->poregs[dev_info->poreg_cnt].data = data;
+	dev_info->poreg_cnt++;
+
+	return RIO_SUCCESS;
 }
 
 void DAR_WaitSec( uint32_t delay_nsec, uint32_t delay_sec )
