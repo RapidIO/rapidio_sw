@@ -21,12 +21,13 @@ DEBUG?=DEBUG
 CFLAGS+=$(addprefix -W,all extra) -fPIC
 CFLAGS+=-DNDEBUG
 CFLAGS+=-I./inc
+CFLAGS+=-I../libct/inc
+CFLAGS+=-I../libdid/inc
 CFLAGS+=-I$(FMDDIR)/librio/inc
 
-LDFLAGS+=-Wl,--wrap=DARRegRead -Wl,--wrap=DARRegWrite
 LDFLAGS+=-L. -L$(COMMONLIB) -L$(FMDDIR)/libs_a $(LIBS_RPATH) -l$(NAME)
 
-TST_LIBS+=-lcli
+TST_LIBS+=-lcli -lmport
 
 .PHONY: all clean
 

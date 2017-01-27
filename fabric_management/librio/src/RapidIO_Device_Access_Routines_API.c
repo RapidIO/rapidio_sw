@@ -87,11 +87,10 @@ uint32_t DARRegRead(DAR_DEV_INFO_t *dev_info, uint32_t offset,
 	}
 
 	// Performance optimization, search for cached regs...
-	for (i = 0; (i < dev_info->poreg_cnt) && dev_info->poregs; i++) {
-		if (dev_info->poregs[i].offset == offset) {
-			*readdata = dev_info->poregs[i].data;
-			return RIO_SUCCESS;
-		}
+	i = DAR_get_poreg_idx(dev_info, offset);
+	if (DAR_POREG_BAD_IDX != i) {
+		*readdata = dev_info->poregs[i].data;
+		return RIO_SUCCESS;
 	}
 
 	switch (dev_info->driver_family) {
@@ -155,13 +154,11 @@ uint32_t DARRegWrite(DAR_DEV_INFO_t *dev_info, uint32_t offset,
 		return rc;
 	}
 
-	// Performance optimization, search for cached regs...
-	for (i = 0; (i < dev_info->poreg_cnt) && dev_info->poregs; i++) {
-		if (dev_info->poregs[i].offset == offset) {
-			dev_info->poregs[i].data = writedata;
-			break;
-		}
+	i = DAR_get_poreg_idx(dev_info, offset);
+	if (DAR_POREG_BAD_IDX != i) {
+		dev_info->poregs[i].data = writedata;
 	}
+
 	return rc;
 }
 
@@ -184,6 +181,18 @@ uint32_t DAR_add_poreg(DAR_DEV_INFO_t *dev_info, uint32_t oset, uint32_t data)
 	dev_info->poreg_cnt++;
 
 	return RIO_SUCCESS;
+}
+
+uint32_t DAR_get_poreg_idx(DAR_DEV_INFO_t *dev_info, uint32_t oset)
+{
+	unsigned int i;
+	// Performance optimization, search for cached regs...
+	for (i = 0; (i < dev_info->poreg_cnt) && dev_info->poregs; i++) {
+		if (dev_info->poregs[i].offset == oset) {
+			return i;
+		}
+	}
+	return DAR_POREG_BAD_IDX;
 }
 
 void DAR_WaitSec( uint32_t delay_nsec, uint32_t delay_sec )

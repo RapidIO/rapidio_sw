@@ -53,6 +53,33 @@ extern "C" {
 
 static DAR_DEV_INFO_t mock_dev_info;
 
+// These tests should never try to access real hardware.
+// Bind in Read/Write/Delay routines that always fail.
+
+static uint32_t TestReadReg(DAR_DEV_INFO_t *dev_info,
+			uint32_t  offset, uint32_t *readdata)
+{
+	if ((NULL == dev_info) || offset || (NULL == readdata)) {
+		return 2;
+	}
+	return 1;
+}
+
+static uint32_t TestWriteReg(DAR_DEV_INFO_t *dev_info,
+			uint32_t  offset, uint32_t writedata)
+{
+	if ((NULL == dev_info) || offset || writedata) {
+		return 2;
+	}
+	return 1;
+}
+
+static void TestWaitSec(uint32_t delay_nsec, uint32_t delay_sec)
+{
+	uint64_t counter = delay_nsec + ((uint64_t)delay_sec * 1000000000);
+	for ( ; counter; counter--);
+}
+
 static void test_setup(void)
 {
 	uint8_t idx;
@@ -77,6 +104,9 @@ static void test_setup(void)
 	mock_dev_info.srcOps = 0x0000FC04;
 	mock_dev_info.dstOps = 0x0000FC04;
 	mock_dev_info.swMcastInfo = 0;
+        mock_dev_info.poregs_max = 0;
+        mock_dev_info.poreg_cnt = 0;
+        mock_dev_info.poregs = NULL;
 	for (idx = 0; idx < RIO_MAX_PORTS; idx++) {
 		mock_dev_info.ctl1_reg[idx] = 0;
 	}
@@ -84,79 +114,9 @@ static void test_setup(void)
 	for (idx = 0; idx < MAX_DAR_SCRPAD_IDX; idx++) {
 		mock_dev_info.scratchpad[idx] = 0;
 	}
+	DAR_proc_ptr_init(TestReadReg, TestWriteReg, TestWaitSec);
 }
 
-typedef struct mock_dar_reg_t_TAG
-{
-	uint32_t offset;
-	uint32_t data;
-} mock_dar_reg_t;
-
-#define NUM_DAR_REG (100)
-
-#define UPB_DAR_REG (NUM_DAR_REG+1)
-
-mock_dar_reg_t mock_dar_reg[UPB_DAR_REG];
-
-static void init_mock_regs(void)
-{
-	// idx is always should be less than UPB_DAR_REG.
-       uint32_t idx;
-
-	for (idx = 0; idx < UPB_DAR_REG; idx++) {
-		mock_dar_reg[idx].offset = idx << 2;
-		mock_dar_reg[idx].data = 0x00;
-	}
-}
-
-uint32_t find_offset(uint32_t offset)
-{
-	uint32_t idx;
-	for (idx = 0; idx < NUM_DAR_REG; idx++) {
-	    if (mock_dar_reg[idx].offset == offset) {
-	       return idx;
-	    }
-	}
-	return UPB_DAR_REG;
-}
-
-uint32_t __wrap_DARRegRead(DAR_DEV_INFO_t *dev_info, uint32_t offset, uint32_t *readdata)
-{
-	uint32_t idx = UPB_DAR_REG;
-
-	if (NULL != dev_info && *readdata) {
-	    mock_dev_info = *dev_info;
-	} else {
-	    *dev_info = mock_dev_info;
-	}
-
-	idx = find_offset(offset);
-	if (idx == UPB_DAR_REG) {
-	   return RIO_ERR_ACCESS;
-	}
-
-	*readdata = mock_dar_reg[idx].data;
-	return RIO_SUCCESS;
-}
-
-uint32_t __wrap_DARRegWrite(DAR_DEV_INFO_t *dev_info, uint32_t offset, uint32_t writedata)
-{
-	uint32_t idx = UPB_DAR_REG;
-
-	if (NULL != dev_info) {
-	    mock_dev_info = *dev_info;
-	} else {
-	    *dev_info = mock_dev_info;
-	}
-
-	idx = find_offset(offset);
-	if (idx == UPB_DAR_REG) {
-	   return RIO_ERR_ACCESS;
-	}
-
-	mock_dar_reg[idx].data = writedata;
-	return RIO_SUCCESS;
-}
 void assumptions_test(void **state)
 {
 	assert_string_equal((char *)"PCIExp", (char *)sc_other_if_names_PCIe);
@@ -305,7 +265,6 @@ void rio_sc_other_if_names_test(void **state)
 		((uint32_t)RIO_DEVI_TSI578 << 16) + RIO_VEND_TUNDRA
 	};
 
-	init_mock_regs();
 	test_setup();
 
 	mock_dev_info.devID = (RIO_DEVI_RESERVED << 16) + RIO_VEND_RESERVED;
@@ -370,4 +329,3 @@ int main(int argc, char** argv)
 #ifdef __cplusplus
 }
 #endif
-

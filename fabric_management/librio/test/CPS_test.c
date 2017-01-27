@@ -56,31 +56,7 @@ typedef struct mock_dar_reg_t_TAG {
 	uint32_t data;
 } mock_dar_reg_t;
 
-#define NUM_DAR_REG 100
-
-#define UPB_DAR_REG (NUM_DAR_REG+1)
-
-mock_dar_reg_t mock_dar_reg[UPB_DAR_REG];
-
 static DAR_DEV_INFO_t mock_dev_info;
-
-// No mocking of read/write required
-uint32_t __real_DARRegRead(DAR_DEV_INFO_t *dev_info, uint32_t offset,
-		uint32_t *readdata);
-uint32_t __real_DARRegWrite(DAR_DEV_INFO_t *dev_info, uint32_t offset,
-		uint32_t writedata);
-
-uint32_t __wrap_DARRegRead(DAR_DEV_INFO_t *dev_info, uint32_t offset,
-		uint32_t *readdata)
-{
-	return __real_DARRegRead(dev_info, offset, readdata);
-}
-
-uint32_t __wrap_DARRegWrite(DAR_DEV_INFO_t *dev_info, uint32_t offset,
-		uint32_t writedata)
-{
-	return __real_DARRegWrite(dev_info, offset, writedata);
-}
 
 /* Create a mock dev_info.
  */
@@ -108,6 +84,10 @@ static void cps_test_setup(void)
 	mock_dev_info.srcOps = 4;
 	mock_dev_info.dstOps = 0;
 	mock_dev_info.swMcastInfo = 0x00FF0028;
+	mock_dev_info.poregs_max = 0;
+	mock_dev_info.poreg_cnt = 0;
+	mock_dev_info.poregs = NULL;
+
 	for (idx = 0; idx < RIO_MAX_PORTS; idx++) {
 		mock_dev_info.ctl1_reg[idx] = 0;
 	}
@@ -274,7 +254,7 @@ static void rt_rte_translate_std_to_CPS_test(void **state)
 		assert_int_not_equal(0,
 				rt_rte_translate_std_to_CPS(&mock_dev_info, i,
 						&cps));
-	};
+	}
 
 	// Test valid MC Group range...
 	for (i = RIO_RTE_MC_0; i < RIO_RTV_MC_MSK(CPS_MAX_MC_MASK); i++) {
@@ -331,7 +311,8 @@ int main(int argc, char** argv)
 			teardown),
 	cmocka_unit_test_setup_teardown(
 			rt_rte_translate_std_to_CPS_test, setup,
-			teardown), };
+			teardown), 
+	};
 	return cmocka_run_group_tests(tests, NULL, NULL);
 }
 

@@ -48,24 +48,6 @@
 extern "C" {
 #endif
 
-// No mocking of read/write required
-uint32_t __real_DARRegRead(DAR_DEV_INFO_t *dev_info, uint32_t offset,
-		uint32_t *readdata);
-uint32_t __real_DARRegWrite(DAR_DEV_INFO_t *dev_info, uint32_t offset,
-		uint32_t writedata);
-
-uint32_t __wrap_DARRegRead(DAR_DEV_INFO_t *dev_info, uint32_t offset,
-		uint32_t *readdata)
-{
-	return __real_DARRegRead(dev_info, offset, readdata);
-}
-
-uint32_t __wrap_DARRegWrite(DAR_DEV_INFO_t *dev_info, uint32_t offset,
-		uint32_t writedata)
-{
-	return __real_DARRegWrite(dev_info, offset, writedata);
-}
-
 static void assumptions(void **state)
 {
 	assert_int_equal(0x00, RIO_UNITIALIZED_DEVICE);

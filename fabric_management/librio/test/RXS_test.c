@@ -46,16 +46,195 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "RXS_Routing_Table_API.h"
 #include "src/RXS_API.c"
 #include "rio_ecosystem.h"
+#include "tok_parse.h"
+#include "libcli.h"
+#include "rapidio_mport_mgmt.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-typedef struct mock_dar_reg_t_TAG
+typedef struct RXS_test_state_t_TAG {
+	int argc;
+	char **argv;
+	bool real_hw;
+	uint32_t mport;
+	uint8_t hc;
+	uint32_t destid;
+	struct rapidio_mport_handle *mp_h;
+	bool mp_h_valid;
+} RXS_test_state_t;
+
+RXS_test_state_t st;
+
+static int grp_setup(void **state)
 {
-	uint32_t offset;
-	uint32_t data;
-} mock_dar_reg_t;
+	*state = (void *)&st;
+	char *token_list = (char *)"-m -h -d ";
+	char *tok, *parm;
+	int tok_idx = 1;
+	bool got_mport = false;
+	bool got_hc = false;
+	bool got_destid = false;
+
+	while (tok_idx < st.argc) {
+		tok = st.argv[tok_idx];
+		tok_idx++;
+		if (!(tok_idx < st.argc)) {
+			printf("\nMissing option value.\n");
+			goto fail;
+		}
+		parm = st.argv[tok_idx++];
+		switch (parm_idx(tok, token_list)) {
+		case 0:
+			if (tok_parse_mport_id(parm, &st.mport, 0)) {
+				printf("\nFailed tok_parse_mport_id\n");
+				goto fail;
+			}
+			st.real_hw = true;
+			got_mport = true;
+			if (!got_hc) {
+				st.hc = 0xFF;
+			}
+			break;
+		case 1:
+			if (tok_parse_hc(parm, &st.hc, 0)) {
+				printf("\nFailed tok_parse_hc\n");
+				goto fail;
+			}
+			st.real_hw = true;
+			got_hc = true;
+			break;
+			break;
+		case 2:
+			if (tok_parse_did(parm, &st.destid, 0)) {
+				printf("\nFailed tok_parse_did\n");
+				goto fail;
+			}
+			st.real_hw = true;
+			got_destid = true;
+			break;
+		default:
+			printf("\nUnknown option, options are -m -h -d.\n");
+			goto fail;
+			break;
+		}
+	}
+	if (!got_mport || !got_hc || !got_destid) {
+		printf("\nMust enter all of -m, -h and -d.\n");
+		goto fail;
+	}
+	if (st.real_hw) {
+		if (riomp_mgmt_mport_create_handle(st.mport, 0, &st.mp_h)) {
+			printf("\nCould not open mport %d\n", st.mport);
+			goto fail;
+		}
+		st.mp_h_valid = true;
+	}
+	return 0;
+fail:
+	return -1;
+}
+
+static int grp_teardown(void **state)
+{
+	if (st.real_hw) {
+		if (st.mp_h_valid) {
+			riomp_mgmt_mport_destroy_handle(&st.mp_h);
+		}
+	}
+	return 0;
+	(void)state;
+}
+
+static DAR_DEV_INFO_t mock_dev_info;
+
+static uint32_t RXSReadReg(DAR_DEV_INFO_t *dev_info,
+			uint32_t  offset, uint32_t *readdata)
+{
+	uint32_t rc = 0xFFFFFFFF;
+
+	if (NULL == dev_info) {
+		return rc;
+	}
+	// Should only get here when st.real_hw is true, since
+	// when real_hw is false, all registers are mocked.
+	assert_true(st.real_hw);
+	assert_true(st.mp_h_valid);
+	if (0xFF == st.hc) {
+		rc = riomp_mgmt_lcfg_read(st.mp_h, offset, 4, readdata);
+	} else {
+		rc = riomp_mgmt_rcfg_read(st.mp_h, st.destid, st.hc, offset, 4, readdata);
+	}
+
+	return rc;
+}
+
+/* The function tries to find the index of the offset in the dar_reg array and returns the idx,
+ * otherwise it returns UPB_DAR_REG.
+ */
+static void check_write_bc(uint32_t offset, uint32_t writedata)
+{
+	uint32_t did, port;
+
+	if (st.real_hw) {
+		return;
+	}
+	if ((offset >= RXS_RIO_BC_L2_GX_ENTRYY_CSR(0,0)) &&
+		(offset <= RXS_RIO_BC_L2_GX_ENTRYY_CSR(0, RIO_DAR_RT_DEV_TABLE_SIZE-1))) {
+		did = (offset - RXS_RIO_BC_L2_GX_ENTRYY_CSR(0,0)) / 4;
+
+		for (port = 0; port < RXS2448_MAX_PORTS;  port++) {
+			assert_int_equal(RIO_SUCCESS,
+				DARRegWrite(&mock_dev_info,
+				RXS_RIO_SPX_L2_GY_ENTRYZ_CSR(port, 0, did),
+				writedata));
+		}
+		return;
+	}
+
+	if ((offset >= RXS_RIO_BC_L1_GX_ENTRYY_CSR(0,0)) && 
+		(offset <= RXS_RIO_BC_L1_GX_ENTRYY_CSR(0, RIO_DAR_RT_DEV_TABLE_SIZE-1))) {
+		did = (offset - RXS_RIO_BC_L1_GX_ENTRYY_CSR(0,0)) / 4;
+
+		for (port = 0; port < RXS2448_MAX_PORTS;  port++) {
+			assert_int_equal(RIO_SUCCESS,
+				DARRegWrite(&mock_dev_info,
+				RXS_RIO_SPX_L1_GY_ENTRYZ_CSR(port, 0, did),
+				writedata));
+		}
+	}
+}
+
+static uint32_t RXSWriteReg(DAR_DEV_INFO_t *dev_info,
+			uint32_t  offset, uint32_t writedata)
+{
+	uint32_t rc = 0xFFFFFFFF;
+
+	if (NULL == dev_info) {
+		return rc;
+	}
+	if (!st.real_hw) {
+		check_write_bc(offset, writedata);
+		return RIO_SUCCESS;
+	}
+	assert_true(st.mp_h_valid);
+	if (0xFF == st.hc) {
+		rc = riomp_mgmt_lcfg_write(st.mp_h, offset, 4, writedata);
+	} else {
+		rc = riomp_mgmt_rcfg_write(st.mp_h, st.destid, st.hc, offset, 4, writedata);
+	}
+
+	return rc;
+}
+
+static void RXSWaitSec(uint32_t delay_nsec, uint32_t delay_sec)
+{
+	if (st.real_hw) {
+		uint64_t counter = delay_nsec + ((uint64_t)delay_sec * 1000000000);
+		for ( ; counter; counter--);
+	}
+}
 
 #define NUM_DAR_REG ((((RXS2448_MAX_PORTS)*(RXS2448_MAX_SC))*2)+ \
                      (RXS2448_MAX_PORTS*6)+4+ \
@@ -67,9 +246,8 @@ typedef struct mock_dar_reg_t_TAG
 
 #define UPB_DAR_REG (NUM_DAR_REG+1)
 
-mock_dar_reg_t mock_dar_reg[UPB_DAR_REG];
+rio_perf_opt_reg_t mock_dar_reg[UPB_DAR_REG];
 
-static DAR_DEV_INFO_t mock_dev_info;
 static rio_sc_dev_ctrs_t *mock_dev_ctrs = (rio_sc_dev_ctrs_t *)malloc(sizeof(rio_sc_dev_ctrs_t));
 static rio_sc_p_ctrs_val_t *pp_ctrs = (rio_sc_p_ctrs_val_t *)malloc((RIO_MAX_PORTS) * sizeof(rio_sc_p_ctrs_val_t));
 
@@ -123,216 +301,140 @@ static void rxs_test_setup(void)
 
 /* Initialize the mock register structure for different registers.
  */
-static void init_mock_rxs_reg(void) 
+static void init_mock_rxs_reg(void **state)
 {
-        // idx is always should be less than UPB_DAR_REG.
-        uint32_t idx = 0, port, cntr, idev, grp;
+	// idx is always should be less than UPB_DAR_REG.
+	uint32_t port, cntr, idev, grp;
+	RXS_test_state_t *l_st = *(RXS_test_state_t **)state;
 
-        // initialize RXS_RIO_SPX_PCNTR_CTL
-        for (port = 0; port < RXS2448_MAX_PORTS; port++) {
-            for (cntr = 0; cntr < RXS2448_MAX_SC; cntr++) {
-                mock_dar_reg[idx].offset = RXS_RIO_SPX_PCNTR_CTL(port, cntr);
-                mock_dar_reg[idx].data = 0x02;
-                idx++;
-            }
-        }
-
-        // Initialize RXS_RIO_SPX_PCNTR_CNTR
-        for (port = 0; port < RXS2448_MAX_PORTS; port++) {
-            for (cntr = 0; cntr < RXS2448_MAX_SC; cntr++) {
-                mock_dar_reg[idx].offset = RXS_RIO_SPX_PCNTR_CNT(port, cntr);
-                mock_dar_reg[idx].data = 0x10;
-                idx++;
-            }
-        }
-
-        // Initialize RXS_RIO_SPX_PCNTR_CTL, RXS_RIO_SPX_CTL, RXS_RIO_SPX_CTL2, RXS_RIO_PLM_SPX_IMP_SPEC_CTL,
-        // RXS_PLM_SPX_POL_CTL, and RXS_RIO_SPX_ERR_STAT
-        for (port = 0; port < RXS2448_MAX_PORTS; port++) {
-            mock_dar_reg[idx].offset = RXS_RIO_SPX_PCNTR_EN(port);
-            mock_dar_reg[idx].data = 0x00;
-            idx++;
-            mock_dar_reg[idx].offset = RXS_RIO_SPX_CTL(port);
-            mock_dar_reg[idx].data = 0x00;
-            idx++;
-            mock_dar_reg[idx].offset = RXS_RIO_SPX_ERR_STAT(port);
-            mock_dar_reg[idx].data = 0x00;
-            idx++;
-            mock_dar_reg[idx].offset = RXS_RIO_SPX_CTL2(port);
-            mock_dar_reg[idx].data = 0x00;
-            idx++;
-            mock_dar_reg[idx].offset = RXS_RIO_PLM_SPX_IMP_SPEC_CTL(port);
-            mock_dar_reg[idx].data = 0x00;
-            idx++;
-            mock_dar_reg[idx].offset = RXS_PLM_SPX_POL_CTL(port);
-            mock_dar_reg[idx].data = 0x00;
-            idx++;
-        }
-
-        // Initialize RXS_RIO_PCNTR_CTL
-        mock_dar_reg[idx].offset = RXS_RIO_PCNTR_CTL;
-        mock_dar_reg[idx].data = 0x00;
-        idx++;
-
-        // Initialize RXS_RIO_ROUTE_DFLT_PORT
-        mock_dar_reg[idx].offset = RXS_RIO_ROUTE_DFLT_PORT;
-        mock_dar_reg[idx].data = 0x00;
-        idx++;
-
-        // Initialize RXS_RIO_PKT_TIME_LIVE
-        mock_dar_reg[idx].offset = RXS_RIO_PKT_TIME_LIVE;
-        mock_dar_reg[idx].data = 0x00;
-        idx++;
-
-        // Initialize RXS_RIO_SP_LT_CTL
-        mock_dar_reg[idx].offset = RXS_RIO_SP_LT_CTL;
-        mock_dar_reg[idx].data = 0x00;
-        idx++;
-
-        // Initialize RXS_RIO_SR_RSP_TO
-        mock_dar_reg[idx].offset = RXS_RIO_SR_RSP_TO;
-        mock_dar_reg[idx].data = 0x00;
-        idx++;
-
-        // Initialize RXS_RIO_SPX_MC_Y_S_CSR
-        for (port = 0; port < RXS2448_MAX_PORTS; port++) {
-            for (idev = 0; idev < RIO_DAR_RT_DEV_TABLE_SIZE; idev++) {
-                mock_dar_reg[idx].offset = RXS_RIO_SPX_MC_Y_S_CSR(port, idev);
-                mock_dar_reg[idx].data = 0x00;
-                idx++;
-            }
-        }
-
-        // Initialize RXS_RIO_BC_L2_GX_ENTRYY_CSR
-        for (grp = 0; grp < RXS_MAX_L2_GROUP; grp++) {
-            for (idev = 0; idev < RIO_DAR_RT_DEV_TABLE_SIZE; idev++) {
-                mock_dar_reg[idx].offset = RXS_RIO_BC_L2_GX_ENTRYY_CSR(grp, idev);
-                mock_dar_reg[idx].data = 0x00;
-                idx++;
-            }
-        }
-
-        // Initialize RXS_RIO_BC_L1_GX_ENTRYY_CSR
-        for (grp = 0; grp < RXS_MAX_L1_GROUP; grp++) {
-            for (idev = 0; idev < RIO_DAR_RT_DEV_TABLE_SIZE; idev++) {
-                mock_dar_reg[idx].offset = RXS_RIO_BC_L1_GX_ENTRYY_CSR(grp, idev);
-                mock_dar_reg[idx].data = 0x00;
-                idx++;
-            }
-        }
-
-        // Initialize RXS_RIO_SPX_L2_GY_ENTRYZ_CSR
-        for (port = 0; port < RXS2448_MAX_PORTS; port++) {
-            for (grp = 0; grp < RXS_MAX_L2_GROUP; grp++) {
-                for (idev = 0; idev < RIO_DAR_RT_DEV_TABLE_SIZE; idev++) {
-                     mock_dar_reg[idx].offset = RXS_RIO_SPX_L2_GY_ENTRYZ_CSR(port, grp, idev);
-                     mock_dar_reg[idx].data = 0x00;
-                     idx++;
-                }
-            }
-        }
-
-        // Initialize RXS_RIO_SPX_L1_GY_ENTRYZ_CSR
-        for (port = 0; port < RXS2448_MAX_PORTS; port++) {
-            for (grp = 0; grp < RXS_MAX_L1_GROUP; grp++) {
-                for (idev = 0; idev < RIO_DAR_RT_DEV_TABLE_SIZE; idev++) {
-                     mock_dar_reg[idx].offset = RXS_RIO_SPX_L1_GY_ENTRYZ_CSR(port, grp, idev);
-                     mock_dar_reg[idx].data = 0x00;
-                     idx++;
-                }
-            }
-        }
-}
-
-/* The function tries to find the index of the offset in the dar_reg array and returns the idx,
- * otherwise it returns UPB_DAR_REG.
- */
-uint32_t find_offset(uint32_t offset)
-{
-	uint32_t idx;
-	for (idx = 0; idx < NUM_DAR_REG; idx++) {
-            if (mock_dar_reg[idx].offset == offset) {
-               return idx;
-            }
+	DAR_proc_ptr_init(RXSReadReg, RXSWriteReg, RXSWaitSec);
+	if (l_st->real_hw) {
+		mock_dev_info.poregs_max = 0;
+		mock_dev_info.poreg_cnt = 0;
+		mock_dev_info.poregs = NULL;
+		return;
 	}
-	return UPB_DAR_REG;
-}
+	mock_dev_info.poregs_max = UPB_DAR_REG;
+	mock_dev_info.poreg_cnt = 0;
+	mock_dev_info.poregs = mock_dar_reg;
 
-void check_write_bc(uint32_t offset, uint32_t writedata) 
-{
-	uint32_t idx, did, port;
+	// initialize RXS_RIO_SPX_PCNTR_CTL
+	for (port = 0; port < RXS2448_MAX_PORTS; port++) {
+		for (cntr = 0; cntr < RXS2448_MAX_SC; cntr++) {
+			assert_int_equal(RIO_SUCCESS,
+				DAR_add_poreg(&mock_dev_info,
+					RXS_RIO_SPX_PCNTR_CTL(port, cntr),
+					0x02));
+		}
+	}
 
-	if ((offset >= RXS_RIO_BC_L2_GX_ENTRYY_CSR(0,0)) &&
-		(offset <= RXS_RIO_BC_L2_GX_ENTRYY_CSR(0, RIO_DAR_RT_DEV_TABLE_SIZE-1))) {
-          did = (offset - RXS_RIO_BC_L2_GX_ENTRYY_CSR(0,0)) / 4;
+	// Initialize RXS_RIO_SPX_PCNTR_CNTR
+	for (port = 0; port < RXS2448_MAX_PORTS; port++) {
+		for (cntr = 0; cntr < RXS2448_MAX_SC; cntr++) {
+			assert_int_equal(RIO_SUCCESS,
+				DAR_add_poreg(&mock_dev_info,
+					RXS_RIO_SPX_PCNTR_CNT(port, cntr),
+					0x10));
+		}
+	}
 
-          for (port = 0; port < RXS2448_MAX_PORTS;  port++) {
-              idx = find_offset(RXS_RIO_SPX_L2_GY_ENTRYZ_CSR(port, 0, did));
-		assert_int_not_equal(idx, UPB_DAR_REG);
-              mock_dar_reg[idx].data = writedata;
-          }
-	  return;
-       };
+	// Initialize RXS_RIO_SPX_PCNTR_CTL, RXS_RIO_SPX_CTL, RXS_RIO_SPX_CTL2, RXS_RIO_PLM_SPX_IMP_SPEC_CTL,
+	// RXS_PLM_SPX_POL_CTL, and RXS_RIO_SPX_ERR_STAT
+	for (port = 0; port < RXS2448_MAX_PORTS; port++) {
+		assert_int_equal(RIO_SUCCESS,
+			DAR_add_poreg(&mock_dev_info,
+				RXS_RIO_SPX_PCNTR_EN(port), 0x00));
+		assert_int_equal(RIO_SUCCESS,
+			DAR_add_poreg(&mock_dev_info, RXS_RIO_SPX_CTL(port), 0x00));
+		assert_int_equal(RIO_SUCCESS,
+			DAR_add_poreg(&mock_dev_info,
+				RXS_RIO_SPX_ERR_STAT(port), 0x00));
+		assert_int_equal(RIO_SUCCESS,
+			DAR_add_poreg(&mock_dev_info,
+				RXS_RIO_SPX_CTL2(port), 0x00));
+		assert_int_equal(RIO_SUCCESS,
+			DAR_add_poreg(&mock_dev_info,
+				RXS_RIO_PLM_SPX_IMP_SPEC_CTL(port), 0x00));
+		assert_int_equal(RIO_SUCCESS,
+			DAR_add_poreg(&mock_dev_info,
+			    RXS_PLM_SPX_POL_CTL(port), 0x00));
+	}
 
-       if ((offset >= RXS_RIO_BC_L1_GX_ENTRYY_CSR(0,0)) && 
-		(offset <= RXS_RIO_BC_L1_GX_ENTRYY_CSR(0, RIO_DAR_RT_DEV_TABLE_SIZE-1))) {
-          did = (offset - RXS_RIO_BC_L1_GX_ENTRYY_CSR(0,0)) / 4;
+	// Initialize RXS_RIO_PCNTR_CTL
+	assert_int_equal(RIO_SUCCESS,
+		DAR_add_poreg(&mock_dev_info, RXS_RIO_PCNTR_CTL, 0x00));
 
-          for (port = 0; port < RXS2448_MAX_PORTS;  port++) {
-              idx = find_offset(RXS_RIO_SPX_L1_GY_ENTRYZ_CSR(port, 0, did));
-		assert_int_not_equal(idx, UPB_DAR_REG);
-              mock_dar_reg[idx].data = writedata;
-          }
-       }
+	// Initialize RXS_RIO_ROUTE_DFLT_PORT
+	assert_int_equal(RIO_SUCCESS,
+		DAR_add_poreg(&mock_dev_info, RXS_RIO_ROUTE_DFLT_PORT, 0x00));
 
-       return;
-}
+	// Initialize RXS_RIO_PKT_TIME_LIVE
+	assert_int_equal(RIO_SUCCESS,
+		DAR_add_poreg(&mock_dev_info, RXS_RIO_PKT_TIME_LIVE, 0x00));
 
-/* The function reads the value data of offset from the dar_reg array.
- * If the function finds the offset, it returns SUCCESS otherwise ERR_ACCESS.
- */
-uint32_t __wrap_DARRegRead(DAR_DEV_INFO_t *dev_info, uint32_t offset, uint32_t *readdata)
-{
-	uint32_t idx = UPB_DAR_REG;
+	// Initialize RXS_RIO_SP_LT_CTL
+	assert_int_equal(RIO_SUCCESS,
+		DAR_add_poreg(&mock_dev_info, RXS_RIO_SP_LT_CTL, 0x00));
 
-        if (NULL != dev_info && *readdata) {
-            mock_dev_info = *dev_info;
-        }
-        else {
-            *dev_info = mock_dev_info;
-        }
+	// Initialize RXS_RIO_SR_RSP_TO
+	assert_int_equal(RIO_SUCCESS,
+		DAR_add_poreg(&mock_dev_info, RXS_RIO_SR_RSP_TO, 0x00));
 
-	idx = find_offset(offset);
-	if (idx == UPB_DAR_REG) {
-           return RIO_ERR_ACCESS;
-        }
+	// Initialize RXS_RIO_SPX_MC_Y_S_CSR
+	for (port = 0; port < RXS2448_MAX_PORTS; port++) {
+		for (idev = 0; idev < RIO_DAR_RT_DEV_TABLE_SIZE; idev++) {
+			assert_int_equal(RIO_SUCCESS,
+				DAR_add_poreg(&mock_dev_info,
+					RXS_RIO_SPX_MC_Y_S_CSR(port, idev),
+					0x00));
+		}
+	}
 
-	*readdata = mock_dar_reg[idx].data;
-	return RIO_SUCCESS;
-}
+	// Initialize RXS_RIO_BC_L2_GX_ENTRYY_CSR
+	for (grp = 0; grp < RXS_MAX_L2_GROUP; grp++) {
+		for (idev = 0; idev < RIO_DAR_RT_DEV_TABLE_SIZE; idev++) {
+			assert_int_equal(RIO_SUCCESS,
+				DAR_add_poreg(&mock_dev_info,
+					RXS_RIO_BC_L2_GX_ENTRYY_CSR(grp, idev),
+					0x00));
+		}
+	}
 
-/* The function updates the value data of offset in the dar_reg array.
- * If the function finds the offset, it returns SUCCESS otherwise ERR_ACCESS.
- */
-uint32_t __wrap_DARRegWrite(DAR_DEV_INFO_t *dev_info, uint32_t offset, uint32_t writedata)
-{
-	uint32_t idx = UPB_DAR_REG;
+	// Initialize RXS_RIO_BC_L1_GX_ENTRYY_CSR
+	for (grp = 0; grp < RXS_MAX_L1_GROUP; grp++) {
+		for (idev = 0; idev < RIO_DAR_RT_DEV_TABLE_SIZE; idev++) {
+			assert_int_equal(RIO_SUCCESS,
+				DAR_add_poreg(&mock_dev_info,
+					RXS_RIO_BC_L1_GX_ENTRYY_CSR(grp, idev),
+					0x00));
+		}
+	}
 
-        if (NULL != dev_info) {
-            mock_dev_info = *dev_info;
-        }
-        else {
-            *dev_info = mock_dev_info;
-        }
+	// Initialize RXS_RIO_SPX_L2_GY_ENTRYZ_CSR
+	for (port = 0; port < RXS2448_MAX_PORTS; port++) {
+		for (grp = 0; grp < RXS_MAX_L2_GROUP; grp++) {
+			for (idev = 0; idev < RIO_DAR_RT_DEV_TABLE_SIZE; idev++)
+			{
+				assert_int_equal(RIO_SUCCESS,
+					DAR_add_poreg(&mock_dev_info,
+				RXS_RIO_SPX_L2_GY_ENTRYZ_CSR(port, grp, idev),
+					0x00));
+			}
+		}
+	}
 
-	idx = find_offset(offset);
-	if (idx == UPB_DAR_REG) {
-           return RIO_ERR_ACCESS;
-        }
-
-	mock_dar_reg[idx].data = writedata;
-        check_write_bc(offset, writedata);
-        return RIO_SUCCESS;
+	// Initialize RXS_RIO_SPX_L1_GY_ENTRYZ_CSR
+	for (port = 0; port < RXS2448_MAX_PORTS; port++) {
+		for (grp = 0; grp < RXS_MAX_L1_GROUP; grp++) {
+			for (idev = 0; idev < RIO_DAR_RT_DEV_TABLE_SIZE; idev++)
+			{
+				assert_int_equal(RIO_SUCCESS,
+					DAR_add_poreg(&mock_dev_info,
+				RXS_RIO_SPX_L1_GY_ENTRYZ_CSR(port, grp, idev),
+					0x00));
+			}
+		}
+	}
 }
 
 /* The setup function which should be called before any unit tests that need to be executed.
@@ -341,9 +443,8 @@ static int setup(void **state)
 {
         memset(&mock_dev_info, 0x00, sizeof(rio_sc_dev_ctrs_t));
 	rxs_test_setup();
-        init_mock_rxs_reg();
+        init_mock_rxs_reg(state);
 
-        (void)state; // unused
         return 0;
 }
 
@@ -458,7 +559,7 @@ void rxs_init_dev_ctrs_test_bad_ptrs(void **state)
         assert_int_not_equal(RIO_SUCCESS, rxs_sc_init_dev_ctrs(&mock_dev_info, &mock_sc_in, &mock_sc_out));
         assert_int_not_equal(RIO_SUCCESS, mock_sc_out.imp_rc);
         (void)state; // unused
-};
+}
 
 void rxs_init_dev_ctrs_test_bad_p_ctrs(void **state)
 {
@@ -497,7 +598,7 @@ void rxs_init_dev_ctrs_test_bad_ptl_1(void **state)
         assert_int_not_equal(RIO_SUCCESS, rxs_sc_init_dev_ctrs(&mock_dev_info, &mock_sc_in, &mock_sc_out));
         assert_int_not_equal(RIO_SUCCESS, mock_sc_out.imp_rc);
         (void)state; // unused
-};
+}
 
 void rxs_init_dev_ctrs_test_bad_ptl_2(void **state)
 {
@@ -512,7 +613,7 @@ void rxs_init_dev_ctrs_test_bad_ptl_2(void **state)
         assert_int_not_equal(RIO_SUCCESS, rxs_sc_init_dev_ctrs(&mock_dev_info, &mock_sc_in, &mock_sc_out));
         assert_int_not_equal(RIO_SUCCESS, mock_sc_out.imp_rc);
         (void)state; // unused
-};
+}
 
 void rxs_init_dev_ctrs_test_bad_ptl_3(void **state)
 {
@@ -578,11 +679,12 @@ void test_rxs_cfg_dev_ctr(rio_sc_cfg_rxs_ctr_in_t *mock_sc_in, int sc_cfg)
 {
         bool tx = true;
 	uint32_t reg_val = 0;
-	int ctr_idx, idx;
+	int ctr_idx;
 	rio_sc_cfg_rxs_ctr_out_t mock_sc_out;
 	rio_port_t st_pt, end_pt, port;
 	bool srio = true;
 	bool expect_fail = false;
+	uint32_t cdata;
 
 	// Pick out a test value.  Test values cover all valid request
 	// parameters, and 3 invalid combinations.
@@ -686,26 +788,28 @@ void test_rxs_cfg_dev_ctr(rio_sc_cfg_rxs_ctr_in_t *mock_sc_in, int sc_cfg)
 		end_pt = RXS2448_MAX_PORTS - 1;
 	} else {
 		st_pt = end_pt = mock_sc_in->ptl.pnums[0];
-	};
+	}
 	ctr_idx = mock_sc_in->ctr_idx;
 
 	// Initialize test register values for all ports 
 	for (port = st_pt; port <= end_pt; port++) {
 		// Zero control register for the port
-		idx = find_offset(RXS_RIO_SPX_PCNTR_EN(port));
-		assert_int_not_equal(idx, UPB_DAR_REG);
-		mock_dar_reg[idx].data = 0;
+		assert_int_equal(RIO_SUCCESS,
+			DARRegWrite(&mock_dev_info,
+				RXS_RIO_SPX_PCNTR_EN(port), 0));
 
 		// Set invalid control value
-		idx = find_offset(RXS_RIO_SPX_PCNTR_CTL(port, ctr_idx));
-		assert_int_not_equal(idx, UPB_DAR_REG);
-		mock_dar_reg[idx].data = RXS_RIO_SPX_PCNTR_CTL_SEL_DISABLED;
+		assert_int_equal(RIO_SUCCESS,
+			DARRegWrite(&mock_dev_info,
+				RXS_RIO_SPX_PCNTR_CTL(port, ctr_idx),
+				RXS_RIO_SPX_PCNTR_CTL_SEL_DISABLED));
 
 		// Set non-zero counter value for the port
-		idx = find_offset(RXS_RIO_SPX_PCNTR_CNT(port, ctr_idx));
-		assert_int_not_equal(idx, UPB_DAR_REG);
-		mock_dar_reg[idx].data = 0x12345678;
-	};
+		assert_int_equal(RIO_SUCCESS,
+			DARRegWrite(&mock_dev_info,
+				RXS_RIO_SPX_PCNTR_CNT(port, ctr_idx),
+				0x12345678));
+	}
 
 	// If something is expected to fail, do not do any more checking.
 	if (expect_fail) {
@@ -716,7 +820,7 @@ void test_rxs_cfg_dev_ctr(rio_sc_cfg_rxs_ctr_in_t *mock_sc_in, int sc_cfg)
 				&mock_sc_out));
 		assert_int_not_equal(RIO_SUCCESS, mock_sc_out.imp_rc);
 		return;
-	};
+	}
 
 	// If something is expected to work, do exhaustive checking
 	mock_sc_out.imp_rc = !RIO_SUCCESS;
@@ -747,24 +851,27 @@ void test_rxs_cfg_dev_ctr(rio_sc_cfg_rxs_ctr_in_t *mock_sc_in, int sc_cfg)
 			mock_sc_in->dev_ctrs->p_ctrs[port].ctrs[ctr_idx].srio);
 	
 		// Check register values.
-		idx = find_offset(RXS_RIO_SPX_PCNTR_EN(port));
-		assert_int_not_equal(idx, UPB_DAR_REG);
-		assert_int_equal(mock_dar_reg[idx].data,
-				RXS_RIO_SPX_PCNTR_EN_ENABLE);
+		assert_int_equal(RIO_SUCCESS,
+			DARRegRead(&mock_dev_info,
+				RXS_RIO_SPX_PCNTR_EN(port), &cdata));
+		assert_int_equal(cdata, RXS_RIO_SPX_PCNTR_EN_ENABLE);
+
 		// Check control value
-		idx = find_offset(RXS_RIO_SPX_PCNTR_CTL(port, ctr_idx));
-		assert_int_not_equal(idx, UPB_DAR_REG);
+		assert_int_equal(RIO_SUCCESS,
+			DARRegRead(&mock_dev_info,
+				RXS_RIO_SPX_PCNTR_CTL(port, ctr_idx), &cdata));
 		mask_temp = mock_sc_in->prio_mask << 8;
 		mask_temp &= RXS_RIO_SPC_PCNTR_CTL_PRIO;
 		reg_val_temp = reg_val;
 		reg_val_temp |= mock_sc_in->tx ? RXS_RIO_SPX_PCNTR_CTL_TX : 0;
 		reg_val_temp |= mask_temp;
-		assert_int_equal(mock_dar_reg[idx].data, reg_val_temp);
+		assert_int_equal(cdata, reg_val_temp);
 
 		// Check counter value
-		idx = find_offset(RXS_RIO_SPX_PCNTR_CNT(port, ctr_idx));
-		assert_int_not_equal(idx, UPB_DAR_REG);
-		assert_int_equal(mock_dar_reg[idx].data, 0);
+		assert_int_equal(RIO_SUCCESS,
+			DARRegRead(&mock_dev_info,
+				RXS_RIO_SPX_PCNTR_CNT(port, ctr_idx), &cdata));
+		assert_int_equal(cdata, 0);
 	}
 }
 
@@ -907,7 +1014,10 @@ void rxs_read_dev_ctrs_test(void **state)
 	rio_sc_read_ctrs_out_t     mock_sc_out;
         rio_sc_init_dev_ctrs_in_t      init_in;
         rio_sc_init_dev_ctrs_out_t     init_out;
-	int ctr_idx, idx, port;
+	int ctr_idx, port;
+	uint32_t cdata;
+	uint32_t rval;
+	uint32_t st_val = 0x10;
 
 	// Initialize counters structure
         rxs_init_ctrs(&init_in);
@@ -922,11 +1032,13 @@ void rxs_read_dev_ctrs_test(void **state)
 	for (port = 0; port < RXS2448_MAX_PORTS; port++) {
 		for (ctr_idx = 0; ctr_idx < RXS2448_MAX_SC; ctr_idx++) {
 			// Set non-zero counter value for the port
-			idx = find_offset(RXS_RIO_SPX_PCNTR_CNT(port, ctr_idx));
-			assert_int_not_equal(idx, UPB_DAR_REG);
-			mock_dar_reg[idx].data = idx;
-		};
-	};
+			rval = st_val + (port * RXS2448_MAX_SC) + ctr_idx;
+			assert_int_equal(RIO_SUCCESS,
+				DARRegWrite( &mock_dev_info,
+					RXS_RIO_SPX_PCNTR_CNT(port, ctr_idx),
+					rval));
+		}
+	}
 
 	// Check for successful reads...
 	assert_int_equal(RIO_SUCCESS, rxs_sc_read_ctrs(&mock_dev_info,
@@ -937,32 +1049,38 @@ void rxs_read_dev_ctrs_test(void **state)
 	for (port = 0; port < RXS2448_MAX_PORTS; port++) {
 		for (ctr_idx = 0; ctr_idx < RXS2448_MAX_SC; ctr_idx++) {
 			// Check the counter value for the port...
-			idx = find_offset(RXS_RIO_SPX_PCNTR_CNT(port, ctr_idx));
-			assert_int_not_equal(idx, UPB_DAR_REG);
+			assert_int_equal(RIO_SUCCESS,
+				DARRegRead( &mock_dev_info,
+					RXS_RIO_SPX_PCNTR_CNT(port, ctr_idx),
+					&cdata));
 			// Do not read disabled counters, they should always
 			// be zero.
+			rval = st_val + (port * RXS2448_MAX_SC) + ctr_idx;
 			if (rio_sc_disabled == pp_ctrs[port].ctrs[ctr_idx].sc) {
-				idx = 0;
-			};
-			assert_int_equal(idx,
+				rval = 0;
+			}
+			assert_int_equal(rval,
 				pp_ctrs[port].ctrs[ctr_idx].total);
-			assert_int_equal(idx,
+			assert_int_equal(rval,
 				pp_ctrs[port].ctrs[ctr_idx].last_inc);
-			if (idx) {
-				assert_int_equal(idx, mock_dar_reg[idx].data);
-			};
-		};
-	};
+			if (rval) {
+				assert_int_equal(rval, cdata);
+			}
+		}
+	}
 
 	// Increment counter registers
 	for (port = 0; port < RXS2448_MAX_PORTS; port++) {
 		for (ctr_idx = 0; ctr_idx < RXS2448_MAX_SC; ctr_idx++) {
 			// Set non-zero counter value for the port
-			idx = find_offset(RXS_RIO_SPX_PCNTR_CNT(port, ctr_idx));
-			assert_int_not_equal(idx, UPB_DAR_REG);
-			mock_dar_reg[idx].data = 3 * idx;
-		};
-	};
+			rval = st_val + (port * RXS2448_MAX_SC) + ctr_idx;
+			rval = rval * 3;
+			assert_int_equal(RIO_SUCCESS,
+				DARRegWrite( &mock_dev_info,
+					RXS_RIO_SPX_PCNTR_CNT(port, ctr_idx),
+					rval));
+		}
+	}
 
 	// Check for successful reads...
 	assert_int_equal(RIO_SUCCESS, rxs_sc_read_ctrs(&mock_dev_info,
@@ -973,33 +1091,37 @@ void rxs_read_dev_ctrs_test(void **state)
 	for (port = 0; port < RXS2448_MAX_PORTS; port++) {
 		for (ctr_idx = 0; ctr_idx < RXS2448_MAX_SC; ctr_idx++) {
 			// Check the counter value for the port...
-			idx = find_offset(RXS_RIO_SPX_PCNTR_CNT(port, ctr_idx));
-			assert_int_not_equal(idx, UPB_DAR_REG);
+			rval = st_val + (port * RXS2448_MAX_SC) + ctr_idx;
+			assert_int_equal(RIO_SUCCESS,
+				DARRegRead( &mock_dev_info,
+					RXS_RIO_SPX_PCNTR_CNT(port, ctr_idx),
+					&cdata));
 			// Do not read disabled counters, they should always
 			// be zero.
 			if (rio_sc_disabled == pp_ctrs[port].ctrs[ctr_idx].sc) {
-				idx = 0;
-			};
-			assert_int_equal(3 * idx,
+				rval = 0;
+			}
+			assert_int_equal(3 * rval,
 				pp_ctrs[port].ctrs[ctr_idx].total);
-			assert_int_equal( 2 * idx,
+			assert_int_equal( 2 * rval,
 				pp_ctrs[port].ctrs[ctr_idx].last_inc);
-			if (idx) {
-				assert_int_equal(3 * idx,
-						mock_dar_reg[idx].data);
-			};
-		};
-	};
+			if (rval) {
+				assert_int_equal(3 * rval, cdata);
+			}
+		}
+	}
 
 	// Decrement counter registers, check for wrap around handling...
 	for (port = 0; port < RXS2448_MAX_PORTS; port++) {
 		for (ctr_idx = 0; ctr_idx < RXS2448_MAX_SC; ctr_idx++) {
 			// Set non-zero counter value for the port
-			idx = find_offset(RXS_RIO_SPX_PCNTR_CNT(port, ctr_idx));
-			assert_int_not_equal(idx, UPB_DAR_REG);
-			mock_dar_reg[idx].data = idx;
-		};
-	};
+			rval = st_val + (port * RXS2448_MAX_SC) + ctr_idx;
+			assert_int_equal(RIO_SUCCESS,
+				DARRegWrite( &mock_dev_info,
+					RXS_RIO_SPX_PCNTR_CNT(port, ctr_idx),
+					rval));
+		}
+	}
 
 	// Check for successful reads...
 	assert_int_equal(RIO_SUCCESS, rxs_sc_read_ctrs(&mock_dev_info,
@@ -1011,23 +1133,26 @@ void rxs_read_dev_ctrs_test(void **state)
 		for (ctr_idx = 0; ctr_idx < RXS2448_MAX_SC; ctr_idx++) {
 			uint64_t base = (uint64_t)0x100000000;
 			// Check the counter value for the port...
-			idx = find_offset(RXS_RIO_SPX_PCNTR_CNT(port, ctr_idx));
-			assert_int_not_equal(idx, UPB_DAR_REG);
+			rval = st_val + (port * RXS2448_MAX_SC) + ctr_idx;
+			assert_int_equal(RIO_SUCCESS,
+				DARRegRead( &mock_dev_info,
+					RXS_RIO_SPX_PCNTR_CNT(port, ctr_idx),
+					&cdata));
 			// Do not read disabled counters, they should always
 			// be zero.
 			if (rio_sc_disabled == pp_ctrs[port].ctrs[ctr_idx].sc) {
-				idx = 0;
+				rval = 0;
 				base = 0;
-			};
-			assert_int_equal(base + idx,
+			}
+			assert_int_equal(base + rval,
 				pp_ctrs[port].ctrs[ctr_idx].total);
-			assert_int_equal(base - (2 * idx),
+			assert_int_equal(base - (2 * rval),
 				pp_ctrs[port].ctrs[ctr_idx].last_inc);
-			if (idx) {
-				assert_int_equal(idx, mock_dar_reg[idx].data);
-			};
-		};
-	};
+			if (rval) {
+				assert_int_equal(rval, cdata);
+			}
+		}
+	}
 	(void)state; // unused
 }
 
@@ -1149,8 +1274,12 @@ static void rxs_reg_dev_dom(uint32_t port, uint32_t rte_num, uint32_t *dom_out, 
            dom_rte_base = RXS_RIO_SPX_L1_GY_ENTRYZ_CSR(port, 0, 0);
         }
 
-        assert_int_equal(RIO_SUCCESS, DARRegRead(&mock_dev_info, DOM_RTE_ADDR(dom_rte_base, rte_num), dom_out));
-        assert_int_equal(RIO_SUCCESS, DARRegRead(&mock_dev_info, DEV_RTE_ADDR(dev_rte_base, rte_num), dev_out));
+        assert_int_equal(RIO_SUCCESS,
+		DARRegRead(&mock_dev_info,
+			DOM_RTE_ADDR(dom_rte_base, rte_num), dom_out));
+        assert_int_equal(RIO_SUCCESS,
+		DARRegRead(&mock_dev_info,
+			DEV_RTE_ADDR(dev_rte_base, rte_num), dev_out));
 }
 
 static void rxs_reg_mc_mask(uint32_t port, uint32_t mc_mask_num, uint32_t *mc_mask_out)
@@ -1184,7 +1313,7 @@ void check_init_rt_regs_port(uint32_t chk_on_port,
 		rxs_reg_dev_dom(chk_on_port, rt_num, &dom_out, &dev_out);
 		assert_int_equal(chk_rt_val, dom_out);
 		assert_int_equal(chk_rt_val, dev_out);
-	};
+	}
 
 	// Mask regs are always always set to 0...
 	for (mask_num = 0; mask_num < RIO_DSF_MAX_MC_MASK; mask_num++) {
@@ -1211,12 +1340,12 @@ void check_init_rt_regs(uint32_t port, bool hw,
 			check_init_rt_regs_port(port,
                                 chk_dflt_val, chk_rt_val, chk_mask, chk_first_idx_dom_val);
                  }
-	};
+	}
 
 	for (port = st_p; port <= end_p; port++) {
 		check_init_rt_regs_port(port,
 				chk_dflt_val, chk_rt_val, chk_mask, chk_first_idx_dom_val);
-	};
+	}
 }
 
 void check_init_struct(rio_rt_initialize_in_t *mock_init_in)
@@ -1262,7 +1391,7 @@ void check_init_struct(rio_rt_initialize_in_t *mock_init_in)
 }
 
 
-void rxs_init_rt_test_success_all_ports(bool hw)
+void rxs_init_rt_test_success_all_ports(void **state, bool hw)
 {
         rio_rt_initialize_in_t      mock_init_in;
         rio_rt_initialize_out_t     mock_init_out;
@@ -1270,7 +1399,7 @@ void rxs_init_rt_test_success_all_ports(bool hw)
         uint8_t port;
 
         for (port = 0; port <= RXS2448_MAX_PORTS; port++) {
-            init_mock_rxs_reg();
+            init_mock_rxs_reg(state);
             rxs_init_mock_rt(&rt);
 		if (RXS2448_MAX_PORTS == port) {
             		mock_init_in.set_on_port = RIO_ALL_PORTS;
@@ -1299,13 +1428,13 @@ void rxs_init_rt_test_success_all_ports(bool hw)
 
 void rxs_init_rt_test_success(void **state)
 {
-	rxs_init_rt_test_success_all_ports(false);
+	rxs_init_rt_test_success_all_ports(state, false);
 
         (void)state; // unused
 }
 void rxs_init_rt_test_success_hw(void **state)
 {
-	rxs_init_rt_test_success_all_ports(true);
+	rxs_init_rt_test_success_all_ports(state, true);
 
         (void)state; // unused
 }
@@ -1320,7 +1449,7 @@ void rxs_init_rt_null_test_success(void **state)
         uint8_t port;
 
         for (port = 0; port < RXS2448_MAX_PORTS; port++) {
-            init_mock_rxs_reg();
+            init_mock_rxs_reg(state);
             assert_int_equal(RIO_SUCCESS, DARRegRead(&mock_dev_info, RXS_RIO_ROUTE_DFLT_PORT, &temp));
             mock_init_in.set_on_port = port;
             mock_init_in.default_route = (uint8_t)(temp & RXS_RIO_ROUTE_DFLT_PORT_DEFAULT_OUT_PORT);
@@ -1350,7 +1479,7 @@ void rxs_init_rt_null_update_hw_test_success(void **state)
         uint8_t port;
 
         for (port = 0; port < RXS2448_MAX_PORTS; port++) {
-            init_mock_rxs_reg();
+            init_mock_rxs_reg(state);
              assert_int_equal(RIO_SUCCESS, DARRegRead(&mock_dev_info, RXS_RIO_ROUTE_DFLT_PORT, &temp));
              mock_init_in.set_on_port = port;
              mock_init_in.default_route = (uint8_t)(temp & RXS_RIO_ROUTE_DFLT_PORT_DEFAULT_OUT_PORT);
@@ -1380,7 +1509,7 @@ void rxs_init_rt_test_port_rte(void **state)
         uint8_t port;
 
         for (port = 0; port < RXS2448_MAX_PORTS; port++) {
-            init_mock_rxs_reg();
+            init_mock_rxs_reg(state);
             rxs_init_mock_rt(&rt);
             assert_int_equal(RIO_SUCCESS, DARRegRead(&mock_dev_info, RXS_RIO_ROUTE_DFLT_PORT, &temp));
             mock_init_in.set_on_port = port;
@@ -1435,7 +1564,7 @@ void rxs_init_rt_test_bad_default_route(void **state)
         uint8_t port;
 
         for (port = 0; port < RXS2448_MAX_PORTS; port++) {
-            init_mock_rxs_reg();
+            init_mock_rxs_reg(state);
             rxs_init_mock_rt(&rt);
             assert_int_equal(RIO_SUCCESS, DARRegRead(&mock_dev_info, RXS_RIO_ROUTE_DFLT_PORT, &temp));
             mock_init_in.set_on_port = port;
@@ -1488,7 +1617,7 @@ void rxs_init_rt_test_bad_default_route_table(void **state)
         uint8_t port;
 
         for (port = 0; port < RXS2448_MAX_PORTS; port++) {
-            init_mock_rxs_reg();
+            init_mock_rxs_reg(state);
             rxs_init_mock_rt(&rt);
             assert_int_equal(RIO_SUCCESS, DARRegRead(&mock_dev_info, RXS_RIO_ROUTE_DFLT_PORT, &temp));
             mock_init_in.set_on_port = port;
@@ -1566,7 +1695,7 @@ void rxs_check_change_rte_rt_change(uint32_t rte_num, uint32_t dflt_rte, rio_rt_
 	    // Dom table entry 0 is special, it must always be RIO_DSF_RT_USE_DEVICE_TABLE
             assert_int_equal(RIO_DSF_RT_USE_DEVICE_TABLE, mock_chg_in->rt->dom_table[chk_rte_num].rte_val);
  	    assert_false(mock_chg_in->rt->dom_table[chk_rte_num].changed);
-        };
+        }
 
 	for (chk_rte_num = 0; chk_rte_num < RIO_DAR_RT_DEV_TABLE_SIZE; chk_rte_num++) {
 	    if (chk_rte_num) {
@@ -3802,9 +3931,6 @@ void rxs_routing_table_05_test(void **state)
 
 int main(int argc, char** argv)
 {
-	(void)argv; // not used
-	argc++; // not used
-
 	const struct CMUnitTest tests[] = {
                 cmocka_unit_test(macros_test),
                 cmocka_unit_test_setup_teardown(assumptions_test, setup, NULL),
@@ -3888,10 +4014,13 @@ int main(int argc, char** argv)
 */
 	};
 
-	return cmocka_run_group_tests(tests, NULL, NULL);
+	memset(&st, 0, sizeof(st));
+	st.argc = argc;
+	st.argv = argv;
+
+	return cmocka_run_group_tests(tests, grp_setup, grp_teardown);
 }
 
 #ifdef __cplusplus
 }
 #endif
-

@@ -167,6 +167,9 @@ typedef struct DAR_DEV_INFO_t_TAG
 
 uint32_t DAR_add_poreg(DAR_DEV_INFO_t *dev_info, uint32_t oset, uint32_t data);
 
+#define DAR_POREG_BAD_IDX 0xFFFFFFFF
+uint32_t DAR_get_poreg_idx(DAR_DEV_INFO_t *dev_info, uint32_t oset);
+
 #define NUM_PORTS(x)    (( uint8_t)((((x)->swPortInfo ) & RIO_SW_PORT_INF_TOT) >>  8))
 #define NUM_MC_MASKS(x) ( (uint8_t)((((x)->swMcastInfo) & RIO_SW_MC_INF_MC_MSK)     ))
 #define VEND_CODE(x)    ((uint16_t)(((x)->devID      ) & RIO_DEV_IDENT_VEND))
