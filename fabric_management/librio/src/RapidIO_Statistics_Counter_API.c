@@ -111,6 +111,10 @@ uint32_t rio_sc_other_if_names(DAR_DEV_INFO_t *dev_h, const char **name)
 	if ((NULL == dev_h) || (NULL == name)) {
 		return RIO_ERR_NULL_PARM_PTR;
 	}
+	
+	if (RIO_UNITIALIZED_DEVICE == dev_h->driver_family) {
+		dev_h->driver_family = rio_get_driver_family(dev_h->devID);
+	}
 
 	switch (dev_h->driver_family) {
 	case RIO_CPS_DEVICE:
