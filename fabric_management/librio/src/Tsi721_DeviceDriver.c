@@ -49,8 +49,6 @@ extern "C" {
 
 #ifdef TSI721_DAR_WANTED
 
-extern DSF_Handle_t Tsi721_driver_handle;
-
 uint32_t tsi721_rioDeviceSupported(DAR_DEV_INFO_t *dev_info)
 {
 	uint32_t rc = DAR_DB_NO_DRIVER;
@@ -60,10 +58,6 @@ uint32_t tsi721_rioDeviceSupported(DAR_DEV_INFO_t *dev_info)
 				== ((dev_info->devID & RIO_DEV_IDENT_DEVI) >> 16)) {
 			// Now fill out the DAR_info structure...
 			rc = DARDB_rioDeviceSupported(dev_info);
-
-			// Index and information for DSF is the same
-			// as the DAR handle
-			dev_info->dsf_h = Tsi721_driver_handle;
 
 			if (rc == RIO_SUCCESS) {
 				SAFE_STRNCPY(dev_info->name, "Tsi721",

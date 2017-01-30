@@ -49,8 +49,6 @@ extern "C" {
 
 #ifdef TSI57X_DAR_WANTED
 
-extern DSF_Handle_t Tsi57x_driver_handle;
-
 struct {
 	const char *name; /* Constant name string */
 	const uint32_t devID; /* Vendor + Device ID   */
@@ -93,10 +91,7 @@ uint32_t tsi57x_rioDeviceSupported(DAR_DEV_INFO_t *dev_info)
 			/* Now fill out the DAR_info structure... */
 			rc = DARDB_rioDeviceSupported(dev_info);
 
-			/* Index and information for DSF is the same as the DAR handle */
-			dev_info->dsf_h = Tsi57x_driver_handle;
 			rc = tsi57x_init_scratchpad(dev_info);
-
 			if (rc == RIO_SUCCESS) {
 				getTsiName(dev_info);
 			}

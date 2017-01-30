@@ -41,13 +41,15 @@
 extern "C" {
 #endif
 
-/* Hide these two macros in order to preserve details of
-*  the device handle implementation.
-*/
-#define DAR_DB_MAX_DRIVERS 0x20
-#define VALIDATE_DEV_INFO(dev_info) ((0 != dev_info) \
-		&& (((dev_info->db_h >> 16) & RIO_DEV_IDENT_VEND) \
-			== (dev_info->devID & RIO_DEV_IDENT_VEND)))
+/* Hide these two macros in order to preserve details of the device handle
+ *  implementation.
+ */
+
+#define VALIDATE_DEV_INFO(dev_info) ((NULL != dev_info) \
+		&& (((dev_info->dsf_h >> 16) & RIO_DEV_IDENT_VEND) \
+				== (dev_info->devID & RIO_DEV_IDENT_VEND)) \
+		&& ((dev_info->driver_family >= RIO_CPS_DEVICE) && \
+				(dev_info->driver_family <= RIO_UNKNOWN_DEVICE)))
 
 #define VENDOR_ID(dev_info) ((uint16_t)(dev_info->devID & RIO_DEV_IDENT_VEND))
 

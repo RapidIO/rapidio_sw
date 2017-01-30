@@ -85,11 +85,10 @@ static void test_setup(void)
 {
 	uint8_t idx;
 
-	mock_dev_info.db_h = 3670020;
 	mock_dev_info.privateData = 0x0;
 	mock_dev_info.accessInfo = 0x0;
 	strcpy(mock_dev_info.name, "FASTER_EP");
-	mock_dev_info.dsf_h = 0x80E50005;
+	mock_dev_info.dsf_h = 0x00380000;
 	mock_dev_info.extFPtrForPort = 0x100;
 	mock_dev_info.extFPtrPortType = 0x1000;
 	mock_dev_info.extFPtrForLane = 0x2000;
@@ -97,6 +96,7 @@ static void test_setup(void)
 	mock_dev_info.extFPtrForVC = 0;
 	mock_dev_info.extFPtrForVOQ = 0;
 	mock_dev_info.devID = 0x80AB0038;
+	mock_dev_info.driver_family = RIO_CPS_DEVICE;
 	mock_dev_info.devInfo = 0;
 	mock_dev_info.assyInfo = 0;
 	mock_dev_info.features = 0xC000003F;

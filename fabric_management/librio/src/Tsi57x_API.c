@@ -49,8 +49,6 @@ extern "C" {
 
 #ifdef TSI57X_DAR_WANTED
 
-DSF_Handle_t Tsi57x_driver_handle;
-
 extern const struct scrpad_info *tsi57x_get_scrpad_info(); // Tsi57x_PC
 uint32_t tsi57x_WriteReg(DAR_DEV_INFO_t *dev_info, uint32_t offset,
 		uint32_t writedata)
@@ -164,18 +162,6 @@ uint32_t tsi57x_ReadReg(DAR_DEV_INFO_t *dev_info, uint32_t offset,
 	if (!found_one) {
 		return ReadReg( dev_info, offset, readdata );
 	}
-	return RIO_SUCCESS;
-}
-
-uint32_t bind_tsi57x_DSF_support(void)
-{
-	IDT_DSF_DB_t idt_driver;
-
-	IDT_DSF_init_driver(&idt_driver);
-	idt_driver.dev_type = 0x0570;
-
-	IDT_DSF_bind_driver(&idt_driver, &Tsi57x_driver_handle);
-
 	return RIO_SUCCESS;
 }
 

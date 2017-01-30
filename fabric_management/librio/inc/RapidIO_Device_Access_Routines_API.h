@@ -71,9 +71,7 @@ typedef enum rio_driver_family_t_TAG {
 */
 #define INVALID_HANDLE 0
 
-typedef uint32_t DAR_DB_Handle_t; /* DARDB Device Driver Handle */
-typedef uint32_t DSF_Handle_t;    /* Device Specific Function Handle, not */
-                                /*     defined by the DAR. */
+typedef uint32_t DAR_Handle_t;    /* Device Specific Function Handle */
 
 #define NAME_SIZE	15
 #define MAX_DAR_SCRPAD_IDX  30
@@ -85,9 +83,6 @@ typedef struct rio_perf_opt_reg_t_TAG {
 
 typedef struct DAR_DEV_INFO_t_TAG
 {
-	// Handle value used to access DAR routines
-	DAR_DB_Handle_t db_h;
-
 	// Pointer to a fabric management private data for this device.
 	void *privateData;
 
@@ -108,7 +103,7 @@ typedef struct DAR_DEV_INFO_t_TAG
 
 	// Address offsets for various register blocks.
 	// A value of 0x00000000 means that the block does not exist on this device.
-	DSF_Handle_t dsf_h;
+	DAR_Handle_t dsf_h;
 
 	// Offset of LP-Serial Register Extensions block.
 	uint32_t extFPtrForPort;
@@ -533,7 +528,7 @@ uint32_t DARrioGetDevResetInitStatus ( DAR_DEV_INFO_t *dev_info );
  *       the size of the database.
  *       */
 #define DAR_DB_NO_HANDLES            ((uint32_t)(0x70000002)) 
-/* dev_info.db_h parameter passed in is invalid.
+/* dev_info.dsf_h parameter passed in is invalid.
 */
 #define DAR_DB_INVALID_HANDLE        ((uint32_t)(0x70000004))  
 /* No device driver bound in supports the device.

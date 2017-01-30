@@ -1047,10 +1047,7 @@ exit:
 }
 
 
-/* DARDB_rioDeviceSupported updates the database handle field,
-   db_h, in dev_info to reflect the passed in index.
-  
-   The dev_info->devID field must be valid when this routine is called.
+/* The dev_info->devID field must be valid when this routine is called.
 
    Default driver for a device is the DARDB_ routines defined above.
    This routine is the last driver bound in to the DAR DB, so it will
@@ -1236,14 +1233,14 @@ uint32_t DARrioDeviceSupported(DAR_DEV_INFO_t *dev_info)
 }
 
 uint32_t DAR_Find_Driver_for_Device(bool dev_info_devID_valid,
-                           DAR_DEV_INFO_t *dev_info)
+		DAR_DEV_INFO_t *dev_info)
 {
 	uint32_t rc = RIO_SUCCESS;
 
 	SAFE_STRNCPY(dev_info->name, "UNKNOWN", sizeof(dev_info->name));
 
 	// If dev_info_devID_valid is true, we are using a static devID instead
-        // of probing.  Otherwise, we are probing a SRIO device to get a devID
+	// of probing.  Otherwise, we are probing a SRIO device to get a devID
 
 	if (!dev_info_devID_valid) {
 		rc = ReadReg(dev_info, RIO_DEV_IDENT, &dev_info->devID);
@@ -1253,7 +1250,7 @@ uint32_t DAR_Find_Driver_for_Device(bool dev_info_devID_valid,
 		dev_info->driver_family = rio_get_driver_family(dev_info->devID);
 	}
 
-	dev_info->db_h = VENDOR_ID(dev_info) << 16;
+	dev_info->dsf_h = VENDOR_ID(dev_info) << 16;
 	rc = DARrioDeviceSupported(dev_info) ;
 
 	if (RIO_SUCCESS == rc) {

@@ -545,7 +545,7 @@ void setup_mport(struct fmd_state *fmd)
 	int mport = 0;
 	uint32_t dsf_rc;
 
-        dsf_rc = IDT_DSF_bind_DAR_routines(SRIO_API_ReadRegFunc,
+        dsf_rc = RIO_bind_procs(SRIO_API_ReadRegFunc,
                                 SRIO_API_WriteRegFunc,
                                 SRIO_API_DelayFunc);
         if (dsf_rc) {

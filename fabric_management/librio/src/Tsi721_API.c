@@ -46,8 +46,6 @@ extern "C" {
 
 #ifdef TSI721_DAR_WANTED
 
-DSF_Handle_t Tsi721_driver_handle;
-
 uint32_t tsi721_ReadReg(DAR_DEV_INFO_t *dev_info, uint32_t offset,
 		uint32_t *readdata)
 {
@@ -108,18 +106,6 @@ uint32_t tsi721_WriteReg(DAR_DEV_INFO_t *dev_info, uint32_t offset,
 		rc = WriteReg(dev_info, offset, writedata);
 	}
 	return rc;
-}
-
-uint32_t bind_tsi721_DSF_support(void)
-{
-	IDT_DSF_DB_t idt_driver;
-
-	IDT_DSF_init_driver(&idt_driver);
-	idt_driver.dev_type = RIO_DEVI_IDT_TSI721;
-
-	IDT_DSF_bind_driver(&idt_driver, &Tsi721_driver_handle);
-
-	return RIO_SUCCESS;
 }
 
 #endif /* TSI721_DAR_WANTED */

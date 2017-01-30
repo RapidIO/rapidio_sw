@@ -30,8 +30,8 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
-#ifndef __IDT_COMMON_H__
-#define __IDT_COMMON_H__
+#ifndef __RAPIDIO_SOURCE_CONFIG_H__
+#define __RAPIDIO_SOURCE_CONFIG_H__
 
 #include "stdint.h"
 
@@ -50,4 +50,4 @@ extern "C" {
 }
 #endif
 
-#endif /* __IDT_COMMON_H__ */
+#endif /* __RAPIDIO_SOURCE_CONFIG_H__ */

@@ -31,8 +31,8 @@
  *************************************************************************
  */
 
-#ifndef __IDT_DSF_DB_PRIVATE_H__
-#define __IDT_DSF_DB_PRIVATE_H__
+#ifndef __DSF_DB_PRIVATE_H__
+#define __DSF_DB_PRIVATE_H__
 
 #include "DAR_DB_Private.h"
 #include "RapidIO_Routing_Table_API.h"
@@ -188,21 +188,8 @@ uint32_t DSF_rio_sc_read_ctrs(DAR_DEV_INFO_t *dev_info,
 		rio_sc_read_ctrs_in_t *in_parms,
 		rio_sc_read_ctrs_out_t *out_parms);
 
-// Device driver structure...
-typedef struct IDT_DSF_DB_t_TAG {
-	uint32_t dev_type; /* Device type supported by this driver... */
-} IDT_DSF_DB_t;
-
-#define IDT_DSF_INDEX(dev_info) (dev_info->dsf_h & 0x0000FFFF)
-
-extern IDT_DSF_DB_t IDT_DB[DAR_DB_MAX_DRIVERS];
-
-void IDT_DSF_init_driver(IDT_DSF_DB_t *dsf);
-
-uint32_t IDT_DSF_bind_driver(IDT_DSF_DB_t *dsf, uint32_t *dsf_index);
-
-// IDT_DSF_bind_DAR_routines 
-uint32_t IDT_DSF_bind_DAR_routines(
+// Bind DAR routines
+uint32_t RIO_bind_procs(
 		uint32_t (*ReadReg)(DAR_DEV_INFO_t *dev_info,
 				uint32_t offset, uint32_t *readdata),
 		uint32_t (*WriteReg)(DAR_DEV_INFO_t *dev_info,
@@ -216,5 +203,5 @@ uint32_t IDT_DSF_bind_DAR_routines(
 }
 #endif
 
-#endif /* __IDT_DSF_DB_PRIVATE_H__ */
+#endif /* __DSF_DB_PRIVATE_H__ */
 

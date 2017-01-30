@@ -52,8 +52,6 @@ extern "C" {
 
 #ifdef CPS_DAR_WANTED
 
-extern DSF_Handle_t CPS_driver_handle;
-
 uint32_t CPS_rioGetPortList(DAR_DEV_INFO_t *dev_info, struct DAR_ptl *ptl_in,
 		struct DAR_ptl *ptl_out)
 {
@@ -131,7 +129,6 @@ uint32_t CPS_rioDeviceSupported(DAR_DEV_INFO_t *dev_info)
 				== (DECODE_DEVICE_ID(dev_info->devID))) {
 			SAFE_STRNCPY(dev_info->name, "CPS1848",
 					sizeof(dev_info->name));
-			dev_info->dsf_h = CPS_driver_handle;
 			dev_info->assyInfo = 0x100;
 			dev_info->devInfo = 0;
 			dev_info->srcOps = 0x4;
@@ -152,7 +149,6 @@ uint32_t CPS_rioDeviceSupported(DAR_DEV_INFO_t *dev_info)
 				== (DECODE_DEVICE_ID(dev_info->devID))) {
 			SAFE_STRNCPY(dev_info->name, "CPS1432",
 					sizeof(dev_info->name));
-			dev_info->dsf_h = CPS_driver_handle;
 			dev_info->assyInfo = 0x100;
 			dev_info->devInfo = 0;
 			dev_info->srcOps = 0x4;
@@ -173,7 +169,6 @@ uint32_t CPS_rioDeviceSupported(DAR_DEV_INFO_t *dev_info)
 				== (DECODE_DEVICE_ID(dev_info->devID))) {
 			SAFE_STRNCPY(dev_info->name, "CPS1616",
 					sizeof(dev_info->name));
-			dev_info->dsf_h = CPS_driver_handle;
 			dev_info->assyInfo = 0x100;
 			dev_info->devInfo = 0;
 			dev_info->srcOps = 0x4;
@@ -194,7 +189,6 @@ uint32_t CPS_rioDeviceSupported(DAR_DEV_INFO_t *dev_info)
 				== (DECODE_DEVICE_ID(dev_info->devID))) {
 			SAFE_STRNCPY(dev_info->name, "VPS1616",
 					sizeof(dev_info->name));
-			dev_info->dsf_h = CPS_driver_handle;
 			dev_info->assyInfo = 0x100;
 			dev_info->devInfo = 0;
 			dev_info->srcOps = 0x4;
@@ -215,7 +209,6 @@ uint32_t CPS_rioDeviceSupported(DAR_DEV_INFO_t *dev_info)
 				== (DECODE_DEVICE_ID(dev_info->devID))) {
 			SAFE_STRNCPY(dev_info->name, "SPS1616",
 					sizeof(dev_info->name));
-			dev_info->dsf_h = CPS_driver_handle;
 			dev_info->assyInfo = 0x100;
 			dev_info->devInfo = 0;
 			dev_info->srcOps = 0x4;
@@ -235,9 +228,6 @@ uint32_t CPS_rioDeviceSupported(DAR_DEV_INFO_t *dev_info)
 		} else if (DECODE_DEVICE_ID( dev_info->devID ) == 0) {
 			/* Now fill out the DAR_info structure... */
 			rc = DARDB_rioDeviceSupported(dev_info);
-
-			/* Index and information for DSF is the same as the DAR handle */
-			dev_info->dsf_h = CPS_driver_handle;
 		}
 	}
 	return rc;

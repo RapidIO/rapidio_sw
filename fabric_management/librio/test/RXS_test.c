@@ -42,7 +42,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "RapidIO_Source_Config.h"
 #include "RapidIO_Device_Access_Routines_API.h"
-#include "RXS_API.h"
 #include "RXS2448.h"
 #include "RXS_Routing_Table_API.h"
 #include "src/RXS_DeviceDriver.c"
@@ -281,11 +280,10 @@ static void rxs_test_setup(void)
 	uint8_t idx, pnum;
 	rio_sc_ctr_val_t init = INIT_RIO_SC_CTR_VAL;
 
-	mock_dev_info.db_h = 3670020;
 	mock_dev_info.privateData = 0x0;
 	mock_dev_info.accessInfo = 0x0;
 	strcpy(mock_dev_info.name, "RXS2448");
-	mock_dev_info.dsf_h = 0x80E50005;
+	mock_dev_info.dsf_h = 0x00380000;
 	mock_dev_info.extFPtrForPort = 0;
 	mock_dev_info.extFPtrPortType = 0;
 	mock_dev_info.extFPtrForLane = 12288;
@@ -293,6 +291,7 @@ static void rxs_test_setup(void)
 	mock_dev_info.extFPtrForVC = 0;
 	mock_dev_info.extFPtrForVOQ = 0;
 	mock_dev_info.devID = 0x80E60038;
+	mock_dev_info.driver_family = RIO_RXS_DEVICE;
 	mock_dev_info.devInfo = 0;
 	mock_dev_info.assyInfo = 256;
 	mock_dev_info.features = 402658623;

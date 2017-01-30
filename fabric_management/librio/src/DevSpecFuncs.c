@@ -46,8 +46,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "DAR_DB_Private.h"
 #include "DSF_DB_Private.h"
 
-#include "CPS_API.h"
-#include "RXS_API.h"
 #include "Tsi57x_API.h"
 #include "Tsi721_API.h"
 
@@ -56,7 +54,6 @@ extern "C" {
 #endif
 
 uint32_t num_idt_drivers_in_use;
-IDT_DSF_DB_t IDT_DB[DAR_DB_MAX_DRIVERS];
 
 uint32_t DARDB_ReadRegNoDriver(DAR_DEV_INFO_t *dev_info, uint32_t offset,
 		uint32_t *readdata)
@@ -658,43 +655,7 @@ void dsf_add_pw_event(rio_em_get_pw_stat_in_t *in_parms,
 }
 
 
-void IDT_DSF_init_driver(IDT_DSF_DB_t *dsf)
-{
-	dsf->dev_type = 0;
-}
-
-void IDT_init_DSF_DB(void)
-{
-	int32_t idx;
-	IDT_DSF_DB_t dsf;
-
-	num_idt_drivers_in_use = 0;
-
-	IDT_DSF_init_driver(&dsf);
-	for (idx = 0; idx < DAR_DB_MAX_DRIVERS; idx++) {
-		IDT_DB[idx] = dsf;
-	}
-}
-
-uint32_t IDT_DSF_bind_driver(IDT_DSF_DB_t *dsf, uint32_t *dsf_index)
-{
-	uint32_t rc = DAR_DB_NO_HANDLES;
-
-	if (num_idt_drivers_in_use < DAR_DB_MAX_DRIVERS) {
-		IDT_DB[num_idt_drivers_in_use] = *dsf;
-
-		/* Compose the DSF handle... */
-		*dsf_index = ((uint32_t)(dsf->dev_type & 0x0000FFFF) << 16)
-				+ num_idt_drivers_in_use;
-
-		num_idt_drivers_in_use++;
-		rc = RIO_SUCCESS;
-	}
-	return rc;
-}
-
-
-uint32_t IDT_DSF_bind_DAR_routines(
+uint32_t RIO_bind_procs(
 		uint32_t (*ReadRegCall)(DAR_DEV_INFO_t *dev_info,
 				uint32_t offset, uint32_t *readdata),
 		uint32_t (*WriteRegCall)(DAR_DEV_INFO_t *dev_info,
@@ -702,24 +663,6 @@ uint32_t IDT_DSF_bind_DAR_routines(
 		void (*WaitSecCall)(uint32_t delay_nsec, uint32_t delay_sec))
 {
 	DAR_proc_ptr_init(ReadRegCall, WriteRegCall, WaitSecCall);
-	IDT_init_DSF_DB();
-
-#ifdef CPS_DAR_WANTED
-	bind_CPS_DSF_support();
-#endif
-
-#ifdef TSI57X_DAR_WANTED
-	bind_tsi57x_DSF_support();
-#endif
-
-#ifdef TSI721_DAR_WANTED
-	bind_tsi721_DSF_support();
-#endif
-
-#ifdef RXSx_DAR_WANTED
-	bind_rxs_DSF_support();
-#endif
-
 	return RIO_SUCCESS;
 }
 

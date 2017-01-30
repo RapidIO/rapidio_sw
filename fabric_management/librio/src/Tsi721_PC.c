@@ -656,7 +656,7 @@ uint32_t tsi721_rio_pc_set_config(DAR_DEV_INFO_t *dev_info,
 	// Always set LOG_RTO
 	// Note: Tsi721 logical response timeout field does not appear at the
 	// correct location in the register.  We generically correct this in the
-	// IDT_tsi721WriteReg routine, so we must write a generic value here.
+	// tsi721_WriteReg routine, so we must write a generic value here.
 	rc = DARRegWrite(dev_info, TSI721_SR_RSP_TO,
 			((((in_parms->log_rto * 100) + 187) / 188) << 8)
 					& RIO_SP_RTO_CTL_TVAL);
