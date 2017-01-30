@@ -1136,6 +1136,10 @@ uint32_t DARDB_rioDeviceSupported(DAR_DEV_INFO_t *dev_info)
 			case RIO_EFB_T_SP_EP_SAER:
 			case RIO_EFB_T_SP_NOEP:
 			case RIO_EFB_T_SP_NOEP_SAER:
+			case RIO_EFB_T_SP_EP3:
+			case RIO_EFB_T_SP_EP3_SAER:
+			case RIO_EFB_T_SP_NOEP3:
+			case RIO_EFB_T_SP_NOEP3_SAER:
 				dev_info->extFPtrPortType = curr_ext_feat &
 				RIO_EFB_T;
 				dev_info->extFPtrForPort = prev_addr;

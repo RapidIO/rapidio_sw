@@ -1568,7 +1568,7 @@ int mpsw_drv_enable_pe(struct riocp_pe *pe, pe_port_t port)
 	}
 	dev_h = &priv->dev_h;
 	if (!priv->dev_h.extFPtrForPort) {
-		ERR("extFPtrForPort is 0");
+		ERR("DevID 0x%x extFPtrForPort is 0", priv->dev_h.devID);
 		goto fail;
 	}
 

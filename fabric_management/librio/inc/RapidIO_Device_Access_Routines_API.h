@@ -108,13 +108,10 @@ typedef struct DAR_DEV_INFO_t_TAG
 	// Offset of LP-Serial Register Extensions block.
 	uint32_t extFPtrForPort;
 
-	// RO: ID
-	//     0x01: Generic End Point Device
-	//     0x02: Generic End Point Device with Software Assisted
-	//		Error Recovery Opt
-	//     0x03: Generic End Point Free Device
-	//     0x09: Generic End Point Free Device with Software
-	//		Assisted Error Recovery Opt
+	// RO: ID	RIO_EFB_T_SP_EP, RIO_EFB_T_SP_EP_SAER, 
+	// 		RIO_EFB_T_SP_NOEP, RIO_EFB_T_SP_NOEP_SAER,
+	// 		RIO_EFB_T_SP_EP3, RIO_EFB_T_SP_EP3_SAER,
+	// 		RIO_EFB_T_SP_NOEP3, RIO_EFB_T_SP_NOEP3_SAER
 	uint32_t extFPtrPortType;
 
 	// RO: ID  0x0D: Lane Status
