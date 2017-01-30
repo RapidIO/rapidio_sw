@@ -142,8 +142,8 @@ static int grp_setup(void **state)
 			break;
 		}
 	}
-	if (!got_mport || !got_hc || !got_destid) {
-		printf("\nMust enter all of -m, -h and -d.\n");
+	if ((st.real_hw) && !(got_mport && got_hc && got_destid)) {
+		printf("\nMust enter all of -m, -h and -d to run on real hw\n");
 		goto fail;
 	}
 	if (st.real_hw) {
