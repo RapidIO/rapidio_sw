@@ -43,15 +43,31 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 extern "C" {
 #endif
 
-extern uint32_t SRIO_API_ReadRegFunc(DAR_DEV_INFO_t *d_info, uint32_t offset,
-							uint32_t *readdata);
-extern uint32_t SRIO_API_WriteRegFunc(DAR_DEV_INFO_t *d_info, uint32_t  offset,
-                                			uint32_t  writedata);
+extern uint32_t SRIO_API_ReadRegFunc(DAR_DEV_INFO_t *d_info,
+		uint32_t offset, uint32_t *readdata);
+extern uint32_t SRIO_API_WriteRegFunc(DAR_DEV_INFO_t *d_info,
+		uint32_t offset, uint32_t writedata);
 extern void SRIO_API_DelayFunc(uint32_t delay_nsec, uint32_t delay_sec);
 
-extern struct riocp_pe_driver pe_mpsw_driver;
 extern struct riocp_reg_rw_driver pe_mpsw_rw_driver;
 
+// See riocp_drv definitions for comments (driver.h)
+int RIOCP_WU mpsw_drv_init_pe(struct riocp_pe *pe, uint32_t *ct,
+		struct riocp_pe *peer, char *name);
+int RIOCP_WU mpsw_drv_destroy_pe(struct riocp_pe *pe);
+int RIOCP_WU mpsw_drv_recover_port(struct riocp_pe *pe, uint8_t port,
+		uint8_t lp_port);
+int RIOCP_WU mpsw_drv_get_route_entry(struct riocp_pe *pe,
+		uint8_t port, uint32_t did, pe_rt_val *rt_val);
+int RIOCP_WU mpsw_drv_set_route_entry(struct riocp_pe *pe,
+		uint8_t port, uint32_t did, pe_rt_val rt_val);
+int RIOCP_WU mpsw_drv_get_port_state(struct riocp_pe *pe, uint8_t port,
+		struct riocp_pe_port_state_t *state);
+int RIOCP_WU mpsw_drv_reset_port(struct riocp_pe *pe, uint8_t port,
+		bool reset_lp);
+
+int RIOCP_WU mpsw_get_mport_regs(int mp_num, struct mport_regs *regs);
+int RIOCP_WU mpsw_enable_pe(struct riocp_pe *pe, pe_port_t port);
 
 #ifdef __cplusplus
 }
