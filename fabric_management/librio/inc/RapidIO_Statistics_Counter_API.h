@@ -46,76 +46,158 @@ extern "C" {
    configuration of a port.
 */
 
-typedef enum rio_sc_ctr_t_TAG
-{
-    rio_sc_disabled,        // The counter is disabled.
-    rio_sc_enabled,         // The counter is enabled.
-			// START OF TSI57X SPECIFIC COUNTERS
-    rio_sc_uc_req_pkts,     // Tsi57x Unicast request packets
-                            //   Excludes response packets, maintenance packets,
-			    //   maintenance packets with hop count of 0,
-			    //   and packets which are multicast.
-    rio_sc_uc_pkts,         // Tsi57x Unicast packets.
-                            //   Excludes all packets which are multicast.
-    rio_sc_retries,         // Count retry control symbols              
-    rio_sc_all_cs,          // Excludes retries, and Status+NOP control symbols
-    rio_sc_uc_4b_data,      // Count of multiple of words (4 bytes) of packet data
-                            //    for unicast packets.  Excludes multicast packets.
-    rio_sc_mc_pkts,         // Count of multicast packets.
-                            //   Excludes all packets which are unicast.  
-    rio_sc_mecs,            // Count of Multicast Event Control Symbols         
-    rio_sc_mc_4b_data,      // Count of multiple of words (4 bytes) of packet data
-                            //    for multicast packets.  Excludes unicast packets.
-			// END OF TSI57X SPECIFIC COUNTERS
-    rio_sc_pa,              // CPS Packet acknowledgements count (TX or RX)
-    rio_sc_pkt,             // CPS Packets count (TX or RX)
-    rio_sc_pna,             // CPS Packet negative acknowledgements count (RX only)
-    rio_sc_pkt_drop,        // CPS Packets dropped count (TX or RX)
-    rio_sc_pkt_drop_ttl,    // CPS RX Packets dropped count due to TTL (TX only)
+typedef enum rio_sc_ctr_t_TAG {
+	// The counter is disabled.
+	rio_sc_disabled,
 
-			// START OF RXS2448 SPECIFIC PERFORMANCE COUNTERS
-    rio_sc_fab_pkt,         // Number of packets received/transmitted on the fabric
-    rio_sc_rio_pload,       // Count of packet payload received/transmitted on the RapidIO interface
-    rio_sc_fab_pload,       // Count of packet payload received/transmitted on the fabric
-    rio_sc_rio_bwidth,   // Count of the total number of code-groups/codewords
-			// transmitted on the RapidIO interface per lane
-			// END OF RXS2448 SPECIFIC PERFORMANCE COUNTERS
+	// The counter is enabled.
+	rio_sc_enabled,
 
-			// START OF TSI721 PERFORMANCE COUNTERS
-    rio_sc_pcie_msg_rx,        // Received Completion Count for Messaging Engine Register.
-    rio_sc_pcie_msg_tx,        // Sent TLP Count of Messaging Engine Register
-    rio_sc_pcie_dma_rx,        // Received Completion Count for Block DMA Engine Register
-    rio_sc_pcie_dma_tx,        // Sent TLP Count of Block DMA Engine Register
-    rio_sc_pcie_brg_rx,        // Received Bridging TLP Count Register
-    rio_sc_pcie_brg_tx,        // Sent Bridging TLP Count Register
-    rio_sc_rio_nwr_tx,         // NWRITE_R Total Count Register
-    rio_sc_rio_nwr_ok_rx,	// NWRITE_R RX OK Count Register
-    rio_sc_rio_dbel_tx,        // Total outbound doorbells total sent
-    rio_sc_rio_dbel_ok_rx,     // Total outbound doorbells responses OK
-    rio_sc_rio_msg_tx,         // Sent Packet Count of Messaging Engine Register
-    rio_sc_rio_msg_rx,         // Received Packet Count for Messaging Engine Register
-    rio_sc_rio_msg_tx_rty,     // Generated Message Segment Retry Count Register
-    rio_sc_rio_msg_rx_rty,     // Received Retry Message Response Count Register
-    rio_sc_rio_dma_tx,         // Sent Packet Count of Block DMA Engine Register
-    rio_sc_rio_dma_rx,         // Received Response Count for Block DMA Engine Register
-    rio_sc_rio_brg_tx,          // Sent Bridging Packet Count Register
-    rio_sc_rio_brg_rx,          // Received Bridging Packet Count Register
-    rio_sc_rio_brg_rx_err,      // Received Bridging Packet Error Count Register
-    rio_sc_rio_mwr_tx,        // Maintenance Write Total Count Register 
-    rio_sc_rio_mwr_ok_rx,         // Maintenance Write OK Count Register
-			// END OF TSI721 PERFORMANCE COUNTERS
+	// START OF TSI57X SPECIFIC COUNTERS
 
-    rio_sc_last             // Last index for enumerated type
+	// Tsi57x Unicast request packets
+	//   Excludes response packets, maintenance packets,
+	//   maintenance packets with hop count of 0,
+	//   and packets which are multicast.
+	rio_sc_uc_req_pkts,
+
+	// Tsi57x Unicast packets.
+	//   Excludes all packets which are multicast.
+	rio_sc_uc_pkts,
+
+	// Count retry control symbols
+	rio_sc_retries,
+
+	// Excludes retries, and Status+NOP control symbols
+	rio_sc_all_cs,
+
+	// Count of multiple of words (4 bytes) of packet data
+	//    for unicast packets.  Excludes multicast packets.
+	rio_sc_uc_4b_data,
+
+	// Count of multicast packets.
+	//   Excludes all packets which are unicast.
+	rio_sc_mc_pkts,
+
+	// Count of Multicast Event Control Symbols
+	rio_sc_mecs,
+
+	// Count of multiple of words (4 bytes) of packet data
+	//    for multicast packets.  Excludes unicast packets.
+	rio_sc_mc_4b_data,
+
+	// END OF TSI57X SPECIFIC COUNTERS
+
+	// CPS Packet acknowledgements count (TX or RX)
+	rio_sc_pa,
+
+	// CPS Packets count (TX or RX)
+	rio_sc_pkt,
+
+	// CPS Packet negative acknowledgements count (RX only)
+	rio_sc_pna,
+
+	// CPS Packets dropped count (TX or RX)
+	rio_sc_pkt_drop,
+
+	// CPS RX Packets dropped count due to TTL (TX only)
+	rio_sc_pkt_drop_ttl,
+
+	// START OF RXS2448 SPECIFIC PERFORMANCE COUNTERS
+
+	// Number of packets received/transmitted on the fabric
+	rio_sc_fab_pkt,
+
+	// Count of packet payload received/transmitted on the RapidIO interface
+	rio_sc_rio_pload,
+
+	// Count of packet payload received/transmitted on the fabric
+	rio_sc_fab_pload,
+
+	// Count of the total number of code-groups/codewords
+	// transmitted on the RapidIO interface per lane
+	rio_sc_rio_bwidth,
+
+	// END OF RXS2448 SPECIFIC PERFORMANCE COUNTERS
+	// START OF TSI721 PERFORMANCE COUNTERS
+
+	// Received Completion Count for Messaging Engine Register.
+	rio_sc_pcie_msg_rx,
+
+	// Sent TLP Count of Messaging Engine Register
+	rio_sc_pcie_msg_tx,
+
+	// Received Completion Count for Block DMA Engine Register
+	rio_sc_pcie_dma_rx,
+
+	// Sent TLP Count of Block DMA Engine Register
+	rio_sc_pcie_dma_tx,
+
+	// Received Bridging TLP Count Register
+	rio_sc_pcie_brg_rx,
+
+	// Sent Bridging TLP Count Register
+	rio_sc_pcie_brg_tx,
+
+	// NWRITE_R Total Count Register
+	rio_sc_rio_nwr_tx,
+
+	// NWRITE_R RX OK Count Register
+	rio_sc_rio_nwr_ok_rx,
+
+	// Total outbound doorbells total sent
+	rio_sc_rio_dbel_tx,
+
+	// Total outbound doorbells responses OK
+	rio_sc_rio_dbel_ok_rx,
+
+	// Sent Packet Count of Messaging Engine Register
+	rio_sc_rio_msg_tx,
+
+	// Received Packet Count for Messaging Engine Register
+	rio_sc_rio_msg_rx,
+
+	// Generated Message Segment Retry Count Register
+	rio_sc_rio_msg_tx_rty,
+
+	// Received Retry Message Response Count Register
+	rio_sc_rio_msg_rx_rty,
+
+	// Sent Packet Count of Block DMA Engine Register
+	rio_sc_rio_dma_tx,
+
+	// Received Response Count for Block DMA Engine Register
+	rio_sc_rio_dma_rx,
+
+	// Sent Bridging Packet Count Register
+	rio_sc_rio_brg_tx,
+
+	// Received Bridging Packet Count Register
+	rio_sc_rio_brg_rx,
+
+	// Received Bridging Packet Error Count Register
+	rio_sc_rio_brg_rx_err,
+
+	// Maintenance Write Total Count Register
+	rio_sc_rio_mwr_tx,
+
+	// Maintenance Write OK Count Register
+	rio_sc_rio_mwr_ok_rx,
+
+	// END OF TSI721 PERFORMANCE COUNTERS
+
+	// Last index for enumerated type
+	rio_sc_last
 } rio_sc_ctr_t;
 
 typedef enum rio_sc_ctr_flag_t_TAG {
-	sc_f_DROP = 0,
-	sc_f_ERR  = 1,
-	sc_f_RTY  = 2,
-	sc_f_CS   = 3,
-	sc_f_PKT  = 4,
-	sc_f_DATA = 5,
-	sc_f_LAST = 6,
+	sc_f_DROP	= 0,
+	sc_f_ERR	= 1,
+	sc_f_RTY	= 2,
+	sc_f_CS		= 3,
+	sc_f_PKT	= 4,
+	sc_f_DATA	= 5,
+	sc_f_LAST	= 6,
 } rio_sc_ctr_flag_t;
 
 #define SC_FLAG_NAMES "DROP ERR RTY CS PKT DATA "
@@ -156,6 +238,7 @@ extern uint32_t rio_sc_other_if_names(DAR_DEV_INFO_t *dev_h, const char **name);
 #define DIR_FAB  !DIR_SRIO
 
 typedef uint8_t prio_mask_g1_t;
+
 // Gen1 definitions for priority
 #define SC_PRIO_MASK_G1_0	((prio_mask_g1_t)(0x01))
 #define SC_PRIO_MASK_G1_1	((prio_mask_g1_t)(0x02))
@@ -174,122 +257,181 @@ typedef uint8_t prio_mask_t;
 #define SC_PRIO_MASK_3C	((prio_mask_t)(0x80))
 #define SC_PRIO_MASK_ALL ((prio_mask_t)(0xFF))
 
-typedef struct rio_sc_ctr_val_t_TAG
-{
-    long long    total;    // Accumulated counter value since counter was 
-                           //   enabled/configured
-    uint32_t       last_inc; // Value the counter increased since previous read.
-    rio_sc_ctr_t sc;       // What is being counted
-                           //    May be modified by device specific configuration routines,
-			   //    as counters are configured/enabled/disabled
-			   //    The fields "total" and "last_inc" are 0 when sc == rio_sc_dir
-    bool         tx;       // true : transmitted "sc" are being counted.
-                           // false: received    "sc" are being counted.
-    bool         srio;     // true : Counter type reflects information on the RapidIO interface
-                           // false: Counter type reflects information on the internal fabric interface
+typedef struct rio_sc_ctr_val_t_TAG {
+	// Accumulated counter value since counter was
+	//   enabled/configured
+	long long total;
+
+	// Value the counter increased since previous read.
+	uint32_t last_inc;
+
+	// What is being counted
+	//    May be modified by device specific configuration routines,
+	//    as counters are configured/enabled/disabled
+	//    The fields "total" and "last_inc" are 0 when sc == rio_sc_dir
+	rio_sc_ctr_t sc;
+
+	// true : transmitted "sc" are being counted.
+	// false: received    "sc" are being counted.
+	bool tx;
+
+	// true : Counter type reflects information on the RapidIO interface
+	// false: Counter type reflects information on the internal fabric interface
+	bool srio;
 } rio_sc_ctr_val_t;
 
 #define INIT_RIO_SC_CTR_VAL {0, 0, rio_sc_disabled, false, true} 
 
-typedef struct rio_sc_p_ctrs_val_t_TAG
-{
-    uint8_t        pnum;      // Port number for these counters
-    uint8_t        ctrs_cnt;  // Number of valid entries in ctrs
-                            //    Device specific.
-    rio_sc_ctr_val_t ctrs[RIO_MAX_SC];  // Counter values for the device
+typedef struct rio_sc_p_ctrs_val_t_TAG {
+	// Port number for these counters
+	uint8_t pnum;
+
+	// Number of valid entries in ctrs.
+	//    Device specific.
+	uint8_t ctrs_cnt;
+
+	// Counter values for the device
+	rio_sc_ctr_val_t ctrs[RIO_MAX_SC];
 } rio_sc_p_ctrs_val_t;
 
-typedef struct rio_sc_dev_ctrs_t_TAG
-{
-    uint8_t                num_p_ctrs;    // Number of allocated entries in p_ctrs[], 
-                                        //    Maximum value is RIO_MAX_PORTS
-	uint8_t                valid_p_ctrs;  // Number of valid entries in p_ctrs[],
-	                                    //    Maximum value is num_p_ctrs;
-	                                    // Initialized by rio_sc_init_dev_ctrs()...
-    rio_sc_p_ctrs_val_t *p_ctrs;        // Location of performance counters structure array
+typedef struct rio_sc_dev_ctrs_t_TAG {
+	// Number of allocated entries in p_ctrs[],
+	//    Maximum value is RIO_MAX_PORTS
+	uint8_t num_p_ctrs;
+
+	// Number of valid entries in p_ctrs[],
+	//    Maximum value is num_p_ctrs;
+	// Initialized by rio_sc_init_dev_ctrs()...
+	uint8_t valid_p_ctrs;
+
+	// Location of performance counters structure array
+	rio_sc_p_ctrs_val_t *p_ctrs;
 } rio_sc_dev_ctrs_t;
 
-typedef struct rio_sc_init_dev_ctrs_in_t_TAG
-{
-   struct DAR_ptl       ptl;       // Port list
-   rio_sc_dev_ctrs_t   *dev_ctrs;  // Device performance counters state
+typedef struct rio_sc_init_dev_ctrs_in_t_TAG {
+	// Port list
+	struct DAR_ptl ptl;
+
+	// Device performance counters state
+	rio_sc_dev_ctrs_t *dev_ctrs;
 } rio_sc_init_dev_ctrs_in_t;
 
-typedef struct rio_sc_init_dev_ctrs_out_t_TAG 
-{
-   uint32_t      imp_rc;     // Implementation specific return code information.
+typedef struct rio_sc_init_dev_ctrs_out_t_TAG {
+	// Implementation specific return code information.
+	uint32_t imp_rc;
 } rio_sc_init_dev_ctrs_out_t;
 
-typedef struct rio_sc_read_ctrs_in_t_TAG
-{
-  struct DAR_ptl        ptl;       // Port list
-   rio_sc_dev_ctrs_t   *dev_ctrs;  // Device performance counters.
+typedef struct rio_sc_read_ctrs_in_t_TAG {
+	// Port list
+	struct DAR_ptl ptl;
+
+	// Device performance counters.
+	rio_sc_dev_ctrs_t *dev_ctrs;
 } rio_sc_read_ctrs_in_t;
 
-typedef struct rio_sc_read_ctrs_out_t_TAG
-{
-   uint32_t      imp_rc;     // Implementation specific return code information.
+typedef struct rio_sc_read_ctrs_out_t_TAG {
+	// Implementation specific return code information.
+	uint32_t imp_rc;
 } rio_sc_read_ctrs_out_t;
 
-typedef struct rio_sc_cfg_tsi57x_ctr_in_t_TAG 
-{
-   struct DAR_ptl         ptl;        // Port list
-   uint8_t                  ctr_idx;    // Index of the Tsi57x counter to be configured.  Range 0-5.
-   prio_mask_g1_t        prio_mask;  // Priority of packets to be counted.
-					// Not used for control symbol counters.
-                                      // Uses SC_PRIO_MASK_G1_x constant
-                                      // definitions.
-   bool                   tx;         // Determines direction for the counter.  !tx = rx.
-   rio_sc_ctr_t           ctr_type;   // Valid counter type, valid range from rio_sc_disabled to rio_sc_uc_4b_data
-   rio_sc_dev_ctrs_t     *dev_ctrs;   // Device counters data type, initialized by rio_sc_init_dev_ctrs
+typedef struct rio_sc_cfg_tsi57x_ctr_in_t_TAG {
+	// Port list
+	struct DAR_ptl ptl;
+
+	// Index of the Tsi57x counter to be configured.  Range 0-5.
+	uint8_t ctr_idx;
+
+	// Priority of packets to be counted.
+	// Not used for control symbol counters.
+	// Uses SC_PRIO_MASK_G1_x constant definitions.
+	prio_mask_g1_t prio_mask;
+
+	// Determines direction for the counter.  !tx = rx.
+	bool tx;
+
+	// Valid counter type, valid range from rio_sc_disabled to rio_sc_uc_4b_data
+	rio_sc_ctr_t ctr_type;
+
+	// Device counters data type, initialized by rio_sc_init_dev_ctrs
+	rio_sc_dev_ctrs_t *dev_ctrs;
 } rio_sc_cfg_tsi57x_ctr_in_t;
 
-typedef struct rio_sc_cfg_tsi57x_ctr_out_t_TAG
-{
-   uint32_t      imp_rc;     // Implementation specific return code information.
+typedef struct rio_sc_cfg_tsi57x_ctr_out_t_TAG {
+	// Implementation specific return code information.
+	uint32_t imp_rc;
 } rio_sc_cfg_tsi57x_ctr_out_t;
 
-typedef struct rio_sc_cfg_cps_ctrs_in_t_TAG
-{
-   struct DAR_ptl         ptl;       // Port list
-   bool                   enable_ctrs; // true - enable all counters, false - disable all counters
-   rio_sc_dev_ctrs_t     *dev_ctrs;    // Device counters data type, initialized by rio_sc_init_dev_ctrs
+typedef struct rio_sc_cfg_cps_ctrs_in_t_TAG {
+	// Port list
+	struct DAR_ptl ptl;
+
+	// true - enable all counters, false - disable all counters
+	bool enable_ctrs;
+
+	// Device counters data type, initialized by rio_sc_init_dev_ctrs
+	rio_sc_dev_ctrs_t *dev_ctrs;
 } rio_sc_cfg_cps_ctrs_in_t;
 
-typedef struct rio_sc_cfg_cps_ctrs_out_t_TAG
-{
-   uint32_t      imp_rc;     // Implementation specific return code information.
+typedef struct rio_sc_cfg_cps_ctrs_out_t_TAG {
+	// Implementation specific return code information.
+	uint32_t imp_rc;
 } rio_sc_cfg_cps_ctrs_out_t;
 
-typedef struct rio_sc_cfg_cps_trace_in_t_TAG
-{
-  struct DAR_ptl          ptl;       // Port list
-   uint8_t                  trace_idx;   // Index of the CPS trace/filter counter to be configured.  Range 0-3.
-   uint32_t                 pkt_mask[5]; // Mask of packet fields to be checked.
-   uint32_t                 pkt_val[5];  // Packet field values to match.
-   bool                   count;       // Count packets which are traced or dropped.      
-                                       //    If false, no action occurs. 
-				       //    If true , all counters will be enabled on the port.
-   bool                   trace;       // Send a copy of this packet to the trace port.   
-   bool                   drop;        // Drop this packet.  This is independent of trace behavior.
-   rio_sc_dev_ctrs_t     *dev_ctrs;    // Device counters data type, initialized by rio_sc_init_dev_ctrs
-                                       //    May be set to NULL if counters are not of interest.
+typedef struct rio_sc_cfg_cps_trace_in_t_TAG {
+	// Port list
+	struct DAR_ptl ptl;
+
+	// Index of the CPS trace/filter counter to be configured.  Range 0-3.
+	uint8_t trace_idx;
+
+	// Mask of packet fields to be checked.
+	uint32_t pkt_mask[5];
+
+	// Packet field values to match.
+	uint32_t pkt_val[5];
+
+	// Count packets which are traced or dropped.
+	//    If false, no action occurs.
+	//    If true , all counters will be enabled on the port.
+	bool count;
+
+	// Send a copy of this packet to the trace port.
+	bool trace;
+
+	// Drop this packet.  This is independent of trace behavior.
+	bool drop;
+
+	// Device counters data type, initialized by rio_sc_init_dev_ctrs
+	//    May be set to NULL if counters are not of interest.
+	rio_sc_dev_ctrs_t *dev_ctrs;
 } rio_sc_cfg_cps_trace_in_t;
 
-typedef struct rio_sc_cfg_cps_trace_out_t_TAG
-{
-   uint32_t      imp_rc;     // Implementation specific return code information.
+typedef struct rio_sc_cfg_cps_trace_out_t_TAG {
+	// Implementation specific return code information.
+	uint32_t imp_rc;
 } rio_sc_cfg_cps_trace_out_t;
 
-typedef struct rio_sc_cfg_rxs_ctr_in_t_TAG
-{
-	struct DAR_ptl ptl; // Port list.  
-	uint8_t ctr_idx; // Index of the RXS counter [0..7] to be configured.
-	prio_mask_t  prio_mask; // Packet priority, use SC_PRIO_MASK_x consts
-        bool	ctr_en; // Enable/disable port counters
-	bool	tx; // Determines direction for the counter.  !tx = rx.
-        rio_sc_ctr_t ctr_type; // What to count
-        rio_sc_dev_ctrs_t *dev_ctrs; // Initialized by rio_sc_init_dev_ctrs
+typedef struct rio_sc_cfg_rxs_ctr_in_t_TAG {
+	// Port list.
+	struct DAR_ptl ptl;
+
+	// Index of the RXS counter [0..7] to be configured.
+	uint8_t ctr_idx;
+
+	// Packet priority, use SC_PRIO_MASK_x consts
+	prio_mask_t prio_mask;
+
+	// Enable/disable port counters
+	bool ctr_en;
+
+	// Determines direction for the counter.  !tx = rx.
+	bool tx;
+
+	// What to count
+	rio_sc_ctr_t ctr_type;
+
+	// Initialized by rio_sc_init_dev_ctrs
+	rio_sc_dev_ctrs_t *dev_ctrs;
 } rio_sc_cfg_rxs_ctr_in_t;
 
 typedef struct rio_sc_cfg_rxs_ctr_out_t_TAG
@@ -302,6 +444,7 @@ typedef struct rio_sc_cfg_rxs_ctr_out_t_TAG
 
 #define SC_INIT_DEV_CTRS_0    (DAR_FIRST_IMP_SPEC_ERROR+0x0100)
 #define SC_READ_CTRS_0        (DAR_FIRST_IMP_SPEC_ERROR+0x0200)
+
 #define SC_CFG_TSI57X_CTR_0   (DAR_FIRST_IMP_SPEC_ERROR+0x0300)
 #define SC_CFG_CPS_CTRS_0     (DAR_FIRST_IMP_SPEC_ERROR+0x0400)
 #define SC_CFG_CPS_TRACE_0    (DAR_FIRST_IMP_SPEC_ERROR+0x0500)
@@ -310,59 +453,46 @@ typedef struct rio_sc_cfg_rxs_ctr_out_t_TAG
 #define SC_READ_RXS_CTRS_0    (DAR_FIRST_IMP_SPEC_ERROR+0x0700)
 #define SC_CFG_RXS_CTR_0      (DAR_FIRST_IMP_SPEC_ERROR+0x0800)
 
+#define SC_INIT_RXS_CTRS(x) (SC_INIT_RXS_CTRS_0+x)
+#define SC_READ_RXS_CTRS(x) (SC_READ_RXS_CTRS_0+x)
+
 /* The following functions are implemented to support the above structures
-   Refer to the above structures for the implementation detail 
-*/
-/* This function initializes an rio_sc_dev_ctrs structure based
- * on input parameters and the current hardware state.
-*/
-#define SC_INIT_DEV_CTRS(x) (SC_INIT_DEV_CTRS_0+x)
-
-uint32_t rio_sc_init_dev_ctrs (
-    DAR_DEV_INFO_t             *dev_info,
-    rio_sc_init_dev_ctrs_in_t  *in_parms,
-    rio_sc_init_dev_ctrs_out_t *out_parms
-);
-
-/* Reads enabled/configured counters on selected ports   
-*/
-#define SC_READ_CTRS(x) (SC_READ_CTRS_0+x)
-
-uint32_t rio_sc_read_ctrs(
-    DAR_DEV_INFO_t           *dev_info,
-    rio_sc_read_ctrs_in_t    *in_parms,
-    rio_sc_read_ctrs_out_t   *out_parms
-);
-
-/* Configure counters on selected ports of a 
- * Tsi device.
+ * Refer to the above structures for the implementation detail
  */
 
+/* This function initializes an rio_sc_dev_ctrs structure based
+ * on input parameters and the current hardware state.
+ */
+#define SC_INIT_DEV_CTRS(x) (SC_INIT_DEV_CTRS_0+x)
+
+uint32_t rio_sc_init_dev_ctrs(DAR_DEV_INFO_t *dev_info,
+		rio_sc_init_dev_ctrs_in_t *in_parms,
+		rio_sc_init_dev_ctrs_out_t *out_parms);
+
+/* Reads enabled/configured counters on selected ports */
+#define SC_READ_CTRS(x) (SC_READ_CTRS_0+x)
+uint32_t rio_sc_read_ctrs(DAR_DEV_INFO_t *dev_info,
+		rio_sc_read_ctrs_in_t *in_parms,
+		rio_sc_read_ctrs_out_t *out_parms);
+
+/* Configure counters on selected ports of a Tsi device. */
 #define SC_CFG_TSI57X_CTR(x) (SC_CFG_TSI57X_CTR_0+x)
-extern uint32_t rio_sc_cfg_tsi57x_ctr (
-    DAR_DEV_INFO_t              *dev_info,
-    rio_sc_cfg_tsi57x_ctr_in_t  *in_parms,
-    rio_sc_cfg_tsi57x_ctr_out_t *out_parms
-);
+uint32_t rio_sc_cfg_tsi57x_ctr(DAR_DEV_INFO_t *dev_info,
+		rio_sc_cfg_tsi57x_ctr_in_t *in_parms,
+		rio_sc_cfg_tsi57x_ctr_out_t *out_parms);
 
 /* Configure counters on selected ports of a CPS device. */
 #define SC_CFG_CPS_CTRS(x) (SC_CFG_CPS_CTRS_0+x)
+uint32_t rio_sc_cfg_cps_ctrs(DAR_DEV_INFO_t *dev_info,
+		rio_sc_cfg_cps_ctrs_in_t *in_parms,
+		rio_sc_cfg_cps_ctrs_out_t *out_parms);
 
-extern uint32_t rio_sc_cfg_cps_ctrs(
-    DAR_DEV_INFO_t            *dev_info,
-    rio_sc_cfg_cps_ctrs_in_t  *in_parms,
-    rio_sc_cfg_cps_ctrs_out_t *out_parms
-);
 
-extern uint32_t rio_sc_cfg_rxs_ctr(
-    DAR_DEV_INFO_t            *dev_info,
-    rio_sc_cfg_rxs_ctr_in_t  *in_parms,
-    rio_sc_cfg_rxs_ctr_out_t *out_parms
-);
-
-#define SC_INIT_RXS_CTRS(x) (SC_INIT_RXS_CTRS_0+x)
-#define SC_READ_RXS_CTRS(x) (SC_READ_RXS_CTRS_0+x)
+/* Configure counters on selected ports of an RXS device. */
 #define SC_CFG_RXS_CTRS(x)  (SC_CFG_RXS_CTR_0+x)
+uint32_t rio_sc_cfg_rxs_ctr(DAR_DEV_INFO_t *dev_info,
+		rio_sc_cfg_rxs_ctr_in_t *in_parms,
+		rio_sc_cfg_rxs_ctr_out_t *out_parms);
 
 #ifdef __cplusplus
 }

@@ -34,31 +34,16 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define __TSI57X_API_H__
 
 #include <stdint.h>
-#include "RapidIO_Device_Access_Routines_API.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-/* Routine to bind in all Tsi57x specific DAR support routines.
-   Supports Tsi574, Tsi576, Tsi577, Tsi578
-*/
-uint32_t bind_tsi57x_DAR_support( void );
-
 /* Routine to bind in all Tsi57x specific Device Specific Function routines.
-   Supports Tsi574, Tsi576, Tsi577, Tsi578
-*/
+ * Supports Tsi574, Tsi576, Tsi577, Tsi578
+ */
 uint32_t bind_tsi57x_DSF_support( void );
 
-// External routine definitions 
-//
-extern uint32_t IDT_tsi57xReadReg(DAR_DEV_INFO_t *dev_info,
-                                uint32_t  offset,
-                                uint32_t  *readdata);
-
-extern uint32_t IDT_tsi57xWriteReg( DAR_DEV_INFO_t *dev_info,
-                                uint32_t  offset,
-                                uint32_t  writedata );
 #ifdef __cplusplus
 }
 #endif

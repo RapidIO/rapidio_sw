@@ -30,7 +30,9 @@
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *************************************************************************
  */
-#include <stdlib.h>
+
+#include <stdint.h>
+#include <stddef.h>
 
 #include "RapidIO_Source_Config.h"
 #include "RapidIO_Device_Access_Routines_API.h"
@@ -80,8 +82,7 @@ static void getTsiName(DAR_DEV_INFO_t *dev_info)
 	}
 }
 
-uint32_t init_scratchpad(DAR_DEV_INFO_t *dev_info);
-
+extern uint32_t tsi57x_init_scratchpad(DAR_DEV_INFO_t *dev_info); // Tsi57x_PC
 uint32_t tsi57x_rioDeviceSupported(DAR_DEV_INFO_t *dev_info)
 {
 	uint32_t rc = DAR_DB_NO_DRIVER;
@@ -94,7 +95,7 @@ uint32_t tsi57x_rioDeviceSupported(DAR_DEV_INFO_t *dev_info)
 
 			/* Index and information for DSF is the same as the DAR handle */
 			dev_info->dsf_h = Tsi57x_driver_handle;
-			rc = init_scratchpad(dev_info);
+			rc = tsi57x_init_scratchpad(dev_info);
 
 			if (rc == RIO_SUCCESS) {
 				getTsiName(dev_info);

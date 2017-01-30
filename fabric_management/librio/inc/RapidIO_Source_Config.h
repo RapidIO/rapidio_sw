@@ -49,4 +49,5 @@ extern "C" {
 #ifdef __cplusplus
 }
 #endif
+
 #endif /* __IDT_COMMON_H__ */

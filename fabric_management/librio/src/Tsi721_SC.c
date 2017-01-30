@@ -31,6 +31,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 
+#include <stdint.h>
+#include <stddef.h>
+
+#include "RapidIO_Source_Config.h"
+
 #include "Tsi721.h"
 #include "Tsi721_API.h"
 #include "DAR_DB_Private.h"
@@ -44,6 +49,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+#ifdef TSI721_DAR_WANTED
 
 struct tsi721_dev_ctr {
 	rio_sc_ctr_t	ctr_t;
@@ -101,10 +108,9 @@ const struct tsi721_dev_ctr tsi721_dev_ctrs[] = {
 #define TSI721_NUM_PERF_CTRS (sizeof(tsi721_dev_ctrs) / \
 			sizeof(struct tsi721_dev_ctr))
 
-uint32_t idt_tsi721_sc_init_dev_ctrs (
-	 DAR_DEV_INFO_t				 *dev_info,
-	 rio_sc_init_dev_ctrs_in_t  *in_parms,
-	 rio_sc_init_dev_ctrs_out_t *out_parms)
+uint32_t tsi721_rio_sc_init_dev_ctrs(DAR_DEV_INFO_t *dev_info,
+		rio_sc_init_dev_ctrs_in_t *in_parms,
+		rio_sc_init_dev_ctrs_out_t *out_parms)
 {
 	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
 	uint8_t cntr_i;
@@ -115,29 +121,29 @@ uint32_t idt_tsi721_sc_init_dev_ctrs (
 	out_parms->imp_rc = RIO_SUCCESS;
 
 	if (NULL == in_parms->dev_ctrs) {
-		  out_parms->imp_rc = SC_INIT_DEV_CTRS(0x01);
-		  goto exit;
+		out_parms->imp_rc = SC_INIT_DEV_CTRS(0x01);
+		goto exit;
 	}
 
 	if (NULL == in_parms->dev_ctrs->p_ctrs) {
 		out_parms->imp_rc = SC_INIT_DEV_CTRS(0x02);
 		goto exit;
-	};
+	}
 
-	if (!in_parms->dev_ctrs->num_p_ctrs ||
-			(in_parms->dev_ctrs->num_p_ctrs > RIO_MAX_PORTS) ||
-			(in_parms->dev_ctrs->num_p_ctrs <
-			in_parms->dev_ctrs->valid_p_ctrs)) {
+	if (!in_parms->dev_ctrs->num_p_ctrs
+			|| (in_parms->dev_ctrs->num_p_ctrs > RIO_MAX_PORTS)
+			|| (in_parms->dev_ctrs->num_p_ctrs
+					< in_parms->dev_ctrs->valid_p_ctrs)) {
 		out_parms->imp_rc = SC_INIT_DEV_CTRS(0x03);
 		goto exit;
-	};
+	}
 
 	rc = DARrioGetPortList(dev_info, &in_parms->ptl, &good_ptl);
 	if ((RIO_SUCCESS != rc) || (TSI721_MAX_PORTS != good_ptl.num_ports)) {
 		rc = RIO_ERR_INVALID_PARAMETER;
-		out_parms->imp_rc = SC_INIT_DEV_CTRS(0x10);	
+		out_parms->imp_rc = SC_INIT_DEV_CTRS(0x10);
 		goto exit;
-	};
+	}
 
 	ctrs = &in_parms->dev_ctrs->p_ctrs[0].ctrs[0];
 	in_parms->dev_ctrs->valid_p_ctrs = TSI721_MAX_PORTS;
@@ -148,16 +154,16 @@ uint32_t idt_tsi721_sc_init_dev_ctrs (
 		ctrs[cntr_i].sc = tsi721_dev_ctrs[cntr_i].ctr_t;
 		ctrs[cntr_i].tx = tsi721_dev_ctrs[cntr_i].tx;
 		ctrs[cntr_i].srio = tsi721_dev_ctrs[cntr_i].srio;
-	};
+	}
 
 	rc = RIO_SUCCESS;
 exit:
 	return rc;
-};
+}
 
-uint32_t idt_tsi721_sc_read_ctrs(DAR_DEV_INFO_t  *dev_info,
-                            rio_sc_read_ctrs_in_t    *in_parms,
-                            rio_sc_read_ctrs_out_t   *out_parms)
+uint32_t tsi721_rio_sc_read_ctrs(DAR_DEV_INFO_t *dev_info,
+		rio_sc_read_ctrs_in_t *in_parms,
+		rio_sc_read_ctrs_out_t *out_parms)
 {
 	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
 	uint8_t cntr;
@@ -169,32 +175,36 @@ uint32_t idt_tsi721_sc_read_ctrs(DAR_DEV_INFO_t  *dev_info,
 	if (NULL == in_parms->dev_ctrs) {
 		out_parms->imp_rc = SC_READ_CTRS(0x01);
 		goto exit;
-	};
+	}
 
 	if (NULL == in_parms->dev_ctrs->p_ctrs) {
 		out_parms->imp_rc = SC_READ_CTRS(0x02);
 		goto exit;
-	};
+	}
 
-	if (!in_parms->dev_ctrs->num_p_ctrs ||
-		(in_parms->dev_ctrs->num_p_ctrs > RIO_MAX_PORTS) ||
-		(in_parms->dev_ctrs->num_p_ctrs < in_parms->dev_ctrs->valid_p_ctrs)) {
+	if (!in_parms->dev_ctrs->num_p_ctrs
+			|| (in_parms->dev_ctrs->num_p_ctrs > RIO_MAX_PORTS)
+			|| (in_parms->dev_ctrs->num_p_ctrs
+					< in_parms->dev_ctrs->valid_p_ctrs)) {
 		out_parms->imp_rc = SC_READ_CTRS(0x03);
 		goto exit;
-	};
+	}
 
-	if (((RIO_ALL_PORTS == in_parms->ptl.num_ports) && (in_parms->dev_ctrs->num_p_ctrs < NUM_PORTS(dev_info))) ||
-		((RIO_ALL_PORTS != in_parms->ptl.num_ports) && (in_parms->dev_ctrs->num_p_ctrs < in_parms->ptl.num_ports))) {
+	if (((RIO_ALL_PORTS == in_parms->ptl.num_ports)
+			&& (in_parms->dev_ctrs->num_p_ctrs < NUM_PORTS(dev_info)))
+			|| ((RIO_ALL_PORTS != in_parms->ptl.num_ports)
+					&& (in_parms->dev_ctrs->num_p_ctrs
+							< in_parms->ptl.num_ports))) {
 		out_parms->imp_rc = SC_READ_CTRS(0x04);
 		goto exit;
-	};
+	}
 
 	rc = DARrioGetPortList(dev_info, &in_parms->ptl, &good_ptl);
 	if ((RIO_SUCCESS != rc) || (TSI721_MAX_PORTS != good_ptl.num_ports)) {
 		rc = RIO_ERR_INVALID_PARAMETER;
 		out_parms->imp_rc = SC_READ_CTRS(0x10);
 		goto exit;
-	};
+	}
 
 	// There's only one port, and one set of counters...
 	ctrs = &in_parms->dev_ctrs->p_ctrs[0].ctrs[0];
@@ -202,31 +212,34 @@ uint32_t idt_tsi721_sc_read_ctrs(DAR_DEV_INFO_t  *dev_info,
 		uint32_t cnt, split_cnt;
 		if (tsi721_dev_ctrs[cntr].split && !tsi721_dev_ctrs[cntr].os) {
 			continue;
-		};
+		}
 
 		rc = DARRegRead(dev_info, tsi721_dev_ctrs[cntr].os, &cnt);
 		if (RIO_SUCCESS != rc) {
 			out_parms->imp_rc = SC_READ_CTRS(0x20 + cntr);
 			goto exit;
-		};
+		}
 
 		if (!tsi721_dev_ctrs[cntr].split) {
 			ctrs[cntr].last_inc = cnt;
 			ctrs[cntr].total += cnt;
 			continue;
-		};
+		}
 		split_cnt = (cnt & TSI721_MWR_CNT_MW_TOT_CNT) >> 16;
 		cnt &= TSI721_MWR_CNT_MW_OK_CNT;
 		ctrs[cntr].last_inc = split_cnt;
 		ctrs[cntr].total += split_cnt;
 		ctrs[cntr + 1].last_inc = cnt;
 		ctrs[cntr + 1].total += cnt;
-	};
+	}
 
 	rc = RIO_SUCCESS;
+
 exit:
 	return rc;
 }
+
+#endif /* TSI721_DAR_WANTED */
 
 #ifdef __cplusplus
 }

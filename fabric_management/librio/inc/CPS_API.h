@@ -33,15 +33,15 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef __CPS_API_H__
 #define __CPS_API_H__
 
-#include "DSF_DB_Private.h"
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 /* Routine to bind in all CPS specific Device Specific Function routines.
-   Supports CPS1848, CPS1616, VPS1616, SPS1616
-*/
+ * Supports CPS1848, CPS1616, VPS1616, SPS1616
+ */
 uint32_t bind_CPS_DSF_support( void );
 
 #ifdef __cplusplus

@@ -31,6 +31,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 
+#include <stdint.h>
 #include <stddef.h>
 
 #include "RapidIO_Source_Config.h"
@@ -68,6 +69,12 @@ void (*WaitSec)(uint32_t delay_nsec, uint32_t delay_sec);
 
 rio_driver_family_t rio_get_driver_family(uint32_t devID);
 
+extern uint32_t tsi721_ReadReg(DAR_DEV_INFO_t *dev_info,
+		uint32_t offset, uint32_t *readdata);
+
+extern uint32_t tsi57x_ReadReg(DAR_DEV_INFO_t *dev_info, uint32_t offset,
+		uint32_t *readdata);
+
 uint32_t DARRegRead(DAR_DEV_INFO_t *dev_info, uint32_t offset,
 						uint32_t *readdata)
 {
@@ -99,10 +106,10 @@ uint32_t DARRegRead(DAR_DEV_INFO_t *dev_info, uint32_t offset,
 		rc = ReadReg(dev_info, offset, readdata);
 		break;
 	case RIO_TSI57X_DEVICE:
-		rc = IDT_tsi57xReadReg(dev_info, offset, readdata);
+		rc = tsi57x_ReadReg(dev_info, offset, readdata);
 		break;
 	case RIO_TSI721_DEVICE:
-		rc = IDT_tsi721ReadReg(dev_info, offset, readdata);
+		rc = tsi721_ReadReg(dev_info, offset, readdata);
 		break;
 	case RIO_UNKNOWN_DEVICE:
 		rc = ReadReg(dev_info, offset, readdata);
@@ -113,6 +120,12 @@ uint32_t DARRegRead(DAR_DEV_INFO_t *dev_info, uint32_t offset,
 	}
 	return rc;
 }
+
+extern uint32_t tsi721_WriteReg(DAR_DEV_INFO_t *dev_info,
+		uint32_t offset, uint32_t writedata);
+
+extern uint32_t tsi57x_WriteReg(DAR_DEV_INFO_t *dev_info, uint32_t offset,
+		uint32_t writedata);
 
 uint32_t DARRegWrite(DAR_DEV_INFO_t *dev_info, uint32_t offset,
 		uint32_t writedata)
@@ -138,10 +151,10 @@ uint32_t DARRegWrite(DAR_DEV_INFO_t *dev_info, uint32_t offset,
 		rc = WriteReg(dev_info, offset, writedata);
 		break;
 	case RIO_TSI57X_DEVICE:
-		rc = IDT_tsi57xWriteReg(dev_info, offset, writedata);
+		rc = tsi57x_WriteReg(dev_info, offset, writedata);
 		break;
 	case RIO_TSI721_DEVICE:
-		rc = IDT_tsi721WriteReg(dev_info, offset, writedata);
+		rc = tsi721_WriteReg(dev_info, offset, writedata);
 		break;
 	case RIO_UNKNOWN_DEVICE:
 		rc = WriteReg(dev_info, offset, writedata);
@@ -203,20 +216,17 @@ void DAR_WaitSec( uint32_t delay_nsec, uint32_t delay_sec )
 }
 
 uint32_t DAR_proc_ptr_init(
-    uint32_t (*ReadRegCall )( DAR_DEV_INFO_t *dev_info,
-                                    uint32_t  offset,
-                                    uint32_t *readdata ),
-    uint32_t (*WriteRegCall)( DAR_DEV_INFO_t *dev_info,
-                                    uint32_t  offset,
-                                    uint32_t  writedata ),
-    void   (*WaitSecCall) ( uint32_t delay_nsec,
-                            uint32_t delay_sec ))
+		uint32_t (*ReadRegCall)(DAR_DEV_INFO_t *dev_info,
+				uint32_t offset, uint32_t *readdata),
+		uint32_t (*WriteRegCall)(DAR_DEV_INFO_t *dev_info,
+				uint32_t offset, uint32_t writedata),
+		void (*WaitSecCall)(uint32_t delay_nsec, uint32_t delay_sec))
 {
-    ReadReg  = ReadRegCall;
-    WriteReg = WriteRegCall;
-    WaitSec  = WaitSecCall;
+	ReadReg = ReadRegCall;
+	WriteReg = WriteRegCall;
+	WaitSec = WaitSecCall;
 
-    return RIO_SUCCESS;
+	return RIO_SUCCESS;
 }
 
 rio_driver_family_t rio_get_driver_family(uint32_t devID)
@@ -278,7 +288,6 @@ rio_driver_family_t rio_get_driver_family(uint32_t devID)
 uint32_t update_dev_info_regvals(DAR_DEV_INFO_t *dev_info, uint32_t offset,
 		uint32_t reg_val)
 {
-
 	uint32_t rc = RIO_SUCCESS;
 
 	if (dev_info->extFPtrForPort && RIO_SP_VLD(dev_info->extFPtrPortType)) {
@@ -310,10 +319,10 @@ uint32_t update_dev_info_regvals(DAR_DEV_INFO_t *dev_info, uint32_t offset,
 					rc = RIO_ERR_SW_FAILURE;
 				} else {
 					dev_info->ctl1_reg[idx] = reg_val;
-				};
-			};
-		};
-	};
+				}
+			}
+		}
+	}
 
 	return rc;
 }
@@ -1189,6 +1198,20 @@ uint32_t DARDB_rioDeviceSupportedStub(DAR_DEV_INFO_t *dev_info)
 	return DAR_DB_NO_DRIVER;
 }
 
+uint32_t DARDB_rioSetAssmblyInfo(DAR_DEV_INFO_t *dev_info,
+		uint32_t asmblyVendID, uint16_t asmblyRev)
+{
+	if (NULL == dev_info) {
+		return RIO_ERR_NULL_PARM_PTR;
+	}
+
+	if (asmblyVendID || asmblyRev) {
+		return RIO_ERR_FEATURE_NOT_SUPPORTED;
+	}
+
+	return RIO_ERR_FEATURE_NOT_SUPPORTED;
+}
+
 uint32_t DARrioDeviceSupported(DAR_DEV_INFO_t *dev_info)
 {
 	if (!VALIDATE_DEV_INFO(dev_info)) {
@@ -1228,7 +1251,7 @@ uint32_t DAR_Find_Driver_for_Device(bool dev_info_devID_valid,
 			goto fail;
 		}
 		dev_info->driver_family = rio_get_driver_family(dev_info->devID);
-	};
+	}
 
 	dev_info->db_h = VENDOR_ID(dev_info) << 16;
 	rc = DARrioDeviceSupported(dev_info) ;

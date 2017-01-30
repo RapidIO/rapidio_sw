@@ -40,7 +40,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <setjmp.h>
 #include "cmocka.h"
 
+#include "RapidIO_Source_Config.h"
 #include "RapidIO_Device_Access_Routines_API.h"
+#include "src/Tsi721_DeviceDriver.h"
 #include "rio_standard.h"
 #include "rio_ecosystem.h"
 #include "tok_parse.h"
@@ -53,6 +55,27 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+#ifndef TSI721_DAR_WANTED
+
+static void tsi721_not_supported_test(void **state)
+{
+	(void)state; // not used
+}
+
+int main(int argc, char** argv)
+{
+	(void)argv; // not used
+	argc++;// not used
+
+	const struct CMUnitTest tests[] = {
+		cmocka_unit_test(tsi721_not_supported_test)};
+	return cmocka_run_group_tests(tests, NULL, NULL);
+}
+
+#endif /* TSI721_DAR_WANTED */
+
+#ifdef TSI721_DAR_WANTED
 
 typedef struct Tsi721_test_state_t_TAG {
 	int argc;
@@ -392,7 +415,7 @@ void tsi721_init_dev_ctrs_test_success(void **state)
 	// Success case, all ports
         tsi721_init_ctrs(&mock_sc_in);
 
-        assert_int_equal(RIO_SUCCESS, idt_tsi721_sc_init_dev_ctrs(
+        assert_int_equal(RIO_SUCCESS, tsi721_rio_sc_init_dev_ctrs(
 				&mock_dev_info, &mock_sc_in, &mock_sc_out));
         assert_int_equal(RIO_SUCCESS, mock_sc_out.imp_rc);
         assert_int_equal(1, mock_sc_in.dev_ctrs->valid_p_ctrs);
@@ -418,14 +441,14 @@ void tsi721_init_dev_ctrs_test_bad_ptrs(void **state)
 	// Test invalid dev_ctrs pointer
 	tsi721_init_ctrs(&mock_sc_in);
 	mock_sc_in.dev_ctrs = NULL;
-        assert_int_not_equal(RIO_SUCCESS, idt_tsi721_sc_init_dev_ctrs(
+        assert_int_not_equal(RIO_SUCCESS, tsi721_rio_sc_init_dev_ctrs(
 				&mock_dev_info, &mock_sc_in, &mock_sc_out));
         assert_int_not_equal(RIO_SUCCESS, mock_sc_out.imp_rc);
 
 	// Test invalid dev_ctrs->p_ctrs pointer
 	tsi721_init_ctrs(&mock_sc_in);
 	mock_sc_in.dev_ctrs->p_ctrs = NULL;
-        assert_int_not_equal(RIO_SUCCESS, idt_tsi721_sc_init_dev_ctrs(
+        assert_int_not_equal(RIO_SUCCESS, tsi721_rio_sc_init_dev_ctrs(
 				&mock_dev_info, &mock_sc_in, &mock_sc_out));
         assert_int_not_equal(RIO_SUCCESS, mock_sc_out.imp_rc);
         (void)state; // unused
@@ -439,19 +462,19 @@ void tsi721_init_dev_ctrs_test_bad_p_ctrs(void **state)
 	// Test invalid number of p_ctrs
 	tsi721_init_ctrs(&mock_sc_in);
 	mock_sc_in.dev_ctrs->num_p_ctrs = 0;
-        assert_int_not_equal(RIO_SUCCESS, idt_tsi721_sc_init_dev_ctrs(
+        assert_int_not_equal(RIO_SUCCESS, tsi721_rio_sc_init_dev_ctrs(
 				&mock_dev_info, &mock_sc_in, &mock_sc_out));
         assert_int_not_equal(RIO_SUCCESS, mock_sc_out.imp_rc);
 
 	tsi721_init_ctrs(&mock_sc_in);
 	mock_sc_in.dev_ctrs->num_p_ctrs = RIO_MAX_PORTS + 1;
-        assert_int_not_equal(RIO_SUCCESS, idt_tsi721_sc_init_dev_ctrs(
+        assert_int_not_equal(RIO_SUCCESS, tsi721_rio_sc_init_dev_ctrs(
 				&mock_dev_info, &mock_sc_in, &mock_sc_out));
         assert_int_not_equal(RIO_SUCCESS, mock_sc_out.imp_rc);
 
 	tsi721_init_ctrs(&mock_sc_in);
 	mock_sc_in.dev_ctrs->valid_p_ctrs = TSI721_MAX_PORTS + 1;
-        assert_int_not_equal(RIO_SUCCESS, idt_tsi721_sc_init_dev_ctrs(
+        assert_int_not_equal(RIO_SUCCESS, tsi721_rio_sc_init_dev_ctrs(
 				&mock_dev_info, &mock_sc_in, &mock_sc_out));
         assert_int_not_equal(RIO_SUCCESS, mock_sc_out.imp_rc);
         (void)state; // unused
@@ -466,7 +489,7 @@ void tsi721_init_dev_ctrs_test_bad_ptl_1(void **state)
 	tsi721_init_ctrs(&mock_sc_in);
 	mock_sc_in.ptl.num_ports = 1;
 	mock_sc_in.ptl.pnums[0] = 1;
-        assert_int_not_equal(RIO_SUCCESS, idt_tsi721_sc_init_dev_ctrs(
+        assert_int_not_equal(RIO_SUCCESS, tsi721_rio_sc_init_dev_ctrs(
 				&mock_dev_info, &mock_sc_in, &mock_sc_out));
         assert_int_not_equal(RIO_SUCCESS, mock_sc_out.imp_rc);
         (void)state; // unused
@@ -480,7 +503,7 @@ void tsi721_init_dev_ctrs_test_bad_ptl_2(void **state)
 	tsi721_init_ctrs(&mock_sc_in);
 	mock_sc_in.ptl.num_ports = 1;
 	mock_sc_in.ptl.pnums[0] = -1;
-        assert_int_not_equal(RIO_SUCCESS, idt_tsi721_sc_init_dev_ctrs(
+        assert_int_not_equal(RIO_SUCCESS, tsi721_rio_sc_init_dev_ctrs(
 				&mock_dev_info, &mock_sc_in, &mock_sc_out));
         assert_int_not_equal(RIO_SUCCESS, mock_sc_out.imp_rc);
         (void)state; // unused
@@ -496,7 +519,7 @@ void tsi721_init_dev_ctrs_test_good_ptl(void **state)
 	// Test Port list with a few good entries...
 	tsi721_init_ctrs(&mock_sc_in);
 	mock_sc_in.ptl.num_ports = RIO_ALL_PORTS;
-        assert_int_equal(RIO_SUCCESS, idt_tsi721_sc_init_dev_ctrs(
+        assert_int_equal(RIO_SUCCESS, tsi721_rio_sc_init_dev_ctrs(
 			&mock_dev_info, &mock_sc_in, &mock_sc_out));
         assert_int_equal(RIO_SUCCESS, mock_sc_out.imp_rc);
         assert_int_equal(1, mock_sc_in.dev_ctrs->valid_p_ctrs);
@@ -541,7 +564,7 @@ void tsi721_read_dev_ctrs_test(void **state)
 
 	// Initialize counters structure
         tsi721_init_ctrs(&init_in);
-        assert_int_equal(RIO_SUCCESS, idt_tsi721_sc_init_dev_ctrs(
+        assert_int_equal(RIO_SUCCESS, tsi721_rio_sc_init_dev_ctrs(
 					&mock_dev_info, &init_in, &init_out));
         assert_int_equal(RIO_SUCCESS, init_out.imp_rc);
 
@@ -574,7 +597,7 @@ void tsi721_read_dev_ctrs_test(void **state)
 	}
 
 	// Check for successful reads...
-	assert_int_equal(RIO_SUCCESS, idt_tsi721_sc_read_ctrs(
+	assert_int_equal(RIO_SUCCESS, tsi721_rio_sc_read_ctrs(
 				&mock_dev_info, &mock_sc_in, &mock_sc_out));
         assert_int_equal(RIO_SUCCESS, mock_sc_out.imp_rc);
 
@@ -616,7 +639,7 @@ void tsi721_read_dev_ctrs_test(void **state)
 	}
 
 	// Check for successful reads...
-	assert_int_equal(RIO_SUCCESS, idt_tsi721_sc_read_ctrs(&mock_dev_info,
+	assert_int_equal(RIO_SUCCESS, tsi721_rio_sc_read_ctrs(&mock_dev_info,
 						&mock_sc_in, &mock_sc_out));
         assert_int_equal(RIO_SUCCESS, mock_sc_out.imp_rc);
 
@@ -665,7 +688,7 @@ void tsi721_read_dev_ctrs_test(void **state)
 	}
 
 	// Read the same values again...
-	assert_int_equal(RIO_SUCCESS, idt_tsi721_sc_read_ctrs(
+	assert_int_equal(RIO_SUCCESS, tsi721_rio_sc_read_ctrs(
 				&mock_dev_info, &mock_sc_in, &mock_sc_out));
         assert_int_equal(RIO_SUCCESS, mock_sc_out.imp_rc);
 
@@ -702,7 +725,7 @@ void tsi721_read_dev_ctrs_test_bad_parms1(void **state)
 
 	// Initialize counters structure
         tsi721_init_ctrs(&init_in);
-        assert_int_equal(RIO_SUCCESS, idt_tsi721_sc_init_dev_ctrs(
+        assert_int_equal(RIO_SUCCESS, tsi721_rio_sc_init_dev_ctrs(
 				&mock_dev_info, &init_in, &init_out));
         assert_int_equal(RIO_SUCCESS, init_out.imp_rc);
 
@@ -712,27 +735,27 @@ void tsi721_read_dev_ctrs_test_bad_parms1(void **state)
 	// Now try some bad parameters/failure test cases
 	mock_sc_in.ptl.num_ports = TSI721_MAX_PORTS + 1;
 	mock_sc_out.imp_rc = RIO_SUCCESS;
-	assert_int_not_equal(RIO_SUCCESS, idt_tsi721_sc_read_ctrs(
+	assert_int_not_equal(RIO_SUCCESS, tsi721_rio_sc_read_ctrs(
 				&mock_dev_info, &mock_sc_in, &mock_sc_out));
         assert_int_not_equal(RIO_SUCCESS, mock_sc_out.imp_rc);
 	
 	mock_sc_in.ptl.num_ports = 1;
 	mock_sc_in.ptl.pnums[0] = TSI721_MAX_PORTS + 1;
 	mock_sc_out.imp_rc = RIO_SUCCESS;
-	assert_int_not_equal(RIO_SUCCESS, idt_tsi721_sc_read_ctrs(
+	assert_int_not_equal(RIO_SUCCESS, tsi721_rio_sc_read_ctrs(
 				&mock_dev_info, &mock_sc_in, &mock_sc_out));
         assert_int_not_equal(RIO_SUCCESS, mock_sc_out.imp_rc);
 
 	mock_sc_in.ptl.num_ports = RIO_ALL_PORTS;
 	mock_sc_in.dev_ctrs->p_ctrs = NULL;
 	mock_sc_out.imp_rc = RIO_SUCCESS;
-	assert_int_not_equal(RIO_SUCCESS, idt_tsi721_sc_read_ctrs(
+	assert_int_not_equal(RIO_SUCCESS, tsi721_rio_sc_read_ctrs(
 				&mock_dev_info, &mock_sc_in, &mock_sc_out));
         assert_int_not_equal(RIO_SUCCESS, mock_sc_out.imp_rc);
 
 	mock_sc_in.dev_ctrs = NULL;
 	mock_sc_out.imp_rc = RIO_SUCCESS;
-	assert_int_not_equal(RIO_SUCCESS, idt_tsi721_sc_read_ctrs(
+	assert_int_not_equal(RIO_SUCCESS, tsi721_rio_sc_read_ctrs(
 				&mock_dev_info, &mock_sc_in, &mock_sc_out));
         assert_int_not_equal(RIO_SUCCESS, mock_sc_out.imp_rc);
 	(void)state; // unused
@@ -747,7 +770,7 @@ void tsi721_read_dev_ctrs_test_bad_parms2(void **state)
 
 	// Initialize counters structure
         tsi721_init_ctrs(&init_in);
-        assert_int_equal(RIO_SUCCESS, idt_tsi721_sc_init_dev_ctrs(&mock_dev_info,
+        assert_int_equal(RIO_SUCCESS, tsi721_rio_sc_init_dev_ctrs(&mock_dev_info,
 						&init_in, &init_out));
         assert_int_equal(RIO_SUCCESS, init_out.imp_rc);
 
@@ -757,7 +780,7 @@ void tsi721_read_dev_ctrs_test_bad_parms2(void **state)
 	// Try to read a port that is not in the port list.
         tsi721_init_ctrs(&init_in);
 	init_in.ptl.num_ports = RIO_ALL_PORTS;
-        assert_int_equal(RIO_SUCCESS, idt_tsi721_sc_init_dev_ctrs(
+        assert_int_equal(RIO_SUCCESS, tsi721_rio_sc_init_dev_ctrs(
 				&mock_dev_info, &init_in, &init_out));
         assert_int_equal(RIO_SUCCESS, init_out.imp_rc);
 	tsi721_init_read_ctrs(&mock_sc_in);
@@ -765,7 +788,7 @@ void tsi721_read_dev_ctrs_test_bad_parms2(void **state)
 	mock_sc_in.ptl.num_ports = 1;
 	mock_sc_in.ptl.pnums[0] = TSI721_MAX_PORTS;
 	mock_sc_out.imp_rc = RIO_SUCCESS;
-	assert_int_not_equal(RIO_SUCCESS, idt_tsi721_sc_read_ctrs(&mock_dev_info,
+	assert_int_not_equal(RIO_SUCCESS, tsi721_rio_sc_read_ctrs(&mock_dev_info,
 						&mock_sc_in, &mock_sc_out));
         assert_int_not_equal(RIO_SUCCESS, mock_sc_out.imp_rc);
 	
@@ -800,7 +823,7 @@ void tsi721_em_cfg_pw_success_test(void **state)
 	in_parms.imp_rc = 0xFFFFFFFF;
 
 	assert_int_equal(RIO_SUCCESS,
-		idt_tsi721_em_cfg_pw(&mock_dev_info, &in_parms, &out_parms));
+		tsi721_rio_em_cfg_pw(&mock_dev_info, &in_parms, &out_parms));
 	assert_int_equal(0, out_parms.imp_rc);
 	assert_int_equal(tt_dev16, out_parms.deviceID_tt);
 	assert_int_equal(targ_id, out_parms.port_write_destID);
@@ -837,7 +860,7 @@ void tsi721_em_cfg_pw_success_test(void **state)
 	in_parms.imp_rc = 0xFFFFFFFF;
 
 	assert_int_equal(RIO_SUCCESS,
-		idt_tsi721_em_cfg_pw(&mock_dev_info, &in_parms, &out_parms));
+		tsi721_rio_em_cfg_pw(&mock_dev_info, &in_parms, &out_parms));
 	assert_int_equal(0, out_parms.imp_rc);
 	assert_int_equal(tt_dev8, out_parms.deviceID_tt);
 	assert_int_equal(targ_id & 0xFF, out_parms.port_write_destID);
@@ -883,7 +906,7 @@ void tsi721_em_cfg_pw_bad_parms_test(void **state)
 	in_parms.deviceID_tt = tt_dev16;
 	in_parms.priority = 4;
 	assert_int_not_equal(RIO_SUCCESS,
-		idt_tsi721_em_cfg_pw(&mock_dev_info, &in_parms, &out_parms));
+		tsi721_rio_em_cfg_pw(&mock_dev_info, &in_parms, &out_parms));
 	assert_int_not_equal(0, out_parms.imp_rc);
 
         (void)state; // unused
@@ -938,7 +961,7 @@ void tsi721_em_cfg_pw_retx_compute_test(void **state)
 	for (i = 0; i < num_tests; i++) {
 		in_p.port_write_re_tx = tests[i].timer_val_in;
 		assert_int_equal(RIO_SUCCESS,
-			idt_tsi721_em_cfg_pw(&mock_dev_info, &in_p, &out_p));
+			tsi721_rio_em_cfg_pw(&mock_dev_info, &in_p, &out_p));
 
 		assert_int_equal(0, out_p.imp_rc);
 		assert_int_equal(tt_dev16, out_p.deviceID_tt);
@@ -1000,6 +1023,8 @@ int main(int argc, char** argv)
 
 	return cmocka_run_group_tests(tests, grp_setup, grp_teardown);
 }
+
+#endif /* TSI721_DAR_WANTED */
 
 #ifdef __cplusplus
 }

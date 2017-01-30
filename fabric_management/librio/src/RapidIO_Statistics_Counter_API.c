@@ -31,11 +31,17 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 
+#include <stdint.h>
 #include <stddef.h>
+
+#include "CPS_DeviceDriver.h"
+#include "RXS_DeviceDriver.h"
+#include "Tsi721_DeviceDriver.h"
+#include "Tsi57x_DeviceDriver.h"
+#include "DSF_DB_Private.h"
 
 #include "RapidIO_Device_Access_Routines_API.h"
 #include "RapidIO_Statistics_Counter_API.h"
-#include "DSF_DB_Private.h"
 #include "rio_standard.h"
 #include "rio_ecosystem.h"
 
@@ -43,60 +49,60 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 extern "C" {
 #endif
 
-sc_info_t sc_info[(uint8_t)(rio_sc_last)+2] = {
-    { (char *)"Disabled__", 0},
-    { (char *)"Enabled___", 0},
-    { (char *)"UC_REQ_PKT", SC_F_PKT}, // Tsi57x start
-    { (char *)"UC_ALL_PKT", SC_F_PKT},
-    { (char *)"Retry___CS", SC_F_CS | SC_F_RTY },
-    { (char *)"All_____CS", SC_F_CS },
-    { (char *)"UC_4B_Data", SC_F_DATA},
-    { (char *)"MCast__PKT", SC_F_PKT},
-    { (char *)"MECS____CS", SC_F_CS},
-    { (char *)"MC_4B_Data", SC_F_DATA}, // Tsi57x end
-    { (char *)"PktAcc__CS", SC_F_CS}, // CPS1848 start
-    { (char *)"ALL____PKT", SC_F_PKT},
-    { (char *)"PktNotA_CS", SC_F_CS | SC_F_ERR},
-    { (char *)"Drop___PKT", SC_F_PKT | SC_F_ERR | SC_F_DROP},
-    { (char *)"DropTTLPKT", SC_F_PKT | SC_F_ERR | SC_F_DROP}, // CPS1848 end
-    { (char *)"FAB____PKT", SC_F_PKT}, // RXS start
-    { (char *)"8B_DAT_PKT", SC_F_DATA},
-    { (char *)"8B_DAT_PKT", SC_F_DATA},
-    { (char *)"RAW_BWIDTH", 0}, // RXS end
-    { (char *)"PCI_M__PKT", SC_F_PKT},
-    { (char *)"PCI_M__PKT", SC_F_PKT},
-    { (char *)"PCI__D_PKT", SC_F_PKT},
-    { (char *)"PCI__D_PKT", SC_F_PKT},
-    { (char *)"PCI_BG_PKT", SC_F_PKT},
-    { (char *)"PCI_BG_PKT", SC_F_PKT},
-    { (char *)"NWR____PKT", SC_F_PKT},
-    { (char *)"NWR_OK_PKT", SC_F_PKT},
-    { (char *)"DB_____PKT", SC_F_PKT},
-    { (char *)"DB__OK_PKT", SC_F_PKT},
-    { (char *)"MSG____PKT", SC_F_PKT},
-    { (char *)"MSG____PKT", SC_F_PKT},
-    { (char *)"MSG_RTYPKT", SC_F_PKT | SC_F_RTY},
-    { (char *)"MSG_RTYPKT", SC_F_PKT | SC_F_RTY},
-    { (char *)"DMA____PKT", SC_F_PKT},
-    { (char *)"DMA____PKT", SC_F_PKT},
-    { (char *)"BRG____PKT", SC_F_PKT},
-    { (char *)"BRG____PKT", SC_F_PKT},
-    { (char *)"BRG_ERRPKT", SC_F_PKT | SC_F_ERR},
-    { (char *)"MWR____PKT", SC_F_PKT},
-    { (char *)"MWR_OK_PKT", SC_F_PKT},
-    { (char *)"Last______", 0},
-    { (char *)"Invalid___", 0}
+sc_info_t sc_info[(uint8_t)(rio_sc_last) + 2] = {
+		{(char *)"Disabled__", 0},
+		{(char *)"Enabled___", 0},
+		{(char *)"UC_REQ_PKT", SC_F_PKT}, // Tsi57x start
+		{(char *)"UC_ALL_PKT", SC_F_PKT},
+		{(char *)"Retry___CS", SC_F_CS | SC_F_RTY },
+		{(char *)"All_____CS", SC_F_CS },
+		{(char *)"UC_4B_Data", SC_F_DATA},
+		{(char *)"MCast__PKT", SC_F_PKT},
+		{(char *)"MECS____CS", SC_F_CS},
+		{(char *)"MC_4B_Data", SC_F_DATA}, // Tsi57x end
+		{(char *)"PktAcc__CS", SC_F_CS}, // CPS1848 start
+		{(char *)"ALL____PKT", SC_F_PKT},
+		{(char *)"PktNotA_CS", SC_F_CS | SC_F_ERR},
+		{(char *)"Drop___PKT", SC_F_PKT | SC_F_ERR | SC_F_DROP},
+		{(char *)"DropTTLPKT", SC_F_PKT | SC_F_ERR | SC_F_DROP}, // CPS1848 end
+		{(char *)"FAB____PKT", SC_F_PKT}, // RXS start
+		{(char *)"8B_DAT_PKT", SC_F_DATA},
+		{(char *)"8B_DAT_PKT", SC_F_DATA},
+		{(char *)"RAW_BWIDTH", 0}, // RXS end
+		{(char *)"PCI_M__PKT", SC_F_PKT},
+		{(char *)"PCI_M__PKT", SC_F_PKT},
+		{(char *)"PCI__D_PKT", SC_F_PKT},
+		{(char *)"PCI__D_PKT", SC_F_PKT},
+		{(char *)"PCI_BG_PKT", SC_F_PKT},
+		{(char *)"PCI_BG_PKT", SC_F_PKT},
+		{(char *)"NWR____PKT", SC_F_PKT},
+		{(char *)"NWR_OK_PKT", SC_F_PKT},
+		{(char *)"DB_____PKT", SC_F_PKT},
+		{(char *)"DB__OK_PKT", SC_F_PKT},
+		{(char *)"MSG____PKT", SC_F_PKT},
+		{(char *)"MSG____PKT", SC_F_PKT},
+		{(char *)"MSG_RTYPKT", SC_F_PKT | SC_F_RTY},
+		{(char *)"MSG_RTYPKT", SC_F_PKT | SC_F_RTY},
+		{(char *)"DMA____PKT", SC_F_PKT},
+		{(char *)"DMA____PKT", SC_F_PKT},
+		{(char *)"BRG____PKT", SC_F_PKT},
+		{(char *)"BRG____PKT", SC_F_PKT},
+		{(char *)"BRG_ERRPKT", SC_F_PKT | SC_F_ERR},
+		{(char *)"MWR____PKT", SC_F_PKT},
+		{(char *)"MWR_OK_PKT", SC_F_PKT},
+		{(char *)"Last______", 0},
+		{(char *)"Invalid___", 0},
 };
 
-char *sc_flag_names[(uint8_t)(sc_f_LAST)+2] = {
-	(char *)"DROP",
-	(char *)"ERR",
-	(char *)"RTY",
-	(char *)"CS",
-	(char *)"PKT",
-	(char *)"DATA",
-	(char *)"Last",
-	(char *)"Ivld"
+char *sc_flag_names[(uint8_t)(sc_f_LAST) + 2] = {
+		(char *)"DROP",
+		(char *)"ERR",
+		(char *)"RTY",
+		(char *)"CS",
+		(char *)"PKT",
+		(char *)"DATA",
+		(char *)"Last",
+		(char *)"Ivld"
 };
 
 const char *sc_other_if_names_PCIe = (char *)"PCIExp";
@@ -140,47 +146,67 @@ uint32_t rio_sc_other_if_names(DAR_DEV_INFO_t *dev_h, const char **name)
 	return rc;
 }
 
-	
-	
 /* User function calls for a routing table configuration */
-uint32_t rio_sc_init_dev_ctrs (
-    DAR_DEV_INFO_t             *dev_info,
-    rio_sc_init_dev_ctrs_in_t  *in_parms,
-    rio_sc_init_dev_ctrs_out_t *out_parms )
+uint32_t rio_sc_init_dev_ctrs(DAR_DEV_INFO_t *dev_info,
+		rio_sc_init_dev_ctrs_in_t *in_parms,
+		rio_sc_init_dev_ctrs_out_t *out_parms)
 {
-    uint32_t rc = DAR_DB_INVALID_HANDLE;
+	NULL_CHECK
 
-    NULL_CHECK;
-
-    if ( VALIDATE_DEV_INFO(dev_info) )
-    {
-        if ( IDT_DSF_INDEX(dev_info) < DAR_DB_MAX_DRIVERS )
-            rc = IDT_DB[IDT_DSF_INDEX(dev_info)].rio_sc_init_dev_ctrs(
-                    dev_info, in_parms, out_parms
-                 );
-    }
-
-    return rc;
+	if (VALIDATE_DEV_INFO(dev_info)) {
+		switch (dev_info->driver_family) {
+		case RIO_CPS_DEVICE:
+			return CPS_rio_sc_init_dev_ctrs(dev_info, in_parms,
+					out_parms);
+		case RIO_RXS_DEVICE:
+			return rxs_rio_sc_init_dev_ctrs(dev_info, in_parms,
+					out_parms);
+		case RIO_TSI721_DEVICE:
+			return tsi721_rio_sc_init_dev_ctrs(dev_info, in_parms,
+					out_parms);
+		case RIO_TSI57X_DEVICE:
+			return tsi57x_rio_sc_init_dev_ctrs(dev_info, in_parms,
+					out_parms);
+		case RIO_UNKNOWN_DEVICE:
+			return DSF_rio_sc_init_dev_ctrs(dev_info, in_parms,
+					out_parms);
+		case RIO_UNITIALIZED_DEVICE:
+		default:
+			return RIO_DAR_IMP_SPEC_FAILURE;
+		}
+	}
+	return DAR_DB_INVALID_HANDLE;
 }
 
-uint32_t rio_sc_read_ctrs(
-    DAR_DEV_INFO_t           *dev_info,
-    rio_sc_read_ctrs_in_t    *in_parms,
-    rio_sc_read_ctrs_out_t   *out_parms )
+uint32_t rio_sc_read_ctrs(DAR_DEV_INFO_t *dev_info,
+		rio_sc_read_ctrs_in_t *in_parms,
+		rio_sc_read_ctrs_out_t *out_parms)
 {
-    uint32_t rc = DAR_DB_INVALID_HANDLE;
+	NULL_CHECK
 
-    NULL_CHECK;
-
-    if ( VALIDATE_DEV_INFO(dev_info) )
-    {
-        if ( IDT_DSF_INDEX(dev_info) < DAR_DB_MAX_DRIVERS )
-            rc = IDT_DB[IDT_DSF_INDEX(dev_info)].rio_sc_read_ctrs(
-                    dev_info, in_parms, out_parms
-                 );
-    }
-
-    return rc;
+	if (VALIDATE_DEV_INFO(dev_info)) {
+		switch (dev_info->driver_family) {
+		case RIO_CPS_DEVICE:
+			return CPS_rio_sc_read_ctrs(dev_info, in_parms,
+					out_parms);
+		case RIO_RXS_DEVICE:
+			return rxs_rio_sc_read_ctrs(dev_info, in_parms,
+					out_parms);
+		case RIO_TSI721_DEVICE:
+			return tsi721_rio_sc_read_ctrs(dev_info, in_parms,
+					out_parms);
+		case RIO_TSI57X_DEVICE:
+			return tsi57x_rio_sc_read_ctrs(dev_info, in_parms,
+					out_parms);
+		case RIO_UNKNOWN_DEVICE:
+			return DSF_rio_sc_read_ctrs(dev_info, in_parms,
+					out_parms);
+		case RIO_UNITIALIZED_DEVICE:
+		default:
+			return RIO_DAR_IMP_SPEC_FAILURE;
+		}
+	}
+	return DAR_DB_INVALID_HANDLE;
 }
 
 #ifdef __cplusplus

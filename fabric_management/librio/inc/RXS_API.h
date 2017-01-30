@@ -1,6 +1,6 @@
 /*
 ****************************************************************************
-opyright (c) 2016, Integrated Device Technology Inc.
+Copyright (c) 2016, Integrated Device Technology Inc.
 Copyright (c) 2016, RapidIO Trade Association
 All rights reserved.
 
@@ -34,28 +34,15 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef __RXS_API_H__
 #define __RXS_API_H__
 
-#include "DAR_DB_Private.h"
-#include "DSF_DB_Private.h"
-#include "RapidIO_Device_Access_Routines_API.h"
-#include "RapidIO_Statistics_Counter_API.h"
-#include "RapidIO_Port_Config_API.h"
-#include "RapidIO_Utilities_API.h"
-#include "RapidIO_Error_Management_API.h"
-#include "RXS2448.h"
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-
-/* Routine to bind in all RXSs specific DAR support routines.
- * */
-uint32_t bind_rxs_DAR_support( void );
-
 /* Routine to bind in all RXSs specific Device Specific Function routines.
- * */
-uint32_t bind_rxs_DSF_support( void );
-
+ */
+uint32_t bind_rxs_DSF_support(void);
 
 #ifdef __cplusplus
 }

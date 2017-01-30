@@ -40,6 +40,7 @@
 #include <setjmp.h>
 #include "cmocka.h"
 
+#include "RapidIO_Source_Config.h"
 #include "RapidIO_Device_Access_Routines_API.h"
 #include "CPS1848.h"
 #include "RXS_Routing_Table_API.h"
@@ -50,6 +51,27 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+#ifndef CPS_DAR_WANTED
+
+static void cps_not_supported_test(void **state)
+{
+	(void)state; // not used
+}
+
+int main(int argc, char** argv)
+{
+	(void)argv; // not used
+	argc++;// not used
+
+	const struct CMUnitTest tests[] = {
+		cmocka_unit_test(cps_not_supported_test)};
+	return cmocka_run_group_tests(tests, NULL, NULL);
+}
+
+#endif /* CPS_DAR_WANTED */
+
+#ifdef CPS_DAR_WANTED
 
 typedef struct mock_dar_reg_t_TAG {
 	uint32_t offset;
@@ -181,7 +203,7 @@ static void macros_test(void **state)
 	(void)state; // unused
 }
 
-static void rt_rte_translate_CPS_to_std_test(void **state)
+static void cps_rte_translate_CPS_to_std_test(void **state)
 {
 	uint32_t sout;
 	unsigned int i;
@@ -189,7 +211,7 @@ static void rt_rte_translate_CPS_to_std_test(void **state)
 	// Test valid port range...
 	for (i = 0; i < CPS_RTE_PT_LAST; i++) {
 		assert_int_equal(0,
-				rt_rte_translate_CPS_to_std(&mock_dev_info, i,
+				cps_rte_translate_CPS_to_std(&mock_dev_info, i,
 						&sout));
 		assert_int_equal(i, sout);
 	}
@@ -197,46 +219,46 @@ static void rt_rte_translate_CPS_to_std_test(void **state)
 	// Test invalid CPS port range...
 	for (i = CPS_RTE_PT_LAST; i < CPS_FIRST_MC_MASK; i++) {
 		assert_int_not_equal(0,
-				rt_rte_translate_CPS_to_std(&mock_dev_info, i,
+				cps_rte_translate_CPS_to_std(&mock_dev_info, i,
 						&sout));
 	}
 
 	// Test valid MC Group range...
 	for (i = CPS_FIRST_MC_MASK; i <= CPS_LAST_MC_MASK; i++) {
 		assert_int_equal(0,
-				rt_rte_translate_CPS_to_std(&mock_dev_info, i,
+				cps_rte_translate_CPS_to_std(&mock_dev_info, i,
 						&sout));
 		assert_int_equal(RIO_RTV_MC_MSK(IS_CPS_MC_MASK_NO(i)), sout);
 	}
 	// Test invalid MC Group port range...
 	for (i = CPS_LAST_MC_MASK + 1; i < CPS_RT_USE_DEVICE_TABLE; i++) {
 		assert_int_not_equal(0,
-				rt_rte_translate_CPS_to_std(&mock_dev_info, i,
+				cps_rte_translate_CPS_to_std(&mock_dev_info, i,
 						&sout));
 	}
 
 	// Check the next level/discard/default route values
 	assert_int_equal(0,
-			rt_rte_translate_CPS_to_std(&mock_dev_info, CPS_RT_USE_DEVICE_TABLE, &sout));
+			cps_rte_translate_CPS_to_std(&mock_dev_info, CPS_RT_USE_DEVICE_TABLE, &sout));
 	assert_int_equal(RIO_RTE_LVL_G0, sout);
 	assert_int_equal(0,
-			rt_rte_translate_CPS_to_std(&mock_dev_info, CPS_RT_USE_DEFAULT_ROUTE, &sout));
+			cps_rte_translate_CPS_to_std(&mock_dev_info, CPS_RT_USE_DEFAULT_ROUTE, &sout));
 	assert_int_equal(RIO_RTE_DFLT_PORT, sout);
 	assert_int_equal(0,
-			rt_rte_translate_CPS_to_std(&mock_dev_info, CPS_RT_NO_ROUTE, &sout));
+			cps_rte_translate_CPS_to_std(&mock_dev_info, CPS_RT_NO_ROUTE, &sout));
 	assert_int_equal(RIO_RTE_DROP, sout);
 
 	// Test invalid port range...
 	for (i = CPS_RT_NO_ROUTE + 1; i < 0x100FF; i++) {
 		assert_int_not_equal(0,
-				rt_rte_translate_CPS_to_std(&mock_dev_info, i,
+				cps_rte_translate_CPS_to_std(&mock_dev_info, i,
 						&sout));
 	}
 
 	(void)state; // unused
 }
 
-static void rt_rte_translate_std_to_CPS_test(void **state)
+static void cps_rte_translate_std_to_CPS_test(void **state)
 {
 	uint32_t cps;
 	unsigned int i;
@@ -244,7 +266,7 @@ static void rt_rte_translate_std_to_CPS_test(void **state)
 	// Test valid port range...
 	for (i = 0; i < RIO_RTV_PORT(CPS_RTE_PT_LAST); i++) {
 		assert_int_equal(0,
-				rt_rte_translate_std_to_CPS(&mock_dev_info, i,
+				cps_rte_translate_std_to_CPS(&mock_dev_info, i,
 						&cps));
 		assert_int_equal(i, cps);
 	}
@@ -252,46 +274,46 @@ static void rt_rte_translate_std_to_CPS_test(void **state)
 	// Test invalid CPS port range...
 	for (i = RIO_RTV_PORT(CPS_RTE_PT_LAST); i <= RIO_RTE_PT_LAST; i++) {
 		assert_int_not_equal(0,
-				rt_rte_translate_std_to_CPS(&mock_dev_info, i,
+				cps_rte_translate_std_to_CPS(&mock_dev_info, i,
 						&cps));
 	}
 
 	// Test valid MC Group range...
 	for (i = RIO_RTE_MC_0; i < RIO_RTV_MC_MSK(CPS_MAX_MC_MASK); i++) {
 		assert_int_equal(0,
-				rt_rte_translate_std_to_CPS(&mock_dev_info, i,
+				cps_rte_translate_std_to_CPS(&mock_dev_info, i,
 						&cps));
 		assert_int_equal(CPS_MC_PORT(RIO_RTV_GET_MC_MSK(i)), cps);
 	}
 	// Test invalid MC Group port range...
 	for (i = RIO_RTV_MC_MSK(CPS_MAX_MC_MASK); i <= RIO_RTE_MC_LAST; i++) {
 		assert_int_not_equal(0,
-				rt_rte_translate_std_to_CPS(&mock_dev_info, i,
+				cps_rte_translate_std_to_CPS(&mock_dev_info, i,
 						&cps));
 	}
 
 	// Check the next level/discard/default route values
 	assert_int_equal(0,
-			rt_rte_translate_std_to_CPS(&mock_dev_info, RIO_RTE_LVL_G0, &cps));
+			cps_rte_translate_std_to_CPS(&mock_dev_info, RIO_RTE_LVL_G0, &cps));
 	assert_int_equal(CPS_RT_USE_DEVICE_TABLE, cps);
 
 	// Test invalid MC Group port range...
 	for (i = RIO_RTE_LVL_G0 + 1; i <= RIO_RTE_LVL_GLAST; i++) {
 		assert_int_not_equal(0,
-				rt_rte_translate_std_to_CPS(&mock_dev_info, i,
+				cps_rte_translate_std_to_CPS(&mock_dev_info, i,
 						&cps));
 	}
 	assert_int_equal(0,
-			rt_rte_translate_std_to_CPS(&mock_dev_info, RIO_RTE_DROP, &cps));
+			cps_rte_translate_std_to_CPS(&mock_dev_info, RIO_RTE_DROP, &cps));
 	assert_int_equal(CPS_RT_NO_ROUTE, cps);
 	assert_int_equal(0,
-			rt_rte_translate_std_to_CPS(&mock_dev_info, RIO_RTE_DFLT_PORT, &cps));
+			cps_rte_translate_std_to_CPS(&mock_dev_info, RIO_RTE_DFLT_PORT, &cps));
 	assert_int_equal(CPS_RT_USE_DEFAULT_ROUTE, cps);
 
 	// Test invalid port range...
 	for (i = RIO_RTE_DFLT_PORT + 1; i < 0x100FF; i++) {
 		assert_int_not_equal(0,
-				rt_rte_translate_std_to_CPS(&mock_dev_info, i,
+				cps_rte_translate_std_to_CPS(&mock_dev_info, i,
 						&cps));
 	}
 
@@ -307,14 +329,16 @@ int main(int argc, char** argv)
 	cmocka_unit_test(macros_test),
 	cmocka_unit_test_setup(assumptions_test, setup),
 	cmocka_unit_test_setup_teardown(
-			rt_rte_translate_CPS_to_std_test, setup,
+			cps_rte_translate_CPS_to_std_test, setup,
 			teardown),
 	cmocka_unit_test_setup_teardown(
-			rt_rte_translate_std_to_CPS_test, setup,
+			cps_rte_translate_std_to_CPS_test, setup,
 			teardown), 
 	};
 	return cmocka_run_group_tests(tests, NULL, NULL);
 }
+
+#endif /* CPS_DAR_WANTED */
 
 #ifdef __cplusplus
 }

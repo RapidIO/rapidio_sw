@@ -31,11 +31,13 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 
+#include <stdint.h>
+#include <stddef.h>
 #include <string.h>
 
+#include "RapidIO_Source_Config.h"
 #include "DAR_DB_Private.h"
 #include "DSF_DB_Private.h"
-#include "IDT_CPS_Common_Test.h"
 #include "RapidIO_Statistics_Counter_API.h"
 #include "CPS1848.h"
 #include "CPS1616.h"
@@ -44,11 +46,13 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 extern "C" {
 #endif
 
+#ifdef CPS_DAR_WANTED
+
 typedef struct cps_sc_info_t_TAG {
-   rio_sc_ctr_val_t sc_info;
-   uint32_t           reg_base; // Port 0 address for this counter
-   uint32_t           mask;     // PORT_X_OPS setting req'd to enable counter
-} cps_sc_info_t;
+	rio_sc_ctr_val_t sc_info;
+	uint32_t reg_base; // Port 0 address for this counter
+	uint32_t mask;// PORT_X_OPS setting req'd to enable counter
+}cps_sc_info_t;
 
 #define TRACE_0_IDX  0
 #define FILTER_0_IDX 4
@@ -77,264 +81,314 @@ cps_sc_info_t cps_sc_info[] = {
 };
 
 #define NUM_CPS_SC (sizeof(cps_sc_info)/sizeof(cps_sc_info_t))
-
-uint32_t idt_cps_sc_init_dev_ctrs ( DAR_DEV_INFO_t             *dev_info,
-                                  rio_sc_init_dev_ctrs_in_t  *in_parms,
-                                  rio_sc_init_dev_ctrs_out_t *out_parms)
-{
-   uint32_t rc = RIO_ERR_INVALID_PARAMETER;
-   uint8_t  idx, cntr_i;
-   struct DAR_ptl good_ptl;
-
-   out_parms->imp_rc = RIO_SUCCESS;
-
-   if (NULL == in_parms->dev_ctrs) {
-      out_parms->imp_rc = SC_INIT_DEV_CTRS(2);
-      goto idt_cps_sc_init_dev_ctrs_exit;
-   };
-
-   if (NULL == in_parms->dev_ctrs->p_ctrs) {
-      out_parms->imp_rc = SC_INIT_DEV_CTRS(4);
-      goto idt_cps_sc_init_dev_ctrs_exit;
-   };
-
-   if (  !in_parms->dev_ctrs->num_p_ctrs || 
-         (in_parms->dev_ctrs->num_p_ctrs > RIO_MAX_PORTS)) {
-      out_parms->imp_rc = SC_INIT_DEV_CTRS(6);
-      goto idt_cps_sc_init_dev_ctrs_exit;
-   };
-   // Set up pnums_cnt and pnums_l based on in_parms->num_ports and in_parms->pnums.
-   rc = DARrioGetPortList( dev_info,  &in_parms->ptl, &good_ptl );
-   if (RIO_SUCCESS != rc) {
-	   out_parms->imp_rc = SC_INIT_DEV_CTRS(8);
-      goto idt_cps_sc_init_dev_ctrs_exit;
-   };
-
-   if ((in_parms->dev_ctrs->num_p_ctrs < good_ptl.num_ports)) {
-	  rc = RIO_ERR_INVALID_PARAMETER;
-      out_parms->imp_rc =SC_INIT_DEV_CTRS(0x10); 
-      goto idt_cps_sc_init_dev_ctrs_exit;
-   };
-
-   in_parms->dev_ctrs->valid_p_ctrs = good_ptl.num_ports;
-   for (idx = 0; idx < good_ptl.num_ports; idx++) {
-      in_parms->dev_ctrs->p_ctrs[idx].pnum = good_ptl.pnums[idx];
-      in_parms->dev_ctrs->p_ctrs[idx].ctrs_cnt = NUM_CPS_SC;
-      for (cntr_i = 0; cntr_i < NUM_CPS_SC; cntr_i++) {
-         in_parms->dev_ctrs->p_ctrs[idx].ctrs[cntr_i] = cps_sc_info[cntr_i].sc_info;
-      };
-   };
-   rc = RIO_SUCCESS;
-
-idt_cps_sc_init_dev_ctrs_exit:
-   return rc;
-};
-
-/* Reads enabled counters on selected ports   
-*/
-
 #define CPS_SC_ADDR(p,i) (cps_sc_info[i].reg_base+(0x100*p))
 
-uint32_t idt_cps_sc_read_ctrs( DAR_DEV_INFO_t           *dev_info,
-                             rio_sc_read_ctrs_in_t    *in_parms,
-                             rio_sc_read_ctrs_out_t   *out_parms)
-{
-   uint32_t rc = RIO_ERR_INVALID_PARAMETER;
-   uint8_t srch_i, srch_p, port_num, cntr;
-   bool  found;
-   uint32_t ctl_reg;
-   struct DAR_ptl good_ptl;
-
-   out_parms->imp_rc = RIO_SUCCESS;
-
-   if (NULL == in_parms->dev_ctrs) {
-      out_parms->imp_rc = SC_READ_CTRS(1);
-      goto idt_cps_sc_read_ctrs_exit;
-   };
-
-   if (NULL == in_parms->dev_ctrs->p_ctrs) {
-      out_parms->imp_rc = SC_READ_CTRS(2);
-      goto idt_cps_sc_read_ctrs_exit;
-   };
-
-   rc = DARrioGetPortList(dev_info, &in_parms->ptl, &good_ptl);
-   if (RIO_SUCCESS != rc)  {
-      out_parms->imp_rc = SC_READ_CTRS(4);
-      goto idt_cps_sc_read_ctrs_exit;
-   };
-		
-   if (   !in_parms->dev_ctrs->num_p_ctrs || 
-         (in_parms->dev_ctrs->num_p_ctrs > RIO_MAX_PORTS) ||
-	     !in_parms->dev_ctrs->valid_p_ctrs || 
-         (in_parms->dev_ctrs->num_p_ctrs < in_parms->dev_ctrs->valid_p_ctrs)) {
-	rc = RIO_ERR_INVALID_PARAMETER;
-      out_parms->imp_rc = SC_READ_CTRS(0x05);
-      goto idt_cps_sc_read_ctrs_exit;
-   };
-
-   if (in_parms->dev_ctrs->valid_p_ctrs < good_ptl.num_ports) {
-	   rc = RIO_ERR_INVALID_PARAMETER;
-      out_parms->imp_rc = SC_READ_CTRS(0x06);
-      goto idt_cps_sc_read_ctrs_exit;
-   };
-
-   // For generality, must establish a list of ports.
-   // Do not assume that the port number equals the index in the structure...
-      
-   for (srch_p = 0; srch_p < good_ptl.num_ports; srch_p ++) {
-      found = false;
-      port_num = good_ptl.pnums[srch_p];
-      for (srch_i = 0; srch_i < in_parms->dev_ctrs->valid_p_ctrs; srch_i++) {
-         if ( in_parms->dev_ctrs->p_ctrs[srch_i].pnum == port_num ) {
-	         found = true;
-
-            // Read the control value to determine if any counters are enabled
-            rc = DARRegRead( dev_info, CPS1848_PORT_X_OPS(port_num), &ctl_reg );
-            if (RIO_SUCCESS != rc) {
-               out_parms->imp_rc = SC_READ_CTRS(0x40);
-               goto idt_cps_sc_read_ctrs_exit;
-            };
-
-            // Read the port performance counters...
-            for (cntr = 0; cntr < in_parms->dev_ctrs->p_ctrs[srch_i].ctrs_cnt; cntr++) {
-               if ((rio_sc_disabled != in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc) &&
-		           (ctl_reg & cps_sc_info[cntr].mask                                   )) {
-                  rc = DARRegRead( dev_info, CPS_SC_ADDR(port_num, cntr), &in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].last_inc);
-                  if (RIO_SUCCESS != rc) {
-                     out_parms->imp_rc = SC_READ_CTRS(0x70 + cntr);
-                     goto idt_cps_sc_read_ctrs_exit;
-                  };
-                  in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].total += in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].last_inc;
-               };
-            };
-	        break;
-         };
-      };
-      if (!found) {
-         rc = RIO_ERR_INVALID_PARAMETER;
-         out_parms->imp_rc = SC_READ_CTRS(0x90 + port_num);
-         goto idt_cps_sc_read_ctrs_exit;
-      };
-   };
-
-idt_cps_sc_read_ctrs_exit:
-   return rc;
-};
-
-/* Configure counters on selected ports of a 
+/* Configure counters on selected ports of a
  * CPS device.
  */
-
-uint32_t rio_sc_cfg_cps_ctrs ( DAR_DEV_INFO_t           *dev_info,
-                            rio_sc_cfg_cps_ctrs_in_t  *in_parms,
-                            rio_sc_cfg_cps_ctrs_out_t *out_parms )
+uint32_t rio_sc_cfg_cps_ctrs(DAR_DEV_INFO_t *dev_info,
+		rio_sc_cfg_cps_ctrs_in_t *in_parms,
+		rio_sc_cfg_cps_ctrs_out_t *out_parms)
 {
-   uint32_t rc = RIO_ERR_INVALID_PARAMETER;
-   uint32_t ctl_reg, new_ctl_reg = 0, unused;
-   uint8_t ctr;
-   uint8_t srch_i, srch_p, port_num;
-   bool  found;
-   struct DAR_ptl good_ptl;
+	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+	uint32_t ctl_reg, new_ctl_reg = 0, unused;
+	uint8_t ctr;
+	uint8_t srch_i, srch_p, port_num;
+	bool found;
+	struct DAR_ptl good_ptl;
 
-   out_parms->imp_rc = RIO_SUCCESS;
+	out_parms->imp_rc = RIO_SUCCESS;
 
-   if (NULL == in_parms->dev_ctrs) {
-      out_parms->imp_rc = SC_CFG_CPS_CTRS(2);
-      goto rio_sc_cfg_cps_ctr_exit;
-   };
+	if (NULL == in_parms->dev_ctrs) {
+		out_parms->imp_rc = SC_CFG_CPS_CTRS(2);
+		goto exit;
+	}
 
-   if (NULL == in_parms->dev_ctrs->p_ctrs) {
-      out_parms->imp_rc = SC_CFG_CPS_CTRS(4);
-      goto rio_sc_cfg_cps_ctr_exit;
-   };
+	if (NULL == in_parms->dev_ctrs->p_ctrs) {
+		out_parms->imp_rc = SC_CFG_CPS_CTRS(4);
+		goto exit;
+	}
 
-   rc = DARrioGetPortList(dev_info, &in_parms->ptl, &good_ptl);
-   if (RIO_SUCCESS != rc) {
-      out_parms->imp_rc = SC_CFG_CPS_CTRS(6);
-      goto rio_sc_cfg_cps_ctr_exit;
-   };
+	rc = DARrioGetPortList(dev_info, &in_parms->ptl, &good_ptl);
+	if (RIO_SUCCESS != rc) {
+		out_parms->imp_rc = SC_CFG_CPS_CTRS(6);
+		goto exit;
+	}
 
-   if (  !in_parms->dev_ctrs->num_p_ctrs || 
-         (in_parms->dev_ctrs->num_p_ctrs > RIO_MAX_PORTS) ||
-	     !in_parms->dev_ctrs->valid_p_ctrs || 
-         (in_parms->dev_ctrs->num_p_ctrs < in_parms->dev_ctrs->valid_p_ctrs)) {
-	rc = RIO_ERR_INVALID_PARAMETER;
-      out_parms->imp_rc = SC_CFG_CPS_CTRS(0x08);
-      goto rio_sc_cfg_cps_ctr_exit;
-   };
+	if (!in_parms->dev_ctrs->num_p_ctrs
+			|| (in_parms->dev_ctrs->num_p_ctrs > RIO_MAX_PORTS)
+			|| !in_parms->dev_ctrs->valid_p_ctrs
+			|| (in_parms->dev_ctrs->num_p_ctrs
+					< in_parms->dev_ctrs->valid_p_ctrs)) {
+		rc = RIO_ERR_INVALID_PARAMETER;
+		out_parms->imp_rc = SC_CFG_CPS_CTRS(0x08);
+		goto exit;
+	}
 
-   if (in_parms->dev_ctrs->valid_p_ctrs < good_ptl.num_ports) {
-	   rc = RIO_ERR_INVALID_PARAMETER;
-      out_parms->imp_rc = SC_CFG_CPS_CTRS(0x0A);
-      goto rio_sc_cfg_cps_ctr_exit;
-   };
+	if (in_parms->dev_ctrs->valid_p_ctrs < good_ptl.num_ports) {
+		rc = RIO_ERR_INVALID_PARAMETER;
+		out_parms->imp_rc = SC_CFG_CPS_CTRS(0x0A);
+		goto exit;
+	}
 
-   // Update hardware and data structures to reflect change in programming.
-   // - program the counter control values requested
-   // - update the associated counters structure (what is counted)
-   // - clear the counter value in the counters structure if what is counted changed
-   // - clear the physical counter value if what is counted changed
-   //
-   for (srch_p = 0; srch_p < good_ptl.num_ports; srch_p ++) {
-      port_num = good_ptl.pnums[srch_p];
-      found    = false;
-      for (srch_i = 0; srch_i < in_parms->dev_ctrs->valid_p_ctrs; srch_i++) {
-         if ( in_parms->dev_ctrs->p_ctrs[srch_i].pnum == port_num ) {
-	        found = true;
-	 
-            // Always program the control value...
-            rc = DARRegRead( dev_info, CPS1848_PORT_X_OPS(port_num), &ctl_reg );
-            if (RIO_SUCCESS != rc) {
-               out_parms->imp_rc = SC_CFG_CPS_CTRS(0x40);
-               goto rio_sc_cfg_cps_ctr_exit;
-            };
+	// Update hardware and data structures to reflect change in programming.
+	// - program the counter control values requested
+	// - update the associated counters structure (what is counted)
+	// - clear the counter value in the counters structure if what is counted changed
+	// - clear the physical counter value if what is counted changed
+	//
+	for (srch_p = 0; srch_p < good_ptl.num_ports; srch_p++) {
+		port_num = good_ptl.pnums[srch_p];
+		found = false;
+		for (srch_i = 0; srch_i < in_parms->dev_ctrs->valid_p_ctrs;
+				srch_i++) {
+			if (in_parms->dev_ctrs->p_ctrs[srch_i].pnum
+					== port_num) {
+				found = true;
 
-			if (in_parms->enable_ctrs) {
-			   new_ctl_reg = ctl_reg | CPS1848_PORT_X_OPS_CNTRS_EN;
-			} else {
-			   new_ctl_reg = ctl_reg & ~CPS1848_PORT_X_OPS_CNTRS_EN;
+				// Always program the control value...
+				rc = DARRegRead(dev_info,
+						CPS1848_PORT_X_OPS(port_num),
+						&ctl_reg);
+				if (RIO_SUCCESS != rc) {
+					out_parms->imp_rc = SC_CFG_CPS_CTRS(
+							0x40);
+					goto exit;
+				}
+
+				if (in_parms->enable_ctrs) {
+					new_ctl_reg =
+							ctl_reg
+									| CPS1848_PORT_X_OPS_CNTRS_EN;
+				} else {
+					new_ctl_reg =
+							ctl_reg
+									& ~CPS1848_PORT_X_OPS_CNTRS_EN;
+				}
+
+				rc = DARRegWrite(dev_info,
+						CPS1848_PORT_X_OPS(port_num),
+						new_ctl_reg);
+				if (RIO_SUCCESS != rc) {
+					out_parms->imp_rc = SC_CFG_CPS_CTRS(
+							0x41);
+					goto exit;
+				}
+
+				for (ctr = 0; ctr < NUM_CPS_SC; ctr++) {
+
+					if (new_ctl_reg != ctl_reg) {
+						rc =
+								DARRegRead(
+										dev_info,
+										CPS_SC_ADDR(
+												port_num,
+												ctr),
+										&unused);
+						if (RIO_SUCCESS != rc) {
+							out_parms->imp_rc =
+									SC_CFG_CPS_CTRS(
+											0x50 + ctr);
+							goto exit;
+						}
+						in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[ctr].total =
+								0;
+						in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[ctr].last_inc =
+								0;
+					}
+					if (in_parms->enable_ctrs) {
+						in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[ctr].sc =
+								cps_sc_info[ctr].sc_info.sc;
+						in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[ctr].srio =
+								cps_sc_info[ctr].sc_info.srio;
+						in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[ctr].tx =
+								cps_sc_info[ctr].sc_info.tx;
+					} else {
+						in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[ctr].sc =
+								rio_sc_disabled;
+						in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[ctr].srio =
+								true;
+						in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[ctr].tx =
+								true;
+					}
+				}
+				continue;
 			}
+		}
+		if (!found) {
+			rc = RIO_ERR_INVALID_PARAMETER;
+			out_parms->imp_rc = SC_CFG_CPS_CTRS(0x70 + port_num);
+			goto exit;
+		}
+	}
 
-			rc = DARRegWrite( dev_info, CPS1848_PORT_X_OPS(port_num), new_ctl_reg );
-			if (RIO_SUCCESS != rc) {
-				out_parms->imp_rc = SC_CFG_CPS_CTRS(0x41);
-				goto rio_sc_cfg_cps_ctr_exit;
-			};
-	    
-			for (ctr = 0; ctr < NUM_CPS_SC; ctr++) {
+exit:
+	return rc;
+}
 
-			   if (new_ctl_reg != ctl_reg) {
-					  rc = DARRegRead( dev_info, CPS_SC_ADDR(port_num, ctr), &unused );
-					  if (RIO_SUCCESS != rc) {
-						 out_parms->imp_rc = SC_CFG_CPS_CTRS(0x50 + ctr);
-						 goto rio_sc_cfg_cps_ctr_exit;
-					  };
-					  in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[ctr].total = 0;
-			          in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[ctr].last_inc = 0;
-			   };
-			   if (in_parms->enable_ctrs) {
-				   in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[ctr].sc   = cps_sc_info[ctr].sc_info.sc;
-				   in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[ctr].srio = cps_sc_info[ctr].sc_info.srio;
-				   in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[ctr].tx   = cps_sc_info[ctr].sc_info.tx;
-			   } else {
-				   in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[ctr].sc   = rio_sc_disabled;
-				   in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[ctr].srio = true;
-				   in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[ctr].tx   = true;
-			   };
-			};
-			continue;
-		  };
-	  };
-      if (!found) {
-         rc = RIO_ERR_INVALID_PARAMETER;
-         out_parms->imp_rc = SC_CFG_CPS_CTRS(0x70 + port_num);
-         goto rio_sc_cfg_cps_ctr_exit;
-      };
-   };
+uint32_t CPS_rio_sc_init_dev_ctrs(DAR_DEV_INFO_t *dev_info,
+		rio_sc_init_dev_ctrs_in_t *in_parms,
+		rio_sc_init_dev_ctrs_out_t *out_parms)
+{
+	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+	uint8_t idx, cntr_i;
+	struct DAR_ptl good_ptl;
 
-rio_sc_cfg_cps_ctr_exit:
-   return rc;        
-};
+	out_parms->imp_rc = RIO_SUCCESS;
+
+	if (NULL == in_parms->dev_ctrs) {
+		out_parms->imp_rc = SC_INIT_DEV_CTRS(2);
+		goto exit;
+	}
+
+	if (NULL == in_parms->dev_ctrs->p_ctrs) {
+		out_parms->imp_rc = SC_INIT_DEV_CTRS(4);
+		goto exit;
+	}
+
+	if (!in_parms->dev_ctrs->num_p_ctrs
+			|| (in_parms->dev_ctrs->num_p_ctrs > RIO_MAX_PORTS)) {
+		out_parms->imp_rc = SC_INIT_DEV_CTRS(6);
+		goto exit;
+	}
+	// Set up pnums_cnt and pnums_l based on in_parms->num_ports and in_parms->pnums.
+	rc = DARrioGetPortList(dev_info, &in_parms->ptl, &good_ptl);
+	if (RIO_SUCCESS != rc) {
+		out_parms->imp_rc = SC_INIT_DEV_CTRS(8);
+		goto exit;
+	}
+
+	if ((in_parms->dev_ctrs->num_p_ctrs < good_ptl.num_ports)) {
+		rc = RIO_ERR_INVALID_PARAMETER;
+		out_parms->imp_rc = SC_INIT_DEV_CTRS(0x10);
+		goto exit;
+	}
+
+	in_parms->dev_ctrs->valid_p_ctrs = good_ptl.num_ports;
+	for (idx = 0; idx < good_ptl.num_ports; idx++) {
+		in_parms->dev_ctrs->p_ctrs[idx].pnum = good_ptl.pnums[idx];
+		in_parms->dev_ctrs->p_ctrs[idx].ctrs_cnt = NUM_CPS_SC;
+		for (cntr_i = 0; cntr_i < NUM_CPS_SC; cntr_i++) {
+			in_parms->dev_ctrs->p_ctrs[idx].ctrs[cntr_i] =
+					cps_sc_info[cntr_i].sc_info;
+		}
+	}
+	rc = RIO_SUCCESS;
+
+exit:
+	return rc;
+}
+
+/* Reads enabled counters on selected ports
+ */
+
+uint32_t CPS_rio_sc_read_ctrs(DAR_DEV_INFO_t *dev_info,
+		rio_sc_read_ctrs_in_t *in_parms,
+		rio_sc_read_ctrs_out_t *out_parms)
+{
+	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+	uint8_t srch_i, srch_p, port_num, cntr;
+	bool found;
+	uint32_t ctl_reg;
+	struct DAR_ptl good_ptl;
+
+	out_parms->imp_rc = RIO_SUCCESS;
+
+	if (NULL == in_parms->dev_ctrs) {
+		out_parms->imp_rc = SC_READ_CTRS(1);
+		goto exit;
+	}
+
+	if (NULL == in_parms->dev_ctrs->p_ctrs) {
+		out_parms->imp_rc = SC_READ_CTRS(2);
+		goto exit;
+	}
+
+	rc = DARrioGetPortList(dev_info, &in_parms->ptl, &good_ptl);
+	if (RIO_SUCCESS != rc) {
+		out_parms->imp_rc = SC_READ_CTRS(4);
+		goto exit;
+	}
+
+	if (!in_parms->dev_ctrs->num_p_ctrs
+			|| (in_parms->dev_ctrs->num_p_ctrs > RIO_MAX_PORTS)
+			|| !in_parms->dev_ctrs->valid_p_ctrs
+			|| (in_parms->dev_ctrs->num_p_ctrs
+					< in_parms->dev_ctrs->valid_p_ctrs)) {
+		rc = RIO_ERR_INVALID_PARAMETER;
+		out_parms->imp_rc = SC_READ_CTRS(0x05);
+		goto exit;
+	}
+
+	if (in_parms->dev_ctrs->valid_p_ctrs < good_ptl.num_ports) {
+		rc = RIO_ERR_INVALID_PARAMETER;
+		out_parms->imp_rc = SC_READ_CTRS(0x06);
+		goto exit;
+	}
+
+	// For generality, must establish a list of ports.
+	// Do not assume that the port number equals the index in the structure...
+
+	for (srch_p = 0; srch_p < good_ptl.num_ports; srch_p++) {
+		found = false;
+		port_num = good_ptl.pnums[srch_p];
+		for (srch_i = 0; srch_i < in_parms->dev_ctrs->valid_p_ctrs;
+				srch_i++) {
+			if (in_parms->dev_ctrs->p_ctrs[srch_i].pnum
+					== port_num) {
+				found = true;
+
+				// Read the control value to determine if any counters are enabled
+				rc = DARRegRead(dev_info,
+						CPS1848_PORT_X_OPS(port_num),
+						&ctl_reg);
+				if (RIO_SUCCESS != rc) {
+					out_parms->imp_rc = SC_READ_CTRS(0x40);
+					goto exit;
+				}
+
+				// Read the port performance counters...
+				for (cntr = 0;
+						cntr
+								< in_parms->dev_ctrs->p_ctrs[srch_i].ctrs_cnt;
+						cntr++) {
+					if ((rio_sc_disabled
+							!= in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc)
+							&& (ctl_reg
+									& cps_sc_info[cntr].mask)) {
+						rc =
+								DARRegRead(
+										dev_info,
+										CPS_SC_ADDR(
+												port_num,
+												cntr),
+										&in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].last_inc);
+						if (RIO_SUCCESS != rc) {
+							out_parms->imp_rc =
+									SC_READ_CTRS(
+											0x70 + cntr);
+							goto exit;
+						}
+						in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].total +=
+								in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].last_inc;
+					}
+				}
+				break;
+			}
+		}
+
+		if (!found) {
+			rc = RIO_ERR_INVALID_PARAMETER;
+			out_parms->imp_rc = SC_READ_CTRS(0x90 + port_num);
+			goto exit;
+		}
+	}
+
+exit:
+	return rc;
+}
+
+#endif /* CPS_DAR_WANTED */
 
 #ifdef __cplusplus
 }

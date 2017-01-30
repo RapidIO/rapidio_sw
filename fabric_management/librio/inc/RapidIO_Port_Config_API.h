@@ -46,33 +46,27 @@ extern "C" {
    Generic structure which contains the parameters which describe the
    configuration of a port.
 */
-#define RIO_PC_NO_ASSIGNED_LANE             0
+#define RIO_PC_NO_ASSIGNED_LANE	0
 
-#define RIO_PC_UNINIT_PARM                  0xFF
+#define RIO_PC_UNINIT_PARM	0xFF
 
-#define RIO_PC_SUCCESS                      0x000
-#define RIO_PC_INVALID                      0x001
+#define RIO_PC_SUCCESS		0x000
+#define RIO_PC_INVALID		0x001
 
-#define RIO_PC_PORT_UNAVAILABLE             0x100
-#define RIO_PC_CORRUPTED                    0x103
-#define RIO_PC_DEV_SPEC                     0x104
-#define RIO_PC_PORT_ERR                     0x105
+#define RIO_PC_PORT_UNAVAILABLE	0x100
+#define RIO_PC_CORRUPTED	0x103
+#define RIO_PC_DEV_SPEC		0x104
+#define RIO_PC_PORT_ERR		0x105
 
 typedef enum rio_pc_pw_t_tag
 {
-    rio_pc_pw_1x = 0,   /* Single lane port
-                        */
-    rio_pc_pw_2x,       /* Two lane port
-                        */
-    rio_pc_pw_4x,       /* Four lane port
-                        */
-    rio_pc_pw_1x_l0,    /* Force multilane port to operate on lane 0
-                        */
-    rio_pc_pw_1x_l1,    /* Force multilane port to operate on lane 1
-                        */
-    rio_pc_pw_1x_l2,    /* Force multilane port to operate on lane 2
-                        */
-    rio_pc_pw_last      /* Last port width value */
+	rio_pc_pw_1x = 0,	// Single lane port
+	rio_pc_pw_2x,		// Two lane port
+	rio_pc_pw_4x,		// Four lane port
+	rio_pc_pw_1x_l0,	// Force multilane port to operate on lane 0
+	rio_pc_pw_1x_l1,	// Force multilane port to operate on lane 1
+	rio_pc_pw_1x_l2,	// Force multilane port to operate on lane 2
+	rio_pc_pw_last,		// Last port width value
 } rio_pc_pw_t;
 
 extern int         pw_to_lanes[]; // Converts rio_pc_pw_t to lane count
@@ -83,23 +77,15 @@ extern rio_pc_pw_t lanes_to_pw[]; // Converts lane count to rio_pc_pw_t
 #define PW_TO_STR(x) (x>=rio_pc_pw_last?pw_to_str[rio_pc_pw_last]:pw_to_str[x])
 #define LANES_TO_PW(x) (x>4?rio_pc_pw_last:lanes_to_pw[x])
 
-typedef enum rio_pc_ls_t_tag
-{
-    rio_pc_ls_1p25 = 0, /* 1.25 Gbaud lane speed.
-                        */
-    rio_pc_ls_2p5  = 1, /* 2.5  Gbaud lane speed.
-                        */
-    rio_pc_ls_3p125= 2, /* 3.125 Gbaud lane speed.
-                        */
-    rio_pc_ls_5p0  = 3, /* 5.0 Gbaud lane speed.
-                        */
-    rio_pc_ls_6p25 = 4, /* 6.25 Gbaud lane speed.
-                        */
-    rio_pc_ls_10p3 = 5, /* 10.3 Gbaud lane speed.
-                        */
-    rio_pc_ls_12p5 = 6, /* 12.5 Gbaud lane speed.
-                        */
-    rio_pc_ls_last      // last lane speed, not used...
+typedef enum rio_pc_ls_t_tag {
+	rio_pc_ls_1p25 = 0,	// 1.25 Gbaud lane speed
+	rio_pc_ls_2p5 = 1,	// 2.5  Gbaud lane speed
+	rio_pc_ls_3p125 = 2,	// 3.125 Gbaud lane speed
+	rio_pc_ls_5p0 = 3,	// 5.0 Gbaud lane speed
+	rio_pc_ls_6p25 = 4,	// 6.25 Gbaud lane speed
+	rio_pc_ls_10p3 = 5,	// 10.3 Gbaud lane speed
+	rio_pc_ls_12p5 = 6,	// 12.5 Gbaud lane speed
+	rio_pc_ls_last,		// last lane speed, not used
 } rio_pc_ls_t;
 
 // Convert lane speed to a string
@@ -129,188 +115,181 @@ extern char *is_to_str[];
 
 #define ISEQ_TO_STR(x) (x>=rio_pc_is_last?is_to_str[rio_pc_is_last]:is_to_str[x])
 
-typedef struct rio_pc_one_port_config_t_TAG
-{
-    uint8_t       pnum;           /* Port number.  Allows port configuration
-                                   information to be declared out of order,
-                                   as per quadrants/port numbering.
-                                */
-    bool        port_available; /* true if the port is available, 
-                                   false if the port is not available
-                                   If the port is not available, resources
-                                     associated with the port may be powered
-                                     down as long as they do not interfere
-                                     with other ports.
-                                   If the port is not available,
-                                     only the "powerdown" field of this 
-                                     structure is valid.    
-                                */
-    bool        powered_up;     /* true if the port is powered up
-				 * false if the port is powered down.
-				 */
-    rio_pc_pw_t pw;             /* Port width
-                                */   
-    rio_pc_ls_t ls;             /* Lane speed
-                                */
-    enum rio_pc_fc 	fc; /* Type of flow control that is enabled.
-			 */
-    enum rio_pc_idle_seq iseq; /* Idle sequence configured
-			 * IDLE2 means that IDLE2 or IDLE1 may be used.
-			 */
-    bool        xmitter_disable;   /* True if the port should be disabled, false if
-				      the port should be enabled.  NOTE that if
-				      a port is disabled, the transmitter is disabled
-				      and the port will not be able to train.
-				   Packets routed to a disabled port are dropped.
-				   Corresponds to standard "port disable" bit.
-				 */
-    bool        port_lockout;   /* True if the port should be locked out, false if
-				      the port should not be locked out.  NOTE that 
-				      if a port is locked out, the transmitter and
-				      receiver are enabled, so the port can achieve
-				      PORT_OK, but packets cannot be exchanged.
-				 */
-	bool	nmtc_xfer_enable; /* True if the port should be able to send and receive
-						 non-maintenance packets, false if non-maintenance packets
-						 should not be exchanged by this port.  NOTE: To prevent all
-						 packets from being exchanged on the port, set port_lockout. 
-				   Corresponds to standard "output port enable" and "input port enable" bit. */
-    bool        tx_lswap;       /* True if the transmit lanes are connected to
-                                   a port in order of highest numbered lane to
-                                   lowest numbered
-                                */
-    bool        tx_linvert[RIO_MAX_PORT_LANES];
-                                /* True if the tracks of a differential pair
-                                   are inverted.                            
-                                   Does not reflect lane swapping status.
-                                */
-    bool        rx_lswap;       /* Trued if the receive lanes are connected to
-                                   a port in order of highest numbered lane to
-                                   lowest numbered.
-                                */
-    bool        rx_linvert[RIO_MAX_PORT_LANES];
-                                /* True if the tracks of a differential pair
-                                   are inverted.                            
-                                   Does not reflect lane swapping status. 
-                                */
+typedef struct rio_pc_one_port_config_t_TAG {
+	// Port number.  Allows port configuration information to be declared
+	// out of order, as per quadrants/port numbering.
+	uint8_t pnum;
+
+	// true if the port is available, false if the port is not available
+	// If the port is not available, resources associated with the port may
+	// be powered down as long as they do not interfere with other ports.
+	// If the port is not available, only the "powerdown" field of this
+	// structure is valid.
+	bool port_available;
+
+	// true if the port is powered up false if the port is powered down.
+	bool powered_up;
+
+	// Port width
+	rio_pc_pw_t pw;
+
+	// Lane speed
+	rio_pc_ls_t ls;
+
+	// Type of flow control that is enabled.
+	enum rio_pc_fc fc;
+
+	// Idle sequence configured IDLE2 means that IDLE2 or IDLE1 may be used
+	enum rio_pc_idle_seq iseq;
+
+	// True if the port should be disabled, false if the port should be
+	// enabled.  NOTE that if a port is disabled, the transmitter is
+	// disabled and the port will not be able to train. Packets routed to a
+	// disabled port are dropped. Corresponds to standard "port disable" bit.
+	bool xmitter_disable;
+
+	// True if the port should be locked out, false if the port should not
+	// be locked out.  NOTE that if a port is locked out, the transmitter
+	// and receiver are enabled, so the port can achieve PORT_OK, but
+	// packets cannot be exchanged.
+	bool port_lockout;
+
+	// True if the port should be able to send and receive non-maintenance
+	// packets, false if non-maintenance packets should not be exchanged by
+	// this port.  NOTE: To prevent all packets from being exchanged on the
+	// port, set port_lockout. Corresponds to standard "output port enable"
+	// and "input port enable" bit.
+	bool nmtc_xfer_enable;
+
+	// True if the transmit lanes are connected to a port in order of
+	// highest numbered lane to lowest numbered
+	bool tx_lswap;
+
+	// True if the tracks of a differential pair are inverted. Does not
+	// reflect lane swapping status.
+	bool tx_linvert[RIO_MAX_PORT_LANES];
+
+	// Trued if the receive lanes are connected to a port in order of
+	// highest numbered lane to lowest numbered.
+	bool rx_lswap;
+
+	// True if the tracks of a differential pair are inverted. Does not
+	// reflect lane swapping status.
+	bool rx_linvert[RIO_MAX_PORT_LANES];
 } rio_pc_one_port_config_t;
 
 /* Structure which captures the status of a port.
 */
-typedef struct rio_pc_one_port_status_t_TAG
-{
-    uint8_t       pnum;           /* Port number.  Allows port configuration
-                                     information to be declared out of order,
-                                     as per quadrants/port numbering.
-                                */
-    bool        port_ok;        /* true if a link partner is present and
-                                     control symbols can be exchanged
-                                     successfully.
-                                */
-    rio_pc_pw_t pw;             /* Port width
-                                */
-    enum rio_pc_fc  fc;          /* Flow control algorithm for the link
-				*/
-    enum rio_pc_idle_seq iseq; /* Idle sequence being used
-			 */
-    bool        port_error;     /* true if a fatal error is present which
-                                     prevents packet transmission.
-                                   This is a combination of the standard 
-                                     PORT_ERR indications, and the PORT_FAILED
-				     indication when "Stop on Fail" is set
-				     in the Port x Control CSR.
-                                */
-    bool        input_stopped;  /* true if the port has detected a transmission
-                                     error or has retried a packet and is
-                                     awaiting packet transmission to start
-                                     again.
-                                */
-    bool        output_stopped; /* true if the port is attempting
-                                     error recovery with the link partner.                                                                              
-                                */
-    uint8_t     num_lanes;      /* Number of lanes connected to the port.
-				   0 means that the port is unavailable, powered 
-				   down, or both.
-                                */
-    bool        first_lane;     /* Lane number of the first lane connected to
-                                     the port.  It is assumed that sequentially
-                                     numbered lanes are connected to a port.
-                                */
-    
+typedef struct rio_pc_one_port_status_t_TAG {
+	// Port number.  Allows port configuration information to be declared
+	// out of order, as per quadrants/port numbering.
+	uint8_t pnum;
+
+	// true if a link partner is present and control symbols can be
+	// exchanged successfully.
+	bool port_ok;
+
+	// Port width
+	rio_pc_pw_t pw;
+
+	// Flow control algorithm for the link
+	enum rio_pc_fc fc;
+
+	// Idle sequence being used
+	enum rio_pc_idle_seq iseq;
+
+	// true if a fatal error is present which prevents packet transmission.
+	// This is a combination of the standard PORT_ERR indications, and the
+	// PORT_FAILED indication when "Stop on Fail" is setin the Port x
+	// Control CSR.
+	bool port_error;
+
+	// true if the port has detected a transmission error or has retried a
+	// packet and is awaiting packet transmission to start again.
+	bool input_stopped;
+
+	// true if the port is attempting error recovery with the link partner.
+	bool output_stopped;
+
+	// Number of lanes connected to the port. 0 means that the port is
+	// unavailable, powered down, or both.
+	uint8_t num_lanes;
+
+	// Lane number of the first lane connected to the port.  It is assumed
+	// that sequentially numbered lanes are connected to a port.
+	bool first_lane;
+
 } rio_pc_one_port_status_t;
-    
-typedef struct rio_pc_get_config_in_t_TAG
-{
-    struct DAR_ptl ptl; /* Return configuration for this port list. */
+
+typedef struct rio_pc_get_config_in_t_TAG {
+	// Return configuration for this port list.
+	struct DAR_ptl ptl;
 } rio_pc_get_config_in_t;
 
-typedef struct rio_pc_set_config_in_t_TAG
-{
-    uint32_t      lrto;            // Link response timeout value for all ports.
-                                 // Specified in hundreds of nanoseconds, range of 0 (disabled)
-				 // up to 60,000,000 (6 seconds).
-    uint32_t      log_rto;      // Logical layer response timeout, specified
-                                // in hundreds of nanoseconds.  Range of 0
-                                // (disabled) up to 60,000,000 (6 seconds)
-    bool        oob_reg_acc;     /* If true, register access is not dependent
-                                      upon RapidIO (i.e. JTAG, I2C).  It is
-				      possible to reprogram the port used for
-				      RapidIO connectivity.
-                                 */
-    uint8_t       reg_acc_port;    /* Register access port.
-				      Valid when oob_reg_acc is false.
-				      Must be filled in to protect against 
-				      inadvertently disabling/ resetting the 
-				      port(s) used for connectivity
-				      to the switch.
-				  */
-    uint8_t       num_ports;  /* Number of ports which should be updated.
-                               If RIO_ALL_PORTS was passed in,  
-                                 only the first entry of pc must be valid.
-                               All ports will be configured according to
-                                 this entry.
-                            */
-    rio_pc_one_port_config_t pc[RIO_MAX_PORTS];
+typedef struct rio_pc_set_config_in_t_TAG {
+	// Link response timeout value for all ports. Specified in hundreds
+	// of nanoseconds, range of 0 (disabled) up to 60,000,000 (6 seconds).
+	uint32_t lrto;
+
+	// Logical layer response timeout, specified in hundreds of nanoseconds
+	// Range of 0 (disabled) up to 60,000,000 (6 seconds)
+	uint32_t log_rto;
+
+	// If true, register access is not dependent upon RapidIO
+	// (i.e. JTAG, I2C).  It is possible to reprogram the port used for
+	// RapidIO connectivity.
+	bool oob_reg_acc;
+
+	uint8_t reg_acc_port;
+	// Register access port. Valid when oob_reg_acc is false. Must be
+	// filled in to protect against inadvertently disabling/resetting
+	// the port(s) used for connectivity to the switch.
+
+	// Number of ports which should be updated. If RIO_ALL_PORTS was
+	// passed in, only the first entry of pc must be valid. All ports
+	// will be configured according to this entry.
+	uint8_t num_ports;
+
+	rio_pc_one_port_config_t pc[RIO_MAX_PORTS];
 } rio_pc_set_config_in_t;
 
-typedef struct rio_pc_set_config_out_t_TAG
-{
-    uint32_t      imp_rc;     /* Implementation specific return code information.
-                            */
-    uint32_t      lrto;        // Link response timeout value for all ports.
-                             // Specified in hundreds of nanoseconds, range of 0 (disabled)
-			     // up to 60,000,000 (6 seconds).
-    uint32_t      log_rto;      // Logical layer response timeout, specified
-                                // in hundreds of nanoseconds.  Range of 0
-                                // (disabled) up to 60,000,000 (6 seconds)
-    uint8_t       num_ports;  /* Number of ports which are now present.
-                               If RIO_ALL_PORTS was passed in,  
-                                 this reflects the actual number of ports
-                                 present after the configuration was changed.
-                            */
-    rio_pc_one_port_config_t pc[RIO_MAX_PORTS];
-                            /* Current configuration of the devices ports. 
-                            */
+typedef struct rio_pc_set_config_out_t_TAG {
+	// Implementation specific return code information.
+	uint32_t imp_rc;
+
+	// Link response timeout value for all ports. Specified in hundreds of
+	// nanoseconds, range of 0 (disabled) up to 60,000,000 (6 seconds).
+	uint32_t lrto;
+
+	// Logical layer response timeout, specified in hundreds of
+	// nanoseconds.  Range of 0 (disabled) up to 60,000,000 (6 seconds)
+	uint32_t log_rto;
+
+	// Number of ports which are now present. If RIO_ALL_PORTS was passed
+	// in, this reflects the actual number of ports present after the
+	// configuration was changed.
+	uint8_t num_ports;
+
+	// Current configuration of the devices ports.
+	rio_pc_one_port_config_t pc[RIO_MAX_PORTS];
 } rio_pc_set_config_out_t;
 
 typedef rio_pc_set_config_out_t rio_pc_get_config_out_t;
 
-typedef struct rio_pc_get_status_in_t_TAG
-{
-    struct DAR_ptl ptl;
+typedef struct rio_pc_get_status_in_t_TAG {
+	struct DAR_ptl ptl;
 } rio_pc_get_status_in_t;
 
-typedef struct rio_pc_get_status_out_t_TAG
-{
-    uint32_t      imp_rc;      /* Implementation specific return code information.
-                             */
-    uint8_t       num_ports;   /* Number of ports for which status was returned.
-                                If RIO_ALL_PORTS was passed in  
-                                  rio_pc_get_status_in_t.ptl.num_ports, this
-                                  reflects the number of ports which have
-                                  information present in pc.
-                             */
-    rio_pc_one_port_status_t ps[RIO_MAX_PORTS];
+typedef struct rio_pc_get_status_out_t_TAG {
+	// Implementation specific return code information.
+	uint32_t imp_rc;
+
+	// Number of ports for which status was returned. If RIO_ALL_PORTS was
+	// passed in rio_pc_get_status_in_t.ptl.num_ports, this reflects the
+	// number of ports which have information present in pc.
+	uint8_t num_ports;
+
+	rio_pc_one_port_status_t ps[RIO_MAX_PORTS];
 } rio_pc_get_status_out_t;
 
 // The RapidIO port used to access the switch will not be reset 
@@ -324,161 +303,130 @@ typedef struct rio_pc_get_status_out_t_TAG
 // the port used for connectivity must be reset by using 
 // rio_pc_reset_link_partner.
 
-typedef struct rio_pc_reset_port_in_t_TAG
-{
-   /* NOTE:
-    * If RIO_ALL_PORTS == port_num, reset_lp is true, and
-    * preserve_config is false, this routine MAY reset the entire device.
-    */
+typedef struct rio_pc_reset_port_in_t_TAG {
+	// NOTE: If RIO_ALL_PORTS == port_num, reset_lp is true, and
+	// preserve_config is false, this routine MAY reset the entire device.
 
-    uint8_t       port_num;        /* Port which should be reset on this
-                                      device.  
-                                    RIO_ALL_PORTS is an acceptable value
-                                 */
-    bool        oob_reg_acc;     /* If true, register access is not dependent
-                                      upon RapidIO (i.e. JTAG, I2C).  It is
-				      possible to reset the port used for 
-				      RapidIO connectivity.
-                                 */
-    uint8_t       reg_acc_port;    /* Register access port.
-				      Valid when oob_reg_acc is false.
-				      Must be filled in to protect against 
-				      inadvertently resetting the 
-				      port(s) used for connectivity
-				      to the switch.
-				  */
-    bool        reset_lp;        /* If true, reset the link partner just
-                                      before resetting this port.
-                                 */
-    bool        preserve_config; /* If true, preserves port
-                                      configuration state which may be
-                                      destroyed by the reset.                                   
-				    When false, the configuration of the 
-				      port may be destroyed by the reset.  This
-				      may be a more comprehensive reset than
-				      what is done when preserve_config is true.
-                                 */
+	// Port which should be reset on this device. RIO_ALL_PORTS is an
+	// acceptable value
+	uint8_t port_num;
+
+	// If true, register access is not dependent upon RapidIO
+	// (i.e. JTAG, I2C).  It is possible to reset the port used for
+	// RapidIO connectivity.
+	bool oob_reg_acc;
+
+	// Register access port. Valid when oob_reg_acc is false.  Must be
+	// filled in to protect against inadvertently resetting the port(s)
+	// used for connectivity to the switch.
+	uint8_t reg_acc_port;
+
+	// If true, reset the link partner just before resetting this port.
+	bool reset_lp;
+
+	// If true, preserves port configuration state which may be destroyed
+	// by the reset. When false, the configuration of the port may be
+	// destroyed by the reset.  This may be a more comprehensive reset than
+	// what is done when preserve_config is true.
+	bool preserve_config;
 } rio_pc_reset_port_in_t;
 
-typedef struct rio_pc_reset_port_out_t_TAG
-{
-    uint32_t      imp_rc;         /* Implementation specific return code
-                                       information.
-                                */
+typedef struct rio_pc_reset_port_out_t_TAG {
+	// Implementation specific return code information.
+	uint32_t imp_rc;
 } rio_pc_reset_port_out_t;
 
-typedef struct rio_pc_reset_link_partner_in_t_TAG
-{
-    uint8_t       port_num;       /* Port whose link partner should be reset.
-                                      Must be a valid port number. 
-				   RIO_ALL_PORTS is not supported.
-				   Port must have PORT_OK status for this 
-				      routine to succeeed.
-                                */
-    bool        resync_ackids;  /* If true, attempts to resychronize ackIDs
-                                     by clearing ackIDs to 0 on the local
-                                     port after the reset.                                       
-                                */
+typedef struct rio_pc_reset_link_partner_in_t_TAG {
+	// Port whose link partner should be reset. Must be a valid port
+	// number. RIO_ALL_PORTS is not supported. Port must have PORT_OK
+	// status forthis routine to succeed.
+	uint8_t port_num;
+
+	// If true, attempts to resychronize ackIDs by clearing ackIDs to 0 on
+	// the local port after the reset.
+	bool resync_ackids;
 } rio_pc_reset_link_partner_in_t;
 
-typedef struct  rio_pc_reset_link_partner_out_t_TAG
-{
-    uint32_t      imp_rc;         /* Implementation specific return code
-                                       information.
-                                */
+typedef struct rio_pc_reset_link_partner_out_t_TAG {
+	// Implementation specific return code information.
+	uint32_t imp_rc;
 } rio_pc_reset_link_partner_out_t;
 
-typedef struct rio_pc_clr_errs_in_t_TAG  
-{
-    uint8_t       port_num;           /* Port on this device which should have its 
-                                         input-err stop, output-err stop and port_err
-					 error conditions cleared. 
-                                       RIO_ALL_PORTS is an illegal value for
-				         this field.
-				       The port MUST have PORT_OK status for this routine
-				         to be successful.  If the port does not have 
-					 PORT_OK status, then the port may be reset to
-					 clear errors.
-                                    */
-    bool        clr_lp_port_err;    /* rio_pc_clr_errs will always attempt to clear
-				          input error-stop, output error-stop and
-					  port error conditions on the local port.  
-					  This may involve sending control symbols 
-					  to the link partner.
-				       If true, then this routine will attempt to clear
-				          port_err conditions on the link partner.
-					  Depending on the device, this may involve 
-					  sending control symbols and packets to the 
-					  link partner to establish ackID
-					  synchronization.  It may involve resetting
-					  the link partner. Maintenance requests may time out.
-				       If false, then this routine will not reset the
-				          link partner or send packets to the link 
-					  partner.  AckID values are cleared to 0
-					  on the local end of the link.     
-					  This is a lower risk option option that can
-					  be used if the capacity to clear port_err 
-					  locally exists at both ends of the link.
-				    */
-    DAR_DEV_INFO_t  *lp_dev_info;  /* Device information for the link partner.
-				    * If this pointer is NULL when clr_lp_port_err is true,
-				    * error recovery is limited to resetting the 
-				    * link partner and the local port.
-                                    */
-    uint8_t           num_lp_ports;  /* Number of entries in the lp_port_list.
-				    * If this value is 0 when clr_lp_port_err is true, 
-				    *   then ports on the link partner will be checked 
-				    *   until the port_err condition is cleared.
-				    *   Note that both available and unavailable
-				    *   ports will be checked.  If more than one
-				    *   port is supplied, response timeouts may
-				    *   occur for maintenance packets.
-				    */
-    uint8_t           lp_port_list[RIO_MAX_PORTS];
-                                   /* List of possible link partner port numbers 
-				    *   that the local port could be connected to.  
-				    */
+typedef struct rio_pc_clr_errs_in_t_TAG {
+	// Port on this device which should have its input-err stop, output-err
+	// stop and port_err error conditions cleared. RIO_ALL_PORTS is an
+	// illegal value for this field. The port MUST have PORT_OK status for
+	// this routine to be successful.  If the port does not have PORT_OK
+	// status, then the port may be reset to clear errors.
+	uint8_t port_num;
+
+	// rio_pc_clr_errs will always attempt to clear input error-stop,
+	// output error-stop and port error conditions on the local port. This
+	// may involve sending control symbols to the link partner. If true,
+	// then this routine will attempt to clear port_err conditions on the
+	// link partner. Depending on the device, this may involve sending
+	// control symbols and packets to the link partner to establish ackID
+	// synchronization.  It may involve resetting the link partner.
+	// Maintenance requests may time out. If false, then this routine will
+	// not reset the link partner or send packets to the link partner.
+	// AckID values are cleared to 0 on the local end of the link. This is
+	// a lower risk option option that can be used if the capacity to clear
+	// port_err locally exists at both ends of the link.
+	bool clr_lp_port_err;
+
+	// Device information for the link partner. If this pointer is NULL
+	// when clr_lp_port_err is true, error recovery is limited to resetting
+	// the link partner and the local port.
+	DAR_DEV_INFO_t *lp_dev_info;
+
+	// Number of entries in the lp_port_list.
+	// If this value is 0 when clr_lp_port_err is true, then ports on the
+	// link partner will be checked until the port_err condition is
+	// cleared. Note that both available and unavailable ports will be
+	// checked.  If more than one port is supplied, response timeouts may
+	// occur for maintenance packets.
+	uint8_t num_lp_ports;
+
+	// List of possible link partner port numbers that the local port could
+	// be connected to.
+	uint8_t lp_port_list[RIO_MAX_PORTS];
 } rio_pc_clr_errs_in_t;
 
-typedef struct rio_pc_clr_errs_out_t_TAG
-{
-    uint32_t      imp_rc;    /* Implementation specific return code information.
-                        */
+typedef struct rio_pc_clr_errs_out_t_TAG {
+	// Implementation specific return code information.
+	uint32_t imp_rc;
 } rio_pc_clr_errs_out_t;
 
 typedef enum {
-    rio_pc_rst_device = 0, /* Link reset request resets the device
-                           */
-    rio_pc_rst_port   = 1, /* Just reset the port the reset request was received on
-                           */
-    rio_pc_rst_int    = 2, /* Assert an interrupt if a reset request was received
-                           */
-    rio_pc_rst_pw     = 3, /* Send a port-write if a reset request was received
-                           */
-    rio_pc_rst_ignore = 4, /* Ignore reset requests received.
-                           */
-    rio_pc_rst_last        // Begin illegal parameter values
+	rio_pc_rst_device = 0,	// Link reset request resets the device
+	rio_pc_rst_port = 1,	// Just reset the port the reset request was received on
+	rio_pc_rst_int = 2,	// Assert an interrupt if a reset request was received
+	rio_pc_rst_pw = 3,	// Send a port-write if a reset request was received
+	rio_pc_rst_ignore = 4,	// Ignore reset requests received.
+	rio_pc_rst_last,	// Begin illegal parameter values
 } rio_pc_rst_handling;
 
 // Convert reset configuration to a string
 extern char *rst_to_str[];
 
 /* The secure_port routine may be used on any device.  Some parameters
-       may not apply to all devices.
-*/
-typedef struct rio_pc_secure_port_in_t_TAG
-{
-	struct      DAR_ptl      ptl;   /* List of ports to configure. */
-    bool        mtc_pkts_allowed;   /* If false, filter out maintenance packets
-                                         if possible.
-                                    */
-    bool        MECS_participant;   /* If false, this port will not retransmit
-                                         MECS events
-                                    */
-    bool        MECS_acceptance;    /* If false, this port will ignore MECS
-                                    */
-    rio_pc_rst_handling rst;        /* Configure reset handling for this port.
-                                    */
+ * may not apply to all devices.
+ */
+typedef struct rio_pc_secure_port_in_t_TAG {
+	// List of ports to configure.
+	struct DAR_ptl ptl;
+
+	// If false, filter out maintenance packets if possible.
+	bool mtc_pkts_allowed;
+
+	// If false, this port will not retransmit MECS events
+	bool MECS_participant;
+
+	// If false, this port will ignore MECS
+	bool MECS_acceptance;
+
+	// Configure reset handling for this port.
+	rio_pc_rst_handling rst;
 } rio_pc_secure_port_in_t;
 
 typedef struct rio_pc_secure_port_out_t_TAG
@@ -494,41 +442,37 @@ typedef struct rio_pc_secure_port_out_t_TAG
     rio_pc_rst_handling rst;  
 } rio_pc_secure_port_out_t;
 
-typedef struct rio_pc_dev_reset_config_in_t_TAG
-{
-    rio_pc_rst_handling rst;    /* Configure reset handling for the device.
-                                */
+typedef struct rio_pc_dev_reset_config_in_t_TAG {
+	// Configure reset handling for the device.
+	rio_pc_rst_handling rst;
 } rio_pc_dev_reset_config_in_t;
 
-typedef struct rio_pc_dev_reset_config_out_t_TAG
-{
-    uint32_t      imp_rc;         /* Implementation specific return code
-                                     information
-                                */
-    rio_pc_rst_handling rst;    /* Current configuration value.
-                                */
+typedef struct rio_pc_dev_reset_config_out_t_TAG {
+	// Implementation specific return code information
+	uint32_t imp_rc;
+
+	// Current configuration value.
+	rio_pc_rst_handling rst;
 } rio_pc_dev_reset_config_out_t;
 
-typedef struct rio_pc_probe_in_t_TAG
-{
-    uint8_t port;    /* Check this port for problems exchanging control symbols
-                                */
+typedef struct rio_pc_probe_in_t_TAG {
+	//* Check this port for problems exchanging control symbols
+	uint8_t port;
 } rio_pc_probe_in_t;
 
 typedef enum idt_port_status_t_TAG {
-    port_ok,
-    port_degr,
-    port_los,
-    port_err
+	port_ok,	//
+	port_degr,	//
+	port_los,	//
+	port_err,
 } idt_port_status_t;
 
-typedef struct rio_pc_probe_out_t_TAG
-{
-    uint32_t            imp_rc;   /* Implementation specific return code
-                                     information
-                                */
-    idt_port_status_t status;   /* Current configuration value.
-                                */
+typedef struct rio_pc_probe_out_t_TAG {
+	// Implementation specific return code information
+	uint32_t imp_rc;
+
+	// Current configuration value.
+	idt_port_status_t status;
 } rio_pc_probe_out_t;
 
 // Implementation specific return codes for Port Configuration routines
@@ -546,96 +490,63 @@ typedef struct rio_pc_probe_out_t_TAG
 #define PC_FIRST_SUBROUTINE_0 (DAR_FIRST_IMP_SPEC_ERROR+0x1000)
 
 /* The following functions are implemented to support the above structures
-   Refer to the above structures for the implementation detail 
-*/
-/* This function returns the port's configuration
-*/
+ * Refer to the above structures for the implementation detail
+ */
+
+/* This function returns the port's configuration */
 #define PC_GET_CONFIG(x) (PC_GET_CONFIG_0+x)
+uint32_t rio_pc_get_config(DAR_DEV_INFO_t *dev_info,
+		rio_pc_get_config_in_t *in_parms,
+		rio_pc_get_config_out_t *out_parms);
 
-uint32_t rio_pc_get_config(
-    DAR_DEV_INFO_t           *dev_info,
-    rio_pc_get_config_in_t   *in_parms,
-    rio_pc_get_config_out_t  *out_parms
-);
-
-/* This function sets up the port width, lane speed, etc.
-*/
+/* This function sets up the port width, lane speed, etc. */
 #define PC_SET_CONFIG(x) (PC_SET_CONFIG_0+x)
+uint32_t rio_pc_set_config(DAR_DEV_INFO_t *dev_info,
+		rio_pc_set_config_in_t *in_parms,
+		rio_pc_set_config_out_t *out_parms);
 
-uint32_t rio_pc_set_config(
-    DAR_DEV_INFO_t           *dev_info,
-    rio_pc_set_config_in_t   *in_parms,
-    rio_pc_set_config_out_t  *out_parms
-);
-
-/* This function returns the status of port
-*/
+/* This function returns the status of port */
 #define PC_GET_STATUS(x) (PC_GET_STATUS_0+x)
+uint32_t rio_pc_get_status(DAR_DEV_INFO_t *dev_info,
+		rio_pc_get_status_in_t *in_parms,
+		rio_pc_get_status_out_t *out_parms);
 
-uint32_t rio_pc_get_status(
-    DAR_DEV_INFO_t           *dev_info,
-    rio_pc_get_status_in_t   *in_parms,
-    rio_pc_get_status_out_t  *out_parms
-);
-
-/* This function resets the specified port as well as the link partner
-*/
+/* This function resets the specified port as well as the link partner */
 #define PC_RESET_PORT(x) (PC_RESET_PORT_0+x)
 
-uint32_t rio_pc_reset_port(
-    DAR_DEV_INFO_t           *dev_info,
-    rio_pc_reset_port_in_t   *in_parms,
-    rio_pc_reset_port_out_t  *out_parms
-);
+uint32_t rio_pc_reset_port(DAR_DEV_INFO_t *dev_info,
+		rio_pc_reset_port_in_t *in_parms,
+		rio_pc_reset_port_out_t *out_parms);
 
-/* This function resets the link partner
-*/
+/* This function resets the link partner */
 #define PC_RESET_LP(x) (PC_RESET_LP_0+x)
+uint32_t rio_pc_reset_link_partner(DAR_DEV_INFO_t *dev_info,
+		rio_pc_reset_link_partner_in_t *in_parms,
+		rio_pc_reset_link_partner_out_t *out_parms);
 
-uint32_t rio_pc_reset_link_partner(
-    DAR_DEV_INFO_t                   *dev_info,
-    rio_pc_reset_link_partner_in_t   *in_parms,
-    rio_pc_reset_link_partner_out_t  *out_parms
-);
-
-/* This function clear error flags
-*/
+/* This function clear error flags */
 #define PC_CLR_ERRS(x) (PC_CLR_ERRS_0+x)
+uint32_t rio_pc_clr_errs(DAR_DEV_INFO_t *dev_info,
+		rio_pc_clr_errs_in_t *in_parms,
+		rio_pc_clr_errs_out_t *out_parms);
 
-uint32_t rio_pc_clr_errs(
-    DAR_DEV_INFO_t         *dev_info,
-    rio_pc_clr_errs_in_t   *in_parms,
-    rio_pc_clr_errs_out_t  *out_parms
-);
-
-/* This function configures MECS and Maintenance Pkt Allowance
-*/
+/* This function configures MECS and Maintenance Pkt Allowance */
 #define PC_SECURE_PORT(x) (PC_SECURE_PORT_0+x)
+uint32_t rio_pc_secure_port(DAR_DEV_INFO_t *dev_info,
+		rio_pc_secure_port_in_t *in_parms,
+		rio_pc_secure_port_out_t *out_parms);
 
-uint32_t rio_pc_secure_port(
-    DAR_DEV_INFO_t           *dev_info,
-    rio_pc_secure_port_in_t  *in_parms,
-    rio_pc_secure_port_out_t  *out_parms
-);
-
-/* This function configures device behavior when a reset request 
- * is received
- */
+/* This function configures device behavior when a reset request is received */
 #define PC_DEV_RESET_CONFIG(x) (PC_DEV_RESET_CONFIG_0+x)
-uint32_t rio_pc_dev_reset_config(
-    DAR_DEV_INFO_t                 *dev_info,
-    rio_pc_dev_reset_config_in_t   *in_parms,
-    rio_pc_dev_reset_config_out_t  *out_parms
-);
+uint32_t rio_pc_dev_reset_config(DAR_DEV_INFO_t *dev_info,
+		rio_pc_dev_reset_config_in_t *in_parms,
+		rio_pc_dev_reset_config_out_t *out_parms);
 
-/* This function determines if packets can be exchanged on a port.
- */
+/* This function determines if packets can be exchanged on a port. */
 #define PC_PROBE(x) (PC_PROBE_0+x)
-uint32_t rio_pc_probe(
-    DAR_DEV_INFO_t      *dev_info,
-    rio_pc_probe_in_t   *in_parms,
-    rio_pc_probe_out_t  *out_parms
-);
+uint32_t rio_pc_probe(DAR_DEV_INFO_t *dev_info,
+		rio_pc_probe_in_t *in_parms,
+		rio_pc_probe_out_t *out_parms);
 
 #ifdef __cplusplus
 }

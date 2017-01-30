@@ -30,7 +30,9 @@
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *************************************************************************
  */
-#include <stdlib.h>
+
+#include <stdint.h>
+#include <stddef.h>
 
 #include "RapidIO_Source_Config.h"
 #include "RapidIO_Device_Access_Routines_API.h"

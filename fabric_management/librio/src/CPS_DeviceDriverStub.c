@@ -31,8 +31,12 @@
  *************************************************************************
  */
 
+#include <stdint.h>
+#include <stddef.h>
+
 #include "RapidIO_Source_Config.h"
 #include "DAR_DB_Private.h"
+#include "DSF_DB_Private.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -40,12 +44,13 @@ extern "C" {
 
 #ifndef CPS_DAR_WANTED
 
+// Device Access
+//
 uint32_t CPS_rioGetPortList(DAR_DEV_INFO_t *dev_info, struct DAR_ptl *ptl_in,
 		struct DAR_ptl *ptl_out)
 {
 	return DARDB_rioGetPortList(dev_info, ptl_in, ptl_out);
 }
-
 
 uint32_t CPS_rioSetAssmblyInfo(DAR_DEV_INFO_t *dev_info, uint32_t asmblyVendID,
 		uint16_t asmblyRev)
@@ -56,6 +61,200 @@ uint32_t CPS_rioSetAssmblyInfo(DAR_DEV_INFO_t *dev_info, uint32_t asmblyVendID,
 uint32_t CPS_rioDeviceSupported(DAR_DEV_INFO_t *dev_info)
 {
 	return DARDB_rioDeviceSupportedStub(dev_info);
+}
+
+// Error Management
+//
+uint32_t CPS_rio_em_cfg_pw(DAR_DEV_INFO_t *dev_info,
+		rio_em_cfg_pw_in_t *in_parms, rio_em_cfg_pw_out_t *out_parms)
+{
+	return DSF_rio_em_cfg_pw(dev_info, in_parms, out_parms);
+}
+
+uint32_t CPS_rio_em_cfg_set(DAR_DEV_INFO_t *dev_info,
+		rio_em_cfg_set_in_t *in_parms, rio_em_cfg_set_out_t *out_parms)
+{
+	return DSF_rio_em_cfg_set(dev_info, in_parms, out_parms);
+}
+
+uint32_t CPS_rio_em_cfg_get(DAR_DEV_INFO_t *dev_info,
+		rio_em_cfg_get_in_t *in_parms, rio_em_cfg_get_out_t *out_parms)
+{
+	return DSF_rio_em_cfg_get(dev_info, in_parms, out_parms);
+}
+
+uint32_t CPS_rio_em_dev_rpt_ctl(DAR_DEV_INFO_t *dev_info,
+		rio_em_dev_rpt_ctl_in_t *in_parms,
+		rio_em_dev_rpt_ctl_out_t *out_parms)
+{
+	return DSF_rio_em_dev_rpt_ctl(dev_info, in_parms, out_parms);
+}
+
+uint32_t CPS_rio_em_parse_pw(DAR_DEV_INFO_t *dev_info,
+		rio_em_parse_pw_in_t *in_parms,
+		rio_em_parse_pw_out_t *out_parms)
+{
+	return DSF_rio_em_parse_pw(dev_info, in_parms, out_parms);
+}
+
+uint32_t CPS_rio_em_get_int_stat(DAR_DEV_INFO_t *dev_info,
+		rio_em_get_int_stat_in_t *in_parms,
+		rio_em_get_int_stat_out_t *out_parms)
+{
+	return DSF_rio_em_get_int_stat(dev_info, in_parms, out_parms);
+}
+
+uint32_t CPS_rio_em_get_pw_stat(DAR_DEV_INFO_t *dev_info,
+		rio_em_get_pw_stat_in_t *in_parms,
+		rio_em_get_pw_stat_out_t *out_parms)
+{
+	return DSF_rio_em_get_pw_stat(dev_info, in_parms, out_parms);
+}
+
+uint32_t CPS_rio_em_clr_events(DAR_DEV_INFO_t *dev_info,
+		rio_em_clr_events_in_t *in_parms,
+		rio_em_clr_events_out_t *out_parms)
+{
+	return DSF_rio_em_clr_events(dev_info, in_parms, out_parms);
+}
+
+uint32_t CPS_rio_em_create_events(DAR_DEV_INFO_t *dev_info,
+		rio_em_create_events_in_t *in_parms,
+		rio_em_create_events_out_t *out_parms)
+{
+	return DSF_rio_em_create_events(dev_info, in_parms, out_parms);
+}
+
+// Port Config
+//
+uint32_t CPS_rio_pc_get_config(DAR_DEV_INFO_t *dev_info,
+		rio_pc_get_config_in_t *in_parms,
+		rio_pc_get_config_out_t *out_parms)
+{
+	return DSF_rio_pc_get_config(dev_info, in_parms, out_parms);
+}
+
+uint32_t CPS_rio_pc_set_config(DAR_DEV_INFO_t *dev_info,
+		rio_pc_set_config_in_t *in_parms,
+		rio_pc_set_config_out_t *out_parms)
+{
+	return DSF_rio_pc_set_config(dev_info, in_parms, out_parms);
+}
+
+uint32_t CPS_rio_pc_get_status(DAR_DEV_INFO_t *dev_info,
+		rio_pc_get_status_in_t *in_parms,
+		rio_pc_get_status_out_t *out_parms)
+{
+	return DSF_rio_pc_get_status(dev_info, in_parms, out_parms);
+}
+
+uint32_t CPS_rio_pc_reset_port(DAR_DEV_INFO_t *dev_info,
+		rio_pc_reset_port_in_t *in_parms,
+		rio_pc_reset_port_out_t *out_parms)
+{
+	return DSF_rio_pc_reset_port(dev_info, in_parms, out_parms);
+}
+
+uint32_t CPS_rio_pc_reset_link_partner(DAR_DEV_INFO_t *dev_info,
+		rio_pc_reset_link_partner_in_t *in_parms,
+		rio_pc_reset_link_partner_out_t *out_parms)
+{
+	return DSF_rio_pc_reset_link_partner(dev_info, in_parms, out_parms);
+}
+
+uint32_t CPS_rio_pc_clr_errs(DAR_DEV_INFO_t *dev_info,
+		rio_pc_clr_errs_in_t *in_parms,
+		rio_pc_clr_errs_out_t *out_parms)
+{
+	return DSF_rio_pc_clr_errs(dev_info, in_parms, out_parms);
+}
+
+uint32_t CPS_rio_pc_secure_port(DAR_DEV_INFO_t *dev_info,
+		rio_pc_secure_port_in_t *in_parms,
+		rio_pc_secure_port_out_t *out_parms)
+{
+	return DSF_rio_pc_secure_port(dev_info, in_parms, out_parms);
+}
+
+uint32_t CPS_rio_pc_dev_reset_config(DAR_DEV_INFO_t *dev_info,
+		rio_pc_dev_reset_config_in_t *in_parms,
+		rio_pc_dev_reset_config_out_t *out_parms)
+{
+	return DSF_rio_pc_dev_reset_config(dev_info, in_parms, out_parms);
+}
+
+// Routing Table
+//
+uint32_t CPS_rio_rt_initialize(DAR_DEV_INFO_t *dev_info,
+		rio_rt_initialize_in_t *in_parms,
+		rio_rt_initialize_out_t *out_parms)
+{
+	return DSF_rio_rt_initialize(dev_info, in_parms, out_parms);
+}
+
+uint32_t CPS_rio_rt_probe(DAR_DEV_INFO_t *dev_info,
+		rio_rt_probe_in_t *in_parms,
+		rio_rt_probe_out_t *out_parms)
+{
+	return DSF_rio_rt_probe(dev_info, in_parms, out_parms);
+}
+
+uint32_t CPS_rio_rt_probe_all(DAR_DEV_INFO_t *dev_info,
+		rio_rt_probe_all_in_t *in_parms,
+		rio_rt_probe_all_out_t *out_parms)
+{
+	return DSF_rio_rt_probe_all(dev_info, in_parms, out_parms);
+}
+
+uint32_t CPS_rio_rt_set_all(DAR_DEV_INFO_t *dev_info,
+		rio_rt_set_all_in_t *in_parms, rio_rt_set_all_out_t *out_parms)
+{
+	return DSF_rio_rt_set_all(dev_info, in_parms, out_parms);
+}
+
+uint32_t CPS_rio_rt_set_changed(DAR_DEV_INFO_t *dev_info,
+		rio_rt_set_changed_in_t *in_parms,
+		rio_rt_set_changed_out_t *out_parms)
+{
+	return DSF_rio_rt_set_changed(dev_info, in_parms, out_parms);
+}
+
+uint32_t CPS_rio_rt_change_rte(DAR_DEV_INFO_t *dev_info,
+		rio_rt_change_rte_in_t *in_parms,
+		rio_rt_change_rte_out_t *out_parms)
+{
+	return DSF_rio_rt_change_rte(dev_info, in_parms, out_parms);
+}
+
+uint32_t CPS_rio_rt_change_mc_mask(DAR_DEV_INFO_t *dev_info,
+		rio_rt_change_mc_mask_in_t *in_parms,
+		rio_rt_change_mc_mask_out_t *out_parms)
+{
+	return DSF_rio_rt_change_mc_mask(dev_info, in_parms, out_parms);
+}
+
+// Statistics Counter
+//
+uint32_t rio_sc_cfg_cps_ctrs(DAR_DEV_INFO_t *dev_info,
+		rio_sc_cfg_cps_ctrs_in_t *in_parms,
+		rio_sc_cfg_cps_ctrs_out_t *out_parms)
+{
+	NULL_CHECK;
+	return RIO_STUBBED;
+}
+
+uint32_t CPS_rio_sc_init_dev_ctrs(DAR_DEV_INFO_t *dev_info,
+		rio_sc_init_dev_ctrs_in_t *in_parms,
+		rio_sc_init_dev_ctrs_out_t *out_parms)
+{
+	return DSF_rio_sc_init_dev_ctrs(dev_info, in_parms, out_parms);
+}
+
+uint32_t CPS_rio_sc_read_ctrs(DAR_DEV_INFO_t *dev_info,
+		rio_sc_read_ctrs_in_t *in_parms,
+		rio_sc_read_ctrs_out_t *out_parms)
+{
+	return DSF_rio_sc_read_ctrs(dev_info, in_parms, out_parms);
 }
 
 #endif /* CPS_DAR_WANTED */

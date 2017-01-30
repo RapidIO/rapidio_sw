@@ -42,7 +42,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
       to Error Management Extensions registers
    Packet field value description strings
 */
-#include <RapidIO_Utilities_API.h>
+
+#include <stdint.h>
+#include <stddef.h>
+
+#include "RapidIO_Utilities_API.h"
 
 #ifdef __cplusplus
 extern "C" {

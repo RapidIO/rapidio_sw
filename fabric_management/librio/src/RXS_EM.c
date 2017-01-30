@@ -36,45 +36,34 @@
 
 #include "RapidIO_Source_Config.h"
 #include "RapidIO_Device_Access_Routines_API.h"
-#include "Tsi721_DeviceDriver.h"
-#include "Tsi721.h"
-#include "rio_standard.h"
-#include "rio_ecosystem.h"
-#include "DAR_DB_Private.h"
-#include "string_util.h"
+#include "RapidIO_Error_Management_API.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#ifdef TSI721_DAR_WANTED
+#ifdef RXSx_DAR_WANTED
 
-extern DSF_Handle_t Tsi721_driver_handle;
-
-uint32_t tsi721_rioDeviceSupported(DAR_DEV_INFO_t *dev_info)
+uint32_t rxs_rio_em_cfg_pw(DAR_DEV_INFO_t *dev_info,
+		rio_em_cfg_pw_in_t *in_parms, rio_em_cfg_pw_out_t *out_parms)
 {
-	uint32_t rc = DAR_DB_NO_DRIVER;
-
-	if (TSI721_DEVICE_VENDOR == (dev_info->devID & RIO_DEV_IDENT_VEND)) {
-		if ((RIO_DEVI_IDT_TSI721)
-				== ((dev_info->devID & RIO_DEV_IDENT_DEVI) >> 16)) {
-			// Now fill out the DAR_info structure...
-			rc = DARDB_rioDeviceSupported(dev_info);
-
-			// Index and information for DSF is the same
-			// as the DAR handle
-			dev_info->dsf_h = Tsi721_driver_handle;
-
-			if (rc == RIO_SUCCESS) {
-				SAFE_STRNCPY(dev_info->name, "Tsi721",
-						sizeof(dev_info->name));
-			}
-		}
+	if (NULL != dev_info) {
+		out_parms->imp_rc = in_parms->imp_rc;
 	}
-	return rc;
+	return RIO_SUCCESS;
 }
 
-#endif /* TSI721_DAR_WANTED */
+uint32_t rxs_rio_em_dev_rpt_ctl(DAR_DEV_INFO_t *dev_info,
+		rio_em_dev_rpt_ctl_in_t *in_parms,
+		rio_em_dev_rpt_ctl_out_t *out_parms)
+{
+	if (NULL != dev_info) {
+		out_parms->imp_rc = in_parms->ptl.num_ports;
+	}
+	return RIO_SUCCESS;
+}
+
+#endif /* RXSx_DAR_WANTED */
 
 #ifdef __cplusplus
 }

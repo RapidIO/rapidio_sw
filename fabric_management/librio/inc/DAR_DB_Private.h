@@ -46,8 +46,8 @@ extern "C" {
 */
 #define DAR_DB_MAX_DRIVERS 0x20
 #define VALIDATE_DEV_INFO(dev_info) ((0 != dev_info) \
-                 && (   ((dev_info->db_h >> 16) & RIO_DEV_IDENT_VEND)    \
-                        == (dev_info->devID       & RIO_DEV_IDENT_VEND)))
+		&& (((dev_info->db_h >> 16) & RIO_DEV_IDENT_VEND) \
+			== (dev_info->devID & RIO_DEV_IDENT_VEND)))
 
 #define VENDOR_ID(dev_info) ((uint16_t)(dev_info->devID & RIO_DEV_IDENT_VEND))
 
@@ -57,6 +57,12 @@ extern "C" {
 #define DECODE_VENDOR_ID(device) ((uint16_t)(device & RIO_DEV_IDENT_VEND))
 
 #define DECODE_DEVICE_ID(device) ((uint16_t)((device & RIO_DEV_IDENT_DEVI) >> 16))
+
+uint32_t DARDB_ReadRegNoDriver(DAR_DEV_INFO_t *dev_info, uint32_t offset,
+		uint32_t *readdata);
+
+uint32_t DARDB_WriteRegNoDriver(DAR_DEV_INFO_t *dev_info, uint32_t offset,
+		uint32_t writedata);
 
 /* DARDB_rioGetPortList
  * Default implementation of rioGetPortList, intended to be called by

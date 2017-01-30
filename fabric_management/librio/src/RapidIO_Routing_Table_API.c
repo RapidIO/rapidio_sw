@@ -31,204 +31,311 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 
+#include <stdint.h>
+#include <stddef.h>
+
+#include "CPS_DeviceDriver.h"
+#include "RXS_DeviceDriver.h"
+#include "Tsi721_DeviceDriver.h"
+#include "Tsi57x_DeviceDriver.h"
 #include "DSF_DB_Private.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-char *rio_em_disc_reason_names[ (uint8_t)(rio_rt_disc_last) ] = {
-   (char *)"NoDiscard" ,  // rio_rt_disc_not
-   (char *)"RteInvalid",  // rio_rt_disc_rt_invalid
-   (char *)"Deliberate",   // rio_rt_disc_deliberately
-   (char *)"PrtUnavail",   // rio_rt_disc_port_unavail
-   (char *)"PrtPwrDwn" ,   // rio_rt_disc_port_pwdn
-   (char *)"PrtFail"   ,   // rio_rt_disc_port_fail
-   (char *)"PrtNoLp"   ,   // rio_rt_disc_port_no_lp
-   (char *)"LkoutOrDis",   // rio_rt_disc_port_lkout_or_dis
-   (char *)"InpOutpDis",   // rio_rt_disc_port_in_out_dis
-   (char *)"MCEmpty"   ,   // rio_rt_disc_mc_empty
-   (char *)"MC1bit"    ,   // rio_rt_disc_mc_one_bit
-   (char *)"MCMultMask",   // rio_rt_disc_mc_mult_masks
-   (char *)"DPInvalid" ,   // rio_rt_disc_dflt_pt_invalid
-   (char *)"DPDelibrat",   // rio_rt_disc_dflt_pt_deliberately
-   (char *)"DPPrtUaval",   // rio_rt_disc_dflt_pt_unavail
-   (char *)"DPPwrDwn"  ,   // rio_rt_disc_dflt_pt_pwdn
-   (char *)"DPFail"    ,   // rio_rt_disc_dflt_pt_fail
-   (char *)"DPNoLp"    ,   // rio_rt_disc_dflt_pt_no_lp
-   (char *)"DPLkoutDis",   // rio_rt_disc_dflt_pt_lkout_or_dis
-   (char *)"DPInpOutpD",   // rio_rt_disc_dflt_pt_in_out_dis
-   (char *)"ProbeABORT"    // rio_rt_disc_probe_abort
+char *rio_em_disc_reason_names[(uint8_t)(rio_rt_disc_last)] = {
+		(char *)"NoDiscard",	// rio_rt_disc_not
+		(char *)"RteInvalid",	// rio_rt_disc_rt_invalid
+		(char *)"Deliberate",	// rio_rt_disc_deliberately
+		(char *)"PrtUnavail",	// rio_rt_disc_port_unavail
+		(char *)"PrtPwrDwn",	// rio_rt_disc_port_pwdn
+		(char *)"PrtFail",	// rio_rt_disc_port_fail
+		(char *)"PrtNoLp",	// rio_rt_disc_port_no_lp
+		(char *)"LkoutOrDis",	// rio_rt_disc_port_lkout_or_dis
+		(char *)"InpOutpDis",	// rio_rt_disc_port_in_out_dis
+		(char *)"MCEmpty",	// rio_rt_disc_mc_empty
+		(char *)"MC1bit",	// rio_rt_disc_mc_one_bit
+		(char *)"MCMultMask",	// rio_rt_disc_mc_mult_masks
+		(char *)"DPInvalid",	// rio_rt_disc_dflt_pt_invalid
+		(char *)"DPDelibrat",	// rio_rt_disc_dflt_pt_deliberately
+		(char *)"DPPrtUaval",	// rio_rt_disc_dflt_pt_unavail
+		(char *)"DPPwrDwn",	// rio_rt_disc_dflt_pt_pwdn
+		(char *)"DPFail",	// rio_rt_disc_dflt_pt_fail
+		(char *)"DPNoLp",	// rio_rt_disc_dflt_pt_no_lp
+		(char *)"DPLkoutDis",	// rio_rt_disc_dflt_pt_lkout_or_dis
+		(char *)"DPInpOutpD",	// rio_rt_disc_dflt_pt_in_out_dis
+		(char *)"ProbeABORT"	// rio_rt_disc_probe_abort
 };
 
 /* User function calls for a routing table configuration */
-uint32_t rio_rt_initialize  ( DAR_DEV_INFO_t           *dev_info,
-                            rio_rt_initialize_in_t   *in_parms,
-                            rio_rt_initialize_out_t  *out_parms )
+uint32_t rio_rt_initialize(DAR_DEV_INFO_t *dev_info,
+		rio_rt_initialize_in_t *in_parms,
+		rio_rt_initialize_out_t *out_parms)
 {
-    uint32_t rc = DAR_DB_INVALID_HANDLE;
+	NULL_CHECK
 
-    NULL_CHECK;
-
-    if ( VALIDATE_DEV_INFO(dev_info) )
-    {
-        if ( IDT_DSF_INDEX(dev_info) < DAR_DB_MAX_DRIVERS )
-            rc = IDT_DB[IDT_DSF_INDEX(dev_info)].rio_rt_initialize(
-                    dev_info, in_parms, out_parms
-                 );
-    }
-
-    return rc;
+	if (VALIDATE_DEV_INFO(dev_info)) {
+		switch (dev_info->driver_family) {
+		case RIO_CPS_DEVICE:
+			return CPS_rio_rt_initialize(dev_info, in_parms,
+					out_parms);
+		case RIO_RXS_DEVICE:
+			return rxs_rio_rt_initialize(dev_info, in_parms,
+					out_parms);
+		case RIO_TSI721_DEVICE:
+			return DSF_rio_rt_initialize(dev_info, in_parms,
+					out_parms);
+		case RIO_TSI57X_DEVICE:
+			return tsi57x_rio_rt_initialize(dev_info, in_parms,
+					out_parms);
+		case RIO_UNKNOWN_DEVICE:
+			return DSF_rio_rt_initialize(dev_info, in_parms,
+					out_parms);
+		case RIO_UNITIALIZED_DEVICE:
+		default:
+			return RIO_DAR_IMP_SPEC_FAILURE;
+		}
+	}
+	return DAR_DB_INVALID_HANDLE;
 }
 
-uint32_t rio_rt_probe       ( DAR_DEV_INFO_t           *dev_info,
-                            rio_rt_probe_in_t        *in_parms,
-                            rio_rt_probe_out_t       *out_parms )
+uint32_t rio_rt_probe(DAR_DEV_INFO_t *dev_info, rio_rt_probe_in_t *in_parms,
+		rio_rt_probe_out_t *out_parms)
 {
-    uint32_t rc = DAR_DB_INVALID_HANDLE;
+	NULL_CHECK
 
-    NULL_CHECK;
-
-    if ( VALIDATE_DEV_INFO(dev_info) )
-    {
-        if ( IDT_DSF_INDEX(dev_info) < DAR_DB_MAX_DRIVERS )
-            rc = IDT_DB[IDT_DSF_INDEX(dev_info)].rio_rt_probe(
-                    dev_info, in_parms, out_parms
-                 );
-    }
-
-    return rc;
+	if (VALIDATE_DEV_INFO(dev_info)) {
+		switch (dev_info->driver_family) {
+		case RIO_CPS_DEVICE:
+			return CPS_rio_rt_probe(dev_info, in_parms, out_parms);
+		case RIO_RXS_DEVICE:
+			return rxs_rio_rt_probe(dev_info, in_parms, out_parms);
+		case RIO_TSI721_DEVICE:
+			return DSF_rio_rt_probe(dev_info, in_parms, out_parms);
+		case RIO_TSI57X_DEVICE:
+			return tsi57x_rio_rt_probe(dev_info, in_parms,
+					out_parms);
+		case RIO_UNKNOWN_DEVICE:
+			return DSF_rio_rt_probe(dev_info, in_parms, out_parms);
+		case RIO_UNITIALIZED_DEVICE:
+		default:
+			return RIO_DAR_IMP_SPEC_FAILURE;
+		}
+	}
+	return DAR_DB_INVALID_HANDLE;
 }
 
-
-uint32_t rio_rt_probe_all( DAR_DEV_INFO_t          *dev_info,
-                         rio_rt_probe_all_in_t   *in_parms,
-                         rio_rt_probe_all_out_t  *out_parms )
+uint32_t rio_rt_probe_all(DAR_DEV_INFO_t *dev_info,
+		rio_rt_probe_all_in_t *in_parms,
+		rio_rt_probe_all_out_t *out_parms)
 {
-    uint32_t rc = DAR_DB_INVALID_HANDLE;
+	NULL_CHECK
 
-    NULL_CHECK;
-
-    if ( VALIDATE_DEV_INFO(dev_info) )
-    {
-        if ( IDT_DSF_INDEX(dev_info) < DAR_DB_MAX_DRIVERS )
-            rc = IDT_DB[IDT_DSF_INDEX(dev_info)].rio_rt_probe_all(
-                    dev_info, in_parms, out_parms
-                 );
-    }
-
-    return rc;
+	if (VALIDATE_DEV_INFO(dev_info)) {
+		switch (dev_info->driver_family) {
+		case RIO_CPS_DEVICE:
+			return CPS_rio_rt_probe_all(dev_info, in_parms,
+					out_parms);
+		case RIO_RXS_DEVICE:
+			return rxs_rio_rt_probe_all(dev_info, in_parms,
+					out_parms);
+		case RIO_TSI721_DEVICE:
+			return DSF_rio_rt_probe_all(dev_info, in_parms,
+					out_parms);
+		case RIO_TSI57X_DEVICE:
+			return tsi57x_rio_rt_probe_all(dev_info, in_parms,
+					out_parms);
+		case RIO_UNKNOWN_DEVICE:
+			return DSF_rio_rt_probe_all(dev_info, in_parms,
+					out_parms);
+		case RIO_UNITIALIZED_DEVICE:
+		default:
+			return RIO_DAR_IMP_SPEC_FAILURE;
+		}
+	}
+	return DAR_DB_INVALID_HANDLE;
 }
 
-uint32_t rio_rt_set_all( DAR_DEV_INFO_t        *dev_info,
-                       rio_rt_set_all_in_t   *in_parms,
-                       rio_rt_set_all_out_t  *out_parms )
+uint32_t rio_rt_set_all(DAR_DEV_INFO_t *dev_info, rio_rt_set_all_in_t *in_parms,
+		rio_rt_set_all_out_t *out_parms)
 {
-    uint32_t rc = DAR_DB_INVALID_HANDLE;
+	NULL_CHECK
 
-    NULL_CHECK;
-
-    if ( VALIDATE_DEV_INFO(dev_info) )
-    {
-        if ( IDT_DSF_INDEX(dev_info) < DAR_DB_MAX_DRIVERS )
-            rc = IDT_DB[IDT_DSF_INDEX(dev_info)].rio_rt_set_all(
-                    dev_info, in_parms, out_parms
-                 );
-    }
-
-    return rc;
+	if (VALIDATE_DEV_INFO(dev_info)) {
+		switch (dev_info->driver_family) {
+		case RIO_CPS_DEVICE:
+			return CPS_rio_rt_set_all(dev_info, in_parms, out_parms);
+		case RIO_RXS_DEVICE:
+			return rxs_rio_rt_set_all(dev_info, in_parms, out_parms);
+		case RIO_TSI721_DEVICE:
+			return DSF_rio_rt_set_all(dev_info, in_parms, out_parms);
+		case RIO_TSI57X_DEVICE:
+			return tsi57x_rio_rt_set_all(dev_info, in_parms,
+					out_parms);
+		case RIO_UNKNOWN_DEVICE:
+			return DSF_rio_rt_set_all(dev_info, in_parms, out_parms);
+		case RIO_UNITIALIZED_DEVICE:
+		default:
+			return RIO_DAR_IMP_SPEC_FAILURE;
+		}
+	}
+	return DAR_DB_INVALID_HANDLE;
 }
 
-uint32_t rio_rt_set_changed( DAR_DEV_INFO_t            *dev_info,
-                           rio_rt_set_changed_in_t   *in_parms,
-                           rio_rt_set_changed_out_t  *out_parms )
+uint32_t rio_rt_set_changed(DAR_DEV_INFO_t *dev_info,
+		rio_rt_set_changed_in_t *in_parms,
+		rio_rt_set_changed_out_t *out_parms)
 {
-    uint32_t rc = DAR_DB_INVALID_HANDLE;
+	NULL_CHECK
 
-    NULL_CHECK;
-
-    if ( VALIDATE_DEV_INFO(dev_info) )
-    {
-        if ( IDT_DSF_INDEX(dev_info) < DAR_DB_MAX_DRIVERS )
-            rc = IDT_DB[IDT_DSF_INDEX(dev_info)].rio_rt_set_changed(
-                    dev_info, in_parms, out_parms
-                 );
-    }
-
-    return rc;
+	if (VALIDATE_DEV_INFO(dev_info)) {
+		switch (dev_info->driver_family) {
+		case RIO_CPS_DEVICE:
+			return CPS_rio_rt_set_changed(dev_info, in_parms,
+					out_parms);
+		case RIO_RXS_DEVICE:
+			return rxs_rio_rt_set_changed(dev_info, in_parms,
+					out_parms);
+		case RIO_TSI721_DEVICE:
+			return DSF_rio_rt_set_changed(dev_info, in_parms,
+					out_parms);
+		case RIO_TSI57X_DEVICE:
+			return tsi57x_rio_rt_set_changed(dev_info, in_parms,
+					out_parms);
+		case RIO_UNKNOWN_DEVICE:
+			return DSF_rio_rt_set_changed(dev_info, in_parms,
+					out_parms);
+		case RIO_UNITIALIZED_DEVICE:
+		default:
+			return RIO_DAR_IMP_SPEC_FAILURE;
+		}
+	}
+	return DAR_DB_INVALID_HANDLE;
 }
 
-uint32_t rio_rt_alloc_mc_mask( DAR_DEV_INFO_t        *dev_info,
-                       rio_rt_alloc_mc_mask_in_t   *in_parms,
-                       rio_rt_alloc_mc_mask_out_t  *out_parms )
+uint32_t rio_rt_alloc_mc_mask(DAR_DEV_INFO_t *dev_info,
+		rio_rt_alloc_mc_mask_in_t *in_parms,
+		rio_rt_alloc_mc_mask_out_t *out_parms)
 {
-    uint32_t rc = DAR_DB_INVALID_HANDLE;
+	NULL_CHECK
 
-    NULL_CHECK;
-
-    if ( VALIDATE_DEV_INFO(dev_info) )
-    {
-        if ( IDT_DSF_INDEX(dev_info) < DAR_DB_MAX_DRIVERS )
-            rc = IDT_DB[IDT_DSF_INDEX(dev_info)].rio_rt_alloc_mc_mask(
-                    dev_info, in_parms, out_parms
-                 );
-    }
-
-    return rc;
+	if (VALIDATE_DEV_INFO(dev_info)) {
+		switch (dev_info->driver_family) {
+		case RIO_CPS_DEVICE:
+			return DSF_rio_rt_alloc_mc_mask(dev_info, in_parms,
+					out_parms);
+		case RIO_RXS_DEVICE:
+			return DSF_rio_rt_alloc_mc_mask(dev_info, in_parms,
+					out_parms);
+		case RIO_TSI721_DEVICE:
+			return DSF_rio_rt_alloc_mc_mask(dev_info, in_parms,
+					out_parms);
+		case RIO_TSI57X_DEVICE:
+			return DSF_rio_rt_alloc_mc_mask(dev_info, in_parms,
+					out_parms);
+		case RIO_UNKNOWN_DEVICE:
+			return DSF_rio_rt_alloc_mc_mask(dev_info, in_parms,
+					out_parms);
+		case RIO_UNITIALIZED_DEVICE:
+		default:
+			return RIO_DAR_IMP_SPEC_FAILURE;
+		}
+	}
+	return DAR_DB_INVALID_HANDLE;
 }
-uint32_t rio_rt_dealloc_mc_mask( DAR_DEV_INFO_t        *dev_info,
-                       rio_rt_dealloc_mc_mask_in_t   *in_parms,
-                       rio_rt_dealloc_mc_mask_out_t  *out_parms )
+
+uint32_t rio_rt_dealloc_mc_mask(DAR_DEV_INFO_t *dev_info,
+		rio_rt_dealloc_mc_mask_in_t *in_parms,
+		rio_rt_dealloc_mc_mask_out_t *out_parms)
 {
-    uint32_t rc = DAR_DB_INVALID_HANDLE;
+	NULL_CHECK
 
-    NULL_CHECK;
-
-    if ( VALIDATE_DEV_INFO(dev_info) )
-    {
-        if ( IDT_DSF_INDEX(dev_info) < DAR_DB_MAX_DRIVERS )
-            rc = IDT_DB[IDT_DSF_INDEX(dev_info)].rio_rt_dealloc_mc_mask(
-                    dev_info, in_parms, out_parms
-                 );
-    }
-
-    return rc;
+	if (VALIDATE_DEV_INFO(dev_info)) {
+		switch (dev_info->driver_family) {
+		case RIO_CPS_DEVICE:
+			return DSF_rio_rt_dealloc_mc_mask(dev_info, in_parms,
+					out_parms);
+		case RIO_RXS_DEVICE:
+			return DSF_rio_rt_dealloc_mc_mask(dev_info, in_parms,
+					out_parms);
+		case RIO_TSI721_DEVICE:
+			return DSF_rio_rt_dealloc_mc_mask(dev_info, in_parms,
+					out_parms);
+		case RIO_TSI57X_DEVICE:
+			return DSF_rio_rt_dealloc_mc_mask(dev_info, in_parms,
+					out_parms);
+		case RIO_UNKNOWN_DEVICE:
+			return DSF_rio_rt_dealloc_mc_mask(dev_info, in_parms,
+					out_parms);
+		case RIO_UNITIALIZED_DEVICE:
+		default:
+			return RIO_DAR_IMP_SPEC_FAILURE;
+		}
+	}
+	return DAR_DB_INVALID_HANDLE;
 }
-uint32_t rio_rt_change_rte( DAR_DEV_INFO_t        *dev_info,
-                       rio_rt_change_rte_in_t   *in_parms,
-                       rio_rt_change_rte_out_t  *out_parms )
+
+uint32_t rio_rt_change_rte(DAR_DEV_INFO_t *dev_info,
+		rio_rt_change_rte_in_t *in_parms,
+		rio_rt_change_rte_out_t *out_parms)
 {
-    uint32_t rc = DAR_DB_INVALID_HANDLE;
+	NULL_CHECK
 
-    NULL_CHECK;
-
-    if ( VALIDATE_DEV_INFO(dev_info) )
-    {
-        if ( IDT_DSF_INDEX(dev_info) < DAR_DB_MAX_DRIVERS )
-            rc = IDT_DB[IDT_DSF_INDEX(dev_info)].rio_rt_change_rte(
-                    dev_info, in_parms, out_parms
-                 );
-    }
-
-    return rc;
+	if (VALIDATE_DEV_INFO(dev_info)) {
+		switch (dev_info->driver_family) {
+		case RIO_CPS_DEVICE:
+			return CPS_rio_rt_change_rte(dev_info, in_parms,
+					out_parms);
+		case RIO_RXS_DEVICE:
+			return rxs_rio_rt_change_rte(dev_info, in_parms,
+					out_parms);
+		case RIO_TSI721_DEVICE:
+			return DSF_rio_rt_change_rte(dev_info, in_parms,
+					out_parms);
+		case RIO_TSI57X_DEVICE:
+			return tsi57x_rio_rt_change_rte(dev_info, in_parms,
+					out_parms);
+		case RIO_UNKNOWN_DEVICE:
+			return DSF_rio_rt_change_rte(dev_info, in_parms,
+					out_parms);
+		case RIO_UNITIALIZED_DEVICE:
+		default:
+			return RIO_DAR_IMP_SPEC_FAILURE;
+		}
+	}
+	return DAR_DB_INVALID_HANDLE;
 }
-uint32_t rio_rt_change_mc_mask( DAR_DEV_INFO_t        *dev_info,
-                       rio_rt_change_mc_mask_in_t   *in_parms,
-                       rio_rt_change_mc_mask_out_t  *out_parms )
+
+uint32_t rio_rt_change_mc_mask(DAR_DEV_INFO_t *dev_info,
+		rio_rt_change_mc_mask_in_t *in_parms,
+		rio_rt_change_mc_mask_out_t *out_parms)
 {
-    uint32_t rc = DAR_DB_INVALID_HANDLE;
+	NULL_CHECK
 
-    NULL_CHECK;
-
-    if ( VALIDATE_DEV_INFO(dev_info) )
-    {
-        if ( IDT_DSF_INDEX(dev_info) < DAR_DB_MAX_DRIVERS )
-            rc = IDT_DB[IDT_DSF_INDEX(dev_info)].rio_rt_change_mc_mask(
-                    dev_info, in_parms, out_parms
-                 );
-    }
-
-    return rc;
+	if (VALIDATE_DEV_INFO(dev_info)) {
+		switch (dev_info->driver_family) {
+		case RIO_CPS_DEVICE:
+			return CPS_rio_rt_change_mc_mask(dev_info, in_parms,
+					out_parms);
+		case RIO_RXS_DEVICE:
+			return rxs_rio_rt_change_mc_mask(dev_info, in_parms,
+					out_parms);
+		case RIO_TSI721_DEVICE:
+			return DSF_rio_rt_change_mc_mask(dev_info, in_parms,
+					out_parms);
+		case RIO_TSI57X_DEVICE:
+			return tsi57x_rio_rt_change_mc_mask(dev_info, in_parms,
+					out_parms);
+		case RIO_UNKNOWN_DEVICE:
+			return DSF_rio_rt_change_mc_mask(dev_info, in_parms,
+					out_parms);
+		case RIO_UNITIALIZED_DEVICE:
+		default:
+			return RIO_DAR_IMP_SPEC_FAILURE;
+		}
+	}
+	return DAR_DB_INVALID_HANDLE;
 }
 
 #ifdef __cplusplus
