@@ -545,30 +545,26 @@ void setup_mport(struct fmd_state *fmd)
 	int mport = 0;
 	uint32_t dsf_rc;
 
-        dsf_rc = RIO_bind_procs(SRIO_API_ReadRegFunc,
-                                SRIO_API_WriteRegFunc,
-                                SRIO_API_DelayFunc);
-        if (dsf_rc) {
-                CRIT(SOFTWARE_FAIL);
+	dsf_rc = RIO_bind_procs(SRIO_API_ReadRegFunc, SRIO_API_WriteRegFunc,
+			SRIO_API_DelayFunc);
+	if (dsf_rc) {
+		CRIT(SOFTWARE_FAIL);
 		goto fail;
-        };
-
-        if (riocp_bind_driver(&pe_mpsw_driver)) {
-                CRIT(SOFTWARE_FAIL);
-		goto fail;
-        };
+	}
 
 	fmd->mp_h = &mport_pe;
 
-	if (fmd->opts->mast_mode)
+	if (fmd->opts->mast_mode) {
 		rc = setup_mport_master(mport);
-	else
+	} else {
 		rc = setup_mport_slave(mport);
+	}
+
 fail:
 	if (rc) {
 		CRIT("\nNetwork initialization failed...\n");
 		riocp_pe_destroy_handle(&mport_pe);
-	};
+	}
 }
 
 int fmd_dd_update(riocp_pe_handle mp_h, struct fmd_dd *dd,

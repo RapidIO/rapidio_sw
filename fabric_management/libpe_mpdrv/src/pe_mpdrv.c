@@ -495,8 +495,6 @@ uint32_t rio_sc_config_dev_ctrs(DAR_DEV_INFO_t *dev_h,
 	return rc;
 }
 
-int mpsw_drv_get_mport_regs(int mp_num, struct mport_regs *regs);
-
 // NOTE: generic_device_init is called when the
 // pe->cap structure has not yet been filled in.
 //
@@ -589,7 +587,7 @@ int generic_device_init(struct riocp_pe *pe, uint32_t *ct)
 				goto exit;
 			}
 		} else {
-			rc = mpsw_drv_get_mport_regs(pe->mport->minfo->id,
+			rc = mpsw_get_mport_regs(pe->mport->minfo->id,
 									&regs);
 			if (rc) {
 				ERR("Could not read mport registers.");
@@ -740,11 +738,9 @@ int generic_device_init(struct riocp_pe *pe, uint32_t *ct)
 exit:
 	return rc;
 }
-	
-int mpsw_drv_reg_rd(struct riocp_pe  *pe, uint32_t offset, uint32_t *val);
 
-int RIOCP_WU mpsw_drv_init_pe(struct riocp_pe *pe, uint32_t *ct, 
-				struct riocp_pe *peer, char *name)
+int RIOCP_WU mpsw_drv_init_pe(struct riocp_pe *pe, uint32_t *ct,
+		struct riocp_pe *peer, char *name)
 {
 	struct mpsw_drv_private_data *p_dat = NULL;
 	int ret = 1;
@@ -801,33 +797,6 @@ exit:
 	return ret;
 }
 
-int RIOCP_WU mpsw_drv_init_pe_em(struct riocp_pe *pe, bool en_em)
-{
-        rio_em_dev_rpt_ctl_in_t         rpt_in;
-	struct mpsw_drv_private_data *priv;
-	DAR_DEV_INFO_t *dev_h;
-
-	if (RIOCP_PE_IS_MPORT(pe))
-		return 0;
-
-	priv =(struct mpsw_drv_private_data *)(pe->private_data); 
-
-	if (NULL == priv) {
-		ERR("Private Data is NULL, exiting\n");
-		return -1;
-	}
-
-	dev_h = &priv->dev_h;
-
-	if (en_em)
-        	rpt_in.notfn = rio_em_notfn_pw;
-	else
-        	rpt_in.notfn = rio_em_notfn_none;
-
-	rpt_in.ptl.num_ports = RIO_ALL_PORTS;
-	return rio_em_dev_rpt_ctl(dev_h, &rpt_in, &priv->st.em_notfn);
-}
-
 int RIOCP_WU mpsw_drv_destroy_pe(struct riocp_pe *pe)
 {
 	DBG("ENTRY\n");
@@ -837,7 +806,7 @@ int RIOCP_WU mpsw_drv_destroy_pe(struct riocp_pe *pe)
 }
 
 int RIOCP_WU mpsw_drv_recover_port(struct riocp_pe *pe, pe_port_t port,
-				pe_port_t lp_port)
+		pe_port_t lp_port)
 {
 	struct mpsw_drv_private_data *p_dat = NULL;
 	int ret;
@@ -877,8 +846,8 @@ fail:
 }
 
 
-int mpsw_drv_get_route_entry(struct riocp_pe  *pe, pe_port_t port,
-					uint32_t did, pe_rt_val *rt_val)
+int RIOCP_WU mpsw_drv_get_route_entry(struct riocp_pe *pe, pe_port_t port,
+		uint32_t did, pe_rt_val *rt_val)
 {
 	struct mpsw_drv_private_data *p_dat = NULL;
 	int ret;
@@ -918,8 +887,8 @@ fail:
 	return 1;
 }
 
-int mpsw_drv_set_route_entry(struct riocp_pe  *pe,
-		       pe_port_t port, uint32_t did, pe_rt_val rt_val)
+int RIOCP_WU mpsw_drv_set_route_entry(struct riocp_pe *pe, pe_port_t port,
+		uint32_t did, pe_rt_val rt_val)
 {
 	struct mpsw_drv_private_data *p_dat = NULL;
 	int ret;
@@ -976,349 +945,8 @@ fail:
 	return 1;
 }
 
-int mpsw_drv_alloc_mcast_mask(struct riocp_pe *sw, pe_port_t port,
-			pe_rt_val *rt_val, int32_t port_mask)
-{
-	struct mpsw_drv_private_data *p_dat = NULL;
-	int ret;
-	rio_rt_alloc_mc_mask_in_t alloc_in;
-	rio_rt_alloc_mc_mask_out_t alloc_out;
-	rio_rt_change_mc_mask_in_t chg_in;
-	rio_rt_change_mc_mask_out_t chg_out;
-	rio_rt_set_changed_in_t set_in;
-	rio_rt_set_changed_out_t set_out;
-
-	DBG("ENTRY\n");
-	if (!(RIOCP_PE_IS_SWITCH(sw->cap))) {
-		DBG("Allocated multicast mask on non-switch, EXITING!\n");
-		goto fail;
-	};
-	if (riocp_pe_handle_get_private(sw, (void **)&p_dat)) {
-		DBG("Private Data does not exist EXITING!\n");
-		goto fail;
-	};
-
-	if (!p_dat->dev_h_valid) {
-		DBG("Device handle not valid EXITING!\n");
-		goto fail;
-	};
-
-	if ((port != RIOCP_PE_ALL_PORTS) && (port >= RIOCP_PE_PORT_COUNT(sw->cap))) {
-		DBG("Illegal Look Up Table Selected - max is %d. EXITING!",
-			RIOCP_PE_PORT_COUNT(sw->cap)-1);
-		goto fail;
-	};
-
-	if (RIOCP_PE_ALL_PORTS == port) {
-		alloc_in.rt = &p_dat->st.g_rt;
-	} else {
-		if (port >= RIO_MAX_PORTS) {
-			DBG("Illegal Table %d Selected - max %d. EXITING!",
-				port, RIO_MAX_PORTS);
-			goto fail;
-		}
-		alloc_in.rt = &p_dat->st.pprt[port];
-	}
-
-	ret = rio_rt_alloc_mc_mask(&p_dat->dev_h, &alloc_in, &alloc_out);
-	if (ret) {
-		DBG("ALLOC_MC %s port %d ret 0x%x imp_rc 0x%x\n",
-			sw->sysfs_name,  port, ret, alloc_out.imp_rc);
-		goto fail;
-	};
-
-	*rt_val = alloc_out.mc_mask_rte;
-	
-	chg_in.mc_mask_rte = alloc_out.mc_mask_rte;
-	chg_in.mc_info.mc_mask = port_mask;
-	chg_in.rt = alloc_in.rt;
-
-	ret = rio_rt_change_mc_mask(&p_dat->dev_h, &chg_in, &chg_out);
-	if (ret) {
-		DBG("CHG_MC %s port %d mask %x ret 0x%x imp_rc 0x%x\n",
-			sw->sysfs_name, port, port_mask, ret, alloc_out.imp_rc);
-		goto fail;
-	};
-
-	set_in.set_on_port = port;
-	set_in.rt = alloc_in.rt;
-
-	ret = rio_rt_set_changed(&p_dat->dev_h, &set_in, &set_out);
-	if (ret) {
-		DBG("RT_SET %s port %d rte 0x%x ret 0x%x imp_rc 0x%x\n",
-			sw->sysfs_name, port, *rt_val, ret, set_out.imp_rc);
-		goto fail;
-	};
-	
-	DBG("EXIT\n");
-	return 0;
-fail:
-	DBG("FAIL\n");
-	return 1;
-};
-
-int mpsw_drv_free_mcast_mask(struct riocp_pe *sw, pe_port_t port,
-			pe_rt_val rt_val)
-{
-	struct mpsw_drv_private_data *p_dat = NULL;
-	int ret;
-	rio_rt_dealloc_mc_mask_in_t free_in;
-	rio_rt_dealloc_mc_mask_out_t free_out;
-
-	DBG("ENTRY\n");
-	if (!(RIOCP_PE_IS_SWITCH(sw->cap))) {
-		DBG("Allocated multicast mask on non-switch, EXITING!\n");
-		goto fail;
-	};
-	if (riocp_pe_handle_get_private(sw, (void **)&p_dat)) {
-		DBG("Private Data does not exist EXITING!\n");
-		goto fail;
-	};
-
-	if (!p_dat->dev_h_valid) {
-		DBG("Device handle not valid EXITING!\n");
-		goto fail;
-	};
-
-	if ((port != RIOCP_PE_ALL_PORTS) && (port >= RIOCP_PE_PORT_COUNT(sw->cap))) {
-		DBG("Illegal Look Up Table Selected - max is %d. EXITING!",
-			RIOCP_PE_PORT_COUNT(sw->cap)-1);
-		goto fail;
-	};
-
-	if ((port != RIOCP_PE_ALL_PORTS) && (port >= RIO_MAX_PORTS)) {
-		DBG("Unsupported Look Up Table Selected - max is %d. EXITING!",
-			RIO_MAX_PORTS - 1);
-		goto fail;
-	};
-
-	if (RIOCP_PE_ALL_PORTS == port)
-		free_in.rt = &p_dat->st.g_rt;
-	else
-		free_in.rt = &p_dat->st.pprt[port];
-	free_in.mc_mask_rte = rt_val;
-
-	ret = rio_rt_dealloc_mc_mask(&p_dat->dev_h, &free_in, &free_out);
-	if (ret) {
-		DBG("FREE_MC %s port %d ret 0x%x imp_rc 0x%x\n",
-			sw->sysfs_name, port, ret, free_out.imp_rc);
-		goto fail;
-	};
-
-	DBG("EXIT\n");
-	return 0;
-fail:
-	DBG("FAIL\n");
-	return 1;
-};
-
-int mpsw_drv_change_mcast_mask(struct riocp_pe *sw, pe_port_t port,
-			pe_rt_val rt_val, uint32_t port_mask)
-{
-	struct mpsw_drv_private_data *p_dat = NULL;
-	int ret;
-	rio_rt_change_mc_mask_in_t chg_in;
-	rio_rt_change_mc_mask_out_t chg_out;
-	rio_rt_set_changed_in_t set_in;
-	rio_rt_set_changed_out_t set_out;
-
-	DBG("ENTRY\n");
-	if (!(RIOCP_PE_IS_SWITCH(sw->cap))) {
-		DBG("Allocated multicast mask on non-switch, EXITING!\n");
-		goto fail;
-	};
-	if (riocp_pe_handle_get_private(sw, (void **)&p_dat)) {
-		DBG("Private Data does not exist EXITING!\n");
-		goto fail;
-	};
-
-	if (!p_dat->dev_h_valid) {
-		DBG("Device handle not valid EXITING!\n");
-		goto fail;
-	};
-
-	if ((port != RIOCP_PE_ALL_PORTS) && (port >= RIOCP_PE_PORT_COUNT(sw->cap))) {
-		DBG("Illegal Look Up Table Selected - max is %d. EXITING!",
-			RIOCP_PE_PORT_COUNT(sw->cap)-1);
-		goto fail;
-	};
-
-	if (RIOCP_PE_ALL_PORTS == port) {
-		chg_in.rt = &p_dat->st.g_rt;
-	} else {
-		if (port >= RIO_MAX_PORTS) {
-			DBG("Illegal Port Selected - max is %d. EXITING!",
-			(sizeof(p_dat->st.pprt)/sizeof(p_dat->st.pprt[0])) - 1);
-			goto fail;
-		};
-		chg_in.rt = &p_dat->st.pprt[port];
-	}
-
-	chg_in.mc_mask_rte = rt_val;
-	chg_in.mc_info.mc_mask = port_mask;
-
-	ret = rio_rt_change_mc_mask(&p_dat->dev_h, &chg_in, &chg_out);
-	if (ret) {
-		DBG("CHG_MC %s port %d mask 0x%x ret 0x%x imp_rc 0x%x\n",
-			sw->sysfs_name, port, port_mask, ret, chg_out.imp_rc);
-		goto fail;
-	};
-
-	set_in.set_on_port = port;
-	set_in.rt = chg_in.rt;
-
-	ret = rio_rt_set_changed(&p_dat->dev_h, &set_in, &set_out);
-	if (ret) {
-		DBG("CHG_MC %s port %d rte 0x%x ret 0x%x imp_rc 0x%x\n",
-			sw->sysfs_name, port, rt_val, ret, set_out.imp_rc);
-		goto fail;
-	};
-	
-	DBG("EXIT\n");
-	return 0;
-fail:
-	DBG("FAIL\n");
-	return 1;
-};
-
-int mpsw_drv_port_start(struct riocp_pe  *pe, pe_port_t port)
-{
-	struct mpsw_drv_private_data *p_dat = NULL;
-	int ret;
-	int recover_ret = 0;
-	rio_pc_get_status_in_t st_in;
-	rio_pc_set_config_in_t cfg_in;
-	rio_pc_probe_in_t probe_in;
-	rio_pc_probe_out_t probe_out;
-
-	DBG("ENTRY\n");
-	if (riocp_pe_handle_get_private(pe, (void **)&p_dat)) {
-		DBG("Private Data does not exist EXITING!\n");
-		goto fail;
-	};
-
-	if (!p_dat->dev_h_valid) {
-		DBG("Device handle not valid EXITING!\n");
-		goto fail;
-	};
-
-	if (port >= NUM_PORTS(&p_dat->dev_h)) {
-		DBG("Port illegal, EXITING!\n");
-		goto fail;
-	};
-
-	cfg_in.lrto = p_dat->st.pc.lrto;
-	cfg_in.oob_reg_acc = false;
-	cfg_in.reg_acc_port = RIOCP_PE_SW_PORT(pe->cap);
-	cfg_in.num_ports = p_dat->st.pc.num_ports;
-	memcpy(&cfg_in.pc, &p_dat->st.pc.pc, sizeof(p_dat->st.pc.pc));
-
-	cfg_in.pc[port].port_available = true;
-	cfg_in.pc[port].powered_up = true;
-	cfg_in.pc[port].xmitter_disable = false;
-	cfg_in.pc[port].port_lockout = false;
-	cfg_in.pc[port].nmtc_xfer_enable = true;
-
-	ret = rio_pc_set_config(&p_dat->dev_h, &cfg_in, &p_dat->st.pc);
-	if (ret) {
-		DBG("PC_SetConfig %s port %d ret 0x%x imp_rc 0x%x\n",
-			pe->sysfs_name, port, ret, p_dat->st.pc.imp_rc);
-		goto fail;
-	};
-	
-	probe_in.port = port;
-
-	ret = rio_pc_probe(&p_dat->dev_h, &probe_in, &probe_out);
-
-	if (ret) {
-		DBG("PC_Probes %s port %d ret 0x%x imp_rc 0x%x\n",
-			pe->sysfs_name, port, ret, probe_out.imp_rc);
-		goto fail;
-	};
-
-	switch (probe_out.status) {
-	case port_ok:
-		break; /* Alls good... */
-	case port_degr:
-		break; /* Port is up, but not at maximum width */
-	case port_los:
-		goto fail; /* Port could not initialize, fail */
-	case port_err:
-		// FIXME: Link partner port not set correctly.
-		recover_ret = mpsw_drv_recover_port(pe, port, 0);
-		if (recover_ret) {
-			DBG("Recover Port %s port %d failed.\n",
-				pe->sysfs_name, port);
-		};
-		break;
-
-	default: 
-		DBG("PC_Probes %s port %d Unknown status 0x%x\n", 
-			pe->sysfs_name, port, probe_out.status);
-		recover_ret = 1;
-	}
-	
-	/* Update status of all ports on this device. */
-	st_in.ptl.num_ports = RIO_ALL_PORTS;
-	ret = rio_pc_get_status(&p_dat->dev_h, &st_in, &p_dat->st.ps);
-	if (ret) {
-		DBG("PC_Status %s port %d ret 0x%x imp_rc 0x%x\n",
-			pe->sysfs_name, port, ret, p_dat->st.ps.imp_rc);
-		goto fail;
-	};
-	
-	DBG("EXIT\n");
-	return recover_ret;
-fail:
-	DBG("FAIL\n");
-	return 1;
-};
-
-int mpsw_drv_port_stop(struct riocp_pe  *pe, pe_port_t port)
-{
-	struct mpsw_drv_private_data *p_dat = NULL;
-	int ret;
-	rio_pc_set_config_in_t cfg_in;
-
-	DBG("ENTRY\n");
-	if (riocp_pe_handle_get_private(pe, (void **)&p_dat)) {
-		DBG("Private Data does not exist EXITING!\n");
-		goto fail;
-	};
-
-	if (!p_dat->dev_h_valid) {
-		DBG("Device handle not valid EXITING!\n");
-		goto fail;
-	};
-
-	if (port >= NUM_PORTS(&p_dat->dev_h)) {
-		DBG("Port illegal, EXITING!\n");
-		goto fail;
-	};
-
-	cfg_in.lrto = p_dat->st.pc.lrto;
-	cfg_in.oob_reg_acc = false;
-	cfg_in.reg_acc_port = RIOCP_PE_SW_PORT(pe->cap);
-	cfg_in.num_ports = p_dat->st.pc.num_ports;
-	memcpy(cfg_in.pc, p_dat->st.pc.pc, sizeof(p_dat->st.pc.pc));
-
-	cfg_in.pc[port].powered_up = false;
-
-	ret = rio_pc_set_config(&p_dat->dev_h, &cfg_in, &p_dat->st.pc);
-	if (ret) {
-		DBG("PC_SetConfig %s port %d ret 0x%x imp_rc 0x%x\n",
-			pe->sysfs_name, port, ret, p_dat->st.pc.imp_rc);
-		goto fail;
-	};
-
-	DBG("EXIT\n");
-	return 0;
-fail:
-	DBG("FAIL\n");
-	return 1;
-};
-
-int mpsw_drv_reset_port(struct riocp_pe  *pe, pe_port_t port, bool reset_lp)
+int RIOCP_WU mpsw_drv_reset_port(struct riocp_pe *pe, pe_port_t port,
+		bool reset_lp)
 {
 	struct mpsw_drv_private_data *p_dat = NULL;
 	int ret;
@@ -1361,8 +989,8 @@ fail:
 	return 1;
 };
 
-int mpsw_drv_get_port_state(struct riocp_pe  *pe, pe_port_t port,
-			struct riocp_pe_port_state_t *state)
+int RIOCP_WU mpsw_drv_get_port_state(struct riocp_pe *pe, pe_port_t port,
+		struct riocp_pe_port_state_t *state)
 {
 	struct mpsw_drv_private_data *p_dat = NULL;
 	int ret;
@@ -1433,58 +1061,7 @@ fail:
 	return 1;
 };
 
-int mpsw_drv_set_port_speed(struct riocp_pe  *pe, pe_port_t port,
-			uint32_t lane_speed)
-{
-	struct mpsw_drv_private_data *p_dat;
-	int ret = 1;
-	rio_pc_set_config_in_t pc_in;
-
-	DBG("ENTRY\n");
-	if (riocp_pe_handle_get_private(pe, (void **)&p_dat)) {
-		DBG("Private Data does not exist EXITING!\n");
-		return ret;
-	}
-
-	if (!p_dat->dev_h_valid) {
-		DBG("Device handle not valid EXITING!\n");
-		return ret;
-	}
-
-	if (port >= NUM_PORTS(&p_dat->dev_h)) {
-		DBG("State or port illegal, EXITING!\n");
-		return ret;
-	}
-
-	pc_in.lrto = p_dat->st.pc.lrto;
-	pc_in.oob_reg_acc = 0;
-	pc_in.reg_acc_port = RIO_ALL_PORTS;
-	pc_in.num_ports = p_dat->st.pc.num_ports;
-	memcpy(&pc_in.pc, p_dat->st.pc.pc, sizeof(pc_in.pc));
-	switch (lane_speed) {
-	case 1250:
-		pc_in.pc[port].ls = rio_pc_ls_1p25;
-		break;
-	case 2500:
-		pc_in.pc[port].ls = rio_pc_ls_2p5;
-		break;
-	case 3125:
-		pc_in.pc[port].ls = rio_pc_ls_3p125;
-		break;
-	case 5000:
-		pc_in.pc[port].ls = rio_pc_ls_5p0;
-		break;
-	case 6250:
-		pc_in.pc[port].ls = rio_pc_ls_6p25;
-		break;
-	default :
-		pc_in.pc[port].ls = rio_pc_ls_last;
-	}
-
-	return rio_pc_set_config(&p_dat->dev_h, &pc_in, &p_dat->st.pc);
-}
-
-int mpsw_drv_get_mport_regs(int mp_num, struct mport_regs *regs)
+int RIOCP_WU mpsw_get_mport_regs(int mp_num, struct mport_regs *regs)
 {
 	riomp_mport_t mp_h;
 	int rc = -1;
@@ -1544,7 +1121,7 @@ fail:
 	return rc;
 };
 
-int mpsw_drv_enable_pe(struct riocp_pe *pe, pe_port_t port)
+int RIOCP_WU mpsw_enable_pe(struct riocp_pe *pe, pe_port_t port)
 {
 	// Enabling a PE requires two things:
 	//
@@ -1626,26 +1203,6 @@ fail:
 	return -1;
 }
 
-
-struct riocp_pe_driver pe_mpsw_driver = {
-	mpsw_drv_init_pe,
-	mpsw_drv_init_pe_em,
-	mpsw_drv_destroy_pe,
-	mpsw_drv_recover_port,
-	mpsw_drv_set_port_speed,
-	mpsw_drv_get_port_state,
-	mpsw_drv_port_start,
-	mpsw_drv_port_stop,
-	mpsw_drv_reset_port,
-	mpsw_drv_set_route_entry,
-	mpsw_drv_get_route_entry,
-	mpsw_drv_alloc_mcast_mask,
-	mpsw_drv_free_mcast_mask,
-	mpsw_drv_change_mcast_mask,
-	mpsw_drv_get_mport_regs,
-	mpsw_drv_enable_pe
-};
-	
 struct riocp_reg_rw_driver pe_mpsw_rw_driver = {
 	mpsw_drv_reg_rd,
 	mpsw_drv_reg_wr,

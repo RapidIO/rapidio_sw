@@ -68,7 +68,7 @@ libct: FORCE
 	mkdir -p $(LOCAL_LIBRARY_DIR)
 	cp libct/libct.a $(LOCAL_LIBRARY_DIR)
 
-libriocp_pe: FORCE
+libriocp_pe: FORCE libpe_mpdrv librio libcfg
 	$(MAKE) all -C libriocp_pe
 	mkdir -p $(LOCAL_LIBRARY_DIR)
 	cp libriocp_pe/libriocp_pe.a $(LOCAL_LIBRARY_DIR)

@@ -19,7 +19,7 @@ CFLAGS+=$(addprefix -W,all extra) -fPIC
 CFLAGS+=-D$(DEBUG_CTL) -DRDMA_LL=$(LOG_LEVEL)
 CFLAGS+=-I../inc
 CFLAGS+=-I./inc -I./src
-CFLAGS+=-I../librio/inc -I../libct/inc -I../libdid/inc
+CFLAGS+=-I../librio/inc -I../libct/inc -I../libdid/inc -I../libpe_mpdrv/inc
 
 LDFLAGS+=-L. -L$(COMMONLIB) -L$(FMDDIR)/libs_a $(LIBS_RPATH) -l$(NAME)
 
@@ -49,7 +49,7 @@ test/%.o: test/%.c
 $(TEST_TARGETS): $(TEST_OBJECTS)
 	@echo ---------- Building $@
 	$(CC) -o $@ $< $(LDFLAGS) \
-	$(TST_LIBS) -lct -ldid -lcli
+	-lpe_mpdrv -lrio -lcfg -lct -ldid -llog -lcli -lmport $(TST_LIBS)
 
 clean:
 	@echo ---------- Cleaning lib$(NAME)...
