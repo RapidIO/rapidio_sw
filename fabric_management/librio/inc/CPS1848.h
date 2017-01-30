@@ -47,9 +47,6 @@ extern "C" {
 #define CPS_MAX_PORT_LANES 4
 #define CPS_MAX_LANES 48
 
-#define CPS_MAX_MC_MASKS 40
-
-
 /**************************************************/
 /* CPS1848 : Register address offset definitions  */
 /**************************************************/
@@ -304,7 +301,7 @@ extern "C" {
 #define CPS_BROADCAST_DEVICE_ROUTE_TABLE		0xE00000
 #define CPS_BROADCAST_DOMAIN_ROUTE_TABLE		0xE00400
 
-#define IDT_CPS_MAX_MC_MASK  (40)
+#define CPS_MAX_MC_MASK  (40)
 
 /* Get a device destination ID (8 bit) from a 16 bit destination ID
 */
@@ -409,7 +406,7 @@ extern "C" {
 */
 #define IS_CPS_MC_PORT(route_port) \
             ( (route_port >= CPS_MC_BASE_PORT) && \
-              (route_port < (CPS_MC_BASE_PORT + CPS_MAX_MC_MASKS))) 
+              (route_port < (CPS_MC_BASE_PORT + CPS_MAX_MC_MASK)))
 
 /* Get Multicast mask no
 */

@@ -48,15 +48,14 @@ extern "C" {
 
 #ifdef CPS_DAR_WANTED
 
-#define NUM_CPS_MC_MASKS(x) ((NUM_MC_MASKS(x) > CPS_MAX_MC_MASKS)? \
-			CPS_MAX_MC_MASKS : NUM_MC_MASKS(x)) 
+#define NUM_CPS_MC_MASKS(x) ((NUM_MC_MASKS(x) > CPS_MAX_MC_MASK)? \
+			CPS_MAX_MC_MASK : NUM_MC_MASKS(x))
 
 #define CPS_RT_USE_DEVICE_TABLE                 (0x000000DD)
 #define CPS_RT_USE_DEFAULT_ROUTE                (0x000000DE)
 #define CPS_RT_NO_ROUTE                         (0x000000DF)
 
 #define CPS_FIRST_MC_MASK                       (0x00000040)
-#define CPS_MAX_MC_MASK                         (0x00000028)
 #define CPS_LAST_MC_MASK                        (0x00000067)
 
 #define CPS_RTE_PT_0                            (0x00000000)
@@ -103,7 +102,7 @@ uint32_t cps_rte_translate_std_to_CPS(DAR_DEV_INFO_t *dev_info,
 			}
 		}
 		if (RIO_RTV_IS_MC_MSK(std_in)) {
-			if (RIO_RTV_GET_MC_MSK(std_in) < IDT_CPS_MAX_MC_MASK) {
+			if (RIO_RTV_GET_MC_MSK(std_in) < CPS_MAX_MC_MASK) {
 				*cps_out =
 					CPS_MC_PORT(RIO_RTV_GET_MC_MSK(std_in));
 				goto success;
@@ -722,7 +721,7 @@ uint32_t CPS_rio_rt_initialize(DAR_DEV_INFO_t *dev_info,
 		all_in.rt->mc_masks[mc_idx].mc_mask = 0;
 		all_in.rt->mc_masks[mc_idx].in_use = false;
 		all_in.rt->mc_masks[mc_idx].allocd = false;
-		if ((mc_idx < CPS_MAX_MC_MASKS)
+		if ((mc_idx < CPS_MAX_MC_MASK)
 				&& (mc_idx < RIO_DSF_MAX_MC_MASK)) {
 			all_in.rt->mc_masks[mc_idx].changed = true;
 		} else {
