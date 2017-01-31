@@ -69,12 +69,22 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 extern "C" {
 #endif
 
-#define MASTER_SUCCESS (char *)("test/master_success.cfg")
-#define SLAVE_SUCCESS (char *)("test/slave_success.cfg")
-#define TOR_SUCCESS   (char *)("test/tor_success.cfg")
-#define RXS_SUCCESS (char *)("test/rxs_success.cfg")
+#define MASTER_SUCCESS	(char *)("test/master_success.cfg")
+#define SLAVE_SUCCESS	(char *)("test/slave_success.cfg")
+#define TOR_SUCCESS  	(char *)("test/tor_success.cfg")
+#define RXS_SUCCESS	(char *)("test/rxs_success.cfg")
 
 static int count = 0;
+
+// If the test files do not exist provide a meaningful message and stop test
+static void check_file_exists(const char *filename)
+{
+	struct stat buffer;
+
+	if (0 != stat(filename, &buffer)) {
+		fail_msg("File: %s does not exist, are you in the correct directory?", filename);
+	}
+}
 
 static int grp_setup(void **state)
 {
@@ -114,6 +124,8 @@ static void cfg_parse_mport_size_test(void **state)
 	uint8_t mem_sz;
 	uint32_t m_did, m_cm_port, m_mode;
 
+	check_file_exists(MASTER_SUCCESS);
+
 	m_did = 0xcafe;
 	m_cm_port = 0xbabe;
 	m_mode = 0xdead;
@@ -142,7 +154,7 @@ static void cfg_parse_mport_size_test(void **state)
 	(void)state; // unused
 }
 
-static void cfg_parse_fail(char *filename)
+static void cfg_parse_fail(const char *filename)
 {
 	char *dd_mtx_fn = NULL;
 	char *dd_fn = NULL;
@@ -150,14 +162,16 @@ static void cfg_parse_fail(char *filename)
 	uint32_t m_cm_port = 0xbeef;
 	uint32_t m_mode = 0xcafe;
 
-	assert_int_not_equal(0, cfg_parse_file(filename, &dd_mtx_fn, &dd_fn, &m_did,
+	assert_int_not_equal(0, cfg_parse_file((char *)filename, &dd_mtx_fn, &dd_fn, &m_did,
 		&m_cm_port, &m_mode));
 	free(cfg);
 }
 
 static void cfg_parse_fail_no_file_test(void **state)
 {
-	cfg_parse_fail((char *)"test/parse_fail_0.cfg");
+	const char *test_file = "test/parse_fail_0.cfg";
+
+	cfg_parse_fail(test_file);
 
 	count++;
 	(void)state; // unused
@@ -165,7 +179,10 @@ static void cfg_parse_fail_no_file_test(void **state)
 
 static void cfg_parse_fail_1_test(void **state)
 {
-	cfg_parse_fail((char *)"test/parse_fail_1.cfg");
+	const char *test_file = "test/parse_fail_1.cfg";
+
+	check_file_exists(test_file);
+	cfg_parse_fail(test_file);
 
 	count++;
 	(void)state; // unused
@@ -173,7 +190,10 @@ static void cfg_parse_fail_1_test(void **state)
 
 static void cfg_parse_fail_2_test(void **state)
 {
-	cfg_parse_fail((char *)"test/parse_fail_2.cfg");
+	const char *test_file = "test/parse_fail_2.cfg";
+
+	check_file_exists(test_file);
+	cfg_parse_fail(test_file);
 
 	count++;
 	(void)state; // unused
@@ -181,7 +201,10 @@ static void cfg_parse_fail_2_test(void **state)
 
 static void cfg_parse_fail_3_test(void **state)
 {
-	cfg_parse_fail((char *)"test/parse_fail_3.cfg");
+	const char *test_file = "test/parse_fail_3.cfg";
+
+	check_file_exists(test_file);
+	cfg_parse_fail(test_file);
 
 	count++;
 	(void)state; // unused
@@ -189,7 +212,10 @@ static void cfg_parse_fail_3_test(void **state)
 
 static void cfg_parse_fail_4_test(void **state)
 {
-	cfg_parse_fail((char *)"test/parse_fail_4.cfg");
+	const char *test_file = "test/parse_fail_4.cfg";
+
+	check_file_exists(test_file);
+	cfg_parse_fail(test_file);
 
 	count++;
 	(void)state; // unused
@@ -197,7 +223,10 @@ static void cfg_parse_fail_4_test(void **state)
 
 static void cfg_parse_fail_5_test(void **state)
 {
-	cfg_parse_fail((char *)"test/parse_fail_5.cfg");
+	const char *test_file = "test/parse_fail_5.cfg";
+
+	check_file_exists(test_file);
+	cfg_parse_fail(test_file);
 
 	count++;
 	(void)state; // unused
@@ -205,7 +234,10 @@ static void cfg_parse_fail_5_test(void **state)
 
 static void cfg_parse_fail_6_test(void **state)
 {
-	cfg_parse_fail((char *)"test/parse_fail_6.cfg");
+	const char *test_file = "test/parse_fail_6.cfg";
+
+	check_file_exists(test_file);
+	cfg_parse_fail(test_file);
 
 	count++;
 	(void)state; // unused
@@ -213,7 +245,10 @@ static void cfg_parse_fail_6_test(void **state)
 
 static void cfg_parse_fail_7_test(void **state)
 {
-	cfg_parse_fail((char *)"test/parse_fail_7.cfg");
+	const char *test_file = "test/parse_fail_7.cfg";
+
+	check_file_exists(test_file);
+	cfg_parse_fail(test_file);
 
 	count++;
 	(void)state; // unused
@@ -221,7 +256,10 @@ static void cfg_parse_fail_7_test(void **state)
 
 static void cfg_parse_fail_8_test(void **state)
 {
-	cfg_parse_fail((char *)"test/parse_fail_8.cfg");
+	const char *test_file = "test/parse_fail_8.cfg";
+
+	check_file_exists(test_file);
+	cfg_parse_fail(test_file);
 
 	count++;
 	(void)state; // unused
@@ -229,7 +267,10 @@ static void cfg_parse_fail_8_test(void **state)
 
 static void cfg_parse_fail_9_test(void **state)
 {
-	cfg_parse_fail((char *)"test/parse_fail_9.cfg");
+	const char *test_file = "test/parse_fail_9.cfg";
+
+	check_file_exists(test_file);
+	cfg_parse_fail(test_file);
 
 	count++;
 	(void)state; // unused
@@ -246,7 +287,9 @@ static void cfg_parse_master_test(void **state)
 	uint32_t m_cm_port = 0xbeef;
 	uint32_t m_mode = 0xcafe;
 
+	check_file_exists(MASTER_SUCCESS);
 	memset(&dev, 0, sizeof(dev));
+
 	assert_int_equal(0, cfg_parse_file(MASTER_SUCCESS, &dd_mtx_fn, &dd_fn, &m_did,
 			&m_cm_port, &m_mode));
 
@@ -323,7 +366,9 @@ static void cfg_parse_slave_test(void **state)
 	uint32_t m_cm_port = 0xbabe;
 	uint32_t m_mode = 0xdead;
 
+	check_file_exists(SLAVE_SUCCESS);
 	memset(&dev, 0, sizeof(dev));
+
 	assert_int_equal(0, cfg_parse_file(SLAVE_SUCCESS, &dd_mtx_fn, &dd_fn, &m_did,
 			&m_cm_port, &m_mode));
 	assert_int_equal(0, strncmp(dd_mtx_fn, test_dd_mtx_fn, strlen(dd_mtx_fn)));
@@ -357,7 +402,9 @@ static void cfg_parse_tor_test(void **state)
 	int pnums[6] = {2, 3, 5, 6, 10, 11};
 	uint8_t chk_pnum[6] = {0, 1, 4, 7, 8, 9};
 
+	check_file_exists(TOR_SUCCESS);
 	memset(&dev, 0, sizeof(dev));
+
 	assert_int_equal(0, cfg_parse_file(TOR_SUCCESS, &dd_mtx_fn, &dd_fn, &m_did,
 			&m_cm_port, &m_mode));
 
@@ -440,7 +487,9 @@ static void cfg_parse_rxs_test(void **state)
 	uint32_t m_mode = 0xcafe;
 	int conn_pt;
 
+	check_file_exists(RXS_SUCCESS);
 	memset(&dev, 0, sizeof(dev));
+
 	assert_int_equal(0, cfg_parse_file(RXS_SUCCESS, &dd_mtx_fn, &dd_fn, &m_did,
 		&m_cm_port, &m_mode));
 	assert_int_equal(0, strncmp(dd_mtx_fn, test_dd_mtx_fn, strlen(dd_mtx_fn)));

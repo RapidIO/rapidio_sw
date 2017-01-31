@@ -37,6 +37,10 @@
 #include <string.h>
 #include <errno.h>
 
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
 #include <stdarg.h>
 #include <setjmp.h>
 #include "cmocka.h"
@@ -49,14 +53,25 @@
 extern "C" {
 #endif
 
+// If the test files do not exist provide a meaningful message and stop test
+static void check_file_exists(const char *filename)
+{
+	struct stat buffer;
+
+	if (0 != stat(filename, &buffer)) {
+		fail_msg("File: %s does not exist, are you in the correct directory?", filename);
+	}
+}
+
 static void rsvd_phys_mem_32_bit_test(void **state)
 {
 	const char *test_file = "test/addr_32bit.conf";
 	uint64_t start_addr = 0;
 	uint64_t size = 0;
 
+	check_file_exists(test_file);
 	assert_int_equal(0,
-			get_phys_mem((const char *)test_file, (char *)RSVD_PHYS_MEM, &start_addr, &size));
+			get_phys_mem(test_file, RSVD_PHYS_MEM, &start_addr, &size));
 	assert_int_equal(0x18000000, start_addr);
 	assert_int_equal(0x04000000, size);
 
@@ -69,29 +84,30 @@ static void rsvd_phys_mem_rdmad_32_bit_test(void **state)
 	uint64_t start_addr = 0;
 	uint64_t size = 0;
 
+	check_file_exists(test_file);
 	assert_int_equal(0,
-			get_phys_mem((const char *)test_file, (char *)RSVD_PHYS_MEM_RDMAD, &start_addr, &size));
+			get_phys_mem(test_file, RSVD_PHYS_MEM_RDMAD, &start_addr, &size));
 	assert_int_equal(0x18000000, start_addr);
 	assert_int_equal(0x01000000, size);
 
 	start_addr = 0;
 	size = 0;
 	assert_int_equal(0,
-			get_phys_mem((const char *)test_file, RSVD_PHYS_MEM_RSKTD, &start_addr, &size));
+			get_phys_mem(test_file, RSVD_PHYS_MEM_RSKTD, &start_addr, &size));
 	assert_int_equal(0x19000000, start_addr);
 	assert_int_equal(0x01000000, size);
 
 	start_addr = 0;
 	size = 0;
 	assert_int_equal(0,
-			get_phys_mem((const char *)test_file, RSVD_PHYS_MEM_DMA_TUN, &start_addr, &size));
+			get_phys_mem(test_file, RSVD_PHYS_MEM_DMA_TUN, &start_addr, &size));
 	assert_int_equal(0x1A000000, start_addr);
 	assert_int_equal(0x01000000, size);
 
 	start_addr = 0;
 	size = 0;
 	assert_int_equal(0,
-			get_phys_mem((const char *)test_file, RSVD_PHYS_MEM_FXFR, &start_addr, &size));
+			get_phys_mem(test_file, RSVD_PHYS_MEM_FXFR, &start_addr, &size));
 	assert_int_equal(0x1B000000, start_addr);
 	assert_int_equal(0x01000000, size);
 
@@ -104,22 +120,23 @@ static void rsvd_phys_mem_rsktd_32_bit_test(void **state)
 	uint64_t start_addr = 0;
 	uint64_t size = 0;
 
+	check_file_exists(test_file);
 	assert_int_equal(0,
-			get_phys_mem((const char *)test_file, RSVD_PHYS_MEM_RSKTD, &start_addr, &size));
+			get_phys_mem(test_file, RSVD_PHYS_MEM_RSKTD, &start_addr, &size));
 	assert_int_equal(0x19000000, start_addr);
 	assert_int_equal(0x01000000, size);
 
 	start_addr = 0;
 	size = 0;
 	assert_int_equal(0,
-			get_phys_mem((const char *)test_file, RSVD_PHYS_MEM_DMA_TUN, &start_addr, &size));
+			get_phys_mem(test_file, RSVD_PHYS_MEM_DMA_TUN, &start_addr, &size));
 	assert_int_equal(0x1A000000, start_addr);
 	assert_int_equal(0x01000000, size);
 
 	start_addr = 0;
 	size = 0;
 	assert_int_equal(0,
-			get_phys_mem((const char *)test_file, RSVD_PHYS_MEM_FXFR, &start_addr, &size));
+			get_phys_mem(test_file, RSVD_PHYS_MEM_FXFR, &start_addr, &size));
 	assert_int_equal(0x1B000000, start_addr);
 	assert_int_equal(0x01000000, size);
 
@@ -132,15 +149,16 @@ static void rsvd_phys_mem_dma_tun_32_bit_test(void **state)
 	uint64_t start_addr = 0;
 	uint64_t size = 0;
 
+	check_file_exists(test_file);
 	assert_int_equal(0,
-			get_phys_mem((const char *)test_file, RSVD_PHYS_MEM_DMA_TUN, &start_addr, &size));
+			get_phys_mem(test_file, RSVD_PHYS_MEM_DMA_TUN, &start_addr, &size));
 	assert_int_equal(0x1A000000, start_addr);
 	assert_int_equal(0x01000000, size);
 
 	start_addr = 0;
 	size = 0;
 	assert_int_equal(0,
-			get_phys_mem((const char *)test_file, RSVD_PHYS_MEM_FXFR, &start_addr, &size));
+			get_phys_mem(test_file, RSVD_PHYS_MEM_FXFR, &start_addr, &size));
 	assert_int_equal(0x1B000000, start_addr);
 	assert_int_equal(0x01000000, size);
 
@@ -153,8 +171,9 @@ static void rsvd_phys_mem_fxfr_32_bit_test(void **state)
 	uint64_t start_addr = 0;
 	uint64_t size = 0;
 
+	check_file_exists(test_file);
 	assert_int_equal(0,
-			get_phys_mem((const char *)test_file, RSVD_PHYS_MEM_FXFR, &start_addr, &size));
+			get_phys_mem(test_file, RSVD_PHYS_MEM_FXFR, &start_addr, &size));
 	assert_int_equal(0x1B000000, start_addr);
 	assert_int_equal(0x01000000, size);
 
@@ -167,8 +186,9 @@ static void rsvd_phys_mem_64_bit_test(void **state)
 	uint64_t start_addr = 0;
 	uint64_t size = 0;
 
+	check_file_exists(test_file);
 	assert_int_equal(0,
-			get_phys_mem((const char *)test_file, RSVD_PHYS_MEM, &start_addr, &size));
+			get_phys_mem(test_file, RSVD_PHYS_MEM, &start_addr, &size));
 	assert_int_equal(0x1800000000000000, start_addr);
 	assert_int_equal(0x0400000000000000, size);
 
@@ -181,8 +201,9 @@ static void rsvd_phys_mem_rdmad_64_bit_test(void **state)
 	uint64_t start_addr = 0;
 	uint64_t size = 0;
 
+	check_file_exists(test_file);
 	assert_int_equal(0,
-			get_phys_mem((const char *)test_file, RSVD_PHYS_MEM_RDMAD, &start_addr, &size));
+			get_phys_mem(test_file, RSVD_PHYS_MEM_RDMAD, &start_addr, &size));
 	assert_int_equal(0x1800000000000000, start_addr);
 	assert_int_equal(0x0100000000000000, size);
 
@@ -195,8 +216,9 @@ static void rsvd_phys_mem_rsktd_64_bit_test(void **state)
 	uint64_t start_addr = 0;
 	uint64_t size = 0;
 
+	check_file_exists(test_file);
 	assert_int_equal(0,
-			get_phys_mem((const char *)test_file, RSVD_PHYS_MEM_RSKTD, &start_addr, &size));
+			get_phys_mem(test_file, RSVD_PHYS_MEM_RSKTD, &start_addr, &size));
 	assert_int_equal(0x1900000000000000, start_addr);
 	assert_int_equal(0x0100000000000000, size);
 
@@ -209,8 +231,9 @@ static void rsvd_phys_mem_dma_tun_64_bit_test(void **state)
 	uint64_t start_addr = 0;
 	uint64_t size = 0;
 
+	check_file_exists(test_file);
 	assert_int_equal(0,
-			get_phys_mem((const char *)test_file, RSVD_PHYS_MEM_DMA_TUN, &start_addr, &size));
+			get_phys_mem(test_file, RSVD_PHYS_MEM_DMA_TUN, &start_addr, &size));
 	assert_int_equal(0x1A00000000000000, start_addr);
 	assert_int_equal(0x0100000000000000, size);
 
@@ -223,8 +246,9 @@ static void rsvd_phys_mem_fxfr_64_bit_test(void **state)
 	uint64_t start_addr = 0;
 	uint64_t size = 0;
 
+	check_file_exists(test_file);
 	assert_int_equal(0,
-			get_phys_mem((const char *)test_file, RSVD_PHYS_MEM_FXFR, &start_addr, &size));
+			get_phys_mem(test_file, RSVD_PHYS_MEM_FXFR, &start_addr, &size));
 	assert_int_equal(0x1B00000000000000, start_addr);
 	assert_int_equal(0x0100000000000000, size);
 
@@ -237,8 +261,9 @@ static void empty_file_test(void **state)
 	uint64_t start_addr = 0xcafebabe;
 	uint64_t size = 0xdeadbeef;
 
+	check_file_exists(test_file);
 	assert_int_not_equal(0,
-			get_phys_mem((const char *)test_file, RSVD_PHYS_MEM, &start_addr, &size));
+			get_phys_mem(test_file, RSVD_PHYS_MEM, &start_addr, &size));
 	assert_int_equal(RIO_ANY_ADDR, start_addr);
 	assert_int_equal(0, size);
 
@@ -251,8 +276,9 @@ static void blank_line_test(void **state)
 	uint64_t start_addr = 0xcafebabe;
 	uint64_t size = 0xdeadbeef;
 
+	check_file_exists(test_file);
 	assert_int_not_equal(0,
-			get_phys_mem((const char *)test_file, RSVD_PHYS_MEM_RDMAD, &start_addr, &size));
+			get_phys_mem(test_file, RSVD_PHYS_MEM_RDMAD, &start_addr, &size));
 	assert_int_equal(RIO_ANY_ADDR, start_addr);
 	assert_int_equal(0, size);
 
@@ -265,6 +291,7 @@ static void missing_token_test(void **state)
 	uint64_t start_addr = 0xcafebabe;
 	uint64_t size = 0xdeadbeef;
 
+	check_file_exists(test_file);
 	assert_int_not_equal(0,
 			get_phys_mem((const char * )test_file,
 					(char * )"TOKEN_NOT_FOUND", &start_addr,
@@ -281,6 +308,7 @@ static void missing_address_and_size_test(void **state)
 	uint64_t start_addr = 0xcafebabe;
 	uint64_t size = 0xdeadbeef;
 
+	check_file_exists(test_file);
 	assert_int_not_equal(0,
 			get_phys_mem((const char * )test_file,
 					(char * )"NO_ADDR_SZ", &start_addr,
@@ -297,6 +325,7 @@ static void missing_size_test(void **state)
 	uint64_t start_addr = 0xcafebabe;
 	uint64_t size = 0xdeadbeef;
 
+	check_file_exists(test_file);
 	assert_int_not_equal(0,
 			get_phys_mem((const char * )test_file, (char * )"NO_SZ",
 					&start_addr, &size));
@@ -312,6 +341,7 @@ static void invalid_line_format_test(void **state)
 	uint64_t start_addr = 0;
 	uint64_t size = 0;
 
+	check_file_exists(test_file);
 	assert_int_equal(0,
 			get_phys_mem((const char * )test_file,
 					(char * )"STUFF_BEFORE", &start_addr,
@@ -329,6 +359,7 @@ static void misaligned_address_test(void **state)
 	uint64_t size;
 	int i;
 
+	check_file_exists(test_file);
 	for (i = 1; i <= 3; i++) {
 		char keyword[30];
 		memset(keyword, 0, 30);
@@ -370,6 +401,7 @@ static void illegal_address_characters_test(void **state)
 	uint64_t size;
 	int i;
 
+	check_file_exists(test_file);
 	for (i = 1; i <= 6; i++) {
 		char keyword[30];
 		memset(keyword, 0, 30);
