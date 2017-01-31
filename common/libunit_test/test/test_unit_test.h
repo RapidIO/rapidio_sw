@@ -26,13 +26,13 @@
  * *************************************************************************
  * */
 
+#ifndef __TEST_UNIT_TEST_H__
+#define __TEST_UNIT_TEST_H__
+
 #include <stdio.h>
 #include <stdlib.h>
 #include "libtime_utils.h"
 #include "liblog.h"
-
-#ifndef __TEST_UNIT_TEST_H__
-#define __TEST_UNIT_TEST_H__
 
 #ifdef __cplusplus
 extern "C" {
@@ -45,16 +45,9 @@ extern "C" {
 #define ACTION_HLT_REQ 5
 #define ACTION_HLT_SEM 6
 
-char *action_strings[] = {
-	(char *)"no_actn",
-	(char *)"dec_val",
-	(char *)"inc_val",
-	(char *)"shr_inc",
-	(char *)"shr_dec",
-	(char *)"hld_req",
-	(char *)"hlt_sem",
-	(char *)"Illegal"
-};
+char *action_strings[] = {(char *)"no_actn", (char *)"dec_val",
+		(char *)"inc_val", (char *)"shr_inc", (char *)"shr_dec",
+		(char *)"hld_req", (char *)"hlt_sem", (char *)"Illegal"};
 
 char *unknown_str = (char *)"Unknown";
 
@@ -71,7 +64,6 @@ struct test_worker_info {
 
 extern int shared_inc_dec;
 extern sem_t shared_sem;
-
 
 #ifdef __cplusplus
 }

@@ -61,12 +61,11 @@
 extern "C" {
 #endif
 
-
 /// @cond
 struct args {
 	uint32_t mport_id;	// local mport ID
 	uint32_t remote_destid;	// RapidIO device destination ID
-	uint16_t remote_channel;// remote channel number
+	uint16_t remote_channel;	// remote channel number
 	uint32_t repeat;	// number of repetitions
 };
 /// @endcond
@@ -93,7 +92,7 @@ void show_rio_devs(void)
 	uint32_t *ep_list = NULL;
 	uint32_t *list_ptr;
 	uint32_t number_of_eps = 0;
-	uint8_t  number_of_mports = RIO_MAX_MPORTS;
+	uint8_t number_of_mports = RIO_MAX_MPORTS;
 	uint32_t ep = 0;
 	int i;
 	int mport_id;
@@ -109,51 +108,54 @@ void show_rio_devs(void)
 	printf("\nAvailable %d local mport(s):\n", number_of_mports);
 	if (number_of_mports > RIO_MAX_MPORTS) {
 		printf("WARNING: Only %d out of %d have been retrieved\n",
-				RIO_MAX_MPORTS, number_of_mports);
+		RIO_MAX_MPORTS, number_of_mports);
 	}
 
 	/** - for each local mport display list of remote RapidIO devices */
 	list_ptr = mport_list;
 	for (i = 0; i < number_of_mports; i++, list_ptr++) {
 		mport_id = *list_ptr >> 16;
-		printf("+++ mport_id: %u dest_id: %u\n",
-				mport_id, *list_ptr & 0xffff);
+		printf("+++ mport_id: %u dest_id: %u\n", mport_id,
+				*list_ptr & 0xffff);
 
 		/* Display EPs for this MPORT */
 
-		ret = riomp_mgmt_get_ep_list(mport_id, &ep_list, &number_of_eps);
+		ret = riomp_mgmt_get_ep_list(mport_id, &ep_list,
+				&number_of_eps);
 		if (ret) {
 			printf("ERR: riodp_ep_get_list() ERR %d\n", ret);
 			break;
 		}
 
 		printf("\t%u Endpoints (dest_ID): ", number_of_eps);
-		for (ep = 0; ep < number_of_eps; ep++)
+		for (ep = 0; ep < number_of_eps; ep++) {
 			printf("%u ", *(ep_list + ep));
+		}
 		printf("\n");
 
 		ret = riomp_mgmt_free_ep_list(&ep_list);
-		if (ret)
+		if (ret) {
 			printf("ERR: riodp_ep_free_list() ERR %d\n", ret);
-
+		}
 	}
 
 	printf("\n");
 
 	ret = riomp_mgmt_free_mport_list(&mport_list);
-	if (ret)
+	if (ret) {
 		printf("ERR: riodp_ep_free_list() ERR %d\n", ret);
+	}
 }
 
 static struct timespec timediff(struct timespec start, struct timespec end)
 {
 	struct timespec temp;
-	if ((end.tv_nsec-start.tv_nsec)<0) {
-		temp.tv_sec = end.tv_sec-start.tv_sec-1;
-		temp.tv_nsec = 1000000000+end.tv_nsec-start.tv_nsec;
+	if ((end.tv_nsec - start.tv_nsec) < 0) {
+		temp.tv_sec = end.tv_sec - start.tv_sec - 1;
+		temp.tv_nsec = 1000000000 + end.tv_nsec - start.tv_nsec;
 	} else {
-		temp.tv_sec = end.tv_sec-start.tv_sec;
-		temp.tv_nsec = end.tv_nsec-start.tv_nsec;
+		temp.tv_sec = end.tv_sec - start.tv_sec;
+		temp.tv_nsec = end.tv_nsec - start.tv_nsec;
 	}
 	return temp;
 }
@@ -179,7 +181,7 @@ int main(int argc, char** argv)
 	uint32_t number_of_eps = 0;
 	uint32_t *ep_list = NULL;
 	int ep_found = 0;
-	void *msg_rx = NULL; 
+	void *msg_rx = NULL;
 	void *msg_tx = NULL;
 	struct args arg;
 	riomp_mailbox_t mailbox;
@@ -234,13 +236,13 @@ int main(int argc, char** argv)
 
 	ret = riomp_mgmt_free_ep_list(&ep_list);
 	if (ret) {
-		printf("ERROR: riodp_ep_free_list error: %d\n",	ret);
+		printf("ERROR: riodp_ep_free_list error: %d\n", ret);
 		exit(1);
 	}
 
 	if (!ep_found) {
 		printf("CM_CLIENT(%d) invalid remote destID %d\n",
-			(int)getpid(), arg.remote_destid);
+				(int)getpid(), arg.remote_destid);
 		exit(1);
 	}
 
@@ -262,7 +264,8 @@ int main(int argc, char** argv)
 	ret = riomp_sock_connect(socket, arg.remote_destid, arg.remote_channel);
 	if (ret) {
 		if (ret == EADDRINUSE) {
-			printf("riomp_sock_connect: Requested channel already in use, reusing...\n");
+			printf(
+					"riomp_sock_connect: Requested channel already in use, reusing...\n");
 		} else {
 			printf("riomp_sock_connect error: %d\n", ret);
 			goto out;
@@ -277,7 +280,8 @@ int main(int argc, char** argv)
 
 	msg_rx = malloc(0x1000);
 	if (msg_rx == NULL) {
-		printf("CM_CLIENT(%d): error allocating rx buffer\n", (int)getpid());
+		printf("CM_CLIENT(%d): error allocating rx buffer\n",
+				(int)getpid());
 		riomp_sock_release_send_buffer(socket, msg_tx);
 		goto out;
 	}
@@ -287,31 +291,34 @@ int main(int argc, char** argv)
 	for (i = 1; i <= arg.repeat; i++) {
 		/* usleep(200 * 1000); */
 		/** - Place message into buffer with space reserved for msg_header */
-		sprintf((char *)((char *)msg_tx + 20), "%d:%d\n", i, (int)getpid());
+		sprintf((char *)((char *)msg_tx + 20), "%d:%d\n", i,
+				(int)getpid());
 
 		/** - Send message to the destination */
 		ret = riomp_sock_send(socket, msg_tx, 0x1000);
 		if (ret) {
 			printf("CM_CLIENT(%d): riomp_sock_send() ERR %d\n",
-				(int)getpid(), ret);
+					(int)getpid(), ret);
 			break;
 		}
 
 		/** - Get echo response from the server (blocking call, no timeout) */
 		ret = riomp_sock_receive(socket, &msg_rx, 0x1000, 0);
 		if (ret) {
-			printf("CM_CLIENT(%d): riomp_sock_receive() ERR %d on roundtrip %d\n",
-				(int)getpid(), ret, i);
+			printf(
+					"CM_CLIENT(%d): riomp_sock_receive() ERR %d on roundtrip %d\n",
+					(int)getpid(), ret, i);
 			break;
 		}
 
 		if (strcmp((char *)msg_tx + 20, (char *)msg_rx + 20)) {
-			printf("CM_CLIENT(%d): MSG TRANSFER ERROR: data corruption detected @ %d\n",
-				(int)getpid(), i);
-			printf("CM_CLIENT(%d): MSG OUT: %s\n",
-				(int)getpid(), (char *)msg_tx + 20);
-			printf("CM_CLIENT(%d): MSG IN: %s\n",
-				(int)getpid(), (char *)msg_rx + 20);
+			printf(
+					"CM_CLIENT(%d): MSG TRANSFER ERROR: data corruption detected @ %d\n",
+					(int)getpid(), i);
+			printf("CM_CLIENT(%d): MSG OUT: %s\n", (int)getpid(),
+					(char *)msg_tx + 20);
+			printf("CM_CLIENT(%d): MSG IN: %s\n", (int)getpid(),
+					(char *)msg_rx + 20);
 			ret = -1;
 			break;
 		}
@@ -324,24 +331,20 @@ int main(int argc, char** argv)
 	clock_gettime(CLOCK_MONOTONIC, &endtime);
 
 	if (ret) {
-		printf("CM_CLIENT(%d) ERROR.\n",
-			(int)getpid());
+		printf("CM_CLIENT(%d) ERROR.\n", (int)getpid());
 	} else {
-		printf("CM_CLIENT(%d) Test finished.\n",
-			(int)getpid());
+		printf("CM_CLIENT(%d) Test finished.\n", (int)getpid());
 	}
 
 	/* getchar(); */
-	time 	  = timediff(starttime,endtime);
-	totaltime = ((double) time.tv_sec + (time.tv_nsec / 1000000000.0));
-	mean	  = totaltime/arg.repeat * 1000.0; /* mean in us */
+	time = timediff(starttime, endtime);
+	totaltime = ((double)time.tv_sec + (time.tv_nsec / 1000000000.0));
+	mean = totaltime / arg.repeat * 1000.0; /* mean in us */
 
 	printf("Total time:\t\t\t\t%4f s\n"
-	       "Mean time per message roundtrip:\t%4f us\n"
-	       "Data throughput:\t\t\t\%4f MB/s\n",
-	       totaltime,
-	       mean,
-	       ((4096*i)/totaltime)/(1024*1024));
+			"Mean time per message roundtrip:\t%4f us\n"
+			"Data throughput:\t\t\t\%4f MB/s\n", totaltime, mean,
+			((4096 * i) / totaltime) / (1024 * 1024));
 
 out:
 	/** - Close messaging channel */

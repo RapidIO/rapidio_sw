@@ -51,7 +51,7 @@ extern "C" {
 
 static void math_util_roundup_pw2_success(void **state)
 {
-	assert_int_equal( 0x20000000, roundup_pw2(0x12345678));
+	assert_int_equal(0x20000000, roundup_pw2(0x12345678));
 	assert_int_equal(0x100000000, roundup_pw2(0x87654321));
 	assert_int_equal(0x8, roundup_pw2(0x6));
 
@@ -104,7 +104,7 @@ int main(int argc, char** argv)
 	cmocka_unit_test(math_util_roundup_pw2_success),
 	cmocka_unit_test(math_util_roundup_pw2_pow2),
 	cmocka_unit_test(math_util_roundup_pw2_minus1),
-	cmocka_unit_test(math_util_roundup_pw2_limit),};
+	cmocka_unit_test(math_util_roundup_pw2_limit), };
 	return cmocka_run_group_tests(tests, NULL, NULL);
 }
 

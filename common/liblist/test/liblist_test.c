@@ -687,7 +687,8 @@ static void l_remove_test(void **state)
 	int i, count;
 
 	for (i = 0; i < max_items; i++) {
-		items[i] = (struct l_head_t *)calloc(1, sizeof(struct l_head_t));
+		items[i] = (struct l_head_t *)calloc(1,
+				sizeof(struct l_head_t));
 		items[i]->cnt = i;
 	}
 
@@ -834,7 +835,8 @@ static void l_lremove_test(void **state)
 	int i;
 
 	for (i = 0; i < max_items; i++) {
-		items[i] = (struct l_head_t *)calloc(1, sizeof(struct l_head_t));
+		items[i] = (struct l_head_t *)calloc(1,
+				sizeof(struct l_head_t));
 		items[i]->cnt = i;
 	}
 

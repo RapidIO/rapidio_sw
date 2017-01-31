@@ -105,7 +105,7 @@ static void msg_fmt_test(void **state)
 
 	memset(buf, 0, sizeof(buf));
 	sprintf(buf, TOK_ERR_ULONGLONG_MSG_FMT, "longlong", INT64_MIN,
-			INT64_MAX);
+	INT64_MAX);
 	assert_string_equal(
 			"longlong must be between 9223372036854775808 and 9223372036854775807\n",
 			buf);
@@ -3786,7 +3786,7 @@ static void tok_parse_ct_test(void **state)
 	assert_int_equal(UINT32_MAX, value);
 
 	memset(buf, 0, sizeof(buf));
-	sprintf(buf, "%llu", (unsigned long long)(UINT32_MAX)+1);
+	sprintf(buf, "%llu", (unsigned long long)(UINT32_MAX) + 1);
 	errno = 0xcafebabe;
 	value = 0xdead;
 	rc = tok_parse_ct(buf, &value, 0);
@@ -4010,7 +4010,7 @@ int main(int argc, char** argv)
 	cmocka_unit_test(tok_parse_mport_test),
 	cmocka_unit_test(tok_parse_log_level_test),
 	cmocka_unit_test(tok_parse_socket_test),
-	cmocka_unit_test(tok_parse_port_num_test),};
+	cmocka_unit_test(tok_parse_port_num_test), };
 	return cmocka_run_group_tests(tests, NULL, NULL);
 }
 

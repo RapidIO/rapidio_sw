@@ -78,15 +78,17 @@ static char dev_name[RIODP_MAX_DEV_NAME_SZ + 1];
 
 static void usage(char *program)
 {
-	printf("%s - test device object creation/removal\n",	program);
+	printf("%s - test device object creation/removal\n", program);
 	printf("Usage:\n");
 	printf("  %s [options]\n", program);
 	printf("Options are:\n");
 	printf("  -M mport_id\n");
 	printf("  --mport mport_id\n");
 	printf("    local mport device index (default 0)\n");
-	printf("  -c create device using provided parameters (-D, -H, -T and -N)\n");
-	printf("  -d delete device using provided parameters (-D, -H, -T and -N)\n");
+	printf(
+			"  -c create device using provided parameters (-D, -H, -T and -N)\n");
+	printf(
+			"  -d delete device using provided parameters (-D, -H, -T and -N)\n");
 	printf("  -D xxxx\n");
 	printf("  --destid xxxx\n");
 	printf("    destination ID of target RapidIO device (default 0)\n");
@@ -119,9 +121,10 @@ void test_create(void)
 	int ret;
 
 	ret = riomp_mgmt_device_add(mport_hnd, tgt_destid, tgt_hop, comptag,
-			       (*dev_name == '\0') ? NULL : dev_name);
-	if(ret)
+			(*dev_name == '\0') ? NULL : dev_name);
+	if (ret) {
 		printf("Failed to create device object, err=%d\n", ret);
+	}
 }
 
 /**
@@ -136,9 +139,10 @@ void test_delete(void)
 	int ret;
 
 	ret = riomp_mgmt_device_del(mport_hnd, tgt_destid, tgt_hop, comptag,
-			       (*dev_name == '\0')?NULL:dev_name);
-	if(ret)
+			(*dev_name == '\0') ? NULL : dev_name);
+	if (ret) {
 		printf("Failed to delete device object, err=%d\n", ret);
+	}
 }
 
 /**
@@ -161,15 +165,12 @@ int main(int argc, char** argv)
 	int do_delete = 0;
 	int discovered = 0;
 	uint32_t regval = 0;
-	static const struct option options[] = {
-		{ "mport",  required_argument, NULL, 'M' },
-		{ "destid", required_argument, NULL, 'D' },
-		{ "hop",  required_argument, NULL,   'H' },
-		{ "tag", required_argument, NULL,    'T' },
-		{ "name",   required_argument, NULL, 'N' },
-		{ "debug",  no_argument, NULL, 'd' },
-		{ "help",   no_argument, NULL, 'h' },
-	};
+	static const struct option options[] = {{"mport", required_argument,
+			NULL, 'M'}, {"destid", required_argument, NULL, 'D'}, {
+			"hop", required_argument, NULL, 'H'}, {"tag",
+			required_argument, NULL, 'T'}, {"name",
+			required_argument, NULL, 'N'}, {"debug", no_argument,
+			NULL, 'd'}, {"help", no_argument, NULL, 'h'}, };
 
 	struct riomp_mgmt_mport_properties prop;
 	int rc = EXIT_SUCCESS;
@@ -205,7 +206,8 @@ int main(int argc, char** argv)
 			}
 			break;
 		case 'N':
-			SAFE_STRNCPY(dev_name, optarg, sizeof(dev_name));
+			SAFE_STRNCPY(dev_name, optarg, sizeof(dev_name))
+			;
 			break;
 		case 'c':
 			do_create = 1;
@@ -228,17 +230,18 @@ int main(int argc, char** argv)
 	}
 
 	if (do_create && do_delete) {
-		printf("%s: Unable to create and delete device object simultaneously\n",
-			program);
+		printf(
+				"%s: Unable to create and delete device object simultaneously\n",
+				program);
 		exit(EXIT_FAILURE);
 	}
 
 	/** - Open mport device and query RapidIO link status.
-          Exit if link is not active */
+	 Exit if link is not active */
 	err = riomp_mgmt_mport_create_handle(mport_id, 0, &mport_hnd);
 	if (err < 0) {
 		printf("DMA Test: unable to open mport%d device err=%d\n",
-			mport_id, err);
+				mport_id, err);
 		exit(EXIT_FAILURE);
 	}
 
@@ -269,8 +272,9 @@ int main(int argc, char** argv)
 		printf("ATTN: Port DISCOVERED flag is not set\n");
 	}
 
-	if (discovered && prop.hdid == RIO_LAST_DEV16 ) {
-		err = riomp_mgmt_lcfg_read(mport_hnd, RIO_DEVID, sizeof(uint32_t), &regval);
+	if (discovered && prop.hdid == RIO_LAST_DEV16) {
+		err = riomp_mgmt_lcfg_read(mport_hnd, RIO_DEVID,
+				sizeof(uint32_t), &regval);
 		prop.hdid = (regval >> 16) & RIO_LAST_DEV8;
 		err = riomp_mgmt_destid_set(mport_hnd, prop.hdid);
 		if (err) {
@@ -284,12 +288,11 @@ int main(int argc, char** argv)
 	printf("[PID:%d]\n", (int)getpid());
 	if (do_create) {
 		printf("+++ Create RapidIO device object as specified +++\n");
-		printf("\tmport%d destID=0x%x hop_count=%d CTag=0x%x",
-			mport_id, tgt_destid, tgt_hop, comptag);
+		printf("\tmport%d destID=0x%x hop_count=%d CTag=0x%x", mport_id,
+				tgt_destid, tgt_hop, comptag);
 		if (strlen(dev_name)) {
 			printf(" name=%s\n", dev_name);
-		}
-		else {
+		} else {
 			printf("\n");
 		}
 
@@ -297,8 +300,8 @@ int main(int argc, char** argv)
 
 	} else if (do_delete) {
 		printf("+++ Delete RapidIO device object as specified +++\n");
-		printf("\tmport%d destID=0x%x hop_count=%d CTag=0x%x",
-			mport_id, tgt_destid, tgt_hop, comptag);
+		printf("\tmport%d destID=0x%x hop_count=%d CTag=0x%x", mport_id,
+				tgt_destid, tgt_hop, comptag);
 		if (strlen(dev_name)) {
 			printf(" name=%s\n", dev_name);
 		} else {
@@ -310,7 +313,6 @@ int main(int argc, char** argv)
 		printf("Please specify the action to perform\n");
 
 out:
-
 	riomp_mgmt_mport_destroy_handle(&mport_hnd);
 	exit(rc);
 }

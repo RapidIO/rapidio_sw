@@ -80,10 +80,12 @@ void LOG_MSG(struct cli_env *env, char *format, ...)
 	if (0) {
 		unused_env = env; // unused
 	}
+
 	va_start(args, format);
 	if (out_idx == MAX_OUTPUT - 1) {
 		output_overflow = true;
-	};
+	}
+
 	rc = vsnprintf(&output[out_idx][0], sizeof(output[0]),
 			(const char *)format, args);
 	assert_return_code(rc, 0);
@@ -91,7 +93,7 @@ void LOG_MSG(struct cli_env *env, char *format, ...)
 	out_idx++;
 	if (out_idx >= MAX_OUTPUT) {
 		out_idx = MAX_OUTPUT - 1;
-	};
+	}
 	va_end(args);
 }
 
@@ -132,16 +134,16 @@ static void setup_commands(void)
 	// Formats below assume MAX_CMDS maximum is 999
 	assert_in_range(MAX_CMDS, 1, 999);
 	for (i = 0; i < MAX_CMDS; i++) {
-		snprintf(&cmd_names[i][0], sizeof(cmd_names[0]),
-			"%s%3d", c_pfix, i);
-		snprintf(&short_help[i][0], sizeof(short_help[0]),
-			"%s%3d", s_pfix, i);
-		snprintf(&long_help[i][0], sizeof(long_help[0]),
-			"%s%3d", l_pfix, i);
+		snprintf(&cmd_names[i][0], sizeof(cmd_names[0]), "%s%3d",
+				c_pfix, i);
+		snprintf(&short_help[i][0], sizeof(short_help[0]), "%s%3d",
+				s_pfix, i);
+		snprintf(&long_help[i][0], sizeof(long_help[0]), "%s%3d",
+				l_pfix, i);
 		memset(&test_cmds[i], 0, sizeof(test_cmds[0]));
 		test_cmds[i].name = cmd_names[i];
 		test_cmds[i].min_match = strlen(cmd_names[i]);
-		test_cmds[i].min_parms = i % 4; 
+		test_cmds[i].min_parms = i % 4;
 		test_cmds[i].shortHelp = &short_help[i][0];
 		test_cmds[i].longHelp = &long_help[i][0];
 		test_cmds[i].func = test_func;
@@ -165,15 +167,15 @@ static void assumptions_test(void **state)
 static void cli_print_help_success_test(void **state)
 {
 	char test_buffer[100];
-	struct cli_env *unused = NULL; 
+	struct cli_env *unused = NULL;
 
 	setup_output();
 	assert_int_equal(0, cli_print_help(unused, &test_cmds[0]));
 	snprintf(test_buffer, sizeof(test_buffer), "\n%s : %s\n",
-		test_cmds[0].name, test_cmds[0].longHelp);
-	assert_string_equal(test_buffer, output[0]); 
+			test_cmds[0].name, test_cmds[0].longHelp);
+	assert_string_equal(test_buffer, output[0]);
 
-	(void)*state; // unused
+	(void)state; // unused
 }
 
 static void init_cmd_db_success_test(void **state)
@@ -188,7 +190,7 @@ static void init_cmd_db_success_test(void **state)
 	assert_ptr_equal(cmds[0], &CLIHelp);
 	assert_int_equal(-1, find_cmd(nomatch, &cmd_rc));
 
-	(void)*state; // unused
+	(void)state; // unused
 }
 
 static void add_commands_to_cmd_db_test(void **state)
@@ -198,15 +200,14 @@ static void add_commands_to_cmd_db_test(void **state)
 	setup_commands();
 	for (i = 1; i <= NUM_FREE_CMDS; i++) {
 		init_cmd_db();
-		assert_int_equal(0,
-			add_commands_to_cmd_db(i, test_cmd_array));
-		
+		assert_int_equal(0, add_commands_to_cmd_db(i, test_cmd_array));
+
 		assert_int_equal(i + NUM_CMDS_AFTER_INIT, num_valid_cmds);
 		for (j = 0; j < i; j++) {
 			assert_ptr_equal(cmds[j + NUM_CMDS_AFTER_INIT],
-								&test_cmds[j]);
-		};
-	};
+					&test_cmds[j]);
+		}
+	}
 
 	assert_int_equal(num_valid_cmds, MAX_CMDS);
 	// command array should be at capacity.  Adding 0 commands should pass
@@ -226,13 +227,13 @@ static void find_cmd_exact_match_test(void **state)
 	init_cmd_db();
 	assert_int_equal(0,
 			add_commands_to_cmd_db(NUM_FREE_CMDS, test_cmd_array));
-	for (i = 0; i < MAX_CMDS ; i++) {
+	for (i = 0; i < MAX_CMDS; i++) {
 		struct cli_cmd *cmd = NULL;
 
 		assert_int_equal(CMD_FOUND,
-					find_cmd((char *)cmds[i]->name, &cmd));
+				find_cmd((char * )cmds[i]->name, &cmd));
 		assert_ptr_equal(cmd, cmds[i]);
-	};
+	}
 
 	(void)state; // unused
 }
@@ -246,7 +247,7 @@ static void find_cmd_partial_match_test(void **state)
 	init_cmd_db();
 	assert_int_equal(0,
 			add_commands_to_cmd_db(NUM_FREE_CMDS, test_cmd_array));
-	for (i = NUM_CMDS_AFTER_INIT; i < MAX_CMDS ; i++) {
+	for (i = NUM_CMDS_AFTER_INIT; i < MAX_CMDS; i++) {
 		struct cli_cmd *cmd = NULL;
 		char cmd_name[100];
 
@@ -255,7 +256,7 @@ static void find_cmd_partial_match_test(void **state)
 		memcpy(cmd_name, cmds[i]->name, strlen(cmds[i]->name) - 1);
 
 		assert_int_equal(CMD_DUP_FOUND, find_cmd(cmd_name, &cmd));
-	};
+	}
 
 	(void)state; // unused
 }
@@ -275,13 +276,14 @@ static void find_cmd_no_match_test(void **state)
 	for (i = 0; i < num_names; i++) {
 		memset(base_name, 0, sizeof(base_name));
 		memcpy(base_name, cmds[i]->name, strlen(cmds[i]->name));
-		assert_in_range(strlen(base_name) + 2, 1, sizeof(base_name) -1);
+		assert_in_range(strlen(base_name) + 2, 1,
+				sizeof(base_name) - 1);
 
 		for (j = 0; j <= strlen(base_name); j++) {
 			struct cli_cmd *cmd = &CLIHelp;
 			memcpy(test_name, base_name, sizeof(test_name));
 			test_name[j] = '&';
-			
+
 			if (strlen(base_name) == j) {
 				assert_int_equal(0, find_cmd(test_name, &cmd));
 				assert_ptr_equal(cmd, cmds[i]);
@@ -307,8 +309,7 @@ int main(int argc, char** argv)
 	cmocka_unit_test(add_commands_to_cmd_db_test),
 	cmocka_unit_test(find_cmd_exact_match_test),
 	cmocka_unit_test(find_cmd_partial_match_test),
-	cmocka_unit_test(find_cmd_no_match_test),
-	};
+	cmocka_unit_test(find_cmd_no_match_test), };
 	return cmocka_run_group_tests(tests, NULL, NULL);
 }
 

@@ -63,7 +63,6 @@
 extern "C" {
 #endif
 
-
 struct args {
 	uint32_t mport_id;
 	uint16_t loc_channel;
@@ -82,14 +81,15 @@ static void usage(char *program)
 	printf("  %s [options]\n", program);
 	printf("Options are:\n");
 	printf("    <mport> mport device index\n");
-	printf("    <channel> channel number to listen for connection requests\n");
+	printf(
+			"    <channel> channel number to listen for connection requests\n");
 	printf("    [debug] enable debug output\n");
 	printf("\n");
 }
 
 static void srv_sig_handler(int signum)
 {
-	switch(signum) {
+	switch (signum) {
 	case SIGTERM:
 		srv_exit = 1;
 		break;
@@ -111,7 +111,7 @@ void show_rio_devs(void)
 	uint32_t *ep_list = NULL;
 	uint32_t *list_ptr;
 	uint32_t number_of_eps = 0;
-	uint8_t  number_of_mports = RIO_MAX_MPORTS;
+	uint8_t number_of_mports = RIO_MAX_MPORTS;
 	uint32_t ep = 0;
 	int i;
 	int mport_id;
@@ -127,40 +127,44 @@ void show_rio_devs(void)
 	printf("\nAvailable %d local mport(s):\n", number_of_mports);
 	if (number_of_mports > RIO_MAX_MPORTS) {
 		printf("WARNING: Only %d out of %d have been retrieved\n",
-				RIO_MAX_MPORTS, number_of_mports);
+		RIO_MAX_MPORTS, number_of_mports);
 	}
 
 	/** - for each local mport display list of remote RapidIO devices */
 	list_ptr = mport_list;
 	for (i = 0; i < number_of_mports; i++, list_ptr++) {
 		mport_id = *list_ptr >> 16;
-		printf("+++ mport_id: %u dest_id: %u\n",
-				mport_id, *list_ptr & 0xffff);
+		printf("+++ mport_id: %u dest_id: %u\n", mport_id,
+				*list_ptr & 0xffff);
 
 		/* Display EPs for this MPORT */
 
-		ret = riomp_mgmt_get_ep_list(mport_id, &ep_list, &number_of_eps);
+		ret = riomp_mgmt_get_ep_list(mport_id, &ep_list,
+				&number_of_eps);
 		if (ret) {
 			printf("ERR: riodp_ep_get_list() ERR %d\n", ret);
 			break;
 		}
 
 		printf("\t%u Endpoints (dest_ID): ", number_of_eps);
-		for (ep = 0; ep < number_of_eps; ep++)
+		for (ep = 0; ep < number_of_eps; ep++) {
 			printf("%u ", *(ep_list + ep));
+		}
 		printf("\n");
 
 		ret = riomp_mgmt_free_ep_list(&ep_list);
-		if (ret)
+		if (ret) {
 			printf("ERR: riodp_ep_free_list() ERR %d\n", ret);
+		}
 
 	}
 
 	printf("\n");
 
 	ret = riomp_mgmt_free_mport_list(&mport_list);
-	if (ret)
+	if (ret) {
 		printf("ERR: riodp_ep_free_list() ERR %d\n", ret);
+	}
 }
 
 /**
@@ -178,47 +182,54 @@ void doprocessing(riomp_sock_t new_socket)
 	printf("CM_SERVER processing child(%d) started\n", (int)getpid());
 
 	msg_rx = malloc(0x1000); /* use malloc to get rx buffer, because buffers aren't managed yet */
-	if (msg_rx == NULL){
-		printf("CM_SERVER(%d): error allocating rx buffer\n",(int)getpid());
+	if (msg_rx == NULL) {
+		printf("CM_SERVER(%d): error allocating rx buffer\n",
+				(int)getpid());
 		exit(1);
 	}
 
-	while(!srv_exit) {
-repeat_rx:
+	while (!srv_exit) {
+		repeat_rx:
 		/** - Receive an inbound message */
-		ret = riomp_sock_receive(new_socket, &msg_rx, 0x1000, 60 * 1000);
+		ret = riomp_sock_receive(new_socket, &msg_rx, 0x1000,
+				60 * 1000);
 		if (ret) {
 			if (ret == ETIME && !srv_exit) {
-				printf("CM_SERVER(%d): ... waiting ...\n", (int)getpid());
+				printf("CM_SERVER(%d): ... waiting ...\n",
+						(int)getpid());
 				goto repeat_rx;
 			}
 			printf("CM_SERVER(%d): riomp_sock_receive() ERR=%d\n",
-				(int)getpid(), ret);
+					(int)getpid(), ret);
 			break;
 		}
 
-		if (srv_debug)
-			printf("CM_SERVER(%d): RX_MSG=%s\n",
-				(int)getpid(), (char *)msg_rx + 20);
+		if (srv_debug) {
+			printf("CM_SERVER(%d): RX_MSG=%s\n", (int)getpid(),
+					(char *)msg_rx + 20);
+		}
 
 		/** - Send  a message back to the client */
 		ret = riomp_sock_send(new_socket, msg_rx, 0x1000);
 		if (ret) {
 			printf("CM_SERVER(%d): riomp_sock_send() ERR %d (%d)\n",
-				(int)getpid(), ret, errno);
+					(int)getpid(), ret, errno);
 			break;
 		}
 	}
 
 	riomp_sock_release_receive_buffer(new_socket, msg_rx);
 	/** - Close a socket assigned to this process if connection closed by
-         * a client or process terminated */
+	 * a client or process terminated */
 	ret = riomp_sock_close(&new_socket);
-	if (ret)
+	if (ret) {
 		printf("CM_SERVER(%d): riomp_sock_close() ERR %d\n",
-			(int)getpid(), ret);
-	if (ret && ret != ECONNRESET)
+				(int)getpid(), ret);
+	}
+
+	if (ret && ret != ECONNRESET) {
 		exit(1);
+	}
 }
 
 /**
@@ -272,8 +283,8 @@ int main(int argc, char** argv)
 	signal(SIGTERM, srv_sig_handler);
 	signal(SIGUSR1, srv_sig_handler);
 
-	printf("CM_SERVER(%d): Running on RapidIO mport_%d\n",
-		(int)getpid(), arg.mport_id);
+	printf("CM_SERVER(%d): Running on RapidIO mport_%d\n", (int)getpid(),
+			arg.mport_id);
 
 	/** - Create rapidio_mport_mailbox control structure */
 	ret = riomp_sock_mbox_create_handle(arg.mport_id, 0, &mailbox);
@@ -304,31 +315,34 @@ int main(int argc, char** argv)
 	}
 
 	/** - Create child process for each accepted request */
-	while(!srv_exit) {
+	while (!srv_exit) {
 
 		/* Create new socket object for accept */
 		ret = riomp_sock_socket(mailbox, &new_socket);
 		if (ret) {
-			printf("CM_SERVER(%d): riomp_sock_socket() ERR %d\n", (int)getpid(), ret);
+			printf("CM_SERVER(%d): riomp_sock_socket() ERR %d\n",
+					(int)getpid(), ret);
 			break;
 		}
 
-repeat:
-		while (1) {
+		repeat: while (1) {
 			wpid = waitpid(-1, &status, WNOHANG);
 			if (wpid != -1 && wpid != 0) {
-				printf("CM_SERVER(%d): terminated with status %d\n", wpid, status);
+				printf(
+						"CM_SERVER(%d): terminated with status %d\n",
+						wpid, status);
 			} else {
 				break;
 			}
 		}
 
-		ret = riomp_sock_accept(socket, &new_socket, 3*60000); /* TO = 3 min */
+		ret = riomp_sock_accept(socket, &new_socket, 3 * 60000); /* TO = 3 min */
 		if (ret) {
 			if (ret == ETIME && !srv_exit) {
 				goto repeat;
 			}
-			printf("CM_SERVER(%d): riomp_sock_accept() ERR %d\n", (int)getpid(), ret);
+			printf("CM_SERVER(%d): riomp_sock_accept() ERR %d\n",
+					(int)getpid(), ret);
 			riomp_sock_close(&new_socket);
 			srv_exit = 2;
 			break;
@@ -356,7 +370,7 @@ out:
 	tmp = riomp_sock_close(&socket);
 	if (tmp) {
 		printf("CM_SERVER(%d): riomp_sock_close() ERR %d\n",
-			(int)getpid(), tmp);
+				(int)getpid(), tmp);
 	}
 
 	/** - Release rapidio_mport_mailbox control structure */

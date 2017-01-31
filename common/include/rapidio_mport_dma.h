@@ -1,5 +1,3 @@
-#ifndef _RAPIDIO_MPORT_DMA_H_
-#define _RAPIDIO_MPORT_DMA_H_
 /*
  * TODO: Check copyright, should be rapidio.org?
  * Copyright 2014, 2015 Integrated Device Technology, Inc.
@@ -35,30 +33,33 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
  * THE POSSIBILITY OF SUCH DAMAGE.
-*/
+ */
+
+#ifndef __RAPIDIO_MPORT_DMA_H__
+#define __RAPIDIO_MPORT_DMA_H__
+
+#include "ct.h"
+#include "rapidio_mport_mgmt.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#include "ct.h"
-#include "rapidio_mport_mgmt.h"
-
 /** @brief DirectIO transfer type */
 enum riomp_dma_directio_type {
 	//RIO_DIRECTIO_TYPE_DEFAULT,	/* Default method */
-	RIO_DIRECTIO_TYPE_NWRITE,		/**< All packets using NWRITE */
-	RIO_DIRECTIO_TYPE_SWRITE,		/**< All packets using SWRITE */
-	RIO_DIRECTIO_TYPE_NWRITE_R,		/**< Last packet NWRITE_R, others NWRITE */
-	RIO_DIRECTIO_TYPE_SWRITE_R,		/**< Last packet NWRITE_R, others SWRITE */
-	RIO_DIRECTIO_TYPE_NWRITE_R_ALL,	/**< All packets using NWRITE_R */
+	RIO_DIRECTIO_TYPE_NWRITE, /**< All packets using NWRITE */
+	RIO_DIRECTIO_TYPE_SWRITE, /**< All packets using SWRITE */
+	RIO_DIRECTIO_TYPE_NWRITE_R, /**< Last packet NWRITE_R, others NWRITE */
+	RIO_DIRECTIO_TYPE_SWRITE_R, /**< Last packet NWRITE_R, others SWRITE */
+	RIO_DIRECTIO_TYPE_NWRITE_R_ALL, /**< All packets using NWRITE_R */
 };
 
 /** @brief DirectIO transfer synchronization method */
 enum riomp_dma_directio_transfer_sync {
-	RIO_DIRECTIO_TRANSFER_SYNC,		/**< synchronous transfer */
-	RIO_DIRECTIO_TRANSFER_ASYNC,	/**< asynchronous transfer */
-	RIO_DIRECTIO_TRANSFER_FAF,		/**< fire-and-forget transfer only for write transactions */
+	RIO_DIRECTIO_TRANSFER_SYNC, /**< synchronous transfer */
+	RIO_DIRECTIO_TRANSFER_ASYNC, /**< asynchronous transfer */
+	RIO_DIRECTIO_TRANSFER_FAF, /**< fire-and-forget transfer only for write transactions */
 };
 
 /**
@@ -75,7 +76,10 @@ enum riomp_dma_directio_transfer_sync {
  * @retval 0 on success
  * @retval -errno on error
  */
-int riomp_dma_write(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_addr, void *buf, uint32_t size, enum riomp_dma_directio_type wr_mode, enum riomp_dma_directio_transfer_sync sync);
+int riomp_dma_write(riomp_mport_t mport_handle, uint16_t destid,
+		uint64_t tgt_addr, void *buf, uint32_t size,
+		enum riomp_dma_directio_type wr_mode,
+		enum riomp_dma_directio_transfer_sync sync);
 
 /**
  * @brief Perform DMA data write to target transfer using kernel space source buffer
@@ -92,7 +96,10 @@ int riomp_dma_write(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_ad
  * @retval 0 on success
  * @retval -errno on error
  */
-int riomp_dma_write_d(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_addr, uint64_t handle, uint32_t offset, uint32_t size, enum riomp_dma_directio_type wr_mode, enum riomp_dma_directio_transfer_sync sync);
+int riomp_dma_write_d(riomp_mport_t mport_handle, uint16_t destid,
+		uint64_t tgt_addr, uint64_t handle, uint32_t offset,
+		uint32_t size, enum riomp_dma_directio_type wr_mode,
+		enum riomp_dma_directio_transfer_sync sync);
 
 /**
  * @brief Perform DMA data read from target transfer using user space destination buffer
@@ -107,7 +114,9 @@ int riomp_dma_write_d(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_
  * @retval 0 on success
  * @retval -errno on error
  */
-int riomp_dma_read(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_addr, void *buf, uint32_t size, enum riomp_dma_directio_transfer_sync sync);
+int riomp_dma_read(riomp_mport_t mport_handle, uint16_t destid,
+		uint64_t tgt_addr, void *buf, uint32_t size,
+		enum riomp_dma_directio_transfer_sync sync);
 
 /**
  * @brief Perform DMA data read from target transfer using kernel space destination buffer
@@ -123,7 +132,9 @@ int riomp_dma_read(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_add
  * @retval 0 on success
  * @retval -errno on error
  */
-int riomp_dma_read_d(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_addr, uint64_t handle, uint32_t offset, uint32_t size, enum riomp_dma_directio_transfer_sync sync);
+int riomp_dma_read_d(riomp_mport_t mport_handle, uint16_t destid,
+		uint64_t tgt_addr, uint64_t handle, uint32_t offset,
+		uint32_t size, enum riomp_dma_directio_transfer_sync sync);
 
 /**
  * @brief Wait for DMA transfer completion
@@ -135,7 +146,8 @@ int riomp_dma_read_d(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_a
  * @retval 0 on success
  * @retval -errno on error
  */
-int riomp_dma_wait_async(riomp_mport_t mport_handle, uint32_t cookie, uint32_t tmo);
+int riomp_dma_wait_async(riomp_mport_t mport_handle, uint32_t cookie,
+		uint32_t tmo);
 
 /**
  * @brief Allocate and map into RapidIO space a local kernel space data buffer
@@ -153,7 +165,8 @@ int riomp_dma_wait_async(riomp_mport_t mport_handle, uint32_t cookie, uint32_t t
  */
 #define RIO_ANY_ADDR        (uint64_t)(~((uint64_t) 0))
 
-int riomp_dma_ibwin_map(riomp_mport_t mport_handle, uint64_t *rio_base, uint32_t size, uint64_t *handle);
+int riomp_dma_ibwin_map(riomp_mport_t mport_handle, uint64_t *rio_base,
+		uint32_t size, uint64_t *handle);
 
 /**
  * @brief Free and unmap from RapidIO space a local kernel space data buffer
@@ -183,7 +196,8 @@ int riomp_dma_ibwin_free(riomp_mport_t mport_handle, uint64_t *handle);
  * @retval 0 on success
  * @retval -errno on error
  */
-int riomp_dma_obwin_map(riomp_mport_t mport_handle, uint16_t destid, uint64_t rio_base, uint32_t size, uint64_t *handle);
+int riomp_dma_obwin_map(riomp_mport_t mport_handle, uint16_t destid,
+		uint64_t rio_base, uint32_t size, uint64_t *handle);
 
 /**
  * @brief Free and unmap from RapidIO space a local kernel space data buffer
@@ -208,7 +222,8 @@ int riomp_dma_obwin_free(riomp_mport_t mport_handle, uint64_t *handle);
  * @retval 0 on success
  * @retval -errno on error
  */
-int riomp_dma_dbuf_alloc(riomp_mport_t mport_handle, uint32_t size, uint64_t *handle);
+int riomp_dma_dbuf_alloc(riomp_mport_t mport_handle, uint32_t size,
+		uint64_t *handle);
 
 /**
  * @brief Free previously allocated local kernel space data buffer
@@ -232,7 +247,8 @@ int riomp_dma_dbuf_free(riomp_mport_t mport_handle, uint64_t *handle);
  * @retval 0 on success
  * @retval -errno on error
  */
-int riomp_dma_map_memory(riomp_mport_t mport_handle, size_t size, off_t paddr, void **vaddr);
+int riomp_dma_map_memory(riomp_mport_t mport_handle, size_t size, off_t paddr,
+		void **vaddr);
 
 /**
  * @brief unmap a kernel buffer to the userspace map
@@ -248,4 +264,5 @@ int riomp_dma_unmap_memory(size_t size, void *vaddr);
 #ifdef __cplusplus
 }
 #endif
-#endif /* _RAPIDIO_MPORT_DMA_H_ */
+
+#endif /* __RAPIDIO_MPORT_DMA_H__ */

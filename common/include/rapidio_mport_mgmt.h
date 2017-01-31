@@ -1,12 +1,10 @@
-#ifndef _RAPIDIO_MPORT_MGMT_H_
-#define _RAPIDIO_MPORT_MGMT_H_
 /*
  * TODO: Check copyright, should be rapidio.org?
  * Copyright 2014, 2015 Integrated Device Technology, Inc.
  *
  * Header file for RapidIO mport device library.
  *
-  * This software is available to you under a choice of one of two licenses.
+ * This software is available to you under a choice of one of two licenses.
  * You may choose to be licensed under the terms of the GNU General Public
  * License(GPL) Version 2, or the BSD-3 Clause license below:
  *
@@ -35,15 +33,18 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
  * THE POSSIBILITY OF SUCH DAMAGE.
-*/
+ */
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#ifndef __RAPIDIO_MPORT_MGMT_H__
+#define __RAPIDIO_MPORT_MGMT_H__
 
 #include <stdint.h>
 #include "rio_ecosystem.h"
 #include "ct.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /**
  * @brief RapidIO base address for inbound requests
@@ -63,74 +64,74 @@ extern "C" {
 /** @brief RapidIO link speed */
 enum riomp_mgmt_link_speed {
 	RIO_LINK_DOWN = 0, /**< SRIO Link not initialized */
-	RIO_LINK_125 = 1,  /**< 1.25 GBaud  */
-	RIO_LINK_250 = 2,  /**< 2.5 GBaud   */
-	RIO_LINK_312 = 3,  /**< 3.125 GBaud */
-	RIO_LINK_500 = 4,  /**< 5.0 GBaud   */
-	RIO_LINK_625 = 5   /**< 6.25 GBaud  */
+	RIO_LINK_125 = 1, /**< 1.25 GBaud  */
+	RIO_LINK_250 = 2, /**< 2.5 GBaud   */
+	RIO_LINK_312 = 3, /**< 3.125 GBaud */
+	RIO_LINK_500 = 4, /**< 5.0 GBaud   */
+	RIO_LINK_625 = 5 /**< 6.25 GBaud  */
 };
 
 /** @brief RapidIO link width */
 enum riomp_mgmt_link_width {
-	RIO_LINK_1X  = 0,	/**< 1 lane */
-	RIO_LINK_1XR = 1,	/**< 1 lane redundancy mode */
-	RIO_LINK_2X  = 3,	/**< 2 lanes */
-	RIO_LINK_4X  = 2,	/**< 4 lanes */
-	RIO_LINK_8X  = 4,	/**< 8 lanes */
-	RIO_LINK_16X = 5	/**< 16 lanes */
+	RIO_LINK_1X = 0, /**< 1 lane */
+	RIO_LINK_1XR = 1, /**< 1 lane redundancy mode */
+	RIO_LINK_2X = 3, /**< 2 lanes */
+	RIO_LINK_4X = 2, /**< 4 lanes */
+	RIO_LINK_8X = 4, /**< 8 lanes */
+	RIO_LINK_16X = 5 /**< 16 lanes */
 };
 
 /** @brief mport handle flags */
 enum riomp_mgmt_mport_flags {
-	RIO_MPORT_DMA	 = (1 << 0), /**< supports DMA data transfers */
+	RIO_MPORT_DMA = (1 << 0), /**< supports DMA data transfers */
 	RIO_MPORT_DMA_SG = (1 << 1), /**< DMA supports HW SG mode */
-	RIO_MPORT_IBSG	 = (1 << 2), /**< inbound mapping supports SG */
+	RIO_MPORT_IBSG = (1 << 2), /**< inbound mapping supports SG */
 };
 
 /** TODO: Check if all the listed mport properties are really needed */
 /** @brief RapidIO mport properties */
 struct riomp_mgmt_mport_properties {
-	uint16_t hdid;				/**< mport host device ID */
-	uint8_t id;					/**< Physical port ID number */
-	uint8_t  index;				/**< Mport driver index numer */
-	uint32_t flags;				/**< TODO: what is this */
-	uint32_t sys_size;			/**< Default addressing size */
-	uint8_t  port_ok;			/**< link status */
-	uint8_t  link_speed;		/**< link speed */
-	uint8_t  link_width;		/**< link width */
-	uint32_t dma_max_sge;		/**< TODO: what is this */
-	uint32_t dma_max_size;		/**< TODO: what is this */
-	uint32_t dma_align;			/**< TODO: what is this */
-	uint32_t transfer_mode;		/**< Default transfer mode */
-	uint32_t cap_sys_size;		/**< Capable system sizes */
-	uint32_t cap_addr_size;		/**< Capable addressing sizes */
-	uint32_t cap_transfer_mode;	/**< Capable transfer modes */
-	uint32_t cap_mport;			/**< Mport capabilities */
+	uint16_t hdid; /**< mport host device ID */
+	uint8_t id; /**< Physical port ID number */
+	uint8_t index; /**< Mport driver index numer */
+	uint32_t flags; /**< TODO: what is this */
+	uint32_t sys_size; /**< Default addressing size */
+	uint8_t port_ok; /**< link status */
+	uint8_t link_speed; /**< link speed */
+	uint8_t link_width; /**< link width */
+	uint32_t dma_max_sge; /**< TODO: what is this */
+	uint32_t dma_max_size; /**< TODO: what is this */
+	uint32_t dma_align; /**< TODO: what is this */
+	uint32_t transfer_mode; /**< Default transfer mode */
+	uint32_t cap_sys_size; /**< Capable system sizes */
+	uint32_t cap_addr_size; /**< Capable addressing sizes */
+	uint32_t cap_transfer_mode; /**< Capable transfer modes */
+	uint32_t cap_mport; /**< Mport capabilities */
 };
 
 /** @brief doorbell event data */
 struct riomp_mgmt_doorbell {
-	uint32_t rioid;		/**< RapidIO peer ID */
-	uint16_t payload;	/**< doorbell payload */
+	uint32_t rioid; /**< RapidIO peer ID */
+	uint16_t payload; /**< doorbell payload */
 };
 
 /** @brief port write event data */
 struct riomp_mgmt_portwrite {
-	uint32_t payload[16];	/**< standard port write data */
+	uint32_t payload[16]; /**< standard port write data */
 };
 
 /** @brief RapidIO event */
 struct riomp_mgmt_event {
-	unsigned int header;	/**< event kind, e.g. RIO_EVENT_DOORBELL or RIO_EVENT_PORTWRITE */
+	unsigned int header; /**< event kind, e.g. RIO_EVENT_DOORBELL or RIO_EVENT_PORTWRITE */
 	union {
-		struct riomp_mgmt_doorbell doorbell;	/**< header is RIO_EVENT_DOORBELL */
-		struct riomp_mgmt_portwrite portwrite; 	/**< header is RIO_EVENT_PORTWRITE */
-	} u;					/**< Event specific data */
+		struct riomp_mgmt_doorbell doorbell; /**< header is RIO_EVENT_DOORBELL */
+		struct riomp_mgmt_portwrite portwrite; /**< header is RIO_EVENT_PORTWRITE */
+	} u; /**< Event specific data */
 };
 
 /** @brief RapidIO mport handle */
 struct rapidio_mport_handle {
-	int fd;			/**< posix api compatible fd to be used with poll/select */
+	int fd; /**< posix api compatible fd to be used with poll/select */
 	uint8_t mport_id;
 };
 
@@ -145,7 +146,7 @@ typedef struct rapidio_mport_handle *riomp_mport_t;
  * @return status of the function call
  * @retval 0 on success
  * @retval -errno on error
- * \note dev_ids is an array of values that combine mport id and the mport's 
+ * \note dev_ids is an array of values that combine mport id and the mport's
  *      destination ID, like so: ((mport_id << 16) | destid)
  * \note Free dev_ids via riomp_mgmt_free_mport_list.
  */
@@ -171,7 +172,8 @@ int riomp_mgmt_free_mport_list(uint32_t **dev_ids);
  * @retval 0 on success
  * @retval -errno on error
  */
-int riomp_mgmt_get_ep_list(uint8_t mport_id, uint32_t **destids, uint32_t *number_of_eps);
+int riomp_mgmt_get_ep_list(uint8_t mport_id, uint32_t **destids,
+		uint32_t *number_of_eps);
 
 /**
  * @brief free endpoint list
@@ -193,7 +195,8 @@ int riomp_mgmt_free_ep_list(uint32_t **destids);
  * @retval 0 on success
  * @retval -errno on error
  */
-int riomp_mgmt_mport_create_handle(uint32_t mport_id, int flags, riomp_mport_t *mport_handle);
+int riomp_mgmt_mport_create_handle(uint32_t mport_id, int flags,
+		riomp_mport_t *mport_handle);
 
 /**
  * @brief destroy mport handle
@@ -225,7 +228,8 @@ int riomp_mgmt_get_handle_id(riomp_mport_t mport_handle, int *id);
  * @retval 0 on success
  * @retval -errno on error
  */
-int riomp_mgmt_query(riomp_mport_t mport_handle, struct riomp_mgmt_mport_properties *qresp);
+int riomp_mgmt_query(riomp_mport_t mport_handle,
+		struct riomp_mgmt_mport_properties *qresp);
 
 /**
  * @brief print mport status to stdout
@@ -258,7 +262,8 @@ int riomp_mgmt_destid_set(riomp_mport_t mport_handle, uint16_t destid);
  * @retval 0 on success
  * @retval -errno on error
  */
-int riomp_mgmt_lcfg_read(riomp_mport_t mport_handle, uint32_t offset, uint32_t size, uint32_t *data);
+int riomp_mgmt_lcfg_read(riomp_mport_t mport_handle, uint32_t offset,
+		uint32_t size, uint32_t *data);
 
 /**
  * @brief write mport local CSR register
@@ -271,7 +276,8 @@ int riomp_mgmt_lcfg_read(riomp_mport_t mport_handle, uint32_t offset, uint32_t s
  * @retval 0 on success
  * @retval -errno on error
  */
-int riomp_mgmt_lcfg_write(riomp_mport_t mport_handle, uint32_t offset, uint32_t size, uint32_t data);
+int riomp_mgmt_lcfg_write(riomp_mport_t mport_handle, uint32_t offset,
+		uint32_t size, uint32_t data);
 
 /**
  * @brief read remote device CSR register
@@ -286,7 +292,8 @@ int riomp_mgmt_lcfg_write(riomp_mport_t mport_handle, uint32_t offset, uint32_t 
  * @retval 0 on success
  * @retval -errno on error
  */
-int riomp_mgmt_rcfg_read(riomp_mport_t mport_handle, uint32_t destid, hc_t hc, uint32_t offset, uint32_t size, uint32_t *data);
+int riomp_mgmt_rcfg_read(riomp_mport_t mport_handle, uint32_t destid, hc_t hc,
+		uint32_t offset, uint32_t size, uint32_t *data);
 
 /**
  * @brief write mport local CSR register
@@ -301,7 +308,8 @@ int riomp_mgmt_rcfg_read(riomp_mport_t mport_handle, uint32_t destid, hc_t hc, u
  * @retval 0 on success
  * @retval -errno on error
  */
-int riomp_mgmt_rcfg_write(riomp_mport_t mport_handle, uint32_t destid, hc_t hc, uint32_t offset, uint32_t size, uint32_t data);
+int riomp_mgmt_rcfg_write(riomp_mport_t mport_handle, uint32_t destid, hc_t hc,
+		uint32_t offset, uint32_t size, uint32_t data);
 
 /**
  * @brief enable a range of doorbell events
@@ -314,7 +322,8 @@ int riomp_mgmt_rcfg_write(riomp_mport_t mport_handle, uint32_t destid, hc_t hc, 
  * @retval 0 on success
  * @retval -errno on error
  */
-int riomp_mgmt_dbrange_enable(riomp_mport_t mport_handle, uint32_t rioid, uint16_t start, uint16_t end);
+int riomp_mgmt_dbrange_enable(riomp_mport_t mport_handle, uint32_t rioid,
+		uint16_t start, uint16_t end);
 
 /**
  * @brief disable a range of doorbell events
@@ -327,7 +336,8 @@ int riomp_mgmt_dbrange_enable(riomp_mport_t mport_handle, uint32_t rioid, uint16
  * @retval 0 on success
  * @retval -errno on error
  */
-int riomp_mgmt_dbrange_disable(riomp_mport_t mport_handle, uint32_t rioid, uint16_t start, uint16_t end);
+int riomp_mgmt_dbrange_disable(riomp_mport_t mport_handle, uint32_t rioid,
+		uint16_t start, uint16_t end);
 
 /**
  * @brief enable a range of port write events
@@ -340,7 +350,8 @@ int riomp_mgmt_dbrange_disable(riomp_mport_t mport_handle, uint32_t rioid, uint1
  * @retval 0 on success
  * @retval -errno on error
  */
-int riomp_mgmt_pwrange_enable(riomp_mport_t mport_handle, uint32_t mask, uint32_t low, uint32_t high);
+int riomp_mgmt_pwrange_enable(riomp_mport_t mport_handle, uint32_t mask,
+		uint32_t low, uint32_t high);
 
 /**
  * @brief disable a range of port write events
@@ -353,7 +364,8 @@ int riomp_mgmt_pwrange_enable(riomp_mport_t mport_handle, uint32_t mask, uint32_
  * @retval 0 on success
  * @retval -errno on error
  */
-int riomp_mgmt_pwrange_disable(riomp_mport_t mport_handle, uint32_t mask, uint32_t low, uint32_t high);
+int riomp_mgmt_pwrange_disable(riomp_mport_t mport_handle, uint32_t mask,
+		uint32_t low, uint32_t high);
 
 /**
  * @brief set RapidIO events mask
@@ -388,7 +400,8 @@ int riomp_mgmt_get_event_mask(riomp_mport_t mport_handle, unsigned int *mask);
  * @retval 0 on success
  * @retval -errno on error
  */
-int riomp_mgmt_get_event(riomp_mport_t mport_handle, struct riomp_mgmt_event *evt);
+int riomp_mgmt_get_event(riomp_mport_t mport_handle,
+		struct riomp_mgmt_event *evt);
 
 /**
  * @brief send a RapidIO event
@@ -401,7 +414,8 @@ int riomp_mgmt_get_event(riomp_mport_t mport_handle, struct riomp_mgmt_event *ev
  * @retval 0 on success
  * @retval -errno on error
  */
-int riomp_mgmt_send_event(riomp_mport_t mport_handle, struct riomp_mgmt_event *evt);
+int riomp_mgmt_send_event(riomp_mport_t mport_handle,
+		struct riomp_mgmt_event *evt);
 
 /**
  * @brief add kernel object
@@ -415,7 +429,8 @@ int riomp_mgmt_send_event(riomp_mport_t mport_handle, struct riomp_mgmt_event *e
  * @retval 0 on success
  * @retval -errno on error
  */
-int riomp_mgmt_device_add(riomp_mport_t mport_handle, uint16_t destid, hc_t hc, ct_t ctag, const char *name);
+int riomp_mgmt_device_add(riomp_mport_t mport_handle, uint16_t destid, hc_t hc,
+		ct_t ctag, const char *name);
 
 /**
  * @brief delete kernel object
@@ -429,9 +444,11 @@ int riomp_mgmt_device_add(riomp_mport_t mport_handle, uint16_t destid, hc_t hc, 
  * @retval 0 on success
  * @retval -errno on error
  */
-int riomp_mgmt_device_del(riomp_mport_t mport_handle, uint16_t destid, hc_t hc, ct_t ctag, const char *name);
+int riomp_mgmt_device_del(riomp_mport_t mport_handle, uint16_t destid, hc_t hc,
+		ct_t ctag, const char *name);
 
 #ifdef __cplusplus
 }
 #endif
-#endif /* _RAPIDIO_MPORT_MGMT_H_ */
+
+#endif /* __RAPIDIO_MPORT_MGMT_H__ */
