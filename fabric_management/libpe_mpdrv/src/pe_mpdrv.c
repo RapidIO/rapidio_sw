@@ -71,7 +71,7 @@
 extern "C" {
 #endif
 
-int mpsw_drv_reg_rd(struct riocp_pe *pe, uint32_t offset, uint32_t *val)
+int RIOCP_WU mpsw_drv_reg_rd(struct riocp_pe *pe, uint32_t offset, uint32_t *val)
 {
 	int ret;
 	struct mpsw_drv_private_data *priv_ptr;
@@ -95,7 +95,7 @@ int mpsw_drv_reg_rd(struct riocp_pe *pe, uint32_t offset, uint32_t *val)
 	return ret;
 }
 
-int mpsw_drv_reg_wr(struct riocp_pe *pe, uint32_t offset, uint32_t val)
+int RIOCP_WU mpsw_drv_reg_wr(struct riocp_pe *pe, uint32_t offset, uint32_t val)
 {
 	int ret;
 	struct mpsw_drv_private_data *priv_ptr = NULL;
@@ -129,7 +129,7 @@ int mpsw_drv_reg_wr(struct riocp_pe *pe, uint32_t offset, uint32_t val)
 	return 0;
 }
 
-int mpsw_drv_raw_reg_wr(struct riocp_pe *pe, uint32_t did, hc_t hc,
+int RIOCP_WU mpsw_drv_raw_reg_wr(struct riocp_pe *pe, uint32_t did, hc_t hc,
 		uint32_t addr, uint32_t val)
 {
 	int rc;
@@ -153,7 +153,7 @@ int mpsw_drv_raw_reg_wr(struct riocp_pe *pe, uint32_t did, hc_t hc,
 	return rc;
 }
 
-int mpsw_drv_raw_reg_rd(struct riocp_pe *pe, uint32_t did, hc_t hc,
+int RIOCP_WU mpsw_drv_raw_reg_rd(struct riocp_pe *pe, uint32_t did, hc_t hc,
 		uint32_t addr, uint32_t *val)
 {
 	int rc;
@@ -1245,13 +1245,6 @@ int RIOCP_WU mpsw_enable_pe(struct riocp_pe *pe, pe_port_t port)
 fail:
 	return -1;
 }
-
-struct riocp_reg_rw_driver pe_mpsw_rw_driver = {
-		mpsw_drv_reg_rd,
-		mpsw_drv_reg_wr,
-		mpsw_drv_raw_reg_rd,
-		mpsw_drv_raw_reg_wr
-};
 
 #ifdef __cplusplus
 }

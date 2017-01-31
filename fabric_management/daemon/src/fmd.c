@@ -433,8 +433,7 @@ int setup_mport_master(int mport)
 		}
 	}
 
-	if (riocp_pe_create_host_handle(&mport_pe, mport, 0, &pe_mpsw_rw_driver,
-			&comptag, name)) {
+	if (riocp_pe_create_host_handle(&mport_pe, mport, 0, &comptag, name)) {
 		CRIT("Cannot create host handle mport %d, exiting...", mport);
 		riocp_pe_destroy_handle(&mport_pe);
 		return 1;
@@ -500,8 +499,8 @@ int setup_mport_slave(int mport)
 		return 1;
 	}
 
-	if (riocp_pe_create_agent_handle(&mport_pe, mport, 0,
-			&pe_mpsw_rw_driver, &comptag, dev_name)) {
+	if (riocp_pe_create_agent_handle(&mport_pe, mport, 0, &comptag,
+			dev_name)) {
 		CRIT("\nCannot create agent handle for mport %d\n", mport);
 		return 1;
 	}

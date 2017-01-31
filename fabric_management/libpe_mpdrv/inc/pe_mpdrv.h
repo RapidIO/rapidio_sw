@@ -49,8 +49,6 @@ extern uint32_t SRIO_API_WriteRegFunc(DAR_DEV_INFO_t *d_info,
 		uint32_t offset, uint32_t writedata);
 extern void SRIO_API_DelayFunc(uint32_t delay_nsec, uint32_t delay_sec);
 
-extern struct riocp_reg_rw_driver pe_mpsw_rw_driver;
-
 // See riocp_drv definitions for comments (driver.h)
 int RIOCP_WU mpsw_drv_init_pe(struct riocp_pe *pe, uint32_t *ct,
 		struct riocp_pe *peer, char *name);
@@ -68,6 +66,13 @@ int RIOCP_WU mpsw_drv_reset_port(struct riocp_pe *pe, uint8_t port,
 
 int RIOCP_WU mpsw_get_mport_regs(int mp_num, struct mport_regs *regs);
 int RIOCP_WU mpsw_enable_pe(struct riocp_pe *pe, pe_port_t port);
+
+int RIOCP_WU mpsw_drv_reg_rd(struct riocp_pe *pe, uint32_t offset, uint32_t *val);
+int RIOCP_WU mpsw_drv_reg_wr(struct riocp_pe *pe, uint32_t offset, uint32_t val);
+int RIOCP_WU mpsw_drv_raw_reg_wr(struct riocp_pe *pe, uint32_t did, hc_t hc,
+		uint32_t addr, uint32_t val);
+int RIOCP_WU mpsw_drv_raw_reg_rd(struct riocp_pe *pe, uint32_t did, hc_t hc,
+		uint32_t addr, uint32_t *val);
 
 #ifdef __cplusplus
 }

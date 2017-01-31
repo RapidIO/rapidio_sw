@@ -108,7 +108,6 @@ struct riocp_pe_mport {
 	struct riocp_pe_llist_item handles;	/**< Handles of PEs behind this mport */
 	struct riocp_pe **comptag_pool;		/**< Pool of assigned component tags */
 	size_t comptag_pool_size;		/**< Pool size of assigned component tags */
-	struct riocp_reg_rw_driver reg_acc;	/**< Driver to allow local reads and writes of register space, and register reads/writes to other devices from this mport */
 	void *private_data;			/**< Mport private data */
 };
 
@@ -132,6 +131,16 @@ struct riocp_pe {
 	void *private_data;			/**< PE private data */
 };
 
+/* Register access */
+int RIOCP_WU riocp_drv_reg_rd(struct riocp_pe *pe, uint32_t offset,
+		uint32_t *val);
+int RIOCP_WU riocp_drv_reg_wr(struct riocp_pe *pe, uint32_t offset,
+		uint32_t val);
+int RIOCP_WU riocp_drv_raw_reg_rd(struct riocp_pe *pe, uint32_t did,
+		hc_t hc, uint32_t offset, uint32_t *val);
+int RIOCP_WU riocp_drv_raw_reg_wr(struct riocp_pe *pe, uint32_t did,
+		hc_t hc, uint32_t offset, uint32_t val);
+
 /* RapidIO control plane logging facility */
 int riocp_log(enum riocp_log_level level, const char *func, const char *file,
 	const unsigned int line, const char *format, ...);
@@ -141,19 +150,23 @@ void riocp_log_exit(void);
 /* Handle administration and information */
 int RIOCP_WU riocp_pe_handle_check(riocp_pe_handle handle);
 int RIOCP_WU riocp_pe_get_peer_list(riocp_pe_handle pe,
-	riocp_pe_handle **peer_list, size_t *peer_list_size);
+		riocp_pe_handle **peer_list, size_t *peer_list_size);
 int RIOCP_WU riocp_pe_free_peer_list(riocp_pe_handle *pes[]);
-int RIOCP_WU riocp_pe_handle_set_private(riocp_pe_handle pe, void *data);
-int RIOCP_WU riocp_pe_handle_get_private(riocp_pe_handle pe, void **data);
+int RIOCP_WU riocp_pe_handle_set_private(riocp_pe_handle pe,
+		void *data);
+int RIOCP_WU riocp_pe_handle_get_private(riocp_pe_handle pe,
+		void **data);
 int RIOCP_WU riocp_mport_set_private(riocp_pe_handle mport, void *data);
-int RIOCP_WU riocp_mport_get_private(riocp_pe_handle mport, void **data);
+int RIOCP_WU riocp_mport_get_private(riocp_pe_handle mport,
+		void **data);
 
 const char *riocp_pe_handle_get_device_str(riocp_pe_handle pe);
 const char *riocp_pe_handle_get_vendor_str(riocp_pe_handle pe);
-int riocp_pe_handle_get_list(riocp_pe_handle mport, riocp_pe_handle **pe_list,
-        size_t *pe_list_size);
+int riocp_pe_handle_get_list(riocp_pe_handle mport,
+		riocp_pe_handle **pe_list, size_t *pe_list_size);
 int riocp_pe_handle_get_peer_list(riocp_pe_handle pe,
-        riocp_pe_handle **pe_peer_list, size_t *pe_peer_list_size);
+		riocp_pe_handle **pe_peer_list,
+		size_t *pe_peer_list_size);
 int riocp_pe_handle_free_list(riocp_pe_handle **list);
 
 /* Dot graph */

@@ -481,8 +481,7 @@ err:
  * @retval -EIO Unable to initialize or read rapidio maintenance
  */
 int riocp_pe_handle_create_mport(uint8_t mport, bool is_host,
-	struct riocp_pe **handle, struct riocp_reg_rw_driver *drv,
-	ct_t *comptag, char *name)
+		struct riocp_pe **handle, ct_t *comptag, char *name)
 {
 	int ret = 0;
 	struct riocp_pe *h = NULL;
@@ -515,9 +514,9 @@ int riocp_pe_handle_create_mport(uint8_t mport, bool is_host,
 	h->minfo->ref     = 1; /* Initialize reference count */
 	h->minfo->id      = mport;
 	h->minfo->is_host = is_host;
-	h->minfo->reg_acc = *drv;
-	if (NULL != comptag)
+	if (NULL != comptag) {
 		h->comptag = *comptag;
+	}
 
 	/* Add new handle to mport handles list BEFORE any maintenace access
 		(which depends on checking for valid handle in list) */
