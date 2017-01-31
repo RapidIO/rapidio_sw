@@ -85,6 +85,7 @@ typedef struct RXS_test_state_t_TAG {
 	uint32_t destid;
 	struct rapidio_mport_handle *mp_h;
 	bool mp_h_valid;
+	uint32_t conn_port;
 } RXS_test_state_t;
 
 RXS_test_state_t st;
@@ -463,9 +464,18 @@ static void init_mock_rxs_reg(void **state)
  */
 static int setup(void **state)
 {
+	uint32_t sw_port_info;
+	uint32_t rc;
+	RXS_test_state_t *RXS = *(RXS_test_state_t **)state;
+
         memset(&mock_dev_info, 0x00, sizeof(rio_sc_dev_ctrs_t));
 	rxs_test_setup();
         init_mock_rxs_reg(state);
+	if (RXS->real_hw) {
+		rc = RXSReadReg(&mock_dev_info, RIO_SW_PORT_INF, &sw_port_info);
+		assert_int_equal(rc, 0);
+		RXS->conn_port = sw_port_info & RIO_SW_PORT_INF_PORT;
+	}
 
         return 0;
 }
@@ -697,7 +707,8 @@ void rxs_init_dev_ctrs_test_good_ptl(void **state)
 
 #define MAX_SC_CFG_VAL 21
 
-void test_rxs_cfg_dev_ctr(rio_sc_cfg_rxs_ctr_in_t *mock_sc_in, int sc_cfg)
+void test_rxs_cfg_dev_ctr(void **state,
+			rio_sc_cfg_rxs_ctr_in_t *mock_sc_in, int sc_cfg)
 {
         bool tx = true;
 	uint32_t reg_val = 0;
@@ -707,6 +718,8 @@ void test_rxs_cfg_dev_ctr(rio_sc_cfg_rxs_ctr_in_t *mock_sc_in, int sc_cfg)
 	bool srio = true;
 	bool expect_fail = false;
 	uint32_t cdata;
+	RXS_test_state_t *RXS = *(RXS_test_state_t **)state;
+	bool check_ctr = true;
 
 	// Pick out a test value.  Test values cover all valid request
 	// parameters, and 3 invalid combinations.
@@ -740,6 +753,10 @@ void test_rxs_cfg_dev_ctr(rio_sc_cfg_rxs_ctr_in_t *mock_sc_in, int sc_cfg)
 		break;
 	case 6: mock_sc_in->ctr_type = rio_sc_rio_bwidth;
 		reg_val = RXS_RIO_SPX_PCNTR_CTL_SEL_RIO_TTL_PKTCNTR;
+		// RIO BANDWIDTH is a free running counter, incremented on
+		// every TX clock cycle.  The counter will never be 0 on
+		// hardware.
+		check_ctr = !RXS->real_hw;
 		break;
 	case 7: mock_sc_in->ctr_type = rio_sc_disabled;
 		reg_val = RXS_RIO_SPX_PCNTR_CTL_SEL_DISABLED;
@@ -890,10 +907,12 @@ void test_rxs_cfg_dev_ctr(rio_sc_cfg_rxs_ctr_in_t *mock_sc_in, int sc_cfg)
 		assert_int_equal(cdata, reg_val_temp);
 
 		// Check counter value
-		assert_int_equal(RIO_SUCCESS,
-			DARRegRead(&mock_dev_info,
+		if ((port != RXS->conn_port) && (check_ctr)) {
+			assert_int_equal(RIO_SUCCESS,
+				DARRegRead(&mock_dev_info,
 				RXS_RIO_SPX_PCNTR_CNT(port, ctr_idx), &cdata));
-		assert_int_equal(cdata, 0);
+			assert_int_equal(cdata, 0);
+		}
 	}
 }
 
@@ -927,7 +946,7 @@ void rxs_cfg_dev_ctrs_test_per_port(void **state)
 				++mock_sc_in.ctr_idx) {
 			for (val = 0; val < MAX_SC_CFG_VAL; val++) {
         			mock_sc_in.prio_mask = FIRST_BYTE_MASK;
-				test_rxs_cfg_dev_ctr(&mock_sc_in, val);
+				test_rxs_cfg_dev_ctr(state, &mock_sc_in, val);
 			}
 		}
         }
@@ -958,7 +977,7 @@ void rxs_cfg_dev_ctrs_test_all_ports(void **state)
 			++mock_sc_in.ctr_idx) {
 		for (val = 0; val < MAX_SC_CFG_VAL; val++) {
         		mock_sc_in.prio_mask = FIRST_BYTE_MASK;
-			test_rxs_cfg_dev_ctr(&mock_sc_in, val);
+			test_rxs_cfg_dev_ctr(state, &mock_sc_in, val);
 		}
 	}
 	(void)state; // unused
@@ -986,18 +1005,35 @@ void rxs_cfg_dev_ctrs_test_default(void **state)
 			mock_sc_in.ctr_idx < RXS2448_MAX_SC;
 			++mock_sc_in.ctr_idx) {
         	mock_sc_in.prio_mask = FIRST_BYTE_MASK;
-		test_rxs_cfg_dev_ctr(&mock_sc_in, mock_sc_in.ctr_idx);
+		test_rxs_cfg_dev_ctr(state, &mock_sc_in, mock_sc_in.ctr_idx);
 	}
 	(void)state; // unused
 }
 
-static void rxs_init_read_ctrs(rio_sc_read_ctrs_in_t *parms_in)
+static void rxs_init_read_ctrs(void **state, rio_sc_read_ctrs_in_t *parms_in)
 {
-	uint8_t srch_i;
-	uint32_t cntr;
+	uint8_t val;
+	rio_sc_cfg_rxs_ctr_in_t      mock_sc_in;
 
 	parms_in->ptl.num_ports = RIO_ALL_PORTS;
 	parms_in->dev_ctrs = mock_dev_ctrs;
+
+	// Loop through each counter on each port, 
+	// programming the counter control value.
+        mock_sc_in.ptl.num_ports = RIO_ALL_PORTS;
+        mock_sc_in.dev_ctrs = parms_in->dev_ctrs;
+        mock_sc_in.ctr_en = true;
+
+        for (mock_sc_in.ctr_idx = 0;
+			mock_sc_in.ctr_idx < RXS2448_MAX_SC;
+			++mock_sc_in.ctr_idx) {
+		for (val = 0; val < MAX_SC_CFG_VAL; val++) {
+        		mock_sc_in.prio_mask = FIRST_BYTE_MASK;
+			test_rxs_cfg_dev_ctr(state, &mock_sc_in, val);
+		}
+	}
+
+/*
         for (srch_i = 0; srch_i < parms_in->dev_ctrs->valid_p_ctrs; srch_i++) {
 		for (cntr = 0; cntr < RXS2448_MAX_SC; cntr++) {
 			parms_in->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].tx = true;
@@ -1028,6 +1064,7 @@ static void rxs_init_read_ctrs(rio_sc_read_ctrs_in_t *parms_in)
 			}
 		}
 	}
+*/
 }
 
 void rxs_read_dev_ctrs_test(void **state)
@@ -1036,10 +1073,11 @@ void rxs_read_dev_ctrs_test(void **state)
 	rio_sc_read_ctrs_out_t     mock_sc_out;
         rio_sc_init_dev_ctrs_in_t      init_in;
         rio_sc_init_dev_ctrs_out_t     init_out;
-	int ctr_idx, port;
+	unsigned int ctr_idx, port;
 	uint32_t cdata;
 	uint32_t rval;
 	uint32_t st_val = 0x10;
+	RXS_test_state_t *RXS = *(RXS_test_state_t **)state;
 
 	// Initialize counters structure
         rxs_init_ctrs(&init_in);
@@ -1048,7 +1086,7 @@ void rxs_read_dev_ctrs_test(void **state)
         assert_int_equal(RIO_SUCCESS, init_out.imp_rc);
 
 	// Set up counters 
-	rxs_init_read_ctrs(&mock_sc_in);
+	rxs_init_read_ctrs(state, &mock_sc_in);
 
 	// Set up counter registers
 	for (port = 0; port < RXS2448_MAX_PORTS; port++) {
@@ -1069,6 +1107,11 @@ void rxs_read_dev_ctrs_test(void **state)
 
 	// Check counter values... 
 	for (port = 0; port < RXS2448_MAX_PORTS; port++) {
+		// Counters on the port that is used to access the switch
+		// cannot be checked due to actions of the unit test.
+		if (RXS->real_hw && (port == RXS->conn_port)) {
+			continue;
+		}
 		for (ctr_idx = 0; ctr_idx < RXS2448_MAX_SC; ctr_idx++) {
 			// Check the counter value for the port...
 			assert_int_equal(RIO_SUCCESS,
@@ -1082,9 +1125,9 @@ void rxs_read_dev_ctrs_test(void **state)
 				rval = 0;
 			}
 			assert_int_equal(rval,
-				pp_ctrs[port].ctrs[ctr_idx].total);
-			assert_int_equal(rval,
 				pp_ctrs[port].ctrs[ctr_idx].last_inc);
+			assert_int_equal(rval,
+				pp_ctrs[port].ctrs[ctr_idx].total);
 			if (rval) {
 				assert_int_equal(rval, cdata);
 			}
@@ -1111,6 +1154,11 @@ void rxs_read_dev_ctrs_test(void **state)
 
 	// Check counter values... 
 	for (port = 0; port < RXS2448_MAX_PORTS; port++) {
+		// Counters on the port that is used to access the switch
+		// cannot be checked due to actions of the unit test.
+		if (RXS->real_hw && (port == RXS->conn_port)) {
+			continue;
+		}
 		for (ctr_idx = 0; ctr_idx < RXS2448_MAX_SC; ctr_idx++) {
 			// Check the counter value for the port...
 			rval = st_val + (port * RXS2448_MAX_SC) + ctr_idx;
@@ -1135,6 +1183,11 @@ void rxs_read_dev_ctrs_test(void **state)
 
 	// Decrement counter registers, check for wrap around handling...
 	for (port = 0; port < RXS2448_MAX_PORTS; port++) {
+		// Counters on the port that is used to access the switch
+		// cannot be checked due to actions of the unit test.
+		if (RXS->real_hw && (port == RXS->conn_port)) {
+			continue;
+		}
 		for (ctr_idx = 0; ctr_idx < RXS2448_MAX_SC; ctr_idx++) {
 			// Set non-zero counter value for the port
 			rval = st_val + (port * RXS2448_MAX_SC) + ctr_idx;
@@ -1152,6 +1205,11 @@ void rxs_read_dev_ctrs_test(void **state)
 
 	// Check counter values... 
 	for (port = 0; port < RXS2448_MAX_PORTS; port++) {
+		// Counters on the port that is used to access the switch
+		// cannot be checked due to actions of the unit test.
+		if (RXS->real_hw && (port == RXS->conn_port)) {
+			continue;
+		}
 		for (ctr_idx = 0; ctr_idx < RXS2448_MAX_SC; ctr_idx++) {
 			uint64_t base = (uint64_t)0x100000000;
 			// Check the counter value for the port...
@@ -1192,7 +1250,7 @@ void rxs_read_dev_ctrs_test_bad_parms1(void **state)
         assert_int_equal(RIO_SUCCESS, init_out.imp_rc);
 
 	// Set up counters 
-	rxs_init_read_ctrs(&mock_sc_in);
+	rxs_init_read_ctrs(state, &mock_sc_in);
 
 	// Now try some bad parameters/failure test cases
 	mock_sc_in.ptl.num_ports = RXS2448_MAX_PORTS + 1;
@@ -1230,15 +1288,6 @@ void rxs_read_dev_ctrs_test_bad_parms2(void **state)
         rio_sc_init_dev_ctrs_in_t      init_in;
         rio_sc_init_dev_ctrs_out_t     init_out;
 
-	// Initialize counters structure
-        rxs_init_ctrs(&init_in);
-        assert_int_equal(RIO_SUCCESS, rxs_rio_sc_init_dev_ctrs(&mock_dev_info,
-						&init_in, &init_out));
-        assert_int_equal(RIO_SUCCESS, init_out.imp_rc);
-
-	// Set up counters 
-	rxs_init_read_ctrs(&mock_sc_in);
-
 	// Try to read a port that is not in the port list.
         rxs_init_ctrs(&init_in);
 	init_in.ptl.num_ports = 3;
@@ -1249,8 +1298,6 @@ void rxs_read_dev_ctrs_test_bad_parms2(void **state)
         assert_int_equal(RIO_SUCCESS, rxs_rio_sc_init_dev_ctrs(&mock_dev_info,
 						&init_in, &init_out));
         assert_int_equal(RIO_SUCCESS, init_out.imp_rc);
-
-	rxs_init_read_ctrs(&mock_sc_in);
 
 	mock_sc_in.ptl.num_ports = 1;
 	mock_sc_in.ptl.pnums[0] = 5;
@@ -1317,8 +1364,12 @@ static void rxs_reg_mc_mask(uint32_t port, uint32_t mc_mask_num, uint32_t *mc_ma
         assert_int_equal(RIO_SUCCESS, DARRegRead(&mock_dev_info, MC_MASK_ADDR(base_mask_addr, mc_mask_num), mc_mask_out));
 }
 
-void check_init_rt_regs_port(uint32_t chk_on_port,
-		uint32_t chk_dflt_val, uint32_t chk_rt_val, uint32_t chk_mask, uint32_t chk_first_dom_val)
+void check_init_rt_regs_port(
+		uint32_t chk_on_port,
+		uint32_t chk_dflt_val,
+		uint32_t chk_rt_val,
+		uint32_t chk_mask,
+		uint32_t chk_first_dom_val)
 {
 	uint32_t rt_num, temp, s_rt_num = 0;
 	uint32_t dom_out, dev_out, mask_num, mc_mask_out;
@@ -1344,7 +1395,7 @@ void check_init_rt_regs_port(uint32_t chk_on_port,
 	}
 }
 
-void check_init_rt_regs(uint32_t port, bool hw,
+void check_init_rt_regs(void **state, uint32_t port, bool hw,
 		rio_rt_initialize_in_t *mock_init_in)
 {
 	uint32_t st_p = port;
@@ -1353,20 +1404,22 @@ void check_init_rt_regs(uint32_t port, bool hw,
 	uint32_t chk_dflt_val = (hw)?mock_init_in->default_route:0;
         uint32_t chk_first_idx_dom_val = (hw)?RIO_DSF_RT_USE_DEVICE_TABLE:0;
 	uint32_t chk_mask = 0;
+	RXS_test_state_t *RXS = *(RXS_test_state_t **)state;
 
+	// When running on real hardware, and the hardware has not been
+	// updated, it is not possible to check the register values...
+	if (RXS->real_hw && !hw) {
+		return;
+	}
 	if (port == RIO_ALL_PORTS) {
 		st_p = 0;
 		end_p = RXS2448_MAX_PORTS - 1;
-
-		 for (port = st_p; port <= end_p; port++) {
-			check_init_rt_regs_port(port,
-                                chk_dflt_val, chk_rt_val, chk_mask, chk_first_idx_dom_val);
-                 }
 	}
 
 	for (port = st_p; port <= end_p; port++) {
 		check_init_rt_regs_port(port,
-				chk_dflt_val, chk_rt_val, chk_mask, chk_first_idx_dom_val);
+				chk_dflt_val, chk_rt_val,
+				chk_mask, chk_first_idx_dom_val);
 	}
 }
 
@@ -1421,14 +1474,13 @@ void rxs_init_rt_test_success_all_ports(void **state, bool hw)
         uint8_t port;
 
         for (port = 0; port <= RXS2448_MAX_PORTS; port++) {
-            init_mock_rxs_reg(state);
-            rxs_init_mock_rt(&rt);
+		init_mock_rxs_reg(state);
+		rxs_init_mock_rt(&rt);
 		if (RXS2448_MAX_PORTS == port) {
             		mock_init_in.set_on_port = RIO_ALL_PORTS;
-            		mock_init_in.default_route =
-						RIO_DSF_RT_NO_ROUTE;
+            		mock_init_in.default_route = RIO_DSF_RT_NO_ROUTE;
             		mock_init_in.default_route_table_port =
-					RIO_DSF_RT_USE_DEFAULT_ROUTE;
+						RIO_DSF_RT_USE_DEFAULT_ROUTE;
 		} else {
             		mock_init_in.set_on_port = port;
             		mock_init_in.default_route = port;
@@ -1444,7 +1496,7 @@ void rxs_init_rt_test_success_all_ports(void **state, bool hw)
             assert_int_equal(RIO_SUCCESS, mock_init_out.imp_rc);
 
             check_init_struct(&mock_init_in);
-            check_init_rt_regs(mock_init_in.set_on_port, mock_init_in.update_hw, &mock_init_in);
+            check_init_rt_regs(state, mock_init_in.set_on_port, mock_init_in.update_hw, &mock_init_in);
         }
 }
 
@@ -1464,33 +1516,35 @@ void rxs_init_rt_test_success_hw(void **state)
 
 void rxs_init_rt_null_test_success(void **state)
 {
-        rio_rt_initialize_in_t      mock_init_in;
-        rio_rt_initialize_out_t     mock_init_out;
+	rio_rt_initialize_in_t	  mock_init_in;
+	rio_rt_initialize_out_t	 mock_init_out;
+	uint32_t temp;
+	uint8_t port;
+	RXS_test_state_t *RXS = *(RXS_test_state_t **)state;
 
-        uint32_t temp;
-        uint8_t port;
+	for (port = 0; port < RXS2448_MAX_PORTS; port++) {
+		init_mock_rxs_reg(state);
+		assert_int_equal(RIO_SUCCESS, DARRegRead(&mock_dev_info, RXS_RIO_ROUTE_DFLT_PORT, &temp));
+		mock_init_in.set_on_port = port;
+		mock_init_in.default_route = (uint8_t)(temp & RXS_RIO_ROUTE_DFLT_PORT_DEFAULT_OUT_PORT);
+		mock_init_in.default_route_table_port = RIO_DSF_RT_NO_ROUTE;
+		mock_init_in.update_hw = false;
+		mock_init_in.rt		= NULL;
 
-        for (port = 0; port < RXS2448_MAX_PORTS; port++) {
-            init_mock_rxs_reg(state);
-            assert_int_equal(RIO_SUCCESS, DARRegRead(&mock_dev_info, RXS_RIO_ROUTE_DFLT_PORT, &temp));
-            mock_init_in.set_on_port = port;
-            mock_init_in.default_route = (uint8_t)(temp & RXS_RIO_ROUTE_DFLT_PORT_DEFAULT_OUT_PORT);
-            mock_init_in.default_route_table_port = RIO_DSF_RT_NO_ROUTE;
-            mock_init_in.update_hw = false;
-            mock_init_in.rt        = NULL;
+		assert_int_equal(RIO_SUCCESS, rxs_rio_rt_initialize(&mock_dev_info, &mock_init_in, &mock_init_out));
+		assert_int_equal(RIO_SUCCESS, mock_init_out.imp_rc);
 
-            assert_int_equal(RIO_SUCCESS, rxs_rio_rt_initialize(&mock_dev_info, &mock_init_in, &mock_init_out));
-            assert_int_equal(RIO_SUCCESS, mock_init_out.imp_rc);
+		//Check initialze values
+		// It is not possible to predict the default route value
+		// on real hardware.
+		if (!RXS->real_hw) {
+			assert_int_equal(0, mock_init_in.default_route);
+		}
+		assert_true(!mock_init_in.update_hw);
+		assert_null(mock_init_in.rt);
 
-            //Check initialze values
-            assert_int_equal(0, mock_init_in.default_route);
-            assert_true(!mock_init_in.update_hw);
-            assert_null(mock_init_in.rt);
-
-            check_init_rt_regs(port, mock_init_in.update_hw, &mock_init_in);
-        }
-
-        (void)state; // unused
+		check_init_rt_regs(state, port, mock_init_in.update_hw, &mock_init_in);
+	}
 }
 
 void rxs_init_rt_null_update_hw_test_success(void **state)
@@ -1499,6 +1553,7 @@ void rxs_init_rt_null_update_hw_test_success(void **state)
         rio_rt_initialize_out_t     mock_init_out;
         uint32_t temp;
         uint8_t port;
+	RXS_test_state_t *RXS = *(RXS_test_state_t **)state;
 
         for (port = 0; port < RXS2448_MAX_PORTS; port++) {
             init_mock_rxs_reg(state);
@@ -1512,44 +1567,53 @@ void rxs_init_rt_null_update_hw_test_success(void **state)
              assert_int_equal(RIO_SUCCESS, rxs_rio_rt_initialize(&mock_dev_info, &mock_init_in, &mock_init_out));
              assert_int_equal(RIO_SUCCESS, mock_init_out.imp_rc);
 
+		// It is not possible to predict the default route value
+		// on real hardware.
+             if (!RXS->real_hw) {
+             		assert_int_equal(0, mock_init_in.default_route);
+		}
              //Check initialze values
-             assert_int_equal(0, mock_init_in.default_route);
              assert_true(mock_init_in.update_hw);
              assert_null(mock_init_in.rt);
 
-             check_init_rt_regs(port, mock_init_in.update_hw, &mock_init_in);
+             check_init_rt_regs(state, port, mock_init_in.update_hw, &mock_init_in);
         }
 
         (void)state; // unused
 }
 void rxs_init_rt_test_port_rte(void **state)
 {
-        rio_rt_initialize_in_t      mock_init_in;
-        rio_rt_initialize_out_t     mock_init_out;
-        rio_rt_state_t              rt;
-        uint32_t temp;
-        uint8_t port;
+	rio_rt_initialize_in_t init_in;
+	rio_rt_initialize_out_t init_out;
+	rio_rt_state_t			  rt;
+	uint32_t temp;
+	uint8_t port;
+	RXS_test_state_t *RXS = *(RXS_test_state_t **)state;
 
-        for (port = 0; port < RXS2448_MAX_PORTS; port++) {
-            init_mock_rxs_reg(state);
-            rxs_init_mock_rt(&rt);
-            assert_int_equal(RIO_SUCCESS, DARRegRead(&mock_dev_info, RXS_RIO_ROUTE_DFLT_PORT, &temp));
-            mock_init_in.set_on_port = port;
-            mock_init_in.default_route = (uint8_t)(temp & RXS_RIO_ROUTE_DFLT_PORT_DEFAULT_OUT_PORT);
-            mock_init_in.default_route_table_port = RIO_DSF_RT_NO_ROUTE;
-            mock_init_in.update_hw = true;
-            mock_init_in.rt        = &rt;
+	for (port = 0; port < RXS2448_MAX_PORTS; port++) {
+		init_mock_rxs_reg(state);
+		rxs_init_mock_rt(&rt);
+		assert_int_equal(RIO_SUCCESS,
+			DARRegRead(&mock_dev_info, RXS_RIO_ROUTE_DFLT_PORT, &temp));
+		init_in.set_on_port = port;
+		init_in.default_route = (uint8_t)(temp & RXS_RIO_ROUTE_DFLT_PORT_DEFAULT_OUT_PORT);
+		init_in.default_route_table_port = RIO_DSF_RT_NO_ROUTE;
+		init_in.update_hw = true;
+		init_in.rt		= &rt;
 
-            assert_int_equal(RIO_SUCCESS, rxs_rio_rt_initialize(&mock_dev_info, &mock_init_in, &mock_init_out));
-            assert_int_equal(RIO_SUCCESS, mock_init_out.imp_rc);
+		assert_int_equal(RIO_SUCCESS,
+			rxs_rio_rt_initialize(&mock_dev_info, &init_in, &init_out));
+		assert_int_equal(RIO_SUCCESS, init_out.imp_rc);
 
-            assert_int_equal(0, mock_init_in.rt->default_route);
+		// It is not possible to predict the default route value
+		// on real hardware.
+		if (!RXS->real_hw) {
+			assert_int_equal(0, init_in.rt->default_route);
+		}
 
-            check_init_struct(&mock_init_in);
-	    check_init_rt_regs(port, mock_init_in.update_hw, &mock_init_in);
-        }
-
-        (void)state; // unused
+		check_init_struct(&init_in);
+		check_init_rt_regs(state, port, init_in.update_hw, &init_in);
+	}
 }
 
 void rxs_init_rt_test_all_port_mc_mask(void **state)
@@ -1572,7 +1636,7 @@ void rxs_init_rt_test_all_port_mc_mask(void **state)
         assert_int_equal(RIO_SUCCESS, mock_init_out.imp_rc);
 
         check_init_struct(&mock_init_in);
-        check_init_rt_regs(port, mock_init_in.update_hw, &mock_init_in);
+        check_init_rt_regs(state, port, mock_init_in.update_hw, &mock_init_in);
 
         (void)state; // unused
 }
