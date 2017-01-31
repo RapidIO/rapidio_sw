@@ -36,15 +36,6 @@ int RIOCP_WU riocp_drv_get_port_state(struct riocp_pe *pe, uint8_t port,
 int RIOCP_WU riocp_drv_reset_port(struct riocp_pe *pe, uint8_t port,
 		bool reset_lp);
 
-int RIOCP_WU riocp_drv_reg_rd(struct riocp_pe *pe, uint32_t offset,
-		uint32_t *val);
-int RIOCP_WU riocp_drv_reg_wr(struct riocp_pe *pe, uint32_t offset,
-		uint32_t val);
-int RIOCP_WU riocp_drv_raw_reg_rd(struct riocp_pe *pe, uint32_t did,
-		hc_t hc, uint32_t offset, uint32_t *val);
-int RIOCP_WU riocp_drv_raw_reg_wr(struct riocp_pe *pe, uint32_t did,
-		hc_t hc, uint32_t offset, uint32_t val);
-
 #ifdef __cplusplus
 }
 #endif

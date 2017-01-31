@@ -21,32 +21,35 @@ extern "C" {
 /**
  * Write lock at hopcount, destid. Make sure the route is programmed!
  */
-int riocp_pe_lock_read(struct riocp_pe *pe, uint32_t destid, hc_t hopcount, uint32_t *lock)
+int riocp_pe_lock_read(struct riocp_pe *pe, uint32_t destid, hc_t hopcount,
+		uint32_t *lock)
 {
 	int ret;
 	uint32_t _lock;
 
 	ret = riocp_drv_raw_reg_rd(pe, destid, hopcount,
-						RIO_HOST_LOCK, &_lock);
-	if (ret)
+	RIO_HOST_LOCK, &_lock);
+	if (ret) {
 		return -EIO;
+	}
 
 	*lock = _lock & RIO_HOST_LOCK_BASE_ID_MASK;
-
 	return 0;
 }
 
 /**
  * Read lock at hopcount, destid. Make sure the route is programmed!
  */
-int riocp_pe_lock_write(struct riocp_pe *pe, uint32_t destid, hc_t hopcount, uint32_t lock)
+int riocp_pe_lock_write(struct riocp_pe *pe, uint32_t destid, hc_t hopcount,
+		uint32_t lock)
 {
 	int ret;
 
 	ret = riocp_drv_raw_reg_wr(pe, destid, hopcount,
-						RIO_HOST_LOCK, lock);
-	if (ret)
+	RIO_HOST_LOCK, lock);
+	if (ret) {
 		return -EIO;
+	}
 
 	return 0;
 }
@@ -117,8 +120,9 @@ int riocp_pe_lock_clear(struct riocp_pe *mport, uint32_t destid, hc_t hopcount)
 	RIOCP_DEBUG("Lock set to 0x%08x (d: %u, h: %u)\n",
 		lock, destid, hopcount);
 
-	if (lock == RIO_HOST_LOCK_BASE_ID_MASK)
+	if (lock == RIO_HOST_LOCK_BASE_ID_MASK) {
 		return 0;
+	}
 
 	ret = riocp_pe_lock_write(mport, destid, hopcount, lock);
 	if (ret) {

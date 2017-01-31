@@ -249,7 +249,7 @@ int RIOCP_WU riocp_drv_reg_rd(struct riocp_pe *pe, uint32_t offset,
 		uint32_t *val)
 {
 	if (RIOCP_PE_IS_HOST(pe) || RIOCP_PE_IS_MPORT(pe)) {
-		return pe->mport->minfo->reg_acc.reg_rd(pe, offset, val);
+		return mpsw_drv_reg_rd(pe, offset, val);
 	}
 	return -ENOSYS;
 }
@@ -267,7 +267,7 @@ int RIOCP_WU riocp_drv_reg_wr(struct riocp_pe *pe, uint32_t offset,
 		uint32_t val)
 {
 	if (RIOCP_PE_IS_HOST(pe) || RIOCP_PE_IS_MPORT(pe)) {
-		return pe->mport->minfo->reg_acc.reg_wr(pe, offset, val);
+		return mpsw_drv_reg_wr(pe, offset, val);
 	}
 	return -ENOSYS;
 }
@@ -276,8 +276,7 @@ int RIOCP_WU riocp_drv_raw_reg_rd(struct riocp_pe *pe, uint32_t did, hc_t hc,
 		uint32_t offset, uint32_t *val)
 {
 	if (RIOCP_PE_IS_HOST(pe) || RIOCP_PE_IS_MPORT(pe)) {
-		return pe->mport->minfo->reg_acc.raw_reg_rd(pe, did, hc, offset,
-				val);
+		return mpsw_drv_raw_reg_rd(pe, did, hc, offset, val);
 	}
 	return -ENOSYS;
 }
@@ -286,8 +285,7 @@ int RIOCP_WU riocp_drv_raw_reg_wr(struct riocp_pe *pe, uint32_t did, hc_t hc,
 		uint32_t offset, uint32_t val)
 {
 	if (RIOCP_PE_IS_HOST(pe) || RIOCP_PE_IS_MPORT(pe)) {
-		return pe->mport->minfo->reg_acc.raw_reg_wr(pe, did, hc, offset,
-				val);
+		return mpsw_drv_raw_reg_wr(pe, did, hc, offset, val);
 	}
 	return -ENOSYS;
 }

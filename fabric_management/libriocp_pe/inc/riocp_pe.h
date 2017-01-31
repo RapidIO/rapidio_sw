@@ -127,19 +127,6 @@ struct mport_regs {
 				// Tsi721: TSI721_RIO_WHITEBOARD
 };
 
-struct riocp_reg_rw_driver {
-	int RIOCP_WU (* reg_rd)(struct riocp_pe *pe,
-			uint32_t offset, uint32_t *val);
-	int RIOCP_WU (* reg_wr)(struct riocp_pe *pe,
-			uint32_t offset, uint32_t val);
-	int RIOCP_WU (* raw_reg_rd)(struct riocp_pe *pe, 
-			uint32_t did, hc_t hc,
-			uint32_t addr, uint32_t *val);
-	int RIOCP_WU (* raw_reg_wr)(struct riocp_pe *pe,
-			uint32_t did, hc_t hc,
-			uint32_t addr, uint32_t val);
-};
-
 int RIOCP_WU riocp_pe_handle_set_private(riocp_pe_handle pe,
 		void *data);
 int RIOCP_WU riocp_pe_handle_get_private(riocp_pe_handle pe,
@@ -157,12 +144,10 @@ int RIOCP_WU riocp_mport_get_pe_list(riocp_pe_handle mport,
 int RIOCP_WU riocp_mport_free_pe_list(riocp_pe_handle *pes[]);
 
 int RIOCP_WU riocp_pe_create_host_handle(riocp_pe_handle *handle,
-		uint8_t mport, unsigned int rev,
-		struct riocp_reg_rw_driver *drv, uint32_t *ct,
+		uint8_t mport, unsigned int rev, uint32_t *ct,
 		char *name);
 int RIOCP_WU riocp_pe_create_agent_handle(riocp_pe_handle *handle,
-		uint8_t mport, unsigned int rev,
-		struct riocp_reg_rw_driver *drv, uint32_t *ct,
+		uint8_t mport, unsigned int rev, uint32_t *ct,
 		char *name);
 
 int RIOCP_WU riocp_pe_discover(riocp_pe_handle pe, uint8_t port,

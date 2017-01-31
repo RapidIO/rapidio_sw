@@ -32,8 +32,7 @@ int RIOCP_WU riocp_pe_handle_create_pe(struct riocp_pe *pe, struct riocp_pe **ha
 	hc_t hopcount, uint32_t destid, uint8_t port, ct_t *comptag_in,
 	char *name);
 int RIOCP_WU riocp_pe_handle_create_mport(uint8_t mport, bool is_host,
-	struct riocp_pe **handle, struct riocp_reg_rw_driver *drv,
-	ct_t *comptag, char *name);
+		struct riocp_pe **handle, ct_t *comptag, char *name);
 void riocp_pe_handle_mport_get(struct riocp_pe *mport);
 void riocp_pe_handle_mport_put(struct riocp_pe **mport);
 int RIOCP_WU riocp_pe_handle_pe_exists(struct riocp_pe *mport, ct_t comptag,

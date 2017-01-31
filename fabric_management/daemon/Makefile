@@ -69,7 +69,7 @@ fmd: $(OBJECTS)
 	@echo ---------- Building $@
 	$(CXX) -pthread \
 	-o $@ $(OBJECTS) $(LIB_DIRS) \
-	-lcfg -lct -ldid -lpe_mpdrv -lrio -lriocp_pe \
+	-lriocp_pe -lpe_mpdrv -lrio -lcfg -lct -ldid \
 	-ldd -llist -ltime_utils -lcli -llog -lmport \
 	-lrt -ldl $(TST_LIBS)
 

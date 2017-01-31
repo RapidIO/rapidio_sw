@@ -272,7 +272,6 @@ int RIOCP_SO_ATTR riocp_mport_free_pe_list(riocp_pe_handle *pes[])
  * @param mport   Master port
  * @param rev     Version number of this library (RIOCP_PE_LIB_REV)
  * @param is_host Create host or agent handle
- * @param drv     Driver for local & remote register reads/writes
  * @retval -EINVAL  handle is NULL
  * @retval -ENOTSUP invalid library version
  * @retval -ENOMEM  error in allocating mport handle
@@ -281,28 +280,34 @@ static int riocp_pe_create_mport_handle(riocp_pe_handle *handle,
 	uint8_t mport,
 	unsigned int rev,
 	bool is_host,
-	struct riocp_reg_rw_driver *drv,
 	ct_t *comptag,
 	char *name)
 {
 	struct riocp_pe *pe = NULL;
 
-	if (handle == NULL)
+	if (handle == NULL) {
 		return -EINVAL;
-	if (rev != RIOCP_PE_LIB_REV)
+	}
+
+	if (rev != RIOCP_PE_LIB_REV) {
 		return -ENOTSUP;
-	if (riocp_pe_handle_mport_exists(mport, is_host, handle) == 0)
+	}
+
+	if (riocp_pe_handle_mport_exists(mport, is_host, handle) == 0) {
 		return 0;
-	if (riocp_pe_handle_create_mport(mport, is_host, &pe, drv, comptag, name))
+	}
+
+	if (riocp_pe_handle_create_mport(mport, is_host, &pe, comptag, name)) {
 		return -ENOMEM;
+	}
+
 	if (is_host) {
 		if (riocp_pe_lock_clear(pe, ANY_ID, 0)) {
 			return -EAGAIN;
-		};
-	};
+		}
+	}
 
 	*handle = pe;
-
 	return 0;
 }
 
@@ -313,7 +318,6 @@ static int riocp_pe_create_mport_handle(riocp_pe_handle *handle,
  * @param handle Pointer to riocp_pe_handle
  * @param mport  Master port
  * @param rev    Version number of this library (RIOCP_PE_LIB_REV)
- * @param drv    Register read/write driver for this mport
  * @retval -EINVAL  handle is NULL
  * @retval -ENOTSUP invalid library version
  * @retval -ENOMEM  error in allocating mport handle
@@ -321,12 +325,11 @@ static int riocp_pe_create_mport_handle(riocp_pe_handle *handle,
 int RIOCP_SO_ATTR riocp_pe_create_host_handle(riocp_pe_handle *handle,
 	uint8_t mport,
 	unsigned int rev,
-	struct riocp_reg_rw_driver *drv,
 	ct_t *comptag,
 	char *name)
 {
-	return riocp_pe_create_mport_handle(handle, mport, rev, true, drv,
-		comptag, name);
+	return riocp_pe_create_mport_handle(handle, mport, rev, true, comptag,
+			name);
 }
 
 /**
@@ -336,17 +339,15 @@ int RIOCP_SO_ATTR riocp_pe_create_host_handle(riocp_pe_handle *handle,
  * @param handle Pointer to riocp_pe_handle
  * @param mport  Master port
  * @param rev    Version number of this library (RIOCP_PE_LIB_REV)
- * @param drv    Register read/write driver for this mport
  */
 int RIOCP_SO_ATTR riocp_pe_create_agent_handle(riocp_pe_handle *handle,
 	uint8_t mport,
 	unsigned int rev,
-	struct riocp_reg_rw_driver *drv,
 	ct_t *comptag,
 	char *name)
 {
-	return riocp_pe_create_mport_handle(handle, mport, rev, false, drv,
-		comptag, name);
+	return riocp_pe_create_mport_handle(handle, mport, rev, false, comptag,
+			name);
 }
 
 /**

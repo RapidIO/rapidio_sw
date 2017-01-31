@@ -130,8 +130,7 @@ int mport_read(riocp_pe_handle pe_h, uint32_t offset, uint32_t *data)
 	int rc;
 	uint32_t temp_data;
 
-	rc = pe_h->mport->minfo->reg_acc.reg_rd(pe_h, offset, &temp_data);
-
+	rc = riocp_drv_reg_rd(pe_h, offset, &temp_data);
 	if (!rc)
 		*data = temp_data;
 	return rc;
@@ -139,7 +138,7 @@ int mport_read(riocp_pe_handle pe_h, uint32_t offset, uint32_t *data)
 
 int mport_write(riocp_pe_handle pe_h, uint32_t offset, uint32_t data)
 {
-	return pe_h->mport->minfo->reg_acc.reg_wr(pe_h, offset, data);
+	return riocp_drv_reg_wr(pe_h, offset, data);
 }
 
 int select_device(struct cli_env *env, size_t pes_count, riocp_pe_handle *pes,
@@ -855,7 +854,7 @@ int CLIMRegReadCmd(struct cli_env *env, int argc, char **argv)
 	mstore_numacc = numReads;
 
 	for (i = 0; i < numReads; i++) {
-		rc = pe_mpsw_rw_driver.raw_reg_rd((riocp_pe_handle)env->h,
+		rc = riocp_drv_raw_reg_rd((riocp_pe_handle)env->h,
 			did, hc, address, &data);
 
 		if (rc) {
@@ -952,7 +951,7 @@ int CLIMRegWriteCmd(struct cli_env *env, int argc, char **argv)
 
 	/* Command arguments are syntactically correct - do write */
 
-	rc = pe_mpsw_rw_driver.raw_reg_wr((riocp_pe_handle)env->h,
+	rc = riocp_drv_raw_reg_wr((riocp_pe_handle)env->h,
 		did, hc, address, data);
 
 	if (0 != rc) {
@@ -961,7 +960,7 @@ int CLIMRegWriteCmd(struct cli_env *env, int argc, char **argv)
 	}
 
 	/* read data back */
-	rc = pe_mpsw_rw_driver.raw_reg_rd((riocp_pe_handle)env->h,
+	rc = riocp_drv_raw_reg_rd((riocp_pe_handle)env->h,
 		did, hc, address, &data);
 
 	if (0 != rc) {

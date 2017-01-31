@@ -17,7 +17,6 @@
 #include <unistd.h>
 #include <string.h>
 
-#include <riocp_pe.h>
 #include <riocp_pe_internal.h>
 #include "tok_parse.h"
 #include "driver.h"
@@ -49,17 +48,20 @@ static int riocp_pe_test_dump_pe(riocp_pe_handle pe)
 	struct riocp_pe_capabilities cap;
 
 	ret = riocp_pe_get_capabilities(pe, &cap);
-	if (ret)
+	if (ret) {
 		return ret;
+	}
 
 	ret = riocp_pe_maint_read(pe, RIO_COMPTAG, &comptag);
-	if (ret)
+	if (ret) {
 		return ret;
+	}
 
 	if (!RIOCP_PE_IS_SWITCH(cap)) {
 		ret = riocp_pe_get_destid(pe, &destid);
-		if (ret)
+		if (ret) {
 			return ret;
+		}
 
 		printf("dev_id = 0x%08x, destid = %u (0x%08x), comptag 0x%08x (%s)\n",
 			cap.dev_id, destid, destid, comptag, riocp_pe_get_device_name(pe));
@@ -83,20 +85,24 @@ static int discover(riocp_pe_handle root, riocp_pe_handle node)
 	struct riocp_pe_capabilities cap;
 
 	ret = riocp_pe_get_capabilities(node, &cap);
-	if (ret)
+	if (ret) {
 		return ret;
+	}
 
 	ports = (struct riocp_pe_port *) calloc(RIOCP_PE_PORT_COUNT(cap), sizeof(*ports));
-	if (ports == NULL)
+	if (ports == NULL) {
 		return -ENOMEM;
+	}
 
 	ret = riocp_pe_get_ports(node, ports);
-	if (ret)
+	if (ret) {
 		goto err;
+	}
 
 	ret = riocp_pe_maint_read(node, RIO_COMPTAG, &comptag);
-	if (ret)
+	if (ret) {
 		goto err;
+	}
 
 	for (j = 0; j < RIOCP_PE_PORT_COUNT(cap); j++) {
 		ret = riocp_drv_get_port_state(pe, ports[j].id, &state);
@@ -111,16 +117,19 @@ static int discover(riocp_pe_handle root, riocp_pe_handle node)
 			if (next != NULL) {
 				continue;
 			}
+
 			if (is_host) {
 				ret = riocp_pe_probe(node, j, &next, &comptag,
 						node->sysfs_name, false);
-				if (ret)
+				if (ret) {
 					goto err;
+				}
 			} else {
 				ret = riocp_pe_discover(node, j, &next,
 						node->sysfs_name);
-				if (ret)
+				if (ret) {
 					goto err;
+				}
 			}
 
 			if (discover(root, next)) {
@@ -271,8 +280,9 @@ static int riocp_pe_test_connected()
 	struct riocp_pe_port ports[32]; /* STATIC ! */
 
 	ret = riocp_pe_get_capabilities(pe, &cap);
-	if (ret)
+	if (ret) {
 		return ret;
+	}
 
 	if (!RIOCP_PE_IS_SWITCH(cap)) {
 		fprintf(stderr, "last PE in lookup not a switch\n");
@@ -298,20 +308,23 @@ static int riocp_pe_test_connected()
 		}
 
 		if (state.port_ok) {
-			if (is_host)
+			if (is_host) {
 				ret = riocp_pe_probe(pe, j, &peer, &comptag,
 						pe->sysfs_name, false);
-			else
+			} else {
 				ret = riocp_pe_discover(pe, j, &peer,
 						pe->sysfs_name);
-			if (ret)
+			}
+			if (ret) {
 				continue;
+			}
 
 			printf(" > port %2zu: ", j);
 
 			ret = riocp_pe_test_dump_pe(peer);
-			if (ret)
+			if (ret) {
 				fprintf(stderr, "Error in dumping PE information\n");
+			}
 		}
 	}
 
@@ -365,7 +378,6 @@ int main(int argc, char **argv)
 {
 	int ret = 0;
 	ct_t comptag;
-	struct riocp_reg_rw_driver drv;
 
 	if (argc < 3) {
 		usage(argv[0]);
@@ -395,12 +407,13 @@ int main(int argc, char **argv)
 	if (is_host) {
 		printf("Creating host handle\n");
 		ret = riocp_pe_create_host_handle(&mport, 0, RIOCP_PE_LIB_REV,
-				&drv ,&comptag, mport->sysfs_name);
+				&comptag, mport->sysfs_name);
 	} else {
 		printf("Creating agent handle\n");
 		ret = riocp_pe_create_agent_handle(&mport, 0, RIOCP_PE_LIB_REV,
-				&drv ,&comptag, mport->sysfs_name);
+				&comptag, mport->sysfs_name);
 	}
+
 	if (ret) {
 		fprintf(stderr, "error initializing mport handle: %s\n", strerror(-ret));
 		return -1;
@@ -434,10 +447,11 @@ int main(int argc, char **argv)
 	}
 
 err:
-	if (is_host)
+	if (is_host) {
 		ret = riocp_pe_dot_dump("/root/riocp_pe_test_host.dot", mport);
-	else
+	} else {
 		ret = riocp_pe_dot_dump("/root/riocp_pe_test_agent.dot", mport);
+	}
 
 	if (riocp_pe_destroy_handle(&mport)) {
 		fprintf(stderr, "error destroying mport handle\n");
