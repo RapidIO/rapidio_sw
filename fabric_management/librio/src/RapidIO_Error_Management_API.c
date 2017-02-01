@@ -107,6 +107,9 @@ rec_err_n_spx_err_t rec_err_spx_err_table[] = {
 	{ RIO_EM_REC_ERR_SET_CS_CRC_ERR   , RIO_EMHS_SPX_ERR_DET_CS_CRC_ERR   },
 };
 
+const unsigned int rec_err_spx_err_table_max =
+	sizeof(rec_err_spx_err_table) / sizeof(rec_err_spx_err_table[0]);
+
 // Encoding for RB, index = RB value
 uint32_t rio_spx_err_rate_err_rb_vals[] = {
 		RIO_EMHS_SPX_RATE_RB_NONE,
@@ -120,7 +123,18 @@ uint32_t rio_spx_err_rate_err_rb_vals[] = {
 		RIO_EMHS_SPX_RATE_RB_10000_SEC
 };
 
+const unsigned int rio_spx_err_rate_err_rb_vals_max =
+		sizeof(rio_spx_err_rate_err_rb_vals) /
+		sizeof(rio_spx_err_rate_err_rb_vals[0]);
+
 #define RB_SHIFT_AMT 20
+
+// Info is:
+// 0x00000FFF - spx_rate_en bits
+// 0x00030000 - spx_rate_rr (max counter overage)
+// 0x00F00000 - spx_rate_rb (leak rate)
+// 0xFF000000 - spx_fail_thresh
+// 0x00C0F800 - unused
 
 uint32_t rio_em_compute_f_err_rate_info(uint32_t spx_rate_en,
 		uint32_t spx_err_rate, uint32_t spx_err_thresh, uint32_t *info)
@@ -131,11 +145,7 @@ uint32_t rio_em_compute_f_err_rate_info(uint32_t spx_rate_en,
 
 	*info = 0;
 
-	for (idx = 0;
-			idx
-					< sizeof(rec_err_spx_err_table)
-							/ sizeof(rec_err_n_spx_err_t);
-			idx++) {
+	for (idx = 0; idx < rec_err_spx_err_table_max; idx++) {
 		all_errs |= rec_err_spx_err_table[idx].spx_err;
 		if (rec_err_spx_err_table[idx].spx_err & spx_rate_en) {
 			*info |= rec_err_spx_err_table[idx].rec_err;
@@ -150,11 +160,7 @@ uint32_t rio_em_compute_f_err_rate_info(uint32_t spx_rate_en,
 	*info |= (RIO_EMHS_SPX_THRESH_FAIL & spx_err_thresh);
 	spx_err_rate &= RIO_EMHS_SPX_RATE_RB;
 
-	for (idx = 0;
-			idx
-					< sizeof(rio_spx_err_rate_err_rb_vals)
-							/ sizeof(uint32_t);
-			idx++) {
+	for (idx = 0; idx < rio_spx_err_rate_err_rb_vals_max; idx++) {
 		if (rio_spx_err_rate_err_rb_vals[idx] == spx_err_rate) {
 			found_one = true;
 			*info |= (idx << RB_SHIFT_AMT);
@@ -181,20 +187,14 @@ uint32_t rio_em_get_f_err_rate_info(uint32_t info, uint32_t *spx_rate_en,
 	*spx_err_rate = info & RIO_EMHS_SPX_RATE_RR;
 	*spx_err_thresh = info & RIO_EMHS_SPX_THRESH_FAIL;
 
-	for (idx = 0;
-			idx
-					< sizeof(rec_err_spx_err_table)
-							/ sizeof(rec_err_n_spx_err_t);
-			idx++) {
+	for (idx = 0; idx < rec_err_spx_err_table_max; idx++) {
 		if (rec_err_spx_err_table[idx].rec_err & info) {
 			*spx_rate_en |= rec_err_spx_err_table[idx].spx_err;
 		}
 	}
 
 	info = (info & 0x00F00000) >> RB_SHIFT_AMT;
-	if (info
-			>= sizeof(rio_spx_err_rate_err_rb_vals)
-					/ sizeof(rio_spx_err_rate_err_rb_vals[0])) {
+	if (info >= rio_spx_err_rate_err_rb_vals_max) {
 		goto exit;
 	}
 
