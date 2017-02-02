@@ -261,10 +261,10 @@ powerup_reg_offsets_t reg_offsets[]=
   { (uint32_t)Tsi578_SPX_PSC2n3_CTRL(0)     , (uint32_t)0x100, ALL_BITS },
   { (uint32_t)Tsi578_SPX_PSC4n5_CTRL(0)     , (uint32_t)0x100, ALL_BITS },
   { (uint32_t)Tsi578_SPX_TX_Q_D_THRESH(0)   , (uint32_t)0x100, ALL_BITS },
-  { (uint32_t)Tsi578_SPX_TX_Q_uint32_t(0)   , (uint32_t)0x100, (uint32_t)Tsi578_SPX_TX_Q_uint32_t_CONG_THRESH }, //  MASK
+  { (uint32_t)Tsi578_SPX_TX_Q_STATUS(0)   , (uint32_t)0x100, (uint32_t)Tsi578_SPX_TX_Q_STATUS_CONG_THRESH }, //  MASK
   { (uint32_t)Tsi578_SPX_TX_Q_PERIOD(0)     , (uint32_t)0x100, ALL_BITS },
   { (uint32_t)Tsi578_SPX_RX_Q_D_THRESH(0)   , (uint32_t)0x100, ALL_BITS },
-  { (uint32_t)Tsi578_SPX_RX_Q_uint32_t(0)   , (uint32_t)0x100, (uint32_t)Tsi578_SPX_RX_Q_uint32_t_CONG_THRESH }, //  MASK
+  { (uint32_t)Tsi578_SPX_RX_Q_STATUS(0)   , (uint32_t)0x100, (uint32_t)Tsi578_SPX_RX_Q_STATUS_CONG_THRESH }, //  MASK
   { (uint32_t)Tsi578_SPX_RX_Q_PERIOD(0)     , (uint32_t)0x100, ALL_BITS },
   { (uint32_t)Tsi578_SPX_REORDER_CTR(0)     , (uint32_t)0x100, (uint32_t)Tsi578_SPX_REORDER_CTR_THRESH  }, //  MASK
   { (uint32_t)Tsi578_SPX_ISF_WM(0)          , (uint32_t)0x100, ALL_BITS },
@@ -1628,7 +1628,7 @@ uint32_t tsi57x_rio_pc_get_status(DAR_DEV_INFO_t *dev_info,
 		}
 
 		// Port is available and powered up, so let's figure out the status...
-		rc = DARRegRead(dev_info, Tsi578_SPX_ERR_uint32_t(port_num),
+		rc = DARRegRead(dev_info, Tsi578_SPX_ERR_STATUS(port_num),
 				&err_n_stat);
 		if (RIO_SUCCESS != rc) {
 			out_parms->imp_rc = PC_GET_STATUS(0x30+port_idx);
@@ -1642,15 +1642,15 @@ uint32_t tsi57x_rio_pc_get_status(DAR_DEV_INFO_t *dev_info,
 		}
 
 		out_parms->ps[port_idx].port_ok =
-				(err_n_stat & Tsi578_SPX_ERR_uint32_t_PORT_OK) ?
+				(err_n_stat & Tsi578_SPX_ERR_STATUS_PORT_OK) ?
 						true : false;
 		out_parms->ps[port_idx].input_stopped =
 				(err_n_stat
-						& Tsi578_SPX_ERR_uint32_t_INPUT_ERR_STOP) ?
+						& Tsi578_SPX_ERR_STATUS_INPUT_ERR_STOP) ?
 						true : false;
 		out_parms->ps[port_idx].output_stopped =
 				(err_n_stat
-						& Tsi578_SPX_ERR_uint32_t_OUTPUT_ERR_STOP) ?
+						& Tsi578_SPX_ERR_STATUS_OUTPUT_ERR_STOP) ?
 						true : false;
 
 		if (out_parms->ps[port_idx].port_ok) {
@@ -1678,11 +1678,11 @@ uint32_t tsi57x_rio_pc_get_status(DAR_DEV_INFO_t *dev_info,
 		// Port Error is true if a PORT_ERR is present, OR
 		// if a OUTPUT_FAIL is present when STOP_FAIL_EN is set.
 		out_parms->ps[port_idx].port_error =
-				((err_n_stat & Tsi578_SPX_ERR_uint32_t_PORT_ERR)
+				((err_n_stat & Tsi578_SPX_ERR_STATUS_PORT_ERR)
 						| ((spx_ctl
 								& Tsi578_SPX_CTL_STOP_FAIL_EN)
 								&& (err_n_stat
-										& Tsi578_SPX_ERR_uint32_t_OUTPUT_FAIL))) ?
+										& Tsi578_SPX_ERR_STATUS_OUTPUT_FAIL))) ?
 						true : false;
 	}
 
@@ -2088,28 +2088,28 @@ uint32_t tsi57x_rio_pc_clr_errs(DAR_DEV_INFO_t *dev_info,
 	}
 
 	// Lastly, clear physical layer error status indications for the port.
-	rc = DARRegRead(dev_info, Tsi578_SPX_ERR_uint32_t(in_parms->port_num),
+	rc = DARRegRead(dev_info, Tsi578_SPX_ERR_STATUS(in_parms->port_num),
 			&err_stat);
 	if (RIO_SUCCESS != rc) {
 		goto exit;
 	}
 
-	rc = DARRegWrite(dev_info, Tsi578_SPX_ERR_uint32_t(in_parms->port_num),
+	rc = DARRegWrite(dev_info, Tsi578_SPX_ERR_STATUS(in_parms->port_num),
 			err_stat);
 	if (RIO_SUCCESS != rc) {
 		goto exit;
 	}
 
-	rc = DARRegRead(dev_info, Tsi578_SPX_ERR_uint32_t(in_parms->port_num),
+	rc = DARRegRead(dev_info, Tsi578_SPX_ERR_STATUS(in_parms->port_num),
 			&err_stat);
 	if (RIO_SUCCESS != rc) {
 		goto exit;
 	}
 
-	if (err_stat & (Tsi578_SPX_ERR_uint32_t_PORT_ERR |
-	Tsi578_SPX_ERR_uint32_t_INPUT_ERR_STOP |
-	Tsi578_SPX_ERR_uint32_t_OUTPUT_ERR_STOP |
-	Tsi578_SPX_ERR_uint32_t_OUTPUT_FAIL)) {
+	if (err_stat & (Tsi578_SPX_ERR_STATUS_PORT_ERR |
+	Tsi578_SPX_ERR_STATUS_INPUT_ERR_STOP |
+	Tsi578_SPX_ERR_STATUS_OUTPUT_ERR_STOP |
+	Tsi578_SPX_ERR_STATUS_OUTPUT_FAIL)) {
 		rc = RIO_ERR_ERRS_NOT_CL;
 		out_parms->imp_rc = PC_CLR_ERRS(0x20);
 		goto exit;

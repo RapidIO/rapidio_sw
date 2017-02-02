@@ -2321,7 +2321,7 @@ uint32_t DAR_pkt_bytes_to_fields(DAR_pkt_bytes_t *bytes_in,
 			fields_out->pkt_bytes = 0;
 			break;
 		default:
-			return DAR_UTIL_UNKNOWN_uint32_t;
+			return DAR_UTIL_UNKNOWN_STATUS;
 		}
 
 		/* Get TID */

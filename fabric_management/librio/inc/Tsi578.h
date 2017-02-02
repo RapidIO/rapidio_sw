@@ -69,7 +69,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define Tsi578_SPX_LM_REQ(X)                               (0x0140 + 0x020*(X))
 #define Tsi578_SPX_LM_RESP(X)                              (0x0144 + 0x020*(X))
 #define Tsi578_SPX_ACKID_STAT(X)                           (0x0148 + 0x020*(X))
-#define Tsi578_SPX_ERR_uint32_t(X)                           (0x0158 + 0x020*(X))
+#define Tsi578_SPX_ERR_STATUS(X)                           (0x0158 + 0x020*(X))
 #define Tsi578_SPX_CTL(X)                                  (0x015c + 0x020*(X))
 #define Tsi578_RIO_ERR_RPT_BH                                      (0x00001000)
 #define Tsi578_RIO_LOG_ERR_DET                                     (0x00001008)
@@ -92,8 +92,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define Tsi578_SPX_DISCOVERY_TIMER(X)                     (0x11000 + 0x100*(X))
 #define Tsi578_SPBC_MODE                                           (0x00010004) 
 #define Tsi578_SPX_MODE(X)                                (0x11004 + 0x100*(X))
-#define Tsi578_SPBC_CS_INT_uint32_t                                  (0x00010008) 
-#define Tsi578_SPX_CS_INT_uint32_t(X)                       (0x11008 + 0x100*(X))
+#define Tsi578_SPBC_CS_INT_STATUS                                  (0x00010008) 
+#define Tsi578_SPX_CS_INT_STATUS(X)                       (0x11008 + 0x100*(X))
 #define Tsi578_SPBC_RIO_WM                                         (0x0001000c) 
 #define Tsi578_SPX_RIO_WM(X)                              (0x1100c + 0x100*(X))
 #define Tsi578_SPBC_ROUTE_CFG_DESTID                               (0x00010070) 
@@ -110,7 +110,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define Tsi578_SPX_SEND_MCS(X)                            (0x1300c + 0x100*(X))
 #define Tsi578_SPX_LUT_PAR_ERR_INFO(X)                    (0x13010 + 0x100*(X))
 #define Tsi578_SPX_CS_TX(X)                               (0x13014 + 0x100*(X))
-#define Tsi578_SPX_INT_uint32_t(X)                          (0x13018 + 0x100*(X))
+#define Tsi578_SPX_INT_STATUS(X)                          (0x13018 + 0x100*(X))
 #define Tsi578_SPX_INT_GEN(X)                             (0x1301c + 0x100*(X))
 #define Tsi578_SPX_PSC0n1_CTRL(X)                         (0x13020 + 0x100*(X))
 #define Tsi578_SPX_PSC2n3_CTRL(X)                         (0x13024 + 0x100*(X))
@@ -125,10 +125,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define Tsi578_SPX_PSC5(X)                                (0x13054 + 0x100*(X))
 #define Tsi578_SPX_PSCY(X,Y)                              (0x13040 +(0x100*(X))+(4*Y))
 #define Tsi578_SPX_TX_Q_D_THRESH(X)                       (0x13080 + 0x100*(X))
-#define Tsi578_SPX_TX_Q_uint32_t(X)                         (0x13084 + 0x100*(X))
+#define Tsi578_SPX_TX_Q_STATUS(X)                         (0x13084 + 0x100*(X))
 #define Tsi578_SPX_TX_Q_PERIOD(X)                         (0x13088 + 0x100*(X))
 #define Tsi578_SPX_RX_Q_D_THRESH(X)                       (0x13090 + 0x100*(X))
-#define Tsi578_SPX_RX_Q_uint32_t(X)                         (0x13094 + 0x100*(X))
+#define Tsi578_SPX_RX_Q_STATUS(X)                         (0x13094 + 0x100*(X))
 #define Tsi578_SPX_RX_Q_PERIOD(X)                         (0x13098 + 0x100*(X))
 #define Tsi578_SPX_REORDER_CTR(X)                         (0x130a0 + 0x100*(X))
 #define Tsi578_SMACX_CFG_CH0(X)                           (0x130b0 + 0x100*(X))
@@ -151,14 +151,14 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define Tsi578_RIO_MC_LAT_ERR_SET                                  (0x0001aa0c)
 #define Tsi578_PKTGEN_CNTRL                                        (0x0001aaf0)
 #define Tsi578_WRKQ_DATA                                           (0x0001aaf4)
-#define Tsi578_LST_DTM_uint32_t                                      (0x0001aaf8)
+#define Tsi578_LST_DTM_STATUS                                      (0x0001aaf8)
 #define Tsi578_TX_ENBL                                             (0x0001aafc)
-#define Tsi578_GLOB_INT_uint32_t                                     (0x0001ac00)
+#define Tsi578_GLOB_INT_STATUS                                     (0x0001ac00)
 #define Tsi578_GLOB_INT_ENABLE                                     (0x0001ac04)
 #define Tsi578_GLOB_DEV_ID_SEL                                     (0x0001ac08)
 #define Tsi578_GLOB_SPY_BUS_CFG                                    (0x0001ac0c)
 #define Tsi578_RIO_PW_TIMEOUT                                      (0x0001ac14)
-#define Tsi578_RIO_PW_OREQ_uint32_t                                  (0x0001ac18)
+#define Tsi578_RIO_PW_OREQ_STATUS                                  (0x0001ac18)
 #define Tsi578_RIOX_MC_REG_VER(X)                         (0x1b000 + 0x100*(X))
 #define Tsi578_RIOX_MC_LAT_LIMIT(X)                       (0x1b004 + 0x100*(X))
 #define Tsi578_SPX_ISF_WM(X)                              (0x1b008 + 0x100*(X))
@@ -371,22 +371,22 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define Tsi578_SPX_ACKID_STAT_INBOUND                              (0x1f000000)
 #define Tsi578_SPX_ACKID_STAT_CLR_PKTS                             (0x80000000)
 
-/* Tsi578_SPX_ERR_uint32_t : Register Bits Masks Definitions */
-#define Tsi578_SPX_ERR_uint32_t_PORT_UNINIT                          (0x00000001)
-#define Tsi578_SPX_ERR_uint32_t_PORT_OK                              (0x00000002)
-#define Tsi578_SPX_ERR_uint32_t_PORT_ERR                             (0x00000004)
-#define Tsi578_SPX_ERR_uint32_t_PORT_W_PEND                          (0x00000010)
-#define Tsi578_SPX_ERR_uint32_t_INPUT_ERR_STOP                       (0x00000100)
-#define Tsi578_SPX_ERR_uint32_t_INPUT_ERR                            (0x00000200)
-#define Tsi578_SPX_ERR_uint32_t_INPUT_RS                             (0x00000400)
-#define Tsi578_SPX_ERR_uint32_t_OUTPUT_ERR_STOP                      (0x00010000)
-#define Tsi578_SPX_ERR_uint32_t_OUTPUT_ERR                           (0x00020000)
-#define Tsi578_SPX_ERR_uint32_t_OUTPUT_RS                            (0x00040000)
-#define Tsi578_SPX_ERR_uint32_t_OUTPUT_R                             (0x00080000)
-#define Tsi578_SPX_ERR_uint32_t_OUTPUT_RE                            (0x00100000)
-#define Tsi578_SPX_ERR_uint32_t_OUTPUT_DEG                           (0x01000000)
-#define Tsi578_SPX_ERR_uint32_t_OUTPUT_FAIL                          (0x02000000)
-#define Tsi578_SPX_ERR_uint32_t_OUTPUT_DROP                          (0x04000000)
+/* Tsi578_SPX_ERR_STATUS : Register Bits Masks Definitions */
+#define Tsi578_SPX_ERR_STATUS_PORT_UNINIT                          (0x00000001)
+#define Tsi578_SPX_ERR_STATUS_PORT_OK                              (0x00000002)
+#define Tsi578_SPX_ERR_STATUS_PORT_ERR                             (0x00000004)
+#define Tsi578_SPX_ERR_STATUS_PORT_W_PEND                          (0x00000010)
+#define Tsi578_SPX_ERR_STATUS_INPUT_ERR_STOP                       (0x00000100)
+#define Tsi578_SPX_ERR_STATUS_INPUT_ERR                            (0x00000200)
+#define Tsi578_SPX_ERR_STATUS_INPUT_RS                             (0x00000400)
+#define Tsi578_SPX_ERR_STATUS_OUTPUT_ERR_STOP                      (0x00010000)
+#define Tsi578_SPX_ERR_STATUS_OUTPUT_ERR                           (0x00020000)
+#define Tsi578_SPX_ERR_STATUS_OUTPUT_RS                            (0x00040000)
+#define Tsi578_SPX_ERR_STATUS_OUTPUT_R                             (0x00080000)
+#define Tsi578_SPX_ERR_STATUS_OUTPUT_RE                            (0x00100000)
+#define Tsi578_SPX_ERR_STATUS_OUTPUT_DEG                           (0x01000000)
+#define Tsi578_SPX_ERR_STATUS_OUTPUT_FAIL                          (0x02000000)
+#define Tsi578_SPX_ERR_STATUS_OUTPUT_DROP                          (0x04000000)
 
 /* Tsi578_SPX_CTL : Register Bits Masks Definitions */
 #define Tsi578_SPX_CTL_PORT_TYPE                                   (0x00000001)
@@ -504,9 +504,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define Tsi578_SPX_MODE_PW_DIS                                     (0x08000000)
 #define Tsi578_SPX_MODE_IDLE_ERR_DIS                               (0x20000000)
 
-/* Tsi578_SPX_CS_INT_uint32_t : Register Bits Masks Definitions */
-#define Tsi578_SPX_CS_INT_uint32_t_RCS                               (0x00000001)
-#define Tsi578_SPX_CS_INT_uint32_t_MCS                               (0x00000002)
+/* Tsi578_SPX_CS_INT_STATUS : Register Bits Masks Definitions */
+#define Tsi578_SPX_CS_INT_STATUS_RCS                               (0x00000001)
+#define Tsi578_SPX_CS_INT_STATUS_MCS                               (0x00000002)
 
 /* Tsi578_SPX_RIO_WM : Register Bits Masks Definitions */
 #define Tsi578_SPX_RIO_WM_PRIO0WM                                  (0x00000007)
@@ -580,18 +580,18 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define Tsi578_SPX_CS_TX_PAR_0                                     (0x1f000000)
 #define Tsi578_SPX_CS_TX_STYPE_0                                   (0xe0000000)
 
-/* Tsi578_SPX_INT_uint32_t : Register Bits Masks Definitions */
-#define Tsi578_SPX_INT_uint32_t_TEA                                  (0x00000001)
-#define Tsi578_SPX_INT_uint32_t_TTL_EXPIRED                          (0x00000002)
-#define Tsi578_SPX_INT_uint32_t_INB_RDR                              (0x00000004)
-#define Tsi578_SPX_INT_uint32_t_INB_DEPTH                            (0x00000008)
-#define Tsi578_SPX_INT_uint32_t_OUTB_DEPTH                           (0x00000010)
-#define Tsi578_SPX_INT_uint32_t_MAX_RETRY                            (0x00000020)
-#define Tsi578_SPX_INT_uint32_t_IRQ_ERR                              (0x00000040)
-#define Tsi578_SPX_INT_uint32_t_ILL_TRANS_ERR                        (0x00000080)
-#define Tsi578_SPX_INT_uint32_t_LUT_PAR_ERR                          (0x00010000)
-#define Tsi578_SPX_INT_uint32_t_LINK_INIT_NOTIFICATION               (0x00020000)
-#define Tsi578_SPX_INT_uint32_t_MC_TEA                               (0x00040000)
+/* Tsi578_SPX_INT_STATUS : Register Bits Masks Definitions */
+#define Tsi578_SPX_INT_STATUS_TEA                                  (0x00000001)
+#define Tsi578_SPX_INT_STATUS_TTL_EXPIRED                          (0x00000002)
+#define Tsi578_SPX_INT_STATUS_INB_RDR                              (0x00000004)
+#define Tsi578_SPX_INT_STATUS_INB_DEPTH                            (0x00000008)
+#define Tsi578_SPX_INT_STATUS_OUTB_DEPTH                           (0x00000010)
+#define Tsi578_SPX_INT_STATUS_MAX_RETRY                            (0x00000020)
+#define Tsi578_SPX_INT_STATUS_IRQ_ERR                              (0x00000040)
+#define Tsi578_SPX_INT_STATUS_ILL_TRANS_ERR                        (0x00000080)
+#define Tsi578_SPX_INT_STATUS_LUT_PAR_ERR                          (0x00010000)
+#define Tsi578_SPX_INT_STATUS_LINK_INIT_NOTIFICATION               (0x00020000)
+#define Tsi578_SPX_INT_STATUS_MC_TEA                               (0x00040000)
 
 /* Tsi578_SPX_INT_GEN : Register Bits Masks Definitions */
 #define Tsi578_SPX_INT_GEN_TEA_GEN                                 (0x00000001)
@@ -670,9 +670,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define Tsi578_SPX_TX_Q_D_THRESH_DEPTH                             (0x0000f000)
 #define Tsi578_SPX_TX_Q_D_THRESH_CONG_PERIOD                       (0xffff0000)
 
-/* Tsi578_SPX_TX_Q_uint32_t : Register Bits Masks Definitions */
-#define Tsi578_SPX_TX_Q_uint32_t_CONG_THRESH                         (0x0000ffff)
-#define Tsi578_SPX_TX_Q_uint32_t_CONG_CTR                            (0xffff0000)
+/* Tsi578_SPX_TX_Q_STATUS : Register Bits Masks Definitions */
+#define Tsi578_SPX_TX_Q_STATUS_CONG_THRESH                         (0x0000ffff)
+#define Tsi578_SPX_TX_Q_STATUS_CONG_CTR                            (0xffff0000)
 
 /* Tsi578_SPX_TX_Q_PERIOD : Register Bits Masks Definitions */
 #define Tsi578_SPX_TX_Q_PERIOD_CONG_PERIOD_CTR                     (0xffffffff)
@@ -681,9 +681,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define Tsi578_SPX_RX_Q_D_THRESH_DEPTH                             (0x0000f000)
 #define Tsi578_SPX_RX_Q_D_THRESH_CONG_PERIOD                       (0xffff0000)
 
-/* Tsi578_SPX_RX_Q_uint32_t : Register Bits Masks Definitions */
-#define Tsi578_SPX_RX_Q_uint32_t_CONG_THRESH                         (0x0000ffff)
-#define Tsi578_SPX_RX_Q_uint32_t_CONG_CTR                            (0xffff0000)
+/* Tsi578_SPX_RX_Q_STATUS : Register Bits Masks Definitions */
+#define Tsi578_SPX_RX_Q_STATUS_CONG_THRESH                         (0x0000ffff)
+#define Tsi578_SPX_RX_Q_STATUS_CONG_CTR                            (0xffff0000)
 
 /* Tsi578_SPX_RX_Q_PERIOD : Register Bits Masks Definitions */
 #define Tsi578_SPX_RX_Q_PERIOD_CONG_PERIOD_CTR                     (0xffffffff)
@@ -891,41 +891,41 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define Tsi578_WRKQ_DATA_RD_WR_DATA                                (0xffffffff)
 
 /* Tsi578_PKTGEN_CNTRL : Register Bits Masks Definitions */
-#define Tsi578_LST_DTM_uint32_t_EOP            (0x80000000)
-#define Tsi578_LST_DTM_uint32_t_uint32_t         (0x60000000)
-#define Tsi578_LST_DTM_uint32_t_MC_PKT_DISCARD (0x01000000)
-#define Tsi578_LST_DTM_uint32_t_RD_PTR         (0x000003FF)
+#define Tsi578_LST_DTM_STATUS_EOP            (0x80000000)
+#define Tsi578_LST_DTM_STATUS_STATUS         (0x60000000)
+#define Tsi578_LST_DTM_STATUS_MC_PKT_DISCARD (0x01000000)
+#define Tsi578_LST_DTM_STATUS_RD_PTR         (0x000003FF)
 
 /* Odd or even multiple of 4 bytes                       */
-#define Tsi578_LST_DTM_uint32_t_uint32_t_ODD     (0x20000000)
-#define Tsi578_LST_DTM_uint32_t_uint32_t_EVEN    (0x60000000)
+#define Tsi578_LST_DTM_STATUS_STATUS_ODD     (0x20000000)
+#define Tsi578_LST_DTM_STATUS_STATUS_EVEN    (0x60000000)
 
 /* Tsi578_TX_ENBL        Register Bits Masks Definitions */
 #define Tsi578_TX_ENBL_START                 (0x80000000)
 #define Tsi578_TX_ENBL_DONE                  (0x40000000)
 
-/* Tsi578_GLOB_INT_uint32_t : Register Bits Masks Definitions */
-#define Tsi578_GLOB_INT_uint32_t_PORT0                               (0x00000001)
-#define Tsi578_GLOB_INT_uint32_t_PORT1                               (0x00000002)
-#define Tsi578_GLOB_INT_uint32_t_PORT2                               (0x00000004)
-#define Tsi578_GLOB_INT_uint32_t_PORT3                               (0x00000008)
-#define Tsi578_GLOB_INT_uint32_t_PORT4                               (0x00000010)
-#define Tsi578_GLOB_INT_uint32_t_PORT5                               (0x00000020)
-#define Tsi578_GLOB_INT_uint32_t_PORT6                               (0x00000040)
-#define Tsi578_GLOB_INT_uint32_t_PORT7                               (0x00000080)
-#define Tsi578_GLOB_INT_uint32_t_PORT8                               (0x00000100)
-#define Tsi578_GLOB_INT_uint32_t_PORT9                               (0x00000200)
-#define Tsi578_GLOB_INT_uint32_t_PORT10                              (0x00000400)
-#define Tsi578_GLOB_INT_uint32_t_PORT11                              (0x00000800)
-#define Tsi578_GLOB_INT_uint32_t_PORT12                              (0x00001000)
-#define Tsi578_GLOB_INT_uint32_t_PORT13                              (0x00002000)
-#define Tsi578_GLOB_INT_uint32_t_PORT14                              (0x00004000)
-#define Tsi578_GLOB_INT_uint32_t_PORT15                              (0x00008000)
-#define Tsi578_GLOB_INT_uint32_t_MC_LAT                              (0x00020000)
-#define Tsi578_GLOB_INT_uint32_t_TEA                                 (0x01000000)
-#define Tsi578_GLOB_INT_uint32_t_I2C                                 (0x02000000)
-#define Tsi578_GLOB_INT_uint32_t_MCS                                 (0x04000000)
-#define Tsi578_GLOB_INT_uint32_t_RCS                                 (0x08000000)
+/* Tsi578_GLOB_INT_STATUS : Register Bits Masks Definitions */
+#define Tsi578_GLOB_INT_STATUS_PORT0                               (0x00000001)
+#define Tsi578_GLOB_INT_STATUS_PORT1                               (0x00000002)
+#define Tsi578_GLOB_INT_STATUS_PORT2                               (0x00000004)
+#define Tsi578_GLOB_INT_STATUS_PORT3                               (0x00000008)
+#define Tsi578_GLOB_INT_STATUS_PORT4                               (0x00000010)
+#define Tsi578_GLOB_INT_STATUS_PORT5                               (0x00000020)
+#define Tsi578_GLOB_INT_STATUS_PORT6                               (0x00000040)
+#define Tsi578_GLOB_INT_STATUS_PORT7                               (0x00000080)
+#define Tsi578_GLOB_INT_STATUS_PORT8                               (0x00000100)
+#define Tsi578_GLOB_INT_STATUS_PORT9                               (0x00000200)
+#define Tsi578_GLOB_INT_STATUS_PORT10                              (0x00000400)
+#define Tsi578_GLOB_INT_STATUS_PORT11                              (0x00000800)
+#define Tsi578_GLOB_INT_STATUS_PORT12                              (0x00001000)
+#define Tsi578_GLOB_INT_STATUS_PORT13                              (0x00002000)
+#define Tsi578_GLOB_INT_STATUS_PORT14                              (0x00004000)
+#define Tsi578_GLOB_INT_STATUS_PORT15                              (0x00008000)
+#define Tsi578_GLOB_INT_STATUS_MC_LAT                              (0x00020000)
+#define Tsi578_GLOB_INT_STATUS_TEA                                 (0x01000000)
+#define Tsi578_GLOB_INT_STATUS_I2C                                 (0x02000000)
+#define Tsi578_GLOB_INT_STATUS_MCS                                 (0x04000000)
+#define Tsi578_GLOB_INT_STATUS_RCS                                 (0x08000000)
 
 /* Tsi578_GLOB_INT_ENABLE : Register Bits Masks Definitions */
 #define Tsi578_GLOB_INT_ENABLE_PORT0_EN                            (0x00000001)
@@ -966,8 +966,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define Tsi578_RIO_PW_TIMEOUT_671p1ms                              (0x40000000)
 #define Tsi578_RIO_PW_TIMEOUT_1340ms                               (0x80000000)
 
-/* Tsi578_RIO_PW_OREQ_uint32_t : Register Bits Masks Definitions */
-#define Tsi578_RIO_PW_OREQ_uint32_t_PORTX_OREG                       (0x0000ffff)
+/* Tsi578_RIO_PW_OREQ_STATUS : Register Bits Masks Definitions */
+#define Tsi578_RIO_PW_OREQ_STATUS_PORTX_OREG                       (0x0000ffff)
 
 /* Tsi578_RIOX_MC_REG_VER : Register Bits Masks Definitions */
 #define Tsi578_RIOX_MC_REG_VER_REG_VER                             (0x000000ff)
