@@ -510,9 +510,8 @@ uint32_t tsi721_rio_pc_get_config(DAR_DEV_INFO_t *dev_info,
 		}
 
 		out_parms->pc[port_idx].powered_up =
-				((devStat & TSI721_DEVCTL_SRBOOT_CMPL)
-						&& (devStat
-								& TSI721_DEVCTL_PCBOOT_CMPL)) ?
+			((devStat & TSI721_DEVCTL_SRBOOT_CMPL)
+			&& (devStat & TSI721_DEVCTL_PCBOOT_CMPL)) ?
 						true : false;
 
 		if (!out_parms->pc[port_idx].powered_up) {
