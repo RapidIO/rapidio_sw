@@ -45,6 +45,7 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include <string.h>
 
 #include "RapidIO_Utilities_API.h"
 
@@ -107,7 +108,6 @@ static uint32_t DAR_util_get_ftype(DAR_pkt_type pkt_type)
 	case (pkt_dstm):
 		rc = 9; /* Data streaming packet */
 		break;
-
 	case (pkt_db):
 		rc = 10; /* Doorbell (type 10) packet */
 		break;
@@ -153,6 +153,7 @@ static uint32_t DAR_util_get_ftype(DAR_pkt_type pkt_type)
 static void DAR_util_get_rdsize_wdptr(uint32_t addr, uint32_t pkt_bytes,
 		uint32_t *rdsize, uint32_t *wdptr)
 {
+	*wdptr = BAD_SIZE;
 	*rdsize = BAD_SIZE;
 	switch (pkt_bytes) {
 	case (1):
@@ -234,6 +235,7 @@ static void DAR_util_get_rdsize_wdptr(uint32_t addr, uint32_t pkt_bytes,
 	}
 
 	if ((*rdsize >= 11) && (addr & 7)) {
+		*wdptr = BAD_SIZE;
 		*rdsize = BAD_SIZE;
 	}
 }
@@ -265,6 +267,11 @@ static uint32_t DAR_util_compute_rd_bytes_n_align(uint32_t rdsize,
 	int rc = 0;
 
 	*align = 0;
+
+	if ((0 != wptr) && (1 != wptr)) {
+		*num_bytes = 0;
+		return SIZE_RC_FAIL;
+	}
 
 	switch (rdsize) {
 	case 0:
@@ -342,9 +349,9 @@ static void DAR_util_get_wrsize_wdptr(uint32_t addr, uint32_t pkt_bytes,
 		uint32_t *wrsize, uint32_t *wdptr)
 {
 	*wrsize = BAD_SIZE;
+	*wdptr = BAD_SIZE;
 	switch (pkt_bytes) {
 	case (0):
-		*wdptr = BAD_SIZE;
 		break;
 	case (1):
 		*wdptr = (addr & 4) >> 2;
@@ -435,6 +442,7 @@ static void DAR_util_get_wrsize_wdptr(uint32_t addr, uint32_t pkt_bytes,
 	}
 	if ((*wrsize >= 11) && (addr & 7)) {
 		*wrsize = BAD_SIZE;
+		*wdptr = BAD_SIZE;
 	}
 }
 
@@ -464,6 +472,11 @@ static uint32_t DAR_util_compute_wr_bytes_n_align(uint32_t wrsize,
 	int rc = 0;
 
 	*align = 0;
+
+	if ((0 != wptr) && (1 != wptr)) {
+		*num_bytes = 0;
+		return SIZE_RC_FAIL;
+	}
 
 	switch (wrsize) {
 	case 0:
@@ -503,12 +516,20 @@ static uint32_t DAR_util_compute_wr_bytes_n_align(uint32_t wrsize,
 		*num_bytes = 8 << ((wrsize - 11) * 2 + wptr);
 		break;
 	case 13:
-		*num_bytes = 128;
-		rc = wptr ? 0 : SIZE_RC_FAIL;
+		if (wptr) {
+			*num_bytes = 128;
+		} else {
+			*num_bytes = 0;
+			rc = SIZE_RC_FAIL;
+		}
 		break;
 	case 15:
-		*num_bytes = 256;
-		rc = wptr ? 0 : SIZE_RC_FAIL;
+		if (wptr) {
+			*num_bytes = 256;
+		} else {
+			*num_bytes = 0;
+			rc = SIZE_RC_FAIL;
+		}
 		break;
 	default:
 		*num_bytes = 0;
@@ -535,15 +556,9 @@ static uint32_t DAR_util_compute_wr_bytes_n_align(uint32_t wrsize,
 
 static void DAR_util_pkt_bytes_init(DAR_pkt_bytes_t *comp_pkt)
 {
-	uint32_t index;
-
+	memset(comp_pkt, 0, sizeof(DAR_pkt_bytes_t));
 	comp_pkt->num_chars = 0xFFFFFFFF;
 	comp_pkt->pkt_addr_size = rio_addr_34;
-	comp_pkt->pkt_has_crc = false;
-
-	for (index = 0; index < RIO_MAX_PKT_BYTES; index++) {
-		comp_pkt->pkt_data[index] = 0;
-	}
 }
 
 /******************************************************************************
@@ -552,7 +567,7 @@ static void DAR_util_pkt_bytes_init(DAR_pkt_bytes_t *comp_pkt)
  *  DESCRIPTION:
  *        Add an address to an NREAD, NWRITE, NWRITE_R, SWRITE or 
  *        Maintenance packet
- *   
+ *
  *  PARAMETERS:
  *      pkt_descr - Input, description of the packet to be composed
  *      comp_pkt - Output, packet that has been composed.
@@ -564,9 +579,14 @@ static void DAR_util_pkt_bytes_init(DAR_pkt_bytes_t *comp_pkt)
 static uint32_t DAR_add_rw_addr(rio_addr_size pkt_addr_size, uint32_t *addr,
 		uint32_t wptr, DAR_pkt_bytes_t *bytes_out)
 {
-	uint32_t xaddr_xamsbs = 0, rc = 0;
+	uint32_t rc = 0;
+	uint32_t xaddr_xamsbs = 0;
 
-	/* Add Transaction Address */
+	if ((0 != wptr) && (1 != wptr)) {
+		return DAR_UTIL_INVALID_WPTR;
+	}
+
+	// Add Transaction Address
 
 	switch (pkt_addr_size) {
 	case rio_addr_66:
@@ -575,44 +595,44 @@ static uint32_t DAR_add_rw_addr(rio_addr_size pkt_addr_size, uint32_t *addr,
 				(uint8_t)((addr[1] >> 24) & 0x000000FF);
 		bytes_out->pkt_data[bytes_out->num_chars++] =
 				(uint8_t)((addr[1] >> 16) & 0x000000FF);
-		break;
+		//no break
 
 	case rio_addr_50:
 		if (rio_addr_50 == pkt_addr_size) {
 			xaddr_xamsbs = (uint8_t)((addr[1] >> 16) & 0x00000003);
 		}
+
 		bytes_out->pkt_data[bytes_out->num_chars++] =
 				(uint8_t)((addr[1] >> 8) & 0x000000FF);
 		bytes_out->pkt_data[bytes_out->num_chars++] =
 				(uint8_t)(addr[1] & 0x000000FF);
-		break;
+		//no break
 
 	case rio_addr_34:
 		if (rio_addr_34 == pkt_addr_size) {
 			xaddr_xamsbs = (uint8_t)(addr[1] & 0x00000003);
 		}
-		break;
+		//no break
 
 	case rio_addr_32:
 		bytes_out->pkt_data[bytes_out->num_chars++] =
 				(uint8_t)((addr[0] >> 24) & 0x000000FF);
-		break;
+		//no break
 
-	case rio_addr_21: /* Maintenance transaction */
+	case rio_addr_21: // Maintenance transaction
 		bytes_out->pkt_data[bytes_out->num_chars++] =
 				(uint8_t)((addr[0] & 0x00FF0000) >> 16);
 		bytes_out->pkt_data[bytes_out->num_chars++] =
 				(uint8_t)((addr[0] & 0x0000FF00) >> 8);
 		bytes_out->pkt_data[bytes_out->num_chars++] =
-				(uint8_t)((addr[0] & 0x000000F8) +
-						((wptr & 1) << 2) + xaddr_xamsbs);
+				(uint8_t)((addr[0] & 0x000000F8) + ((wptr & 1) << 2) + xaddr_xamsbs);
 		break;
+
 	default:
 		rc = DAR_UTIL_BAD_ADDRSIZE;
 	}
 
 	bytes_out->pkt_addr_size = pkt_addr_size;
-
 	return rc;
 }
 
@@ -640,7 +660,7 @@ static int DAR_get_rw_addr(DAR_pkt_bytes_t *bytes_in,
 	int index;
 	uint32_t lbidx;
 
-	/* Extract Transaction Address from a stream of bytes... */
+	// Extract Transaction Address from a stream of bytes
 
 	lbidx = bidx;
 	fields_out->log_rw.pkt_addr_size = bytes_in->pkt_addr_size;
@@ -651,35 +671,36 @@ static int DAR_get_rw_addr(DAR_pkt_bytes_t *bytes_in,
 	switch (fields_out->log_rw.pkt_addr_size) {
 	case rio_addr_66:
 		fields_out->log_rw.addr[2] =
-				((uint32_t)(bytes_in->pkt_data[lbidx + 7]) & 3);
+				bytes_in->pkt_data[lbidx + 7] & 3;
 		fields_out->log_rw.addr[1] |=
-				((uint32_t)(bytes_in->pkt_data[lbidx++]) << 24);
+				(bytes_in->pkt_data[lbidx++] << 24);
 		fields_out->log_rw.addr[1] |=
-				((uint32_t)(bytes_in->pkt_data[lbidx++]) << 16);
-		break;
+				(bytes_in->pkt_data[lbidx++] << 16);
+		//no break
 
 	case rio_addr_50:
 		if (rio_addr_50 == fields_out->log_rw.pkt_addr_size) {
 			fields_out->log_rw.addr[1] =
-					((uint32_t)(bytes_in->pkt_data[lbidx + 5] & 3) << 16);
+					(bytes_in->pkt_data[lbidx + 5] & 3) << 16;
 		}
+
 		fields_out->log_rw.addr[1] |=
-				((uint32_t)(bytes_in->pkt_data[lbidx++]) << 8);
+				(bytes_in->pkt_data[lbidx++] << 8);
 		fields_out->log_rw.addr[1] |=
-				(uint32_t)(bytes_in->pkt_data[lbidx++]);
-		break;
+				bytes_in->pkt_data[lbidx++];
+		//no break
 
 	case rio_addr_34:
 		if (rio_addr_34 == fields_out->log_rw.pkt_addr_size) {
 			fields_out->log_rw.addr[1] |=
-					((uint32_t)(bytes_in->pkt_data[lbidx + 3]) & 3);
+					(bytes_in->pkt_data[lbidx + 3] & 3);
 		}
-		break;
+		//no break
 
 	case rio_addr_32:
 		fields_out->log_rw.addr[0] =
 				(bytes_in->pkt_data[lbidx++] << 24);
-		break;
+		//no break
 
 	case rio_addr_21:
 		fields_out->log_rw.addr[0] |=
@@ -687,8 +708,9 @@ static int DAR_get_rw_addr(DAR_pkt_bytes_t *bytes_in,
 		fields_out->log_rw.addr[0] |=
 				((uint32_t)(bytes_in->pkt_data[lbidx++]) << 8);
 		fields_out->log_rw.addr[0] |=
-				((uint32_t)(bytes_in->pkt_data[lbidx++]) & 0xF8);
+				(uint32_t)(bytes_in->pkt_data[lbidx++]) & 0xF8;
 		break;
+
 	default:
 		lbidx = DAR_UTIL_BAD_ADDRSIZE;
 	}
@@ -841,66 +863,67 @@ uint32_t CS_fields_to_bytes(CS_field_t *fields_in, CS_bytes_t *bytes_out)
 	int large_crc;
 	bytes_out->cs_type_valid = fields_in->cs_size;
 
-	if (cs_invalid != fields_in->cs_size) {
-		if ((stype1_sop == fields_in->cs_t1)
-				|| (stype1_stomp == fields_in->cs_t1)
-				|| (stype1_eop == fields_in->cs_t1)
-				|| (stype1_lreq == fields_in->cs_t1)) {
-			bytes_out->cs_bytes[0] = PD_CONTROL_SYMBOL;
-		} else {
-			bytes_out->cs_bytes[0] = SC_START_CONTROL_SYMBOL;
-		}
-
-		if (cs_small == fields_in->cs_size) {
-			bytes_out->cs_bytes[1] =
-					(uint8_t)((((char)(fields_in->cs_t0) & 7) << 5)
-							| (fields_in->parm_0 & 0x1F));
-			bytes_out->cs_bytes[2] =
-					(uint8_t)(((fields_in->parm_1 & 0x1F) << 3)
-							| ((uint8_t)(fields_in->cs_t1) & 7));
-			bytes_out->cs_bytes[3] = (uint8_t)((fields_in->cs_t1_cmd
-					& 7) << 5);
-
-			bytes_out->cs_bytes[3] +=
-					compute_5bit_crc(
-						SHORT_CS_VALUE(
-								bytes_out->cs_bytes[1],
-								bytes_out->cs_bytes[2],
-								bytes_out->cs_bytes[3]));
-		} else {
-			bytes_out->cs_bytes[1] =
-					(uint8_t)((((char)(fields_in->cs_t0) & 7) << 5)
-							| ((fields_in->parm_0 & 0x3E) >> 1));
-			bytes_out->cs_bytes[2] =
-					(uint8_t)(((fields_in->parm_0 & 1) << 7)
-							| ((fields_in->parm_1 & 0x3F) << 1)
-							| (((char)(fields_in->cs_t1) & 4) >> 2));
-			bytes_out->cs_bytes[3] =
-					(uint8_t)((((char)(fields_in->cs_t1) & 3) << 6)
-							| ((fields_in->cs_t1_cmd & 7) << 3)
-							| (((char)(fields_in->cs_t2) & 7)));
-
-			bytes_out->cs_bytes[4] =
-					(uint8_t)((fields_in->cs_t2_val & 0x7F8) >> 3);
-			bytes_out->cs_bytes[5] =
-					(uint8_t)((fields_in->cs_t2_val & 7) << 5);
-
-			large_crc =
-					compute_13bit_crc(
-							LONG_CS_VALUE_MS(
-									bytes_out->cs_bytes[1],
-									bytes_out->cs_bytes[2],
-									bytes_out->cs_bytes[3],
-									bytes_out->cs_bytes[4]),
-							LONG_CS_VALUE_LS(
-									bytes_out->cs_bytes[5]));
-
-			bytes_out->cs_bytes[6] = (uint8_t)(large_crc & 0x00FF);
-			bytes_out->cs_bytes[5] += (uint8_t)((large_crc & 0x1F00) >> 8);
-			bytes_out->cs_bytes[7] = bytes_out->cs_bytes[0];
-		}
+	if (cs_invalid == fields_in->cs_size) {
+		return RIO_ERR_INVALID_PARAMETER;
 	}
 
+	if ((stype1_sop == fields_in->cs_t1)
+			|| (stype1_stomp == fields_in->cs_t1)
+			|| (stype1_eop == fields_in->cs_t1)
+			|| (stype1_lreq == fields_in->cs_t1)) {
+		bytes_out->cs_bytes[0] = PD_CONTROL_SYMBOL;
+	} else {
+		bytes_out->cs_bytes[0] = SC_START_CONTROL_SYMBOL;
+	}
+
+	if (cs_small == fields_in->cs_size) {
+		bytes_out->cs_bytes[1] =
+				(uint8_t)((((char)(fields_in->cs_t0) & 7) << 5)
+						| (fields_in->parm_0 & 0x1F));
+		bytes_out->cs_bytes[2] =
+				(uint8_t)(((fields_in->parm_1 & 0x1F) << 3)
+						| ((uint8_t)(fields_in->cs_t1) & 7));
+		bytes_out->cs_bytes[3] = (uint8_t)((fields_in->cs_t1_cmd
+				& 7) << 5);
+
+		bytes_out->cs_bytes[3] +=
+				compute_5bit_crc(
+					SHORT_CS_VALUE(
+							bytes_out->cs_bytes[1],
+							bytes_out->cs_bytes[2],
+							bytes_out->cs_bytes[3]));
+	} else {
+		bytes_out->cs_bytes[1] =
+				(uint8_t)((((char)(fields_in->cs_t0) & 7) << 5)
+						| ((fields_in->parm_0 & 0x3E) >> 1));
+		bytes_out->cs_bytes[2] =
+				(uint8_t)(((fields_in->parm_0 & 1) << 7)
+						| ((fields_in->parm_1 & 0x3F) << 1)
+						| (((char)(fields_in->cs_t1) & 4) >> 2));
+		bytes_out->cs_bytes[3] =
+				(uint8_t)((((char)(fields_in->cs_t1) & 3) << 6)
+						| ((fields_in->cs_t1_cmd & 7) << 3)
+						| (((char)(fields_in->cs_t2) & 7)));
+
+		bytes_out->cs_bytes[4] =
+				(uint8_t)((fields_in->cs_t2_val & 0x7F8) >> 3);
+		bytes_out->cs_bytes[5] =
+				(uint8_t)((fields_in->cs_t2_val & 7) << 5);
+
+		large_crc =
+				compute_13bit_crc(
+						LONG_CS_VALUE_MS(
+								bytes_out->cs_bytes[1],
+								bytes_out->cs_bytes[2],
+								bytes_out->cs_bytes[3],
+								bytes_out->cs_bytes[4]),
+						LONG_CS_VALUE_LS(
+								bytes_out->cs_bytes[5]));
+
+		bytes_out->cs_bytes[6] = (uint8_t)(large_crc & 0x00FF);
+		bytes_out->cs_bytes[5] += (uint8_t)((large_crc & 0x1F00) >> 8);
+		bytes_out->cs_bytes[7] = bytes_out->cs_bytes[0];
+	}
 	return RIO_SUCCESS;
 }
 
@@ -908,6 +931,7 @@ uint32_t CS_bytes_to_fields(CS_bytes_t *bytes_in, CS_field_t *fields_out)
 {
 	uint32_t rc = RIO_SUCCESS;
 	int byte_offset = 0;
+	bool control_symbol = false;
 
 	fields_out->cs_size = bytes_in->cs_type_valid;
 
@@ -915,27 +939,12 @@ uint32_t CS_bytes_to_fields(CS_bytes_t *bytes_in, CS_field_t *fields_out)
 		if ((PD_CONTROL_SYMBOL == bytes_in->cs_bytes[0])
 				|| (SC_START_CONTROL_SYMBOL == bytes_in->cs_bytes[0])) {
 			byte_offset = 1;
-		}
-
-		fields_out->cs_t0 =
-				(stype0)((bytes_in->cs_bytes[0 + byte_offset] & 0xE0) >> 5);
-
-		if (byte_offset) {
-			if ((stype1_sop == fields_out->cs_t1)
-					|| (stype1_stomp == fields_out->cs_t1)
-					|| (stype1_eop == fields_out->cs_t1)
-					|| (stype1_lreq == fields_out->cs_t1)) {
-				if (PD_CONTROL_SYMBOL != bytes_in->cs_bytes[0]) {
-					rc = DAR_FIRST_IMP_SPEC_WARNING + 1;
-				}
-			} else {
-				if (SC_START_CONTROL_SYMBOL != bytes_in->cs_bytes[0]) {
-					rc = DAR_FIRST_IMP_SPEC_WARNING + 1;
-				}
-			}
+			control_symbol = true;
 		}
 
 		if (cs_small == bytes_in->cs_type_valid) {
+			fields_out->cs_t0 =
+					(stype0)((bytes_in->cs_bytes[0 + byte_offset] & 0xE0) >> 5);
 			fields_out->parm_0 =
 					bytes_in->cs_bytes[0 + byte_offset] & 0x1F;
 			fields_out->parm_1 =
@@ -986,6 +995,21 @@ uint32_t CS_bytes_to_fields(CS_bytes_t *bytes_in, CS_field_t *fields_out)
 
 							== (((bytes_in->cs_bytes[4 + byte_offset] & 0x1f) << 8)
 									+ bytes_in->cs_bytes[5 + byte_offset]);
+		}
+
+		if (control_symbol) {
+			if ((stype1_sop == fields_out->cs_t1)
+					|| (stype1_stomp == fields_out->cs_t1)
+					|| (stype1_eop == fields_out->cs_t1)
+					|| (stype1_lreq == fields_out->cs_t1)) {
+				if (PD_CONTROL_SYMBOL != bytes_in->cs_bytes[0]) {
+					rc = DAR_FIRST_IMP_SPEC_WARNING;
+				}
+			} else {
+				if (SC_START_CONTROL_SYMBOL != bytes_in->cs_bytes[0]) {
+					rc = DAR_FIRST_IMP_SPEC_WARNING;
+				}
+			}
 		}
 	}
 
@@ -1282,12 +1306,12 @@ uint32_t DAR_pkt_fields_to_bytes(DAR_pkt_fields_t *fields_in,
 		 */
 
 		bytes_out->pkt_data[0] =
-				(uint8_t)((fields_in->phys.pkt_vc ? 1 : 0 << 1)
-						| fields_in->phys.crf ? 1 : 0);
+				(uint8_t)(((fields_in->phys.pkt_vc ? 1 : 0) << 1)
+						| (fields_in->phys.crf ? 1 : 0));
 		bytes_out->pkt_data[1] =
 				(uint8_t)(((fields_in->phys.pkt_prio & 3) << 6)
-						+ (((uint8_t)(fields_in->trans.tt_code)) << 4)
-						+ (DAR_util_get_ftype(fields_in->pkt_type) & 0xF));
+						| (((uint8_t)(fields_in->trans.tt_code)) << 4)
+						| (DAR_util_get_ftype(fields_in->pkt_type) & 0xF));
 		bytes_out->num_chars = 2;
 
 		/* Complete the Transport Layer Header, 2 or 4 bytes */
@@ -1922,7 +1946,7 @@ uint32_t DAR_pkt_bytes_to_fields(DAR_pkt_bytes_t *bytes_in,
 	}
 
 	fields_out->phys.pkt_ackID = (bytes_in->pkt_data[0] & 0xFC) >> 2;
-	fields_out->phys.pkt_vc = bytes_in->pkt_data[0] & 2;
+	fields_out->phys.pkt_vc = (bytes_in->pkt_data[0] & 2) >> 1;
 	fields_out->phys.crf = bytes_in->pkt_data[0] & 1;
 	fields_out->phys.pkt_prio = (bytes_in->pkt_data[1] & 0xC0) >> 6;
 	fields_out->trans.tt_code = (rio_TT_code)((bytes_in->pkt_data[1] & 0x30)
@@ -1994,6 +2018,7 @@ uint32_t DAR_pkt_bytes_to_fields(DAR_pkt_bytes_t *bytes_in,
 		/* Now translate the size_rc to the appropriate number of bytes
 		 and byte address.
 		 */
+
 		size_rc = DAR_util_compute_rd_bytes_n_align(size_rc,
 				(bytes_in->pkt_data[pkt_index - 1] & 4) >> 2,
 				&fields_out->pkt_bytes, &pkt_addr_msbs);
@@ -2092,11 +2117,11 @@ uint32_t DAR_pkt_bytes_to_fields(DAR_pkt_bytes_t *bytes_in,
 		break;
 
 	case 8: /* Maintenance Transaction */
-		size_rc = bytes_in->pkt_data[pkt_index] & 0xF;
-
 		if (((bytes_in->pkt_data[pkt_index] & 0xF0) >> 4) > 4) {
 			return DAR_UTIL_UNKNOWN_TRANS;
 		}
+
+		size_rc = bytes_in->pkt_data[pkt_index] & 0xF;
 
 		/* Figure out which kind of maintenance transaction */
 		fields_out->pkt_type =
@@ -2211,8 +2236,9 @@ uint32_t DAR_pkt_bytes_to_fields(DAR_pkt_bytes_t *bytes_in,
 			fields_out->log_ds.dstm_pad_data_amt =
 					(bytes_in->pkt_data[pkt_index++] & 0x01) ?
 							true : false;
-			fields_out->log_ds.dstm_streamid =
-					fields_out->log_ds.dstm_PDU_len = 0;
+
+			fields_out->log_ds.dstm_streamid = 0;
+			fields_out->log_ds.dstm_PDU_len = 0;
 			if (fields_out->log_ds.dstm_start_seg) {
 				fields_out->log_ds.dstm_streamid =
 						bytes_in->pkt_data[pkt_index++]
@@ -2307,16 +2333,16 @@ uint32_t DAR_pkt_bytes_to_fields(DAR_pkt_bytes_t *bytes_in,
 		 */
 		switch (bytes_in->pkt_data[pkt_index++] & 0x0F) {
 		case 0:
-			fields_out->log_ms.status = fields_out->log_rw.status =
-					pkt_done;
+			fields_out->log_ms.status = pkt_done;
+			fields_out->log_rw.status = pkt_done;
 			break;
 		case 7:
-			fields_out->log_ms.status = fields_out->log_rw.status =
-					pkt_err;
+			fields_out->log_ms.status = pkt_err;
+			fields_out->log_rw.status = pkt_err;
 			break;
 		case 3:
-			fields_out->log_ms.status = fields_out->log_rw.status =
-					pkt_retry;
+			fields_out->log_ms.status = pkt_retry;
+			fields_out->log_rw.status = pkt_retry;
 			get_data = false;
 			fields_out->pkt_bytes = 0;
 			break;
@@ -2464,12 +2490,14 @@ uint32_t DAR_pkt_bytes_to_fields(DAR_pkt_bytes_t *bytes_in,
 			return DAR_UTIL_BAD_DATA_SIZE;
 		}
 
-		/* Check for inexact amount of data returned */
+		// Check for inexact amount of data returned
+
 		if ((fields_out->pkt_bytes != max_bytes) && get_exact_data) {
 			return DAR_UTIL_BAD_DATA_SIZE;
 		}
 	}
 
+	// TODO - check pkt_index against num_chars, return pkt_index or success
 	return rc;
 }
 
@@ -2509,7 +2537,7 @@ char *DAR_pkt_ftype_descr(DAR_pkt_fields_t *pkt_fields)
  If the FTYPEs does not have a transaction type,
  this routine returns NULL.
  */
-char *pkt_trans_strings[(int)(pkt_last_type)] = {
+char *pkt_trans_strings[(int)(pkt_type_max+1)] = {
 		(char *)"",
 		(char *)"NREAD",
 		(char *)"ATOMIC inc",
