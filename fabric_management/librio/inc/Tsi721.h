@@ -1714,7 +1714,7 @@ extern "C" {
 #define TSI721_PLM_BH_BLK_REV                                  (0x0000f000)
 #define TSI721_PLM_BH_NEXT_BLK_PTR                             (0xffff0000)
 
-/* TSI721_PLM_IMP_SPEC_CT : Register Bits Masks Definitions */
+/* TSI721_PLM_IMP_SPEC_CTL : Register Bits Masks Definitions */
 #define TSI721_PLM_IMP_SPEC_CTL_DLT_THRESH                  (0x0000ffff)
 #define TSI721_PLM_IMP_SPEC_CTL_SWAP_RX                     (0x00030000)
 #define TSI721_PLM_IMP_SPEC_CTL_SWAP_TX                     (0x000c0000)
