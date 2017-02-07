@@ -167,6 +167,8 @@ uint32_t DARRegWrite(DAR_DEV_INFO_t *dev_info, uint32_t offset,
 		return rc;
 	}
 
+	// If this is a performance optimization register,
+	// update the cached value.
 	i = DAR_get_poreg_idx(dev_info, offset);
 	if (DAR_POREG_BAD_IDX != i) {
 		dev_info->poregs[i].data = writedata;
