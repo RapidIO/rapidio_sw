@@ -589,12 +589,12 @@ typedef uint32_t RIO_SPX_ERR_STAT_T;
 #define RIO_SPX_IN_ACKID_INB_ACKID                       (0x00000fff)
 
 /* RIO_SPX_PWR_MGMT : Register Bits Masks Definitions */
-#define RIO_SPX_PWR_MGMT_LP_TX_uint32_t                  (0x000000c0)
+#define RIO_SPX_PWR_MGMT_LP_TX_STATUS                  (0x000000c0)
 #define RIO_SPX_PWR_MGMT_CHG_LP_TX_WIDTH               (0x00000700)
-#define RIO_SPX_PWR_MGMT_MY_TX_uint32_t                  (0x00001800)
+#define RIO_SPX_PWR_MGMT_MY_TX_STATUS                  (0x00001800)
 #define RIO_SPX_PWR_MGMT_CHG_MY_TX_WIDTH               (0x0000e000)
-#define RIO_SPX_PWR_MGMT_RX_WIDTH_uint32_t               (0x00070000)
-#define RIO_SPX_PWR_MGMT_TX_WIDTH_uint32_t               (0x00380000)
+#define RIO_SPX_PWR_MGMT_RX_WIDTH_STATUS               (0x00070000)
+#define RIO_SPX_PWR_MGMT_TX_WIDTH_STATUS               (0x00380000)
 #define RIO_SPX_PWR_MGMT_ASYM_MODE_EN                  (0x07c00000)
 #define RIO_SPX_PWR_MGMT_ASYM_MODE_SUP                 (0xf8000000)
 

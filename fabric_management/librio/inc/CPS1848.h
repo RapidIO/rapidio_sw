@@ -269,7 +269,7 @@ extern "C" {
 #define CPS1848_LOG_CTL                                            (0x00fd0000)
 #define CPS1848_LOG_DATA                                           (0x00fd0004)
 #define CPS1848_LOG_MATCH_X(X)                           (0xfd0008 + 0x004*(X))
-#define CPS1848_LOG_MATCH_uint32_t                                   (0x00fd0028)
+#define CPS1848_LOG_MATCH_STATUS                                   (0x00fd0028)
 #define CPS1848_LOG_EVENTS                                         (0x00fd002c)
 #define CPS1848_LOG_CTL2                                           (0x00fd0030)
 #define CPS1848_PLL_X_CTL_1(X)                           (0xff0000 + 0x010*(X))
@@ -517,7 +517,7 @@ extern "C" {
 #define CPS1848_RTE_DEFAULT_PORT_CSR_DEFAULT_PORT                  (0x000000ff)
 
 /* CPS1848_MCAST_MASK_PORT_CSR : Register Bits Masks Definitions */
-#define CPS1848_MCAST_MASK_PORT_CSR_PORT_uint32_t                    (0x00000001)
+#define CPS1848_MCAST_MASK_PORT_CSR_PORT_STATUS                    (0x00000001)
 #define CPS1848_MCAST_MASK_PORT_CSR_MASK_CMD                       (0x00000070)
 #define CPS1848_MCAST_MASK_PORT_CSR_EGRESS_PORT                    (0x0000ff00)
 #define CPS1848_MCAST_MASK_PORT_CSR_MCAST_MASK                     (0xffff0000)
@@ -528,7 +528,7 @@ extern "C" {
 #define CPS1848_MCAST_ASSOC_SEL_CSR_DESTID_MSB                     (0xff000000)
 
 /* CPS1848_MCAST_ASSOC_OP_CSR : Register Bits Masks Definitions */
-#define CPS1848_MCAST_ASSOC_OP_CSR_uint32_t                          (0x00000001)
+#define CPS1848_MCAST_ASSOC_OP_CSR_STATUS                          (0x00000001)
 #define CPS1848_MCAST_ASSOC_OP_CSR_CMD                             (0x00000060)
 #define CPS1848_MCAST_ASSOC_OP_CSR_TYPE                            (0x00000080)
 
@@ -546,8 +546,8 @@ extern "C" {
 #define CPS1848_PORT_X_LINK_MAINT_REQ_CSR_CMD                      (0x00000007)
 
 /* CPS1848_PORT_X_LINK_MAINT_RESP_CSR : Register Bits Masks Definitions */
-#define CPS1848_PORT_X_LINK_MAINT_RESP_CSR_LINK_uint32_t             (0x0000001f)
-#define CPS1848_PORT_X_LINK_MAINT_RESP_CSR_ACKID_uint32_t            (0x000007e0)
+#define CPS1848_PORT_X_LINK_MAINT_RESP_CSR_LINK_STATUS             (0x0000001f)
+#define CPS1848_PORT_X_LINK_MAINT_RESP_CSR_ACKID_STATUS            (0x000007e0)
 #define CPS1848_PORT_X_LINK_MAINT_RESP_CSR_VALID                   (0x80000000)
 
 /* CPS1848_PORT_X_LOCAL_ACKID_CSR : Register Bits Masks Definitions */
@@ -754,7 +754,7 @@ extern "C" {
 /* CPS1848_LANE_X_STATUS_4_CSR : Register Bits Masks Definitions */
 #define CPS1848_LANE_X_STATUS_4_CSR_CC_MONITOR_THRESH              (0x0000ffff)
 #define CPS1848_LANE_X_STATUS_4_CSR_CC_MONITOR_EN                  (0x00010000)
-#define CPS1848_LANE_X_STATUS_4_CSR_CC_MONITOR_uint32_t              (0x00020000)
+#define CPS1848_LANE_X_STATUS_4_CSR_CC_MONITOR_STATUS              (0x00020000)
 #define CPS1848_LANE_X_STATUS_4_CSR_CTL_BY_LP_EN                   (0x80000000)
 
 /* CPS1848_RTE_PORT_SEL : Register Bits Masks Definitions */
@@ -1582,7 +1582,7 @@ extern "C" {
 #define CPS1848_LOG_MATCH_X_ERR_GROUP_MASK                         (0x00200000)
 #define CPS1848_LOG_MATCH_X_ERR_SOURCE_MASK                        (0x00400000)
 
-/* CPS1848_LOG_MATCH_uint32_t : Register Bits Masks Definitions */
+/* CPS1848_LOG_MATCH_STATUS : Register Bits Masks Definitions */
 #define CPS1848_LOG_MATCH_STATUS_FLAG_ERR_0                        (0x00000001)
 #define CPS1848_LOG_MATCH_STATUS_FLAG_ERR_1                        (0x00000002)
 #define CPS1848_LOG_MATCH_STATUS_FLAG_ERR_2                        (0x00000004)

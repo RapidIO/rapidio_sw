@@ -50,7 +50,7 @@ extern "C" {
 /* ************************************************ */
 #define Tsi575_SW_SREP_EVENT_ROUTE                       (EM_BASE + 0x00000000)
 #define Tsi575_BRIDGE_EVENT_ROUTE                        (EM_BASE + 0x00000004)
-#define Tsi575_BLOCK_uint32_t                              (EM_BASE + 0x00000010)
+#define Tsi575_BLOCK_STATUS                              (EM_BASE + 0x00000010)
 #define Tsi575_BLOCK_GEN                                 (EM_BASE + 0x00000014)
 
 
@@ -77,19 +77,19 @@ extern "C" {
 #define Tsi575_BRIDGE_EVENT_ROUTE_GPIO1                            (0x00700000)
 #define Tsi575_BRIDGE_EVENT_ROUTE_PCI_ERR                          (0x07000000)
 
-/* Tsi575_BLOCK_uint32_t : Register Bits Masks Definitions */
-#define Tsi575_BLOCK_uint32_t_SREP_ERR                               (0x00000001)
-#define Tsi575_BLOCK_uint32_t_SREP_DB_RX                             (0x00000002)
-#define Tsi575_BLOCK_uint32_t_SREP_PW_RX                             (0x00000004)
-#define Tsi575_BLOCK_uint32_t_SREP_MCS_RX                            (0x00000008)
-#define Tsi575_BLOCK_uint32_t_SREP_RESET_RX                          (0x00000010)
-#define Tsi575_BLOCK_uint32_t_SWITCH_ERR                             (0x00000020)
-#define Tsi575_BLOCK_uint32_t_I2C                                    (0x00000040)
-#define Tsi575_BLOCK_uint32_t_BISF_ERR                               (0x00000080)
-#define Tsi575_BLOCK_uint32_t_PCI_ERR                                (0x00000100)
-#define Tsi575_BLOCK_uint32_t_GPIO0                                  (0x00000200)
-#define Tsi575_BLOCK_uint32_t_GPIO1                                  (0x00000400)
-#define Tsi575_BLOCK_uint32_t_CLK_GEN                                (0x00000800)
+/* Tsi575_BLOCK_STATUS : Register Bits Masks Definitions */
+#define Tsi575_BLOCK_STATUS_SREP_ERR                               (0x00000001)
+#define Tsi575_BLOCK_STATUS_SREP_DB_RX                             (0x00000002)
+#define Tsi575_BLOCK_STATUS_SREP_PW_RX                             (0x00000004)
+#define Tsi575_BLOCK_STATUS_SREP_MCS_RX                            (0x00000008)
+#define Tsi575_BLOCK_STATUS_SREP_RESET_RX                          (0x00000010)
+#define Tsi575_BLOCK_STATUS_SWITCH_ERR                             (0x00000020)
+#define Tsi575_BLOCK_STATUS_I2C                                    (0x00000040)
+#define Tsi575_BLOCK_STATUS_BISF_ERR                               (0x00000080)
+#define Tsi575_BLOCK_STATUS_PCI_ERR                                (0x00000100)
+#define Tsi575_BLOCK_STATUS_GPIO0                                  (0x00000200)
+#define Tsi575_BLOCK_STATUS_GPIO1                                  (0x00000400)
+#define Tsi575_BLOCK_STATUS_CLK_GEN                                (0x00000800)
 
 /* Tsi575_BLOCK_GEN : Register Bits Masks Definitions */
 #define Tsi575_BLOCK_GEN_PCI_ERR                                   (0x00000100)
