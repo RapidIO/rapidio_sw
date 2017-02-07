@@ -139,6 +139,8 @@ typedef enum {
 	stype0_VC_status = 5,
 	stype0_lresp = 6,
 	stype0_imp = 7,
+	stype0_min = stype0_pa,
+	stype0_max = stype0_imp,
 } stype0;
 
 // Definitions for STYPE0_PNA parm1 field.
@@ -160,6 +162,8 @@ typedef enum {
 	stype1_mecs = 5,
 	stype1_rsvd = 6,
 	stype1_nop = 7,
+	stype1_min = stype1_sop,
+	stype1_max = stype1_nop,
 } stype1;
 
 // STYPE1_CMD_RSVD should be used for all STYPE1 CMD field values 
@@ -179,6 +183,8 @@ typedef enum {
 	stype2_rsvd5 = 5,
 	stype2_rsvd6 = 6,
 	stype2_rsvd7 = 7,
+	stype2_min = stype2_nop,
+	stype2_max = stype2_rsvd7,
 } stype2;
 
 typedef struct CS_field_t_TAG {
@@ -205,7 +211,7 @@ typedef struct CS_field_t_TAG {
 } CS_field_t;
 
 typedef struct CS_bytes_t_TAG {
-	// true if cs_type & cs_bytes are valid, false if not
+	// cs_invalid means no fields are valid
 	rio_cs_size cs_type_valid;
 
 	// Bytes occur in network byte order
@@ -260,7 +266,7 @@ typedef enum {
 	pkt_nr_set,		// ATOMIC Set
 	pkt_nr_clr,		// ATOMIC Clear
 	pkt_nw,			// NWRITE packet
-	pkt_nwr	,		// NWRITE_R packet
+	pkt_nwr,		// NWRITE_R packet
 	pkt_nw_swap,		// ATOMIC Swap
 	pkt_nw_cmp_swap,	// ATOMIC compare and swap
 	pkt_nw_tst_swap,	// ATOMIC Test-and-swap
@@ -277,13 +283,16 @@ typedef enum {
 	pkt_resp,		// Response (Type 13) packet, no data
 	pkt_resp_data,		// Response (Type 13) packet with data
 	pkt_msg_resp,		// Response (Type 13) packet for Message segment
-	pkt_last_type,
+	pkt_type_min = pkt_raw,
+	pkt_type_max = pkt_msg_resp,
 } DAR_pkt_type;
 
 typedef enum {
 	pkt_done = 0,
 	pkt_retry = 3,
-	pkt_err = 7
+	pkt_err = 7,
+	rio_pkt_status_min = pkt_done,
+	rio_pkt_status_max = pkt_err,
 } rio_pkt_status;
 
 typedef enum {
@@ -298,7 +307,9 @@ typedef enum {
 	tt_small,
 	tt_large,
 	undef2,
-	undef3
+	undef3,
+	rio_TT_code_min = tt_small,
+	rio_TT_code_max = undef3,
 } rio_TT_code;
 
 typedef enum {
@@ -771,6 +782,7 @@ typedef struct DAR_pkt_bytes_t_TAG {
 #define DAR_UTIL_UNKNOWN_STATUS 0x78000009
 #define DAR_UTIL_UNKNOWN_FTYPE  0x78000010
 #define DAR_UTIL_0_MASK_VAL_ERR 0x78000011
+#define DAR_UTIL_INVALID_WPTR   0x78000012
 
 /* To compose a packet as a stream of bytes, pass in an initialized
  * rio_pkt_fields_t, and get out a rio_pkt_bytes_t.
