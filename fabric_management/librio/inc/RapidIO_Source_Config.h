@@ -39,12 +39,13 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 extern "C" {
 #endif
 
-/* Controls what device drivers are bound into the DAR 
+/* Controls for which device drivers are supported by librio
 */
 #define TSI57X_DAR_WANTED
 #define CPS_DAR_WANTED
 #define RXSx_DAR_WANTED
 #define TSI721_DAR_WANTED
+#define TSI721_EXCLUDE_EM_INTERRUPT_SUPPORT
 
 #ifdef __cplusplus
 }
