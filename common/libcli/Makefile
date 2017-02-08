@@ -53,7 +53,7 @@ endif
 runtests: $(TEST_TARGETS)
 	@$(foreach f,$^, \
 		echo ------------ Running $(f); \
-		set -e; \
+		$(UNIT_TEST_FAIL_POLICY) \
 		./$(f); \
 		echo; \
 	)

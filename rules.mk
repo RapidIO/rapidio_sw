@@ -133,3 +133,5 @@ ifdef TEST
 TST_LIBS=-lcmocka
 TST_INCS=-I$(COMMONDIR)/libcmocka/inc
 endif
+
+UNIT_TEST_FAIL_POLICY?=set -e;
