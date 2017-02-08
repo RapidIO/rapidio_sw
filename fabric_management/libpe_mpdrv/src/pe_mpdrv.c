@@ -650,11 +650,27 @@ int generic_device_init(struct riocp_pe *pe, uint32_t *ct)
 	if (!cfg_find_dev_by_ct(*ct, &sw)) {
 		if (sw.is_sw) {
 			for (port = 0; port < sw.sw_info.num_ports; port++) {
+				if (!sw.sw_info.sw_pt[port].valid) {
+					set_pc_in.pc[port].port_available
+									= false;
+					set_pc_in.pc[port].powered_up = false;
+					continue;
+				}
+				if (sw.sw_info.sw_pt[port].port != port) {
+					ERR("Port numbers unequal %d %d\n",
+						port,
+						sw.sw_info.sw_pt[port].port);
+					goto exit;
+				}
+				
 				set_pc_in.pc[port].ls =
 						sw.sw_info.sw_pt[port].ls;
+				set_pc_in.pc[port].pw =
+						sw.sw_info.sw_pt[port].op_pw;
 			}
 		} else {
 			set_pc_in.pc[0].ls = sw.ep_pt.ls;
+			set_pc_in.pc[0].pw = sw.ep_pt.op_pw;
 		}
 	}
 
