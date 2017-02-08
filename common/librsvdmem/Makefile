@@ -33,7 +33,7 @@ TOPDIR?=$(shell pwd)/../..
 include $(TOPDIR)/rules.mk
 
 NAME:=rsvdmem
-TARGETS:=lib$(NAME).a lib$(NAME).so
+TARGETS:=lib$(NAME).a
 TEST_TARGETS:=$(NAME)_test
 
 OBJECTS:=$(patsubst src/%.c,src/%.o,$(wildcard src/*.c))
@@ -41,8 +41,7 @@ TEST_OBJECTS:=$(patsubst test/%.c,test/%.o,$(wildcard test/*.c))
 
 CXXFLAGS+=-D$(DEBUG_CTL) -DRDMA_LL=$(LOG_LEVEL)
 CXXFLAGS+=-I$(FMDDIR)/librio/inc -I$(FMDDIR)/libdid/inc -I$(FMDDIR)/libct/inc
-LINK_FLAGS+= -rdynamic -shared -Wl,-soname,lib$(NAME).so.$(SOVER)
-LDFLAGS+=-L. -L$(COMMONLIB) $(LIBS_RPATH) -l$(NAME)
+LDFLAGS+=-L. -L$(COMMONLIB) -l$(NAME)
 
 
 .PHONY: all clean
@@ -57,11 +56,6 @@ endif
 	@echo ---------- Building $@
 	$(AR) rcs $@ $^
 
-%.so: $(OBJECTS)
-	@echo ---------- Building $@
-	$(CXX) $(CXXFLAGS) -o $@.$(SOVER) $(OBJECTS) $(LINK_FLAGS)
-	@ln -s $@.$(SOVER) $@ &>/dev/null
-
 src/%.o: src/%.c
 	@echo ---------- Building $@
 	$(CXX) -c $(CXXFLAGS) $< -o $@ \
@@ -75,10 +69,10 @@ test/%.o: test/%.c
 $(TEST_TARGETS): $(TEST_OBJECTS)
 	@echo ---------- Building $@
 	$(CXX) -o $@ $< $(LDFLAGS) \
-	$(TST_LIBS) -lcli
+	$(TST_LIBS) -lcli -lpthread
 
 clean:
 	@echo ---------- Cleaning lib$(NAME)...
-	rm -f $(TARGETS) lib$(NAME).so.$(SOVER) $(OBJECTS) \
+	rm -f $(TARGETS) $(OBJECTS) \
 	$(TEST_TARGETS) $(TEST_OBJECTS) \
 	inc/*~ src/*~ test/*~ *~

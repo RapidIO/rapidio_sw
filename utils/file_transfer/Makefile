@@ -68,12 +68,12 @@ libfxfr:
 	
 fxfr_server: $(SERVER_OBJS) 
 	$(CXX) $(CXXFLAGS) -o $@ $^ -L$(LOCAL_LIBRARY_DIR) -L$(COMMON_LIBS_DIR) \
-	$(LIBS_RPATH) $(LIBRARIES) \
+	$(LIBRARIES) \
 	-D__CLI_LINUX__
 
 rftp: $(CLIENT_OBJS)
 	$(CXX) $(CXXFLAGS) -o $@ $^ -L$(LOCAL_LIBRARY_DIR) -L$(COMMON_LIBS_DIR) \
-	$(LIBS_RPATH) $(LIBRARIES) \
+	$(LIBRARIES) \
 	-D__CLI_LINUX__ -I./libfxfr/inc
 
 all: $(LIB_DEPS) libfxfr fxfr_server rftp

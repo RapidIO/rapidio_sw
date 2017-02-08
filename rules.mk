@@ -115,8 +115,7 @@ $(info Building $(HERE) on $(ARCH) release $(SOVER) with optimisations $(OPTFLAG
 
 COMMONDIR=$(TOPDIR)/common
 COMMONINC=$(COMMONDIR)/include
-COMMONLIB=$(COMMONDIR)/libs_so
-COMMONLIBA=$(COMMONDIR)/libs_a
+COMMONLIB=$(COMMONDIR)/libs_a
 
 FMDDIR=$(TOPDIR)/fabric_management
 
@@ -134,5 +133,3 @@ ifdef TEST
 TST_LIBS=-lcmocka
 TST_INCS=-I$(COMMONDIR)/libcmocka/inc
 endif
-
-LIBS_RPATH?=-Wl,-rpath=$(COMMONDIR)/libs_so

@@ -47,7 +47,7 @@ src/%.o: src/%.c
 rrmapcli: $(OBJECTS) 
 	@echo ---------- Building RRMAP CLI...
 	$(CXX) -pthread \
-	-o $@ $(OBJECTS) $(LIB_DIRS) $(LIBS_RPATH) \
+	-o $@ $(OBJECTS) $(LIB_DIRS) \
 	-lcli -lrt -ldl $(TST_LIBS)
 
 all: rrmapcli

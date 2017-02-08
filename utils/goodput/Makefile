@@ -58,7 +58,7 @@ scripts:
 	@ln -s scripts mport0 &>/dev/null || true
 
 goodput: $(SOURCES) $(INCLUDES)
-	$(CXX) $(CXXFLAGS) $(SOURCES) -o $@ $(LIBS_RPATH) $(LIBRARIES)
+	$(CXX) $(CXXFLAGS) $(SOURCES) -o $@ $(LIBRARIES)
 
 clean:
 	@echo ---------- Cleaning $(NAME)...

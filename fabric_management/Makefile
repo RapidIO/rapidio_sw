@@ -82,24 +82,23 @@ libdd: FORCE
 	$(MAKE) all -C libdd
 	mkdir -p $(LOCAL_LIBRARY_DIR)
 	cp libdd/libdd.a $(LOCAL_LIBRARY_DIR)
-	mkdir -p $(COMMONLIBA)
-	cp libdd/libdd.a $(COMMONLIBA)
-	
+	mkdir -p $(COMMONLIB)
+	cp libdd/libdd.a $(COMMONLIB)
+
 libcfg: FORCE
 	$(MAKE) all -C libcfg
 	mkdir -p $(LOCAL_LIBRARY_DIR)
 	cp libcfg/libcfg.a $(LOCAL_LIBRARY_DIR)
-	
+
 libpe_mpdrv: FORCE
 	$(MAKE) all -C libpe_mpdrv
 	mkdir -p $(LOCAL_LIBRARY_DIR)
 	cp libpe_mpdrv/libpe_mpdrv.a $(LOCAL_LIBRARY_DIR)
-	
+
 libfmdd: FORCE
 	$(MAKE) all -C libfmdd
-	mkdir -p $(COMMONLIBA)
-	cp libfmdd/libfmdd.a $(COMMONLIBA)
-	
+	mkdir -p $(COMMONLIB)
+	cp libfmdd/libfmdd.a $(COMMONLIB)
 
 daemon: $(LIB_DEPS)
 	$(MAKE) all -C daemon
@@ -107,7 +106,7 @@ daemon: $(LIB_DEPS)
 FORCE:
 
 clean:
-	rm -f fmd *.o *~ inc/*~ *.exe core $(LOCAL_LIBRARY_DIR)/*.so \
+	rm -f fmd *.o *~ inc/*~ *.exe core \
 	$(LOCAL_LIBRARY_DIR)/*.a
 	$(MAKE) clean -C daemon
 	$(MAKE) clean -C libcfg

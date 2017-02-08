@@ -53,7 +53,7 @@ CFLAGS+=-I../libriocp_pe/inc
 CFLAGS+=-I../librio/inc
 CFLAGS+=-I../libct/inc
 CFLAGS+=-I../libdid/inc
-LDFLAGS+=-L. -L$(COMMONLIB) -L$(FMDDIR)/libs_a $(LIBS_RPATH) -l$(NAME)
+LDFLAGS+=-L. -L$(COMMONLIB) -L$(FMDDIR)/libs_a -l$(NAME)
 
 TST_LIBS+=-llog -ldid -lct -lcli
 
@@ -83,7 +83,7 @@ test/%.o: test/%.c
 $(TEST_TARGETS): $(TEST_OBJECTS)
 	@echo ---------- Building $@
 	$(CC) -o $@ $< $(LDFLAGS) \
-	$(TST_LIBS)
+	$(TST_LIBS)  -lpthread
 
 clean:
 	@echo ---------- Cleaning lib$(NAME)...

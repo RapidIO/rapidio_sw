@@ -25,7 +25,7 @@ CFLAGS+=-I../libct/inc
 CFLAGS+=-I../libdid/inc
 CFLAGS+=-I$(FMDDIR)/librio/inc
 
-LDFLAGS+=-L. -L$(COMMONLIB) -L$(FMDDIR)/libs_a $(LIBS_RPATH) -l$(NAME)
+LDFLAGS+=-L. -L$(COMMONLIB) -L$(FMDDIR)/libs_a -l$(NAME)
 
 TST_LIBS+=-lcli -lmport
 
@@ -53,7 +53,7 @@ test/%.o: test/%.c
 test/%: test/%.o
 	@echo ---------- Building $@
 	$(CXX) -o $@ $< $(LDFLAGS) \
-	$(TST_LIBS)
+	$(TST_LIBS) -lpthread
 
 $(TEST_TARGET): $(TEST_TARGETS)
 
