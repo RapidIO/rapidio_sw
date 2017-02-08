@@ -540,6 +540,8 @@ static void rxs_init_ctrs(rio_sc_init_dev_ctrs_in_t *parms_in)
         }
 
         parms_in->dev_ctrs = mock_dev_ctrs;
+        parms_in->dev_ctrs->p_ctrs = pp_ctrs;
+	parms_in->dev_ctrs->num_p_ctrs = RXS2448_MAX_PORTS;
 }
 
 void rxs_init_dev_ctrs_test_success(void **state)
@@ -1294,6 +1296,8 @@ void rxs_read_dev_ctrs_test_bad_parms2(void **state)
 	init_in.ptl.pnums[0] = 1;
 	init_in.ptl.pnums[1] = 2;
 	init_in.ptl.pnums[2] = 3;
+	init_in.dev_ctrs = mock_dev_ctrs;
+	init_in.dev_ctrs->p_ctrs = pp_ctrs;
 	
         assert_int_equal(RIO_SUCCESS, rxs_rio_sc_init_dev_ctrs(&mock_dev_info,
 						&init_in, &init_out));
