@@ -62,6 +62,10 @@ file_transfer: common FORCE
 
 FORCE:
 
+runtests: FORCE
+	$(MAKE) runtests -C common
+	$(MAKE) runtests -C fabric_management
+
 clean: FORCE
 	$(MAKE) clean -C common
 	$(MAKE) clean -C fabric_management

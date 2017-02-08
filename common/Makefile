@@ -82,15 +82,22 @@ libmport: FORCE libcmocka libtime_utils
 
 FORCE:
 
+runtests:
+	$(MAKE) runtests -C libcli
+	$(MAKE) runtests -C liblist
+	$(MAKE) runtests -C librsvdmem
+	$(MAKE) runtests -C libset
+	$(MAKE) runtests -C libtime_utils
+
 clean:
-	$(MAKE) clean -C libcmocka
-	$(MAKE) clean -C libset
 	$(MAKE) clean -C libcli
+	$(MAKE) clean -C libcmocka
 	$(MAKE) clean -C liblist
 	$(MAKE) clean -C liblog
-	$(MAKE) clean -C libtime_utils
-	$(MAKE) clean -C libunit_test
 	$(MAKE) clean -C libmport
 	$(MAKE) clean -C librsvdmem
+	$(MAKE) clean -C libset
+	$(MAKE) clean -C libtime_utils
+	$(MAKE) clean -C libunit_test
 	rm -f libs_a/*
 

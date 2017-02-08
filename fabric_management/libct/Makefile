@@ -53,6 +53,14 @@ else
 all: $(TARGETS)
 endif
 
+runtests: $(TEST_TARGETS)
+	@$(foreach f,$^, \
+		echo ------------ Running $(f); \
+		set -e; \
+		./$(f); \
+		echo; \
+	)
+
 %.a: $(OBJECTS)
 	@echo ---------- Building $@
 	$(AR) rcs $@ $^

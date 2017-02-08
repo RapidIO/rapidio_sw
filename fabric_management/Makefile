@@ -105,9 +105,14 @@ daemon: $(LIB_DEPS)
 
 FORCE:
 
+runtests:
+	$(MAKE) runtests -C libcfg
+	$(MAKE) runtests -C libct
+	$(MAKE) runtests -C libdid
+	$(MAKE) runtests -C librio
+
 clean:
-	rm -f fmd *.o *~ inc/*~ *.exe core \
-	$(LOCAL_LIBRARY_DIR)/*.a
+	rm -f fmd *.o *~ inc/*~ *.exe core $(LOCAL_LIBRARY_DIR)/*.a
 	$(MAKE) clean -C daemon
 	$(MAKE) clean -C libcfg
 	$(MAKE) clean -C libct
