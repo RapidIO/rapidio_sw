@@ -49,6 +49,8 @@
 extern "C" {
 #endif
 
+static uint32_t zero_memory[RIO_MAX_PKT_BYTES] = {0};
+
 static void assumptions(void **state)
 {
 	assert_int_equal(276, RIO_MAX_PKT_BYTES);
@@ -1620,6 +1622,10 @@ static void DAR_pkt_bytes_to_fields_ftype_2_pkt_type_test(void **state)
 		assert_int_equal(0xde, fields_out.trans.destID);
 		assert_int_equal(0xad, fields_out.trans.srcID);
 		assert_int_equal(expected_pkt_type, fields_out.pkt_type);
+
+		assert_memory_equal(&zero_memory, &fields_out.log_ds, sizeof(fields_out.log_ds));
+		assert_memory_equal(&zero_memory, &fields_out.log_fc, sizeof(fields_out.log_fc));
+		assert_memory_equal(&zero_memory, &fields_out.log_ms, sizeof(fields_out.log_ms));
 	}
 
 	(void)state; // unused
@@ -1668,6 +1674,10 @@ static void DAR_pkt_bytes_to_fields_ftype_2_memsz_34_test(void **state)
 
 	assert_int_equal(2, fields_out.pkt_bytes);
 
+	assert_memory_equal(&zero_memory, &fields_out.log_ds, sizeof(fields_out.log_ds));
+	assert_memory_equal(&zero_memory, &fields_out.log_fc, sizeof(fields_out.log_fc));
+	assert_memory_equal(&zero_memory, &fields_out.log_ms, sizeof(fields_out.log_ms));
+
 	(void)state; // unused
 }
 
@@ -1713,6 +1723,10 @@ static void DAR_pkt_bytes_to_fields_ftype_2_memsz_50_test(void **state)
 	assert_int_equal(0x0, fields_out.log_rw.addr[2]);
 
 	assert_int_equal(2, fields_out.pkt_bytes);
+
+	assert_memory_equal(&zero_memory, &fields_out.log_ds, sizeof(fields_out.log_ds));
+	assert_memory_equal(&zero_memory, &fields_out.log_fc, sizeof(fields_out.log_fc));
+	assert_memory_equal(&zero_memory, &fields_out.log_ms, sizeof(fields_out.log_ms));
 
 	(void)state; // unused
 }
@@ -1770,6 +1784,10 @@ static void DAR_pkt_bytes_to_fields_ftype_5_pkt_type_test(void **state)
 		assert_int_equal(0xde, fields_out.trans.destID);
 		assert_int_equal(0xad, fields_out.trans.srcID);
 		assert_int_equal(expected_pkt_type, fields_out.pkt_type);
+
+		assert_memory_equal(&zero_memory, &fields_out.log_ds, sizeof(fields_out.log_ds));
+		assert_memory_equal(&zero_memory, &fields_out.log_fc, sizeof(fields_out.log_fc));
+		assert_memory_equal(&zero_memory, &fields_out.log_ms, sizeof(fields_out.log_ms));
 	}
 
 	(void)state; // unused
@@ -1821,6 +1839,10 @@ static void DAR_pkt_bytes_to_fields_ftype_5_memsz_66_test(void **state)
 	assert_int_equal(0xa55aa55a, fields_out.log_rw.addr[1]);
 	assert_int_equal(0x0, fields_out.log_rw.addr[2]);
 
+	assert_memory_equal(&zero_memory, &fields_out.log_ds, sizeof(fields_out.log_ds));
+	assert_memory_equal(&zero_memory, &fields_out.log_fc, sizeof(fields_out.log_fc));
+	assert_memory_equal(&zero_memory, &fields_out.log_ms, sizeof(fields_out.log_ms));
+
 	(void)state; // unused
 }
 
@@ -1855,6 +1877,10 @@ static void DAR_pkt_bytes_to_fields_ftype_6_pkt_type_test(void **state)
 		assert_int_equal(0xde, fields_out.trans.destID);
 		assert_int_equal(0xad, fields_out.trans.srcID);
 		assert_int_equal(pkt_sw, fields_out.pkt_type);
+
+		assert_memory_equal(&zero_memory, &fields_out.log_ds, sizeof(fields_out.log_ds));
+		assert_memory_equal(&zero_memory, &fields_out.log_fc, sizeof(fields_out.log_fc));
+		assert_memory_equal(&zero_memory, &fields_out.log_ms, sizeof(fields_out.log_ms));
 	}
 
 	(void)state; // unused
@@ -1905,6 +1931,10 @@ static void DAR_pkt_bytes_to_fields_ftype_6_memsz_32_test(void **state)
 	assert_int_equal(0x0, fields_out.log_rw.addr[1]);
 	assert_int_equal(0x0, fields_out.log_rw.addr[2]);
 
+	assert_memory_equal(&zero_memory, &fields_out.log_ds, sizeof(fields_out.log_ds));
+	assert_memory_equal(&zero_memory, &fields_out.log_fc, sizeof(fields_out.log_fc));
+	assert_memory_equal(&zero_memory, &fields_out.log_ms, sizeof(fields_out.log_ms));
+
 	(void)state; // unused
 }
 
@@ -1946,6 +1976,10 @@ static void DAR_pkt_bytes_to_fields_ftype_7_pkt_type_test(void **state)
 		assert_true(fields_out.log_fc.fc_soc_is_ep);
 		assert_int_equal(0xde, fields_out.log_fc.fc_destID);
 		assert_int_equal(0xad, fields_out.log_fc.fc_srcID);
+
+		assert_memory_equal(&zero_memory, &fields_out.log_rw, sizeof(fields_out.log_rw));
+		assert_memory_equal(&zero_memory, &fields_out.log_ds, sizeof(fields_out.log_ds));
+		assert_memory_equal(&zero_memory, &fields_out.log_ms, sizeof(fields_out.log_ms));
 	}
 
 	(void)state; // unused
@@ -2036,6 +2070,10 @@ static void DAR_pkt_bytes_to_fields_ftype_8_memsz_21_test(void **state)
 			assert_int_equal(rio_addr_21,
 					fields_out.log_rw.pkt_addr_size);
 		}
+
+		assert_memory_equal(&zero_memory, &fields_out.log_fc, sizeof(fields_out.log_fc));
+		assert_memory_equal(&zero_memory, &fields_out.log_ds, sizeof(fields_out.log_ds));
+		assert_memory_equal(&zero_memory, &fields_out.log_ms, sizeof(fields_out.log_ms));
 	}
 
 	(void)state; // unused
@@ -2111,6 +2149,10 @@ static void DAR_pkt_bytes_to_fields_ftype_9_pkt_type_test(void **state)
 	assert_int_equal(0xad, fields_out.log_ds.dstm_xh_parm1);
 	assert_int_equal(0xbe, fields_out.log_ds.dstm_xh_parm2);
 
+	assert_memory_equal(&zero_memory, &fields_out.log_rw, sizeof(fields_out.log_rw));
+	assert_memory_equal(&zero_memory, &fields_out.log_fc, sizeof(fields_out.log_fc));
+	assert_memory_equal(&zero_memory, &fields_out.log_ms, sizeof(fields_out.log_ms));
+
 	(void)state; // unused
 }
 
@@ -2122,6 +2164,7 @@ static void DAR_pkt_bytes_to_fields_ftype_10_pkt_type_test(void **state)
 
 	DAR_pkt_bytes_t bytes_in;
 	DAR_pkt_fields_t fields_out;
+	DAR_pkt_fields_t log_rw;
 	uint8_t pkt_data[RIO_MAX_PKT_BYTES];
 	uint8_t out[RIO_MAX_PKT_BYTES];
 	uint32_t rc;
@@ -2149,6 +2192,14 @@ static void DAR_pkt_bytes_to_fields_ftype_10_pkt_type_test(void **state)
 	assert_int_equal(0xfe, fields_out.pkt_data[1]);
 	assert_int_equal(2, fields_out.pkt_bytes);
 	assert_memory_equal(out, fields_out.pkt_data, sizeof(out));
+
+	memset(&log_rw, 0, sizeof(DAR_pkt_fields_t));
+	log_rw.log_rw.tid = 0xa1;
+
+	assert_memory_equal(&log_rw.log_rw, &fields_out.log_rw, sizeof(fields_out.log_rw));
+	assert_memory_equal(&zero_memory, &fields_out.log_fc, sizeof(fields_out.log_fc));
+	assert_memory_equal(&zero_memory, &fields_out.log_ds, sizeof(fields_out.log_ds));
+	assert_memory_equal(&zero_memory, &fields_out.log_ms, sizeof(fields_out.log_ms));
 
 	(void)state; // unused
 }
@@ -2190,6 +2241,10 @@ static void DAR_pkt_bytes_to_fields_ftype_11_pkt_type_test(void **state)
 		assert_int_equal(0, fields_out.log_ms.mbid);
 		assert_int_equal(0, fields_out.log_ms.msgseg);
 	}
+
+	assert_memory_equal(&zero_memory, &fields_out.log_rw, sizeof(fields_out.log_rw));
+	assert_memory_equal(&zero_memory, &fields_out.log_fc, sizeof(fields_out.log_fc));
+	assert_memory_equal(&zero_memory, &fields_out.log_ds, sizeof(fields_out.log_ds));
 
 	// verify failure for rdsize < 9
 	for (idx = 0; idx < 9; idx++) {
@@ -2308,6 +2363,9 @@ static void DAR_pkt_bytes_to_fields_ftype_13_pkt_type_test(void **state)
 			assert_int_equal(0, fields_out.log_ms.msgseg);
 			assert_int_equal(0x5a, fields_out.log_rw.tid);
 		}
+
+		assert_memory_equal(&zero_memory, &fields_out.log_ds, sizeof(fields_out.log_ds));
+		assert_memory_equal(&zero_memory, &fields_out.log_fc, sizeof(fields_out.log_fc));
 	}
 
 	(void)state; // unused
@@ -2317,7 +2375,6 @@ static void DAR_pkt_bytes_to_fields_ftype_raw_pkt_type_test(void **state)
 {
 	const uint8_t input[] = {0x12, 0x00, 0xde, 0xad, 0xa1, 0xa1, 0xa1, 0xa1, 0xa1, 0xa1, 0xa1, 0xa1, 0x34, 0x3d};
 
-	// INFW
 	DAR_pkt_fields_t fields_out;
 	DAR_pkt_bytes_t bytes_in;
 	uint8_t pkt_data[RIO_MAX_PKT_BYTES];
@@ -2357,6 +2414,11 @@ static void DAR_pkt_bytes_to_fields_ftype_raw_pkt_type_test(void **state)
 	assert_int_equal(10, fields_out.pkt_bytes);
 
 	assert_memory_equal(&bytes_in.pkt_data, &pkt_data, 10);
+
+	assert_memory_equal(&zero_memory, &fields_out.log_rw, sizeof(fields_out.log_rw));
+	assert_memory_equal(&zero_memory, &fields_out.log_fc, sizeof(fields_out.log_fc));
+	assert_memory_equal(&zero_memory, &fields_out.log_ds, sizeof(fields_out.log_ds));
+	assert_memory_equal(&zero_memory, &fields_out.log_ms, sizeof(fields_out.log_ms));
 
 	(void)state; // unused
 }
