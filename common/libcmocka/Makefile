@@ -37,8 +37,6 @@ TARGETS:=lib$(NAME).a
 
 OBJECTS:=$(patsubst src/%.c,src/%.o,$(wildcard src/*.c))
 
-LDFLAGS+=-L. -l$(NAME)
-
 # Keep clobbered as an acceptable warning, not our code...
 CFLAGS+=-Wno-error=clobbered
 

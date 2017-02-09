@@ -51,9 +51,6 @@ XFLAGS+=-I../librio/inc
 CFLAGS += $(XFLAGS)
 CXXFLAGS += $(XFLAGS)
 
-LDFLAGS+=-L. -l$(NAME)
-
-
 
 .PHONY: all clean
 

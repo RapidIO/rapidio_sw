@@ -52,8 +52,6 @@ CFLAGS+=-I../libriocp_pe/inc -I../libriocp_pe/src
 CFLAGS+=-I../librio/inc
 CFLAGS+=-I../libcfg/inc
 
-LDFLAGS+=-L. -l$(NAME)
-
 
 .PHONY: all clean
 

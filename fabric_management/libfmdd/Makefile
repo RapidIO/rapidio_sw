@@ -48,8 +48,6 @@ CFLAGS+=-I../libct/inc
 CFLAGS+=-I../libriocp_pe/inc
 CFLAGS+=-I../librio/inc
 
-LDFLAGS+=-L. -l$(NAME)
-
 
 all: $(TARGETS)
 
