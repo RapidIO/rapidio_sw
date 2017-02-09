@@ -107,11 +107,9 @@ ifneq ($(DEBUG_CTL), NDEBUG)
  OPTFLAGS = -ggdb -Og
 endif
 
-SOVER?=0.6
-
 HERE := $(shell pwd)
 
-$(info Building $(HERE) on $(ARCH) release $(SOVER) with optimisations $(OPTFLAGS))
+$(info Building $(HERE) on $(ARCH) with optimisations $(OPTFLAGS))
 
 COMMONDIR=$(TOPDIR)/common
 COMMONINC=$(COMMONDIR)/include
