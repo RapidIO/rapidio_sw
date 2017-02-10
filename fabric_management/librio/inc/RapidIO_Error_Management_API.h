@@ -586,6 +586,15 @@ uint32_t rio_em_create_events(DAR_DEV_INFO_t *dev_info,
 		rio_em_create_events_in_t *in_parms,
 		rio_em_create_events_out_t *out_parms);
 
+
+void rio_em_add_pw_event(rio_em_get_pw_stat_in_t *in_parms,
+		rio_em_get_pw_stat_out_t *out_parms, uint8_t pnum,
+		rio_em_events_t event);
+
+void rio_em_add_int_event(rio_em_get_int_stat_in_t *in_parms,
+		rio_em_get_int_stat_out_t *out_parms, uint8_t pnum,
+		rio_em_events_t event);
+
 #ifdef __cplusplus
 }
 #endif
