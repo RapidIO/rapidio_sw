@@ -48,6 +48,8 @@ src/%.o: src/%.c $(HEADERS)
 	-I$(FMDDIR)/librio/inc -I$(FMDDIR)/libdid/inc -I$(FMDDIR)/libct/inc
 
 clean:
-	rm -f $(TARGETS) $(OBJECTS) inc/*~ src/*~ *~ *.a
+	@echo ---------- Cleaning lib$(NAME)...
+	rm -f $(TARGETS) $(OBJECTS) \
+	inc/*~ src/*~ *~
 
 .PHONY: all clean

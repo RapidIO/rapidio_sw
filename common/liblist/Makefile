@@ -40,7 +40,10 @@ OBJECTS:=$(patsubst src/%.c,src/%.o,$(wildcard src/*.c))
 TEST_OBJECTS:=$(patsubst test/%.c,test/%.o,$(wildcard test/*.c))
 
 CXXFLAGS+=-D$(DEBUG_CTL) -DRDMA_LL=$(LOG_LEVEL)
-LDFLAGS+=-L. -L$(COMMONLIB) -l$(NAME)
+
+LDFLAGS_STATIC+=-L. -L$(COMMONLIB) -l$(NAME)
+LDFLAGS_STATIC+=$(TST_LIBS)
+LDFLAGS_DYNAMIC+=-lgcc
 
 
 .PHONY: all clean
@@ -75,8 +78,9 @@ test/%.o: test/%.c
 
 $(TEST_TARGETS): $(TEST_OBJECTS)
 	@echo ---------- Building $@
-	$(CXX) -o $@ $< $(LDFLAGS) \
-	$(TST_LIBS)
+	$(CXX) -o $@ $< \
+	$(LDFLAGS_STATIC) \
+	$(LDFLAGS_DYNAMIC)
 
 clean:
 	@echo ---------- Cleaning lib$(NAME)...

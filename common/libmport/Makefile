@@ -39,11 +39,16 @@ SAMPLE_TARGETS:=$(patsubst samples/%.c,%,$(wildcard samples/*.c))
 OBJECTS:=$(patsubst src/%.c,src/%.o,$(wildcard src/*.c))
 SAMPLE_OBJECTS:=$(patsubst samples/%.c,samples/%.o,$(wildcard samples/*.c))
 
-0?=.
-CXXFLAGS+=-D$(DEBUG_CTL)
-LDFLAGS+=-L. -L$(COMMONLIB) -l$(NAME)
 INC=-I$(KDIR) -I$(RIODIR)
 INC+=-I$(FMDDIR)/libdid/inc -I$(FMDDIR)/libct/inc -I$(FMDDIR)/librio/inc
+
+0?=.
+CXXFLAGS+=-D$(DEBUG_CTL)
+
+LDFLAGS_STATIC+=-L. -L$(COMMONLIB) -l$(NAME)
+LDFLAGS_STATIC+=-lcli -ltime_utils
+LDFLAGS_DYNAMIC+=-lpthread
+
 
 .PHONY: all clean samples
 
@@ -57,16 +62,19 @@ samples: $(SAMPLE_TARGETS)
 
 src/%.o: src/%.c
 	@echo ---------- Building $@
-	$(CXX) -c $(CXXFLAGS) $(INC) $< -o $@
+	$(CXX) -c $(CXXFLAGS) $< -o $@ \
+	$(INC)
 
 samples/%.o: samples/%.c
 	@echo ---------- Building $@
-	$(CXX) -c $(CXXFLAGS) $(INC) $< -o $@
+	$(CXX) -c $(CXXFLAGS) $< -o $@ \
+	$(INC)
 
 $(0)/%: $(0)/samples/%.o
 	@echo ---------- Building $@
-	$(CXX) -o $@ $< $(LDFLAGS) \
-	-lcli -ltime_utils -lpthread
+	$(CXX) -o $@ $< \
+	$(LDFLAGS_STATIC) \
+	$(LDFLAGS_DYNAMIC)
 
 clean:
 	@echo ---------- Cleaning lib$(NAME)...

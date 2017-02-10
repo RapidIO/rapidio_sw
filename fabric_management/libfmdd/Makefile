@@ -57,7 +57,7 @@ all: $(TARGETS)
 
 src/%.o: src/%.c $(HEADERS)
 	@echo ---------- Building $@
-	$(CXX) $(CFLAGS) -c $< -o $@ -ldd -L../libs_a
+	$(CXX) $(CFLAGS) -c $< -o $@
 
 clean:
 	@echo ---------- Cleaning lib$(NAME)...

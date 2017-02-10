@@ -25,9 +25,12 @@ CFLAGS+=-I../libct/inc
 CFLAGS+=-I../libdid/inc
 CFLAGS+=-I$(FMDDIR)/librio/inc
 
-LDFLAGS+=-L. -L$(COMMONLIB) -L$(FMDDIR)/libs_a -l$(NAME)
-
 TST_LIBS+=-lcli -lmport
+
+LDFLAGS_STATIC+=-L. -L$(COMMONLIB) -L$(FMDDIR)/libs_a -l$(NAME)
+LDFLAGS_STATIC+=$(TST_LIBS)
+LDFLAGS_DYNAMIC+=-lpthread
+
 
 .PHONY: all clean
 
@@ -56,18 +59,20 @@ src/%.o: src/%.c
 
 test/%.o: test/%.c
 	@echo ---------- Building $@
-	$(CXX) -c $(CFLAGS) $(TST_INCS) $< -o $@
+	$(CXX) -c $(CFLAGS) $< -o $@ \
+	$(TST_INCS)
 
 test/%: test/%.o
 	@echo ---------- Building $@
-	$(CXX) -o $@ $< $(LDFLAGS) \
-	$(TST_LIBS) -lpthread
+	$(CXX) -o $@ $< \
+	$(LDFLAGS_STATIC) \
+	$(LDFLAGS_DYNAMIC)
 
 $(TEST_TARGET): $(TEST_TARGETS)
 
 clean:
 	@echo ---------- Cleaning lib$(NAME)...
 	rm -f $(TARGETS) $(OBJECTS) \
-	 $(TEST_TARGETS) $(TEST_OBJECTS) \
+	$(TEST_TARGETS) $(TEST_OBJECTS) \
 	inc/*~ src/*~ test/*~ *~
 

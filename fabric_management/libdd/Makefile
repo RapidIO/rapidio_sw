@@ -48,8 +48,8 @@ XFLAGS+=-I../libdid/inc
 XFLAGS+=-I../libct/inc
 XFLAGS+=-I../librio/inc
 
-CFLAGS += $(XFLAGS)
-CXXFLAGS += $(XFLAGS)
+CFLAGS+= $(XFLAGS)
+CXXFLAGS+= $(XFLAGS)
 
 
 .PHONY: all clean

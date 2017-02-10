@@ -127,6 +127,9 @@ endif
 CFLAGS+=$(STD_FLAGS)
 CXXFLAGS+=$(STD_FLAGS) -std=c++11
 
+LDFLAGS_STATIC?=-Wl,-Bstatic
+LDFLAGS_DYNAMIC?=-Wl,-Bdynamic
+
 ifdef TEST
 TST_LIBS=-lcmocka
 TST_INCS=-I$(COMMONDIR)/libcmocka/inc
