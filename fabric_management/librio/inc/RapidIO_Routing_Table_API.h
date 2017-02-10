@@ -44,57 +44,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 extern "C" {
 #endif
 
-/* All IDT specific routines for configuration of routing tables.
-   The routines support the 'hierarchical' routing table programming model: 
-   - 256 entry 'domain' routing table (most significant 8 bits of 16 bit destID)
-   - 256 entry 'device' routing table (8 bit destIDs, least significant 8 bits of 16 bit destID)
-  
-   Domain routing table entry values can be one of the following:
-      0x00-0x11 - Output port
-      RIO_DSF_RT_USE_DEVICE_TABLE  - Use the device routing table
-      RIO_DSF_RT_USE_DEFAULT_ROUTE - Use the default route
-      RIO_DSF_RT_NO_ROUTE          - Discard packets with this destID
-   * NOTE: For Tsi57x family, a maximum of one domain routing table entry can have
-   *       a value of RIO_DSF_RT_USE_DEVICE_TABLE at any one time.
-
-   Device routing table entry values can be one of the following:
-      0x00-0x11 - Output port
-      RIO_DSF_FIRST_MC_MASK up to RIO_DSF_MAX_MC_MASK - Use multicast mask
-      RIO_DSF_RT_USE_DEFAULT_ROUTE - Use the default route
-      RIO_DSF_RT_NO_ROUTE          - Discard packets with this destID
-   
-   There is also a 'default route' entry, as per the RapidIO standard routing
-   control registers defined in Part 3 of the RapidIO standard.
-
-   The routines in this file are based on the rio_rt_state_t structure, which
-   contains the complete state of the routing table for a device/port.
-
-   rio_rt_initialize() initializes an rio_rt_state_t structure.
-   rio_rt_probe_all() updates an rio_rt_state_t structure based on current hardware state.
-   rio_rt_set_all() updates the current hardware state to match the rio_rt_state_t structure.
-   rio_rt_set_changed() updates the current hardware state of rio_rt_state_t structure entries 
-                    "changed" by the activities of rio_rt_change_rte(), rio_rt_change_mc() 
-                    and rio_rt_dealloc_mc_mask().
-   Idt_rt_alloc_mc_mask() returns the first unallocated multicast mask in an rio_rt_state_t structure.
-   rio_rt_dealloc_mc_mask() removes all references to a multicast mask in an rio_rt_state_t structure,
-                            and deactivates/reinitializes the mask.
-   rio_rt_change_rte() changes a routing table entry  in an rio_rt_state_t structure.  See NOTE below
-                       regarding multicast interoperability.
-   rio_rt_change_mc()  changes a multicast mask/destID entry in an rio_rt_state_t structure.
-
-   NOTE: Multicast operates differently between the Tsi57x family and the CPS family.
-         The Tsi57x family allows a single destID to be mapped to a multicast mask.  
-         The CPS family allows multiple destIDs to be mappedd to a multicast mask.
-         Code that supports both families must use rio_rt_alloc_mc_mask/rio_rt_dealloc_mc_mask/rio_rt_change_mc.
-         For CPS switches, use rio_rt_change_rte to map more than one destID to a multicast mask.
-
-   rio_rt_probe() indicates how hardware is currently routing packets with a designated deviceID. 
-
-   This file is structured as:
-   - Constant definitions
-   - Input and output parameter structures for each routine
-   - List of routines for routing table support
-*/
+// This file is structured as:
+// - Constant definitions
+// - Input and output parameter structures for each routine
+// - List of routines for routing table support
 
 #define RIO_DAR_RT_DEV_TABLE_SIZE                   256
 #define RIO_DAR_RT_DOM_TABLE_SIZE                   256

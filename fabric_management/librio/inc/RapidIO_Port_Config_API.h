@@ -460,19 +460,19 @@ typedef struct rio_pc_probe_in_t_TAG {
 	uint8_t port;
 } rio_pc_probe_in_t;
 
-typedef enum idt_port_status_t_TAG {
+typedef enum rio_pc_port_status_t_TAG {
 	port_ok,	//
 	port_degr,	//
 	port_los,	//
 	port_err,
-} idt_port_status_t;
+} rio_pc_port_status_t;
 
 typedef struct rio_pc_probe_out_t_TAG {
 	// Implementation specific return code information
 	uint32_t imp_rc;
 
 	// Current configuration value.
-	idt_port_status_t status;
+	rio_pc_port_status_t status;
 } rio_pc_probe_out_t;
 
 // Implementation specific return codes for Port Configuration routines

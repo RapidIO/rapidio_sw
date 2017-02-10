@@ -455,7 +455,7 @@ exit:
 	return rc;
 }
 
-static uint32_t idt_check_port_for_discard(DAR_DEV_INFO_t *dev_info,
+static uint32_t tsi_check_port_for_discard(DAR_DEV_INFO_t *dev_info,
 		rio_rt_probe_in_t *in_parms, rio_rt_probe_out_t *out_parms)
 {
 	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
@@ -727,7 +727,7 @@ uint32_t tsi57x_rio_rt_probe(DAR_DEV_INFO_t *dev_info,
 	rio_rt_check_unicast_routing(dev_info, in_parms, out_parms);
 
 	if (out_parms->valid_route) {
-		rc = idt_check_port_for_discard(dev_info, in_parms, out_parms);
+		rc = tsi_check_port_for_discard(dev_info, in_parms, out_parms);
 	}
 
 exit:
