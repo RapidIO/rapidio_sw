@@ -1305,6 +1305,7 @@ void rxs_read_dev_ctrs_test_bad_parms2(void **state)
 
 	mock_sc_in.ptl.num_ports = 1;
 	mock_sc_in.ptl.pnums[0] = 5;
+	mock_sc_in.dev_ctrs = mock_dev_ctrs;
 	mock_sc_out.imp_rc = RIO_SUCCESS;
 	assert_int_not_equal(RIO_SUCCESS, rxs_rio_sc_read_ctrs(&mock_dev_info,
 						&mock_sc_in, &mock_sc_out));
