@@ -994,3 +994,8 @@
  *
  * msgTx 7 5 1234 2048
  */
+
+#ifndef __GOODPUT_INTRO_H__
+#define __GOODPUT_INTRO_H__
+
+#endif /* __GOODPUT_INTRO_H__ */

@@ -41,7 +41,10 @@ TEST_OBJECTS:=$(patsubst test/%.c,test/%.o,$(wildcard test/*.c))
 
 CXXFLAGS+=-D$(DEBUG_CTL) -DRDMA_LL=$(LOG_LEVEL)
 CXXFLAGS+=-I../../fabric_management/librio/inc
-LDFLAGS+=-L. -L$(COMMONLIB) -l$(NAME)
+
+LDFLAGS_STATIC+=-L. -L$(COMMONLIB) -l$(NAME)
+LDFLAGS_STATIC+=-llog -lcli -ltime_utils
+LDFLAGS_DYNAMIC+=-lgcc -lpthread
 
 
 .PHONY: all clean
@@ -66,8 +69,9 @@ test/%.o: test/%.c
 
 $(TEST_TARGET): $(TEST_OBJECTS)
 	@echo ---------- Building $@
-	$(CXX) -o $@ $< $(LDFLAGS) \
-	-llog -lcli -ltime_utils -pthread
+	$(CXX) -o $@ $< \
+	$(LDFLAGS_STATIC) \
+	$(LDFLAGS_DYNAMIC)
 
 clean:
 	@echo ---------- Cleaning lib$(NAME)...

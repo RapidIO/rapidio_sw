@@ -41,7 +41,10 @@ TEST_OBJECTS:=$(patsubst test/%.c,test/%.o,$(wildcard test/*.c))
 
 CXXFLAGS+=-D$(DEBUG_CTL) -DRDMA_LL=$(LOG_LEVEL)
 CXXFLAGS+=-I$(FMDDIR)/librio/inc -I$(FMDDIR)/libdid/inc -I$(FMDDIR)/libct/inc
-LDFLAGS+=-L. -L$(COMMONLIB) -l$(NAME)
+
+LDFLAGS_STATIC+=-L. -L$(COMMONLIB) -l$(NAME)
+LDFLAGS_STATIC+=$(TST_LIBS) -lcli
+LDFLAGS_DYNAMIC+=-lpthread
 
 
 .PHONY: all clean
@@ -59,14 +62,14 @@ runtests: $(TEST_TARGETS)
 		./$(f); \
 		echo; \
 	)
+
 %.a: $(OBJECTS)
 	@echo ---------- Building $@
 	$(AR) rcs $@ $^
 
 src/%.o: src/%.c
 	@echo ---------- Building $@
-	$(CXX) -c $(CXXFLAGS) $< -o $@ \
-	$(TST_INCS)
+	$(CXX) -c $(CXXFLAGS) $< -o $@
 
 test/%.o: test/%.c
 	@echo ---------- Building $@
@@ -75,8 +78,9 @@ test/%.o: test/%.c
 
 $(TEST_TARGETS): $(TEST_OBJECTS)
 	@echo ---------- Building $@
-	$(CXX) -o $@ $< $(LDFLAGS) \
-	$(TST_LIBS) -lcli -lpthread
+	$(CXX) -o $@ $< \
+	$(LDFLAGS_STATIC) \
+	$(LDFLAGS_DYNAMIC)
 
 clean:
 	@echo ---------- Cleaning lib$(NAME)...

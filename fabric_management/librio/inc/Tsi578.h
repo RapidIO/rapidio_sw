@@ -254,10 +254,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define Tsi578_RIO_DEV_IDENT_DEVI                                   (0xffff0000)
 
 #define Tsi578_RIO_DEVID_VAL 0x0578
+#define Tsi577_RIO_DEVID_VAL 0x0577
 #define Tsi576_RIO_DEVID_VAL 0x0576
 #define Tsi574_RIO_DEVID_VAL 0x0574
 #define Tsi572_RIO_DEVID_VAL 0x0572
-#define Tsi577_RIO_DEVID_VAL 0x0577
 
 /* Tsi578_RIO_DEV_INFO : Register Bits Masks Definitions */
 #define Tsi578_RIO_DEV_INFO_METAL_REV                              (0x0000000f)

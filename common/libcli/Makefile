@@ -39,7 +39,10 @@ TEST_TARGETS:=$(patsubst test/%.c,test/%,$(wildcard test/*.c))
 
 CXXFLAGS+=-D$(DEBUG_CTL) -DRDMA_LL=$(LOG_LEVEL)
 CXXFLAGS+=-I../../fabric_management/librio/inc
-LDFLAGS+=-L. -L$(COMMONLIB) -l$(NAME)
+
+LDFLAGS_STATIC+=-L. -L$(COMMONLIB) -l$(NAME)
+LDFLAGS_STATIC+=$(TST_LIBS)
+LDFLAGS_DYNAMIC+=-lgcc
 
 
 .PHONY: all clean
@@ -73,8 +76,9 @@ test/%.o: test/%.c
 
 test/%: test/%.o
 	@echo ---------- Building $@
-	$(CXX) -o $@ $< $(LDFLAGS) \
-	$(TST_LIBS)
+	$(CXX) -o $@ $< \
+	$(LDFLAGS_STATIC) \
+	$(LDFLAGS_DYNAMIC)
 
 $(TEST_TARGET): $(TEST_TARGETS)
 
