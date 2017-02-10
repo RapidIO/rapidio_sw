@@ -216,8 +216,8 @@ void update_all_peer_dd_and_flags(uint32_t add_dev)
 			t_peer = (struct fmd_peer *) 
 				l_find(&fmp.peers, devs[tgt].destID, &li);
 			if (NULL == t_peer) {
-				ERR("\nNo addr for %s, can not add %s\n",
-					devs[tgt].name, devs[src].name);
+				ERR("\nNo addr for %s 0x%x, can not add %s\n",
+					devs[tgt].name, devs[tgt].destID, devs[src].name);
 				continue;
 			};
 			if (add_dev) {
