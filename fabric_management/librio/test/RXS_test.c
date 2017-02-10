@@ -143,10 +143,12 @@ static int grp_setup(void **state)
 			break;
 		}
 	}
+
 	if ((st.real_hw) && !(got_mport && got_hc && got_destid)) {
 		printf("\nMust enter all of -m, -h and -d to run on real hw\n");
 		goto fail;
 	}
+
 	if (st.real_hw) {
 		if (riomp_mgmt_mport_create_handle(st.mport, 0, &st.mp_h)) {
 			printf("\nCould not open mport %d\n", st.mport);
@@ -154,6 +156,7 @@ static int grp_setup(void **state)
 		}
 		st.mp_h_valid = true;
 	}
+
 	return 0;
 fail:
 	return -1;
@@ -166,6 +169,7 @@ static int grp_teardown(void **state)
 			riomp_mgmt_mport_destroy_handle(&st.mp_h);
 		}
 	}
+
 	return 0;
 	(void)state;
 }
@@ -180,10 +184,12 @@ static uint32_t RXSReadReg(DAR_DEV_INFO_t *dev_info,
 	if (NULL == dev_info) {
 		return rc;
 	}
+
 	// Should only get here when st.real_hw is true, since
 	// when real_hw is false, all registers are mocked.
 	assert_true(st.real_hw);
 	assert_true(st.mp_h_valid);
+
 	if (0xFF == st.hc) {
 		rc = riomp_mgmt_lcfg_read(st.mp_h, offset, 4, readdata);
 	} else {
@@ -203,6 +209,7 @@ static void check_write_bc(uint32_t offset, uint32_t writedata)
 	if (st.real_hw) {
 		return;
 	}
+
 	if ((offset >= RXS_RIO_BC_L2_GX_ENTRYY_CSR(0,0)) &&
 		(offset <= RXS_RIO_BC_L2_GX_ENTRYY_CSR(0, RIO_DAR_RT_DEV_TABLE_SIZE-1))) {
 		did = (offset - RXS_RIO_BC_L2_GX_ENTRYY_CSR(0,0)) / 4;
@@ -237,11 +244,13 @@ static uint32_t RXSWriteReg(DAR_DEV_INFO_t *dev_info,
 	if (NULL == dev_info) {
 		return rc;
 	}
+
 	if (!st.real_hw) {
 		check_write_bc(offset, writedata);
 		return RIO_SUCCESS;
 	}
 	assert_true(st.mp_h_valid);
+
 	if (0xFF == st.hc) {
 		rc = riomp_mgmt_lcfg_write(st.mp_h, offset, 4, writedata);
 	} else {
@@ -301,6 +310,7 @@ static void rxs_test_setup(void)
 	mock_dev_info.srcOps = 4;
 	mock_dev_info.dstOps = 0;
 	mock_dev_info.swMcastInfo = RXS2448_MAX_MC_MASK;
+
 	for (idx = 0; idx < RIO_MAX_PORTS; idx++) {
 		mock_dev_info.ctl1_reg[idx] = 0;
 	}

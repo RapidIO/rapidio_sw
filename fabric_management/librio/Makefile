@@ -25,10 +25,8 @@ CFLAGS+=-I../libct/inc
 CFLAGS+=-I../libdid/inc
 CFLAGS+=-I$(FMDDIR)/librio/inc
 
-TST_LIBS+=-lcli -lmport
-
 LDFLAGS_STATIC+=-L. -L$(COMMONLIB) -L$(FMDDIR)/libs_a -l$(NAME)
-LDFLAGS_STATIC+=$(TST_LIBS)
+LDFLAGS_STATIC+=$(TST_LIBS) -lcli -lmport
 LDFLAGS_DYNAMIC+=-lpthread
 
 
