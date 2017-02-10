@@ -53,7 +53,7 @@ extern "C" {
 #define FMD_DEV16 1
 #define FMD_DEV32 2
 #define FMD_MAX_DEVID_SZ (FMD_DEV32+1)
-#define FMD_MAX_DEVS 20 
+#define FMD_MAX_DEVS 64
 #define FMD_MAX_DEVID 255
 #define FMD_MAX_NAME 47
 
