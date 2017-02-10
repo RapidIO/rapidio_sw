@@ -43,7 +43,6 @@
 #include "RapidIO_Utilities_API.h"
 #include "Tsi57x_DeviceDriver.h"
 #include "Tsi578.h"
-#include "Tsi575_SRSF.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -175,7 +174,7 @@ const struct scrpad_info scratchpad_const[MAX_DAR_SCRPAD_IDX] = {
 	{Tsi578_RIO_MC_MSKX(6), Tsi578_RIO_MC_MSKX_MC_MSK},
 	{Tsi578_RIO_MC_MSKX(7),Tsi578_RIO_MC_MSKX_MC_MSK},
 	{Tsi578_RIO_COMP_TAG   , Tsi578_RIO_COMP_TAG_CTAG },
-	{Tsi575_RIO_LUT_ATTR   , Tsi578_RIO_LUT_ATTR_DEFAULT_PORT},
+	{Tsi578_RIO_LUT_ATTR   , Tsi578_RIO_LUT_ATTR_DEFAULT_PORT},
 	{Tsi578_RIO_SW_LT_CTL  , Tsi578_RIO_SW_LT_CTL_TVAL},
 	{Tsi578_RIO_PW_DESTID  , PW_MASK},
 	{Tsi578_RIO_LOG_ERR_DET_EN, ERR_DET_MASK},

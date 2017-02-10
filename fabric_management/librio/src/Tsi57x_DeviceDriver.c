@@ -38,7 +38,6 @@
 #include "RapidIO_Device_Access_Routines_API.h"
 #include "Tsi57x_DeviceDriver.h"
 #include "Tsi578.h"
-#include "Tsi575.h"
 #include "rio_standard.h"
 #include "DAR_DB_Private.h"
 #include "string_util.h"
@@ -62,8 +61,6 @@ struct {
 						<< 16) + RIO_VEND_TUNDRA}, //
 				{"Tsi576", ((uint32_t)(Tsi576_RIO_DEVID_VAL)
 						<< 16) + RIO_VEND_TUNDRA},
-				{"Tsi620", ((uint32_t)(Tsi575_RIO_DEVID_VAL)
-						<< 16) + RIO_VEND_TUNDRA}, //
 				{"Tsi577", ((uint32_t)(Tsi577_RIO_DEVID_VAL)
 						<< 16) + RIO_VEND_TUNDRA}, //
 		};
