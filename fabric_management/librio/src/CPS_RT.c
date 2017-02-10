@@ -833,7 +833,7 @@ uint32_t CPS_rio_rt_probe(DAR_DEV_INFO_t *dev_info, rio_rt_probe_in_t *in_parms,
 	rc = RIO_SUCCESS;
 
 	// Note, no failure possible...
-	dsf_check_multicast_routing(dev_info, in_parms, out_parms);
+	rio_rt_check_multicast_routing(dev_info, in_parms, out_parms);
 
 	/* Done if hit in multicast masks. */
 	if (RIO_ALL_PORTS != out_parms->routing_table_value)
@@ -848,7 +848,7 @@ uint32_t CPS_rio_rt_probe(DAR_DEV_INFO_t *dev_info, rio_rt_probe_in_t *in_parms,
 	 *  default route is a valid switch port number.
 	 */
 
-	dsf_check_unicast_routing(dev_info, in_parms, out_parms);
+	rio_rt_check_unicast_routing(dev_info, in_parms, out_parms);
 
 	if (out_parms->valid_route) {
 		rc = cps_check_port_for_discard(dev_info, in_parms,

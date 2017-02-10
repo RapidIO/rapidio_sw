@@ -2290,7 +2290,7 @@ uint32_t CPS_rio_em_get_int_stat(DAR_DEV_INFO_t *dev_info,
 
 	if (log_err_det) {
 		if (log_err_en) {
-			dsf_add_int_event(in_parms, out_parms, RIO_ALL_PORTS,
+			rio_em_add_int_event(in_parms, out_parms, RIO_ALL_PORTS,
 					rio_em_d_log);
 		} else {
 			out_parms->other_events = true;
@@ -2318,7 +2318,7 @@ uint32_t CPS_rio_em_get_int_stat(DAR_DEV_INFO_t *dev_info,
 
 	if (i2c_err_det & CPS1848_AUX_PORT_ERR_DET_I2C_CHKSUM_ERR) {
 		if (i2c_capt_en & CPS1848_AUX_PORT_ERR_CAPT_EN_I2C_CHKSUM_ERR_EN) {
-			dsf_add_int_event(in_parms, out_parms, RIO_ALL_PORTS,
+			rio_em_add_int_event(in_parms, out_parms, RIO_ALL_PORTS,
 					rio_em_i_init_fail);
 		} else {
 			out_parms->other_events = true;
@@ -2437,7 +2437,7 @@ uint32_t CPS_rio_em_get_int_stat(DAR_DEV_INFO_t *dev_info,
 				if ((CPS1848_LANE_X_ERR_RATE_EN_LANE_SYNC_EN
 						| CPS1848_LANE_X_ERR_RATE_EN_LANE_RDY_EN)
 						& l_err_rate) {
-					dsf_add_int_event(in_parms, out_parms,
+					rio_em_add_int_event(in_parms, out_parms,
 							pnum, rio_em_f_los);
 					got_los = true;
 				} else {
@@ -2449,7 +2449,7 @@ uint32_t CPS_rio_em_get_int_stat(DAR_DEV_INFO_t *dev_info,
 			if (~CPSGEN2_ERR_RATE_EVENT_EXCLUSIONS & err_det) {
 				if (~CPSGEN2_ERR_RATE_EVENT_EXCLUSIONS
 						& err_rate) {
-					dsf_add_int_event(in_parms, out_parms,
+					rio_em_add_int_event(in_parms, out_parms,
 							pnum,
 							rio_em_f_err_rate);
 				} else {
@@ -2462,7 +2462,7 @@ uint32_t CPS_rio_em_get_int_stat(DAR_DEV_INFO_t *dev_info,
 					& imp_spec_det) {
 				if (CPS1848_PORT_X_IMPL_SPEC_ERR_RATE_EN_PNA_EN
 						& err_rate_en) {
-					dsf_add_int_event(in_parms, out_parms,
+					rio_em_add_int_event(in_parms, out_parms,
 							pnum,
 							rio_em_f_2many_pna);
 				} else {
@@ -2476,7 +2476,7 @@ uint32_t CPS_rio_em_get_int_stat(DAR_DEV_INFO_t *dev_info,
 					& imp_spec_det) {
 				if (CPS1848_PORT_X_IMPL_SPEC_ERR_RATE_EN_LOA_EN
 						& err_rate_en) {
-					dsf_add_int_event(in_parms, out_parms,
+					rio_em_add_int_event(in_parms, out_parms,
 							pnum, rio_em_f_los);
 				} else {
 					out_parms->other_events = true;
@@ -2493,7 +2493,7 @@ uint32_t CPS_rio_em_get_int_stat(DAR_DEV_INFO_t *dev_info,
 						& err_n_stat)) {
 			if (CPS1848_PORT_X_IMPL_SPEC_ERR_RPT_EN_FATAL_TO_EN
 					& err_rpt_en) {
-				dsf_add_int_event(in_parms, out_parms, pnum,
+				rio_em_add_int_event(in_parms, out_parms, pnum,
 						rio_em_f_port_err);
 			} else {
 				out_parms->other_events = true;
@@ -2506,7 +2506,7 @@ uint32_t CPS_rio_em_get_int_stat(DAR_DEV_INFO_t *dev_info,
 				& imp_spec_det) {
 			if (CPS1848_PORT_X_IMPL_SPEC_ERR_RPT_EN_MANY_RETRY_EN
 					& err_rpt_en) {
-				dsf_add_int_event(in_parms, out_parms, pnum,
+				rio_em_add_int_event(in_parms, out_parms, pnum,
 						rio_em_f_2many_retx);
 			} else {
 				out_parms->other_events = true;
@@ -2518,7 +2518,7 @@ uint32_t CPS_rio_em_get_int_stat(DAR_DEV_INFO_t *dev_info,
 		if (CPS1848_PORT_X_IMPL_SPEC_ERR_DET_TTL_EVENT & imp_spec_det) {
 			if (CPS1848_PORT_X_IMPL_SPEC_ERR_RPT_EN_TTL_EVENT_EN
 					& err_rpt_en) {
-				dsf_add_int_event(in_parms, out_parms, pnum,
+				rio_em_add_int_event(in_parms, out_parms, pnum,
 						rio_em_d_ttl);
 			} else {
 				out_parms->other_events = true;
@@ -2530,7 +2530,7 @@ uint32_t CPS_rio_em_get_int_stat(DAR_DEV_INFO_t *dev_info,
 		if (CPS1848_PORT_X_IMPL_SPEC_ERR_DET_RTE_ISSUE & imp_spec_det) {
 			if (CPS1848_PORT_X_IMPL_SPEC_ERR_RPT_EN_RTE_ISSUE_EN
 					& err_rpt_en) {
-				dsf_add_int_event(in_parms, out_parms, pnum,
+				rio_em_add_int_event(in_parms, out_parms, pnum,
 						rio_em_d_rte);
 			} else {
 				out_parms->other_events = true;
@@ -2542,7 +2542,7 @@ uint32_t CPS_rio_em_get_int_stat(DAR_DEV_INFO_t *dev_info,
 		if (CPS1848_PORT_X_IMPL_SPEC_ERR_DET_PORT_INIT & imp_spec_det) {
 			if (CPS1848_PORT_X_IMPL_SPEC_ERR_RPT_EN_PORT_INIT_EN
 					& err_rpt_en) {
-				dsf_add_int_event(in_parms, out_parms, pnum,
+				rio_em_add_int_event(in_parms, out_parms, pnum,
 						rio_em_i_sig_det);
 			} else {
 				out_parms->other_events = true;
@@ -2642,7 +2642,7 @@ uint32_t CPS_rio_em_get_pw_stat(DAR_DEV_INFO_t *dev_info,
 
 	if (log_err_det) {
 		if (log_err_en) {
-			dsf_add_pw_event(in_parms, out_parms, RIO_ALL_PORTS,
+			rio_em_add_pw_event(in_parms, out_parms, RIO_ALL_PORTS,
 					rio_em_d_log);
 		} else {
 			out_parms->other_events = true;
@@ -2670,7 +2670,7 @@ uint32_t CPS_rio_em_get_pw_stat(DAR_DEV_INFO_t *dev_info,
 
 	if (i2c_err_det & CPS1848_AUX_PORT_ERR_DET_I2C_CHKSUM_ERR) {
 		if (i2c_capt_en & CPS1848_AUX_PORT_ERR_CAPT_EN_I2C_CHKSUM_ERR_EN) {
-			dsf_add_pw_event(in_parms, out_parms, RIO_ALL_PORTS,
+			rio_em_add_pw_event(in_parms, out_parms, RIO_ALL_PORTS,
 					rio_em_i_init_fail);
 		} else {
 			out_parms->other_events = true;
@@ -2789,7 +2789,7 @@ uint32_t CPS_rio_em_get_pw_stat(DAR_DEV_INFO_t *dev_info,
 				if ((CPS1848_LANE_X_ERR_RATE_EN_LANE_SYNC_EN
 						| CPS1848_LANE_X_ERR_RATE_EN_LANE_RDY_EN)
 						& l_err_rate) {
-					dsf_add_pw_event(in_parms, out_parms,
+					rio_em_add_pw_event(in_parms, out_parms,
 							pnum, rio_em_f_los);
 					got_los = true;
 				} else {
@@ -2801,7 +2801,7 @@ uint32_t CPS_rio_em_get_pw_stat(DAR_DEV_INFO_t *dev_info,
 			if (~CPSGEN2_ERR_RATE_EVENT_EXCLUSIONS & err_det) {
 				if (~CPSGEN2_ERR_RATE_EVENT_EXCLUSIONS
 						& err_rate) {
-					dsf_add_pw_event(in_parms, out_parms,
+					rio_em_add_pw_event(in_parms, out_parms,
 							pnum,
 							rio_em_f_err_rate);
 				} else {
@@ -2814,7 +2814,7 @@ uint32_t CPS_rio_em_get_pw_stat(DAR_DEV_INFO_t *dev_info,
 					& imp_spec_det) {
 				if (CPS1848_PORT_X_IMPL_SPEC_ERR_RATE_EN_PNA_EN
 						& err_rate_en) {
-					dsf_add_pw_event(in_parms, out_parms,
+					rio_em_add_pw_event(in_parms, out_parms,
 							pnum,
 							rio_em_f_2many_pna);
 				} else {
@@ -2828,7 +2828,7 @@ uint32_t CPS_rio_em_get_pw_stat(DAR_DEV_INFO_t *dev_info,
 					& imp_spec_det) {
 				if (CPS1848_PORT_X_IMPL_SPEC_ERR_RATE_EN_LOA_EN
 						& err_rate_en) {
-					dsf_add_pw_event(in_parms, out_parms,
+					rio_em_add_pw_event(in_parms, out_parms,
 							pnum, rio_em_f_los);
 				} else {
 					out_parms->other_events = true;
@@ -2846,7 +2846,7 @@ uint32_t CPS_rio_em_get_pw_stat(DAR_DEV_INFO_t *dev_info,
 						& err_n_stat)) {
 			if (CPS1848_PORT_X_IMPL_SPEC_ERR_RPT_EN_FATAL_TO_EN
 					& err_rpt_en) {
-				dsf_add_pw_event(in_parms, out_parms, pnum,
+				rio_em_add_pw_event(in_parms, out_parms, pnum,
 						rio_em_f_port_err);
 			} else {
 				out_parms->other_events = true;
@@ -2859,7 +2859,7 @@ uint32_t CPS_rio_em_get_pw_stat(DAR_DEV_INFO_t *dev_info,
 				& imp_spec_det) {
 			if (CPS1848_PORT_X_IMPL_SPEC_ERR_RPT_EN_MANY_RETRY_EN
 					& err_rpt_en) {
-				dsf_add_pw_event(in_parms, out_parms, pnum,
+				rio_em_add_pw_event(in_parms, out_parms, pnum,
 						rio_em_f_2many_retx);
 			} else {
 				out_parms->other_events = true;
@@ -2871,7 +2871,7 @@ uint32_t CPS_rio_em_get_pw_stat(DAR_DEV_INFO_t *dev_info,
 		if (CPS1848_PORT_X_IMPL_SPEC_ERR_DET_TTL_EVENT & imp_spec_det) {
 			if (CPS1848_PORT_X_IMPL_SPEC_ERR_RPT_EN_TTL_EVENT_EN
 					& err_rpt_en) {
-				dsf_add_pw_event(in_parms, out_parms, pnum,
+				rio_em_add_pw_event(in_parms, out_parms, pnum,
 						rio_em_d_ttl);
 			} else {
 				out_parms->other_events = true;
@@ -2883,7 +2883,7 @@ uint32_t CPS_rio_em_get_pw_stat(DAR_DEV_INFO_t *dev_info,
 		if (CPS1848_PORT_X_IMPL_SPEC_ERR_DET_RTE_ISSUE & imp_spec_det) {
 			if (CPS1848_PORT_X_IMPL_SPEC_ERR_RPT_EN_RTE_ISSUE_EN
 					& err_rpt_en) {
-				dsf_add_pw_event(in_parms, out_parms, pnum,
+				rio_em_add_pw_event(in_parms, out_parms, pnum,
 						rio_em_d_rte);
 			} else {
 				out_parms->other_events = true;
@@ -2895,7 +2895,7 @@ uint32_t CPS_rio_em_get_pw_stat(DAR_DEV_INFO_t *dev_info,
 		if (CPS1848_PORT_X_IMPL_SPEC_ERR_DET_PORT_INIT & imp_spec_det) {
 			if (CPS1848_PORT_X_IMPL_SPEC_ERR_RPT_EN_PORT_INIT_EN
 					& err_rpt_en) {
-				dsf_add_pw_event(in_parms, out_parms, pnum,
+				rio_em_add_pw_event(in_parms, out_parms, pnum,
 						rio_em_i_sig_det);
 			} else {
 				out_parms->other_events = true;
@@ -2912,7 +2912,7 @@ uint32_t CPS_rio_em_get_pw_stat(DAR_DEV_INFO_t *dev_info,
 		if ((start_idx != out_parms->num_events)
 				|| (CPS1848_PORT_X_ERR_STAT_CSR_PW_PNDG
 						& err_n_stat)) {
-			dsf_add_pw_event(in_parms, out_parms, pnum,
+			rio_em_add_pw_event(in_parms, out_parms, pnum,
 					rio_em_a_clr_pwpnd);
 		}
 	}

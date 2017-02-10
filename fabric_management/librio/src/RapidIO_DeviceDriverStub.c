@@ -1,35 +1,35 @@
 /*
-****************************************************************************
-Copyright (c) 2014, Integrated Device Technology Inc.
-Copyright (c) 2014, RapidIO Trade Association
-All rights reserved.
+ ****************************************************************************
+ Copyright (c) 2014, Integrated Device Technology Inc.
+ Copyright (c) 2014, RapidIO Trade Association
+ All rights reserved.
 
-Redistribution and use in source and binary forms, with or without modification,
-are permitted provided that the following conditions are met:
+ Redistribution and use in source and binary forms, with or without modification,
+ are permitted provided that the following conditions are met:
 
-1. Redistributions of source code must retain the above copyright notice, this
-list of conditions and the following disclaimer.
+ 1. Redistributions of source code must retain the above copyright notice, this
+ list of conditions and the following disclaimer.
 
-2. Redistributions in binary form must reproduce the above copyright notice, 
-this list of conditions and the following disclaimer in the documentation 
-and/or other materials provided with the distribution.
+ 2. Redistributions in binary form must reproduce the above copyright notice,
+ this list of conditions and the following disclaimer in the documentation
+ and/or other materials provided with the distribution.
 
-3. Neither the name of the copyright holder nor the names of its contributors
-may be used to endorse or promote products derived from this software without
-specific prior written permission.
+ 3. Neither the name of the copyright holder nor the names of its contributors
+ may be used to endorse or promote products derived from this software without
+ specific prior written permission.
 
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
-ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE 
-DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
-FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER 
-CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, 
-OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-*************************************************************************
-*/
+ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+ WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+ FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *************************************************************************
+ */
 
 #include <stdint.h>
 #include <stddef.h>
@@ -520,140 +520,6 @@ uint32_t DSF_rio_sc_read_ctrs(DAR_DEV_INFO_t *dev_info,
 	NULL_CHECK;
 	return RIO_STUBBED;
 }
-
-// Utility Functions
-//
-void dsf_check_multicast_routing(DAR_DEV_INFO_t *dev_info,
-		rio_rt_probe_in_t *in_parms, rio_rt_probe_out_t *out_parms)
-{
-	uint8_t mc_idx, bit;
-	uint32_t mc_mask;
-	bool found = false;
-
-	for (mc_idx = 0; mc_idx < NUM_MC_MASKS(dev_info); mc_idx++) {
-		if ((in_parms->tt == in_parms->rt->mc_masks[mc_idx].tt)
-				&& (in_parms->rt->mc_masks[mc_idx].in_use)) {
-			if (tt_dev8 == in_parms->tt) {
-				mc_mask = 0x00FF;
-			} else {
-				mc_mask = 0xFFFF;
-			}
-
-			if ((in_parms->destID & mc_mask)
-					== (in_parms->rt->mc_masks[mc_idx].mc_destID
-							& mc_mask)) {
-				if (found) {
-					out_parms->reason_for_discard =
-							rio_rt_disc_mc_mult_masks;
-					out_parms->valid_route = false;
-					break;
-				} else {
-					found = true;
-					out_parms->routing_table_value = mc_idx
-							+ RIO_DSF_FIRST_MC_MASK;
-					for (bit = 0; bit < NUM_PORTS(dev_info);
-							bit++) {
-						out_parms->mcast_ports[bit] =
-								((uint32_t)(1
-										<< bit)
-										& in_parms->rt->mc_masks[mc_idx].mc_mask) ?
-										true :
-										false;
-					}
-
-					if (in_parms->rt->mc_masks[mc_idx].mc_mask) {
-						if ((uint32_t)((uint32_t)(1)
-								<< in_parms->probe_on_port)
-								== in_parms->rt->mc_masks[mc_idx].mc_mask) {
-							out_parms->reason_for_discard =
-									rio_rt_disc_mc_one_bit;
-						} else {
-							out_parms->reason_for_discard =
-									rio_rt_disc_not;
-							out_parms->valid_route =
-									true;
-						}
-					} else {
-						out_parms->reason_for_discard =
-								rio_rt_disc_mc_empty;
-					}
-				}
-			}
-		}
-	}
-	return;
-}
-
-// Determines route, and then determines packet discard based purely
-// on the settings of the routing table.
-void dsf_check_unicast_routing(DAR_DEV_INFO_t *dev_info,
-		rio_rt_probe_in_t *in_parms, rio_rt_probe_out_t *out_parms)
-{
-	uint8_t idx;
-	uint32_t phys_rte, rte = 0;
-	bool dflt_pt;
-
-	if (NULL == dev_info) {
-		return;
-	}
-
-	if (tt_dev16 == in_parms->tt) {
-		idx = (uint8_t)((in_parms->destID & (uint16_t)(0xFF00)) >> 8);
-		rte = in_parms->rt->dom_table[idx].rte_val;
-	}
-
-	if ((tt_dev8 == in_parms->tt) || (RIO_DSF_RT_USE_DEVICE_TABLE == rte)) {
-		idx = (uint8_t)(in_parms->destID & 0x00FF);
-		rte = in_parms->rt->dev_table[idx].rte_val;
-	}
-
-	out_parms->routing_table_value = rte;
-	out_parms->valid_route = true;
-	out_parms->reason_for_discard = rio_rt_disc_not;
-	dflt_pt = (RIO_DSF_RT_USE_DEFAULT_ROUTE == rte) ? true : false;
-
-	phys_rte = (dflt_pt) ? in_parms->rt->default_route : rte;
-
-	if (RIO_DSF_RT_NO_ROUTE == phys_rte) {
-		out_parms->valid_route = false;
-		out_parms->reason_for_discard =
-				(dflt_pt) ? rio_rt_disc_dflt_pt_deliberately : rio_rt_disc_deliberately;
-	} else {
-		if (phys_rte >= NUM_PORTS(dev_info)) {
-			out_parms->valid_route = false;
-			out_parms->reason_for_discard =
-					(dflt_pt) ? rio_rt_disc_dflt_pt_invalid : rio_rt_disc_rt_invalid;
-		}
-	}
-	return;
-}
-
-void dsf_add_int_event(rio_em_get_int_stat_in_t *in_parms,
-		rio_em_get_int_stat_out_t *out_parms, uint8_t pnum,
-		rio_em_events_t event)
-{
-	if (out_parms->num_events < in_parms->num_events) {
-		in_parms->events[out_parms->num_events].event = event;
-		in_parms->events[out_parms->num_events].port_num = pnum;
-		out_parms->num_events++;
-	} else {
-		out_parms->too_many = true;
-	}
-}
-
-void dsf_add_pw_event(rio_em_get_pw_stat_in_t *in_parms,
-		rio_em_get_pw_stat_out_t *out_parms, uint8_t pnum,
-		rio_em_events_t event)
-{
-	if (out_parms->num_events < in_parms->num_events) {
-		in_parms->events[out_parms->num_events].event = event;
-		in_parms->events[out_parms->num_events].port_num = pnum;
-		out_parms->num_events++;
-	} else {
-		out_parms->too_many = true;
-	}
-}
-
 
 uint32_t RIO_bind_procs(
 		uint32_t (*ReadRegCall)(DAR_DEV_INFO_t *dev_info,

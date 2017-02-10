@@ -129,6 +129,32 @@ const unsigned int rio_spx_err_rate_err_rb_vals_max =
 
 #define RB_SHIFT_AMT 20
 
+void rio_em_add_int_event(rio_em_get_int_stat_in_t *in_parms,
+		rio_em_get_int_stat_out_t *out_parms, uint8_t pnum,
+		rio_em_events_t event)
+{
+	if (out_parms->num_events < in_parms->num_events) {
+		in_parms->events[out_parms->num_events].event = event;
+		in_parms->events[out_parms->num_events].port_num = pnum;
+		out_parms->num_events++;
+	} else {
+		out_parms->too_many = true;
+	}
+}
+
+void rio_em_add_pw_event(rio_em_get_pw_stat_in_t *in_parms,
+		rio_em_get_pw_stat_out_t *out_parms, uint8_t pnum,
+		rio_em_events_t event)
+{
+	if (out_parms->num_events < in_parms->num_events) {
+		in_parms->events[out_parms->num_events].event = event;
+		in_parms->events[out_parms->num_events].port_num = pnum;
+		out_parms->num_events++;
+	} else {
+		out_parms->too_many = true;
+	}
+}
+
 // Info is:
 // 0x00000FFF - spx_rate_en bits
 // 0x00030000 - spx_rate_rr (max counter overage)

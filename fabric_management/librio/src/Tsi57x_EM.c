@@ -1767,7 +1767,7 @@ uint32_t tsi57x_rio_em_get_int_stat(DAR_DEV_INFO_t *dev_info,
 								& (Tsi578_SPX_ERR_DET_LINK_TO
 										| Tsi578_SPX_ERR_DET_LR_ACKID_ILL)))) {
 			if (spx_dloop & Tsi578_SMACX_DLOOP_CLK_SEL_DLT_EN) {
-				dsf_add_int_event(in_parms, out_parms, pnum,
+				rio_em_add_int_event(in_parms, out_parms, pnum,
 						rio_em_f_los);
 				if ((RIO_ALL_PORTS != in_parms->ptl.num_ports)
 						&&   //
@@ -1775,7 +1775,7 @@ uint32_t tsi57x_rio_em_get_int_stat(DAR_DEV_INFO_t *dev_info,
 								!= DEV_CODE(
 										dev_info))
 						&& (!sw_pmr[pnum].lane_count_4x)) {
-					dsf_add_int_event(in_parms, out_parms,
+					rio_em_add_int_event(in_parms, out_parms,
 							sw_pmr[pnum].other_mac_ports[0],
 							rio_em_f_port_err);
 				}
@@ -1800,7 +1800,7 @@ uint32_t tsi57x_rio_em_get_int_stat(DAR_DEV_INFO_t *dev_info,
 						& (Tsi578_SPX_ERR_DET_LINK_TO
 								| Tsi578_SPX_ERR_DET_LR_ACKID_ILL))) {
 			if (spx_ctl_indep & Tsi578_SPX_CTL_INDEP_PORT_ERR_EN) {
-				dsf_add_int_event(in_parms, out_parms, pnum,
+				rio_em_add_int_event(in_parms, out_parms, pnum,
 						rio_em_f_port_err);
 				if ((RIO_ALL_PORTS != in_parms->ptl.num_ports)
 						&&   //
@@ -1808,7 +1808,7 @@ uint32_t tsi57x_rio_em_get_int_stat(DAR_DEV_INFO_t *dev_info,
 								!= DEV_CODE(
 										dev_info))
 						&& (!sw_pmr[pnum].lane_count_4x)) {
-					dsf_add_int_event(in_parms, out_parms,
+					rio_em_add_int_event(in_parms, out_parms,
 							sw_pmr[pnum].other_mac_ports[0],
 							rio_em_f_port_err);
 				}
@@ -1819,7 +1819,7 @@ uint32_t tsi57x_rio_em_get_int_stat(DAR_DEV_INFO_t *dev_info,
 
 		if (spx_int_stat & Tsi578_SPX_INT_STATUS_MAX_RETRY) {
 			if (spx_ctl_indep & Tsi578_SPX_CTL_INDEP_MAX_RETRY_EN) {
-				dsf_add_int_event(in_parms, out_parms, pnum,
+				rio_em_add_int_event(in_parms, out_parms, pnum,
 						rio_em_f_2many_retx);
 			} else {
 				out_parms->other_events = true;
@@ -1830,13 +1830,13 @@ uint32_t tsi57x_rio_em_get_int_stat(DAR_DEV_INFO_t *dev_info,
 		if (spx_err_stat & Tsi578_SPX_ERR_STATUS_OUTPUT_FAIL) {
 			if (Tsi578_SPX_ERR_DET_CS_NOT_ACC & spx_err_det
 					& spx_rate_en) {
-				dsf_add_int_event(in_parms, out_parms, pnum,
+				rio_em_add_int_event(in_parms, out_parms, pnum,
 						rio_em_f_2many_pna);
 			}
 
 			if (~EM_ERR_RATE_EVENT_EXCLUSIONS & spx_err_det
 					& spx_rate_en) {
-				dsf_add_int_event(in_parms, out_parms, pnum,
+				rio_em_add_int_event(in_parms, out_parms, pnum,
 						rio_em_f_err_rate);
 			}
 
@@ -1847,7 +1847,7 @@ uint32_t tsi57x_rio_em_get_int_stat(DAR_DEV_INFO_t *dev_info,
 
 		if (spx_int_stat & Tsi578_SPX_INT_STATUS_ILL_TRANS_ERR) {
 			if (spx_ctl_indep & Tsi578_SPX_CTL_INDEP_ILL_TRANS_ERR) {
-				dsf_add_int_event(in_parms, out_parms, pnum,
+				rio_em_add_int_event(in_parms, out_parms, pnum,
 						rio_em_d_rte);
 			} else {
 				out_parms->other_events = true;
@@ -1858,7 +1858,7 @@ uint32_t tsi57x_rio_em_get_int_stat(DAR_DEV_INFO_t *dev_info,
 				& Tsi578_SPX_INT_STATUS_LINK_INIT_NOTIFICATION) {
 			if (spx_ctl_indep
 					& Tsi578_SPX_CTL_INDEP_LINK_INIT_NOTIFICATION_EN) {
-				dsf_add_int_event(in_parms, out_parms, pnum,
+				rio_em_add_int_event(in_parms, out_parms, pnum,
 						rio_em_i_sig_det);
 			} else {
 				out_parms->other_events = true;
@@ -1867,7 +1867,7 @@ uint32_t tsi57x_rio_em_get_int_stat(DAR_DEV_INFO_t *dev_info,
 
 		if (spx_cs_int & Tsi578_SPX_CS_INT_STATUS_RCS) {
 			if (spx_ctl_indep & Tsi578_SPX_CTL_INDEP_RSVD1) {
-				dsf_add_int_event(in_parms, out_parms, pnum,
+				rio_em_add_int_event(in_parms, out_parms, pnum,
 						rio_em_i_rst_req);
 			} else {
 				out_parms->other_events = true;
@@ -1892,7 +1892,7 @@ uint32_t tsi57x_rio_em_get_int_stat(DAR_DEV_INFO_t *dev_info,
 			goto exit;
 		}
 		if (regData & enData) {
-			dsf_add_int_event(in_parms, out_parms, RIO_ALL_PORTS,
+			rio_em_add_int_event(in_parms, out_parms, RIO_ALL_PORTS,
 					rio_em_d_log);
 		} else {
 			out_parms->other_events = true;
@@ -1914,7 +1914,7 @@ uint32_t tsi57x_rio_em_get_int_stat(DAR_DEV_INFO_t *dev_info,
 			goto exit;
 		}
 		if (regData & Tsi578_I2C_INT_ENABLE_BL_FAIL) {
-			dsf_add_int_event(in_parms, out_parms, RIO_ALL_PORTS,
+			rio_em_add_int_event(in_parms, out_parms, RIO_ALL_PORTS,
 					rio_em_i_init_fail);
 		} else {
 			out_parms->other_events = true;
@@ -1988,7 +1988,7 @@ uint32_t tsi57x_rio_em_get_pw_stat(DAR_DEV_INFO_t *dev_info,
 
 	if (log_err_det) {
 		if (log_err_en) {
-			dsf_add_pw_event(in_parms, out_parms, RIO_ALL_PORTS,
+			rio_em_add_pw_event(in_parms, out_parms, RIO_ALL_PORTS,
 					rio_em_d_log);
 		} else {
 			out_parms->other_events = true;
@@ -2064,7 +2064,7 @@ uint32_t tsi57x_rio_em_get_pw_stat(DAR_DEV_INFO_t *dev_info,
 								& (Tsi578_SPX_ERR_DET_LINK_TO
 										| Tsi578_SPX_ERR_DET_LR_ACKID_ILL)))) {
 			if (spx_dloop & Tsi578_SMACX_DLOOP_CLK_SEL_DLT_EN) {
-				dsf_add_pw_event(in_parms, out_parms, pnum,
+				rio_em_add_pw_event(in_parms, out_parms, pnum,
 						rio_em_f_los);
 			} else {
 				out_parms->other_events = true;
@@ -2075,11 +2075,11 @@ uint32_t tsi57x_rio_em_get_pw_stat(DAR_DEV_INFO_t *dev_info,
 			uint32_t errs = spx_err_det & spx_rate_en;
 
 			if (Tsi578_SPX_ERR_DET_CS_NOT_ACC & errs) {
-				dsf_add_pw_event(in_parms, out_parms, pnum,
+				rio_em_add_pw_event(in_parms, out_parms, pnum,
 						rio_em_f_2many_pna);
 			}
 			if (~EM_ERR_RATE_EVENT_EXCLUSIONS & errs) {
-				dsf_add_pw_event(in_parms, out_parms, pnum,
+				rio_em_add_pw_event(in_parms, out_parms, pnum,
 						rio_em_f_err_rate);
 			}
 
@@ -2100,7 +2100,7 @@ uint32_t tsi57x_rio_em_get_pw_stat(DAR_DEV_INFO_t *dev_info,
 						& (Tsi578_SPX_ERR_DET_LINK_TO
 								| Tsi578_SPX_ERR_DET_LR_ACKID_ILL))) {
 			if (spx_ctl_indep & Tsi578_SPX_CTL_INDEP_PORT_ERR_EN) {
-				dsf_add_pw_event(in_parms, out_parms, pnum,
+				rio_em_add_pw_event(in_parms, out_parms, pnum,
 						rio_em_f_port_err);
 			} else {
 				out_parms->other_events = true;
@@ -2109,7 +2109,7 @@ uint32_t tsi57x_rio_em_get_pw_stat(DAR_DEV_INFO_t *dev_info,
 
 		if (spx_int_stat & Tsi578_SPX_INT_STATUS_MAX_RETRY) {
 			if (spx_ctl_indep & Tsi578_SPX_CTL_INDEP_MAX_RETRY_EN) {
-				dsf_add_pw_event(in_parms, out_parms, pnum,
+				rio_em_add_pw_event(in_parms, out_parms, pnum,
 						rio_em_f_2many_retx);
 			} else {
 				out_parms->other_events = true;
@@ -2118,7 +2118,7 @@ uint32_t tsi57x_rio_em_get_pw_stat(DAR_DEV_INFO_t *dev_info,
 
 		if (spx_int_stat & Tsi578_SPX_INT_STATUS_ILL_TRANS_ERR) {
 			if (spx_ctl_indep & Tsi578_SPX_CTL_INDEP_ILL_TRANS_ERR) {
-				dsf_add_pw_event(in_parms, out_parms, pnum,
+				rio_em_add_pw_event(in_parms, out_parms, pnum,
 						rio_em_d_rte);
 			} else {
 				out_parms->other_events = true;
@@ -2129,7 +2129,7 @@ uint32_t tsi57x_rio_em_get_pw_stat(DAR_DEV_INFO_t *dev_info,
 				& Tsi578_SPX_INT_STATUS_LINK_INIT_NOTIFICATION) {
 			if (spx_ctl_indep
 					& Tsi578_SPX_CTL_INDEP_LINK_INIT_NOTIFICATION_EN) {
-				dsf_add_pw_event(in_parms, out_parms, pnum,
+				rio_em_add_pw_event(in_parms, out_parms, pnum,
 						rio_em_i_sig_det);
 			} else {
 				out_parms->other_events = true;
@@ -2145,7 +2145,7 @@ uint32_t tsi57x_rio_em_get_pw_stat(DAR_DEV_INFO_t *dev_info,
 		if ((start_idx != out_parms->num_events)
 				|| (spx_err_stat
 						& Tsi578_SPX_ERR_STATUS_PORT_W_PEND)) {
-			dsf_add_pw_event(in_parms, out_parms, pnum,
+			rio_em_add_pw_event(in_parms, out_parms, pnum,
 					rio_em_a_clr_pwpnd);
 		}
 

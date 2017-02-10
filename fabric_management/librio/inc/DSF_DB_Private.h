@@ -44,22 +44,6 @@
 extern "C" {
 #endif
 
-// Utility routines, useful for implementing DSF functions
-//
-void dsf_check_unicast_routing(DAR_DEV_INFO_t *dev_info,
-		rio_rt_probe_in_t *in_parms, rio_rt_probe_out_t *out_parms);
-
-void dsf_check_multicast_routing(DAR_DEV_INFO_t *dev_info,
-		rio_rt_probe_in_t *in_parms, rio_rt_probe_out_t *out_parms);
-
-void dsf_add_pw_event(rio_em_get_pw_stat_in_t *in_parms,
-		rio_em_get_pw_stat_out_t *out_parms, uint8_t pnum,
-		rio_em_events_t event);
-
-void dsf_add_int_event(rio_em_get_int_stat_in_t *in_parms,
-		rio_em_get_int_stat_out_t *out_parms, uint8_t pnum,
-		rio_em_events_t event);
-
 // Error Management
 //
 uint32_t DSF_rio_em_cfg_pw(DAR_DEV_INFO_t *dev_info,

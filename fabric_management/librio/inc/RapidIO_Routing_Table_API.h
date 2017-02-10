@@ -557,6 +557,15 @@ uint32_t rio_rt_change_mc_mask(DAR_DEV_INFO_t *dev_info,
 		rio_rt_change_mc_mask_in_t *in_parms,
 		rio_rt_change_mc_mask_out_t *out_parms);
 
+
+void rio_rt_check_multicast_routing(DAR_DEV_INFO_t *dev_info,
+		rio_rt_probe_in_t *in_parms, rio_rt_probe_out_t *out_parms);
+
+// Determines route, and then determines packet discard based purely
+// on the settings of the routing table.
+void rio_rt_check_unicast_routing(DAR_DEV_INFO_t *dev_info,
+		rio_rt_probe_in_t *in_parms, rio_rt_probe_out_t *out_parms);
+
 #ifdef __cplusplus
 }
 #endif
