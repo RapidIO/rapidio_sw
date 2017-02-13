@@ -409,10 +409,6 @@ static void init_mock_rxs_reg(void **state)
 	assert_int_equal(RIO_SUCCESS,
 		DAR_add_poreg(&mock_dev_info, RXS_RIO_SP_LT_CTL, 0x00));
 
-	// Initialize RXS_RIO_SR_RSP_TO
-	assert_int_equal(RIO_SUCCESS,
-		DAR_add_poreg(&mock_dev_info, RXS_RIO_SR_RSP_TO, 0x00));
-
 	// Initialize RXS_RIO_SPX_MC_Y_S_CSR
 	for (port = 0; port < RXS2448_MAX_PORTS; port++) {
 		for (idev = 0; idev < RIO_DAR_RT_DEV_TABLE_SIZE; idev++) {
