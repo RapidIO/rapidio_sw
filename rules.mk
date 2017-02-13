@@ -77,7 +77,7 @@ AR    =$(CROSS_COMPILE)ar
 export CC
 export CXX
 
-ifdef KLOKWORK
+ifdef NO_KERNEL_DRVR
 KDIR=$(TOPDIR)/include/test
 RIODIR=$(TOPDIR)/include/test
 else

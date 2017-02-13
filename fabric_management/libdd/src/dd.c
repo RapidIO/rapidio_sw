@@ -32,32 +32,21 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 #include <string.h>
+#include <stdbool.h>
 #include <stdlib.h>
 #include <stdarg.h>
-#include <semaphore.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/sem.h>
-#include <fcntl.h>
-#include <stdbool.h>
-
-#ifdef __WINDOWS__
-#include "stdafx.h"
-#include <io.h>
-#include <windows.h>
-#include "tsi721api.h"
-#include "IDT_Tsi721.h"
-#endif
-
-// #ifdef __LINUX__
 #include <stdint.h>
 #include <unistd.h>
 #include <dirent.h>
 #include <errno.h>
+#include <semaphore.h>
+#include <fcntl.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/sem.h>
 #include <sys/ioctl.h>
 #include <sys/types.h>
 #include <netinet/in.h>
-// #endif
 
 #include "rio_ecosystem.h"
 #include "fmd_dd.h"

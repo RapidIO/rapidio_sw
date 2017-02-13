@@ -209,16 +209,16 @@ typedef struct mac_indexes_t_TAG {
 	int32_t port_idx[2];
 } mac_indexes_t;
 
-typedef struct idt_lane_diffs_per_port_t_TAG {
+typedef struct tsi_lane_diffs_per_port_t_TAG {
 	int32_t first_lane;
 	int32_t num_lanes;
 	int32_t change_mask;
 	int32_t invert_mask;
-} idt_lane_diffs_per_port_t;
+} tsi_lane_diffs_per_port_t;
 
-typedef struct idt_lane_diffs_per_mac_t_TAG {
-	idt_lane_diffs_per_port_t lane_diffs[2];
-} idt_lane_diffs_per_mac_t;
+typedef struct tsi_lane_diffs_per_mac_t_TAG {
+	tsi_lane_diffs_per_port_t lane_diffs[2];
+} tsi_lane_diffs_per_mac_t;
 
 typedef struct port_cfg_chg_t_TAG {
 	bool valid[Tsi578_MAX_PORTS];

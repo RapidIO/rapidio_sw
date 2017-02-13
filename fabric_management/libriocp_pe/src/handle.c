@@ -307,7 +307,6 @@ int riocp_pe_handle_create_pe(struct riocp_pe *pe, struct riocp_pe **handle, hc_
 	uint32_t destid, uint8_t port, ct_t *comptag_in, char *name)
 {
 	struct riocp_pe *h = NULL;
-	ct_nr_t comptag_nr = 0;
 	uint8_t peer_port = 0;
 	int ret = 0;
 
@@ -330,6 +329,7 @@ int riocp_pe_handle_create_pe(struct riocp_pe *pe, struct riocp_pe **handle, hc_
 	h->mport    = pe->mport;
 	h->hopcount = hopcount;
 	h->destid   = destid;
+	h->comptag  = *comptag_in;
 
 	/* Allocate space for address used to access this PE
 		and copy port list from PE to new peer handle */
@@ -360,9 +360,8 @@ int riocp_pe_handle_create_pe(struct riocp_pe *pe, struct riocp_pe **handle, hc_
 	/* Add new handle to mport handle list BEFORE any maintenance access
 		(which depends on checking for valid handle in list) */
 	riocp_pe_llist_add(&h->mport->minfo->handles, h);
-	h->comptag = *comptag_in;
 
-	ret = riocp_drv_init_pe(h, comptag_in, pe, name);
+	ret = riocp_drv_init_pe(h, pe, name);
 	if (ret) {
 		RIOCP_ERROR("Could not initialize PE with CT 0x%x\n",
 				pe->comptag);
@@ -387,55 +386,6 @@ int riocp_pe_handle_create_pe(struct riocp_pe *pe, struct riocp_pe **handle, hc_
 		RIOCP_ERROR("Could not read comptag\n");
 		ret = -EIO;
 		goto err;
-	}
-
-	/* Decide if the host needs to initialize comptag/destid the PE based
-		on comptag unique number */
-	comptag_nr = RIOCP_PE_COMPTAG_GET_NR(h->comptag);
-
-	RIOCP_DEBUG("h->comptag: 0x%08x (comptag_nr: %u, 0x%08x)\n", h->comptag,
-		comptag_nr, comptag_nr);
-
-	/* Comptag unique number not set */
-	if (comptag_nr == 0 && RIOCP_PE_IS_HOST(h) == true) {
-
-		RIOCP_DEBUG("Initializing empty comptag/reset destid for h 0x%08x\n", h->comptag);
-
-		ret = riocp_pe_comptag_init(h);
-		if (ret) {
-			RIOCP_ERROR("Could not initialize component tag\n");
-			goto err;
-		}
-
-		if (!RIOCP_PE_IS_SWITCH(h->cap)) {
-			ret = riocp_pe_maint_write(h, RIO_DEVID, RIO_DID_UNSET);
-			if (ret) {
-				RIOCP_ERROR("Could not write destid\n");
-				ret = -EIO;
-				goto err;
-			}
-		}
-	} else {
-		/* Add h to comptag_pool at comptag_nr */
-		ret = riocp_pe_comptag_set_slot(h, comptag_nr);
-		if (ret) {
-			RIOCP_ERROR("Error adding handle at comptag pool slot %u\n",
-				comptag_nr);
-			goto err;
-		}
-
-		RIOCP_DEBUG("Added PE: ct 0x%08x at comptag_pool slot %u\n",
-			h->comptag, comptag_nr);
-	}
-
-	/* Initialize switch port event mask and attach switch driver */
-	if (!RIOCP_PE_IS_SWITCH(h->cap)) {
-		ret = riocp_pe_get_destid(h, &h->destid);
-		if (ret) {
-			RIOCP_ERROR("Could not read destid\n");
-			ret = -EIO;
-			goto err;
-		}
 	}
 
 	/* Create PE peers placeholders and connect new handle (h) to PE */
@@ -514,9 +464,7 @@ int riocp_pe_handle_create_mport(uint8_t mport, bool is_host,
 	h->minfo->ref     = 1; /* Initialize reference count */
 	h->minfo->id      = mport;
 	h->minfo->is_host = is_host;
-	if (NULL != comptag) {
-		h->comptag = *comptag;
-	}
+	h->comptag        = *comptag;
 
 	/* Add new handle to mport handles list BEFORE any maintenace access
 		(which depends on checking for valid handle in list) */
@@ -526,7 +474,7 @@ int riocp_pe_handle_create_mport(uint8_t mport, bool is_host,
 		goto err;
 	}
 
-	ret = riocp_drv_init_pe(h, comptag, NULL, name);
+	ret = riocp_drv_init_pe(h, NULL, name);
 	if (ret) {
 		RIOCP_ERROR("Could not intialize pe\n");
 		goto err;
@@ -623,15 +571,15 @@ void riocp_pe_handle_mport_put(struct riocp_pe **mport)
 int riocp_pe_handle_pe_exists(struct riocp_pe *mport, ct_t comptag,
 				struct riocp_pe **peer)
 {
-	int ret;
 	struct riocp_pe_llist_item *item = NULL;
 	struct riocp_pe *ptr = NULL;
 
-	RIOCP_TRACE("Check of PE with comptag 0x%08x exists\n", comptag);
+	RIOCP_TRACE("Check if PE with comptag 0x%08x exists\n", comptag);
 
-	/* Bail out directly when comptag is zero */
-	if (comptag == RIOCP_PE_COMPTAG_UNSET)
+	/* Bail out when comptag is not set */
+	if (COMPTAG_UNSET == comptag) {
 		goto notfound;
+	}
 
 	/* Loop through all mport handles */
 	item = riocp_pe_mport_handles.next;
@@ -641,23 +589,19 @@ int riocp_pe_handle_pe_exists(struct riocp_pe *mport, ct_t comptag,
 			if ((ptr->comptag == comptag) &&
 			(ptr->mport->minfo->is_host == mport->minfo->is_host))
 				goto found;
-		};
+		}
 		item = item->next;
 	}
 
-	ret = riocp_pe_comptag_get_slot(mport, RIOCP_PE_COMPTAG_GET_NR(comptag), &ptr);
-	if (ret)
-		goto notfound;
+notfound:
+	RIOCP_DEBUG("No handle found for comptag 0x%08x\n", comptag);
+	return 0;
 
 found:
 	RIOCP_TRACE("[%p] Handle found for PE with ct 0x%08x (host: %s)\n",
 		ptr, ptr->comptag, mport->minfo->is_host ? "true" : "false");
 	*peer = ptr;
 	return 1;
-
-notfound:
-	RIOCP_DEBUG("No handle found for comptag 0x%08x\n", comptag);
-	return 0;
 }
 
 /**

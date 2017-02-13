@@ -64,7 +64,7 @@ extern "C" {
 #define EM_SET_EC_REGS(x) (EM_SET_EC_REGS_0+x)
 
 // Per port registers to play with when configuring events
-typedef struct idt_event_cfg_reg_values_t_TAG {
+typedef struct cps_event_cfg_reg_values_t_TAG {
 	uint32_t pctl1_csr; // CPS1848_PORT_X_CTL_1_CSR(pnum)
 	uint32_t log_en_csr; // CPS1848_LT_ERR_EN_CSR
 	uint32_t ttl_csr; // CPS1848_PKT_TTL_CSR
@@ -89,14 +89,14 @@ typedef struct idt_event_cfg_reg_values_t_TAG {
 			      //      by clearing all events.
 	uint32_t err_det_csr; // CPS1848_PORT_X_ERR_DET_CSR(pnum)
 	uint32_t imp_err_det; // CPS1848_PORT_X_IMPL_SPEC_ERR_DET(pnum)
-} idt_event_cfg_reg_values_t;
+} cps_event_cfg_reg_values_t;
 
 
 extern uint32_t init_sw_pi(DAR_DEV_INFO_t *dev_info, cps_port_info_t *pi); // CPS_PC
 
 static uint32_t cps_get_event_cfg_reg_vals(DAR_DEV_INFO_t *dev_info, uint8_t pnum,
 		uint8_t start_lane, uint8_t end_lane,
-		idt_event_cfg_reg_values_t *vals, uint32_t *fail_pt)
+		cps_event_cfg_reg_values_t *vals, uint32_t *fail_pt)
 {
 	uint32_t rc;
 	uint8_t lnum;
@@ -234,7 +234,7 @@ exit:
 
 static uint32_t cps_set_event_cfg_reg_vals(DAR_DEV_INFO_t *dev_info, uint8_t pnum,
 		uint8_t start_lane, uint8_t end_lane,
-		idt_event_cfg_reg_values_t *vals, uint32_t *fail_pt)
+		cps_event_cfg_reg_values_t *vals, uint32_t *fail_pt)
 {
 	uint32_t rc;
 	uint8_t lnum;
@@ -402,7 +402,7 @@ exit:
 #define SET_EVENT_EN(x) (EM_SET_EVENT_EN_0+x)
 
 static void cps_em_f_los_ctl(uint8_t first_lane, uint8_t last_lane,
-		rio_em_cfg_t *event, idt_event_cfg_reg_values_t *regs)
+		rio_em_cfg_t *event, cps_event_cfg_reg_values_t *regs)
 {
 	uint8_t lnum;
 
@@ -492,7 +492,7 @@ static void cps_em_f_los_ctl(uint8_t first_lane, uint8_t last_lane,
 
 static uint32_t cps_set_event_en_cfg(DAR_DEV_INFO_t *dev_info, uint8_t pnum,
 		uint8_t first_lane, uint8_t last_lane, rio_em_cfg_t *event,
-		idt_event_cfg_reg_values_t *regs, uint32_t *fail_pt)
+		cps_event_cfg_reg_values_t *regs, uint32_t *fail_pt)
 {
 	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
 
@@ -1688,7 +1688,7 @@ uint32_t CPS_rio_em_cfg_set(DAR_DEV_INFO_t *dev_info,
 	uint8_t e_idx, pnum;
 	rio_pc_get_config_in_t cfg_in;
 	rio_pc_get_config_out_t cfg_out;
-	idt_event_cfg_reg_values_t regs;
+	cps_event_cfg_reg_values_t regs;
 	cps_port_info_t pi;
 	struct DAR_ptl good_ptl;
 
@@ -3020,7 +3020,7 @@ uint32_t CPS_rio_em_clr_events(DAR_DEV_INFO_t *dev_info,
 			break;
 
 		case rio_em_f_port_err: // PORT_ERR occurs due to multiple causes,
-					// all handled by idt_CPS_clr_errs.
+					// all handled by CPS_rio_em_clr_events.
 			regs[pnum].imp_err_det = 0;
 			regs[pnum].err_det = 0;
 			clear_port_fail = true;

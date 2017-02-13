@@ -38,29 +38,18 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdlib.h>
 #include <limits.h>
 #include <stdarg.h>
+#include <unistd.h>
+#include <dirent.h>
 #include <semaphore.h>
+#include <fcntl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/sem.h>
-#include <fcntl.h>
-
-#ifdef __WINDOWS__
-#include "stdafx.h"
-#include <io.h>
-#include <windows.h>
-#include "tsi721api.h"
-#include "IDT_Tsi721.h"
-#endif
-
-// #ifdef __LINUX__
-#include <stdint.h>
-#include <unistd.h>
-#include <dirent.h>
-#include <errno.h>
 #include <sys/ioctl.h>
 #include <sys/types.h>
 #include <netinet/in.h>
-// #endif
+
+#include <errno.h>
 
 #include "tok_parse.h"
 #include "fmd_dd.h"

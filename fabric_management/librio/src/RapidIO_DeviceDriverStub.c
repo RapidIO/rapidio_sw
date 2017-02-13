@@ -53,8 +53,6 @@
 extern "C" {
 #endif
 
-uint32_t num_idt_drivers_in_use;
-
 uint32_t DARDB_ReadRegNoDriver(DAR_DEV_INFO_t *dev_info, uint32_t offset,
 		uint32_t *readdata)
 {
