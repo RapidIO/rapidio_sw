@@ -571,15 +571,15 @@ void riocp_pe_handle_mport_put(struct riocp_pe **mport)
 int riocp_pe_handle_pe_exists(struct riocp_pe *mport, ct_t comptag,
 				struct riocp_pe **peer)
 {
-	int ret;
 	struct riocp_pe_llist_item *item = NULL;
 	struct riocp_pe *ptr = NULL;
 
-	RIOCP_TRACE("Check of PE with comptag 0x%08x exists\n", comptag);
+	RIOCP_TRACE("Check if PE with comptag 0x%08x exists\n", comptag);
 
-	/* Bail out directly when comptag is zero */
-	if (comptag == RIOCP_PE_COMPTAG_UNSET)
+	/* Bail out when comptag is not set */
+	if (COMPTAG_UNSET == comptag) {
 		goto notfound;
+	}
 
 	/* Loop through all mport handles */
 	item = riocp_pe_mport_handles.next;
@@ -589,23 +589,19 @@ int riocp_pe_handle_pe_exists(struct riocp_pe *mport, ct_t comptag,
 			if ((ptr->comptag == comptag) &&
 			(ptr->mport->minfo->is_host == mport->minfo->is_host))
 				goto found;
-		};
+		}
 		item = item->next;
 	}
 
-	ret = riocp_pe_comptag_get_slot(mport, RIOCP_PE_COMPTAG_GET_NR(comptag), &ptr);
-	if (ret)
-		goto notfound;
+notfound:
+	RIOCP_DEBUG("No handle found for comptag 0x%08x\n", comptag);
+	return 0;
 
 found:
 	RIOCP_TRACE("[%p] Handle found for PE with ct 0x%08x (host: %s)\n",
 		ptr, ptr->comptag, mport->minfo->is_host ? "true" : "false");
 	*peer = ptr;
 	return 1;
-
-notfound:
-	RIOCP_DEBUG("No handle found for comptag 0x%08x\n", comptag);
-	return 0;
 }
 
 /**

@@ -465,7 +465,7 @@ found:
 	RIOCP_DEBUG("Working route on port %u to peer(d: %u (0x%08x), hc: %u, ct 0x%08x\n",
 		port, destid, destid, hopcount, comptag);
 
-	if (comptag == RIOCP_PE_COMPTAG_UNSET) {
+	if (COMPTAG_UNSET == comptag) {
 		RIOCP_TRACE("PE found, comptag is not set\n");
 		return -ENODEV;
 	}
