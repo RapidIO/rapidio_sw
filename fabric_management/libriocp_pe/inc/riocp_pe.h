@@ -119,7 +119,7 @@ struct mport_regs {
 	uint32_t memaddr_sz; // RIO_PE_LL_CTL
 	uint32_t host_destID; // 
 	uint32_t my_destID; // RIO_DEVID
-	uint32_t comptag; // RIO_COMP_TAG
+	ct_t comptag; // RIO_COMP_TAG
 	uint32_t disc; // RIO_SP_GEN_CTL
 	uint32_t p_err_stat; // RIO_SPX_ERR_STAT
 	uint32_t p_ctl1; // RIO_SPX_CTL

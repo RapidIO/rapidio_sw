@@ -444,7 +444,7 @@ int setup_mport_master(int mport)
 	return fmd_traverse_network(mport_pe, &cfg_dev);
 }
 
-int slave_get_ct_and_name(int mport, uint32_t *comptag, char *dev_name)
+int slave_get_ct_and_name(int mport, ct_t *comptag, char *dev_name)
 {
 	uint32_t mp_num = 0;
 	struct cfg_mport_info mp;
