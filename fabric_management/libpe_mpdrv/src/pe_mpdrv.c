@@ -369,7 +369,7 @@ fail:
 	return 1;
 }
 
-int mpdrv_init_rt(struct riocp_pe *pe, uint32_t ct, DAR_DEV_INFO_t *dh,
+int mpdrv_init_rt(struct riocp_pe *pe, DAR_DEV_INFO_t *dh,
 		struct mpsw_drv_private_data *priv, pe_port_t acc_port)
 {
 	struct cfg_dev sw;
@@ -378,7 +378,7 @@ int mpdrv_init_rt(struct riocp_pe *pe, uint32_t ct, DAR_DEV_INFO_t *dh,
 	pe_port_t port;
 	int rc;
 
-	rc = cfg_find_dev_by_ct(ct, &sw);
+	rc = cfg_find_dev_by_ct(pe->comptag, &sw);
 	if (rc) {
 		/* device not found in config file
 		 * continue with other initialization
@@ -411,7 +411,7 @@ int mpdrv_init_rt(struct riocp_pe *pe, uint32_t ct, DAR_DEV_INFO_t *dh,
 		rc = rio_rt_set_all(dh, &set_in, &set_out);
 		if (RIO_SUCCESS != rc) {
 			ERR("Error programming port %d rt on ct 0x%x rc %d\n",
-					port, ct, rc);
+					port, pe->comptag, rc);
 			goto fail;
 		}
 	}
@@ -512,7 +512,7 @@ uint32_t rio_sc_config_dev_ctrs(DAR_DEV_INFO_t *dev_h,
 // Only librio macros for checking register/capability
 // values work at this point.
 
-int generic_device_init(struct riocp_pe *pe, uint32_t *ct)
+int generic_device_init(struct riocp_pe *pe)
 {
 	uint32_t port_info;
 	struct mpsw_drv_private_data *priv = NULL;
@@ -544,7 +544,7 @@ int generic_device_init(struct riocp_pe *pe, uint32_t *ct)
 	dev_h = &priv->dev_h;
 
 	// ensure destID/comptag/addrmode is configured correctly
-	rc = riocp_pe_update_comptag(pe, ct, RIOCP_PE_COMPTAG_DESTID(*ct), 1);
+	rc = riocp_pe_update_comptag(pe, 1);
 	if (rc) {
 		ERR("Could not update comptag\n");
 		goto exit;
@@ -613,7 +613,7 @@ int generic_device_init(struct riocp_pe *pe, uint32_t *ct)
 
 		rc = DARrioSetAddrMode(dev_h, reg_val);
 		if (RIO_SUCCESS != rc) {
-			ERR("CT 0x%0x DARrioSetAddrMode rc 0x%x\n", *ct, rc);
+			ERR("CT 0x%0x DARrioSetAddrMode rc 0x%x\n", pe->comptag, rc);
 			goto exit;
 		}
 	}
@@ -647,7 +647,7 @@ int generic_device_init(struct riocp_pe *pe, uint32_t *ct)
 		set_pc_in.pc[port].nmtc_xfer_enable = false;
 	}
 
-	if (!cfg_find_dev_by_ct(*ct, &sw)) {
+	if (!cfg_find_dev_by_ct(pe->comptag, &sw)) {
 		if (sw.is_sw) {
 			for (port = 0; port < sw.sw_info.num_ports; port++) {
 				if (!sw.sw_info.sw_pt[port].valid) {
@@ -706,7 +706,7 @@ int generic_device_init(struct riocp_pe *pe, uint32_t *ct)
 
 	if (SWITCH((dev_h))) {
 		pe_port_t port;
-		rc = mpdrv_init_rt(pe, *ct, dev_h, priv,
+		rc = mpdrv_init_rt(pe, dev_h, priv,
 				RIO_ACCESS_PORT(port_info));
 		if (rc) {
 			goto exit;
@@ -788,8 +788,8 @@ exit:
 	return rc;
 }
 
-int RIOCP_WU mpsw_drv_init_pe(struct riocp_pe *pe, uint32_t *ct,
-		struct riocp_pe *peer, char *name)
+int RIOCP_WU mpsw_drv_init_pe(struct riocp_pe *pe, struct riocp_pe *peer,
+		char *name)
 {
 	struct mpsw_drv_private_data *p_dat = NULL;
 	int ret = 1;
@@ -830,7 +830,7 @@ int RIOCP_WU mpsw_drv_init_pe(struct riocp_pe *pe, uint32_t *ct,
 	}
 	p_dat->dev_h_valid = 1;
 
-	ret = generic_device_init(pe, ct);
+	ret = generic_device_init(pe);
 	if (ret) {
 		ERR("Generic device init failed: %d (0x%x)\n", ret, ret);
 		goto exit;

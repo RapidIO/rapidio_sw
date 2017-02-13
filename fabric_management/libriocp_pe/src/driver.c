@@ -116,14 +116,13 @@ int riocp_pe_switch_port_set_enumerated(struct riocp_pe *sw, uint8_t port)
  *       Initializes device, disables all event reporting.
  *       Does nothing if the device has already been initialized.
  * @param[in] pe Processing element to be initialized.
- * @param[inout] ct Component Tag.  On initialization, set the component tag
  *       on the device to this value.  If previously initialized, return the
  *       component tag value.
  */
-int RIOCP_WU riocp_drv_init_pe(struct riocp_pe *pe, uint32_t *ct,
-		struct riocp_pe *peer_pe, char *name)
+int RIOCP_WU riocp_drv_init_pe(struct riocp_pe *pe, struct riocp_pe *peer_pe,
+		char *name)
 {
-	return mpsw_drv_init_pe(pe, ct, peer_pe, name);
+	return mpsw_drv_init_pe(pe, peer_pe, name);
 }
 
 /**

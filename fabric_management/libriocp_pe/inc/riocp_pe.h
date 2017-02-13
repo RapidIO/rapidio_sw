@@ -170,8 +170,7 @@ int RIOCP_WU riocp_pe_unlock(riocp_pe_handle pe);
 int RIOCP_WU riocp_pe_get_destid(riocp_pe_handle pe, uint32_t *destid);
 int RIOCP_WU riocp_pe_set_destid(riocp_pe_handle pe, uint32_t destid);
 int RIOCP_WU riocp_pe_get_comptag(riocp_pe_handle pe, ct_t *comptag);
-int RIOCP_WU riocp_pe_update_comptag(riocp_pe_handle pe, ct_t *comptag,
-		uint32_t did, uint32_t wr_did);
+int RIOCP_WU riocp_pe_update_comptag(riocp_pe_handle pe, uint32_t wr_did);
 int RIOCP_WU riocp_pe_find_comptag(riocp_pe_handle mport, ct_t comptag,
 		riocp_pe_handle *pe);
 

@@ -1344,40 +1344,24 @@ out:
  * Change the component tag of the given PE.
  * The compent tag is stored in its Component Tag CSR.
  * @param pe      Target PE
- * @param comptag Component tag
- * @param destid  Destination ID for the PE
  * @retval -EINVAL Invalid argument
  * @retval -EBADF  Component tag in device doesn't match with handle
  */
-int RIOCP_SO_ATTR riocp_pe_update_comptag(riocp_pe_handle pe,
-        ct_t *comptag, uint32_t did, uint32_t wr_did)
+int RIOCP_SO_ATTR riocp_pe_update_comptag(riocp_pe_handle pe, uint32_t wr_did)
 {
-        int ret = 0;
-        ct_t ct = 0, new_ct;
+	int ret;
+	ct_t ct;
+	uint32_t did;
 
-        if (riocp_pe_handle_check(pe))
-                return -EINVAL;
+	if (riocp_pe_handle_check(pe)) {
+		return -EINVAL;
+	}
 
-	if (pe->comptag != *comptag)
-                return -EINVAL;
-
-	RIOCP_TRACE("Updating PE handle %p CompTag %x *ct %x\n",
-		pe, pe->comptag, *comptag);
-	new_ct = RIOCP_PE_COMPTAG_DESTID(did) |
-		(RIOCP_PE_COMPTAG_NR(RIOCP_PE_COMPTAG_GET_NR((*comptag))));
-
-	RIOCP_TRACE("Changing ct %x to %x\n", pe->comptag, new_ct);
-	
-	ret = riocp_pe_maint_write(pe, RIO_COMPTAG, new_ct);
+	ret = riocp_pe_maint_write(pe, RIO_COMPTAG, pe->comptag);
 	if (ret) {
 		RIOCP_ERROR("Unable to write PE %p component tag\n", pe);
 		return ret;
 	}
-
-	pe->comptag = new_ct;
-	*comptag = new_ct;
-
-	RIOCP_TRACE("Changed pe ct to %x\n", pe->comptag);
 
 	ret = riocp_pe_maint_read(pe, RIO_COMPTAG, &ct);
 	if (ret) {
@@ -1386,21 +1370,22 @@ int RIOCP_SO_ATTR riocp_pe_update_comptag(riocp_pe_handle pe,
 	}
 
 	if (pe->comptag != ct) {
-		RIOCP_ERROR("pe->comptag(0x%08x) != ct(0x%08x)\n", 
-			pe->comptag, ct);
-		*comptag = ct;
+		RIOCP_ERROR("pe->comptag(0x%08x) != ct(0x%08x)\n", pe->comptag,
+				ct);
+		pe->comptag = ct;
 		return -EBADF;
 	}
 
+	did =  RIOCP_PE_COMPTAG_DESTID(pe->comptag);
 	if (wr_did) {
 		RIOCP_TRACE("Writing device ID to  %x\n", pe->destid);
 		ret = riocp_pe_set_destid(pe, did);
 		if (ret) 
 			RIOCP_ERROR("Unable to update device ID\n");
-	};
+	}
 	pe->destid = did;
 
-        return ret;
+	return ret;
 }
 
 /**

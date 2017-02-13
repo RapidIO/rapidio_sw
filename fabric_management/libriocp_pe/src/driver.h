@@ -22,8 +22,8 @@ extern "C" {
 
 /* Callback wrappers */
 
-int RIOCP_WU riocp_drv_init_pe(struct riocp_pe *pe, uint32_t *ct,
-		struct riocp_pe *peer, char *name);
+int RIOCP_WU riocp_drv_init_pe(struct riocp_pe *pe, struct riocp_pe *peer,
+		char *name);
 int RIOCP_WU riocp_drv_destroy_pe(struct riocp_pe *pe);
 int RIOCP_WU riocp_drv_recover_port(struct riocp_pe *pe, uint8_t port,
 		uint8_t lp_port);
