@@ -76,42 +76,46 @@ int main(int argc, char** argv)
 
 #ifdef RXSx_DAR_WANTED
 
-void assumptions_test(void **state)
+static void assumptions_test(void **state)
 {
 	// verify constants
-        assert_int_equal(8, RXS2448_MAX_SC);
-        assert_int_equal(24, RXS2448_MAX_PORTS);
-        assert_int_equal(48, RXS2448_MAX_LANES);
+	assert_int_equal(8, RXS2448_MAX_SC);
+	assert_int_equal(24, RXS2448_MAX_PORTS);
+	assert_int_equal(48, RXS2448_MAX_LANES);
 
 	(void)state; // unused
 }
 
-void macros_test(void **state)
+static void macros_test(void **state)
 {
 	assert_int_equal(0x1C100, RXS_RIO_SPX_PCNTR_EN(0x00));
-        assert_int_equal(0x1D800, RXS_RIO_SPX_PCNTR_EN(0x17));
-        assert_int_equal(0x1C110, RXS_RIO_SPX_PCNTR_CTL(0x00, 0x00));
-        assert_int_equal(0x1D82C, RXS_RIO_SPX_PCNTR_CTL(0x17, 0x07));
-        assert_int_equal(0x1C130, RXS_RIO_SPX_PCNTR_CNT(0x00, 0x00));
-        assert_int_equal(0x1D84C, RXS_RIO_SPX_PCNTR_CNT(0x17, 0x07));
-        assert_int_equal(0x30000, RXS_RIO_BC_L0_G0_ENTRYX_CSR(0x00));
-        assert_int_equal(0x30028, RXS_RIO_BC_L0_G0_ENTRYX_CSR(0x0A));
-        assert_int_equal(0x30400, RXS_RIO_BC_L1_GX_ENTRYY_CSR(0x00, 0x00));
-        assert_int_equal(0x30428, RXS_RIO_BC_L1_GX_ENTRYY_CSR(0x00, 0x0A));
-        assert_int_equal(0x31000, RXS_RIO_BC_L2_GX_ENTRYY_CSR(0x00, 0x00));
-        assert_int_equal(0x31028, RXS_RIO_BC_L2_GX_ENTRYY_CSR(0x00, 0x0A));
-        assert_int_equal(0x32000, RXS_RIO_BC_MC_X_S_CSR(0x00));
-        assert_int_equal(0x32050, RXS_RIO_BC_MC_X_S_CSR(0x0A));
-        assert_int_equal(0x50000, RXS_RIO_SPX_L0_G0_ENTRYY_CSR(0x00, 0x00));
-        assert_int_equal(0x64028, RXS_RIO_SPX_L0_G0_ENTRYY_CSR(0x0A, 0x0A));
-        assert_int_equal(0x50400, RXS_RIO_SPX_L1_GY_ENTRYZ_CSR(0x00, 0x00, 0x00));
-        assert_int_equal(0x64428, RXS_RIO_SPX_L1_GY_ENTRYZ_CSR(0x0A, 0x00, 0x0A));
-        assert_int_equal(0x51000, RXS_RIO_SPX_L2_GY_ENTRYZ_CSR(0x00, 0x00, 0x00));
-        assert_int_equal(0x65028, RXS_RIO_SPX_L2_GY_ENTRYZ_CSR(0x0A, 0x00, 0x0A));
-        assert_int_equal(0x80000, RXS_RIO_SPX_MC_Y_S_CSR(0x00, 0x00));
-        assert_int_equal(0x8A050, RXS_RIO_SPX_MC_Y_S_CSR(0x0A, 0x0A));
+	assert_int_equal(0x1D800, RXS_RIO_SPX_PCNTR_EN(0x17));
+	assert_int_equal(0x1C110, RXS_RIO_SPX_PCNTR_CTL(0x00, 0x00));
+	assert_int_equal(0x1D82C, RXS_RIO_SPX_PCNTR_CTL(0x17, 0x07));
+	assert_int_equal(0x1C130, RXS_RIO_SPX_PCNTR_CNT(0x00, 0x00));
+	assert_int_equal(0x1D84C, RXS_RIO_SPX_PCNTR_CNT(0x17, 0x07));
+	assert_int_equal(0x30000, RXS_RIO_BC_L0_G0_ENTRYX_CSR(0x00));
+	assert_int_equal(0x30028, RXS_RIO_BC_L0_G0_ENTRYX_CSR(0x0A));
+	assert_int_equal(0x30400, RXS_RIO_BC_L1_GX_ENTRYY_CSR(0x00, 0x00));
+	assert_int_equal(0x30428, RXS_RIO_BC_L1_GX_ENTRYY_CSR(0x00, 0x0A));
+	assert_int_equal(0x31000, RXS_RIO_BC_L2_GX_ENTRYY_CSR(0x00, 0x00));
+	assert_int_equal(0x31028, RXS_RIO_BC_L2_GX_ENTRYY_CSR(0x00, 0x0A));
+	assert_int_equal(0x32000, RXS_RIO_BC_MC_X_S_CSR(0x00));
+	assert_int_equal(0x32050, RXS_RIO_BC_MC_X_S_CSR(0x0A));
+	assert_int_equal(0x50000, RXS_RIO_SPX_L0_G0_ENTRYY_CSR(0x00, 0x00));
+	assert_int_equal(0x64028, RXS_RIO_SPX_L0_G0_ENTRYY_CSR(0x0A, 0x0A));
+	assert_int_equal(0x50400,
+			RXS_RIO_SPX_L1_GY_ENTRYZ_CSR(0x00, 0x00, 0x00));
+	assert_int_equal(0x64428,
+			RXS_RIO_SPX_L1_GY_ENTRYZ_CSR(0x0A, 0x00, 0x0A));
+	assert_int_equal(0x51000,
+			RXS_RIO_SPX_L2_GY_ENTRYZ_CSR(0x00, 0x00, 0x00));
+	assert_int_equal(0x65028,
+			RXS_RIO_SPX_L2_GY_ENTRYZ_CSR(0x0A, 0x00, 0x0A));
+	assert_int_equal(0x80000, RXS_RIO_SPX_MC_Y_S_CSR(0x00, 0x00));
+	assert_int_equal(0x8A050, RXS_RIO_SPX_MC_Y_S_CSR(0x0A, 0x0A));
 
-        assert_int_equal(0x001FF, RIO_DSF_BAD_MC_MASK);
+	assert_int_equal(0x001FF, RIO_DSF_BAD_MC_MASK);
 
 	(void)state; // unused
 }
@@ -123,9 +127,8 @@ int main(int argc, char** argv)
 	argc++; // not used
 
 	const struct CMUnitTest tests[] = {
-                cmocka_unit_test(macros_test),
-                cmocka_unit_test(assumptions_test),
-	};
+	cmocka_unit_test(macros_test),
+	cmocka_unit_test(assumptions_test), };
 
 	return cmocka_run_group_tests(tests, NULL, NULL);
 }

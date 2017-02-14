@@ -403,7 +403,7 @@ static clk_pd_tests_t clk_pd_pass[] = {
 	{ 31, LO_PWR_10G | MHZ_100, 992}
 };
 
-void rxs_rio_pc_clk_pd_success_test(void **state)
+static void rxs_rio_pc_clk_pd_success_test(void **state)
 {
 	RXS_test_state_t *l_st = *(RXS_test_state_t **)state;
 	const int num_tests = sizeof(clk_pd_pass) / sizeof(clk_pd_pass[0]);
@@ -449,7 +449,7 @@ static clk_pd_tests_t clk_pd_fail[] = {
 	{ 32, LO_PWR_10G | MHZ_100, 992}
 };
 
-void rxs_rio_pc_clk_pd_fail_test(void **state)
+static void rxs_rio_pc_clk_pd_fail_test(void **state)
 {
 	RXS_test_state_t *l_st = *(RXS_test_state_t **)state;
 	const int num_tests = sizeof(clk_pd_fail) / sizeof(clk_pd_fail[0]);

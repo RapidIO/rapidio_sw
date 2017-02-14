@@ -487,7 +487,7 @@ static void rxs_reg_mc_mask(uint32_t port, uint32_t mc_mask_num,
 			DARRegRead(&mock_dev_info, MC_MASK_ADDR(base_mask_addr, mc_mask_num), mc_mask_out));
 }
 
-void check_init_rt_regs_port(
+static void check_init_rt_regs_port(
 		uint32_t chk_on_port,
 		uint32_t chk_dflt_val,
 		uint32_t chk_rt_val,
@@ -518,7 +518,7 @@ void check_init_rt_regs_port(
 	}
 }
 
-void check_init_rt_regs(void **state, uint32_t port, bool hw,
+static void check_init_rt_regs(void **state, uint32_t port, bool hw,
 		rio_rt_initialize_in_t *mock_init_in)
 {
 	uint32_t st_p = port;
@@ -546,7 +546,7 @@ void check_init_rt_regs(void **state, uint32_t port, bool hw,
 	}
 }
 
-void check_init_struct(rio_rt_initialize_in_t *mock_init_in)
+static void check_init_struct(rio_rt_initialize_in_t *mock_init_in)
 {
 	uint32_t idx;
 
@@ -589,7 +589,7 @@ void check_init_struct(rio_rt_initialize_in_t *mock_init_in)
 }
 
 
-void rxs_init_rt_test_success_all_ports(void **state, bool hw)
+static void rxs_init_rt_test_success_all_ports(void **state, bool hw)
 {
 	rio_rt_initialize_in_t mock_init_in;
 	rio_rt_initialize_out_t mock_init_out;
@@ -624,14 +624,14 @@ void rxs_init_rt_test_success_all_ports(void **state, bool hw)
 	}
 }
 
-void rxs_init_rt_test_success(void **state)
+static void rxs_init_rt_test_success(void **state)
 {
 	rxs_init_rt_test_success_all_ports(state, false);
 
 	(void)state; // unused
 }
 
-void rxs_init_rt_test_success_hw(void **state)
+static void rxs_init_rt_test_success_hw(void **state)
 {
 	rxs_init_rt_test_success_all_ports(state, true);
 
@@ -639,7 +639,7 @@ void rxs_init_rt_test_success_hw(void **state)
 }
 
 
-void rxs_init_rt_null_test_success(void **state)
+static void rxs_init_rt_null_test_success(void **state)
 {
 	rio_rt_initialize_in_t	  mock_init_in;
 	rio_rt_initialize_out_t	 mock_init_out;
@@ -672,7 +672,7 @@ void rxs_init_rt_null_test_success(void **state)
 	}
 }
 
-void rxs_init_rt_null_update_hw_test_success(void **state)
+static void rxs_init_rt_null_update_hw_test_success(void **state)
 {
 	rio_rt_initialize_in_t mock_init_in;
 	rio_rt_initialize_out_t mock_init_out;
@@ -701,7 +701,7 @@ void rxs_init_rt_null_update_hw_test_success(void **state)
 		if (!RXS->real_hw) {
 			assert_int_equal(0, mock_init_in.default_route);
 		}
-		//Check initialze values
+		//Check initialize values
 		assert_true(mock_init_in.update_hw);
 		assert_null(mock_init_in.rt);
 
@@ -712,7 +712,7 @@ void rxs_init_rt_null_update_hw_test_success(void **state)
 	(void)state; // unused
 }
 
-void rxs_init_rt_test_port_rte(void **state)
+static void rxs_init_rt_test_port_rte(void **state)
 {
 	rio_rt_initialize_in_t init_in;
 	rio_rt_initialize_out_t init_out;
@@ -747,7 +747,7 @@ void rxs_init_rt_test_port_rte(void **state)
 	}
 }
 
-void rxs_init_rt_test_all_port_mc_mask(void **state)
+static void rxs_init_rt_test_all_port_mc_mask(void **state)
 {
 	rio_rt_initialize_in_t mock_init_in;
 	rio_rt_initialize_out_t mock_init_out;
@@ -775,7 +775,7 @@ void rxs_init_rt_test_all_port_mc_mask(void **state)
 	(void)state; // unused
 }
 
-void rxs_init_rt_test_bad_default_route(void **state)
+static void rxs_init_rt_test_bad_default_route(void **state)
 {
 	rio_rt_initialize_in_t mock_init_in;
 	rio_rt_initialize_out_t mock_init_out;
@@ -840,7 +840,7 @@ void rxs_init_rt_test_bad_default_route(void **state)
 	(void)state; // unused
 }
 
-void rxs_init_rt_test_bad_default_route_table(void **state)
+static void rxs_init_rt_test_bad_default_route_table(void **state)
 {
 	rio_rt_initialize_in_t mock_init_in;
 	rio_rt_initialize_out_t mock_init_out;
@@ -891,7 +891,7 @@ void rxs_init_rt_test_bad_default_route_table(void **state)
 	(void)state; // unused
 }
 
-void rxs_init_rt_test_bad_port(void **state)
+static void rxs_init_rt_test_bad_port(void **state)
 {
 	rio_rt_initialize_in_t mock_init_in;
 	rio_rt_initialize_out_t mock_init_out;
@@ -919,7 +919,7 @@ void rxs_init_rt_test_bad_port(void **state)
 	(void)state; // unused
 }
 
-void rxs_check_change_rte_rt_change(uint32_t rte_num, uint32_t dflt_rte,
+static void rxs_check_change_rte_rt_change(uint32_t rte_num, uint32_t dflt_rte,
 		rio_rt_change_rte_in_t *mock_chg_in)
 {
 	uint32_t chk_rte_num;
@@ -977,7 +977,7 @@ void rxs_check_change_rte_rt_change(uint32_t rte_num, uint32_t dflt_rte,
 	}
 }
 
-void rxs_change_rte_rt_test_success(bool dom)
+static void rxs_change_rte_rt_test_success(bool dom)
 {
 	rio_rt_initialize_in_t mock_init_in;
 	rio_rt_initialize_out_t mock_init_out;
@@ -1034,19 +1034,19 @@ void rxs_change_rte_rt_test_success(bool dom)
 	}
 }
 
-void rxs_change_rte_rt_test_dom_hw_success(void **state)
+static void rxs_change_rte_rt_test_dom_hw_success(void **state)
 {
 	rxs_change_rte_rt_test_success(true);
 	(void)state; // unused
 }
 
-void rxs_change_rte_rt_test_dev_hw_success(void **state)
+static void rxs_change_rte_rt_test_dev_hw_success(void **state)
 {
 	rxs_change_rte_rt_test_success(false);
 	(void)state; // unused
 }
 
-void rxs_change_rte_rt_null_test(void **state)
+static void rxs_change_rte_rt_null_test(void **state)
 {
 	rio_rt_change_rte_in_t mock_chg_in;
 	rio_rt_change_rte_out_t mock_chg_out;
@@ -1078,7 +1078,7 @@ void rxs_change_rte_rt_null_test(void **state)
 	(void)state; // unused
 }
 
-void rxs_change_rte_rt_bad_rte_test(void **state)
+static void rxs_change_rte_rt_bad_rte_test(void **state)
 {
 	rio_rt_initialize_in_t mock_init_in;
 	rio_rt_initialize_out_t mock_init_out;
@@ -1154,7 +1154,7 @@ void rxs_change_rte_rt_bad_rte_test(void **state)
 	(void)state; // unused
 }
 
-void rxs_change_rte_rt_bad_rte_dev_test(void **state)
+static void rxs_change_rte_rt_bad_rte_dev_test(void **state)
 {
 	rio_rt_initialize_in_t mock_init_in;
 	rio_rt_initialize_out_t mock_init_out;
@@ -1208,7 +1208,7 @@ void rxs_change_rte_rt_bad_rte_dev_test(void **state)
 	(void)state; // unused
 }
 
-void rxs_check_alloc_mc_rt_change(uint32_t mc_idx,
+static void rxs_check_alloc_mc_rt_change(uint32_t mc_idx,
 		rio_rt_alloc_mc_mask_in_t *mock_alloc_in)
 {
 	uint32_t idx;
@@ -1226,7 +1226,7 @@ void rxs_check_alloc_mc_rt_change(uint32_t mc_idx,
 	}
 }
 
-void rxs_alloc_mc_rt_test_success(void **state)
+static void rxs_alloc_mc_rt_test_success(void **state)
 {
 	rio_rt_initialize_in_t mock_init_in;
 	rio_rt_initialize_out_t mock_init_out;
@@ -1285,7 +1285,7 @@ void rxs_alloc_mc_rt_test_success(void **state)
 	(void)state; // unused
 }
 
-void rxs_alloc_mc_rt_null_test(void **state)
+static void rxs_alloc_mc_rt_null_test(void **state)
 {
 	rio_rt_alloc_mc_mask_in_t mock_alloc_in;
 	rio_rt_alloc_mc_mask_out_t mock_alloc_out;
@@ -1300,7 +1300,7 @@ void rxs_alloc_mc_rt_null_test(void **state)
 	(void)state; // unused
 }
 
-void rxs_alloc_mc_rt_bad_in_use_allocd_test(void **state)
+static void rxs_alloc_mc_rt_bad_in_use_allocd_test(void **state)
 {
 	rio_rt_alloc_mc_mask_in_t mock_alloc_in;
 	rio_rt_alloc_mc_mask_out_t mock_alloc_out;
@@ -1353,7 +1353,7 @@ void rxs_alloc_mc_rt_bad_in_use_allocd_test(void **state)
 	(void)state; // unused
 }
 
-void rxs_check_change_mc_rt_change(uint32_t mc_idx,
+static void rxs_check_change_mc_rt_change(uint32_t mc_idx,
 		rio_rt_change_mc_mask_in_t *mock_mc_chg_in)
 {
 	uint32_t idx, dom_idx, dev_idx;
@@ -1441,7 +1441,7 @@ void rxs_check_change_mc_rt_change(uint32_t mc_idx,
 	}
 }
 
-void rxs_change_mc_rt_test_success(bool dom, bool in_use)
+static void rxs_change_mc_rt_test_success(bool dom, bool in_use)
 {
 	rio_rt_initialize_in_t mock_init_in;
 	rio_rt_initialize_out_t mock_init_out;
@@ -1521,31 +1521,31 @@ void rxs_change_mc_rt_test_success(bool dom, bool in_use)
 	}
 }
 
-void rxs_change_mc_rt_dom_inuse_hw_test_success(void **state)
+static void rxs_change_mc_rt_dom_inuse_hw_test_success(void **state)
 {
 	rxs_change_mc_rt_test_success(true, true);
 	(void)state; // unused
 }
 
-void rxs_change_mc_rt_dev_inuse_hw_test_success(void **state)
+static void rxs_change_mc_rt_dev_inuse_hw_test_success(void **state)
 {
 	rxs_change_mc_rt_test_success(false, true);
 	(void)state; // unused
 }
 
-void rxs_change_mc_rt_dom_hw_test_success(void **state)
+static void rxs_change_mc_rt_dom_hw_test_success(void **state)
 {
 	rxs_change_mc_rt_test_success(true, false);
 	(void)state; // unused
 }
 
-void rxs_change_mc_rt_dev_hw_test_success(void **state)
+static void rxs_change_mc_rt_dev_hw_test_success(void **state)
 {
 	rxs_change_mc_rt_test_success(false, false);
 	(void)state; // unused
 }
 
-void rxs_check_change_allocd_mc_rt_change(
+static void rxs_check_change_allocd_mc_rt_change(
 		rio_rt_change_mc_mask_in_t *mock_mc_chg_in)
 {
 	uint32_t idx, dom_idx, dev_idx, chg_idx;
@@ -1636,7 +1636,7 @@ void rxs_check_change_allocd_mc_rt_change(
 	}
 }
 
-void rxs_change_allocd_mc_rt_test_success(bool dom)
+static void rxs_change_allocd_mc_rt_test_success(bool dom)
 {
 	rio_rt_initialize_in_t mock_init_in;
 	rio_rt_initialize_out_t mock_init_out;
@@ -1745,19 +1745,19 @@ void rxs_change_allocd_mc_rt_test_success(bool dom)
 	}
 }
 
-void rxs_change_allocd_mc_rt_dom_hw_test_success(void **state)
+static void rxs_change_allocd_mc_rt_dom_hw_test_success(void **state)
 {
 	rxs_change_allocd_mc_rt_test_success(true);
 	(void)state; // unused
 }
 
-void rxs_change_allocd_mc_rt_dev_hw_test_success(void **state)
+static void rxs_change_allocd_mc_rt_dev_hw_test_success(void **state)
 {
 	rxs_change_allocd_mc_rt_test_success(false);
 	(void)state; // unused
 }
 
-void rxs_change_mc_rt_test_rt_null(void **state)
+static void rxs_change_mc_rt_test_rt_null(void **state)
 {
 	rio_rt_alloc_mc_mask_in_t mock_alloc_in;
 	rio_rt_alloc_mc_mask_out_t mock_alloc_out;
@@ -1792,7 +1792,7 @@ void rxs_change_mc_rt_test_rt_null(void **state)
 	(void)state; // unused
 }
 
-void rxs_change_mc_rt_test_bad_mc_destID(void **state)
+static void rxs_change_mc_rt_test_bad_mc_destID(void **state)
 {
 	rio_rt_alloc_mc_mask_in_t mock_alloc_in;
 	rio_rt_alloc_mc_mask_out_t mock_alloc_out;
@@ -1825,7 +1825,7 @@ void rxs_change_mc_rt_test_bad_mc_destID(void **state)
 	(void)state; // unused
 }
 
-void rxs_change_mc_rt_test_bad_mc_mask(void **state)
+static void rxs_change_mc_rt_test_bad_mc_mask(void **state)
 {
 	rio_rt_alloc_mc_mask_in_t mock_alloc_in;
 	rio_rt_alloc_mc_mask_out_t mock_alloc_out;
@@ -1886,7 +1886,7 @@ void rxs_change_mc_rt_test_bad_mc_mask(void **state)
 	(void)state; // unused
 }
 
-void rxs_change_mc_rt_test_bad_tdev(void **state)
+static void rxs_change_mc_rt_test_bad_tdev(void **state)
 {
 	rio_rt_alloc_mc_mask_in_t mock_alloc_in;
 	rio_rt_alloc_mc_mask_out_t mock_alloc_out;
@@ -1919,7 +1919,7 @@ void rxs_change_mc_rt_test_bad_tdev(void **state)
 	(void)state; // unused
 }
 
-void rxs_change_mc_rt_test_bad_mc_mask_rte(void **state)
+static void rxs_change_mc_rt_test_bad_mc_mask_rte(void **state)
 {
 	rio_rt_change_mc_mask_in_t mock_mc_chg_in;
 	rio_rt_change_mc_mask_out_t mock_mc_chg_out;
@@ -1943,7 +1943,7 @@ void rxs_change_mc_rt_test_bad_mc_mask_rte(void **state)
 	(void)state; // unused
 }
 
-void rxs_check_dealloc_mc_rt_change(rio_rt_initialize_in_t *mock_init_in,
+static void rxs_check_dealloc_mc_rt_change(rio_rt_initialize_in_t *mock_init_in,
 		rio_rt_dealloc_mc_mask_in_t *mock_dealloc_in)
 {
 	uint32_t idx, dom_rte, dev_rte;
@@ -1991,7 +1991,7 @@ void rxs_check_dealloc_mc_rt_change(rio_rt_initialize_in_t *mock_init_in,
 	}
 }
 
-void rxs_dealloc_mc_rt_test_success(void **state)
+static void rxs_dealloc_mc_rt_test_success(void **state)
 {
 	rio_rt_initialize_in_t mock_init_in;
 	rio_rt_initialize_out_t mock_init_out;
@@ -2073,7 +2073,7 @@ void rxs_dealloc_mc_rt_test_success(void **state)
 			assert_int_equal(RIO_SUCCESS, mock_alloc_out.imp_rc);
 		}
 
-		//One more alloc to be falied
+		//One more alloc to be failed
 		assert_int_not_equal(RIO_SUCCESS,
 				DSF_rio_rt_alloc_mc_mask(&mock_dev_info,
 						&mock_alloc_in,
@@ -2084,7 +2084,7 @@ void rxs_dealloc_mc_rt_test_success(void **state)
 	(void)state; // unused
 }
 
-void rxs_check_dealloc_change_mc_rt_change(rio_rt_initialize_in_t *mock_init_in,
+static void rxs_check_dealloc_change_mc_rt_change(rio_rt_initialize_in_t *mock_init_in,
 		rio_rt_dealloc_mc_mask_in_t *mock_dealloc_in)
 {
 	uint32_t idx, chg_idx, dom_rte, dev_rte, dev_idx;
@@ -2157,7 +2157,7 @@ void rxs_check_dealloc_change_mc_rt_change(rio_rt_initialize_in_t *mock_init_in,
 	}
 }
 
-void rxs_dealloc_change_mc_rt_test_success(void **state)
+static void rxs_dealloc_change_mc_rt_test_success(void **state)
 {
 	rio_rt_initialize_in_t mock_init_in;
 	rio_rt_initialize_out_t mock_init_out;
@@ -2283,7 +2283,7 @@ void rxs_dealloc_change_mc_rt_test_success(void **state)
 	(void)state; // unused
 }
 
-void rxs_dealloc_mc_rt_null_test(void **state)
+static void rxs_dealloc_mc_rt_null_test(void **state)
 {
 	rio_rt_dealloc_mc_mask_in_t mock_dealloc_in;
 	rio_rt_dealloc_mc_mask_out_t mock_dealloc_out;
@@ -2299,7 +2299,7 @@ void rxs_dealloc_mc_rt_null_test(void **state)
 	(void)state; // unused
 }
 
-void rxs_dealloc_mc_rt_test_bad_mc_mask_rte(void **state)
+static void rxs_dealloc_mc_rt_test_bad_mc_mask_rte(void **state)
 {
 	rio_rt_dealloc_mc_mask_in_t mock_dealloc_in;
 	rio_rt_dealloc_mc_mask_out_t mock_dealloc_out;

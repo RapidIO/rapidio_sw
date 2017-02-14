@@ -418,7 +418,7 @@ static void Tsi721WaitSec(uint32_t delay_nsec, uint32_t delay_sec)
 	}
 }
 
-void tsi721_init_mock_reg(void **state)
+static void tsi721_init_mock_reg(void **state)
 {
 	// idx is always should be less than UPB_DAR_REG.
 	uint32_t cntr, idx;

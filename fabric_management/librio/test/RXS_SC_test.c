@@ -383,7 +383,7 @@ static void rxs_init_ctrs(rio_sc_init_dev_ctrs_in_t *parms_in)
 	parms_in->dev_ctrs->num_p_ctrs = RXS2448_MAX_PORTS;
 }
 
-void rxs_init_dev_ctrs_test_success(void **state)
+static void rxs_init_dev_ctrs_test_success(void **state)
 {
 	rio_sc_init_dev_ctrs_in_t mock_sc_in;
 	rio_sc_init_dev_ctrs_out_t mock_sc_out;
@@ -417,7 +417,7 @@ void rxs_init_dev_ctrs_test_success(void **state)
 	(void)state; // unused
 }
 
-void rxs_init_dev_ctrs_test_bad_ptrs(void **state)
+static void rxs_init_dev_ctrs_test_bad_ptrs(void **state)
 {
 	rio_sc_init_dev_ctrs_in_t mock_sc_in;
 	rio_sc_init_dev_ctrs_out_t mock_sc_out;
@@ -440,7 +440,7 @@ void rxs_init_dev_ctrs_test_bad_ptrs(void **state)
 	(void)state; // unused
 }
 
-void rxs_init_dev_ctrs_test_bad_p_ctrs(void **state)
+static void rxs_init_dev_ctrs_test_bad_p_ctrs(void **state)
 {
 	rio_sc_init_dev_ctrs_in_t mock_sc_in;
 	rio_sc_init_dev_ctrs_out_t mock_sc_out;
@@ -469,7 +469,7 @@ void rxs_init_dev_ctrs_test_bad_p_ctrs(void **state)
 	(void)state; // unused
 }
 
-void rxs_init_dev_ctrs_test_bad_ptl_1(void **state)
+static void rxs_init_dev_ctrs_test_bad_ptl_1(void **state)
 {
 	rio_sc_init_dev_ctrs_in_t mock_sc_in;
 	rio_sc_init_dev_ctrs_out_t mock_sc_out;
@@ -487,7 +487,7 @@ void rxs_init_dev_ctrs_test_bad_ptl_1(void **state)
 	(void)state; // unused
 }
 
-void rxs_init_dev_ctrs_test_bad_ptl_2(void **state)
+static void rxs_init_dev_ctrs_test_bad_ptl_2(void **state)
 {
 	rio_sc_init_dev_ctrs_in_t mock_sc_in;
 	rio_sc_init_dev_ctrs_out_t mock_sc_out;
@@ -504,7 +504,7 @@ void rxs_init_dev_ctrs_test_bad_ptl_2(void **state)
 	(void)state; // unused
 }
 
-void rxs_init_dev_ctrs_test_bad_ptl_3(void **state)
+static void rxs_init_dev_ctrs_test_bad_ptl_3(void **state)
 {
 	rio_sc_init_dev_ctrs_in_t mock_sc_in;
 	rio_sc_init_dev_ctrs_out_t mock_sc_out;
@@ -521,7 +521,7 @@ void rxs_init_dev_ctrs_test_bad_ptl_3(void **state)
 	(void)state; // unused
 }
 
-void rxs_init_dev_ctrs_test_good_ptl(void **state)
+static void rxs_init_dev_ctrs_test_good_ptl(void **state)
 {
 	rio_sc_init_dev_ctrs_in_t mock_sc_in;
 	rio_sc_init_dev_ctrs_out_t mock_sc_out;
@@ -568,7 +568,7 @@ void rxs_init_dev_ctrs_test_good_ptl(void **state)
 
 #define MAX_SC_CFG_VAL 21
 
-void test_rxs_cfg_dev_ctr(void **state, rio_sc_cfg_rxs_ctr_in_t *mock_sc_in,
+static void test_rxs_cfg_dev_ctr(void **state, rio_sc_cfg_rxs_ctr_in_t *mock_sc_in,
 		int sc_cfg)
 {
 	bool tx = true;
@@ -789,7 +789,7 @@ void test_rxs_cfg_dev_ctr(void **state, rio_sc_cfg_rxs_ctr_in_t *mock_sc_in,
 	}
 }
 
-void rxs_cfg_dev_ctrs_test_per_port(void **state)
+static void rxs_cfg_dev_ctrs_test_per_port(void **state)
 {
 	int val;
 	rio_sc_init_dev_ctrs_in_t init_in;
@@ -825,7 +825,7 @@ void rxs_cfg_dev_ctrs_test_per_port(void **state)
 	(void)state; // unused
 }
 
-void rxs_cfg_dev_ctrs_test_all_ports(void **state)
+static void rxs_cfg_dev_ctrs_test_all_ports(void **state)
 {
 	int val;
 	rio_sc_init_dev_ctrs_in_t init_in;
@@ -857,7 +857,7 @@ void rxs_cfg_dev_ctrs_test_all_ports(void **state)
 
 // Program counters to default configuration.
 //
-void rxs_cfg_dev_ctrs_test_default(void **state)
+static void rxs_cfg_dev_ctrs_test_default(void **state)
 {
 	rio_sc_init_dev_ctrs_in_t init_in;
 	rio_sc_init_dev_ctrs_out_t init_out;
@@ -905,7 +905,7 @@ static void rxs_init_read_ctrs(void **state, rio_sc_read_ctrs_in_t *parms_in)
 	}
 }
 
-void rxs_read_dev_ctrs_test(void **state)
+static void rxs_read_dev_ctrs_test(void **state)
 {
 	rio_sc_read_ctrs_in_t mock_sc_in;
 	rio_sc_read_ctrs_out_t mock_sc_out;
@@ -1066,7 +1066,7 @@ void rxs_read_dev_ctrs_test(void **state)
 	(void)state; // unused
 }
 
-void rxs_read_dev_ctrs_test_bad_parms1(void **state)
+static void rxs_read_dev_ctrs_test_bad_parms1(void **state)
 {
 	rio_sc_read_ctrs_in_t mock_sc_in;
 	rio_sc_read_ctrs_out_t mock_sc_out;
@@ -1116,7 +1116,7 @@ void rxs_read_dev_ctrs_test_bad_parms1(void **state)
 	(void)state; // unused
 }
 
-void rxs_read_dev_ctrs_test_bad_parms2(void **state)
+static void rxs_read_dev_ctrs_test_bad_parms2(void **state)
 {
 	rio_sc_read_ctrs_in_t mock_sc_in;
 	rio_sc_read_ctrs_out_t mock_sc_out;
@@ -1149,7 +1149,7 @@ void rxs_read_dev_ctrs_test_bad_parms2(void **state)
 	(void)state; // unused
 }
 
-void rxs_init_read_dev_ctrs_test(void **state)
+static void rxs_init_read_dev_ctrs_test(void **state)
 {
 	rxs_init_dev_ctrs_test_success(state);
 	rxs_read_dev_ctrs_test(state);
@@ -1157,7 +1157,7 @@ void rxs_init_read_dev_ctrs_test(void **state)
 	(void)state; // unused
 }
 
-void rxs_init_cfg_read_dev_ctrs_test(void **state)
+static void rxs_init_cfg_read_dev_ctrs_test(void **state)
 {
 	rxs_init_dev_ctrs_test_success(state);
 	rxs_cfg_dev_ctrs_test_default(state);

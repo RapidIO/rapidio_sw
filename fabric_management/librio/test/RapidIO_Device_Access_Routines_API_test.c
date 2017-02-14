@@ -150,7 +150,7 @@ static uint32_t ReadRegCall_test (DAR_DEV_INFO_t *dev_info,
 	return offset;
 }
 
-uint32_t WriteRegCall_test(DAR_DEV_INFO_t *dev_info,
+static uint32_t WriteRegCall_test(DAR_DEV_INFO_t *dev_info,
 				uint32_t  offset,
 				uint32_t  writedata)
 {
@@ -160,7 +160,7 @@ uint32_t WriteRegCall_test(DAR_DEV_INFO_t *dev_info,
 	return offset & writedata;
 }
 
-void WaitSecCall_test(uint32_t delay_nsec, uint32_t delay_sec)
+static void WaitSecCall_test(uint32_t delay_nsec, uint32_t delay_sec)
 {
 	uint64_t waitcycles = delay_nsec + (delay_sec * 1000000000);
 
