@@ -52,6 +52,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <netinet/in.h>
 // #endif
 
+#include "rio_misc.h"
 #include "fmd_dd.h"
 #include "liblog.h"
 #include "libcli.h"
@@ -80,23 +81,22 @@ char *cli_dd_mtx_fn;
 
 extern struct cli_cmd CLIDDDump;
 
-int CLIDDDumpCmd(struct cli_env *env, int argc, char **argv)
+int CLIDDDumpCmd(struct cli_env *env, int UNUSED(argc), char **UNUSED(argv))
 {
 	uint32_t i, found = 0;
 
-	if (0)
-		argv[0][0] = argc;
-
 	if (NULL == cli_dd) {
-		sprintf(env->output, "\nDevice Directory not available.\n");
+		snprintf(env->output, sizeof(env->output), "\nDevice Directory not available.\n");
+		env->output[sizeof(env->output) - 1] = '\0';
 		goto exit;
-	};
+	}
 
 	LOGMSG(env, "\nTime %lld.%.9ld ChgIdx: 0x%8x\n",
 			(long long )cli_dd->chg_time.tv_sec,
 			cli_dd->chg_time.tv_nsec, cli_dd->chg_idx);
 	LOGMSG(env, "fmd_dd: md_ct %x num_devs %d\n", cli_dd->md_ct,
 			cli_dd->num_devs);
+
 	if (cli_dd->num_devs > 0) {
 		LOGMSG(env, "Idx ---CT--- -destID- SZ HC MP FL Name\n");
 		for (i = 0; (i < cli_dd->num_devs) && (i < FMD_MAX_DEVS); i++) {
@@ -109,13 +109,13 @@ int CLIDDDumpCmd(struct cli_env *env, int argc, char **argv)
 							"MP" : "..",
 					cli_dd->devs[i].flag,
 					cli_dd->devs[i].name);
-		};
-	};
+		}
+	}
 
 	if (NULL == cli_dd_mtx) {
 		LOGMSG(env, "\nDevice Directory Mutex not available.\n");
 		goto exit;
-	};
+	}
 
 	LOGMSG(env, "Mutex: mtx_ref_cnt %x dd_ref_cnt %x init_done %x\n",
 			cli_dd_mtx->mtx_ref_cnt, cli_dd_mtx->dd_ref_cnt,
@@ -129,18 +129,19 @@ int CLIDDDumpCmd(struct cli_env *env, int argc, char **argv)
 		if (!found) {
 			LOGMSG(env, "\nIdx --Proc-- Waiting\n");
 			found = 1;
-		};
+		}
 
 		LOGMSG(env, "%3d %8d %d\n", i, cli_dd_mtx->dd_ev[i].proc,
 				cli_dd_mtx->dd_ev[i].waiting);
-	};
+	}
+
 	if (!found) {
 		LOGMSG(env, "\nNo applications connected.\n");
-	};
+	}
 		
 exit:
 	return 0;
-};
+}
 
 struct cli_cmd CLIDDDump = {
 (char *)"dddump",
@@ -164,7 +165,6 @@ int CLIDDIncCmd(struct cli_env *env, int argc, char **argv)
 			fmd_dd_get_chg_idx(cli_dd));
 	return 0;
 }
-;
 
 struct cli_cmd CLIDDInc = {
 (char *)"inc",
@@ -185,7 +185,8 @@ int CLICleanCmd(struct cli_env *env, int argc, char **argv)
 			|| (NULL == cli_dd_mtx_fn)) {
 		LOGMSG(env, "\nState pointer is null.\n");
 		goto exit;
-	};
+	}
+
 	argv[0] = NULL;
 	if (argc) {
 		LOGMSG(env, "\nFreeing Mutex, current state:\n");
@@ -197,7 +198,7 @@ int CLICleanCmd(struct cli_env *env, int argc, char **argv)
 			LOGMSG(env, "mtx_ref_cnt: %x\n",
 					cli_dd_mtx->mtx_ref_cnt);
 			LOGMSG(env, "init_done : %x\n", cli_dd_mtx->init_done);
-		};
+		}
 		shm_unlink(cli_dd_mtx_fn);
 	} else {
 		LOGMSG(env, "\nFreeing dd, current state:\n");
@@ -209,12 +210,11 @@ int CLICleanCmd(struct cli_env *env, int argc, char **argv)
 			LOGMSG(env, "mtx_ref_cnt: %x\n",
 					cli_dd_mtx->mtx_ref_cnt);
 			LOGMSG(env, "init_done : %x\n", cli_dd_mtx->init_done);
-		};
+		}
 		shm_unlink(cli_dd_fn);
-	};
+	}
 	exit: return 0;
 }
-;
 
 struct cli_cmd CLIClean = {
 (char *)"clean",

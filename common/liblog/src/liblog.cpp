@@ -143,9 +143,10 @@ extern "C" {
 		ctime_r(&cur_time, asc_time);
 		asc_time[strlen(asc_time) - 1] = '\0';
 		gettimeofday(&tv, NULL);
-		n = sprintf(buffer, (const char *)(oneline_fmt), level_str,
+		n = snprintf(buffer, sizeof(buffer), (const char *)(oneline_fmt), level_str,
 				asc_time, tv.tv_usec, syscall(SYS_gettid), file,
 				line_num, func);
+		buffer[sizeof(buffer)-1] = '\0';
 
 		/* Handle format and variable arguments */
 		va_start(args, format);

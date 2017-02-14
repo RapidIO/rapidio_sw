@@ -46,6 +46,8 @@ extern "C" {
 #define RIO_MPORT_DEV_PATH "/dev/rio_mport"
 #define RIO_CMDEV_PATH "/dev/rio_cm"
 
+#define RIO_SOCKET_MSG_SIZE 0x1000
+
 /**
  * @brief mport opaque handle structure
  */

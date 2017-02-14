@@ -50,12 +50,13 @@
 #include <stdint.h> /* For size_t */
 #include <unistd.h>
 #include <fcntl.h>
-#include <rapidio_mport_dma.h>
 #include <sys/ioctl.h>
 
 #include "tok_parse.h"
-#include <rapidio_mport_mgmt.h>
-#include <rapidio_mport_sock.h>
+#include "rapidio_mport_mgmt.h"
+#include "rapidio_mport_sock.h"
+#include "rapidio_mport_dma.h"
+#include "riodp_mport_lib.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -278,7 +279,7 @@ int main(int argc, char** argv)
 		goto out;
 	}
 
-	msg_rx = malloc(0x1000);
+	msg_rx = malloc(RIO_SOCKET_MSG_SIZE);
 	if (msg_rx == NULL) {
 		printf("CM_CLIENT(%d): error allocating rx buffer\n",
 				(int)getpid());
@@ -291,11 +292,11 @@ int main(int argc, char** argv)
 	for (i = 1; i <= arg.repeat; i++) {
 		/* usleep(200 * 1000); */
 		/** - Place message into buffer with space reserved for msg_header */
-		sprintf((char *)((char *)msg_tx + 20), "%d:%d\n", i,
-				(int)getpid());
+		snprintf((char *)((char *)msg_tx + 20), RIO_SOCKET_MSG_SIZE - 20,
+				"%d:%d\n", i, (int)getpid());
 
 		/** - Send message to the destination */
-		ret = riomp_sock_send(socket, msg_tx, 0x1000);
+		ret = riomp_sock_send(socket, msg_tx, RIO_SOCKET_MSG_SIZE);
 		if (ret) {
 			printf("CM_CLIENT(%d): riomp_sock_send() ERR %d\n",
 					(int)getpid(), ret);
@@ -303,7 +304,7 @@ int main(int argc, char** argv)
 		}
 
 		/** - Get echo response from the server (blocking call, no timeout) */
-		ret = riomp_sock_receive(socket, &msg_rx, 0x1000, 0);
+		ret = riomp_sock_receive(socket, &msg_rx, RIO_SOCKET_MSG_SIZE, 0);
 		if (ret) {
 			printf(
 					"CM_CLIENT(%d): riomp_sock_receive() ERR %d on roundtrip %d\n",

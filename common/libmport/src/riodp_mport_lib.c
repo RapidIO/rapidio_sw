@@ -1314,7 +1314,7 @@ int riomp_sock_request_send_buffer(riomp_sock_t UNUSED_PARM(socket_handle),
 {
 	/* socket_handle won't be used for now */
 
-	*buf = calloc(1, 0x1000); /* Always allocate maximum size buffers */
+	*buf = calloc(1, RIO_SOCKET_MSG_SIZE); /* Always allocate maximum size buffers */
 	if (*buf == NULL) {
 		return -1;
 	}
