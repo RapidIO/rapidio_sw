@@ -343,7 +343,7 @@ int main(int argc, char** argv)
 
 	printf("Total time:\t\t\t\t%4f s\n"
 			"Mean time per message roundtrip:\t%4f us\n"
-			"Data throughput:\t\t\t\%4f MB/s\n", totaltime, mean,
+			"Data throughput:\t\t\t%4f MB/s\n", totaltime, mean,
 			((4096 * i) / totaltime) / (1024 * 1024));
 
 out:

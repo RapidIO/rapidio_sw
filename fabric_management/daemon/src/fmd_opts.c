@@ -153,7 +153,7 @@ struct fmd_opt_vals *fmd_parse_options(int argc, char *argv[])
 		case 'h':
 		case 'H':
 			goto print_help;
-
+			break;
 		case 'i':
 		case 'I':
 			if (tok_parse_ul(optarg, &opts->mast_interval,

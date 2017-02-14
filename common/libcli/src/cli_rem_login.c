@@ -70,7 +70,6 @@ void *remote_session(void *parms)
 	free(parms);
 	pthread_exit(NULL);
 }
-;
 
 pthread_t remote_login_thread;
 

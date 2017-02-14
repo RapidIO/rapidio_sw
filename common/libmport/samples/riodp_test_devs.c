@@ -218,6 +218,7 @@ int main(int argc, char** argv)
 		case 'h':
 			usage(program);
 			exit(EXIT_SUCCESS);
+			break;
 		case '?':
 		default:
 			/* Invalid command line option */
