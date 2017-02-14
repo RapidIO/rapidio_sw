@@ -81,6 +81,7 @@ struct fmd_mgmt fmp;
 void send_m2s_flag_update(struct fmd_peer *peer, struct fmd_dd_dev_info *dev)
 {
 	uint8_t flag;
+	uint32_t attempts = 0x100;
 
 	sem_wait(&peer->tx_mtx);
 	peer->m2s->msg_type = htonl(FMD_P_REQ_FSET);
@@ -99,14 +100,18 @@ void send_m2s_flag_update(struct fmd_peer *peer, struct fmd_dd_dev_info *dev)
 		peer->p_did, dev->destID, flag);
 
 	peer->tx_buff_used = 1;
-	peer->tx_rc = riomp_sock_send(peer->cm_skt_h, 
+	do {
+		peer->tx_rc = riomp_sock_send(peer->cm_skt_h,
 				peer->tx_buff, FMD_P_M2S_CM_SZ);
+	} while ((EBUSY == peer->tx_rc) && attempts--);
+
 	sem_post(&peer->tx_mtx);
 	INFO("Sent M2S update to %s for %s, flags 0x%2x, tx rc 0x%x\n",
 		peer->peer_name, dev->name, flag, peer->tx_rc);
 	if (peer->tx_rc) {
-		ERR("Failed M2S update to %s for %s, flags 0x%2x, tx rc 0x%x\n",
-			peer->peer_name, dev->name, flag, peer->tx_rc);
+		ERR("Failed M2S update to %s for %s, flags 0x%2x,"
+			" tx rc 0x%x attempts remaining %d\n",
+			peer->peer_name, dev->name, flag, peer->tx_rc, attempts);
 	};
 };
 
