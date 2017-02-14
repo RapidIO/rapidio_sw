@@ -64,6 +64,96 @@ spx_ctl2_ls_check_info_t rxs_ls_check[] = {
 	{ 0x00000000              , 0x00000000           , rio_pc_ls_last ,  0 },
 };
 
+// Returns the base clock period (SRV_CLK) for many timers.
+// Usually around 1000 (1 usec), but can vary by +/- 0.5%
+// 
+// Inputs: 
+// dev_info - device to query
+//
+// Updates:
+// srv      - SRV_CLK in nanoseconds
+//
+// Returns: error code, 0 means all's good, <> 0 means failure
+
+uint32_t rxs_rio_pc_clk_pd(DAR_DEV_INFO_t *dev_info,
+			uint32_t *srv_pd)
+{
+	uint32_t rck, cck;
+	uint32_t ps; // Prescaler
+	uint32_t rc;
+
+	*srv_pd = 0;
+
+	rc = DARRegRead(dev_info, RXS_RIO_MPM_CFGSIG0, &rck);
+	if (RIO_SUCCESS != rc) {
+		goto fail;
+	}
+
+	rc = DARRegRead(dev_info, RXS_RIO_PRESCALAR_SRV_CLK, &ps);
+	if (RIO_SUCCESS != rc) {
+		goto fail;
+	}
+
+	if ((ps & ~RXS_RIO_PRESCALAR_SRV_CLK_PRESCALAR_SRV_CLK) || (!ps)){
+		rc = RIO_ERR_READ_REG_RETURN_INVALID_VAL;
+		goto fail;
+	}
+
+	cck = rck & RXS_RIO_MPM_CFGSIG0_CORECLK_SELECT;
+	rck &= RXS_RIO_MPM_CFGSIG0_REFCLK_SELECT;
+	ps &= RXS_RIO_PRESCALAR_SRV_CLK_PRESCALAR_SRV_CLK;
+
+	switch(cck) {
+	case RXS_RIO_MPM_CFGSIG0_CORECLK_SELECT_LO_LAT:
+		if (42 != ps) {
+			rc = RIO_ERR_READ_REG_RETURN_INVALID_VAL;
+			goto fail;
+		}
+		if (RXS_RIO_MPM_CFGSIG0_REFCLK_SELECT_156p25MHz == rck) {
+			*srv_pd = 1000;
+		} else {
+			*srv_pd = 1001;
+		}
+		break;
+	case RXS_RIO_MPM_CFGSIG0_CORECLK_SELECT_RSVD:
+		rc = RIO_ERR_READ_REG_RETURN_INVALID_VAL;
+		goto fail;
+		break;
+
+	case RXS_RIO_MPM_CFGSIG0_CORECLK_SELECT_LO_PWR_12G:
+		if (RXS_RIO_MPM_CFGSIG0_REFCLK_SELECT_156p25MHz == rck) {
+			if (38 != ps) {
+				rc = RIO_ERR_READ_REG_RETURN_INVALID_VAL;
+				goto fail;
+			}
+			*srv_pd = 998;
+		} else {
+			if (37 != ps) {
+				rc = RIO_ERR_READ_REG_RETURN_INVALID_VAL;
+				goto fail;
+			}
+			*srv_pd = 992;
+		}
+		break;
+	case RXS_RIO_MPM_CFGSIG0_CORECLK_SELECT_LO_PWR_10G:
+		if (31 != ps) {
+			rc = RIO_ERR_READ_REG_RETURN_INVALID_VAL;
+			goto fail;
+		}
+		*srv_pd = 992;
+		break;
+
+	default:
+		rc = RIO_ERR_SW_FAILURE;
+		goto fail;
+		break;
+	}
+
+	rc = RIO_SUCCESS;
+fail:
+	return rc;
+}
+
 uint32_t rxs_rio_pc_get_config(DAR_DEV_INFO_t *dev_info,
 		rio_pc_get_config_in_t *in_parms,
 		rio_pc_get_config_out_t *out_parms)

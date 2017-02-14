@@ -82,6 +82,9 @@ uint32_t rxs_rio_pc_dev_reset_config(DAR_DEV_INFO_t *dev_info,
 		rio_pc_dev_reset_config_in_t *in_parms,
 		rio_pc_dev_reset_config_out_t *out_parms);
 
+uint32_t rxs_rio_pc_clk_pd(DAR_DEV_INFO_t *dev_info, uint32_t *srv_pd);
+
+
 // Routing Table
 //
 uint32_t rxs_rio_rt_initialize(DAR_DEV_INFO_t *dev_info,
