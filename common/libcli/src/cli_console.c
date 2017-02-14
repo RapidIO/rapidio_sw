@@ -59,9 +59,9 @@ void *console(void *cons_parm)
 	init_cli_env(&cons_env);
 
 	if (NULL == cons_parm) {
-		strcpy(cons_env.prompt, "PROMPT> ");
+		SAFE_STRNCPY(cons_env.prompt, "PROMPT> ", sizeof(cons_env.prompt));
 	} else {
-		strcpy(cons_env.prompt, (char *)cons_parm);
+		SAFE_STRNCPY(cons_env.prompt, (char *)cons_parm, sizeof(cons_env.prompt));
 	}
 
 	cli_terminal(&cons_env);
@@ -80,9 +80,9 @@ void *console_rc(void *cons_parm_v)
 
 	init_cli_env(&cons_env);
 	if (NULL == cons_parm->prompt) {
-		strcpy(cons_env.prompt, "PROMPT> ");
+		SAFE_STRNCPY(cons_env.prompt, "PROMPT> ", sizeof(cons_env.prompt));
 	} else {
-		strcpy(cons_env.prompt, (char *)cons_parm->prompt);
+		SAFE_STRNCPY(cons_env.prompt, (char *)cons_parm, sizeof(cons_env.prompt));
 	}
 
 	if (NULL != cons_parm->script) {
