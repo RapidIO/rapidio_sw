@@ -254,16 +254,17 @@ static uint32_t RXSReadReg(DAR_DEV_INFO_t *dev_info,
 	}
 
 	if (!st.real_hw) {
-                if ((DAR_POREG_BAD_IDX == idx) && DEBUG_PRINTF) {
-                        printf("\nMissing offset is 0x%x\n", offset);
-                        assert_true(st.real_hw);
-                        idx = 0;
-                } else {
-                        rc = RIO_SUCCESS;
-                }
-                *readdata = mock_dar_reg[idx].data;
-                goto exit;
+		if ((DAR_POREG_BAD_IDX == idx) && DEBUG_PRINTF) {
+			printf("\nMissing offset is 0x%x\n", offset);
+			assert_true(st.real_hw);
+			idx = 0;
+		} else {
+			rc = RIO_SUCCESS;
+		}
+		*readdata = mock_dar_reg[idx].data;
+		goto exit;
 	}
+
 	// Should only get here when st.real_hw is true, since
 	// when real_hw is false, all registers are mocked.
 	assert_true(st.real_hw);
@@ -360,24 +361,24 @@ static int setup(void **state)
 	uint32_t rc;
 	RXS_test_state_t *RXS = *(RXS_test_state_t **)state;
 
-        memset(&mock_dev_info, 0x00, sizeof(rio_sc_dev_ctrs_t));
+	memset(&mock_dev_info, 0x00, sizeof(rio_sc_dev_ctrs_t));
 	rxs_test_setup();
-        init_mock_rxs_reg(state);
+	init_mock_rxs_reg(state);
 	if (RXS->real_hw) {
 		rc = RXSReadReg(&mock_dev_info, RIO_SW_PORT_INF, &sw_port_info);
 		assert_int_equal(rc, 0);
 		RXS->conn_port = sw_port_info & RIO_SW_PORT_INF_PORT;
 	}
 
-        return 0;
+	return 0;
 }
 
 /* The teardown function to be called after any tests have finished.
  */
 static int teardown(void **state) 
 {
-        (void)state; //unused
-        return 0;
+	(void)state; //unused
+	return 0;
 }
 
 typedef struct clk_pd_tests_t_TAG {
@@ -484,9 +485,12 @@ void rxs_rio_pc_clk_pd_fail_test(void **state)
 int main(int argc, char** argv)
 {
 	const struct CMUnitTest tests[] = {
-                cmocka_unit_test_setup_teardown(rxs_rio_pc_clk_pd_success_test, setup, NULL),
-                cmocka_unit_test_setup_teardown(rxs_rio_pc_clk_pd_fail_test, setup, teardown),
-	};
+			cmocka_unit_test_setup_teardown(
+					rxs_rio_pc_clk_pd_success_test, setup,
+					NULL),
+			cmocka_unit_test_setup_teardown(
+					rxs_rio_pc_clk_pd_fail_test, setup,
+					teardown), };
 
 	memset(&st, 0, sizeof(st));
 	st.argc = argc;
