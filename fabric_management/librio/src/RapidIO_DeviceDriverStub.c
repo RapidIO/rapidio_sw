@@ -35,6 +35,7 @@
 #include <stddef.h>
 #include <string.h>
 
+#include "rio_misc.h"
 #include "RapidIO_Source_Config.h"
 #include "RapidIO_Device_Access_Routines_API.h"
 #include "RapidIO_Error_Management_API.h"
@@ -53,23 +54,19 @@
 extern "C" {
 #endif
 
-uint32_t DARDB_ReadRegNoDriver(DAR_DEV_INFO_t *dev_info, uint32_t offset,
-		uint32_t *readdata)
+uint32_t DARDB_ReadRegNoDriver(DAR_DEV_INFO_t *dev_info, uint32_t UNUSED(offset),
+		uint32_t *UNUSED(readdata))
 {
 	if (!VALIDATE_DEV_INFO(dev_info)) {
-		(void)offset;
-		(void)readdata;
 		return DAR_DB_INVALID_HANDLE;
 	}
 	return DAR_DB_NO_DRIVER;
 }
 
-uint32_t DARDB_WriteRegNoDriver(DAR_DEV_INFO_t *dev_info, uint32_t offset,
-		uint32_t writedata)
+uint32_t DARDB_WriteRegNoDriver(DAR_DEV_INFO_t *dev_info, uint32_t UNUSED(offset),
+		uint32_t UNUSED(writedata))
 {
 	if (!VALIDATE_DEV_INFO(dev_info)) {
-		(void)offset;
-		(void)writedata;
 		return DAR_DB_INVALID_HANDLE;
 	}
 	return DAR_DB_NO_DRIVER;
