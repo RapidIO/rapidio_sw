@@ -1105,10 +1105,6 @@ int RIOCP_WU mpsw_drv_get_port_state(struct riocp_pe *pe, pe_port_t port,
 		state->port_lane_speed = 0;
 	}
 
-	state->link_errs = p_dat->st.ps.ps[port].port_error
-			| p_dat->st.ps.ps[port].input_stopped
-			| p_dat->st.ps.ps[port].output_stopped;
-
 	DBG("EXIT\n");
 	return 0;
 fail:

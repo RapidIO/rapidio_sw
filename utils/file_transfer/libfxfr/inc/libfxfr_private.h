@@ -81,11 +81,10 @@ struct buffer_info {
                            * 1 - processing complete, waiting on request_avail
 			   */
         int rc;       /* return code, 0 means OK, others are stderr codes */
-	void *msg_rx;
-	void *msg_tx;
+	rapidio_mport_socket_msg *msg_rx;
+	rapidio_mport_socket_msg *msg_tx;
 	struct fxfr_client_to_svr_msg *rxed_msg;
 	struct fxfr_svr_to_client_msg *tx_msg;
-	int msg_buff_size;
 	int debug;
 	uint64_t bytes_rxed;
 };

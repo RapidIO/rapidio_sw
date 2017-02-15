@@ -77,14 +77,14 @@ struct fmd_peer {
 	sem_t tx_mtx; /* Sender waits on mutex to get access to tx_buff, 
 			then sends message. */
 	union {
-		void *tx_buff;
-        	struct fmd_mast_to_slv_msg *m2s; /* alias for tx_buff */
+		rapidio_mport_socket_msg *tx_buff;
+		struct fmd_mast_to_slv_msg *m2s; /* alias for tx_buff */
 	};
 	int rx_buff_used;
 	int rx_rc;
 	union {
-		void *rx_buff;
-        	struct fmd_slv_to_mast_msg *s2m; /* alias for rx_buff */
+		rapidio_mport_socket_msg *rx_buff;
+		struct fmd_slv_to_mast_msg *s2m; /* alias for rx_buff */
 	};
 };
 

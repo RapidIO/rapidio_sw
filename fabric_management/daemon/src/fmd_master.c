@@ -479,7 +479,7 @@ int start_new_peer(riomp_sock_t new_skt)
 	sem_init(&peer->init_cplt_mtx, 0, 1);
 	sem_init(&peer->tx_mtx, 0, 1);
 	sem_init(&peer->started, 0, 0);
-	peer->rx_buff = calloc(1, 4096);
+	peer->rx_buff = (rapidio_mport_socket_msg *) calloc(1, sizeof(rapidio_mport_socket_msg));
 
 	if (riomp_sock_request_send_buffer(new_skt, &peer->tx_buff)) {
 		riomp_sock_close(&new_skt);

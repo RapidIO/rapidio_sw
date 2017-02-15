@@ -179,8 +179,8 @@ struct worker {
 	int con_skt_valid;
 	int msg_size;  /* Minimum 20 bytes for CM messaging!!! */
 	uint16_t sock_num; /* RIO CM socket to connect to */
-	void *sock_tx_buf; 
-	void *sock_rx_buf; 
+	rapidio_mport_socket_msg *sock_tx_buf;
+	rapidio_mport_socket_msg *sock_rx_buf;
 
 	uint64_t perf_msg_cnt; /* Messages read/written */
 	uint64_t perf_byte_cnt; /* bytes read/written */

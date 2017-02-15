@@ -177,11 +177,12 @@ void show_rio_devs(void)
 void doprocessing(riomp_sock_t new_socket)
 {
 	int ret = 0;
-	void *msg_rx = NULL;
+	rapidio_mport_socket_msg *msg_rx = NULL;
 
 	printf("CM_SERVER processing child(%d) started\n", (int)getpid());
 
-	msg_rx = malloc(0x1000); /* use malloc to get rx buffer, because buffers aren't managed yet */
+	// use malloc to get rx buffer, because buffers aren't managed yet
+	msg_rx = (rapidio_mport_socket_msg *) malloc(sizeof(rapidio_mport_socket_msg));
 	if (msg_rx == NULL) {
 		printf("CM_SERVER(%d): error allocating rx buffer\n",
 				(int)getpid());
@@ -191,7 +192,7 @@ void doprocessing(riomp_sock_t new_socket)
 	while (!srv_exit) {
 		repeat_rx:
 		/** - Receive an inbound message */
-		ret = riomp_sock_receive(new_socket, &msg_rx, 0x1000,
+		ret = riomp_sock_receive(new_socket, &msg_rx, sizeof(msg_rx),
 				60 * 1000);
 		if (ret) {
 			if (ret == ETIME && !srv_exit) {
@@ -206,11 +207,11 @@ void doprocessing(riomp_sock_t new_socket)
 
 		if (srv_debug) {
 			printf("CM_SERVER(%d): RX_MSG=%s\n", (int)getpid(),
-					(char *)msg_rx + 20);
+					(char *)msg_rx->msg.payload);
 		}
 
 		/** - Send  a message back to the client */
-		ret = riomp_sock_send(new_socket, msg_rx, 0x1000);
+		ret = riomp_sock_send(new_socket, msg_rx, sizeof(msg_rx));
 		if (ret) {
 			printf("CM_SERVER(%d): riomp_sock_send() ERR %d (%d)\n",
 					(int)getpid(), ret, errno);

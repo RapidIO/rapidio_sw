@@ -38,7 +38,7 @@ TARGETS:=lib$(NAME).a
 OBJECTS:=$(patsubst src/%.c,src/%.o,$(wildcard src/*.c))
 
 # Keep clobbered as an acceptable warning, not our code...
-CFLAGS+=-Wno-error=clobbered
+CFLAGS+=-Wno-error=clobbered -Wno-error=maybe-uninitialized
 
 # begin cmocka config.h
 CFLAGS+=-DHAVE_ASSERT_H=1

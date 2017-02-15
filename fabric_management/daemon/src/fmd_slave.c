@@ -487,7 +487,7 @@ int start_peer_mgmt_slave(uint32_t mast_acc_skt_num, uint32_t mast_did,
                 riomp_sock_close(&slv->skt_h);
                 goto fail;
         }
-	slv->rx_buff = calloc(1, 4096);
+	slv->rx_buff = (rapidio_mport_socket_msg *)calloc(1, sizeof(rapidio_mport_socket_msg));
 
         rc = pthread_create(&slv->slave_thr, NULL, mgmt_slave, NULL);
 	if (rc) {
