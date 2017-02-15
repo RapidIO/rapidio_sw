@@ -441,7 +441,7 @@ typedef struct rio_em_get_pw_stat_out_t_TAG {
 	// Implementation specific return code, useful for debug
 	uint32_t imp_rc;
 
-	// Number of entries in the arrays popwed to by *events which are valid.
+	// Number of entries in the arrays popped to by *events which are valid.
 	uint16_t num_events;
 
 	// true if there were more events present than could be returned

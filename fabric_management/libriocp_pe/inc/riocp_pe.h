@@ -62,20 +62,33 @@ typedef struct riocp_pe *riocp_pe_handle;
 
 struct riocp_pe_port_state_t
 {
-	int port_ok; /** 0 - port not initialized, 1 - port initialized */
-	int port_max_width; /** Maximum number of lanes for the port */
-	int port_cur_width; /** Current operating width of the port */
-	int port_lane_speed; /** Lane speed in Mbaud*/
-				/** Values: 1250, 2500, 3125, 5000, 6250 */
-	int link_errs; /** 0 - Can exchange packets, 1 - errors stop exchange */
+	// 0 - port not initialized, 1 - port initialized
+	int port_ok;
+
+	// Maximum number of lanes for the port
+	int port_max_width;
+
+	// Current operating width of the port
+	int port_cur_width;
+
+	// Lane speed in Mbaud
+	// Values: 1250, 2500, 3125, 5000, 6250
+	int port_lane_speed;
 };
 
 /* Structure describing a RapidIO port and its status */
 struct riocp_pe_port {
-	riocp_pe_handle pe;		/* Owner of this port */
-	struct riocp_pe_port *peer;	/* Peer port of this port (NULL=no peer) */
-	uint8_t id;			/* Physical port number */
-	struct riocp_pe_port_state_t state;	/* Port state */
+	// Owner of this port
+	riocp_pe_handle pe;
+
+	// Peer port of this port (NULL=no peer)
+	struct riocp_pe_port *peer;
+
+	// Physical port number
+	uint8_t id;
+
+	// Port state
+	struct riocp_pe_port_state_t state;
 };
 
 
