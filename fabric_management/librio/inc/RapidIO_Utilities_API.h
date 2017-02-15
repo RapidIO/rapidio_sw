@@ -259,30 +259,30 @@ char *get_stype2_descr(CS_field_t *fields_in);
  */
 
 typedef enum {
-	pkt_raw,		// Raw, uninitialized packet
-	pkt_nr,			// NREAD packet
-	pkt_nr_inc,		// ATOMIC Increment
-	pkt_nr_dec,		// ATOMIC Decrement
-	pkt_nr_set,		// ATOMIC Set
-	pkt_nr_clr,		// ATOMIC Clear
-	pkt_nw,			// NWRITE packet
-	pkt_nwr,		// NWRITE_R packet
-	pkt_nw_swap,		// ATOMIC Swap
-	pkt_nw_cmp_swap,	// ATOMIC compare and swap
-	pkt_nw_tst_swap,	// ATOMIC Test-and-swap
-	pkt_sw,			// SWRITE packet
-	pkt_fc,			// Flow Control Packet
-	pkt_mr,			// Maintenance Read
-	pkt_mw,			// Maintenance Write
-	pkt_mrr,		// Maintenance Read Response,
-	pkt_mwr,		// Maintenance Write Response
-	pkt_pw,			// Port-Write
-	pkt_dstm,		// Data Streaming (Type 9) packet
-	pkt_db,			// Doorbell (type 10) packet
-	pkt_msg,		// Message (Type 11) packet
-	pkt_resp,		// Response (Type 13) packet, no data
-	pkt_resp_data,		// Response (Type 13) packet with data
-	pkt_msg_resp,		// Response (Type 13) packet for Message segment
+	pkt_raw = 0,		// Raw, uninitialized packet
+	pkt_nr = 1,		// NREAD packet
+	pkt_nr_inc = 2,		// ATOMIC Increment
+	pkt_nr_dec = 3,		// ATOMIC Decrement
+	pkt_nr_set = 4,		// ATOMIC Set
+	pkt_nr_clr = 5,		// ATOMIC Clear
+	pkt_nw = 6,		// NWRITE packet
+	pkt_nwr = 7,		// NWRITE_R packet
+	pkt_nw_swap = 8,	// ATOMIC Swap
+	pkt_nw_cmp_swap = 9,	// ATOMIC compare and swap
+	pkt_nw_tst_swap = 10,	// ATOMIC Test-and-swap
+	pkt_sw = 11,		// SWRITE packet
+	pkt_fc = 12,		// Flow Control Packet
+	pkt_mr = 13,		// Maintenance Read
+	pkt_mw = 14,		// Maintenance Write
+	pkt_mrr = 15,		// Maintenance Read Response = 1,
+	pkt_mwr = 16,		// Maintenance Write Response
+	pkt_pw = 17,		// Port-Write
+	pkt_dstm = 18,		// Data Streaming (Type 9) packet
+	pkt_db = 19,		// Doorbell (type 10) packet
+	pkt_msg = 20,		// Message (Type 11) packet
+	pkt_resp = 21,		// Response (Type 13) packet, no data
+	pkt_resp_data = 22,	// Response (Type 13) packet with data
+	pkt_msg_resp = 23,	// Response (Type 13) packet for Message segment
 	pkt_type_min = pkt_raw,
 	pkt_type_max = pkt_msg_resp,
 } DAR_pkt_type;
@@ -304,10 +304,10 @@ typedef enum {
 } rio_addr_size;
 
 typedef enum {
-	tt_small,
-	tt_large,
-	undef2,
-	undef3,
+	tt_small = 0,
+	tt_large = 1,
+	undef2 = 2,
+	undef3 = 3,
 	rio_TT_code_min = tt_small,
 	rio_TT_code_max = undef3,
 } rio_TT_code;

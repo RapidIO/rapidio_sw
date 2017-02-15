@@ -74,16 +74,19 @@ char *ls_to_str[(int)(rio_pc_ls_last) + 1] = {
 		(char *)"3.125",
 		(char *)"5.0",
 		(char *)"6.25",
+		(char *)"10.3",
+		(char *)"12.5",
 		(char *)"FAIL",
 };
 
 // Converts reset configuration to a string
-char *rst_to_str[(int)(rio_pc_rst_ignore) + 1] = {
+char *rst_to_str[(int)(rio_pc_rst_last) + 1] = {
 		(char *)"Dev ",
 		(char *)"Port",
 		(char *)"Int ",
 		(char *)"PtWr",
 		(char *)"Ignr",
+		(char *)"??",
 };
 
 char *fc_to_str[(int)(rio_pc_fc_last) + 1] = {

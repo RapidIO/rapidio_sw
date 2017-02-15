@@ -60,13 +60,26 @@ extern "C" {
 
 typedef enum rio_pc_pw_t_tag
 {
-	rio_pc_pw_1x = 0,	// Single lane port
-	rio_pc_pw_2x,		// Two lane port
-	rio_pc_pw_4x,		// Four lane port
-	rio_pc_pw_1x_l0,	// Force multilane port to operate on lane 0
-	rio_pc_pw_1x_l1,	// Force multilane port to operate on lane 1
-	rio_pc_pw_1x_l2,	// Force multilane port to operate on lane 2
-	rio_pc_pw_last,		// Last port width value
+	// Single lane port
+	rio_pc_pw_1x = 0,
+
+	// Two lane port
+	rio_pc_pw_2x,
+
+	// Four lane port
+	rio_pc_pw_4x,
+
+	// Force multilane port to operate on lane 0
+	rio_pc_pw_1x_l0,
+
+	// Force multilane port to operate on lane 1
+	rio_pc_pw_1x_l1,
+
+	// Force multilane port to operate on lane 2
+	rio_pc_pw_1x_l2,
+
+	// Last port width value
+	rio_pc_pw_last,
 } rio_pc_pw_t;
 
 extern int         pw_to_lanes[]; // Converts rio_pc_pw_t to lane count
@@ -78,14 +91,29 @@ extern rio_pc_pw_t lanes_to_pw[]; // Converts lane count to rio_pc_pw_t
 #define LANES_TO_PW(x) (x>4?rio_pc_pw_last:lanes_to_pw[x])
 
 typedef enum rio_pc_ls_t_tag {
-	rio_pc_ls_1p25 = 0,	// 1.25 Gbaud lane speed
-	rio_pc_ls_2p5 = 1,	// 2.5  Gbaud lane speed
-	rio_pc_ls_3p125 = 2,	// 3.125 Gbaud lane speed
-	rio_pc_ls_5p0 = 3,	// 5.0 Gbaud lane speed
-	rio_pc_ls_6p25 = 4,	// 6.25 Gbaud lane speed
-	rio_pc_ls_10p3 = 5,	// 10.3 Gbaud lane speed
-	rio_pc_ls_12p5 = 6,	// 12.5 Gbaud lane speed
-	rio_pc_ls_last,		// last lane speed, not used
+	// 1.25 Gbaud lane speed
+	rio_pc_ls_1p25 = 0,
+
+	// 2.5  Gbaud lane speed
+	rio_pc_ls_2p5 = 1,
+
+	// 3.125 Gbaud lane speed
+	rio_pc_ls_3p125 = 2,
+
+	// 5.0 Gbaud lane speed
+	rio_pc_ls_5p0 = 3,
+
+	// 6.25 Gbaud lane speed
+	rio_pc_ls_6p25 = 4,
+
+	// 10.3 Gbaud lane speed
+	rio_pc_ls_10p3 = 5,
+
+	// 12.5 Gbaud lane speed
+	rio_pc_ls_12p5 = 6,
+
+	// last lane speed, not used
+	rio_pc_ls_last = rio_pc_ls_12p5 + 1,
 } rio_pc_ls_t;
 
 // Convert lane speed to a string
@@ -398,12 +426,23 @@ typedef struct rio_pc_clr_errs_out_t_TAG {
 } rio_pc_clr_errs_out_t;
 
 typedef enum {
-	rio_pc_rst_device = 0,	// Link reset request resets the device
-	rio_pc_rst_port = 1,	// Just reset the port the reset request was received on
-	rio_pc_rst_int = 2,	// Assert an interrupt if a reset request was received
-	rio_pc_rst_pw = 3,	// Send a port-write if a reset request was received
-	rio_pc_rst_ignore = 4,	// Ignore reset requests received.
-	rio_pc_rst_last,	// Begin illegal parameter values
+	// Link reset request resets the device
+	rio_pc_rst_device = 0,
+
+	// Just reset the port the reset request was received on
+	rio_pc_rst_port = 1,
+
+	// Assert an interrupt if a reset request was received
+	rio_pc_rst_int = 2,
+
+	// Send a port-write if a reset request was received
+	rio_pc_rst_pw = 3,
+
+	// Ignore reset requests received.
+	rio_pc_rst_ignore = 4,
+
+	// Begin illegal parameter values
+	rio_pc_rst_last = rio_pc_rst_ignore + 1,
 } rio_pc_rst_handling;
 
 // Convert reset configuration to a string
