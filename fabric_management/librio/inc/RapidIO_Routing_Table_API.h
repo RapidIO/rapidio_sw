@@ -52,14 +52,6 @@ extern "C" {
 #define RIO_DAR_RT_DEV_TABLE_SIZE                   256
 #define RIO_DAR_RT_DOM_TABLE_SIZE                   256
 
-/* For CPS and SPS devices */
-/*#define RIO_DSF_RT_USE_DEVICE_TABLE                 0xDD
-#define RIO_DSF_RT_USE_DEFAULT_ROUTE                0xDE
-#define RIO_DSF_RT_NO_ROUTE                         0xDF
-
-#define RIO_DSF_FIRST_MC_MASK                       0x40
-#define RIO_DSF_MAX_MC_MASK                         0x28*/
-
 /* For RXSs */
 #define RIO_DSF_RT_USE_DEVICE_TABLE                 0x0200
 #define RIO_DSF_RT_USE_DEFAULT_ROUTE                0x0300

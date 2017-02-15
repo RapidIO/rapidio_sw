@@ -991,6 +991,8 @@ typedef uint32_t RIO_SPX_ERR_STAT_T;
 #define RIO_RT_SPX_LVL1(b,p)     (b+0x054 + 0x020*(p))
 #define RIO_RT_SPX_LVL2(b,p)     (b+0x058 + 0x020*(p))
 
+#define RIO_RT_GRP_ENTRIES 256
+
 /* RIO_RT_EFB_HEAD : Register Bits Masks Definitions */
 #define RIO_RT_EFB_HEAD_TYPE     RIO_EFB_T
 #define RIO_RT_EFB_HEAD_NEXT     RIO_EFB_NEXT

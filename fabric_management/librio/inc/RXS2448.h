@@ -41,7 +41,9 @@ extern "C" {
 #define RXS2448_MAX_LANES	48
 #define RXS2448_MAX_SC		8
 #define RXS2448_MAX_MC_MASK	0xFF
+#define RXS2448_MC_MASK_CNT	(RXS2448_MAX_MC_MASK + 1)
 
+#define RXS_MAX_L0_GROUP	1
 #define RXS_MAX_L1_GROUP	3
 #define RXS_MAX_L2_GROUP	4
 
