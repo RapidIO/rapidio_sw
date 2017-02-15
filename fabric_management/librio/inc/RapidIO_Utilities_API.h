@@ -274,7 +274,7 @@ typedef enum {
 	pkt_fc = 12,		// Flow Control Packet
 	pkt_mr = 13,		// Maintenance Read
 	pkt_mw = 14,		// Maintenance Write
-	pkt_mrr = 15,		// Maintenance Read Response = 1,
+	pkt_mrr = 15,		// Maintenance Read Response
 	pkt_mwr = 16,		// Maintenance Write Response
 	pkt_pw = 17,		// Port-Write
 	pkt_dstm = 18,		// Data Streaming (Type 9) packet
