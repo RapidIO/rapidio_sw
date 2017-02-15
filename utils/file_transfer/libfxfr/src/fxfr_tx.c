@@ -84,11 +84,10 @@ struct fxfr_tx_state {
 	riomp_mailbox_t req_mb;
 	riomp_sock_t req_skt;
 	int svr_skt;
-	void *msg_rx;
-	void *msg_tx;
+	rapidio_mport_socket_msg *msg_rx;
+	rapidio_mport_socket_msg *msg_tx;
 	struct fxfr_svr_to_client_msg *rxed_msg;
 	struct fxfr_client_to_svr_msg *tx_msg;
-	int msg_buff_size;
 	/* File name data */
 	char src_name[MAX_FILE_NAME+1];
 	int src_fd;
@@ -159,7 +158,7 @@ fail:
 void rx_msg_from_server(struct fxfr_tx_state *info)
 {
 	int ret = riomp_sock_receive(info->req_skt, &info->msg_rx, 
-					info->msg_buff_size, 0);
+					sizeof(info->msg_rx), 0);
 	if (ret) {
 		if (info->tx_msg->end_of_file) {
 			info->done = 1;
@@ -273,7 +272,7 @@ void send_transfer_msg(struct fxfr_tx_state *info, int idx)
 	};
 
 	/* Send  a message back to the client */
-	ret = riomp_sock_send(info->req_skt, info->msg_tx, MAX_MSG_SIZE);
+	ret = riomp_sock_send(info->req_skt, info->msg_tx, sizeof(info->msg_tx));
 	if (ret) {
 		printf("File TX(%d): riomp_sock_send() ERR %d (%d)\n",
 			(int)getpid(), ret, errno);
@@ -328,7 +327,6 @@ int init_info_vals(struct fxfr_tx_state *info)
 	info->msg_tx = NULL;
 	info->rxed_msg = NULL;
 	info->tx_msg = NULL;
-	info->msg_buff_size = 0;
 	/* File name data */
 	bzero(info->src_name, MAX_FILE_NAME);
 	bzero(info->dest_name, MAX_FILE_NAME);
@@ -373,25 +371,24 @@ void cleanup_file_info(struct fxfr_tx_state *info)
 		close(info->src_fd);
 };
 
-int init_message_buffers(struct fxfr_tx_state *info, int buf_size)
+int init_message_buffers(struct fxfr_tx_state *info)
 {
-	info->msg_buff_size = buf_size;
-        info->msg_rx = malloc(info->msg_buff_size); 
-        if (info->msg_rx == NULL) {
-                printf("File TX: malloc rx msg failed\n");
-                return 1;
-        };
+	info->msg_rx = (rapidio_mport_socket_msg *) malloc(sizeof(info->msg_rx));
+	if (info->msg_rx == NULL) {
+		printf("File TX: malloc rx msg failed\n");
+		return 1;
+	}
 
-        info->msg_tx = malloc(info->msg_buff_size); 
-        if (info->msg_tx == NULL) {
-                printf("File TX: malloc tx msg failed\n");
-                return 1;
-        };
+	info->msg_tx = (rapidio_mport_socket_msg *) malloc(sizeof(info->msg_tx));
+	if (info->msg_tx == NULL) {
+		printf("File TX: malloc tx msg failed\n");
+		return 1;
+	}
 
-	info->rxed_msg = (struct fxfr_svr_to_client_msg *)
-		(&(((char *)(info->msg_rx))[FXFR_MSG_OFFSET]));
-	info->tx_msg = (struct fxfr_client_to_svr_msg *)
-		(&(((char *)(info->msg_tx))[FXFR_MSG_OFFSET]));
+	info->rxed_msg =
+			(struct fxfr_svr_to_client_msg *) info->msg_rx->msg.payload;
+	info->tx_msg =
+			(struct fxfr_client_to_svr_msg *) info->msg_tx->msg.payload;
 
 	return 0;
 };
@@ -557,7 +554,7 @@ int init_info( struct fxfr_tx_state *info, char *src_name, char *dest_name,
 	if (init_file_info(info, src_name, dest_name))
 		goto fail;
 
-	if (init_message_buffers(info, MAX_MSG_SIZE))
+	if (init_message_buffers(info))
 		goto fail;
 
 	if (init_server_connect(info, mport_num, destID, svr_skt, k_buff))

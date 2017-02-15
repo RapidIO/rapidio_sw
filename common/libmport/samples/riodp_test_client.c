@@ -182,8 +182,8 @@ int main(int argc, char** argv)
 	uint32_t number_of_eps = 0;
 	uint32_t *ep_list = NULL;
 	int ep_found = 0;
-	void *msg_rx = NULL;
-	void *msg_tx = NULL;
+	rapidio_mport_socket_msg *msg_rx = NULL;
+	rapidio_mport_socket_msg *msg_tx = NULL;
 	struct args arg;
 	riomp_mailbox_t mailbox;
 	riomp_sock_t socket = NULL;
@@ -279,7 +279,7 @@ int main(int argc, char** argv)
 		goto out;
 	}
 
-	msg_rx = malloc(RIO_SOCKET_MSG_SIZE);
+	msg_rx = (rapidio_mport_socket_msg *) malloc(sizeof(rapidio_mport_socket_msg));
 	if (msg_rx == NULL) {
 		printf("CM_CLIENT(%d): error allocating rx buffer\n",
 				(int)getpid());
@@ -291,12 +291,13 @@ int main(int argc, char** argv)
 
 	for (i = 1; i <= arg.repeat; i++) {
 		/* usleep(200 * 1000); */
-		/** - Place message into buffer with space reserved for msg_header */
-		snprintf((char *)((char *)msg_tx + 20), RIO_SOCKET_MSG_SIZE - 20,
-				"%d:%d\n", i, (int)getpid());
+		/** - Place message into buffer */
+		snprintf((char *)msg_tx->msg.payload,
+				sizeof(msg_tx->msg.payload), "%d:%d\n", i,
+				(int)getpid());
 
 		/** - Send message to the destination */
-		ret = riomp_sock_send(socket, msg_tx, RIO_SOCKET_MSG_SIZE);
+		ret = riomp_sock_send(socket, msg_tx, sizeof(msg_tx));
 		if (ret) {
 			printf("CM_CLIENT(%d): riomp_sock_send() ERR %d\n",
 					(int)getpid(), ret);
@@ -304,7 +305,7 @@ int main(int argc, char** argv)
 		}
 
 		/** - Get echo response from the server (blocking call, no timeout) */
-		ret = riomp_sock_receive(socket, &msg_rx, RIO_SOCKET_MSG_SIZE, 0);
+		ret = riomp_sock_receive(socket, &msg_rx, sizeof(msg_rx), 0);
 		if (ret) {
 			printf(
 					"CM_CLIENT(%d): riomp_sock_receive() ERR %d on roundtrip %d\n",
@@ -312,14 +313,14 @@ int main(int argc, char** argv)
 			break;
 		}
 
-		if (strcmp((char *)msg_tx + 20, (char *)msg_rx + 20)) {
+		if (strcmp((char *)msg_tx->msg.payload, (char *)msg_rx->msg.payload)) {
 			printf(
 					"CM_CLIENT(%d): MSG TRANSFER ERROR: data corruption detected @ %d\n",
 					(int)getpid(), i);
 			printf("CM_CLIENT(%d): MSG OUT: %s\n", (int)getpid(),
-					(char *)msg_tx + 20);
+					(char *)msg_tx->msg.payload);
 			printf("CM_CLIENT(%d): MSG IN: %s\n", (int)getpid(),
-					(char *)msg_rx + 20);
+					(char *)msg_rx->msg.payload);
 			ret = -1;
 			break;
 		}

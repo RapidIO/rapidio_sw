@@ -885,8 +885,6 @@ exit:
 	dealloc_dma_tx_buffer(info);
 };
 
-#define FOUR_KB 4096
-
 int alloc_msg_tx_rx_buffs(struct worker *info)
 {
 	int rc;
@@ -896,10 +894,12 @@ int alloc_msg_tx_rx_buffs(struct worker *info)
 		ERR("FAILED: riomp_sock_request_send_buffer rc %d:%s\n",
 			rc, strerror(errno));
 		return rc;
-	};
+	}
 
-	if (NULL == info->sock_rx_buf)
-		info->sock_rx_buf = malloc(FOUR_KB);
+	if (NULL == info->sock_rx_buf) {
+		info->sock_rx_buf = (rapidio_mport_socket_msg *) malloc(
+				sizeof(rapidio_mport_socket_msg));
+	}
 
 	if (NULL == info->sock_rx_buf) {
 		free(info->sock_tx_buf);
@@ -1067,7 +1067,7 @@ void msg_rx_goodput(struct worker *info)
 
 		while (!rc && !info->stop_req) {
 			rc = riomp_sock_receive(info->con_skt,
-				&info->sock_rx_buf, FOUR_KB, 1000);
+				&info->sock_rx_buf, sizeof(info->sock_rx_buf), 1000);
 
                 	if (rc) {
                         	if ((errno == ETIME) || (errno == EINTR)) {
@@ -1164,7 +1164,9 @@ void msg_tx_goodput(struct worker *info)
 			rc = 1;
 			while (rc && !info->stop_req) {
 				rc = riomp_sock_receive(info->con_skt,
-					&info->sock_rx_buf, FOUR_KB, 1000);
+						&info->sock_rx_buf,
+						sizeof(info->sock_rx_buf),
+						1000);
 
                 		if (rc) {
                         		if ((errno == ETIME) ||
@@ -1260,7 +1262,8 @@ void msg_tx_overhead(struct worker *info)
 		rc = 1;
 		while (rc && !info->stop_req) {
 			rc = riomp_sock_receive(info->con_skt,
-				&info->sock_rx_buf, FOUR_KB, 1000);
+					&info->sock_rx_buf,
+					sizeof(info->sock_rx_buf), 1000);
 
 			if (rc) {
 				if ((errno == ETIME) ||

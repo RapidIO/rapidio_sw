@@ -1129,7 +1129,7 @@ int riomp_sock_socket(riomp_mailbox_t mailbox, riomp_sock_t *socket_handle)
 	return 0;
 }
 
-int riomp_sock_send(riomp_sock_t socket_handle, void *buf, uint32_t size)
+int riomp_sock_send(riomp_sock_t socket_handle, rapidio_mport_socket_msg *skt_msg, uint32_t size)
 {
 	int ret;
 	struct rapidio_mport_socket *handle = socket_handle;
@@ -1137,7 +1137,7 @@ int riomp_sock_send(riomp_sock_t socket_handle, void *buf, uint32_t size)
 
 	msg.ch_num = handle->ch.id;
 	msg.size = size;
-	msg.msg = (__u64 )buf;
+	msg.msg = (__u64 )skt_msg;
 
 	ret = ioctl(handle->mbox->fd, RIO_CM_CHAN_SEND, &msg);
 	if (ret) {
@@ -1146,7 +1146,7 @@ int riomp_sock_send(riomp_sock_t socket_handle, void *buf, uint32_t size)
 	return 0;
 }
 
-int riomp_sock_receive(riomp_sock_t socket_handle, void **buf, uint32_t size,
+int riomp_sock_receive(riomp_sock_t socket_handle, rapidio_mport_socket_msg **skt_msg, uint32_t size,
 		uint32_t timeout)
 {
 	int ret;
@@ -1155,7 +1155,7 @@ int riomp_sock_receive(riomp_sock_t socket_handle, void **buf, uint32_t size,
 
 	msg.ch_num = handle->ch.id;
 	msg.size = size;
-	msg.msg = (__u64 )*buf;
+	msg.msg = (__u64 )*skt_msg;
 	msg.rxto = timeout;
 
 	ret = ioctl(handle->mbox->fd, RIO_CM_CHAN_RECEIVE, &msg);
@@ -1166,9 +1166,9 @@ int riomp_sock_receive(riomp_sock_t socket_handle, void **buf, uint32_t size,
 }
 
 int riomp_sock_release_receive_buffer(riomp_sock_t UNUSED_PARM(socket_handle),
-		void *buf) /* always 4k aligned buffers */
+		rapidio_mport_socket_msg *skt_msg) /* always 4k aligned buffers */
 {
-	free(buf);
+	free(skt_msg);
 	return 0;
 }
 
@@ -1310,21 +1310,23 @@ int riomp_sock_connect(riomp_sock_t socket_handle, uint32_t remote_destid,
 }
 
 int riomp_sock_request_send_buffer(riomp_sock_t UNUSED_PARM(socket_handle),
-		void **buf) //always 4k aligned buffers
+		rapidio_mport_socket_msg **skt_msg) //always 4k aligned buffers
 {
-	/* socket_handle won't be used for now */
+	// socket_handle won't be used for now
 
-	*buf = calloc(1, RIO_SOCKET_MSG_SIZE); /* Always allocate maximum size buffers */
-	if (*buf == NULL) {
+	// Always allocate maximum size buffers
+	*skt_msg = (rapidio_mport_socket_msg *)calloc(1,
+			sizeof(rapidio_mport_socket_msg));
+	if (*skt_msg == NULL) {
 		return -1;
 	}
 	return 0;
 }
 
 int riomp_sock_release_send_buffer(riomp_sock_t UNUSED_PARM(socket_handle),
-		void *buf) /* always 4k aligned buffers */
+		rapidio_mport_socket_msg *skt_msg) /* always 4k aligned buffers */
 {
-	free(buf);
+	free(skt_msg);
 	return 0;
 }
 

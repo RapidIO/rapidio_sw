@@ -67,13 +67,13 @@ struct fmd_slave {
         int tx_buff_used;
         int tx_rc;
         union {
-                void *tx_buff;
+                rapidio_mport_socket_msg *tx_buff;
                 struct fmd_slv_to_mast_msg *s2m; /* alias for tx_buff */
         };
         int rx_buff_used;
         int rx_rc;
         union {
-                void *rx_buff;
+                rapidio_mport_socket_msg *rx_buff;
                 struct fmd_mast_to_slv_msg *m2s; /* alias for rx_buff */
         };
 	int m_h_resp_valid;

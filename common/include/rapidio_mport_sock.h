@@ -53,8 +53,22 @@ typedef struct rapidio_mport_mailbox *riomp_mailbox_t;
 /** @brief RapidIO socket handle */
 typedef struct rapidio_mport_socket *riomp_sock_t;
 
+#define RIO_SOCKET_MSG_SIZE 0x1000
+#define RIO_SOCKET_RSVD_SIZE 20
+#define RIO_SOCKET_PAYLOAD_SIZE (RIO_SOCKET_MSG_SIZE - RIO_SOCKET_RSVD_SIZE)
+
+struct rapidio_mport_socket_msg_t {
+	uint8_t do_not_modify[RIO_SOCKET_RSVD_SIZE];
+	uint8_t payload[RIO_SOCKET_PAYLOAD_SIZE];
+};
+
+typedef union {
+	uint8_t as_bytes[RIO_SOCKET_MSG_SIZE];
+	struct rapidio_mport_socket_msg_t msg;
+} rapidio_mport_socket_msg;
+
 /**
- * @brief initlialize RapidIO type 11 mailbox support
+ * @brief initialize RapidIO type 11 mailbox support
  *
  * @return status of the function call
  * @retval 0 on success
@@ -63,7 +77,7 @@ typedef struct rapidio_mport_socket *riomp_sock_t;
 int riomp_sock_mbox_init(void);
 
 /**
- * @brief deinitlialize RapidIO type 11 mailbox support
+ * @brief de-initialize RapidIO type 11 mailbox support
  *
  * @return status of the function call
  * @retval 0 on success
@@ -109,38 +123,41 @@ int riomp_sock_socket(riomp_mailbox_t mailbox, riomp_sock_t *socket_handle);
  * @brief send data via RapidIO socket
  *
  * @param[in] socket_handle valid socket handle
- * @param[in] buf pointer to data buffer
+ * @param[in] skt_msg pointer to message
  * @param[in] size number of bytes to send
  * @return status of the function call
  * @retval 0 on success
  * @retval -errno on error
  */
-int riomp_sock_send(riomp_sock_t socket_handle, void *buf, uint32_t size);
+int riomp_sock_send(riomp_sock_t socket_handle,
+		rapidio_mport_socket_msg *skt_msg, uint32_t size);
 
 /**
  * @brief receive data via RapidIO socket
  *
  * @param[in] socket_handle valid socket handle
- * @param[out] buf pointer to data buffer pointer
+ * @param[out] skt_msg pointer to message pointer
  * @param[in] size number of bytes to read
  * @param[in] timeout receive timeout in mSec. 0 = blocking
  * @return status of the function call
  * @retval 0 on success
  * @retval -errno on error
  */
-int riomp_sock_receive(riomp_sock_t socket_handle, void **buf, uint32_t size,
+int riomp_sock_receive(riomp_sock_t socket_handle,
+		rapidio_mport_socket_msg **skt_msg, uint32_t size,
 		uint32_t timeout);
 
 /**
  * @brief release receive data buffer
  *
  * @param[in] socket_handle valid socket handle
- * @param[in] buf pointer to data buffer
+ * @param[in] skt_msg pointer to message
  * @return status of the function call
  * @retval 0 on success
  * @retval -errno on error
  */
-int riomp_sock_release_receive_buffer(riomp_sock_t socket_handle, void *buf);
+int riomp_sock_release_receive_buffer(riomp_sock_t socket_handle,
+		rapidio_mport_socket_msg *skt_msg);
 
 /**
  * @brief close a RapidIO socket handle
@@ -203,23 +220,25 @@ int riomp_sock_connect(riomp_sock_t socket_handle, uint32_t remote_destid,
  * @brief allocate send buffer
  *
  * @param[in] socket_handle valid socket handle
- * @param[out] buf pointer to new allocated buffer
+ * @param[out] skt_msg pointer to message pointer
  * @return status of the function call
  * @retval 0 on success
  * @retval -errno on error
  */
-int riomp_sock_request_send_buffer(riomp_sock_t socket_handle, void **buf);
+int riomp_sock_request_send_buffer(riomp_sock_t socket_handle,
+		rapidio_mport_socket_msg **skt_msg);
 
 /**
  * @brief release send buffer
  *
  * @param[in] socket_handle valid socket handle
- * @param[in] buf pointer to buffer
+ * @param[in] skt_msg pointer to message
  * @return status of the function call
  * @retval 0 on success
  * @retval -errno on error
  */
-int riomp_sock_release_send_buffer(riomp_sock_t socket_handle, void *buf);
+int riomp_sock_release_send_buffer(riomp_sock_t socket_handle,
+		rapidio_mport_socket_msg *skt_msg);
 
 #ifdef __cplusplus
 }

@@ -70,23 +70,24 @@ extern "C" {
 
 int init_message_buffers(struct buffer_info *info)
 {
-	info->msg_buff_size = MAX_MSG_SIZE;
-        info->msg_rx = malloc(MAX_MSG_SIZE); 
-        if (info->msg_rx == NULL){
-                printf("File RX: malloc rx msg failed\n");
+	info->msg_rx = (rapidio_mport_socket_msg *) malloc(
+			sizeof(rapidio_mport_socket_msg));
+	if (info->msg_rx == NULL) {
+		printf("File RX: malloc rx msg failed\n");
 		goto fail;
-        }
+	}
 
-        info->msg_tx = malloc(MAX_MSG_SIZE); 
-        if (info->msg_tx == NULL){
-                printf("File RX: malloc tx msg failed\n");
-                goto fail;
-        }
+	info->msg_tx = (rapidio_mport_socket_msg *) malloc(
+			sizeof(rapidio_mport_socket_msg));
+	if (info->msg_tx == NULL) {
+		printf("File RX: malloc tx msg failed\n");
+		goto fail;
+	}
 
-	info->rxed_msg = (struct fxfr_client_to_svr_msg *)
-		(&(((char *)info->msg_rx)[FXFR_MSG_OFFSET]));
-	info->tx_msg = (struct fxfr_svr_to_client_msg *)
-		(&(((char*)info->msg_tx)[FXFR_MSG_OFFSET]));
+	info->rxed_msg =
+			(struct fxfr_client_to_svr_msg *)info->msg_rx->msg.payload;
+	info->tx_msg =
+			(struct fxfr_svr_to_client_msg *)info->msg_tx->msg.payload;
 
 	return 0;
 fail:
@@ -169,13 +170,13 @@ int send_server_msg(struct buffer_info *info, int fail_abort, int abort_flag)
 
 	/* Send a message to the client */
 	return riomp_sock_send(*info->req_skt, 
-			info->msg_tx, info->msg_buff_size);
+			info->msg_tx, sizeof(info->msg_tx));
 };
 
 int receive_client_msg(struct buffer_info *info)
 {
 	int ret = riomp_sock_receive(*info->req_skt, 
-					&info->msg_rx, info->msg_buff_size, 0);
+					&info->msg_rx, sizeof(info->msg_rx), 0);
 	if (ret) {
 		printf("File RX: riomp_socket_receive() ERR %d (%d)\n",
 			ret, errno);
