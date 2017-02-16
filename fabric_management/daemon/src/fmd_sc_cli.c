@@ -34,6 +34,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <string.h>
 #include <stdlib.h>
 
+#include "rio_misc.h"
 #include "rio_ecosystem.h"
 #include "fmd.h"
 #include "fmd_dev_rw_cli.h"
@@ -237,19 +238,15 @@ CLICountDisplayCmd,
 ATTR_NONE
 };
 
-int CLICountCfgCmd(struct cli_env *env, int argc, char **argv)
+int CLICountCfgCmd(struct cli_env *env, int UNUSED(argc), char **UNUSED(argv))
 {
         riocp_pe_handle pe_h = (riocp_pe_handle)(env->h);
         struct mpsw_drv_private_data *priv = NULL;
 
-        if (0) {
-           argv[0][0] = argc;
-	}
-
         if (NULL == pe_h) {
                 LOGMSG(env, "\nNo Device Selected...\n");
                 goto exit;
-        };
+        }
 
         priv = (struct mpsw_drv_private_data *)(pe_h->private_data);
 	if (NULL == priv) {
@@ -259,7 +256,7 @@ int CLICountCfgCmd(struct cli_env *env, int argc, char **argv)
 
 exit:
         return 0;
-};
+}
 
 struct cli_cmd CLICountCfg = {
 (char *)"scconfig",

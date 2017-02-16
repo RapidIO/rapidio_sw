@@ -238,13 +238,12 @@ void parse_options(int argc, char *argv[],
 			default:
 				printf("\nUnknown parm: \"%s\"\n", argv[idx]);
 				*print_help = 1;
-			};
-		};
+			}
+		}
 	}
 
 exit:
 	*win_size = *win_size * 1024;
-	return;
 }
 
 pthread_t conn_thread, console_thread;
@@ -534,8 +533,7 @@ void bind_server_cmds(void)
 	add_commands_to_cmd_db(sizeof(server_cmds)/sizeof(server_cmds[0]), 
 				server_cmds);
 
-	return;
-};
+}
 
 #define RIO_MPORT_DEV_PATH "/dev/rio_mport"
 
@@ -547,6 +545,7 @@ void add_conn_req( struct req_list_head_t *list, riomp_sock_t *new_socket)
 	if (NULL == new_req) {
 		return;
 	}
+
 	new_req->skt = new_socket;
 	new_req->next = NULL;
 
@@ -555,9 +554,9 @@ void add_conn_req( struct req_list_head_t *list, riomp_sock_t *new_socket)
 	} else {
 		list->tail->next = new_req;
 		list->tail = new_req;
-	};
+	}
 	num_conn_reqs++;
-};
+}
 
 riomp_sock_t *pop_conn_req(struct req_list_head_t *list)
 {
@@ -1099,9 +1098,8 @@ void sig_handler(int signo)
 		printf("Shutting down\n");
 		fxfr_server_shutdown();
 		exit(0);
-	};
-	return;
-};
+	}
+}
 
 int main(int argc, char *argv[])
 {

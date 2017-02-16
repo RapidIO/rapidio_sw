@@ -53,6 +53,7 @@
 #include <pthread.h>
 #include <sched.h>
 
+#include "rio_misc.h"
 #include "libcli.h"
 #include "liblog.h"
 #include "libtime_utils.h"
@@ -223,11 +224,8 @@ int wait_for_worker_status(struct worker *info, enum worker_stat desired)
 	return info->stat != desired;
 }
 
-void worker_sig_handler(int sig)
+void worker_sig_handler(int UNUSED(sig))
 {
-	if (sig) {
-		return;
-	}
 }
 
 void *worker_thread(void *parm)

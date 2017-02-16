@@ -1218,7 +1218,6 @@ uint32_t tsi721_rio_pc_secure_port(DAR_DEV_INFO_t *dev_info,
 	rc = DARRegWrite(dev_info, TSI721_TLM_SP_FTYPE_FILTER_CTL, ftype_filt);
 	if (RIO_SUCCESS != rc) {
 		out_parms->imp_rc = PC_SECURE_PORT(4);
-		goto exit;
 	}
 
 exit:
@@ -1242,9 +1241,6 @@ uint32_t tsi721_rio_pc_dev_reset_config(DAR_DEV_INFO_t *dev_info,
 
 	rc = tsi721_update_reset_policy(dev_info, in_parms->rst, &unused1,
 			&unused2, &unused3, &unused4, &out_parms->imp_rc);
-	if (RIO_SUCCESS != rc) {
-		goto exit;
-	}
 
 exit:
 	return rc;

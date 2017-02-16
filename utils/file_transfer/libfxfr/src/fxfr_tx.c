@@ -166,10 +166,10 @@ void rx_msg_from_server(struct fxfr_tx_state *info)
 			printf("File TX: riomp_sock_receive() ERR %d (%d)\n",
 				ret, errno);
 			info->fail_abort = 1;
-	       		info->rxed_msg->fail_abort = 1;
-		};
-		goto fail;
-	};
+			info->rxed_msg->fail_abort = 1;
+		}
+		return;
+	}
 
 	info->rxed_msg->rapidio_addr = be64toh(info->rxed_msg->rapidio_addr);
 	info->rxed_msg->rapidio_size = be64toh(info->rxed_msg->rapidio_size);
@@ -187,12 +187,10 @@ void rx_msg_from_server(struct fxfr_tx_state *info)
 		printf("fail_abort   = %16lx\n", 
 			(long unsigned int)info->rxed_msg->fail_abort);
 		printf("file name    = %s\n", info->rxed_msg->rx_file_name);
-	};
+	}
 
 	process_msg_from_server(info);
-fail:
-	return;
-};
+}
 
 void fill_dma_buffer(struct fxfr_tx_state *info, int idx)
 {

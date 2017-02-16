@@ -40,6 +40,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <errno.h>
 #include <time.h>
 
+#include "rio_misc.h"
 #include "string_util.h"
 #include "fmd_state.h"
 #include "fmd_dd.h"
@@ -242,10 +243,8 @@ fail:
 
 void halt_app_handler(void);
 
-void sigusr1_sig_handler(int sig)
+void sigusr1_sig_handler(int UNUSED(sig))
 {
-	if (sig)
-		return;
 }
 
 void *app_conn_loop( void *unused )

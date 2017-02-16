@@ -212,9 +212,9 @@ uint32_t rio_sc_cfg_cps_ctrs(DAR_DEV_INFO_t *dev_info,
 								true;
 					}
 				}
-				continue;
 			}
 		}
+
 		if (!found) {
 			rc = RIO_ERR_INVALID_PARAMETER;
 			out_parms->imp_rc = SC_CFG_CPS_CTRS(0x70 + port_num);

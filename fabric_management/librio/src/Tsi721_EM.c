@@ -415,6 +415,7 @@ static uint32_t tsi721_event_get_regs(DAR_DEV_INFO_t *d_i,
 	if (rc) {
 		goto fail;
 	}
+
 fail:
 	return rc;
 }
@@ -1411,29 +1412,35 @@ uint32_t tsi721_rio_em_dev_rpt_ctl_reg_read(DAR_DEV_INFO_t *dev_info,
 		if (RIO_SUCCESS != rc) {
 			goto fail;
 		}
+
 		rc = DARRegRead(dev_info,
 				TSI721_EM_INT_ENABLE, &regs->em_int_enable);
 		if (RIO_SUCCESS != rc) {
 			goto fail;
 		}
+
 		rc = DARRegRead(dev_info,
 				TSI721_EM_DEV_INT_EN, &regs->em_dev_int_en);
 		if (RIO_SUCCESS != rc) {
 			goto fail;
 		}
 	}
+
 	rc = DARRegRead(dev_info,TSI721_PLM_ALL_PW_EN, &regs->plm_all_pw_en);
 	if (RIO_SUCCESS != rc) {
 		goto fail;
 	}
+
 	rc = DARRegRead(dev_info, TSI721_EM_PW_ENABLE, &regs->em_pw_enable);
 	if (RIO_SUCCESS != rc) {
 		goto fail;
 	}
+
 	rc = DARRegRead(dev_info, TSI721_EM_DEV_PW_EN, &regs->em_dev_pw_en);
 	if (RIO_SUCCESS != rc) {
 		goto fail;
 	}
+
 fail:
 	return rc;
 }
@@ -1449,29 +1456,35 @@ uint32_t tsi721_rio_em_dev_rpt_ctl_reg_write(DAR_DEV_INFO_t *dev_info,
 		if (RIO_SUCCESS != rc) {
 			goto fail;
 		}
+
 		rc = DARRegWrite(dev_info,
 				TSI721_EM_INT_ENABLE, regs->em_int_enable);
 		if (RIO_SUCCESS != rc) {
 			goto fail;
 		}
+
 		rc = DARRegWrite(dev_info,
 				TSI721_EM_DEV_INT_EN, regs->em_dev_int_en);
 		if (RIO_SUCCESS != rc) {
 			goto fail;
 		}
 	}
+
 	rc = DARRegWrite(dev_info,TSI721_PLM_ALL_PW_EN, regs->plm_all_pw_en);
 	if (RIO_SUCCESS != rc) {
 		goto fail;
 	}
+
 	rc = DARRegWrite(dev_info, TSI721_EM_PW_ENABLE, regs->em_pw_enable);
 	if (RIO_SUCCESS != rc) {
 		goto fail;
 	}
+
 	rc = DARRegWrite(dev_info, TSI721_EM_DEV_PW_EN, regs->em_dev_pw_en);
 	if (RIO_SUCCESS != rc) {
 		goto fail;
 	}
+
 fail:
 	return rc;
 }
@@ -1505,6 +1518,7 @@ uint32_t tsi721_rio_em_dev_rpt_ctl(DAR_DEV_INFO_t *dev_info,
 		out_parms->imp_rc = EM_DEV_RPT_CTL(0x10);
 		goto fail;
 	}
+
 	if (tsi721_int_supported) {
 		tsi721_rio_em_dev_rpt_ctl_int(in_parms, &regs);
 	}

@@ -126,9 +126,7 @@ void rio_rt_check_multicast_routing(DAR_DEV_INFO_t *dev_info,
 			}
 		}
 	}
-	return;
 }
-
 
 void rio_rt_check_unicast_routing(DAR_DEV_INFO_t *dev_info,
 		rio_rt_probe_in_t *in_parms, rio_rt_probe_out_t *out_parms)
@@ -169,7 +167,6 @@ void rio_rt_check_unicast_routing(DAR_DEV_INFO_t *dev_info,
 					(dflt_pt) ? rio_rt_disc_dflt_pt_invalid : rio_rt_disc_rt_invalid;
 		}
 	}
-	return;
 }
 
 /* User function calls for a routing table configuration */

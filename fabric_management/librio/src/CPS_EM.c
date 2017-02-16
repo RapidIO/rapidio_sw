@@ -395,6 +395,7 @@ static uint32_t cps_set_event_cfg_reg_vals(DAR_DEV_INFO_t *dev_info, uint8_t pnu
 			goto exit;
 		}
 	}
+
 exit:
 	return rc;
 }

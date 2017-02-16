@@ -127,8 +127,6 @@ static void rxs_check_multicast_routing(DAR_DEV_INFO_t *dev_info,
 			}
 		}
 	}
-
-	return;
 }
 
 static void rxs_check_unicast_routing(DAR_DEV_INFO_t *dev_info,
@@ -158,8 +156,6 @@ static void rxs_check_unicast_routing(DAR_DEV_INFO_t *dev_info,
 		out_parms->valid_route = false;
 		out_parms->reason_for_discard = rio_rt_disc_dflt_pt_invalid;
 	}
-
-	return;
 }
 
 static uint32_t rxs_check_port_for_discard(DAR_DEV_INFO_t *dev_info,
@@ -596,6 +592,7 @@ static uint32_t rxs_rt_set_common(DAR_DEV_INFO_t *dev_info,
 
 	rc = rxs_program_rte_entries(dev_info, in_parms, set_all,
 			&out_parms->imp_rc);
+
 exit:
 	return rc;
 }
