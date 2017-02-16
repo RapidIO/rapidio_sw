@@ -49,8 +49,8 @@ extern "C" {
 #endif
 
 
-#define TSI57X_NUM_PORTS(x) ((NUM_PORTS(x) > Tsi578_MAX_PORTS) ? \
-		Tsi578_MAX_PORTS : NUM_PORTS(x))
+#define TSI57X_NUM_PORTS(x) ((NUM_PORTS(x) > TSI578_MAX_PORTS) ? \
+		TSI578_MAX_PORTS : NUM_PORTS(x))
 
 // Begin: Tsi57x_EM & Tsi57x_PC
 #define MAX_OTHER_MAC_PORTS 3
@@ -69,11 +69,11 @@ typedef struct port_mac_relations_t_TAG {
 	// MAC number for power control of this port.
 	//     Usually the same as mac_num, not on Tsi577
 	uint8_t pwr_mac_num;
-	// Either Tsi578_SMACX_DLOOP_CLK_SEL_PWDN_X4 or
-	//     Tsi578_SMACX_DLOOP_CLK_SEL_PWDN_X1
+	// Either TSI578_SMACX_DLOOP_CLK_SEL_PWDN_X4 or
+	//     TSI578_SMACX_DLOOP_CLK_SEL_PWDN_X1
 	uint32_t pwr_down_mask;
-	// Either Tsi578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X4 or
-	//     Tsi578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X1
+	// Either TSI578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X4 or
+	//     TSI578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X1
 	uint32_t rst_mask;
 	// List of other MAC ports related to this MAC.
 	//    Terminated with RIO_ALL_PORTS.
@@ -85,7 +85,7 @@ typedef struct port_mac_relations_t_TAG {
 #define SCRPAD_EOF_OFFSET 0xFFFFFFFF
 #define SCRPAD_FLAGS_IDX    0
 #define SCRPAD_FIRST_IDX    0
-#define SCRPAD_MASK_IDX     (SCRPAD_FIRST_IDX+Tsi578_MAX_MC_MASKS)
+#define SCRPAD_MASK_IDX     (SCRPAD_FIRST_IDX+TSI578_MAX_MC_MASKS)
 
 struct scrpad_info {
 	uint32_t offset;

@@ -53,15 +53,15 @@ struct {
 	const uint32_t devID; /* Vendor + Device ID   */
 } device_names[] = //
 		{
-				{"Tsi572", ((uint32_t)(Tsi572_RIO_DEVID_VAL)
+				{"Tsi572", ((uint32_t)(TSI572_RIO_DEVID_VAL)
 						<< 16) + RIO_VEND_TUNDRA}, //
-				{"Tsi574", ((uint32_t)(Tsi574_RIO_DEVID_VAL)
+				{"Tsi574", ((uint32_t)(TSI574_RIO_DEVID_VAL)
 						<< 16) + RIO_VEND_TUNDRA}, //
-				{"Tsi578", ((uint32_t)(Tsi578_RIO_DEVID_VAL)
+				{"Tsi578", ((uint32_t)(TSI578_RIO_DEVID_VAL)
 						<< 16) + RIO_VEND_TUNDRA}, //
-				{"Tsi576", ((uint32_t)(Tsi576_RIO_DEVID_VAL)
+				{"Tsi576", ((uint32_t)(TSI576_RIO_DEVID_VAL)
 						<< 16) + RIO_VEND_TUNDRA},
-				{"Tsi577", ((uint32_t)(Tsi577_RIO_DEVID_VAL)
+				{"Tsi577", ((uint32_t)(TSI577_RIO_DEVID_VAL)
 						<< 16) + RIO_VEND_TUNDRA}, //
 		};
 

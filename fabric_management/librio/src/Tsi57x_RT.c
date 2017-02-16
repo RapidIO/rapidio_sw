@@ -77,7 +77,7 @@ static uint32_t tsi57x_read_mc_masks(DAR_DEV_INFO_t *dev_info,
 	rio_rt_dealloc_mc_mask_out_t d_out_parm;
 
 	d_in_parm.rt = rt;
-	for (mask_idx = Tsi578_MAX_MC_MASKS; mask_idx < RIO_DSF_MAX_MC_MASK;
+	for (mask_idx = TSI578_MAX_MC_MASKS; mask_idx < RIO_DSF_MAX_MC_MASK;
 			mask_idx++) {
 		d_in_parm.mc_mask_rte = RIO_DSF_FIRST_MC_MASK + mask_idx;
 		rc = DSF_rio_rt_dealloc_mc_mask(dev_info, &d_in_parm,
@@ -88,8 +88,8 @@ static uint32_t tsi57x_read_mc_masks(DAR_DEV_INFO_t *dev_info,
 		}
 	}
 
-	for (mask_idx = 0; mask_idx < Tsi578_MAX_MC_MASKS; mask_idx++) {
-		rc = DARRegRead(dev_info, Tsi578_RIO_MC_IDX(mask_idx),
+	for (mask_idx = 0; mask_idx < TSI578_MAX_MC_MASKS; mask_idx++) {
+		rc = DARRegRead(dev_info, TSI578_RIO_MC_IDX(mask_idx),
 				&reg_val);
 		if (RIO_SUCCESS != rc) {
 			*imp_rc = READ_MC_MASKS(1);
@@ -99,35 +99,35 @@ static uint32_t tsi57x_read_mc_masks(DAR_DEV_INFO_t *dev_info,
 		rt->mc_masks[mask_idx].allocd = false;
 		rt->mc_masks[mask_idx].changed = false;
 		rt->mc_masks[mask_idx].tt =
-				(reg_val & Tsi578_RIO_MC_IDX_LARGE_SYS) ?
+				(reg_val & TSI578_RIO_MC_IDX_LARGE_SYS) ?
 						tt_dev16 : tt_dev8;
 		rt->mc_masks[mask_idx].in_use =
-				(reg_val & Tsi578_RIO_MC_IDX_MC_EN) ?
+				(reg_val & TSI578_RIO_MC_IDX_MC_EN) ?
 				true :
 									false;
 		rt->mc_masks[mask_idx].mc_destID =
 				(reg_val
 						& ((tt_dev16
 								== rt->mc_masks[mask_idx].tt) ?
-								Tsi578_RIO_MC_IDX_MC_ID :
-								(Tsi578_RIO_MC_IDX_MC_ID
+								TSI578_RIO_MC_IDX_MC_ID :
+								(TSI578_RIO_MC_IDX_MC_ID
 										>> 8)));
 
-		rc = DARRegRead(dev_info, Tsi578_RIO_MC_MSKX(mask_idx),
+		rc = DARRegRead(dev_info, TSI578_RIO_MC_MSKX(mask_idx),
 				&reg_val);
 		if (RIO_SUCCESS != rc) {
 			*imp_rc = READ_MC_MASKS(2);
 			goto exit;
 		}
 
-		if (reg_val & ~Tsi578_RIO_MC_MSKX_MC_MSK) {
+		if (reg_val & ~TSI578_RIO_MC_MSKX_MC_MSK) {
 			rc = RIO_ERR_RT_CORRUPTED;
 			*imp_rc = READ_MC_MASKS(3);
 			goto exit;
 		}
 
 		rt->mc_masks[mask_idx].mc_mask = (reg_val
-				& Tsi578_RIO_MC_MSKX_MC_MSK) >> 16;
+				& TSI578_RIO_MC_MSKX_MC_MSK) >> 16;
 	}
 
 exit:
@@ -144,7 +144,7 @@ bool prog_all,  // Use ALL_MASKS or CHG_MASKS
 	uint32_t invalid_mc_mask = ~(uint32_t)((1 << TSI57X_NUM_PORTS(dev_info))
 			- 1);
 
-	for (mask_idx = Tsi578_MAX_MC_MASKS; mask_idx < RIO_DSF_MAX_MC_MASK;
+	for (mask_idx = TSI578_MAX_MC_MASKS; mask_idx < RIO_DSF_MAX_MC_MASK;
 			mask_idx++) {
 		if (rt->mc_masks[mask_idx].in_use
 				|| rt->mc_masks[mask_idx].changed
@@ -154,7 +154,7 @@ bool prog_all,  // Use ALL_MASKS or CHG_MASKS
 		}
 	}
 
-	for (mask_idx = 0; mask_idx < Tsi578_MAX_MC_MASKS; mask_idx++) {
+	for (mask_idx = 0; mask_idx < TSI578_MAX_MC_MASKS; mask_idx++) {
 		if (invalid_mc_mask & rt->mc_masks[mask_idx].mc_mask) {
 			*imp_rc = PROGRAM_MC_MASKS(2);
 			goto exit;
@@ -163,10 +163,10 @@ bool prog_all,  // Use ALL_MASKS or CHG_MASKS
 			rt->mc_masks[mask_idx].changed = false;
 			reg_val = (uint32_t)(rt->mc_masks[mask_idx].mc_destID);
 			reg_val |= (tt_dev16 == rt->mc_masks[mask_idx].tt) ?
-					Tsi578_RIO_MC_IDX_LARGE_SYS : 0;
+					TSI578_RIO_MC_IDX_LARGE_SYS : 0;
 			reg_val |= (rt->mc_masks[mask_idx].in_use) ?
-					Tsi578_RIO_MC_IDX_MC_EN : 0;
-			rc = DARRegWrite(dev_info, Tsi578_RIO_MC_IDX(mask_idx),
+					TSI578_RIO_MC_IDX_MC_EN : 0;
+			rc = DARRegWrite(dev_info, TSI578_RIO_MC_IDX(mask_idx),
 					reg_val);
 			if (RIO_SUCCESS != rc) {
 				*imp_rc = PROGRAM_MC_MASKS(3);
@@ -174,8 +174,8 @@ bool prog_all,  // Use ALL_MASKS or CHG_MASKS
 			}
 
 			reg_val = (rt->mc_masks[mask_idx].mc_mask << 16)
-					& Tsi578_RIO_MC_MSKX_MC_MSK;
-			rc = DARRegWrite(dev_info, Tsi578_RIO_MC_MSKX(mask_idx),
+					& TSI578_RIO_MC_MSKX_MC_MSK;
+			rc = DARRegWrite(dev_info, TSI578_RIO_MC_MSKX(mask_idx),
 					reg_val);
 			if (RIO_SUCCESS != rc) {
 				*imp_rc = PROGRAM_MC_MASKS(4);
@@ -199,20 +199,20 @@ static uint32_t tsi57x_read_rte_entries(DAR_DEV_INFO_t *dev_info, uint8_t pnum,
 
 	// Fill in default route value
 
-	rc = DARRegRead(dev_info, Tsi578_RIO_LUT_ATTR, &rte_val);
+	rc = DARRegRead(dev_info, TSI578_RIO_LUT_ATTR, &rte_val);
 	if (RIO_SUCCESS != rc) {
 		*imp_rc = READ_RTE_ENTRIES(1);
 		goto exit;
 	}
 
-	if ( HW_DFLT_RT == (rte_val & Tsi578_RIO_LUT_ATTR_DEFAULT_PORT)) {
+	if ( HW_DFLT_RT == (rte_val & TSI578_RIO_LUT_ATTR_DEFAULT_PORT)) {
 		rt->default_route = RIO_DSF_RT_NO_ROUTE;
 	} else {
-		rt->default_route = rte_val & Tsi578_RIO_LUT_ATTR_DEFAULT_PORT;
+		rt->default_route = rte_val & TSI578_RIO_LUT_ATTR_DEFAULT_PORT;
 	}
 
 	// Determine the base id for hierarchical mode.
-	rc = DARRegRead(dev_info, Tsi578_SPX_ROUTE_BASE(pnum), &base_reg);
+	rc = DARRegRead(dev_info, TSI578_SPX_ROUTE_BASE(pnum), &base_reg);
 	if (RIO_SUCCESS != rc) {
 		*imp_rc = READ_RTE_ENTRIES(10);
 		goto exit;
@@ -225,14 +225,14 @@ static uint32_t tsi57x_read_rte_entries(DAR_DEV_INFO_t *dev_info, uint8_t pnum,
 
 		// Set deviceID, read routing table entry for deviceID
 		idx_val = destID << 8;
-		rc = DARRegWrite(dev_info, Tsi578_SPX_ROUTE_CFG_DESTID(pnum),
+		rc = DARRegWrite(dev_info, TSI578_SPX_ROUTE_CFG_DESTID(pnum),
 				idx_val);
 		if (RIO_SUCCESS != rc) {
 			*imp_rc = READ_RTE_ENTRIES(7);
 			goto exit;
 		}
 
-		rc = DARRegRead(dev_info, Tsi578_SPX_ROUTE_CFG_PORT(pnum),
+		rc = DARRegRead(dev_info, TSI578_SPX_ROUTE_CFG_PORT(pnum),
 				&rte_val);
 		if (RIO_SUCCESS != rc) {
 			*imp_rc = READ_RTE_ENTRIES(8);
@@ -244,11 +244,11 @@ static uint32_t tsi57x_read_rte_entries(DAR_DEV_INFO_t *dev_info, uint8_t pnum,
 					RIO_DSF_RT_USE_DEFAULT_ROUTE;
 		} else {
 			rt->dom_table[destID].rte_val = (uint8_t)(rte_val
-					& Tsi578_SPX_ROUTE_CFG_PORT_PORT);
+					& TSI578_SPX_ROUTE_CFG_PORT_PORT);
 		}
 	}
 
-	destID = (base_reg & Tsi578_SPX_ROUTE_BASE_BASE) >> 24;
+	destID = (base_reg & TSI578_SPX_ROUTE_BASE_BASE) >> 24;
 	rt->dom_table[destID].rte_val = RIO_DSF_RT_USE_DEVICE_TABLE;
 	base_reg = destID << 8;
 
@@ -261,14 +261,14 @@ static uint32_t tsi57x_read_rte_entries(DAR_DEV_INFO_t *dev_info, uint8_t pnum,
 		// Set deviceID, read routing table entry for deviceID,
 		idx_val = base_reg + destID;
 
-		rc = DARRegWrite(dev_info, Tsi578_SPX_ROUTE_CFG_DESTID(pnum),
+		rc = DARRegWrite(dev_info, TSI578_SPX_ROUTE_CFG_DESTID(pnum),
 				idx_val);
 		if (RIO_SUCCESS != rc) {
 			*imp_rc = READ_RTE_ENTRIES(3);
 			goto exit;
 		}
 
-		rc = DARRegRead(dev_info, Tsi578_SPX_ROUTE_CFG_PORT(pnum),
+		rc = DARRegRead(dev_info, TSI578_SPX_ROUTE_CFG_PORT(pnum),
 				&rte_val);
 		if (RIO_SUCCESS != rc) {
 			*imp_rc = READ_RTE_ENTRIES(4);
@@ -280,7 +280,7 @@ static uint32_t tsi57x_read_rte_entries(DAR_DEV_INFO_t *dev_info, uint8_t pnum,
 					RIO_DSF_RT_USE_DEFAULT_ROUTE;
 		} else {
 			rt->dev_table[destID].rte_val = (uint8_t)(rte_val
-					& Tsi578_SPX_ROUTE_CFG_PORT_PORT);
+					& TSI578_SPX_ROUTE_CFG_PORT_PORT);
 		}
 	}
 
@@ -310,12 +310,12 @@ static uint32_t program_rte_entries(DAR_DEV_INFO_t *dev_info,
 	// Set the default route output port
 
 	if ( RIO_DSF_RT_NO_ROUTE == rt->default_route) {
-		rte_val = HW_DFLT_RT & Tsi578_RIO_LUT_ATTR_DEFAULT_PORT;
+		rte_val = HW_DFLT_RT & TSI578_RIO_LUT_ATTR_DEFAULT_PORT;
 	} else {
-		rte_val = rt->default_route & Tsi578_RIO_LUT_ATTR_DEFAULT_PORT;
+		rte_val = rt->default_route & TSI578_RIO_LUT_ATTR_DEFAULT_PORT;
 	}
 
-	rc = DARRegWrite(dev_info, Tsi578_RIO_LUT_ATTR, rte_val);
+	rc = DARRegWrite(dev_info, TSI578_RIO_LUT_ATTR, rte_val);
 	if (RIO_SUCCESS != rc) {
 		*imp_rc = PROGRAM_RTE_ENTRIES(1);
 		goto exit;
@@ -338,7 +338,7 @@ static uint32_t program_rte_entries(DAR_DEV_INFO_t *dev_info,
 	}
 
 	for (port = start_port; port <= end_port; port++) {
-		rc = DARRegWrite(dev_info, Tsi578_SPX_ROUTE_BASE(port),
+		rc = DARRegWrite(dev_info, TSI578_SPX_ROUTE_BASE(port),
 				baseID << 16);
 		if (RIO_SUCCESS != rc) {
 			*imp_rc = PROGRAM_RTE_ENTRIES(6);
@@ -359,7 +359,7 @@ static uint32_t program_rte_entries(DAR_DEV_INFO_t *dev_info,
 					if (RIO_DSF_RT_NO_ROUTE == rte_val) {
 						rte_val = HW_DFLT_RT;
 						idx_val |=
-								Tsi578_SPX_ROUTE_CFG_DESTID_PAR_INVERT;
+								TSI578_SPX_ROUTE_CFG_DESTID_PAR_INVERT;
 					} else {
 						if (TSI57X_NUM_PORTS(dev_info)
 								<= rte_val) {
@@ -376,7 +376,7 @@ static uint32_t program_rte_entries(DAR_DEV_INFO_t *dev_info,
 						port++) {
 					rc =
 							DARRegWrite(dev_info,
-									Tsi578_SPX_ROUTE_CFG_DESTID(
+									TSI578_SPX_ROUTE_CFG_DESTID(
 											port),
 									idx_val);
 					if (RIO_SUCCESS != rc) {
@@ -387,7 +387,7 @@ static uint32_t program_rte_entries(DAR_DEV_INFO_t *dev_info,
 
 					rc =
 							DARRegWrite(dev_info,
-									Tsi578_SPX_ROUTE_CFG_PORT(
+									TSI578_SPX_ROUTE_CFG_PORT(
 											port),
 									rte_val);
 					if (RIO_SUCCESS != rc) {
@@ -412,7 +412,7 @@ static uint32_t program_rte_entries(DAR_DEV_INFO_t *dev_info,
 				if (RIO_DSF_RT_NO_ROUTE == rte_val) {
 					rte_val = HW_DFLT_RT;
 					idx_val |=
-							Tsi578_SPX_ROUTE_CFG_DESTID_PAR_INVERT;
+							TSI578_SPX_ROUTE_CFG_DESTID_PAR_INVERT;
 				} else {
 					if ((RIO_DSF_RT_USE_DEVICE_TABLE
 							== rte_val)
@@ -429,7 +429,7 @@ static uint32_t program_rte_entries(DAR_DEV_INFO_t *dev_info,
 
 			for (port = start_port; port <= end_port; port++) {
 				rc = DARRegWrite(dev_info,
-						Tsi578_SPX_ROUTE_CFG_DESTID(
+						TSI578_SPX_ROUTE_CFG_DESTID(
 								port), idx_val);
 				if (RIO_SUCCESS != rc) {
 					*imp_rc = PROGRAM_RTE_ENTRIES(8);
@@ -437,7 +437,7 @@ static uint32_t program_rte_entries(DAR_DEV_INFO_t *dev_info,
 				}
 
 				rc = DARRegWrite(dev_info,
-						Tsi578_SPX_ROUTE_CFG_PORT(port),
+						TSI578_SPX_ROUTE_CFG_PORT(port),
 						rte_val);
 				if (RIO_SUCCESS != rc) {
 					*imp_rc = PROGRAM_RTE_ENTRIES(9);
@@ -524,7 +524,7 @@ static uint32_t tsi_check_port_for_discard(DAR_DEV_INFO_t *dev_info,
 						rc =
 								DARRegRead(
 										dev_info,
-										Tsi578_SPX_CTL(
+										TSI578_SPX_CTL(
 												port),
 										&ctlData);
 						if (RIO_SUCCESS != rc) {
@@ -617,16 +617,16 @@ uint32_t tsi57x_rio_rt_initialize(DAR_DEV_INFO_t *dev_info,
 		}
 
 		for (port = start_port; port <= end_port; port++) {
-			rc = DARRegRead(dev_info, Tsi578_SPX_MODE(port),
+			rc = DARRegRead(dev_info, TSI578_SPX_MODE(port),
 					&spx_mode);
 			if (RIO_SUCCESS != rc) {
 				out_parms->imp_rc = RT_INITIALIZE(4);
 				goto exit;
 			}
 
-			spx_mode &= ~Tsi578_SPX_MODE_LUT_512;
+			spx_mode &= ~TSI578_SPX_MODE_LUT_512;
 
-			rc = DARRegWrite(dev_info, Tsi578_SPX_MODE(port),
+			rc = DARRegWrite(dev_info, TSI578_SPX_MODE(port),
 					spx_mode);
 			if (RIO_SUCCESS != rc) {
 				out_parms->imp_rc = RT_INITIALIZE(5);
@@ -660,7 +660,7 @@ uint32_t tsi57x_rio_rt_initialize(DAR_DEV_INFO_t *dev_info,
 		all_in.rt->mc_masks[mc_idx].allocd = false;
 		// Only change multicast masks that exist AND
 		// when all ports are being initialized.
-		if ((mc_idx < Tsi578_MAX_MC_MASKS)
+		if ((mc_idx < TSI578_MAX_MC_MASKS)
 				&& (RIO_ALL_PORTS == in_parms->set_on_port)) {
 			all_in.rt->mc_masks[mc_idx].changed = true;
 		} else {
@@ -913,7 +913,7 @@ uint32_t tsi57x_rio_rt_change_mc_mask(DAR_DEV_INFO_t *dev_info,
 {
 	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
 	uint8_t mc_idx, chg_idx;
-	uint32_t illegal_ports = ~((1 << Tsi578_MAX_PORTS) - 1);
+	uint32_t illegal_ports = ~((1 << TSI578_MAX_PORTS) - 1);
 
 	out_parms->imp_rc = RIO_SUCCESS;
 
@@ -937,7 +937,7 @@ uint32_t tsi57x_rio_rt_change_mc_mask(DAR_DEV_INFO_t *dev_info,
 
 	chg_idx = in_parms->mc_mask_rte - RIO_DSF_FIRST_MC_MASK;
 
-	for (mc_idx = 0; mc_idx < Tsi578_MAX_MC_MASKS; mc_idx++) {
+	for (mc_idx = 0; mc_idx < TSI578_MAX_MC_MASKS; mc_idx++) {
 		if ((mc_idx != chg_idx)
 				&& (in_parms->rt->mc_masks[mc_idx].mc_destID
 						== in_parms->mc_info.mc_destID)
@@ -953,7 +953,7 @@ uint32_t tsi57x_rio_rt_change_mc_mask(DAR_DEV_INFO_t *dev_info,
 
 	// Allow requests to change masks not supported by TSI57x family
 	// but there's nothing to do...
-	if ((RIO_DSF_FIRST_MC_MASK + Tsi578_MAX_MC_MASKS)
+	if ((RIO_DSF_FIRST_MC_MASK + TSI578_MAX_MC_MASKS)
 			<= in_parms->mc_mask_rte) {
 		goto exit;
 	}

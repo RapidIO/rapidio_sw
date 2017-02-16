@@ -46,10 +46,10 @@ extern "C" {
 
 #ifdef TSI57X_DAR_WANTED
 
-#define PRIO_MASK (Tsi578_SPX_PSC0n1_CTRL_PS1_PRIO0 | \
-		Tsi578_SPX_PSC0n1_CTRL_PS1_PRIO1 | \
-		Tsi578_SPX_PSC0n1_CTRL_PS1_PRIO2 | \
-		Tsi578_SPX_PSC0n1_CTRL_PS1_PRIO3)
+#define PRIO_MASK (TSI578_SPX_PSC0n1_CTRL_PS1_PRIO0 | \
+		TSI578_SPX_PSC0n1_CTRL_PS1_PRIO1 | \
+		TSI578_SPX_PSC0n1_CTRL_PS1_PRIO2 | \
+		TSI578_SPX_PSC0n1_CTRL_PS1_PRIO3)
 
 uint32_t rio_sc_cfg_tsi57x_ctr(DAR_DEV_INFO_t *dev_info,
 		rio_sc_cfg_tsi57x_ctr_in_t *in_parms,
@@ -57,7 +57,7 @@ uint32_t rio_sc_cfg_tsi57x_ctr(DAR_DEV_INFO_t *dev_info,
 {
 	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
 	uint32_t new_ctl = 0, ctl_reg, new_ctl_reg, reg_mask;
-	uint8_t p_to_i[Tsi578_MAX_PORTS] = {Tsi578_MAX_PORTS};
+	uint8_t p_to_i[TSI578_MAX_PORTS] = {TSI578_MAX_PORTS};
 	uint8_t srch_i, srch_p, port_num;
 	bool found;
 	struct DAR_ptl good_ptl;
@@ -115,7 +115,7 @@ uint32_t rio_sc_cfg_tsi57x_ctr(DAR_DEV_INFO_t *dev_info,
 			out_parms->imp_rc = SC_CFG_TSI57X_CTR(0x20);
 			goto exit;
 		}
-		new_ctl |= (in_parms->tx) ? Tsi578_SPX_PSC0n1_CTRL_PS1_DIR : 0;
+		new_ctl |= (in_parms->tx) ? TSI578_SPX_PSC0n1_CTRL_PS1_DIR : 0;
 		switch (in_parms->ctr_type) {
 		case rio_sc_uc_req_pkts:
 			break;
@@ -169,8 +169,8 @@ uint32_t rio_sc_cfg_tsi57x_ctr(DAR_DEV_INFO_t *dev_info,
 				found = true;
 				// If the port hasn't previously been programmed and the counter structure is
 				// correctly initialized, keep going...
-				if ((Tsi578_MAX_PORTS == p_to_i[port_num])
-						&& (Tsi578_NUM_PERF_CTRS
+				if ((TSI578_MAX_PORTS == p_to_i[port_num])
+						&& (TSI578_NUM_PERF_CTRS
 								== in_parms->dev_ctrs->p_ctrs[srch_i].ctrs_cnt)) {
 					p_to_i[port_num] = srch_i;
 				} else {
@@ -185,7 +185,7 @@ uint32_t rio_sc_cfg_tsi57x_ctr(DAR_DEV_INFO_t *dev_info,
 				// Always program the control value...
 				rc =
 						DARRegRead(dev_info,
-								Tsi578_SPX_PSC_CTRL(
+								TSI578_SPX_PSC_CTRL(
 										port_num,
 										in_parms->ctr_idx),
 								&ctl_reg);
@@ -198,7 +198,7 @@ uint32_t rio_sc_cfg_tsi57x_ctr(DAR_DEV_INFO_t *dev_info,
 				new_ctl_reg |= new_ctl;
 				rc =
 						DARRegWrite(dev_info,
-								Tsi578_SPX_PSC_CTRL(
+								TSI578_SPX_PSC_CTRL(
 										port_num,
 										in_parms->ctr_idx),
 								new_ctl_reg);
@@ -225,7 +225,7 @@ uint32_t rio_sc_cfg_tsi57x_ctr(DAR_DEV_INFO_t *dev_info,
 							0;
 					rc =
 							DARRegRead(dev_info,
-									Tsi578_SPX_PSCY(
+									TSI578_SPX_PSCY(
 											port_num,
 											in_parms->ctr_idx),
 									&ctl_reg);
@@ -296,8 +296,8 @@ uint32_t tsi57x_rio_sc_init_dev_ctrs(DAR_DEV_INFO_t *dev_info,
 	in_parms->dev_ctrs->valid_p_ctrs = good_ptl.num_ports;
 	for (idx = 0; idx < good_ptl.num_ports; idx++) {
 		in_parms->dev_ctrs->p_ctrs[idx].pnum = good_ptl.pnums[idx];
-		in_parms->dev_ctrs->p_ctrs[idx].ctrs_cnt = Tsi578_NUM_PERF_CTRS;
-		for (cntr_i = 0; cntr_i < Tsi578_NUM_PERF_CTRS; cntr_i++) {
+		in_parms->dev_ctrs->p_ctrs[idx].ctrs_cnt = TSI578_NUM_PERF_CTRS;
+		for (cntr_i = 0; cntr_i < TSI578_NUM_PERF_CTRS; cntr_i++) {
 			in_parms->dev_ctrs->p_ctrs[idx].ctrs[cntr_i] = init_val;
 		}
 	}
@@ -315,7 +315,7 @@ uint32_t tsi57x_rio_sc_read_ctrs(DAR_DEV_INFO_t *dev_info,
 		rio_sc_read_ctrs_out_t *out_parms)
 {
 	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
-	uint8_t p_to_i[Tsi578_MAX_PORTS] = {Tsi578_MAX_PORTS};
+	uint8_t p_to_i[TSI578_MAX_PORTS] = {TSI578_MAX_PORTS};
 	uint8_t srch_i, srch_p, port_num, cntr;
 	bool found;
 	struct DAR_ptl good_ptl;
@@ -333,7 +333,7 @@ uint32_t tsi57x_rio_sc_read_ctrs(DAR_DEV_INFO_t *dev_info,
 	}
 
 	if (!in_parms->dev_ctrs->num_p_ctrs
-			|| (in_parms->dev_ctrs->num_p_ctrs > Tsi578_MAX_PORTS)
+			|| (in_parms->dev_ctrs->num_p_ctrs > TSI578_MAX_PORTS)
 			|| (in_parms->dev_ctrs->num_p_ctrs
 					< in_parms->dev_ctrs->valid_p_ctrs)) {
 		out_parms->imp_rc = SC_READ_CTRS(0x03);
@@ -367,8 +367,8 @@ uint32_t tsi57x_rio_sc_read_ctrs(DAR_DEV_INFO_t *dev_info,
 				found = true;
 				// If the port hasn't previously been read and the counter structure is
 				// correctly initialized, keep going...
-				if ((Tsi578_MAX_PORTS == p_to_i[port_num])
-						&& (Tsi578_NUM_PERF_CTRS
+				if ((TSI578_MAX_PORTS == p_to_i[port_num])
+						&& (TSI578_NUM_PERF_CTRS
 								== in_parms->dev_ctrs->p_ctrs[srch_i].ctrs_cnt)) {
 					p_to_i[port_num] = srch_i;
 				} else {
@@ -381,14 +381,14 @@ uint32_t tsi57x_rio_sc_read_ctrs(DAR_DEV_INFO_t *dev_info,
 				}
 
 				// Read the port performance counters...
-				for (cntr = 0; cntr < Tsi578_NUM_PERF_CTRS;
+				for (cntr = 0; cntr < TSI578_NUM_PERF_CTRS;
 						cntr++) {
 					if (rio_sc_disabled
 							!= in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].sc) {
 						rc =
 								DARRegRead(
 										dev_info,
-										Tsi578_SPX_PSCY(
+										TSI578_SPX_PSCY(
 												port_num,
 												cntr),
 										&in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr].last_inc);

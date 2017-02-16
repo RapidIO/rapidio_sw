@@ -59,132 +59,132 @@ extern "C" {
 
 #define MAX_PORTS_TO_SKIP 2
 
-#define END_PMR_ARRAY {RIO_ALL_PORTS,0, 0, 0, 0, 0, Tsi578_SMACX_DLOOP_CLK_SEL_PWDN_X1, Tsi578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X1, {RIO_ALL_PORTS, RIO_ALL_PORTS, RIO_ALL_PORTS} }
+#define END_PMR_ARRAY {RIO_ALL_PORTS,0, 0, 0, 0, 0, TSI578_SMACX_DLOOP_CLK_SEL_PWDN_X1, TSI578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X1, {RIO_ALL_PORTS, RIO_ALL_PORTS, RIO_ALL_PORTS} }
 
 //          4x 1x PWR
 //  P  M L1 LC LC  M     Power Down Mask                      Reset Mask                           Other Mac Ports
 port_mac_relations_t tsi578_pmr[] = {
-  { 0, 0, 0, 4, 1, 0, Tsi578_SMACX_DLOOP_CLK_SEL_PWDN_X4, Tsi578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X4, { 1, RIO_ALL_PORTS, RIO_ALL_PORTS} },
-  { 1, 0, 1, 0, 1, 0, Tsi578_SMACX_DLOOP_CLK_SEL_PWDN_X1, Tsi578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X1, { 0, RIO_ALL_PORTS, RIO_ALL_PORTS} },
-  { 2, 1, 0, 4, 1, 1, Tsi578_SMACX_DLOOP_CLK_SEL_PWDN_X4, Tsi578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X4, { 3, RIO_ALL_PORTS, RIO_ALL_PORTS} },
-  { 3, 1, 1, 0, 1, 1, Tsi578_SMACX_DLOOP_CLK_SEL_PWDN_X1, Tsi578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X1, { 2, RIO_ALL_PORTS, RIO_ALL_PORTS} },
-  { 4, 2, 0, 4, 1, 2, Tsi578_SMACX_DLOOP_CLK_SEL_PWDN_X4, Tsi578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X4, { 5, RIO_ALL_PORTS, RIO_ALL_PORTS} },
-  { 5, 2, 1, 0, 1, 2, Tsi578_SMACX_DLOOP_CLK_SEL_PWDN_X1, Tsi578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X1, { 4, RIO_ALL_PORTS, RIO_ALL_PORTS} },
-  { 6, 3, 0, 4, 1, 3, Tsi578_SMACX_DLOOP_CLK_SEL_PWDN_X4, Tsi578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X4, { 7, RIO_ALL_PORTS, RIO_ALL_PORTS} },
-  { 7, 3, 1, 0, 1, 3, Tsi578_SMACX_DLOOP_CLK_SEL_PWDN_X1, Tsi578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X1, { 6, RIO_ALL_PORTS, RIO_ALL_PORTS} },
-  { 8, 4, 0, 4, 1, 4, Tsi578_SMACX_DLOOP_CLK_SEL_PWDN_X4, Tsi578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X4, { 9, RIO_ALL_PORTS, RIO_ALL_PORTS} },
-  { 9, 4, 1, 0, 1, 4, Tsi578_SMACX_DLOOP_CLK_SEL_PWDN_X1, Tsi578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X1, { 8, RIO_ALL_PORTS, RIO_ALL_PORTS} },
-  {10, 5, 0, 4, 1, 5, Tsi578_SMACX_DLOOP_CLK_SEL_PWDN_X4, Tsi578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X4, {11, RIO_ALL_PORTS, RIO_ALL_PORTS} },
-  {11, 5, 1, 0, 1, 5, Tsi578_SMACX_DLOOP_CLK_SEL_PWDN_X1, Tsi578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X1, {10, RIO_ALL_PORTS, RIO_ALL_PORTS} },
-  {12, 6, 0, 4, 1, 6, Tsi578_SMACX_DLOOP_CLK_SEL_PWDN_X4, Tsi578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X4, {13, RIO_ALL_PORTS, RIO_ALL_PORTS} },
-  {13, 6, 1, 0, 1, 6, Tsi578_SMACX_DLOOP_CLK_SEL_PWDN_X1, Tsi578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X1, {12, RIO_ALL_PORTS, RIO_ALL_PORTS} },
-  {14, 7, 0, 4, 1, 7, Tsi578_SMACX_DLOOP_CLK_SEL_PWDN_X4, Tsi578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X4, {15, RIO_ALL_PORTS, RIO_ALL_PORTS} },
-  {15, 7, 1, 0, 1, 7, Tsi578_SMACX_DLOOP_CLK_SEL_PWDN_X1, Tsi578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X1, {14, RIO_ALL_PORTS, RIO_ALL_PORTS} },
+  { 0, 0, 0, 4, 1, 0, TSI578_SMACX_DLOOP_CLK_SEL_PWDN_X4, TSI578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X4, { 1, RIO_ALL_PORTS, RIO_ALL_PORTS} },
+  { 1, 0, 1, 0, 1, 0, TSI578_SMACX_DLOOP_CLK_SEL_PWDN_X1, TSI578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X1, { 0, RIO_ALL_PORTS, RIO_ALL_PORTS} },
+  { 2, 1, 0, 4, 1, 1, TSI578_SMACX_DLOOP_CLK_SEL_PWDN_X4, TSI578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X4, { 3, RIO_ALL_PORTS, RIO_ALL_PORTS} },
+  { 3, 1, 1, 0, 1, 1, TSI578_SMACX_DLOOP_CLK_SEL_PWDN_X1, TSI578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X1, { 2, RIO_ALL_PORTS, RIO_ALL_PORTS} },
+  { 4, 2, 0, 4, 1, 2, TSI578_SMACX_DLOOP_CLK_SEL_PWDN_X4, TSI578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X4, { 5, RIO_ALL_PORTS, RIO_ALL_PORTS} },
+  { 5, 2, 1, 0, 1, 2, TSI578_SMACX_DLOOP_CLK_SEL_PWDN_X1, TSI578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X1, { 4, RIO_ALL_PORTS, RIO_ALL_PORTS} },
+  { 6, 3, 0, 4, 1, 3, TSI578_SMACX_DLOOP_CLK_SEL_PWDN_X4, TSI578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X4, { 7, RIO_ALL_PORTS, RIO_ALL_PORTS} },
+  { 7, 3, 1, 0, 1, 3, TSI578_SMACX_DLOOP_CLK_SEL_PWDN_X1, TSI578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X1, { 6, RIO_ALL_PORTS, RIO_ALL_PORTS} },
+  { 8, 4, 0, 4, 1, 4, TSI578_SMACX_DLOOP_CLK_SEL_PWDN_X4, TSI578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X4, { 9, RIO_ALL_PORTS, RIO_ALL_PORTS} },
+  { 9, 4, 1, 0, 1, 4, TSI578_SMACX_DLOOP_CLK_SEL_PWDN_X1, TSI578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X1, { 8, RIO_ALL_PORTS, RIO_ALL_PORTS} },
+  {10, 5, 0, 4, 1, 5, TSI578_SMACX_DLOOP_CLK_SEL_PWDN_X4, TSI578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X4, {11, RIO_ALL_PORTS, RIO_ALL_PORTS} },
+  {11, 5, 1, 0, 1, 5, TSI578_SMACX_DLOOP_CLK_SEL_PWDN_X1, TSI578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X1, {10, RIO_ALL_PORTS, RIO_ALL_PORTS} },
+  {12, 6, 0, 4, 1, 6, TSI578_SMACX_DLOOP_CLK_SEL_PWDN_X4, TSI578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X4, {13, RIO_ALL_PORTS, RIO_ALL_PORTS} },
+  {13, 6, 1, 0, 1, 6, TSI578_SMACX_DLOOP_CLK_SEL_PWDN_X1, TSI578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X1, {12, RIO_ALL_PORTS, RIO_ALL_PORTS} },
+  {14, 7, 0, 4, 1, 7, TSI578_SMACX_DLOOP_CLK_SEL_PWDN_X4, TSI578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X4, {15, RIO_ALL_PORTS, RIO_ALL_PORTS} },
+  {15, 7, 1, 0, 1, 7, TSI578_SMACX_DLOOP_CLK_SEL_PWDN_X1, TSI578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X1, {14, RIO_ALL_PORTS, RIO_ALL_PORTS} },
   END_PMR_ARRAY
 };
 
 //          4x 1x PWR
 //  P  M L1 LC LC  M     Power Down Mask                      REset Mask                           Other Mac Ports
 port_mac_relations_t tsi577_pmr[] = {
-  { 0, 0, 0, 4, 1, 0, Tsi578_SMACX_DLOOP_CLK_SEL_PWDN_X4, Tsi578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X4, { 1,  8,  9} },
-  { 1, 0, 1, 0, 1, 0, Tsi578_SMACX_DLOOP_CLK_SEL_PWDN_X1, Tsi578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X1, { 0,  8,  9} },
-  { 2, 1, 0, 4, 1, 1, Tsi578_SMACX_DLOOP_CLK_SEL_PWDN_X4, Tsi578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X4, { 3, 10, 11} },
-  { 3, 1, 1, 0, 1, 1, Tsi578_SMACX_DLOOP_CLK_SEL_PWDN_X1, Tsi578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X1, { 2, 10, 11} },
-  { 4, 2, 0, 4, 1, 2, Tsi578_SMACX_DLOOP_CLK_SEL_PWDN_X4, Tsi578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X4, { 5, 12, 13} },
-  { 5, 2, 1, 0, 1, 2, Tsi578_SMACX_DLOOP_CLK_SEL_PWDN_X1, Tsi578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X1, { 4, 12, 13} },
-  { 6, 3, 0, 4, 1, 3, Tsi578_SMACX_DLOOP_CLK_SEL_PWDN_X4, Tsi578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X4, { 7, 14, 15} },
-  { 7, 3, 1, 0, 1, 3, Tsi578_SMACX_DLOOP_CLK_SEL_PWDN_X1, Tsi578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X1, { 6, 14, 15} },
-  { 8, 0, 2, 0, 1, 4, Tsi578_SMACX_DLOOP_CLK_SEL_PWDN_X4, Tsi578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X4, { 0,  1,  9} },
-  { 9, 0, 3, 0, 1, 4, Tsi578_SMACX_DLOOP_CLK_SEL_PWDN_X1, Tsi578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X1, { 0,  1,  8} },
-  {10, 1, 2, 0, 1, 5, Tsi578_SMACX_DLOOP_CLK_SEL_PWDN_X4, Tsi578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X4, { 2,  3, 11} },
-  {11, 1, 3, 0, 1, 5, Tsi578_SMACX_DLOOP_CLK_SEL_PWDN_X1, Tsi578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X1, { 2,  3, 10} },
-  {12, 2, 2, 0, 1, 6, Tsi578_SMACX_DLOOP_CLK_SEL_PWDN_X4, Tsi578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X4, { 4,  5, 13} },
-  {13, 2, 3, 0, 1, 6, Tsi578_SMACX_DLOOP_CLK_SEL_PWDN_X1, Tsi578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X1, { 4,  5, 12} },
-  {14, 3, 2, 0, 1, 7, Tsi578_SMACX_DLOOP_CLK_SEL_PWDN_X4, Tsi578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X4, { 6,  7, 15} },
-  {15, 3, 3, 0, 1, 7, Tsi578_SMACX_DLOOP_CLK_SEL_PWDN_X1, Tsi578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X1, { 6,  7, 14} },
+  { 0, 0, 0, 4, 1, 0, TSI578_SMACX_DLOOP_CLK_SEL_PWDN_X4, TSI578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X4, { 1,  8,  9} },
+  { 1, 0, 1, 0, 1, 0, TSI578_SMACX_DLOOP_CLK_SEL_PWDN_X1, TSI578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X1, { 0,  8,  9} },
+  { 2, 1, 0, 4, 1, 1, TSI578_SMACX_DLOOP_CLK_SEL_PWDN_X4, TSI578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X4, { 3, 10, 11} },
+  { 3, 1, 1, 0, 1, 1, TSI578_SMACX_DLOOP_CLK_SEL_PWDN_X1, TSI578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X1, { 2, 10, 11} },
+  { 4, 2, 0, 4, 1, 2, TSI578_SMACX_DLOOP_CLK_SEL_PWDN_X4, TSI578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X4, { 5, 12, 13} },
+  { 5, 2, 1, 0, 1, 2, TSI578_SMACX_DLOOP_CLK_SEL_PWDN_X1, TSI578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X1, { 4, 12, 13} },
+  { 6, 3, 0, 4, 1, 3, TSI578_SMACX_DLOOP_CLK_SEL_PWDN_X4, TSI578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X4, { 7, 14, 15} },
+  { 7, 3, 1, 0, 1, 3, TSI578_SMACX_DLOOP_CLK_SEL_PWDN_X1, TSI578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X1, { 6, 14, 15} },
+  { 8, 0, 2, 0, 1, 4, TSI578_SMACX_DLOOP_CLK_SEL_PWDN_X4, TSI578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X4, { 0,  1,  9} },
+  { 9, 0, 3, 0, 1, 4, TSI578_SMACX_DLOOP_CLK_SEL_PWDN_X1, TSI578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X1, { 0,  1,  8} },
+  {10, 1, 2, 0, 1, 5, TSI578_SMACX_DLOOP_CLK_SEL_PWDN_X4, TSI578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X4, { 2,  3, 11} },
+  {11, 1, 3, 0, 1, 5, TSI578_SMACX_DLOOP_CLK_SEL_PWDN_X1, TSI578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X1, { 2,  3, 10} },
+  {12, 2, 2, 0, 1, 6, TSI578_SMACX_DLOOP_CLK_SEL_PWDN_X4, TSI578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X4, { 4,  5, 13} },
+  {13, 2, 3, 0, 1, 6, TSI578_SMACX_DLOOP_CLK_SEL_PWDN_X1, TSI578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X1, { 4,  5, 12} },
+  {14, 3, 2, 0, 1, 7, TSI578_SMACX_DLOOP_CLK_SEL_PWDN_X4, TSI578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X4, { 6,  7, 15} },
+  {15, 3, 3, 0, 1, 7, TSI578_SMACX_DLOOP_CLK_SEL_PWDN_X1, TSI578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X1, { 6,  7, 14} },
   END_PMR_ARRAY
 };
 
 port_mac_relations_t tsi574_pmr[] = {
-  { 0, 0, 0, 4, 1, 0, Tsi578_SMACX_DLOOP_CLK_SEL_PWDN_X4, Tsi578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X4, { 1, RIO_ALL_PORTS, RIO_ALL_PORTS} },
-  { 1, 0, 1, 0, 1, 0, Tsi578_SMACX_DLOOP_CLK_SEL_PWDN_X1, Tsi578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X1, { 0, RIO_ALL_PORTS, RIO_ALL_PORTS} },
-  { 2, 1, 0, 4, 1, 1, Tsi578_SMACX_DLOOP_CLK_SEL_PWDN_X4, Tsi578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X4, { 3, RIO_ALL_PORTS, RIO_ALL_PORTS} },
-  { 3, 1, 1, 0, 1, 1, Tsi578_SMACX_DLOOP_CLK_SEL_PWDN_X1, Tsi578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X1, { 2, RIO_ALL_PORTS, RIO_ALL_PORTS} },
-  { 4, 2, 0, 4, 1, 2, Tsi578_SMACX_DLOOP_CLK_SEL_PWDN_X4, Tsi578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X4, { 5, RIO_ALL_PORTS, RIO_ALL_PORTS} },
-  { 5, 2, 1, 0, 1, 2, Tsi578_SMACX_DLOOP_CLK_SEL_PWDN_X1, Tsi578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X1, { 4, RIO_ALL_PORTS, RIO_ALL_PORTS} },
-  { 6, 3, 0, 4, 1, 3, Tsi578_SMACX_DLOOP_CLK_SEL_PWDN_X4, Tsi578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X4, { 7, RIO_ALL_PORTS, RIO_ALL_PORTS} },
-  { 7, 3, 1, 0, 1, 3, Tsi578_SMACX_DLOOP_CLK_SEL_PWDN_X1, Tsi578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X1, { 6, RIO_ALL_PORTS, RIO_ALL_PORTS} },
+  { 0, 0, 0, 4, 1, 0, TSI578_SMACX_DLOOP_CLK_SEL_PWDN_X4, TSI578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X4, { 1, RIO_ALL_PORTS, RIO_ALL_PORTS} },
+  { 1, 0, 1, 0, 1, 0, TSI578_SMACX_DLOOP_CLK_SEL_PWDN_X1, TSI578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X1, { 0, RIO_ALL_PORTS, RIO_ALL_PORTS} },
+  { 2, 1, 0, 4, 1, 1, TSI578_SMACX_DLOOP_CLK_SEL_PWDN_X4, TSI578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X4, { 3, RIO_ALL_PORTS, RIO_ALL_PORTS} },
+  { 3, 1, 1, 0, 1, 1, TSI578_SMACX_DLOOP_CLK_SEL_PWDN_X1, TSI578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X1, { 2, RIO_ALL_PORTS, RIO_ALL_PORTS} },
+  { 4, 2, 0, 4, 1, 2, TSI578_SMACX_DLOOP_CLK_SEL_PWDN_X4, TSI578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X4, { 5, RIO_ALL_PORTS, RIO_ALL_PORTS} },
+  { 5, 2, 1, 0, 1, 2, TSI578_SMACX_DLOOP_CLK_SEL_PWDN_X1, TSI578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X1, { 4, RIO_ALL_PORTS, RIO_ALL_PORTS} },
+  { 6, 3, 0, 4, 1, 3, TSI578_SMACX_DLOOP_CLK_SEL_PWDN_X4, TSI578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X4, { 7, RIO_ALL_PORTS, RIO_ALL_PORTS} },
+  { 7, 3, 1, 0, 1, 3, TSI578_SMACX_DLOOP_CLK_SEL_PWDN_X1, TSI578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X1, { 6, RIO_ALL_PORTS, RIO_ALL_PORTS} },
   END_PMR_ARRAY
 };
 
 port_mac_relations_t tsi572_pmr[] = {
-  { 0, 0, 0, 4, 1, 0, Tsi578_SMACX_DLOOP_CLK_SEL_PWDN_X4, Tsi578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X4, { 1, RIO_ALL_PORTS, RIO_ALL_PORTS} },
-  { 1, 0, 1, 0, 1, 0, Tsi578_SMACX_DLOOP_CLK_SEL_PWDN_X1, Tsi578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X1, { 0, RIO_ALL_PORTS, RIO_ALL_PORTS} },
-  { 2, 1, 0, 4, 1, 1, Tsi578_SMACX_DLOOP_CLK_SEL_PWDN_X4, Tsi578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X4, { 3, RIO_ALL_PORTS, RIO_ALL_PORTS} },
-  { 3, 1, 1, 0, 1, 1, Tsi578_SMACX_DLOOP_CLK_SEL_PWDN_X1, Tsi578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X1, { 2, RIO_ALL_PORTS, RIO_ALL_PORTS} },
-  { 4, 2, 0, 4, 1, 2, Tsi578_SMACX_DLOOP_CLK_SEL_PWDN_X4, Tsi578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X4, { 5, RIO_ALL_PORTS, RIO_ALL_PORTS} },
-  { 5, 2, 1, 0, 1, 2, Tsi578_SMACX_DLOOP_CLK_SEL_PWDN_X1, Tsi578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X1, { 4, RIO_ALL_PORTS, RIO_ALL_PORTS} },
-  { 6, 3, 0, 4, 1, 3, Tsi578_SMACX_DLOOP_CLK_SEL_PWDN_X4, Tsi578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X4, { 7, RIO_ALL_PORTS, RIO_ALL_PORTS} },
-  { 7, 3, 1, 0, 1, 3, Tsi578_SMACX_DLOOP_CLK_SEL_PWDN_X1, Tsi578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X1, { 6, RIO_ALL_PORTS, RIO_ALL_PORTS} },
+  { 0, 0, 0, 4, 1, 0, TSI578_SMACX_DLOOP_CLK_SEL_PWDN_X4, TSI578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X4, { 1, RIO_ALL_PORTS, RIO_ALL_PORTS} },
+  { 1, 0, 1, 0, 1, 0, TSI578_SMACX_DLOOP_CLK_SEL_PWDN_X1, TSI578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X1, { 0, RIO_ALL_PORTS, RIO_ALL_PORTS} },
+  { 2, 1, 0, 4, 1, 1, TSI578_SMACX_DLOOP_CLK_SEL_PWDN_X4, TSI578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X4, { 3, RIO_ALL_PORTS, RIO_ALL_PORTS} },
+  { 3, 1, 1, 0, 1, 1, TSI578_SMACX_DLOOP_CLK_SEL_PWDN_X1, TSI578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X1, { 2, RIO_ALL_PORTS, RIO_ALL_PORTS} },
+  { 4, 2, 0, 4, 1, 2, TSI578_SMACX_DLOOP_CLK_SEL_PWDN_X4, TSI578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X4, { 5, RIO_ALL_PORTS, RIO_ALL_PORTS} },
+  { 5, 2, 1, 0, 1, 2, TSI578_SMACX_DLOOP_CLK_SEL_PWDN_X1, TSI578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X1, { 4, RIO_ALL_PORTS, RIO_ALL_PORTS} },
+  { 6, 3, 0, 4, 1, 3, TSI578_SMACX_DLOOP_CLK_SEL_PWDN_X4, TSI578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X4, { 7, RIO_ALL_PORTS, RIO_ALL_PORTS} },
+  { 7, 3, 1, 0, 1, 3, TSI578_SMACX_DLOOP_CLK_SEL_PWDN_X1, TSI578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X1, { 6, RIO_ALL_PORTS, RIO_ALL_PORTS} },
   END_PMR_ARRAY
 };
 
 #define ALL_BITS ((uint32_t)(0xFFFFFFFF))
 
-#define MC_IDX_MASK (Tsi578_RIO_MC_IDX_MC_ID| \
-		Tsi578_RIO_MC_IDX_LARGE_SYS| \
-		Tsi578_RIO_MC_IDX_MC_EN)
+#define MC_IDX_MASK (TSI578_RIO_MC_IDX_MC_ID| \
+		TSI578_RIO_MC_IDX_LARGE_SYS| \
+		TSI578_RIO_MC_IDX_MC_EN)
 
-#define PW_MASK (Tsi578_RIO_PW_DESTID_LARGE_DESTID | \
-		Tsi578_RIO_PW_DESTID_DESTID_LSB | \
-		Tsi578_RIO_PW_DESTID_DESTID_MSB)
+#define PW_MASK (TSI578_RIO_PW_DESTID_LARGE_DESTID | \
+		TSI578_RIO_PW_DESTID_DESTID_LSB | \
+		TSI578_RIO_PW_DESTID_DESTID_MSB)
 
-#define ERR_DET_MASK (Tsi578_RIO_LOG_ERR_DET_EN_UNSUP_TRANS_EN | \
-		Tsi578_RIO_LOG_ERR_DET_EN_ILL_RESP_EN | \
-		Tsi578_RIO_LOG_ERR_DET_EN_ILL_TRANS_EN)
+#define ERR_DET_MASK (TSI578_RIO_LOG_ERR_DET_EN_UNSUP_TRANS_EN | \
+		TSI578_RIO_LOG_ERR_DET_EN_ILL_RESP_EN | \
+		TSI578_RIO_LOG_ERR_DET_EN_ILL_TRANS_EN)
 
-#define MC_MASK_CFG_MASK ((uint32_t)(Tsi578_RIO_MC_MASK_CFG_PORT_PRESENT | \
-		Tsi578_RIO_MC_MASK_CFG_MASK_CMD | \
-		Tsi578_RIO_MC_MASK_CFG_EG_PORT_NUM | \
-		Tsi578_RIO_MC_MASK_CFG_MC_MASK_NUM))
+#define MC_MASK_CFG_MASK ((uint32_t)(TSI578_RIO_MC_MASK_CFG_PORT_PRESENT | \
+		TSI578_RIO_MC_MASK_CFG_MASK_CMD | \
+		TSI578_RIO_MC_MASK_CFG_EG_PORT_NUM | \
+		TSI578_RIO_MC_MASK_CFG_MC_MASK_NUM))
 
-#define MC_DESTID_MASK ((uint32_t)(Tsi578_RIO_MC_DESTID_CFG_DESTID_BASE | \
-		Tsi578_RIO_MC_DESTID_CFG_DESTID_BASE_LT | \
-		Tsi578_RIO_MC_DESTID_CFG_MASK_NUM_BASE))
+#define MC_DESTID_MASK ((uint32_t)(TSI578_RIO_MC_DESTID_CFG_DESTID_BASE | \
+		TSI578_RIO_MC_DESTID_CFG_DESTID_BASE_LT | \
+		TSI578_RIO_MC_DESTID_CFG_MASK_NUM_BASE))
 
-#define MC_ASSOC_MASK ((uint32_t)(Tsi578_RIO_MC_DESTID_ASSOC_ASSOC_PRESENT | \
-		Tsi578_RIO_MC_DESTID_ASSOC_CMD | \
-		Tsi578_RIO_MC_DESTID_ASSOC_LARGE))
+#define MC_ASSOC_MASK ((uint32_t)(TSI578_RIO_MC_DESTID_ASSOC_ASSOC_PRESENT | \
+		TSI578_RIO_MC_DESTID_ASSOC_CMD | \
+		TSI578_RIO_MC_DESTID_ASSOC_LARGE))
 
 const struct scrpad_info scratchpad_const[MAX_DAR_SCRPAD_IDX] = {
-	{Tsi578_RIO_MC_IDX(0) , MC_IDX_MASK},
-	{Tsi578_RIO_MC_IDX(1) , MC_IDX_MASK},
-	{Tsi578_RIO_MC_IDX(2) , MC_IDX_MASK},
-	{Tsi578_RIO_MC_IDX(3) , MC_IDX_MASK},
-	{Tsi578_RIO_MC_IDX(4) , MC_IDX_MASK},
-	{Tsi578_RIO_MC_IDX(5) , MC_IDX_MASK},
-	{Tsi578_RIO_MC_IDX(6) , MC_IDX_MASK},
-	{Tsi578_RIO_MC_IDX(7) , MC_IDX_MASK},
-	{Tsi578_RIO_MC_MSKX(0), Tsi578_RIO_MC_MSKX_MC_MSK},/* SCRPAD_MASK_IDX for offsets to preserve/track */
-	{Tsi578_RIO_MC_MSKX(1), Tsi578_RIO_MC_MSKX_MC_MSK},
-	{Tsi578_RIO_MC_MSKX(2), Tsi578_RIO_MC_MSKX_MC_MSK},
-	{Tsi578_RIO_MC_MSKX(3),Tsi578_RIO_MC_MSKX_MC_MSK},
-	{Tsi578_RIO_MC_MSKX(4), Tsi578_RIO_MC_MSKX_MC_MSK},
-	{Tsi578_RIO_MC_MSKX(5), Tsi578_RIO_MC_MSKX_MC_MSK},
-	{Tsi578_RIO_MC_MSKX(6), Tsi578_RIO_MC_MSKX_MC_MSK},
-	{Tsi578_RIO_MC_MSKX(7),Tsi578_RIO_MC_MSKX_MC_MSK},
-	{Tsi578_RIO_COMP_TAG   , Tsi578_RIO_COMP_TAG_CTAG },
-	{Tsi578_RIO_LUT_ATTR   , Tsi578_RIO_LUT_ATTR_DEFAULT_PORT},
-	{Tsi578_RIO_SW_LT_CTL  , Tsi578_RIO_SW_LT_CTL_TVAL},
-	{Tsi578_RIO_PW_DESTID  , PW_MASK},
-	{Tsi578_RIO_LOG_ERR_DET_EN, ERR_DET_MASK},
-	{Tsi578_RIO_PKT_TTL   ,  Tsi578_RIO_PKT_TTL_TTL },
-	{Tsi578_RIO_MC_MASK_CFG, MC_MASK_CFG_MASK},
-	{Tsi578_RIO_MC_DESTID_CFG,   MC_DESTID_MASK},  /* Code expects that this
+	{TSI578_RIO_MC_IDX(0) , MC_IDX_MASK},
+	{TSI578_RIO_MC_IDX(1) , MC_IDX_MASK},
+	{TSI578_RIO_MC_IDX(2) , MC_IDX_MASK},
+	{TSI578_RIO_MC_IDX(3) , MC_IDX_MASK},
+	{TSI578_RIO_MC_IDX(4) , MC_IDX_MASK},
+	{TSI578_RIO_MC_IDX(5) , MC_IDX_MASK},
+	{TSI578_RIO_MC_IDX(6) , MC_IDX_MASK},
+	{TSI578_RIO_MC_IDX(7) , MC_IDX_MASK},
+	{TSI578_RIO_MC_MSKX(0), TSI578_RIO_MC_MSKX_MC_MSK},/* SCRPAD_MASK_IDX for offsets to preserve/track */
+	{TSI578_RIO_MC_MSKX(1), TSI578_RIO_MC_MSKX_MC_MSK},
+	{TSI578_RIO_MC_MSKX(2), TSI578_RIO_MC_MSKX_MC_MSK},
+	{TSI578_RIO_MC_MSKX(3),TSI578_RIO_MC_MSKX_MC_MSK},
+	{TSI578_RIO_MC_MSKX(4), TSI578_RIO_MC_MSKX_MC_MSK},
+	{TSI578_RIO_MC_MSKX(5), TSI578_RIO_MC_MSKX_MC_MSK},
+	{TSI578_RIO_MC_MSKX(6), TSI578_RIO_MC_MSKX_MC_MSK},
+	{TSI578_RIO_MC_MSKX(7),TSI578_RIO_MC_MSKX_MC_MSK},
+	{TSI578_RIO_COMP_TAG   , TSI578_RIO_COMP_TAG_CTAG },
+	{TSI578_RIO_LUT_ATTR   , TSI578_RIO_LUT_ATTR_DEFAULT_PORT},
+	{TSI578_RIO_SW_LT_CTL  , TSI578_RIO_SW_LT_CTL_TVAL},
+	{TSI578_RIO_PW_DESTID  , PW_MASK},
+	{TSI578_RIO_LOG_ERR_DET_EN, ERR_DET_MASK},
+	{TSI578_RIO_PKT_TTL   ,  TSI578_RIO_PKT_TTL_TTL },
+	{TSI578_RIO_MC_MASK_CFG, MC_MASK_CFG_MASK},
+	{TSI578_RIO_MC_DESTID_CFG,   MC_DESTID_MASK},  /* Code expects that this
 							* is the register immediately before
-							* Tsi578_RIO_MC_DESTID_ASSOC.
+							* TSI578_RIO_MC_DESTID_ASSOC.
 							*/
-	{Tsi578_RIO_MC_DESTID_ASSOC, MC_ASSOC_MASK},
+	{TSI578_RIO_MC_DESTID_ASSOC, MC_ASSOC_MASK},
 	{SCRPAD_EOF_OFFSET, ALL_BITS}
 };
 
@@ -221,13 +221,13 @@ typedef struct tsi_lane_diffs_per_mac_t_TAG {
 } tsi_lane_diffs_per_mac_t;
 
 typedef struct port_cfg_chg_t_TAG {
-	bool valid[Tsi578_MAX_PORTS];
-	bool laneRegsChanged[Tsi578_MAX_MAC][Tsi578_MAX_PORT_LANES];
-	uint32_t laneRegs[Tsi578_MAX_MAC][Tsi578_MAX_PORT_LANES];
-	uint32_t dloopCtl[Tsi578_MAX_MAC];
-	uint32_t dloopCtlOrig[Tsi578_MAX_MAC];
-	uint32_t spxCtl[Tsi578_MAX_PORTS];
-	uint32_t spxCtlOrig[Tsi578_MAX_PORTS];
+	bool valid[TSI578_MAX_PORTS];
+	bool laneRegsChanged[TSI578_MAX_MAC][TSI578_MAX_PORT_LANES];
+	uint32_t laneRegs[TSI578_MAX_MAC][TSI578_MAX_PORT_LANES];
+	uint32_t dloopCtl[TSI578_MAX_MAC];
+	uint32_t dloopCtlOrig[TSI578_MAX_MAC];
+	uint32_t spxCtl[TSI578_MAX_PORTS];
+	uint32_t spxCtlOrig[TSI578_MAX_PORTS];
 } port_cfg_chg_t;
 
 #define RESET_PORT_SKIP   true
@@ -244,33 +244,33 @@ powerup_reg_offsets_t reg_offsets[]=
 // Start of global registers with per-port copies that must be preserved
 {
 // Start of per-port registers that must be preserved
-  { (uint32_t)Tsi578_SPX_CTL(0)             , (uint32_t)0x20, ALL_BITS  },
-  { (uint32_t)Tsi578_SPX_RATE_EN(0)         , (uint32_t)0x40, ALL_BITS  },
-  { (uint32_t)Tsi578_SPX_ERR_RATE(0)        , (uint32_t)0x40, (uint32_t)~Tsi578_SPX_ERR_RATE_ERR_RATE_CNT  },
-  { (uint32_t)Tsi578_SPX_ERR_THRESH(0)      , (uint32_t)0x40, ALL_BITS  },
-  { (uint32_t)Tsi578_SPX_DISCOVERY_TIMER(0) , (uint32_t)0x100, ALL_BITS },
-  { (uint32_t)Tsi578_SPX_MODE(0)            , (uint32_t)0x100, ALL_BITS },
-  { (uint32_t)Tsi578_SPX_RIO_WM(0)          , (uint32_t)0x100, ALL_BITS },
-  { (uint32_t)Tsi578_SPX_ROUTE_CFG_DESTID(0), (uint32_t)0x100, ALL_BITS },
-  { (uint32_t)Tsi578_SPX_ROUTE_BASE(0)      , (uint32_t)0x100, ALL_BITS },
-  { (uint32_t)Tsi578_SPX_CTL_INDEP(0)       , (uint32_t)0x100, ALL_BITS },
-  { (uint32_t)Tsi578_SPX_SILENCE_TIMER(0)   , (uint32_t)0x100, ALL_BITS },
-  { (uint32_t)Tsi578_RIOX_MC_LAT_LIMIT(0)   , (uint32_t)0x100, ALL_BITS },
-  { (uint32_t)Tsi578_SPX_PSC0n1_CTRL(0)     , (uint32_t)0x100, ALL_BITS },
-  { (uint32_t)Tsi578_SPX_PSC2n3_CTRL(0)     , (uint32_t)0x100, ALL_BITS },
-  { (uint32_t)Tsi578_SPX_PSC4n5_CTRL(0)     , (uint32_t)0x100, ALL_BITS },
-  { (uint32_t)Tsi578_SPX_TX_Q_D_THRESH(0)   , (uint32_t)0x100, ALL_BITS },
-  { (uint32_t)Tsi578_SPX_TX_Q_STATUS(0)   , (uint32_t)0x100, (uint32_t)Tsi578_SPX_TX_Q_STATUS_CONG_THRESH }, //  MASK
-  { (uint32_t)Tsi578_SPX_TX_Q_PERIOD(0)     , (uint32_t)0x100, ALL_BITS },
-  { (uint32_t)Tsi578_SPX_RX_Q_D_THRESH(0)   , (uint32_t)0x100, ALL_BITS },
-  { (uint32_t)Tsi578_SPX_RX_Q_STATUS(0)   , (uint32_t)0x100, (uint32_t)Tsi578_SPX_RX_Q_STATUS_CONG_THRESH }, //  MASK
-  { (uint32_t)Tsi578_SPX_RX_Q_PERIOD(0)     , (uint32_t)0x100, ALL_BITS },
-  { (uint32_t)Tsi578_SPX_REORDER_CTR(0)     , (uint32_t)0x100, (uint32_t)Tsi578_SPX_REORDER_CTR_THRESH  }, //  MASK
-  { (uint32_t)Tsi578_SPX_ISF_WM(0)          , (uint32_t)0x100, ALL_BITS },
-  { (uint32_t)Tsi578_SPX_WRR_0(0)           , (uint32_t)0x100, ALL_BITS },
-  { (uint32_t)Tsi578_SPX_WRR_1(0)           , (uint32_t)0x100, ALL_BITS },
-  { (uint32_t)Tsi578_SPX_WRR_2(0)           , (uint32_t)0x100, ALL_BITS },
-  { (uint32_t)Tsi578_SPX_WRR_3(0)           , (uint32_t)0x100, ALL_BITS }
+  { (uint32_t)TSI578_SPX_CTL(0)             , (uint32_t)0x20, ALL_BITS  },
+  { (uint32_t)TSI578_SPX_RATE_EN(0)         , (uint32_t)0x40, ALL_BITS  },
+  { (uint32_t)TSI578_SPX_ERR_RATE(0)        , (uint32_t)0x40, (uint32_t)~TSI578_SPX_ERR_RATE_ERR_RATE_CNT  },
+  { (uint32_t)TSI578_SPX_ERR_THRESH(0)      , (uint32_t)0x40, ALL_BITS  },
+  { (uint32_t)TSI578_SPX_DISCOVERY_TIMER(0) , (uint32_t)0x100, ALL_BITS },
+  { (uint32_t)TSI578_SPX_MODE(0)            , (uint32_t)0x100, ALL_BITS },
+  { (uint32_t)TSI578_SPX_RIO_WM(0)          , (uint32_t)0x100, ALL_BITS },
+  { (uint32_t)TSI578_SPX_ROUTE_CFG_DESTID(0), (uint32_t)0x100, ALL_BITS },
+  { (uint32_t)TSI578_SPX_ROUTE_BASE(0)      , (uint32_t)0x100, ALL_BITS },
+  { (uint32_t)TSI578_SPX_CTL_INDEP(0)       , (uint32_t)0x100, ALL_BITS },
+  { (uint32_t)TSI578_SPX_SILENCE_TIMER(0)   , (uint32_t)0x100, ALL_BITS },
+  { (uint32_t)TSI578_RIOX_MC_LAT_LIMIT(0)   , (uint32_t)0x100, ALL_BITS },
+  { (uint32_t)TSI578_SPX_PSC0n1_CTRL(0)     , (uint32_t)0x100, ALL_BITS },
+  { (uint32_t)TSI578_SPX_PSC2n3_CTRL(0)     , (uint32_t)0x100, ALL_BITS },
+  { (uint32_t)TSI578_SPX_PSC4n5_CTRL(0)     , (uint32_t)0x100, ALL_BITS },
+  { (uint32_t)TSI578_SPX_TX_Q_D_THRESH(0)   , (uint32_t)0x100, ALL_BITS },
+  { (uint32_t)TSI578_SPX_TX_Q_STATUS(0)   , (uint32_t)0x100, (uint32_t)TSI578_SPX_TX_Q_STATUS_CONG_THRESH }, //  MASK
+  { (uint32_t)TSI578_SPX_TX_Q_PERIOD(0)     , (uint32_t)0x100, ALL_BITS },
+  { (uint32_t)TSI578_SPX_RX_Q_D_THRESH(0)   , (uint32_t)0x100, ALL_BITS },
+  { (uint32_t)TSI578_SPX_RX_Q_STATUS(0)   , (uint32_t)0x100, (uint32_t)TSI578_SPX_RX_Q_STATUS_CONG_THRESH }, //  MASK
+  { (uint32_t)TSI578_SPX_RX_Q_PERIOD(0)     , (uint32_t)0x100, ALL_BITS },
+  { (uint32_t)TSI578_SPX_REORDER_CTR(0)     , (uint32_t)0x100, (uint32_t)TSI578_SPX_REORDER_CTR_THRESH  }, //  MASK
+  { (uint32_t)TSI578_SPX_ISF_WM(0)          , (uint32_t)0x100, ALL_BITS },
+  { (uint32_t)TSI578_SPX_WRR_0(0)           , (uint32_t)0x100, ALL_BITS },
+  { (uint32_t)TSI578_SPX_WRR_1(0)           , (uint32_t)0x100, ALL_BITS },
+  { (uint32_t)TSI578_SPX_WRR_2(0)           , (uint32_t)0x100, ALL_BITS },
+  { (uint32_t)TSI578_SPX_WRR_3(0)           , (uint32_t)0x100, ALL_BITS }
 };
 
 #define PRESERVED_REGS_SIZE ((uint32_t)(sizeof(reg_offsets)/sizeof(reg_offsets[0])))
@@ -305,17 +305,17 @@ uint32_t tsi57x_init_sw_pmr(DAR_DEV_INFO_t *dev_info,
 {
 	uint32_t rc = RIO_SUCCESS;
 
-	switch ((dev_info->devID & Tsi578_RIO_DEV_IDENT_DEVI) >> 16) {
-	case Tsi578_RIO_DEVID_VAL:
+	switch ((dev_info->devID & TSI578_RIO_DEV_IDENT_DEVI) >> 16) {
+	case TSI578_RIO_DEVID_VAL:
 		*sw_pmr = tsi578_pmr;
 		break;
-	case Tsi574_RIO_DEVID_VAL:
+	case TSI574_RIO_DEVID_VAL:
 		*sw_pmr = tsi574_pmr;
 		break;
-	case Tsi572_RIO_DEVID_VAL:
+	case TSI572_RIO_DEVID_VAL:
 		*sw_pmr = tsi572_pmr;
 		break;
-	case Tsi577_RIO_DEVID_VAL:
+	case TSI577_RIO_DEVID_VAL:
 		*sw_pmr = tsi577_pmr;
 		break;
 	default:
@@ -340,7 +340,7 @@ static uint32_t tsi57x_set_lrto(DAR_DEV_INFO_t *dev_info,
 		lrto = 1;
 	}
 
-	return DARRegWrite(dev_info, Tsi578_RIO_SW_LT_CTL, lrto << 8);
+	return DARRegWrite(dev_info, TSI578_RIO_SW_LT_CTL, lrto << 8);
 }
 
 static uint32_t tsi57x_get_lrto(DAR_DEV_INFO_t *dev_info,
@@ -349,7 +349,7 @@ static uint32_t tsi57x_get_lrto(DAR_DEV_INFO_t *dev_info,
 	uint32_t rc;
 	uint32_t lrto;
 
-	rc = DARRegRead(dev_info, Tsi578_RIO_SW_LT_CTL, &lrto);
+	rc = DARRegRead(dev_info, TSI578_RIO_SW_LT_CTL, &lrto);
 	if (RIO_SUCCESS != rc) {
 		return rc;
 	}
@@ -416,8 +416,8 @@ static uint32_t tsi57x_compute_port_config_changes(DAR_DEV_INFO_t *dev_info,
 	}
 
 	// Get DLOOP values
-	for (mac = 0; mac < Tsi578_MAX_MAC; mac++) {
-		rc = DARRegRead(dev_info, Tsi578_SMACX_DLOOP_CLK_SEL(mac * 2),
+	for (mac = 0; mac < TSI578_MAX_MAC; mac++) {
+		rc = DARRegRead(dev_info, TSI578_SMACX_DLOOP_CLK_SEL(mac * 2),
 				&chg->dloopCtl[mac]);
 
 		if (RIO_SUCCESS != rc) {
@@ -430,7 +430,7 @@ static uint32_t tsi57x_compute_port_config_changes(DAR_DEV_INFO_t *dev_info,
 
 	// Get SPXCTL values
 	for (pnum = 0; pnum < TSI57X_NUM_PORTS(dev_info); pnum++) {
-		rc = DARRegRead(dev_info, Tsi578_SPX_CTL(pnum),
+		rc = DARRegRead(dev_info, TSI578_SPX_CTL(pnum),
 				&chg->spxCtl[pnum]);
 		if (RIO_SUCCESS != rc) {
 			out_parms->imp_rc = rc;
@@ -479,10 +479,10 @@ static uint32_t tsi57x_compute_port_config_changes(DAR_DEV_INFO_t *dev_info,
 					if (rio_pc_pw_1x
 							== in_parms_sorted[pnum].pw) {
 						chg->dloopCtl[mac] |=
-								Tsi578_SMACX_DLOOP_CLK_SEL_MAC_MODE;
+								TSI578_SMACX_DLOOP_CLK_SEL_MAC_MODE;
 					} else {
 						chg->dloopCtl[mac] &=
-								~Tsi578_SMACX_DLOOP_CLK_SEL_MAC_MODE;
+								~TSI578_SMACX_DLOOP_CLK_SEL_MAC_MODE;
 					}
 
 					if (rio_pc_pw_4x
@@ -490,37 +490,37 @@ static uint32_t tsi57x_compute_port_config_changes(DAR_DEV_INFO_t *dev_info,
 						// Clear any overrides in the SPx_CTL register
 						chg->spxCtl[pnum] =
 								(chg->spxCtl[pnum]
-										& ~Tsi578_SPX_CTL_OVER_PWIDTH)
+										& ~TSI578_SPX_CTL_OVER_PWIDTH)
 										| RIO_SPX_CTL_PTW_OVER_NONE;
 
 						// Apply the requested RX and TX swap values
 						if (in_parms_sorted[pnum].tx_lswap) {
 							chg->dloopCtl[mac] |=
-									Tsi578_SMACX_DLOOP_CLK_SEL_SWAP_TX;
+									TSI578_SMACX_DLOOP_CLK_SEL_SWAP_TX;
 						} else {
 							chg->dloopCtl[mac] &=
-									~Tsi578_SMACX_DLOOP_CLK_SEL_SWAP_TX;
+									~TSI578_SMACX_DLOOP_CLK_SEL_SWAP_TX;
 						}
 
 						if (in_parms_sorted[pnum].rx_lswap) {
 							chg->dloopCtl[mac] |=
-									Tsi578_SMACX_DLOOP_CLK_SEL_SWAP_RX;
+									TSI578_SMACX_DLOOP_CLK_SEL_SWAP_RX;
 						} else {
 							chg->dloopCtl[mac] &=
-									~Tsi578_SMACX_DLOOP_CLK_SEL_SWAP_RX;
+									~TSI578_SMACX_DLOOP_CLK_SEL_SWAP_RX;
 						}
 					} else {
 						// Lane swapping is not supported in any 1x mode.
 						chg->dloopCtl[mac] &=
-								~(Tsi578_SMACX_DLOOP_CLK_SEL_SWAP_RX
-										| Tsi578_SMACX_DLOOP_CLK_SEL_SWAP_TX);
+								~(TSI578_SMACX_DLOOP_CLK_SEL_SWAP_RX
+										| TSI578_SMACX_DLOOP_CLK_SEL_SWAP_TX);
 
 						if (rio_pc_pw_1x
 								== in_parms_sorted[pnum].pw) {
 							// Clear any overrides in the SPx_CTL register
 							chg->spxCtl[pnum] =
 									(chg->spxCtl[pnum]
-											& ~Tsi578_SPX_CTL_OVER_PWIDTH)
+											& ~TSI578_SPX_CTL_OVER_PWIDTH)
 											| RIO_SPX_CTL_PTW_OVER_NONE;
 						} else {
 							// Need to set overrides in the port width control register.
@@ -528,12 +528,12 @@ static uint32_t tsi57x_compute_port_config_changes(DAR_DEV_INFO_t *dev_info,
 									== in_parms_sorted[pnum].pw) {
 								chg->spxCtl[pnum] =
 										(chg->spxCtl[pnum]
-												& ~Tsi578_SPX_CTL_OVER_PWIDTH)
+												& ~TSI578_SPX_CTL_OVER_PWIDTH)
 												| RIO_SPX_CTL_PTW_OVER_1x_L0;
 							} else {
 								chg->spxCtl[pnum] =
 										(chg->spxCtl[pnum]
-												& ~Tsi578_SPX_CTL_OVER_PWIDTH)
+												& ~TSI578_SPX_CTL_OVER_PWIDTH)
 												| RIO_SPX_CTL_PTW_OVER_1x_LR;
 							}
 						}
@@ -542,32 +542,32 @@ static uint32_t tsi57x_compute_port_config_changes(DAR_DEV_INFO_t *dev_info,
 					// Set link speed
 					chg->dloopCtl[mac] =
 							(chg->dloopCtl[mac]
-									& ~(Tsi578_SMACX_DLOOP_CLK_SEL_CLK_SEL))
+									& ~(TSI578_SMACX_DLOOP_CLK_SEL_CLK_SEL))
 									| (uint32_t)(in_parms_sorted[pnum].ls);
 				} // Powered up
 			} // 4x port
 
 			// Change the SPX_CTL value
 			if (in_parms_sorted[pnum].xmitter_disable) {
-				chg->spxCtl[pnum] |= Tsi578_SPX_CTL_PORT_DIS;
+				chg->spxCtl[pnum] |= TSI578_SPX_CTL_PORT_DIS;
 			} else {
-				chg->spxCtl[pnum] &= ~Tsi578_SPX_CTL_PORT_DIS;
+				chg->spxCtl[pnum] &= ~TSI578_SPX_CTL_PORT_DIS;
 			}
 
 			if (in_parms_sorted[pnum].port_lockout) {
 				chg->spxCtl[pnum] |=
-						Tsi578_SPX_CTL_PORT_LOCKOUT;
+						TSI578_SPX_CTL_PORT_LOCKOUT;
 			} else {
 				chg->spxCtl[pnum] &=
-						~Tsi578_SPX_CTL_PORT_LOCKOUT;
+						~TSI578_SPX_CTL_PORT_LOCKOUT;
 			}
 
 			if (in_parms_sorted[pnum].nmtc_xfer_enable) {
-				chg->spxCtl[pnum] |= Tsi578_SPX_CTL_INPUT_EN
-						| Tsi578_SPX_CTL_OUTPUT_EN;
+				chg->spxCtl[pnum] |= TSI578_SPX_CTL_INPUT_EN
+						| TSI578_SPX_CTL_OUTPUT_EN;
 			} else {
-				chg->spxCtl[pnum] &= ~(Tsi578_SPX_CTL_INPUT_EN
-						| Tsi578_SPX_CTL_OUTPUT_EN);
+				chg->spxCtl[pnum] &= ~(TSI578_SPX_CTL_INPUT_EN
+						| TSI578_SPX_CTL_OUTPUT_EN);
 			}
 		}
 	}
@@ -583,7 +583,7 @@ static uint32_t tsi57x_compute_port_config_changes(DAR_DEV_INFO_t *dev_info,
 			continue;
 
 		if (rio_pc_pw_4x == in_parms_sorted[port_num].pw) {
-			for (lane_idx = 0; lane_idx < Tsi578_MAX_PORT_LANES;
+			for (lane_idx = 0; lane_idx < TSI578_MAX_PORT_LANES;
 					lane_idx++) {
 				tsi57x_computer_lane_reg(sw_pmr, chg, port_num,
 						lane_idx,
@@ -625,18 +625,18 @@ static uint32_t tsi57x_determine_ports_to_skip(DAR_DEV_INFO_t *dev_info,
 	// if we're running on the Tsi577, there are no
 	// dependencies between powering down one port
 	// and another.  Just return.
-	if (oob_reg_acc || (Tsi577_RIO_DEVID_VAL == DEV_CODE(dev_info))) {
+	if (oob_reg_acc || (TSI577_RIO_DEVID_VAL == DEV_CODE(dev_info))) {
 		return rc;
 	}
 
 	// Determine the connected port.
-	rc = DARRegRead(dev_info, Tsi578_RIO_SW_PORT, &sw_port);
+	rc = DARRegRead(dev_info, TSI578_RIO_SW_PORT, &sw_port);
 	if (RIO_SUCCESS != rc) {
 		*imp_rc = PC_DET_PORTS_2_SKIP(1);
 		goto exit;
 	}
 
-	conn_port = (uint8_t)(sw_port & Tsi578_RIO_SW_PORT_PORT_NUM);
+	conn_port = (uint8_t)(sw_port & TSI578_RIO_SW_PORT_PORT_NUM);
 
 	// Check status:  If conn_port is not PORT_OK, then
 	// it can't be in use to access this device.  Reset this port.
@@ -717,11 +717,11 @@ static uint32_t tsi57x_restore_regs_from_powerup(DAR_DEV_INFO_t *dev_info,
 
 	for (idx = 0; idx < MAX_DAR_SCRPAD_IDX; idx++) {
 		/* Multicast programming registers do not need to be restored. */
-		if ((scratchpad_const[idx].offset == Tsi578_RIO_MC_MASK_CFG)
+		if ((scratchpad_const[idx].offset == TSI578_RIO_MC_MASK_CFG)
 				|| (scratchpad_const[idx].offset
-						== Tsi578_RIO_MC_DESTID_CFG)
+						== TSI578_RIO_MC_DESTID_CFG)
 				|| (scratchpad_const[idx].offset
-						== Tsi578_RIO_MC_DESTID_ASSOC)) {
+						== TSI578_RIO_MC_DESTID_ASSOC)) {
 			continue;
 		}
 
@@ -760,7 +760,7 @@ static uint32_t tsi57x_update_lane_inversions(DAR_DEV_INFO_t *dev_info,
 	uint32_t rc = RIO_SUCCESS;
 	uint8_t mac_num = sw_pmr[port_num].mac_num, lane_idx;
 
-	for (lane_idx = 0; lane_idx < Tsi578_MAX_PORT_LANES; lane_idx++) {
+	for (lane_idx = 0; lane_idx < TSI578_MAX_PORT_LANES; lane_idx++) {
 		if (chg->laneRegsChanged[mac_num][lane_idx]) {
 			rc = DARRegWrite(dev_info,
 					TSI57X_HIDDEN_SERDES_REG(mac_num,
@@ -883,7 +883,7 @@ static uint32_t tsi57x_set_config_init_parms_check_conflict(
 	for (port_num = 0; port_num < TSI57X_NUM_PORTS(dev_info); port_num++) {
 		uint8_t mac = sw_pmr[port_num].mac_num;
 		chg->valid[port_num] = false;
-		for (lane_num = 0; lane_num < Tsi578_MAX_PORT_LANES;
+		for (lane_num = 0; lane_num < TSI578_MAX_PORT_LANES;
 				lane_num++) {
 			if (sw_pmr[port_num].lane_count_4x) {
 				rc = DARRegRead(dev_info,
@@ -977,7 +977,7 @@ static uint32_t tsi57x_set_config_init_parms_check_conflict(
 					if (!in_parms_sorted->pc[port_num].powered_up
 							&& in_parms_sorted->pc[pnum].port_available
 							&& in_parms_sorted->pc[pnum].powered_up
-							&& !(Tsi577_RIO_DEVID_VAL
+							&& !(TSI577_RIO_DEVID_VAL
 									== DEV_CODE(
 											dev_info))) {
 						rc = RIO_ERR_INVALID_PARAMETER;
@@ -1037,10 +1037,10 @@ static void tsi57x_rst_policy_vals(rio_pc_rst_handling rst_policy_in,
 	// - ignore
 	// Rst_pw and Rst_port both get translated to "ignore".
 	if (rio_pc_rst_device == rst_policy_in) {
-		*spx_mode_val = Tsi578_SPX_MODE_SELF_RST;
+		*spx_mode_val = TSI578_SPX_MODE_SELF_RST;
 	} else {
 		if (rio_pc_rst_int == rst_policy_in) {
-			*spx_mode_val = Tsi578_SPX_MODE_RCS_INT_EN;
+			*spx_mode_val = TSI578_SPX_MODE_RCS_INT_EN;
 		} else {
 			*rst_policy_out = rio_pc_rst_ignore;
 		}
@@ -1058,13 +1058,13 @@ static uint32_t tsi57x_update_reset_policy(DAR_DEV_INFO_t *dev_info, uint8_t pnu
 		goto exit;
 	}
 
-	rc = DARRegWrite(dev_info, Tsi578_SPX_MODE(pnum), spx_mode_val);
+	rc = DARRegWrite(dev_info, TSI578_SPX_MODE(pnum), spx_mode_val);
 	if (RIO_SUCCESS != rc) {
 		*imp_rc = UPDATE_RESET(2);
 		goto exit;
 	}
 
-	rc = DARRegRead(dev_info, Tsi578_SPX_CTL_INDEP(pnum), &ctl_indep);
+	rc = DARRegRead(dev_info, TSI578_SPX_CTL_INDEP(pnum), &ctl_indep);
 	if (RIO_SUCCESS != rc) {
 		*imp_rc = UPDATE_RESET(3);
 		goto exit;
@@ -1073,13 +1073,13 @@ static uint32_t tsi57x_update_reset_policy(DAR_DEV_INFO_t *dev_info, uint8_t pnu
 	// Make a "note" of whether or not reset interrupts should be
 	// enabled in SPx_CTL_INDEP[30], used by error management routines
 	// to know whether or not to enable/disable reset interrupts.
-	if (spx_mode_val & Tsi578_SPX_MODE_RCS_INT_EN) {
-		ctl_indep |= Tsi578_SPX_CTL_INDEP_RSVD1;
+	if (spx_mode_val & TSI578_SPX_MODE_RCS_INT_EN) {
+		ctl_indep |= TSI578_SPX_CTL_INDEP_RSVD1;
 	} else {
-		ctl_indep &= ~Tsi578_SPX_CTL_INDEP_RSVD1;
+		ctl_indep &= ~TSI578_SPX_CTL_INDEP_RSVD1;
 	}
 
-	rc = DARRegWrite(dev_info, Tsi578_SPX_CTL_INDEP(pnum), ctl_indep);
+	rc = DARRegWrite(dev_info, TSI578_SPX_CTL_INDEP(pnum), ctl_indep);
 	if (RIO_SUCCESS != rc) {
 		*imp_rc = UPDATE_RESET(4);
 		goto exit;
@@ -1100,7 +1100,7 @@ static uint32_t tsi57x_reset_lp(DAR_DEV_INFO_t *dev_info, uint8_t port_num,
 		goto exit;
 	}
 
-	rc = DARRegWrite(dev_info, Tsi578_SPX_LM_REQ(port_num), lr_cmd);
+	rc = DARRegWrite(dev_info, TSI578_SPX_LM_REQ(port_num), lr_cmd);
 	if (RIO_SUCCESS != rc) {
 		*imp_rc = TSI57X_LP(0x20 + port_num);
 		goto exit;
@@ -1160,7 +1160,7 @@ uint32_t tsi57x_rio_pc_get_config(DAR_DEV_INFO_t *dev_info,
 		out_parms->pc[port_idx].port_lockout = false;
 		out_parms->pc[port_idx].rx_lswap = false;
 		out_parms->pc[port_idx].tx_lswap = false;
-		for (lane_num = 0; lane_num < Tsi578_MAX_PORT_LANES;
+		for (lane_num = 0; lane_num < TSI578_MAX_PORT_LANES;
 				lane_num++) {
 			out_parms->pc[port_idx].tx_linvert[lane_num] = false;
 			out_parms->pc[port_idx].rx_linvert[lane_num] = false;
@@ -1170,7 +1170,7 @@ uint32_t tsi57x_rio_pc_get_config(DAR_DEV_INFO_t *dev_info,
 		 to be a 4x port.
 		 */
 		rc = DARRegRead(dev_info,
-				Tsi578_SMACX_DLOOP_CLK_SEL(
+				TSI578_SMACX_DLOOP_CLK_SEL(
 						sw_pmr[port_num].mac_num * 2),
 				&dloopRegVal);
 		if (RIO_SUCCESS != rc) {
@@ -1181,7 +1181,7 @@ uint32_t tsi57x_rio_pc_get_config(DAR_DEV_INFO_t *dev_info,
 		first_lane = sw_pmr[port_num].first_mac_lane;
 
 		/* Deal with 1x port configuration. */
-		if (dloopRegVal & Tsi578_SMACX_DLOOP_CLK_SEL_MAC_MODE) {
+		if (dloopRegVal & TSI578_SMACX_DLOOP_CLK_SEL_MAC_MODE) {
 			num_lanes = sw_pmr[port_num].lane_count_1x;
 		} else {
 			num_lanes = sw_pmr[port_num].lane_count_4x;
@@ -1200,18 +1200,18 @@ uint32_t tsi57x_rio_pc_get_config(DAR_DEV_INFO_t *dev_info,
 			if (4 == sw_pmr[port_num].lane_count_4x) {
 				out_parms->pc[port_idx].rx_lswap =
 						(dloopRegVal
-								& Tsi578_SMACX_DLOOP_CLK_SEL_SWAP_RX) ?
+								& TSI578_SMACX_DLOOP_CLK_SEL_SWAP_RX) ?
 								true : false;
 				out_parms->pc[port_idx].tx_lswap =
 						(dloopRegVal
-								& Tsi578_SMACX_DLOOP_CLK_SEL_SWAP_TX) ?
+								& TSI578_SMACX_DLOOP_CLK_SEL_SWAP_TX) ?
 								true : false;
 			}
 			break;
 		case 4:
 			out_parms->pc[port_idx].port_available = true;
 			// Check for port width overrides...
-			rc = DARRegRead(dev_info, Tsi578_SPX_CTL(port_num),
+			rc = DARRegRead(dev_info, TSI578_SPX_CTL(port_num),
 					&spxCtl);
 			if (RIO_SUCCESS != rc) {
 				out_parms->imp_rc = PC_GET_CONFIG(5);
@@ -1232,11 +1232,11 @@ uint32_t tsi57x_rio_pc_get_config(DAR_DEV_INFO_t *dev_info,
 			}
 			out_parms->pc[port_idx].rx_lswap =
 					(dloopRegVal
-							& Tsi578_SMACX_DLOOP_CLK_SEL_SWAP_RX) ?
+							& TSI578_SMACX_DLOOP_CLK_SEL_SWAP_RX) ?
 							true : false;
 			out_parms->pc[port_idx].tx_lswap =
 					(dloopRegVal
-							& Tsi578_SMACX_DLOOP_CLK_SEL_SWAP_TX) ?
+							& TSI578_SMACX_DLOOP_CLK_SEL_SWAP_TX) ?
 							true : false;
 			break;
 		default:
@@ -1245,7 +1245,7 @@ uint32_t tsi57x_rio_pc_get_config(DAR_DEV_INFO_t *dev_info,
 			goto exit;
 		}
 
-		switch (dloopRegVal & Tsi578_SMACX_DLOOP_CLK_SEL_CLK_SEL) {
+		switch (dloopRegVal & TSI578_SMACX_DLOOP_CLK_SEL_CLK_SEL) {
 		case 0:
 			out_parms->pc[port_idx].ls = rio_pc_ls_1p25;
 			break;
@@ -1260,7 +1260,7 @@ uint32_t tsi57x_rio_pc_get_config(DAR_DEV_INFO_t *dev_info,
 		if (sw_pmr[port_num].mac_num != sw_pmr[port_num].pwr_mac_num) {
 			rc =
 					DARRegRead(dev_info,
-							Tsi578_SMACX_DLOOP_CLK_SEL(
+							TSI578_SMACX_DLOOP_CLK_SEL(
 									sw_pmr[port_num].pwr_mac_num
 											* 2),
 							&dloopRegVal);
@@ -1275,7 +1275,7 @@ uint32_t tsi57x_rio_pc_get_config(DAR_DEV_INFO_t *dev_info,
 						false : true;
 
 		if (out_parms->pc[port_idx].powered_up) {
-			rc = DARRegRead(dev_info, Tsi578_SPX_CTL(port_num),
+			rc = DARRegRead(dev_info, TSI578_SPX_CTL(port_num),
 					&spxCtl);
 			if (RIO_SUCCESS != rc) {
 				out_parms->imp_rc = PC_GET_CONFIG(8);
@@ -1283,15 +1283,15 @@ uint32_t tsi57x_rio_pc_get_config(DAR_DEV_INFO_t *dev_info,
 			}
 
 			out_parms->pc[port_idx].xmitter_disable =
-					(spxCtl & Tsi578_SPX_CTL_PORT_DIS) ?
+					(spxCtl & TSI578_SPX_CTL_PORT_DIS) ?
 							true : false;
 			out_parms->pc[port_idx].port_lockout =
-					(spxCtl & Tsi578_SPX_CTL_PORT_LOCKOUT) ?
+					(spxCtl & TSI578_SPX_CTL_PORT_LOCKOUT) ?
 							true : false;
 			out_parms->pc[port_idx].nmtc_xfer_enable =
-					((spxCtl & Tsi578_SPX_CTL_INPUT_EN)
+					((spxCtl & TSI578_SPX_CTL_INPUT_EN)
 							&& (spxCtl
-									& Tsi578_SPX_CTL_OUTPUT_EN)) ?
+									& TSI578_SPX_CTL_OUTPUT_EN)) ?
 							true : false;
 
 			for (lane_num = first_lane;
@@ -1402,19 +1402,19 @@ uint32_t tsi57x_rio_pc_set_config(DAR_DEV_INFO_t *dev_info,
 			uint32_t reg_val = chg.dloopCtlOrig[mac];
 
 			if (((chg.dloopCtlOrig[mac] ^ chg.dloopCtl[mac])
-					& ~Tsi578_SMACX_DLOOP_CLK_SEL_PWDN_X1)
+					& ~TSI578_SMACX_DLOOP_CLK_SEL_PWDN_X1)
 					|| lanes_changed) {
 				powerdown_mask =
-						Tsi578_SMACX_DLOOP_CLK_SEL_PWDN_X4
+						TSI578_SMACX_DLOOP_CLK_SEL_PWDN_X4
 								|
-								Tsi578_SMACX_DLOOP_CLK_SEL_PWDN_X1;
+								TSI578_SMACX_DLOOP_CLK_SEL_PWDN_X1;
 
 			} else {
 				powerdown_mask =
-						Tsi578_SMACX_DLOOP_CLK_SEL_PWDN_X1;
+						TSI578_SMACX_DLOOP_CLK_SEL_PWDN_X1;
 			}
 			if (!(chg.dloopCtlOrig[mac]
-					& Tsi578_SMACX_DLOOP_CLK_SEL_PWDN_X4)) {
+					& TSI578_SMACX_DLOOP_CLK_SEL_PWDN_X4)) {
 				restore_all_4x = true;
 				rc = tsi57x_preserve_regs_for_powerup(dev_info,
 						port_num, &even_port_regs,
@@ -1426,7 +1426,7 @@ uint32_t tsi57x_rio_pc_set_config(DAR_DEV_INFO_t *dev_info,
 			}
 
 			if (!(chg.dloopCtlOrig[mac]
-					& Tsi578_SMACX_DLOOP_CLK_SEL_PWDN_X1)) {
+					& TSI578_SMACX_DLOOP_CLK_SEL_PWDN_X1)) {
 				restore_all_1x = true;
 				rc = tsi57x_preserve_regs_for_powerup(dev_info,
 						port_num + 1, &odd_port_regs,
@@ -1444,7 +1444,7 @@ uint32_t tsi57x_rio_pc_set_config(DAR_DEV_INFO_t *dev_info,
 			 then change the values, then power the ports up.
 			 */
 			rc = DARRegWrite(dev_info,
-					Tsi578_SMACX_DLOOP_CLK_SEL(port_num),
+					TSI578_SMACX_DLOOP_CLK_SEL(port_num),
 					reg_val);
 			if (RIO_SUCCESS != rc) {
 				out_parms->imp_rc = PC_SET_CONFIG(0x46);
@@ -1454,7 +1454,7 @@ uint32_t tsi57x_rio_pc_set_config(DAR_DEV_INFO_t *dev_info,
 			reg_val = chg.dloopCtl[mac] | powerdown_mask;
 
 			rc = DARRegWrite(dev_info,
-					Tsi578_SMACX_DLOOP_CLK_SEL(port_num),
+					TSI578_SMACX_DLOOP_CLK_SEL(port_num),
 					reg_val);
 			if (RIO_SUCCESS != rc) {
 				out_parms->imp_rc = PC_SET_CONFIG(0x47);
@@ -1462,7 +1462,7 @@ uint32_t tsi57x_rio_pc_set_config(DAR_DEV_INFO_t *dev_info,
 			}
 
 			rc = DARRegWrite(dev_info,
-					Tsi578_SMACX_DLOOP_CLK_SEL(port_num),
+					TSI578_SMACX_DLOOP_CLK_SEL(port_num),
 					chg.dloopCtl[mac]);
 			if (RIO_SUCCESS != rc) {
 				out_parms->imp_rc = PC_SET_CONFIG(0x49);
@@ -1471,7 +1471,7 @@ uint32_t tsi57x_rio_pc_set_config(DAR_DEV_INFO_t *dev_info,
 
 			// Only restore registers if the port was and is powered up...
 			if (!(chg.dloopCtl[mac]
-					& Tsi578_SMACX_DLOOP_CLK_SEL_PWDN_X4)) {
+					& TSI578_SMACX_DLOOP_CLK_SEL_PWDN_X4)) {
 				rc = tsi57x_restore_regs_from_powerup(dev_info,
 						port_num, &even_port_regs,
 						restore_all_4x);
@@ -1490,7 +1490,7 @@ uint32_t tsi57x_rio_pc_set_config(DAR_DEV_INFO_t *dev_info,
 			}
 
 			if (!(chg.dloopCtl[mac]
-					& Tsi578_SMACX_DLOOP_CLK_SEL_PWDN_X1)) {
+					& TSI578_SMACX_DLOOP_CLK_SEL_PWDN_X1)) {
 				rc = tsi57x_restore_regs_from_powerup(dev_info,
 						port_num + 1, &odd_port_regs,
 						restore_all_1x);
@@ -1507,7 +1507,7 @@ uint32_t tsi57x_rio_pc_set_config(DAR_DEV_INFO_t *dev_info,
 			if (chg.valid[pnum]
 					&& (chg.spxCtl[pnum]
 							!= chg.spxCtlOrig[pnum])) {
-				rc = DARRegWrite(dev_info, Tsi578_SPX_CTL(pnum),
+				rc = DARRegWrite(dev_info, TSI578_SPX_CTL(pnum),
 						chg.spxCtl[pnum]);
 				if (RIO_SUCCESS != rc) {
 					out_parms->imp_rc = PC_SET_CONFIG(0x4C);
@@ -1581,7 +1581,7 @@ uint32_t tsi57x_rio_pc_get_status(DAR_DEV_INFO_t *dev_info,
 		port_num = out_parms->ps[port_idx].pnum;
 
 		rc = DARRegRead(dev_info,
-				Tsi578_SMACX_DLOOP_CLK_SEL(
+				TSI578_SMACX_DLOOP_CLK_SEL(
 						sw_pmr[port_num].mac_num * 2),
 				&dloop);
 		if (RIO_SUCCESS != rc) {
@@ -1592,7 +1592,7 @@ uint32_t tsi57x_rio_pc_get_status(DAR_DEV_INFO_t *dev_info,
 		out_parms->ps[port_idx].first_lane =
 				sw_pmr[port_num].first_mac_lane;
 		out_parms->ps[port_idx].num_lanes = (uint8_t)(
-				(dloop & Tsi578_SMACX_DLOOP_CLK_SEL_MAC_MODE) ?
+				(dloop & TSI578_SMACX_DLOOP_CLK_SEL_MAC_MODE) ?
 						sw_pmr[port_num].lane_count_1x :
 						sw_pmr[port_num].lane_count_4x);
 
@@ -1602,7 +1602,7 @@ uint32_t tsi57x_rio_pc_get_status(DAR_DEV_INFO_t *dev_info,
 					!= sw_pmr[port_num].pwr_mac_num) {
 				rc =
 						DARRegRead(dev_info,
-								Tsi578_SMACX_DLOOP_CLK_SEL(
+								TSI578_SMACX_DLOOP_CLK_SEL(
 										sw_pmr[port_num].pwr_mac_num
 												* 2),
 								&dloop);
@@ -1627,33 +1627,33 @@ uint32_t tsi57x_rio_pc_get_status(DAR_DEV_INFO_t *dev_info,
 		}
 
 		// Port is available and powered up, so let's figure out the status...
-		rc = DARRegRead(dev_info, Tsi578_SPX_ERR_STATUS(port_num),
+		rc = DARRegRead(dev_info, TSI578_SPX_ERR_STATUS(port_num),
 				&err_n_stat);
 		if (RIO_SUCCESS != rc) {
 			out_parms->imp_rc = PC_GET_STATUS(0x30+port_idx);
 			goto exit;
 		}
 
-		rc = DARRegRead(dev_info, Tsi578_SPX_CTL(port_num), &spx_ctl);
+		rc = DARRegRead(dev_info, TSI578_SPX_CTL(port_num), &spx_ctl);
 		if (RIO_SUCCESS != rc) {
 			out_parms->imp_rc = PC_GET_STATUS(0x40+port_idx);
 			goto exit;
 		}
 
 		out_parms->ps[port_idx].port_ok =
-				(err_n_stat & Tsi578_SPX_ERR_STATUS_PORT_OK) ?
+				(err_n_stat & TSI578_SPX_ERR_STATUS_PORT_OK) ?
 						true : false;
 		out_parms->ps[port_idx].input_stopped =
 				(err_n_stat
-						& Tsi578_SPX_ERR_STATUS_INPUT_ERR_STOP) ?
+						& TSI578_SPX_ERR_STATUS_INPUT_ERR_STOP) ?
 						true : false;
 		out_parms->ps[port_idx].output_stopped =
 				(err_n_stat
-						& Tsi578_SPX_ERR_STATUS_OUTPUT_ERR_STOP) ?
+						& TSI578_SPX_ERR_STATUS_OUTPUT_ERR_STOP) ?
 						true : false;
 
 		if (out_parms->ps[port_idx].port_ok) {
-			switch (spx_ctl & Tsi578_SPX_CTL_INIT_PWIDTH) {
+			switch (spx_ctl & TSI578_SPX_CTL_INIT_PWIDTH) {
 			case RIO_SPX_CTL_PTW_INIT_1x_L0:
 				if (1 == out_parms->ps[port_idx].num_lanes) {
 					out_parms->ps[port_idx].pw =
@@ -1677,11 +1677,11 @@ uint32_t tsi57x_rio_pc_get_status(DAR_DEV_INFO_t *dev_info,
 		// Port Error is true if a PORT_ERR is present, OR
 		// if a OUTPUT_FAIL is present when STOP_FAIL_EN is set.
 		out_parms->ps[port_idx].port_error =
-				((err_n_stat & Tsi578_SPX_ERR_STATUS_PORT_ERR)
+				((err_n_stat & TSI578_SPX_ERR_STATUS_PORT_ERR)
 						| ((spx_ctl
-								& Tsi578_SPX_CTL_STOP_FAIL_EN)
+								& TSI578_SPX_CTL_STOP_FAIL_EN)
 								&& (err_n_stat
-										& Tsi578_SPX_ERR_STATUS_OUTPUT_FAIL))) ?
+										& TSI578_SPX_ERR_STATUS_OUTPUT_FAIL))) ?
 						true : false;
 	}
 
@@ -1731,7 +1731,7 @@ uint32_t tsi57x_rio_pc_reset_port(DAR_DEV_INFO_t *dev_info,
 		cfg_in.ptl.num_ports = 1;
 		cfg_in.ptl.pnums[0] = in_parms->port_num;
 		if (sw_pmr[in_parms->port_num].lane_count_4x
-				&& !(Tsi577_RIO_DEVID_VAL == DEV_CODE(dev_info))) {
+				&& !(TSI577_RIO_DEVID_VAL == DEV_CODE(dev_info))) {
 			cfg_in.ptl.num_ports = 2;
 			cfg_in.ptl.pnums[1] =
 					sw_pmr[in_parms->port_num].other_mac_ports[0];
@@ -1769,7 +1769,7 @@ uint32_t tsi57x_rio_pc_reset_port(DAR_DEV_INFO_t *dev_info,
 			// current configuration to see if the odd MAC port is powered up and active.
 			// If it is, then we're resetting 2 ports at a time, so save the state.
 			if (sw_pmr[port_num].lane_count_4x
-					&& !(Tsi577_RIO_DEVID_VAL
+					&& !(TSI577_RIO_DEVID_VAL
 							== DEV_CODE(dev_info))) {
 				dep_port_num = port_num + 1;
 				found = false;
@@ -1823,7 +1823,7 @@ uint32_t tsi57x_rio_pc_reset_port(DAR_DEV_INFO_t *dev_info,
 		 * Blow away the configuration by power cycling the port.
 		 */
 		rc = DARRegRead(dev_info,
-				Tsi578_SMACX_DLOOP_CLK_SEL(
+				TSI578_SMACX_DLOOP_CLK_SEL(
 						sw_pmr[port_num].pwr_mac_num
 								* 2), &dloop);
 		if (RIO_SUCCESS != rc) {
@@ -1834,7 +1834,7 @@ uint32_t tsi57x_rio_pc_reset_port(DAR_DEV_INFO_t *dev_info,
 		pwrdwn = dloop | sw_pmr[port_num].pwr_down_mask;
 
 		rc = DARRegWrite(dev_info,
-				Tsi578_SMACX_DLOOP_CLK_SEL(
+				TSI578_SMACX_DLOOP_CLK_SEL(
 						sw_pmr[port_num].pwr_mac_num
 								* 2), pwrdwn);
 		if (RIO_SUCCESS != rc) {
@@ -1843,7 +1843,7 @@ uint32_t tsi57x_rio_pc_reset_port(DAR_DEV_INFO_t *dev_info,
 		}
 
 		rc = DARRegWrite(dev_info,
-				Tsi578_SMACX_DLOOP_CLK_SEL(
+				TSI578_SMACX_DLOOP_CLK_SEL(
 						sw_pmr[port_num].pwr_mac_num
 								* 2), dloop);
 		if (RIO_SUCCESS != rc) {
@@ -1892,8 +1892,8 @@ uint32_t tsi57x_rio_pc_reset_link_partner(DAR_DEV_INFO_t *dev_info,
 
 	if (in_parms->resync_ackids) {
 		rc = DARRegWrite(dev_info,
-				Tsi578_SPX_ACKID_STAT(in_parms->port_num),
-				Tsi578_SPX_ACKID_STAT_CLR_PKTS);
+				TSI578_SPX_ACKID_STAT(in_parms->port_num),
+				TSI578_SPX_ACKID_STAT_CLR_PKTS);
 		if (RIO_SUCCESS != rc)
 			out_parms->imp_rc = PC_RESET_LP(2);
 	}
@@ -1928,7 +1928,7 @@ uint32_t tsi57x_rio_pc_clr_errs(DAR_DEV_INFO_t *dev_info,
 
 	if (in_parms->clr_lp_port_err) {
 		if (!in_parms->num_lp_ports
-				|| (in_parms->num_lp_ports > Tsi578_MAX_PORTS)
+				|| (in_parms->num_lp_ports > TSI578_MAX_PORTS)
 				|| (NULL == in_parms->lp_dev_info)) {
 			out_parms->imp_rc = PC_CLR_ERRS(2);
 			goto exit;
@@ -1975,9 +1975,9 @@ uint32_t tsi57x_rio_pc_clr_errs(DAR_DEV_INFO_t *dev_info,
 	cs_reg_val = ((uint32_t)(magic_cs_bytes.cs_bytes[1]) << 24)
 			|| ((uint32_t)(magic_cs_bytes.cs_bytes[2]) << 16)
 			|| (((uint32_t)(magic_cs_bytes.cs_bytes[3]) << 8)
-					& Tsi578_SPX_CS_TX_CMD);
+					& TSI578_SPX_CS_TX_CMD);
 
-	rc = DARRegWrite(dev_info, Tsi578_SPX_CS_TX(in_parms->port_num),
+	rc = DARRegWrite(dev_info, TSI578_SPX_CS_TX(in_parms->port_num),
 			cs_reg_val);
 	if (RIO_SUCCESS != rc) {
 		out_parms->imp_rc = PC_CLR_ERRS(0x10);
@@ -1993,7 +1993,7 @@ uint32_t tsi57x_rio_pc_clr_errs(DAR_DEV_INFO_t *dev_info,
 	// Prepare to clear any port-err conditions that may exist on this port.
 	//     Send link-request/input-status to learn what link partners
 	//     next expected ackID is.
-	rc = DARRegWrite(dev_info, Tsi578_SPX_LM_REQ(in_parms->port_num),
+	rc = DARRegWrite(dev_info, TSI578_SPX_LM_REQ(in_parms->port_num),
 			lr_cmd);
 	if (RIO_SUCCESS != rc) {
 		out_parms->imp_rc = PC_CLR_ERRS(0x11);
@@ -2003,17 +2003,17 @@ uint32_t tsi57x_rio_pc_clr_errs(DAR_DEV_INFO_t *dev_info,
 	// Poll until we get a response.  Fail if no response is received.
 
 	dlay = 10;
-	while (!(lresp & Tsi578_SPX_LM_RESP_RESP_VLD) && dlay) {
+	while (!(lresp & TSI578_SPX_LM_RESP_RESP_VLD) && dlay) {
 		dlay--;
 		rc = DARRegRead(dev_info,
-				Tsi578_SPX_LM_RESP(in_parms->port_num), &lresp);
+				TSI578_SPX_LM_RESP(in_parms->port_num), &lresp);
 		if (RIO_SUCCESS != rc) {
 			out_parms->imp_rc = PC_CLR_ERRS(0x12);
 			goto exit;
 		}
 	}
 
-	if (!(lresp & Tsi578_SPX_LM_RESP_RESP_VLD)) {
+	if (!(lresp & TSI578_SPX_LM_RESP_RESP_VLD)) {
 		rc = RIO_ERR_NOT_EXPECTED_RETURN_VALUE;
 		out_parms->imp_rc = PC_CLR_ERRS(0x13);
 		goto exit;
@@ -2023,18 +2023,18 @@ uint32_t tsi57x_rio_pc_clr_errs(DAR_DEV_INFO_t *dev_info,
 	// The act of updating our local ackID status will clear a local
 	// port-err condition.
 
-	rc = DARRegRead(dev_info, Tsi578_SPX_ACKID_STAT(in_parms->port_num),
+	rc = DARRegRead(dev_info, TSI578_SPX_ACKID_STAT(in_parms->port_num),
 			&ackid_stat);
 	if (RIO_SUCCESS != rc) {
 		out_parms->imp_rc = PC_CLR_ERRS(0x14);
 		goto exit;
 	}
 
-	lresp = (lresp & Tsi578_SPX_LM_RESP_ACK_ID_STAT) >> 5;
-	ackid_stat = ackid_stat & Tsi578_SPX_ACKID_STAT_INBOUND;
+	lresp = (lresp & TSI578_SPX_LM_RESP_ACK_ID_STAT) >> 5;
+	ackid_stat = ackid_stat & TSI578_SPX_ACKID_STAT_INBOUND;
 	ackid_stat = ackid_stat | lresp | (lresp << 8);
 
-	rc = DARRegWrite(dev_info, Tsi578_SPX_ACKID_STAT(in_parms->port_num),
+	rc = DARRegWrite(dev_info, TSI578_SPX_ACKID_STAT(in_parms->port_num),
 			ackid_stat);
 	if (RIO_SUCCESS != rc) {
 		out_parms->imp_rc = PC_CLR_ERRS(0x15);
@@ -2049,8 +2049,8 @@ uint32_t tsi57x_rio_pc_clr_errs(DAR_DEV_INFO_t *dev_info,
 		 Link partners inbound value should be our outbound value, plus 1.
 		 Link partners outbound value should be our inbound value.
 		 */
-		lresp = (ackid_stat + 1) & Tsi578_SPX_ACKID_STAT_OUTBOUND;
-		ackid_stat = (ackid_stat & Tsi578_SPX_ACKID_STAT_INBOUND) >> 24;
+		lresp = (ackid_stat + 1) & TSI578_SPX_ACKID_STAT_OUTBOUND;
+		ackid_stat = (ackid_stat & TSI578_SPX_ACKID_STAT_INBOUND) >> 24;
 		ackid_stat |= (ackid_stat << 8) | (lresp << 24);
 
 		for (port_idx = 0; port_idx < in_parms->num_lp_ports;
@@ -2087,28 +2087,28 @@ uint32_t tsi57x_rio_pc_clr_errs(DAR_DEV_INFO_t *dev_info,
 	}
 
 	// Lastly, clear physical layer error status indications for the port.
-	rc = DARRegRead(dev_info, Tsi578_SPX_ERR_STATUS(in_parms->port_num),
+	rc = DARRegRead(dev_info, TSI578_SPX_ERR_STATUS(in_parms->port_num),
 			&err_stat);
 	if (RIO_SUCCESS != rc) {
 		goto exit;
 	}
 
-	rc = DARRegWrite(dev_info, Tsi578_SPX_ERR_STATUS(in_parms->port_num),
+	rc = DARRegWrite(dev_info, TSI578_SPX_ERR_STATUS(in_parms->port_num),
 			err_stat);
 	if (RIO_SUCCESS != rc) {
 		goto exit;
 	}
 
-	rc = DARRegRead(dev_info, Tsi578_SPX_ERR_STATUS(in_parms->port_num),
+	rc = DARRegRead(dev_info, TSI578_SPX_ERR_STATUS(in_parms->port_num),
 			&err_stat);
 	if (RIO_SUCCESS != rc) {
 		goto exit;
 	}
 
-	if (err_stat & (Tsi578_SPX_ERR_STATUS_PORT_ERR |
-	Tsi578_SPX_ERR_STATUS_INPUT_ERR_STOP |
-	Tsi578_SPX_ERR_STATUS_OUTPUT_ERR_STOP |
-	Tsi578_SPX_ERR_STATUS_OUTPUT_FAIL)) {
+	if (err_stat & (TSI578_SPX_ERR_STATUS_PORT_ERR |
+	TSI578_SPX_ERR_STATUS_INPUT_ERR_STOP |
+	TSI578_SPX_ERR_STATUS_OUTPUT_ERR_STOP |
+	TSI578_SPX_ERR_STATUS_OUTPUT_FAIL)) {
 		rc = RIO_ERR_ERRS_NOT_CL;
 		out_parms->imp_rc = PC_CLR_ERRS(0x20);
 		goto exit;
@@ -2143,18 +2143,18 @@ uint32_t tsi57x_rio_pc_secure_port(DAR_DEV_INFO_t *dev_info,
 	}
 
 	for (port_idx = 0; port_idx < good_ptl.num_ports; port_idx++) {
-		port_mode_mask = ~(Tsi578_SPX_MODE_MCS_INT_EN
-				| Tsi578_SPX_MODE_RCS_INT_EN
-				| Tsi578_SPX_MODE_SELF_RST);
+		port_mode_mask = ~(TSI578_SPX_MODE_MCS_INT_EN
+				| TSI578_SPX_MODE_RCS_INT_EN
+				| TSI578_SPX_MODE_SELF_RST);
 		pnum = good_ptl.pnums[port_idx];
 
-		rc = DARRegRead(dev_info, Tsi578_SPX_MODE(pnum), &port_mode);
+		rc = DARRegRead(dev_info, TSI578_SPX_MODE(pnum), &port_mode);
 		if (RIO_SUCCESS != rc) {
 			out_parms->imp_rc = PC_SECURE_PORT(3);
 			goto exit;
 		}
 
-		rc = DARRegRead(dev_info, Tsi578_SPX_CTL(pnum), &port_ctl);
+		rc = DARRegRead(dev_info, TSI578_SPX_CTL(pnum), &port_ctl);
 		if (RIO_SUCCESS != rc) {
 			out_parms->imp_rc = PC_SECURE_PORT(4);
 			goto exit;
@@ -2164,13 +2164,13 @@ uint32_t tsi57x_rio_pc_secure_port(DAR_DEV_INFO_t *dev_info,
 				&out_parms->rst);
 
 		if (in_parms->MECS_acceptance) {
-			port_mode_mod |= Tsi578_SPX_MODE_MCS_INT_EN;
+			port_mode_mod |= TSI578_SPX_MODE_MCS_INT_EN;
 		}
 
 		if (in_parms->MECS_participant) {
-			port_ctl |= Tsi578_SPX_CTL_MCS_EN;
+			port_ctl |= TSI578_SPX_CTL_MCS_EN;
 		} else {
-			port_ctl &= ~Tsi578_SPX_CTL_MCS_EN;
+			port_ctl &= ~TSI578_SPX_CTL_MCS_EN;
 		}
 
 		out_parms->bc_mtc_pkts_allowed = true;
@@ -2185,30 +2185,30 @@ uint32_t tsi57x_rio_pc_secure_port(DAR_DEV_INFO_t *dev_info,
 			goto exit;
 		}
 
-		rc = DARRegWrite(dev_info, Tsi578_SPX_CTL(pnum), port_ctl);
+		rc = DARRegWrite(dev_info, TSI578_SPX_CTL(pnum), port_ctl);
 		if (RIO_SUCCESS != rc) {
 			out_parms->imp_rc = PC_SECURE_PORT(6);
 		}
 	}
 
 	// Program reset interrupt control at the top level
-	if ((port_mode & Tsi578_SPX_MODE_MCS_INT_EN)
-			|| (port_mode & Tsi578_SPX_MODE_RCS_INT_EN)) {
-		rc = DARRegRead(dev_info, Tsi578_GLOB_INT_ENABLE, &glob_int_en);
+	if ((port_mode & TSI578_SPX_MODE_MCS_INT_EN)
+			|| (port_mode & TSI578_SPX_MODE_RCS_INT_EN)) {
+		rc = DARRegRead(dev_info, TSI578_GLOB_INT_ENABLE, &glob_int_en);
 		if (RIO_SUCCESS != rc) {
 			out_parms->imp_rc = PC_SECURE_PORT(7);
 			goto exit;
 		}
 
-		if (port_mode & Tsi578_SPX_MODE_RCS_INT_EN) {
-			glob_int_en |= Tsi578_GLOB_INT_ENABLE_RCS_EN;
+		if (port_mode & TSI578_SPX_MODE_RCS_INT_EN) {
+			glob_int_en |= TSI578_GLOB_INT_ENABLE_RCS_EN;
 		}
 
-		if (port_mode & Tsi578_SPX_MODE_MCS_INT_EN) {
-			glob_int_en |= Tsi578_GLOB_INT_ENABLE_MCS_EN;
+		if (port_mode & TSI578_SPX_MODE_MCS_INT_EN) {
+			glob_int_en |= TSI578_GLOB_INT_ENABLE_MCS_EN;
 		}
 
-		rc = DARRegWrite(dev_info, Tsi578_GLOB_INT_ENABLE, glob_int_en);
+		rc = DARRegWrite(dev_info, TSI578_GLOB_INT_ENABLE, glob_int_en);
 		if (RIO_SUCCESS != rc) {
 			out_parms->imp_rc = PC_SECURE_PORT(8);
 		}
@@ -2233,15 +2233,15 @@ uint32_t tsi57x_rio_pc_dev_reset_config(DAR_DEV_INFO_t *dev_info,
 		goto exit;
 	}
 
-	port_mode_mask = ~(Tsi578_SPX_MODE_SELF_RST |
-	Tsi578_SPX_MODE_RCS_INT_EN);
+	port_mode_mask = ~(TSI578_SPX_MODE_SELF_RST |
+	TSI578_SPX_MODE_RCS_INT_EN);
 
 	tsi57x_rst_policy_vals(in_parms->rst, &port_mode_value,
 			&out_parms->rst);
 
 	// Configure reset interrupt and reset response in SPx_MODE registers
 	for (port_num = 0; port_num < TSI57X_NUM_PORTS(dev_info); port_num++) {
-		rc = DARRegRead(dev_info, Tsi578_SPX_MODE(port_num),
+		rc = DARRegRead(dev_info, TSI578_SPX_MODE(port_num),
 				&port_mode);
 		if (RIO_SUCCESS != rc) {
 			out_parms->imp_rc = PC_DEV_RESET_CONFIG(2);
@@ -2257,7 +2257,7 @@ uint32_t tsi57x_rio_pc_dev_reset_config(DAR_DEV_INFO_t *dev_info,
 			goto exit;
 		}
 
-		rc = DARRegRead(dev_info, Tsi578_SPX_MODE(port_num),
+		rc = DARRegRead(dev_info, TSI578_SPX_MODE(port_num),
 				&port_mode);
 		if (RIO_SUCCESS != rc) {
 			out_parms->imp_rc = PC_DEV_RESET_CONFIG(2);
@@ -2266,19 +2266,19 @@ uint32_t tsi57x_rio_pc_dev_reset_config(DAR_DEV_INFO_t *dev_info,
 	}
 
 	// Program reset interrupt control at the top level
-	rc = DARRegRead(dev_info, Tsi578_GLOB_INT_ENABLE, &glob_int_en);
+	rc = DARRegRead(dev_info, TSI578_GLOB_INT_ENABLE, &glob_int_en);
 	if (RIO_SUCCESS != rc) {
 		out_parms->imp_rc = PC_DEV_RESET_CONFIG(4);
 		goto exit;
 	}
 
 	if (rio_pc_rst_int == out_parms->rst) {
-		glob_int_en |= Tsi578_GLOB_INT_ENABLE_RCS_EN;
+		glob_int_en |= TSI578_GLOB_INT_ENABLE_RCS_EN;
 	} else {
-		glob_int_en &= ~Tsi578_GLOB_INT_ENABLE_RCS_EN;
+		glob_int_en &= ~TSI578_GLOB_INT_ENABLE_RCS_EN;
 	}
 
-	rc = DARRegWrite(dev_info, Tsi578_GLOB_INT_ENABLE, glob_int_en);
+	rc = DARRegWrite(dev_info, TSI578_GLOB_INT_ENABLE, glob_int_en);
 	if (RIO_SUCCESS != rc) {
 		out_parms->imp_rc = PC_DEV_RESET_CONFIG(5);
 	}

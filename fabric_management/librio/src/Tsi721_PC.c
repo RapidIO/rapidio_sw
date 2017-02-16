@@ -1105,7 +1105,7 @@ uint32_t tsi721_rio_pc_clr_errs(DAR_DEV_INFO_t *dev_info,
 		 Link partners outbound value should be our inbound value.
 		 */
 		/*  lresp = ( ackid_stat + 1 ) & TSI721_SP_ACKID_STAT_OUTB_ACKID;
-		 ackid_stat = (ackid_stat & Tsi578_SPX_ACKID_STAT_INBOUND) >> 24;
+		 ackid_stat = (ackid_stat & TSI578_SPX_ACKID_STAT_INBOUND) >> 24;
 		 ackid_stat |= (ackid_stat << 8) | (lresp << 24);
 
 		 for (port_idx = 0; port_idx < in_parms->num_lp_ports; port_idx++)

@@ -424,7 +424,7 @@ struct sc_cfg_t {
 	bool tx;
 };
 
-struct sc_cfg_t tsi_sc_cfg[Tsi578_NUM_PERF_CTRS] = { //
+struct sc_cfg_t tsi_sc_cfg[TSI578_NUM_PERF_CTRS] = { //
 		{rio_sc_uc_pkts, true},		//
 		{rio_sc_uc_pkts, false},	//
 		{rio_sc_uc_4b_data, true},	//
@@ -489,7 +489,7 @@ uint32_t rio_sc_config_dev_ctrs(DAR_DEV_INFO_t *dev_h,
 		tsi_in.ptl.num_ports = RIO_ALL_PORTS;
 		tsi_in.prio_mask = SC_PRIO_MASK_G1_ALL;
 		tsi_in.dev_ctrs = &priv->st.sc_dev;
-		for (idx = 0; idx < Tsi578_NUM_PERF_CTRS; idx++) {
+		for (idx = 0; idx < TSI578_NUM_PERF_CTRS; idx++) {
 			tsi_in.tx = tsi_sc_cfg[idx].tx;
 			tsi_in.ctr_type = tsi_sc_cfg[idx].ctr_t;
 			rc = rio_sc_cfg_tsi57x_ctr(dev_h, &tsi_in, &tsi_out);
