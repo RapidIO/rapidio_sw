@@ -3,12 +3,14 @@
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
+
+#ifndef __RIOCP_PE_PE_H__
+#define __RIOCP_PE_PE_H__
+
 /**
  * @file pe.h
  * RapidIO processing element helper functions
  */
-#ifndef RIOCP_PE_PE_H__
-#define RIOCP_PE_PE_H__
 
 #include <stdint.h>
 
@@ -55,4 +57,4 @@ int RIOCP_WU riocp_pe_probe_initialize_peer(struct riocp_pe *peer);
 }
 #endif
 
-#endif /* RIOCP_PE_PE_H__ */
+#endif /* __RIOCP_PE_PE_H__ */

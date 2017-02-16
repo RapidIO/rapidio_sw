@@ -31,6 +31,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 
+#ifndef __CFG_H__
+#define __CFG_H__
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -43,9 +46,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "RapidIO_Routing_Table_API.h"
 #include "RapidIO_Port_Config_API.h"
 #include "ct.h"
-
-#ifndef _CFG_H_
-#define _CFG_H_ 
 
 #ifdef __cplusplus
 extern "C" {
@@ -131,4 +131,4 @@ extern bool cfg_auto(void);
 }
 #endif
 
-#endif /* _CFG_H_ */
+#endif /* __CFG_H__ */

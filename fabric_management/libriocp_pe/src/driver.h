@@ -4,12 +4,9 @@
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
-/**
- * @file driver.h
- * RapidIO driver interface for libriocp_pe
- */
-#ifndef RIOCP_PE_DRIVER_H__
-#define RIOCP_PE_DRIVER_H__
+
+#ifndef __RIOCP_PE_DRIVER_H__
+#define __RIOCP_PE_DRIVER_H__
 
 #include <stdbool.h>
 #include "riocp_pe.h"
@@ -40,4 +37,4 @@ int RIOCP_WU riocp_drv_reset_port(struct riocp_pe *pe, uint8_t port,
 }
 #endif
 
-#endif /* RIOCP_PE_DRIVER_H__ */
+#endif /* __RIOCP_PE_DRIVER_H__ */

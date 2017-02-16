@@ -3,8 +3,9 @@
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
-#ifndef RIOCP_H_
-#define RIOCP_H_
+
+#ifndef __RIOCP_PE_H__
+#define __RIOCP_PE_H__
 
 #include <stdint.h>
 #include <errno.h>
@@ -222,4 +223,4 @@ const char *riocp_pe_get_vendor_name(riocp_pe_handle pe);
 }
 #endif
 
-#endif /* RIOCP_H_ */
+#endif /* __RIOCP_PE_H__ */

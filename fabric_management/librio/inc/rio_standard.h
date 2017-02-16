@@ -31,10 +31,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 
-#include <stdint.h>
-
 #ifndef __RIO_STANDARD_H__
 #define __RIO_STANDARD_H__
+
+#include <stdint.h>
 
 /* rio_regdefs.h contains definitons for all RapidIO Standard Registers
 */

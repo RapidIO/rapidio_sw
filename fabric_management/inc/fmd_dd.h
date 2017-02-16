@@ -31,6 +31,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 
+#ifndef __FMD_DD_H__
+#define __FMD_DD_H__
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -41,9 +44,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <rrmap_config.h>
 #include "rio_ecosystem.h"
 #include "ct.h"
-
-#ifndef _FMD_DD_H_
-#define _FMD_DD_H_
 
 #ifdef __cplusplus
 extern "C" {
@@ -95,18 +95,17 @@ struct fmd_dd_mtx {
 
 extern int fmd_dd_mtx_open(char *dd_mtx_fn, int *dd_mtx_fd,
 		struct fmd_dd_mtx **dd_mtx);
+
 int fmd_dd_open(char *dd_fn, int *dd_fd, struct fmd_dd **dd,
-                                        struct fmd_dd_mtx *dd_mtx);
+		struct fmd_dd_mtx *dd_mtx);
+
 extern uint32_t fmd_dd_atomic_copy(struct fmd_dd *dd,
-                        struct fmd_dd_mtx *dd_mtx,
-                        uint32_t *num_devs,
-                        struct fmd_dd_dev_info *devs,
-                        uint32_t max_devs);
+		struct fmd_dd_mtx *dd_mtx, uint32_t *num_devs,
+		struct fmd_dd_dev_info *devs, uint32_t max_devs);
 
 extern void fmd_dd_cleanup(char *dd_mtx_fn, int *dd_mtx_fd,
-                        struct fmd_dd_mtx **dd_mtx_p,
-                        char *dd_fn, int *dd_fd, struct fmd_dd **dd_p,
-			int dd_rw);
+		struct fmd_dd_mtx **dd_mtx_p, char *dd_fn, int *dd_fd,
+		struct fmd_dd **dd_p, int dd_rw);
 
 extern void bind_dd_cmds(struct fmd_dd *dd, struct fmd_dd_mtx *dd_mtx,
 			char *dd_fn, char *dd_mtx_fn);
@@ -115,4 +114,4 @@ extern void bind_dd_cmds(struct fmd_dd *dd, struct fmd_dd_mtx *dd_mtx,
 }
 #endif
 
-#endif /* _FMD_DD_H_ */
+#endif /* __FMD_DD_H__ */

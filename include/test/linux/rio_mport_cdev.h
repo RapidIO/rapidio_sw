@@ -36,8 +36,8 @@
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef _RIO_MPORT_CDEV_H_
-#define _RIO_MPORT_CDEV_H_
+#ifndef __RIO_MPORT_CDEV_H__
+#define __RIO_MPORT_CDEV_H__
 
 #include <linux/ioctl.h>
 #include <linux/types.h>
@@ -274,4 +274,4 @@ struct rio_rdev_info {
 #define RIO_DEV_DEL \
 	_IOW(RIO_MPORT_DRV_MAGIC, 24, struct rio_rdev_info)
 
-#endif /* _RIO_MPORT_CDEV_H_ */
+#endif /* __RIO_MPORT_CDEV_H__ */

@@ -3,12 +3,14 @@
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
+
+#ifndef __RIOCP_PE_INTERNAL_H__
+#define __RIOCP_PE_INTERNAL_H__
+
 /**
  * @file riocp_pe_internal.h
  * Internal API for RapidIO processing element manager
  */
-#ifndef RIOCP_PE_INTERNAL_H__
-#define RIOCP_PE_INTERNAL_H__
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -176,4 +178,4 @@ int riocp_pe_dot_dump(const char *filename, riocp_pe_handle mport);
 }
 #endif
 
-#endif /* RIOCP_PE_INTERNAL_H__ */
+#endif /* __RIOCP_PE_INTERNAL_H__ */

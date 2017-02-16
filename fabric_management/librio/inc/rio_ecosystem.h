@@ -32,6 +32,10 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
+
+#ifndef __RIO_ECOSYSTEM_H__
+#define __RIO_ECOSYSTEM_H__
+
 /* Definitions for the RapidIO ecosystem, including vendors/devices and 
  * device port/lane limits.
  */
@@ -39,8 +43,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdint.h>
 #include "rio_standard.h"
 
-#ifndef __RIO_ECOSYSTEM_H__
-#define __RIO_ECOSYSTEM_H__
 
 #ifdef __cplusplus
 extern "C" {

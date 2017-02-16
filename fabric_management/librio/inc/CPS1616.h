@@ -31,16 +31,16 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 
-/**************************************************/
-/* CPS1616 : Register address offset definitions  */
-/**************************************************/
-
 #ifndef __CPS1616_H__
 #define __CPS1616_H__
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+/**************************************************/
+/* CPS1616 : Register address offset definitions  */
+/**************************************************/
 
 #define CPS1616_DEV_IDENT_CAR                                      (0x00000000)
 #define CPS1616_DEV_INF_CAR                                        (0x00000004)

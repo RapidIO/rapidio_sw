@@ -1,4 +1,3 @@
-/* Global state information for FMD threads handling library connections */
 /*
 ****************************************************************************
 Copyright (c) 2015, Integrated Device Technology Inc.
@@ -32,6 +31,14 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 
+#ifndef __FMD_APP_INFO_H__
+#define __FMD_APP_INFO_H__
+
+/**
+ * @file fmd_app_info.h
+ * Global state information for FMD threads handling library connections
+ */
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -61,9 +68,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "libcli.h"
 #include "fmd_app_msg.h"
-
-#ifndef __FMD_APP_INFO_H__
-#define __FMD_APP_INFO_H__
 
 #ifdef __cplusplus
 extern "C" {

@@ -31,6 +31,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 
+#ifndef __FMD_STATE_H__
+#define __FMD_STATE_H__
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -61,9 +64,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "cfg.h"
 #include "fmd_opts.h"
 #include "rapidio_mport_mgmt.h"
-
-#ifndef _FMD_STATE_H_
-#define _FMD_STATE_H_
 
 #ifdef __cplusplus
 extern "C" {
@@ -98,4 +98,4 @@ extern struct fmd_state *fmd;
 }
 #endif
 
-#endif /* _FMD_STATE_H_ */
+#endif /* __FMD_STATE_H__ */

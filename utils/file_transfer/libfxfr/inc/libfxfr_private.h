@@ -31,10 +31,13 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 
-/* Private interface for debugging and server implementation */
+#ifndef __LIBFXFR_PRIVATE_H__
+#define __LIBFXFR_PRIVATE_H__
 
-#ifndef __LIBFXFR_H__
-#define __LIBFXFR_H__
+/**
+ * @file libfxfr_private.h
+ * Private interface for debugging and server implementation
+ */
 
 #include <stdint.h>
 #include <stdio.h>
@@ -95,4 +98,4 @@ extern int rx_file(struct buffer_info *info, int *abort_flag);
 }
 #endif
 
-#endif /* __LIBFXFR_H__ */
+#endif /* __LIBFXFR_PRIVATE_H__ */

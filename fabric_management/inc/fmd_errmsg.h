@@ -31,6 +31,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 
+#ifndef __FMD_ERRMSG_H__
+#define __FMD_ERRMSG_H__
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -41,9 +44,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <rrmap_config.h>
 #include "rio_ecosystem.h"
 #include "ct.h"
-
-#ifndef _FMD_ERRMSG_H_
-#define _FMD_ERRMSG_H_
 
 #ifdef __cplusplus
 extern "C" {
@@ -61,4 +61,4 @@ extern "C" {
 }
 #endif
 
-#endif /* _FMD_ERRMSG_H_ */
+#endif /* __FMD_ERRMSG_H__ */

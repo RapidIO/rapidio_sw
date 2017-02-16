@@ -31,11 +31,8 @@
  *************************************************************************
  */
 
-/**
- * Component tag management
- */
-#ifndef CT_CT_H__
-#define CT_CT_H__
+#ifndef __CT_H__
+#define __CT_H__
 
 #include <stdint.h>
 #include "did.h"
@@ -67,4 +64,4 @@ int ct_not_inuse(ct_t ct, did_sz_t size);
 }
 #endif
 
-#endif /* CT_CT_H__ */
+#endif /* __CT_H__ */

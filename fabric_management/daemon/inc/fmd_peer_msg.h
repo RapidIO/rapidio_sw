@@ -1,5 +1,3 @@
-/* Definition of messages exchanged between the Fabric Management Daemons.  */
-/* Uses CM Messaging */
 /*
 ****************************************************************************
 Copyright (c) 2015, Integrated Device Technology Inc.
@@ -33,13 +31,18 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 
+#ifndef __FMD_PEER_MSG_H__
+#define __FMD_PEER_MSG_H__
+
+/**
+ * @file fmd_peer_msg.h
+ * Definition of messages exchanged between the Fabric Management Daemons
+ */
+
 #include <stdint.h>
 #include "rio_ecosystem.h"
 #include "did.h"
 #include "ct.h"
-
-#ifndef __FMD_PEER_MSG_H__
-#define __FMD_PEER_MSG_H__
 
 #define FMD_P_MSG_RESP 0x80000000
 #define FMD_P_MSG_FAIL 0x40000000

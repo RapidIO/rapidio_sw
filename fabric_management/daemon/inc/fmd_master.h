@@ -1,5 +1,3 @@
-/* Data Structure for connection to FMD in slave mode */
-/* A Slave is an FMD that accepts commands and returns responses */
 /*
 ****************************************************************************
 Copyright (c) 2015, Integrated Device Technology Inc.
@@ -33,6 +31,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 
+#ifndef __FMD_MASTER_H__
+#define __FMD_MASTER_H__
+
 #include <semaphore.h>
 #include <pthread.h>
 #include <stdint.h>
@@ -41,9 +42,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "fmd_slave.h"
 #include "liblist.h"
 #include "fmd_state.h"
-
-#ifndef __FMD_MASTER_H__
-#define __FMD_MASTER_H__
 
 #ifdef __cplusplus
 extern "C" {

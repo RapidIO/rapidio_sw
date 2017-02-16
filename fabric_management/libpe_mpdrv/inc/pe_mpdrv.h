@@ -1,5 +1,3 @@
-/* libriocp_pe register read/write driver based on librio and libmport */
-/* libriocp_pe PE driver based on librio.                              */
 /*
 ****************************************************************************
 Copyright (c) 2015, Integrated Device Technology Inc.
@@ -33,11 +31,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 
-#include "riocp_pe.h"
-#include "RapidIO_Device_Access_Routines_API.h"
-
 #ifndef __PE_MPDRV_H__
 #define __PE_MPDRV_H__
+
+#include "riocp_pe.h"
+#include "RapidIO_Device_Access_Routines_API.h"
 
 #ifdef __cplusplus
 extern "C" {

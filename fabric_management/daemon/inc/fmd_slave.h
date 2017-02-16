@@ -1,5 +1,3 @@
-/* Data Structure for connection to FMD in slave mode */
-/* A Slave is an FMD that accepts commands and returns responses */
 /*
 ****************************************************************************
 Copyright (c) 2015, Integrated Device Technology Inc.
@@ -33,6 +31,14 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 
+#ifndef __FMD_SLAVE_H__
+#define __FMD_SLAVE_H__
+
+/**
+ * @file fmd_slave.h
+ * Data Structure for connection to FMD in slave mode
+ */
+
 #include <semaphore.h>
 #include <pthread.h>
 #include <stdint.h>
@@ -41,9 +47,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "fmd_peer_msg.h"
 #include <rapidio_mport_mgmt.h>
 #include <rapidio_mport_sock.h>
-
-#ifndef __FMD_SLAVE_H__
-#define __FMD_SLAVE_H__
 
 #ifdef __cplusplus
 extern "C" {

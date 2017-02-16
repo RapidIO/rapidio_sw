@@ -31,11 +31,11 @@
  *************************************************************************
  */
 
-#include "rio_standard.h"
-#include "RapidIO_Device_Access_Routines_API.h"
-
 #ifndef __DAR_DB_PRIVATE_H__
 #define __DAR_DB_PRIVATE_H__
+
+#include "rio_standard.h"
+#include "RapidIO_Device_Access_Routines_API.h"
 
 #ifdef __cplusplus
 extern "C" {

@@ -31,6 +31,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 
+#ifndef __CFG_PRIVATE_H__
+#define __CFG_PRIVATE_H__
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -59,9 +62,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "RapidIO_Port_Config_API.h"
 #include "riocp_pe.h"
 #include "fmd_dd.h"
-
-#ifndef _CFG_PRIVATE_H_
-#define _CFG_PRIVATE_H_
 
 #ifdef __cplusplus
 extern "C" {
@@ -197,4 +197,4 @@ extern struct int_cfg_parms *cfg;
 }
 #endif
 
-#endif /* _CFG_PRIVATE_H_ */
+#endif /* __CFG_PRIVATE_H__ */

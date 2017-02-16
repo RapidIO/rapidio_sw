@@ -31,6 +31,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 
+#ifndef __FMD_OPTS_H__
+#define __FMD_OPTS_H__
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -42,9 +45,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rrmap_config.h"
 #include "cfg.h"
 #include "liblog.h"
-
-#ifndef _FMD_OPTS_H_
-#define _FMD_OPTS_H_
 
 #ifdef __cplusplus
 extern "C" {
@@ -77,4 +77,4 @@ extern struct fmd_opt_vals *fmd_parse_options(int argc, char *argv[]);
 }
 #endif
 
-#endif /* _FMD_OPTS_H_ */
+#endif /* __FMD_OPTS_H__ */

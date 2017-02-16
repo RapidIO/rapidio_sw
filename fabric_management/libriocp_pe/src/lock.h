@@ -3,12 +3,14 @@
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
+
+#ifndef __RIOCP_PE_LOCK_H__
+#define __RIOCP_PE_LOCK_H__
+
 /**
  * @file lock.h
  * Processing element lock functions
  */
-#ifndef RIOCP_PE_LOCK_H__
-#define RIOCP_PE_LOCK_H__
 
 #ifdef __cplusplus
 extern "C" {
@@ -23,4 +25,4 @@ int riocp_pe_lock_clear(struct riocp_pe *mport, uint32_t destid, hc_t hopcount);
 }
 #endif
 
-#endif /* RIOCP_PE_LOCK_H__ */
+#endif /* __RIOCP_PE_LOCK_H__ */

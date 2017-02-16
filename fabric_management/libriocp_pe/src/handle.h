@@ -3,12 +3,14 @@
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
+
+#ifndef __RIOCP_PE_HANDLE_H__
+#define __RIOCP_PE_HANDLE_H__
+
 /**
  * @file handle.h
  * Processing element handle administration
  */
-#ifndef RIOCP_PE_HANDLE_H__
-#define RIOCP_PE_HANDLE_H__
 
 #include <stdbool.h>
 
@@ -43,4 +45,4 @@ int RIOCP_WU riocp_pe_handle_mport_exists(uint8_t mport, bool is_host, struct ri
 }
 #endif
 
-#endif /* RIOCP_PE_HANDLE_H__ */
+#endif /* __RIOCP_PE_HANDLE_H__ */

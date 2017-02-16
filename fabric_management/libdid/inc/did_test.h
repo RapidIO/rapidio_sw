@@ -31,11 +31,8 @@
  *************************************************************************
  */
 
-/**
- * Device id management
- */
-#ifndef DID_DID_TEST_H__
-#define DID_DID_TEST_H__
+#ifndef __DID_TEST_H__
+#define __DID_TEST_H__
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -56,4 +53,4 @@ int did_invalid(did_t did);
 }
 #endif
 
-#endif /* DID_DID_TEST_H__ */
+#endif /* __DID_TEST_H__ */

@@ -1,4 +1,3 @@
-/* Fabric Management Daemon central routines for use by other FMD files */
 /*
 ****************************************************************************
 Copyright (c) 2014, Integrated Device Technology Inc.
@@ -32,6 +31,14 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 
+#ifndef __FMD_H__
+#define __FMD_H__
+
+/**
+ * @file fmd.h
+ * Fabric Management Daemon central routines for use by other FMD files
+ */
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -61,9 +68,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "fmd_dd.h"
 #include "fmd_state.h"
 
-#ifndef _FMD_H_
-#define _FMD_H_
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -75,4 +79,4 @@ extern riocp_pe_handle mport_pe;
 }
 #endif
 
-#endif /* _FMD_H_ */
+#endif /* __FMD_H__ */

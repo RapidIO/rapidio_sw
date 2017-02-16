@@ -1,5 +1,3 @@
-/* Data structures for libriocp_pe register read/write driver  and         */
-/* libriocp_pe PE driver based on librio and libmport.              */
 /*
 ****************************************************************************
 Copyright (c) 2015, Integrated Device Technology Inc.
@@ -33,6 +31,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 
+#ifndef __PE_MPDRV_PRIVATE_H__
+#define __PE_MPDRV_PRIVATE_H__
+
 #include "rio_ecosystem.h"
 #include "RapidIO_Port_Config_API.h"
 #include "RapidIO_Routing_Table_API.h"
@@ -40,9 +41,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "RapidIO_Error_Management_API.h"
 #include "rapidio_mport_mgmt.h"
 #include "pe_mpdrv.h"
-
-#ifndef __PE_MPDRV_PRIVATE_H__
-#define __PE_MPDRV_PRIVATE_H__
 
 #ifdef __cplusplus
 extern "C" {

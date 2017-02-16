@@ -1,4 +1,3 @@
-/* Fabric Management Daemon Device Directory Library for applications */
 /*
 ****************************************************************************
 Copyright (c) 2014, Integrated Device Technology Inc.
@@ -32,8 +31,13 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 
-#ifndef _LIBFMDD_H_
-#define _LIBFMDD_H_
+#ifndef __LIBFMDD_H__
+#define __LIBFMDD_H__
+
+/**
+ * @file libfmdd.h
+ * Fabric Management Daemon Device Directory Library for applications
+ */
 
 #include <stdio.h>
 #include <string.h>
@@ -190,4 +194,4 @@ void fmdd_bind_dbg_cmds(void *fmdd_h);
 }
 #endif
 
-#endif /* _LIBFMDD_H_ */
+#endif /* __LIBFMDD_H__ */

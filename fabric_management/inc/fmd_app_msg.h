@@ -1,5 +1,3 @@
-/* Definition of messages exchanged between the Fabric Management Daemon 
- * and the Fabric Management Library */
 /*
 ****************************************************************************
 Copyright (c) 2015, Integrated Device Technology Inc.
@@ -33,10 +31,16 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 
-#include <stdint.h>
-
 #ifndef __FMD_APP_MSG_H__
 #define __FMD_APP_MSG_H__
+
+/**
+ * @file fmd_app_msg.h
+ * Definition of messages exchanged between the Fabric Management Daemon
+ * and the Fabric Management Library
+ */
+
+#include <stdint.h>
 
 #define FMD_APP_MSG_RESP 0x80000000
 #define FMD_APP_MSG_FAIL 0x40000000

@@ -1,4 +1,3 @@
-/* Information structure of Fabric Management Device Directory Library */
 /*
 ****************************************************************************
 Copyright (c) 2015, Integrated Device Technology Inc.
@@ -32,6 +31,14 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 
+#ifndef __LIBFMDD_INFO_H__
+#define __LIBFMDD_INFO_H__
+
+/**
+ * @file libfmdd_info.h
+ * Information structure of Fabric Management Device Directory Library
+ */
+
 #include <stdlib.h>
 #include <unistd.h>
 #include <stdio.h>
@@ -51,9 +58,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "liblist.h"
 #include "libfmdd.h"
 #include "rrmap_config.h"
-
-#ifndef __LIBFMDD_INFO_H__
-#define __LIBFMDD_INFO_H__
 
 #ifdef __cplusplus
 extern "C" {

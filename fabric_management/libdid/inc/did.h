@@ -31,11 +31,8 @@
  *************************************************************************
  */
 
-/**
- * Device id management
- */
-#ifndef DID_DID_H__
-#define DID_DID_H__
+#ifndef __DID_H__
+#define __DID_H__
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -74,4 +71,4 @@ did_sz_t did_get_size(did_t did);
 }
 #endif
 
-#endif /* DID_DID_H__ */
+#endif /* __DID_H__ */

@@ -31,9 +31,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 
-/**************************************************/
-/* CPS1848 : Register address offset definitions  */
-/**************************************************/
 #ifndef __CPS1848_H__
 #define __CPS1848_H__
 

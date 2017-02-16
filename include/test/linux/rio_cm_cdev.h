@@ -35,8 +35,8 @@
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef _RIO_CM_CDEV_H_
-#define _RIO_CM_CDEV_H_
+#ifndef __RIO_CM_CDEV_H__
+#define __RIO_CM_CDEV_H__
 
 #include <linux/types.h>
 
@@ -75,4 +75,4 @@ struct rio_cm_accept {
 #define RIO_CM_CHAN_RECEIVE	_IOWR(RIO_CM_IOC_MAGIC, 10, struct rio_cm_msg)
 #define RIO_CM_MPORT_GET_LIST	_IOWR(RIO_CM_IOC_MAGIC, 11, __u32)
 
-#endif /* _RIO_CM_CDEV_H_ */
+#endif /* __RIO_CM_CDEV_H__ */

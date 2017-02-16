@@ -3,12 +3,9 @@
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
-/**
- * @file comptag.h
- * Processing element component tag functions
- */
-#ifndef RIOCP_PE_COMPTAG_H__
-#define RIOCP_PE_COMPTAG_H__
+
+#ifndef __COMPTAG_H__
+#define __COMPTAG_H__
 
 #include "ct.h"
 
@@ -25,4 +22,4 @@ int riocp_pe_comptag_write(struct riocp_pe *pe, ct_t comptag);
 }
 #endif
 
-#endif /* RIOCP_PE_COMPTAG_H__ */
+#endif /* __COMPTAG_H__ */

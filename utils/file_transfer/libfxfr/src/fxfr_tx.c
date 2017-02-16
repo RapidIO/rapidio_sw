@@ -579,15 +579,13 @@ static void srv_sig_handler(int signum)
 	}
 };
 
-extern int send_file( char *src_file, /* Local source file name */
-                        char *dst_file, /* Requested destination file name */
-                        int destID, /* DestID of fxfr server */
-                        int skt_num, /* Channel # of fxfr server */
-                        int mport_num, /* MPORT index to use */
-                        uint8_t debug, /* MPORT index to use */
-			struct timespec *st_time,
-			uint64_t *bytes_sent,
-			uint8_t k_buff)
+int send_file(char *src_file, /* Local source file name */
+		char *dst_file, /* Requested destination file name */
+		uint16_t destID, /* DestID of fxfr server */
+		uint16_t skt_num, /* Channel # of fxfr server */
+		uint8_t mport_num, /* MPORT index to use */
+		uint8_t debug, /* MPORT index to use */
+		struct timespec *st_time, uint64_t *bytes_sent, uint8_t k_buff)
 {
 	struct fxfr_tx_state info;
 
