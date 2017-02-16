@@ -168,7 +168,6 @@ static rio_sc_p_ctrs_val_t *pp_ctrs = (rio_sc_p_ctrs_val_t *)malloc((RIO_MAX_POR
 
 static int grp_teardown(void **state)
 {
-	free(pp_ctrs);
 	free(mock_dev_ctrs);
 
 	if (st.real_hw) {
