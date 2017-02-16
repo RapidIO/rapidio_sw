@@ -158,7 +158,7 @@ uint32_t rxs_rio_pc_get_config(DAR_DEV_INFO_t *dev_info,
 		rio_pc_get_config_in_t *in_parms,
 		rio_pc_get_config_out_t *out_parms)
 {
-	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+	uint32_t rc;
 	uint32_t port_idx, idx;
 	bool misconfigured = false;
 	uint32_t plmCtl, spxCtl, spxCtl2, plmPol, errStat;
@@ -376,7 +376,7 @@ uint32_t rxs_rio_pc_get_status(DAR_DEV_INFO_t *dev_info,
 		rio_pc_get_status_in_t *in_parms,
 		rio_pc_get_status_out_t *out_parms)
 {
-	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+	uint32_t rc;
 	uint8_t port_idx;
 	uint32_t errStat, spxCtl;
 	struct DAR_ptl good_ptl;

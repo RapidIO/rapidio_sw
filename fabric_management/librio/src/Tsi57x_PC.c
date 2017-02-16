@@ -1114,11 +1114,11 @@ uint32_t tsi57x_rio_pc_get_config(DAR_DEV_INFO_t *dev_info,
 		rio_pc_get_config_in_t *in_parms,
 		rio_pc_get_config_out_t *out_parms)
 {
-	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+	uint32_t rc;
 	uint8_t port_num;
 	uint32_t port_idx;
 	uint32_t dloopRegVal, SerDesRegVal, spxCtl;
-	int32_t first_lane, num_lanes = 4, lane_num;
+	int32_t first_lane, num_lanes, lane_num;
 	port_mac_relations_t *sw_pmr;
 	struct DAR_ptl good_ptl;
 
@@ -1552,7 +1552,7 @@ uint32_t tsi57x_rio_pc_get_status(DAR_DEV_INFO_t *dev_info,
 		rio_pc_get_status_in_t *in_parms,
 		rio_pc_get_status_out_t *out_parms)
 {
-	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+	uint32_t rc;
 	uint8_t port_idx, port_num;
 	uint32_t dloop, err_n_stat, spx_ctl;
 	port_mac_relations_t *sw_pmr;
@@ -2122,7 +2122,7 @@ uint32_t tsi57x_rio_pc_secure_port(DAR_DEV_INFO_t *dev_info,
 		rio_pc_secure_port_in_t *in_parms,
 		rio_pc_secure_port_out_t *out_parms)
 {
-	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+	uint32_t rc;
 	uint8_t pnum;
 	uint32_t port_mode = 0;
 	uint32_t port_mode_mod, port_mode_mask, port_ctl, glob_int_en, port_idx;

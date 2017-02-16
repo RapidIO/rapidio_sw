@@ -329,11 +329,10 @@ exit:
 
 static uint32_t tsi721_reset_lp(DAR_DEV_INFO_t *dev_info, uint32_t *imp_rc)
 {
-	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
-	uint32_t lr_cmd = STYPE1_LREQ_CMD_RST_DEV;
+	uint32_t rc;
 	uint32_t lr_resp;
 
-	rc = DARRegWrite(dev_info, TSI721_SP_LM_REQ, lr_cmd);
+	rc = DARRegWrite(dev_info, TSI721_SP_LM_REQ, STYPE1_LREQ_CMD_RST_DEV);
 	if (RIO_SUCCESS != rc) {
 		*imp_rc = PC_RESET_LP(0x20);
 		goto exit;
@@ -359,7 +358,7 @@ static uint32_t tsi721_update_reset_policy(DAR_DEV_INFO_t *dev_info,
 		uint32_t *saved_devctl, uint32_t *saved_rstint,
 		uint32_t *saved_rstpw, uint32_t *imp_rc)
 {
-	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+	uint32_t rc;
 	uint32_t plmCtl, devCtl, rstInt = 0, rstPw = 0;
 
 	rc = DARRegRead(dev_info, TSI721_PLM_IMP_SPEC_CTL, saved_plmctl);
@@ -444,7 +443,7 @@ uint32_t tsi721_rio_pc_get_config(DAR_DEV_INFO_t *dev_info,
 		rio_pc_get_config_in_t *in_parms,
 		rio_pc_get_config_out_t *out_parms)
 {
-	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+	uint32_t rc;
 	uint32_t port_idx, idx;
 	bool misconfigured = false;
 	uint32_t plmCtl, spxCtl, devStat, spxCtl2;
@@ -739,7 +738,7 @@ uint32_t tsi721_rio_pc_get_status(DAR_DEV_INFO_t *dev_info,
 		rio_pc_get_status_in_t *in_parms,
 		rio_pc_get_status_out_t *out_parms)
 {
-	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+	uint32_t rc;
 	uint8_t port_idx;
 	uint32_t errStat, spxCtl, devCtl;
 	struct DAR_ptl good_ptl;
@@ -1167,7 +1166,7 @@ uint32_t tsi721_rio_pc_secure_port(DAR_DEV_INFO_t *dev_info,
 		rio_pc_secure_port_in_t *in_parms,
 		rio_pc_secure_port_out_t *out_parms)
 {
-	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+	uint32_t rc;
 	uint32_t ftype_filt;
 	struct DAR_ptl good_ptl;
 	uint32_t unused1, unused2, unused3, unused4;

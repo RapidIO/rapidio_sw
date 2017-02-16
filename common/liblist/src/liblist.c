@@ -124,7 +124,6 @@ struct l_item_t *l_add(struct l_head_t *l, uint32_t key, void *item)
 		return NULL;
 	}
 
-	li = NULL;
 	new_li->next = new_li->prev = NULL;
 	new_li->key = key;
 	new_li->item = item;

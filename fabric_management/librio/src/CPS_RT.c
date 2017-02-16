@@ -296,7 +296,7 @@ exit:
 static uint32_t cps_read_rte_entries(DAR_DEV_INFO_t *dev_info, uint8_t pnum,
 		rio_rt_state_t *rt, uint32_t *imp_rc)
 {
-	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+	uint32_t rc;
 	uint32_t destID, rte_val, first_mc_destID;
 	bool found_one = false;
 

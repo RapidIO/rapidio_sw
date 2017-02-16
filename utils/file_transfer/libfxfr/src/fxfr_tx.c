@@ -401,7 +401,7 @@ int init_server_connect(struct fxfr_tx_state *info,
 			uint8_t mport_num, uint16_t destID, int svr_skt,
 			uint8_t k_buff)
 {
-        int rc = -1;
+        int rc;
 	int i;
         struct riomp_mgmt_mport_properties qresp;
 

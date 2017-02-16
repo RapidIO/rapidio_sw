@@ -348,7 +348,7 @@ int direct_io_wait_for_change(struct worker *info)
 {
 	volatile void * volatile ptr = info->ib_ptr;
 	uint64_t no_change = 1;
-	uint64_t limit = 0x100000;
+	uint64_t limit;
 
 	if ((info->action == direct_io_tx_lat) && !info->wr)
 		return 0;
@@ -1134,8 +1134,7 @@ void msg_tx_goodput(struct worker *info)
 
 	info->con_skt_valid = 2;
 
-	rc = alloc_msg_tx_rx_buffs(info);
-
+	alloc_msg_tx_rx_buffs(info);
 	zero_stats(info);
 	clock_gettime(CLOCK_MONOTONIC, &info->st_time);
 
@@ -1216,8 +1215,7 @@ void msg_tx_overhead(struct worker *info)
 
 	info->mb_valid = 1;
 
-	rc = alloc_msg_tx_rx_buffs(info);
-
+	alloc_msg_tx_rx_buffs(info);
 	zero_stats(info);
 	clock_gettime(CLOCK_MONOTONIC, &info->st_time);
 

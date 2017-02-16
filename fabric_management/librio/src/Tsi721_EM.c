@@ -908,7 +908,7 @@ fail:
 static uint32_t tsi721_get_event_cfg(rio_em_cfg_t *event,
 		tsi721_event_cfg_reg_vals_t *regs)
 {
-	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+	uint32_t rc;
 	uint32_t mask;
 
 	event->em_detect = rio_em_detect_0delta;
@@ -958,7 +958,7 @@ static uint32_t tsi721_get_event_cfg(rio_em_cfg_t *event,
 		break;
 
 	case rio_em_f_err_rate:
-		rc = rio_em_compute_f_err_rate_info(regs->sp_rate_en,
+		rio_em_compute_f_err_rate_info(regs->sp_rate_en,
 				regs->sp_err_rate, regs->sp_err_thresh, 
 				&event->em_info);
 
@@ -1494,7 +1494,7 @@ uint32_t tsi721_rio_em_dev_rpt_ctl(DAR_DEV_INFO_t *dev_info,
 		rio_em_dev_rpt_ctl_out_t *out_parms)
 {
 	struct DAR_ptl good_ptl;
-	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+	uint32_t rc;
 	tsi721_rpt_ctl_regs_t regs;
 
 	rc = DARrioGetPortList(dev_info, &in_parms->ptl, &good_ptl);

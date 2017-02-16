@@ -122,7 +122,6 @@ int RIOCP_WU mpsw_drv_reg_wr(struct riocp_pe *pe, uint32_t offset, uint32_t val)
 	ret = DARRegWrite(&priv_ptr->dev_h, offset, val);
 	if (ret) {
 		ERR("Write Failed: offset 0x%x rc 0x%x\n", offset, ret);
-		ret = EIO;
 	}
 
 	DBG("EXIT\n");
@@ -578,7 +577,7 @@ int generic_device_init(struct riocp_pe *pe)
 	if (MEMORY(dev_h)) {
 		struct mport_regs regs;
 		uint8_t memsz;
-		uint32_t reg_val = RIO_PE_LL_CTL_34BIT;
+		uint32_t reg_val;
 
 		if (RIOCP_PE_IS_MPORT(pe)) {
 			if (cfg_get_mp_mem_sz(pe->minfo->id, &memsz)) {
@@ -784,6 +783,7 @@ int generic_device_init(struct riocp_pe *pe)
 		goto exit;
 	}
 	return 0;
+
 exit:
 	return rc;
 }

@@ -640,7 +640,7 @@ riomp_sock_t conn_skt;
 
 void *conn_loop(void *ret)
 {
-	int rc = 1;
+	int rc;
 	riomp_sock_t *new_socket = NULL;
 	uint8_t found_one = 0;
 	int i;
@@ -700,7 +700,6 @@ void *conn_loop(void *ret)
 			new_socket = (riomp_sock_t *)
 				(malloc(sizeof(riomp_sock_t)));
 			if (NULL == new_socket) {
-				rc = -ENOMEM;
 				break;
 			}
 			rc = riomp_sock_socket(conn_mb, new_socket);
@@ -911,7 +910,7 @@ exit:
 
 int setup_mport(uint8_t mport_num, int num_buffs, uint32_t win_size)
 {
-	int rc = -1;
+	int rc;
 
 	all_must_die = 0;
 

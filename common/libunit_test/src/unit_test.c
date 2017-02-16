@@ -55,6 +55,7 @@
 #include <netinet/tcp.h>
 #include <pthread.h>
 
+#include "rio_misc.h"
 #include "libcli.h"
 #include "liblog.h"
 #include "libunit_test.h"
@@ -82,13 +83,9 @@ void config_unit_test(struct unit_test_driver *drv)
 	}
 }
 
-void unit_test_thread_shutdown(struct cli_env *env)
+void unit_test_thread_shutdown(struct cli_env *UNUSED(env))
 {
 	int i;
-
-	if (0) {
-		env = env + 1;
-	}
 
 	for (i = 0; i < MAX_WORKERS; i++) {
 		kill_worker_thread(&wkr[i]);
@@ -106,7 +103,6 @@ void sig_handler(int signo)
 
 void run_unit_test_cli(char *title_str, char *prompt_str)
 {
-	int rc = EXIT_FAILURE;
 	char prompt[25];
 	struct cli_env t_env;
 
@@ -131,9 +127,8 @@ void run_unit_test_cli(char *title_str, char *prompt_str)
 	unit_test_thread_shutdown(NULL);
 
 	printf("\nUnit Test EXITING!!!!\n");
-	rc = EXIT_SUCCESS;
 
-	exit(rc);
+	exit(EXIT_SUCCESS);
 }
 
 #ifdef __cplusplus

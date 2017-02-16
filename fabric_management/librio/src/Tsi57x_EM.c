@@ -1545,7 +1545,7 @@ uint32_t tsi57x_rio_em_dev_rpt_ctl(DAR_DEV_INFO_t *dev_info,
 		rio_em_dev_rpt_ctl_in_t *in_parms,
 		rio_em_dev_rpt_ctl_out_t *out_parms)
 {
-	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+	uint32_t rc;
 	struct DAR_ptl good_ptl;
 
 	out_parms->notfn = rio_em_notfn_0delta;

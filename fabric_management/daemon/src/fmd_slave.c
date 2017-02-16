@@ -413,7 +413,7 @@ fail:
 int start_peer_mgmt_slave(uint32_t mast_acc_skt_num, uint32_t mast_did,
                         uint32_t  mp_num, struct fmd_slave *slave)
 {
-	int rc = 1;
+	int rc;
 	int conn_rc;
 
 	slv = slave;
@@ -439,8 +439,8 @@ int start_peer_mgmt_slave(uint32_t mast_acc_skt_num, uint32_t mast_did,
 		ERR("riodp_mbox_create ERR %d\n", rc);
 		goto fail;
 	}
-	slv->mb_valid = 1;
 
+	slv->mb_valid = 1;
 	do {
 		rc = riomp_sock_socket(slv->mb, &slv->skt_h);
 		if (rc) {
@@ -451,8 +451,9 @@ int start_peer_mgmt_slave(uint32_t mast_acc_skt_num, uint32_t mast_did,
 		// Note: fmd.opts.mast_cm_port is set by the MASTER node.
 		conn_rc = riomp_sock_connect(slv->skt_h, slv->mast_did,
 					fmd->opts->mast_cm_port);
-		if (!conn_rc)
+		if (!conn_rc) {
 			break;
+		}
 
 		ERR("riomp_sock_connect ERR %d\n", conn_rc);
 		if ((ETIME == errno) || (EPERM == errno)) {
@@ -470,6 +471,7 @@ int start_peer_mgmt_slave(uint32_t mast_acc_skt_num, uint32_t mast_did,
 				rem.tv_nsec = 0;
 			} while (rc && (errno == EINTR));
 		}
+
 		rc = riomp_sock_close(&slv->skt_h);
 		if (rc) {
 			ERR("riomp_sock_close ERR %d\n", rc);
@@ -482,14 +484,13 @@ int start_peer_mgmt_slave(uint32_t mast_acc_skt_num, uint32_t mast_did,
 	}
 
 	slv->skt_valid = 1;
-	
-        if (riomp_sock_request_send_buffer(slv->skt_h, &slv->tx_buff)) {
-                riomp_sock_close(&slv->skt_h);
-                goto fail;
-        }
-	slv->rx_buff = (rapidio_mport_socket_msg *)calloc(1, sizeof(rapidio_mport_socket_msg));
+	if (riomp_sock_request_send_buffer(slv->skt_h, &slv->tx_buff)) {
+		riomp_sock_close(&slv->skt_h);
+		goto fail;
+	}
 
-        rc = pthread_create(&slv->slave_thr, NULL, mgmt_slave, NULL);
+	slv->rx_buff = (rapidio_mport_socket_msg *)calloc(1, sizeof(rapidio_mport_socket_msg));
+	rc = pthread_create(&slv->slave_thr, NULL, mgmt_slave, NULL);
 	if (rc) {
 		ERR("pthread_create ERR %d\n", rc);
 		goto fail;
@@ -503,11 +504,11 @@ int start_peer_mgmt_slave(uint32_t mast_acc_skt_num, uint32_t mast_did,
 	}
 
 	return rc;
+
 fail:
 	return 1;
-	
 }
-		
+
 void update_master_flags_from_peer(void)
 {
 	uint32_t did, did_sz, i;
@@ -546,7 +547,6 @@ void update_master_flags_from_peer(void)
 				FMD_P_S2M_CM_SZ);
 	sem_post(&slv->tx_mtx);
 }
-
 
 #ifdef __cplusplus
 }

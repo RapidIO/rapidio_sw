@@ -423,7 +423,6 @@ int do_obwin_test(int random, int verify, int loop_count)
 	ret = riomp_dma_map_memory(mport_hnd, tbuf_size, obw_handle, &obw_ptr);
 	if (ret) {
 		perror("mmap");
-		obw_ptr = NULL;
 		goto out_unmap;
 	}
 

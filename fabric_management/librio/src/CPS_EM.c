@@ -518,7 +518,6 @@ static uint32_t cps_set_event_en_cfg(DAR_DEV_INFO_t *dev_info, uint8_t pnum,
 			   // NOTE: LOS is a RATE event so that isolation occurs on failure
 		// SET_EVENT_EN 0x10-0x1F
 		cps_em_f_los_ctl(first_lane, last_lane, event, regs);
-		rc = RIO_SUCCESS;
 		break;
 
 	case rio_em_f_port_err: // CPS has indirect notification of a port error.
@@ -2143,7 +2142,7 @@ uint32_t CPS_rio_em_dev_rpt_ctl(DAR_DEV_INFO_t *dev_info,
 		rio_em_dev_rpt_ctl_in_t *in_parms,
 		rio_em_dev_rpt_ctl_out_t *out_parms)
 {
-	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+	uint32_t rc;
 	cps_port_info_t pi;
 	struct DAR_ptl good_ptl;
 

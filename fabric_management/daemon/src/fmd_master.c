@@ -521,15 +521,15 @@ void cleanup_acc_handler(void)
 
 void *mast_acc(void *unused)
 {
-	int rc = 1;
+	int rc;
 	riomp_sock_t new_skt = NULL;
 
-        char my_name[16] = {0};
+	char my_name[16] = {0};
 
-        snprintf(my_name, 15, "MAST_PEER_ACC");
-        pthread_setname_np(fmp.acc.acc, my_name);
+	snprintf(my_name, 15, "MAST_PEER_ACC");
+	pthread_setname_np(fmp.acc.acc, my_name);
 
-        pthread_detach(fmp.acc.acc);
+	pthread_detach(fmp.acc.acc);
 
 	fmp.acc.mb_valid = 0;
 	fmp.acc.cm_acc_valid = 0;
@@ -537,31 +537,32 @@ void *mast_acc(void *unused)
 	if (rc) {
 		ERR("riodp_mbox_create ERR %d\n", rc);
 		goto exit;
-	};
+	}
+
 	fmp.acc.mb_valid = 1;
 	sem_init(&fmp.acc.mb_mtx, 0, 1);
-
 	rc = riomp_sock_socket(fmp.acc.mb, &fmp.acc.cm_acc_h);
 	if (rc) {
 		ERR("riomp_sock_socket ERR %d %d: %s\n", rc, errno,
 			strerror(errno));
 		goto exit;
-	};
+	}
 
 	rc = riomp_sock_bind(fmp.acc.cm_acc_h, fmp.acc.cm_skt_num);
 	if (rc) {
 		ERR("riomp_sock_bind() ERR %d errno %d: %s\n", rc, errno,
 			strerror(errno));
 		goto exit;
-	};
-	fmp.acc.cm_acc_valid = 1;
+	}
 
+	fmp.acc.cm_acc_valid = 1;
 	rc = riomp_sock_listen(fmp.acc.cm_acc_h);
 	if (rc) {
 		ERR("riomp_sock_listen() ERR %d %d: %s\n", rc, errno,
 			strerror(errno));
 		goto exit;
-	};
+	}
+
 	fmp.acc.acc_alive = 1;
 	sem_post(&fmp.acc.started);
 
@@ -572,7 +573,8 @@ void *mast_acc(void *unused)
 				ERR("socket() ERR %d\n", rc);
 				break;
 			};
-		};
+		}
+
 		do {
 			errno = 0;
 			rc = riomp_sock_accept(fmp.acc.cm_acc_h,
@@ -582,22 +584,20 @@ void *mast_acc(void *unused)
 		if (rc) {
 			ERR("riodp_accept() ERR %d\n", rc);
 			break;
-		};
+		}
 
 		if (fmp.acc.acc_must_die) {
 			riomp_sock_close(&new_skt);
 			continue;
-		};
+		}
 
 		if (start_new_peer(new_skt)) {
 			WARN("Could not start peer after accept\n");
-		};
+		}
 			
 		new_skt = NULL;
 	}
-
-	if (NULL != new_skt)
-		free((void *)new_skt);
+	free(new_skt);
 
 exit:
 	cleanup_acc_handler();
@@ -605,7 +605,7 @@ exit:
 	CRIT("\nFMD Peer Connection Handler EXITING\n");
 	sem_post(&fmp.acc.started);
 	pthread_exit(unused);
-};
+}
 
 int start_peer_mgmt_master(uint32_t mast_acc_skt_num, uint32_t mp_num)
 {

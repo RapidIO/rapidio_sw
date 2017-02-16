@@ -194,7 +194,7 @@ exit:
 static uint32_t tsi57x_read_rte_entries(DAR_DEV_INFO_t *dev_info, uint8_t pnum,
 		rio_rt_state_t *rt, uint32_t *imp_rc)
 {
-	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+	uint32_t rc;
 	uint32_t destID, idx_val, rte_val, base_reg;
 
 	// Fill in default route value
@@ -294,7 +294,7 @@ static uint32_t program_rte_entries(DAR_DEV_INFO_t *dev_info,
 		uint32_t *imp_rc)
 {
 
-	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+	uint32_t rc;
 	uint32_t destID, baseID = 0;
 	uint32_t rte_val, idx_val;
 	bool set_base = false;

@@ -59,7 +59,7 @@ static uint32_t rxs_read_ctrs(DAR_DEV_INFO_t *dev_info,
 	uint64_t c_c; // current counter value
 	uint64_t tot; // new total counter value
 	rio_sc_ctr_val_t *counter;
-	uint32_t rc = !RIO_SUCCESS;
+	uint32_t rc;
 
 	for (cntr = 0; cntr < RXS2448_MAX_SC; cntr++) {
 		counter = &in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[cntr];
@@ -90,6 +90,7 @@ static uint32_t rxs_read_ctrs(DAR_DEV_INFO_t *dev_info,
 		counter->total = tot;
 	}
 	rc = RIO_SUCCESS;
+
 exit:
 	return rc;
 }

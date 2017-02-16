@@ -186,7 +186,7 @@ void sig_handler(int signo)
 
 int main(int argc, char *argv[])
 {
-	int rc = EXIT_FAILURE;
+	int rc;
 	char *src_name; /* Name of file to send */
 	char *rem_name; /* Name of file received */
 	uint8_t mport_num; /* Master port number to use on this node */
@@ -197,10 +197,10 @@ int main(int argc, char *argv[])
 	struct timespec req_time, st_time, end_time, duration;
 	uint64_t bytes_sent;
 
-        signal(SIGINT, sig_handler);
-        signal(SIGHUP, sig_handler);
-        signal(SIGTERM, sig_handler);
-        signal(SIGUSR1, sig_handler);
+	signal(SIGINT, sig_handler);
+	signal(SIGHUP, sig_handler);
+	signal(SIGTERM, sig_handler);
+	signal(SIGUSR1, sig_handler);
 
 	if (parse_options(argc, argv, &src_name, &rem_name, &destID, 
 		&svr_skt, &mport_num, &debug, &k_buff))
@@ -216,15 +216,18 @@ int main(int argc, char *argv[])
 		printf("\nMport      : %d\n", mport_num);
 		printf("\nDebug      : %d\n", debug);
 		printf("\nKernel Buff: %d\n", k_buff);
-	};
+	}
 
-        clock_gettime(CLOCK_MONOTONIC, &req_time);
+	clock_gettime(CLOCK_MONOTONIC, &req_time);
 	rc = send_file(src_name, rem_name, destID, svr_skt, mport_num, (debug>0? debug: 0), 
 		&st_time, &bytes_sent, k_buff);
-        clock_gettime(CLOCK_MONOTONIC, &end_time);
+	clock_gettime(CLOCK_MONOTONIC, &end_time);
 
-	if(rc) printf("\nFile transfer FAILED.\n");
-	else if (debug > 0) printf("\nFile transfer Passed.\n");
+	if (rc) {
+		printf("\nFile transfer FAILED.\n");
+	} else if (debug > 0) {
+		printf("\nFile transfer Passed.\n");
+	}
 
 	if (!rc) {
 		duration = time_difference(st_time, end_time);

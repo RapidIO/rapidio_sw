@@ -55,6 +55,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <netinet/tcp.h>
 #include <pthread.h>
 
+#include "rio_misc.h"
 #include "tok_parse.h"
 #include "libcli.h"
 #include "liblog.h"
@@ -77,21 +78,19 @@ struct riomp_mgmt_mport_properties qresp;
 
 struct worker wkr[MAX_WORKERS];
 
-void goodput_thread_shutdown(struct cli_env *env)
+void goodput_thread_shutdown(struct cli_env *UNUSED(env))
 {
 	int i;
 
-	if (0)
-		env = env + 1;
-
-	for (i = 0; i < MAX_WORKERS; i++)
+	for (i = 0; i < MAX_WORKERS; i++) {
 		shutdown_worker_thread(&wkr[i]);
+	}
 
 	if (mp_h_valid) {
 		riomp_mgmt_mport_destroy_handle(&mp_h);
 		mp_h_valid = 0;
-	};
-};
+	}
+}
 
 int setup_mport(int mport_num)
 {
@@ -125,7 +124,6 @@ void sig_handler(int signo)
 
 int main(int argc, char *argv[])
 {
-	int rc = EXIT_FAILURE;
 	uint32_t mport_num = 0;
 
 	char* rc_script = NULL;
@@ -189,9 +187,7 @@ int main(int argc, char *argv[])
 	};
 
 	printf("\nGoodput Evaluation Application EXITING!!!!\n");
-	rc = EXIT_SUCCESS;
-
-	exit(rc);
+	exit(EXIT_SUCCESS);
 }
 
 #ifdef __cplusplus

@@ -2256,7 +2256,7 @@ uint32_t CPS_rio_pc_get_config(DAR_DEV_INFO_t *dev_info,
 		rio_pc_get_config_in_t *in_parms,
 		rio_pc_get_config_out_t *out_parms)
 {
-	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+	uint32_t rc;
 	uint8_t pnum, port_idx;
 	uint8_t quad_cfg;
 	uint8_t lane_num, first_lane, last_lane, pll_num;
@@ -2673,7 +2673,7 @@ uint32_t CPS_rio_pc_get_status(DAR_DEV_INFO_t *dev_info,
 		rio_pc_get_status_in_t *in_parms,
 		rio_pc_get_status_out_t *out_parms)
 {
-	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+	uint32_t rc;
 	uint32_t err_stat, ctl1, err_det, stat_ctl;
 	uint8_t pnum, quad_cfg, port_idx;
 	cps_port_info_t pi;
@@ -3135,7 +3135,7 @@ uint32_t CPS_rio_pc_secure_port(DAR_DEV_INFO_t *dev_info,
 		rio_pc_secure_port_in_t *in_parms,
 		rio_pc_secure_port_out_t *out_parms)
 {
-	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+	uint32_t rc;
 	uint8_t idx, port_idx;
 	uint32_t regVal;
 	rio_pc_get_config_in_t cfg_in;

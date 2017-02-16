@@ -320,7 +320,6 @@ int riocp_pe_handle_create_pe(struct riocp_pe *pe, struct riocp_pe **handle, hc_
 	/* Create port field */
 	h->port = (struct riocp_pe_port *)calloc(1, sizeof(struct riocp_pe_port));
 	if (h->port == NULL) {
-		ret = -ENOMEM;
 		goto err;
 	}
 
@@ -342,7 +341,6 @@ int riocp_pe_handle_create_pe(struct riocp_pe *pe, struct riocp_pe **handle, hc_
 		h->address = (uint8_t *)calloc(3 * hopcount, sizeof(*h->address));
 		if (h->address == NULL) {
 			RIOCP_ERROR("Unable to allocate memory for h->address\n");
-			ret = -ENOMEM;
 			goto err;
 		}
 
@@ -384,7 +382,6 @@ int riocp_pe_handle_create_pe(struct riocp_pe *pe, struct riocp_pe **handle, hc_
 	ret = riocp_pe_comptag_read(h, &h->comptag);
 	if (ret) {
 		RIOCP_ERROR("Could not read comptag\n");
-		ret = -EIO;
 		goto err;
 	}
 
@@ -394,7 +391,6 @@ int riocp_pe_handle_create_pe(struct riocp_pe *pe, struct riocp_pe **handle, hc_
 						sizeof(struct riocp_pe_peer));
 	if (h->peers == NULL) {
 		RIOCP_ERROR("Unable to allocate memory for h->peers\n");
-		ret = -ENOMEM;
 		goto err;
 	}
 	RIOCP_DEBUG("Allocated %zu peers for 0x%08x\n", RIOCP_PE_PORT_COUNT(h->cap), h->comptag);
