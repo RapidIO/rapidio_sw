@@ -51,7 +51,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "rio_standard.h"
 #include "RXS2448.h"
-#include "RXS_Routing_Table_API.h"
 #include "RapidIO_Routing_Table_API.h"
 
 #ifdef __cplusplus

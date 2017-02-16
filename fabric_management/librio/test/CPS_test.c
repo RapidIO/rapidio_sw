@@ -43,7 +43,6 @@
 #include "RapidIO_Source_Config.h"
 #include "RapidIO_Device_Access_Routines_API.h"
 #include "CPS1848.h"
-#include "RXS_Routing_Table_API.h"
 #include "src/CPS_RT.c"
 #include "rio_standard.h"
 #include "rio_ecosystem.h"

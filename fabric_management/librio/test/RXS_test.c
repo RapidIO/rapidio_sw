@@ -43,7 +43,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "RapidIO_Source_Config.h"
 #include "RapidIO_Device_Access_Routines_API.h"
 #include "RXS2448.h"
-#include "RXS_Routing_Table_API.h"
 #include "src/RXS_DeviceDriver.c"
 #include "src/RXS_RT.c"
 #include "rio_ecosystem.h"

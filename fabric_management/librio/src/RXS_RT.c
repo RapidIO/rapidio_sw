@@ -55,6 +55,18 @@ extern "C" {
 #define DEV_RTE_ADDR(b,n) ((b)+(4*n))
 #define DOM_RTE_ADDR(b,n) ((b)+(4*n))
 
+#define RXS_RTE_SET_COMMON_0                  (RT_FIRST_SUBROUTINE_0+0x0100)
+#define RXS_PROGRAM_RTE_ENTRIES_0             (RT_FIRST_SUBROUTINE_0+0x1900)
+#define RXS_PROGRAM_MC_MASKS_0                (RT_FIRST_SUBROUTINE_0+0x1A00)
+#define RXS_READ_MC_MASKS_0                   (RT_FIRST_SUBROUTINE_0+0x1B00)
+#define RXS_READ_RTE_ENTRIES_0                (RT_FIRST_SUBROUTINE_0+0x1C00)
+
+#define RXS_PROGRAM_MC_MASKS(x)               (RXS_PROGRAM_MC_MASKS_0+x)
+#define RXS_PROGRAM_RTE_ENTRIES(x)            (RXS_PROGRAM_RTE_ENTRIES_0+x)
+#define RXS_RTE_SET_COMMON(x)                 (RXS_RTE_SET_COMMON_0+x)
+#define RXS_READ_MC_MASKS(x)                  (RXS_READ_MC_MASKS_0+x)
+#define RXS_READ_RTE_ENTRIES(x)               (RXS_READ_RTE_ENTRIES_0+x)
+
 //TODO: Maybe it needs to add lane to port mapping for this routine.
 static void rxs_check_multicast_routing(DAR_DEV_INFO_t *dev_info,
 		rio_rt_probe_in_t *in_parms, rio_rt_probe_out_t *out_parms)
@@ -547,6 +559,9 @@ exit:
 	return rc;
 }
 
+#define RXS_SET_ALL     true
+#define RXS_SET_CHANGED false
+
 static uint32_t rxs_rt_set_common(DAR_DEV_INFO_t *dev_info,
 		rio_rt_set_all_in_t *in_parms, rio_rt_set_all_out_t *out_parms,
 		bool set_all) // true if all entries should be set
@@ -725,7 +740,7 @@ uint32_t rxs_rio_rt_initialize(DAR_DEV_INFO_t *dev_info,
 		all_in.rt->mc_masks[mc_idx].mc_mask = 0;
 		all_in.rt->mc_masks[mc_idx].in_use = false;
 		all_in.rt->mc_masks[mc_idx].allocd = false;
-		if ((mc_idx < RXS_MAX_MC_MASKS)
+		if ((mc_idx < RXS2448_MC_MASK_CNT)
 				&& (mc_idx < RIO_DSF_MAX_MC_MASK)) {
 			all_in.rt->mc_masks[mc_idx].changed = true;
 		} else {

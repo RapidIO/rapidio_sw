@@ -38,7 +38,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "rio_ecosystem.h"
 #include "RapidIO_Device_Access_Routines_API.h"
-#include "RXS_Routing_Table_API.h"
 
 #ifdef __cplusplus
 extern "C" {
