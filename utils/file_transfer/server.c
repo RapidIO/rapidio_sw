@@ -741,12 +741,14 @@ void *conn_loop(void *ret)
 			};
 		};
 
-		if (!found_one)
+		if (!found_one) {
 			add_conn_req( &conn_reqs, new_socket);
+		}
 
 		if (pause_file_xfer_conn && 
-				(num_conn_reqs >= max_file_xfer_queue))
+				(num_conn_reqs >= max_file_xfer_queue)) {
 			batch_start_connections();
+		}
 
 		sem_post(&conn_reqs_mutex);
 		new_socket = NULL;
@@ -1011,6 +1013,7 @@ void spawn_threads(int cons_skt, int xfer_skt, int run_cons)
 				(void *)(conn_loop_rc));
 	if (conn_ret) {
 		printf("Error - conn_thread rc: %d\n", conn_ret);
+		free(conn_loop_rc);
 		exit(EXIT_FAILURE);
 	}
  
@@ -1033,9 +1036,10 @@ void spawn_threads(int cons_skt, int xfer_skt, int run_cons)
 		if (ibwin_ret) {
 			printf("\nCould not create fxfr rx thread %d, rc=%d\n", 
 					i, ibwin_ret);
+			free(pass_idx);
 		}
 		rx_bufs[i].thr_valid = 1;
-	};
+	}
 
 	/* Start remote_login_thread, enabling remote debug over Ethernet */
 
@@ -1049,6 +1053,7 @@ void spawn_threads(int cons_skt, int xfer_skt, int run_cons)
 				(void *)(rlp));
 	if(cli_ret) {
 		fprintf(stderr,"Error - remote_login_thread rc: %d\n",cli_ret);
+		free(rlp);
 		exit(EXIT_FAILURE);
 	}
 
@@ -1060,7 +1065,7 @@ void spawn_threads(int cons_skt, int xfer_skt, int run_cons)
 		if (run_cons) 
 			printf("pthread_create() for console returns: %d\n", 
 				cons_ret);
-	};
+	}
 }
  
 void fxfr_server_shutdown(void) {

@@ -475,28 +475,36 @@ int start_new_peer(riomp_sock_t new_skt)
 	sem_init(&peer->tx_mtx, 0, 1);
 	sem_init(&peer->started, 0, 0);
 	peer->rx_buff = (rapidio_mport_socket_msg *) calloc(1, sizeof(rapidio_mport_socket_msg));
+	if (NULL == peer->rx_buff) {
+		free(peer);
+		goto fail;
+	}
 
 	if (riomp_sock_request_send_buffer(new_skt, &peer->tx_buff)) {
+		free(peer->rx_buff);
+		free(peer);
 		riomp_sock_close(&new_skt);
 		goto fail;
-	};
+	}
 
-        rc = pthread_create(&peer->rx_thr, NULL, peer_rx_loop, (void*)peer);
+	rc = pthread_create(&peer->rx_thr, NULL, peer_rx_loop, (void*)peer);
 	if (rc) {
 		cleanup_peer(peer);
+		free(peer);
 		goto fail;
-	};
+	}
 
-	sem_wait(&peer->started);
-
+	rc = sem_wait(&peer->started);
 	if (rc || !peer->rx_alive) {
+		cleanup_peer(peer);
+		free(peer);
 		goto fail;
-	};
+	}
 
 	return 0;
 fail:
 	return 1;
-};
+}
 
 void cleanup_acc_handler(void)
 {

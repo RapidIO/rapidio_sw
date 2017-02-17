@@ -189,6 +189,7 @@ int riomp_mgmt_get_mport_list(uint32_t **dev_ids, uint8_t *number_of_mports)
 	/* Request MPORT list from the driver (first entry is list size) */
 	list[0] = entries;
 	if (ioctl(fd, RIO_CM_MPORT_GET_LIST, list)) {
+		free(list);
 		ret = errno;
 		goto outfd;
 	}
@@ -196,6 +197,7 @@ int riomp_mgmt_get_mport_list(uint32_t **dev_ids, uint8_t *number_of_mports)
 	/* Return list information */
 	*dev_ids = &list[1]; /* pointer to the list */
 	*number_of_mports = *list; /* return real number of mports */
+
 	ret = 0;
 
 outfd:
@@ -256,6 +258,7 @@ int riomp_mgmt_get_ep_list(uint8_t mport_id, uint32_t **destids,
 	list[0] = entries;
 	list[1] = mport_id;
 	if (ioctl(fd, RIO_CM_EP_GET_LIST, list)) {
+		free(list);
 		ret = errno;
 		goto outfd;
 	}

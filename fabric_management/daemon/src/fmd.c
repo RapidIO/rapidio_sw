@@ -154,7 +154,6 @@ void spawn_threads(struct fmd_opt_vals *cfg)
 {
 	int poll_ret, cli_ret, cons_ret;
 	int *pass_poll_interval;
-	int *pass_cons_ret;
 	int ret;
 	struct remote_login_parms *rlp;
 
@@ -167,18 +166,14 @@ void spawn_threads(struct fmd_opt_vals *cfg)
 
 	sem_init(&cons_owner, 0, 0);
 	pass_poll_interval = (int *)(calloc(2, sizeof(int)));
-	pass_cons_ret = (int *)(calloc(1, sizeof(int))); /// \todo MEMLEAK
-	if (!pass_poll_interval || !pass_cons_ret) {
-		free(pass_cons_ret);
-		free(pass_poll_interval);
-
+	if (NULL == pass_poll_interval) {
+		free(rlp);
 		CRIT(MALLOC_FAIL);
 		exit(EXIT_FAILURE);
 	}
 
 	pass_poll_interval[0] = cfg->mast_interval;
 	pass_poll_interval[1] = cfg->run_cons;
-	*pass_cons_ret = cfg->run_cons;
 
 	cli_init_base(custom_quit);
 	bind_dd_cmds(fmd->dd, fmd->dd_mtx, fmd->dd_fn, fmd->dd_mtx_fn);
@@ -193,6 +188,8 @@ void spawn_threads(struct fmd_opt_vals *cfg)
 	poll_ret = pthread_create(&poll_thread, NULL, poll_loop,
 			(void*)(pass_poll_interval));
 	if (poll_ret) {
+		free(pass_poll_interval);
+		free(rlp);
 		CRIT(THREAD_FAIL, poll_ret);
 		exit(EXIT_FAILURE);
 	}
@@ -205,6 +202,7 @@ void spawn_threads(struct fmd_opt_vals *cfg)
 	cli_ret = pthread_create(&remote_login_thread, NULL, remote_login,
 			(void*)(rlp));
 	if (cli_ret) {
+		free(rlp);
 		CRIT(THREAD_FAIL, cli_ret);
 		exit(EXIT_FAILURE);
 	}
@@ -433,6 +431,7 @@ int setup_mport_master(int mport)
 	if (riocp_pe_create_host_handle(&mport_pe, mport, 0, &comptag, name)) {
 		CRIT("Cannot create host handle mport %d, exiting...", mport);
 		riocp_pe_destroy_handle(&mport_pe);
+		free(name);
 		return 1;
 	}
 

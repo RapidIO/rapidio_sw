@@ -314,13 +314,15 @@ int riocp_pe_handle_create_pe(struct riocp_pe *pe, struct riocp_pe **handle, hc_
 
 	/* Create new empty handle */
 	h = (struct riocp_pe *)calloc(1, sizeof(struct riocp_pe));
-	if (h == NULL)
+	if (h == NULL) {
 		return -ENOMEM;
+	}
 
 	/* Create port field */
 	h->port = (struct riocp_pe_port *)calloc(1, sizeof(struct riocp_pe_port));
 	if (h->port == NULL) {
-		goto err;
+		free(h);
+		return -ENOMEM;
 	}
 
 	/* Initialize handle attributes */
@@ -436,21 +438,23 @@ int riocp_pe_handle_create_mport(uint8_t mport, bool is_host,
 
 	/* Create new empty handle */
 	h = (struct riocp_pe *)calloc(1, sizeof(struct riocp_pe));
-	if (h == NULL)
+	if (h == NULL) {
 		return -ENOMEM;
+	}
 
 	/* Create port field */
 	h->port = (struct riocp_pe_port *)calloc(1, sizeof(struct riocp_pe_port));
 	if (h->port == NULL) {
-		ret = -ENOMEM;
-		goto err;
+		free(h);
+		return -ENOMEM;
 	}
 
 	/* Create mport information */
 	h->minfo = (struct riocp_pe_mport *)calloc(1, sizeof(*h->minfo));
 	if (h->minfo == NULL) {
-		ret = -ENOMEM;
-		goto err;
+		free(h->port);
+		free(h);
+		return -ENOMEM;
 	}
 
 	/* Initialize handle attributes */
