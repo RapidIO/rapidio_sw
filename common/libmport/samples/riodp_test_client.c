@@ -297,7 +297,7 @@ int main(int argc, char** argv)
 				(int)getpid());
 
 		/** - Send message to the destination */
-		ret = riomp_sock_send(socket, msg_tx, sizeof(msg_tx));
+		ret = riomp_sock_send(socket, msg_tx, sizeof(*msg_tx));
 		if (ret) {
 			printf("CM_CLIENT(%d): riomp_sock_send() ERR %d\n",
 					(int)getpid(), ret);
@@ -305,7 +305,7 @@ int main(int argc, char** argv)
 		}
 
 		/** - Get echo response from the server (blocking call, no timeout) */
-		ret = riomp_sock_receive(socket, &msg_rx, sizeof(msg_rx), 0);
+		ret = riomp_sock_receive(socket, &msg_rx, sizeof(*msg_rx), 0);
 		if (ret) {
 			printf(
 					"CM_CLIENT(%d): riomp_sock_receive() ERR %d on roundtrip %d\n",

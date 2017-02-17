@@ -192,7 +192,7 @@ void doprocessing(riomp_sock_t new_socket)
 	while (!srv_exit) {
 		repeat_rx:
 		/** - Receive an inbound message */
-		ret = riomp_sock_receive(new_socket, &msg_rx, sizeof(msg_rx),
+		ret = riomp_sock_receive(new_socket, &msg_rx, sizeof(*msg_rx),
 				60 * 1000);
 		if (ret) {
 			if (ret == ETIME && !srv_exit) {
@@ -211,7 +211,7 @@ void doprocessing(riomp_sock_t new_socket)
 		}
 
 		/** - Send  a message back to the client */
-		ret = riomp_sock_send(new_socket, msg_rx, sizeof(msg_rx));
+		ret = riomp_sock_send(new_socket, msg_rx, sizeof(*msg_rx));
 		if (ret) {
 			printf("CM_SERVER(%d): riomp_sock_send() ERR %d (%d)\n",
 					(int)getpid(), ret, errno);

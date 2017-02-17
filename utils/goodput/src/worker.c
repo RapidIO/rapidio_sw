@@ -1067,7 +1067,8 @@ void msg_rx_goodput(struct worker *info)
 
 		while (!rc && !info->stop_req) {
 			rc = riomp_sock_receive(info->con_skt,
-				&info->sock_rx_buf, sizeof(info->sock_rx_buf), 1000);
+				&info->sock_rx_buf, sizeof(*info->sock_rx_buf),
+				1000);
 
                 	if (rc) {
                         	if ((errno == ETIME) || (errno == EINTR)) {
@@ -1164,7 +1165,7 @@ void msg_tx_goodput(struct worker *info)
 			while (rc && !info->stop_req) {
 				rc = riomp_sock_receive(info->con_skt,
 						&info->sock_rx_buf,
-						sizeof(info->sock_rx_buf),
+						sizeof(*info->sock_rx_buf),
 						1000);
 
                 		if (rc) {
@@ -1261,7 +1262,7 @@ void msg_tx_overhead(struct worker *info)
 		while (rc && !info->stop_req) {
 			rc = riomp_sock_receive(info->con_skt,
 					&info->sock_rx_buf,
-					sizeof(info->sock_rx_buf), 1000);
+					sizeof(*info->sock_rx_buf), 1000);
 
 			if (rc) {
 				if ((errno == ETIME) ||

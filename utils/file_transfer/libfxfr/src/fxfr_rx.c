@@ -165,18 +165,18 @@ int send_server_msg(struct buffer_info *info, int fail_abort, int abort_flag)
 		printf("	fail_abort   = %16lx\n",
 			(long unsigned int)info->tx_msg->fail_abort);
 		printf("	file name    = %s\n",
-					info->tx_msg->rx_file_name);
+				info->tx_msg->rx_file_name);
 	};
 
 	/* Send a message to the client */
 	return riomp_sock_send(*info->req_skt, 
-			info->msg_tx, sizeof(info->msg_tx));
+			info->msg_tx, sizeof(*info->msg_tx));
 };
 
 int receive_client_msg(struct buffer_info *info)
 {
 	int ret = riomp_sock_receive(*info->req_skt, 
-					&info->msg_rx, sizeof(info->msg_rx), 0);
+				&info->msg_rx, sizeof(*info->msg_rx), 0);
 	if (ret) {
 		printf("File RX: riomp_socket_receive() ERR %d (%d)\n",
 			ret, errno);
