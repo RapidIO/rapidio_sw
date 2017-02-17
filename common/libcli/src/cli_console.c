@@ -80,9 +80,11 @@ void *console_rc(void *cons_parm_v)
 
 	init_cli_env(&cons_env);
 	if (NULL == cons_parm->prompt) {
-		SAFE_STRNCPY(cons_env.prompt, "PROMPT> ", sizeof(cons_env.prompt));
+		SAFE_STRNCPY(cons_env.prompt, "PROMPT> ",
+						sizeof(cons_env.prompt));
 	} else {
-		SAFE_STRNCPY(cons_env.prompt, (char *)cons_parm, sizeof(cons_env.prompt));
+		SAFE_STRNCPY(cons_env.prompt, cons_parm->prompt,
+						sizeof(cons_env.prompt));
 	}
 
 	if (NULL != cons_parm->script) {
