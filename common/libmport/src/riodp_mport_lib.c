@@ -1129,36 +1129,50 @@ int riomp_sock_socket(riomp_mailbox_t mailbox, riomp_sock_t *socket_handle)
 	return 0;
 }
 
-int riomp_sock_send(riomp_sock_t socket_handle, rapidio_mport_socket_msg *skt_msg, uint32_t size)
+int riomp_sock_send(riomp_sock_t socket_handle, rapidio_mport_socket_msg *skt_msg, uint32_t size, volatile int *stop_req)
 {
 	int ret;
 	struct rapidio_mport_socket *handle = socket_handle;
 	struct rio_cm_msg msg;
 
-	msg.ch_num = handle->ch.id;
-	msg.size = size;
-	msg.msg = (__u64 )skt_msg;
+	do {
+		msg.ch_num = handle->ch.id;
+		msg.size = size;
+		msg.msg = (__u64 )skt_msg;
+		errno = 0;
 
-	ret = ioctl(handle->mbox->fd, RIO_CM_CHAN_SEND, &msg);
+		ret = ioctl(handle->mbox->fd, RIO_CM_CHAN_SEND, &msg);
+	} while (ret &&
+		((NULL == stop_req) || ((NULL != stop_req) && !*stop_req)) &&
+		((ETIME == errno) || (EINTR == errno) || (EAGAIN == errno) ||
+		 (EBUSY == errno)));
+
 	if (ret) {
 		return errno;
 	}
 	return 0;
 }
 
-int riomp_sock_receive(riomp_sock_t socket_handle, rapidio_mport_socket_msg **skt_msg, uint32_t size,
-		uint32_t timeout)
+int riomp_sock_receive(riomp_sock_t socket_handle,
+		rapidio_mport_socket_msg **skt_msg,
+		uint32_t timeout, volatile int *stop_req)
 {
 	int ret;
 	struct rapidio_mport_socket *handle = socket_handle;
 	struct rio_cm_msg msg;
 
-	msg.ch_num = handle->ch.id;
-	msg.size = size;
-	msg.msg = (__u64 )*skt_msg;
-	msg.rxto = timeout;
+	do {
+		msg.ch_num = handle->ch.id;
+		msg.size = sizeof(rapidio_mport_socket_msg);
+		msg.msg = (__u64 )*skt_msg;
+		msg.rxto = timeout;
+		errno = 0;
 
-	ret = ioctl(handle->mbox->fd, RIO_CM_CHAN_RECEIVE, &msg);
+		ret = ioctl(handle->mbox->fd, RIO_CM_CHAN_RECEIVE, &msg);
+	} while (ret &&
+		((NULL == stop_req) || ((NULL != stop_req) && (!*stop_req))) &&
+		((ETIME == errno) || (EINTR == errno) || (EAGAIN == errno)));
+
 	if (ret) {
 		return errno;
 	}
@@ -1252,7 +1266,7 @@ int riomp_sock_listen(riomp_sock_t socket_handle)
 }
 
 int riomp_sock_accept(riomp_sock_t socket_handle, riomp_sock_t *conn,
-		uint32_t timeout)
+		uint32_t timeout, volatile int *stop_req)
 {
 	struct rapidio_mport_socket *handle = socket_handle;
 	struct rapidio_mport_socket *new_handle;
@@ -1263,13 +1277,16 @@ int riomp_sock_accept(riomp_sock_t socket_handle, riomp_sock_t *conn,
 		return -1;
 	}
 
-	param.ch_num = handle->ch.id;
-	param.wait_to = timeout;
+	do {
+		param.ch_num = handle->ch.id;
+		param.wait_to = timeout;
+		errno = 0;
 
-	ret = ioctl(handle->mbox->fd, RIO_CM_CHAN_ACCEPT, &param);
-	if (ret) {
-		return errno;
-	}
+		ret = ioctl(handle->mbox->fd, RIO_CM_CHAN_ACCEPT, &param);
+
+	} while (ret &&
+		((NULL == stop_req) || ((NULL != stop_req) && (!*stop_req))) &&
+		((ETIME == errno) || (EINTR == errno) || (EAGAIN == errno)));
 
 	new_handle = *conn;
 	if (new_handle) {
@@ -1280,7 +1297,7 @@ int riomp_sock_accept(riomp_sock_t socket_handle, riomp_sock_t *conn,
 }
 
 int riomp_sock_connect(riomp_sock_t socket_handle, uint32_t remote_destid,
-		uint16_t remote_channel)
+		uint16_t remote_channel, volatile int *stop_req)
 {
 	struct rapidio_mport_socket *handle = socket_handle;
 	uint16_t ch_num = 0;
@@ -1293,16 +1310,22 @@ int riomp_sock_connect(riomp_sock_t socket_handle, uint32_t remote_destid,
 		handle->ch.id = ch_num;
 	}
 
-	/* Configure and Send Connect IOCTL */
-	handle->ch.remote_destid = remote_destid;
-	handle->ch.remote_channel = remote_channel;
-	handle->ch.mport_id = handle->mbox->mport_id;
-	cdev.remote_destid = remote_destid;
-	cdev.remote_channel = remote_channel;
-	cdev.mport_id = handle->mbox->mport_id;
-	cdev.id = handle->ch.id;
+	do {
+		/* Configure and Send Connect IOCTL */
+		handle->ch.remote_destid = remote_destid;
+		handle->ch.remote_channel = remote_channel;
+		handle->ch.mport_id = handle->mbox->mport_id;
+		cdev.remote_destid = remote_destid;
+		cdev.remote_channel = remote_channel;
+		cdev.mport_id = handle->mbox->mport_id;
+		cdev.id = handle->ch.id;
+		errno = 0;
 
-	ret = ioctl(handle->mbox->fd, RIO_CM_CHAN_CONNECT, &cdev);
+		ret = ioctl(handle->mbox->fd, RIO_CM_CHAN_CONNECT, &cdev);
+	} while (ret &&
+		((NULL == stop_req) || ((NULL != stop_req) && (!*stop_req))) &&
+		((ETIME == errno) || (EINTR == errno) || (EAGAIN == errno)));
+
 	if (ret) {
 		return errno;
 	}

@@ -973,19 +973,11 @@ int send_resp_msg(struct worker *info)
 	nanosleep(&ten_usec, NULL);
 	errno = 0;
 
-	do {
-		rc = riomp_sock_send(info->con_skt, info->sock_tx_buf,
-					info->msg_size);
-
-		if (rc && (errno == EBUSY)) {
-			nanosleep(&ten_usec, NULL);
-			break;
-		};
-	} while (((errno == ETIME) || (errno == EINTR) || (errno == EBUSY) ||
-		(errno == EAGAIN)) && rc && !info->stop_req);
-
-	if (rc)
+	rc = riomp_sock_send(info->con_skt, info->sock_tx_buf, info->msg_size,
+			&info->stop_req);
+	if (rc) {
 		ERR("FAILED: riomp_sock_send rc %d:%s\n", rc, strerror(errno));
+	}
 	return rc;
 };
 
@@ -1051,10 +1043,9 @@ void msg_rx_goodput(struct worker *info)
 		if (rc)
 			break;
 
-                rc = riomp_sock_accept(info->acc_skt, &info->con_skt, 1000);
+                rc = riomp_sock_accept(info->acc_skt, &info->con_skt,
+					1000, &info->stop_req);
                 if (rc) {
-                        if ((errno == ETIME) || (errno == EINTR))
-                                continue;
 			ERR("FAILED: riomp_sock_accept rc %d:%s\n",
 				rc, strerror(errno));
                         break;
@@ -1067,26 +1058,25 @@ void msg_rx_goodput(struct worker *info)
 
 		while (!rc && !info->stop_req) {
 			rc = riomp_sock_receive(info->con_skt,
-				&info->sock_rx_buf, sizeof(*info->sock_rx_buf),
-				1000);
+				&info->sock_rx_buf,
+				1000,
+				&info->stop_req);
+			if (rc) {
+				break;
+			}
 
-                	if (rc) {
-                        	if ((errno == ETIME) || (errno == EINTR)) {
-					rc = 0;
-                                	continue;
-				};
-                        	break;
-                	};
 			info->perf_msg_cnt++;
-			if ((message_rx_lat == info->action) ||
-			   		(message_rx_oh == info->action)) {
-				if (send_resp_msg(info))
+			if ((message_rx_lat == info->action)
+					|| (message_rx_oh
+							== info->action)) {
+				if (send_resp_msg(info)) {
 					break;
+				}
 			}
 			clock_gettime(CLOCK_MONOTONIC, &info->end_time);
-		};
+		}
 		msg_cleanup_con_skt(info);
-        };
+	}
 exit:
 	msg_cleanup_con_skt(info);
 	msg_cleanup_acc_skt(info);
@@ -1126,7 +1116,8 @@ void msg_tx_goodput(struct worker *info)
 
 	info->con_skt_valid = 1;
 
-        rc = riomp_sock_connect(info->con_skt, info->did, info->sock_num);
+        rc = riomp_sock_connect(info->con_skt, info->did, info->sock_num,
+				&info->stop_req);
 	if (rc) {
 		ERR("FAILED: riomp_sock_connect rc %d:%s\n",
 			rc, strerror(errno));
@@ -1146,28 +1137,20 @@ void msg_tx_goodput(struct worker *info)
 			start_iter_stats(info);
 
 		rc = riomp_sock_send(info->con_skt,
-				info->sock_tx_buf, info->msg_size);
+				info->sock_tx_buf, info->msg_size, &info->stop_req);
 
-                if (rc) {
-                        if ((errno == ETIME) || (errno == EINTR))
-                                continue;
-                        if (errno == EBUSY) {
-				nanosleep(&ten_usec, NULL);
-                                continue;
-			};
-			ERR("FAILED: riomp_sock_send rc %d:%s\n",
-				rc, strerror(errno));
-                        goto exit;
-                };
+		if (rc) {
+			ERR("FAILED: riomp_sock_send rc %d:%s\n", rc,
+					strerror(errno));
+			goto exit;
+		}
 
 		if (message_tx_lat == info->action) {
 			rc = 1;
 			while (rc && !info->stop_req) {
 				rc = riomp_sock_receive(info->con_skt,
 						&info->sock_rx_buf,
-						sizeof(*info->sock_rx_buf),
-						1000);
-
+						1000, &info->stop_req);
                 		if (rc) {
                         		if ((errno == ETIME) ||
 							(errno == EINTR)) {
@@ -1230,7 +1213,8 @@ void msg_tx_overhead(struct worker *info)
 		start_iter_stats(info);
 
 		info->con_skt_valid = 1;
-		rc = riomp_sock_connect(info->con_skt, info->did, info->sock_num);
+		rc = riomp_sock_connect(info->con_skt, info->did,
+				info->sock_num, &info->stop_req);
 		if (rc) {
 			ERR("FAILED: riomp_sock_connect rc %d:%s\n",
 				rc, strerror(errno));
@@ -1238,43 +1222,29 @@ void msg_tx_overhead(struct worker *info)
 		};
 		info->con_skt_valid = 2;
 
-		rc = 1;
-		while (rc && !info->stop_req) {
-			rc = riomp_sock_send(info->con_skt,
-					info->sock_tx_buf, info->msg_size);
-
-			if (rc) {
-				if ((errno == ETIME) || (errno == EINTR))
-					continue;
-				if (errno == EBUSY) {
-					const struct timespec ten_usec = {0, 10 * 1000};
-					nanosleep(&ten_usec, NULL);
-					continue;
-				};
-				ERR("FAILED: riomp_sock_send rc %d:%s\n",
-					rc, strerror(errno));
-				goto exit;
-			};
-			break;
-		};
+		rc = riomp_sock_send(info->con_skt,
+				info->sock_tx_buf, info->msg_size,
+				&info->stop_req);
+		if (rc) {
+			ERR("FAILED: riomp_sock_send rc %d:%s\n",
+				rc, strerror(errno));
+			goto exit;
+		}
+		break;
 
 		rc = 1;
 		while (rc && !info->stop_req) {
 			rc = riomp_sock_receive(info->con_skt,
 					&info->sock_rx_buf,
-					sizeof(*info->sock_rx_buf), 1000);
-
+					1000,
+					&info->stop_req);
 			if (rc) {
-				if ((errno == ETIME) ||
-						(errno == EINTR)) {
-					continue;
-				};
 				ERR(
 				"FAILED: riomp_sock_receive rc %d:%s\n",
 					rc, strerror(errno));
 				goto exit;
-			};
-		};
+			}
+		}
 
 		rc = riomp_sock_close(&info->con_skt);
 		info->con_skt_valid = 0;

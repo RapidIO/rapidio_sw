@@ -125,27 +125,37 @@ int riomp_sock_socket(riomp_mailbox_t mailbox, riomp_sock_t *socket_handle);
  * @param[in] socket_handle valid socket handle
  * @param[in] skt_msg pointer to message
  * @param[in] size number of bytes to send
+ * @param[in] stop_req NULL if the parameter should be ignored.
+ * 		if *stop_req is 0, reattempt the send in the event of
+ * 		a non-fatal error i.e. errno = EAGAIN, EBUSY, EINTR.
+ * 		if *stop_req is not 0, return immediately.
  * @return status of the function call
  * @retval 0 on success
  * @retval -errno on error
  */
 int riomp_sock_send(riomp_sock_t socket_handle,
-		rapidio_mport_socket_msg *skt_msg, uint32_t size);
+		rapidio_mport_socket_msg *skt_msg, uint32_t size,
+		volatile int *stop_req);
 
 /**
  * @brief receive data via RapidIO socket
  *
  * @param[in] socket_handle valid socket handle
  * @param[out] skt_msg pointer to message pointer
- * @param[in] size number of bytes to read
  * @param[in] timeout receive timeout in mSec. 0 = blocking
+ * @param[in] stop_req NULL if the parameter should be ignored.
+ * 		if *stop_req is 0, reattempt the send in the event of
+ * 		a non-fatal error i.e. errno = EAGAIN, EBUSY, EINTR.
+ * 		if *stop_req is not 0, return immediately.
  * @return status of the function call
  * @retval 0 on success
  * @retval -errno on error
+ *
+ * skt_msg must be big enough to accept a maximum sized message.
  */
 int riomp_sock_receive(riomp_sock_t socket_handle,
-		rapidio_mport_socket_msg **skt_msg, uint32_t size,
-		uint32_t timeout);
+		rapidio_mport_socket_msg **skt_msg,
+		uint32_t timeout, volatile int *stop_req);
 
 /**
  * @brief release receive data buffer
@@ -196,12 +206,16 @@ int riomp_sock_listen(riomp_sock_t socket_handle);
  * @param[in] socket_handle valid socket handle
  * @param[out] conn connected socket handle
  * @param[in] timeout receive timeout in mSec. 0 = blocking
+ * @param[in] stop_req NULL if the parameter should be ignored.
+ * 		if *stop_req is 0, reattempt the send in the event of
+ * 		a non-fatal error i.e. errno = EAGAIN, EBUSY, EINTR.
+ * 		if *stop_req is not 0, return immediately.
  * @return status of the function call
  * @retval 0 on success
  * @retval -errno on error
  */
 int riomp_sock_accept(riomp_sock_t socket_handle, riomp_sock_t *conn,
-		uint32_t timeout);
+		uint32_t timeout, volatile int *stop_req);
 
 /**
  * @brief connect to a remote RapidIO socket
@@ -209,12 +223,16 @@ int riomp_sock_accept(riomp_sock_t socket_handle, riomp_sock_t *conn,
  * @param[in] socket_handle valid socket handle
  * @param[in] remote_destid peer destination ID
  * @param[in] remote_channel peer channel number
+ * @param[in] stop_req NULL if the parameter should be ignored.
+ * 		if *stop_req is 0, reattempt the send in the event of
+ * 		a non-fatal error i.e. errno = EAGAIN, EBUSY, EINTR.
+ * 		if *stop_req is not 0, return immediately.
  * @return status of the function call
  * @retval 0 on success
  * @retval -errno on error
  */
 int riomp_sock_connect(riomp_sock_t socket_handle, uint32_t remote_destid,
-		uint16_t remote_channel);
+		uint16_t remote_channel, volatile int *stop_req);
 
 /**
  * @brief allocate send buffer

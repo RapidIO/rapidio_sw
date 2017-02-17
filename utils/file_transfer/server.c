@@ -282,7 +282,7 @@ struct req_list_head_t {
 
 riomp_sock_t *pop_conn_req(struct req_list_head_t *list);
 
-int all_must_die;
+volatile int all_must_die;
 sem_t conn_reqs_mutex;
 struct req_list_head_t conn_reqs;
 uint16_t num_conn_reqs;
@@ -681,14 +681,16 @@ void *conn_loop(void *ret)
 
 	rc = riomp_sock_listen(conn_skt);
 	if (rc) {
-		if (debug)
+		if (debug) {
 			printf("conn_loop: riomp_sock_listen() ERR %d\n", rc);
+		}
 		goto close_skt;
 	}
 
-	if (debug)
+	if (debug) {
 		printf("\nSERVER File Transfer bound to socket %d\n", 
 			xfer_skt_num);
+	}
 	conn_loop_alive = 1;
 	sem_post(&conn_loop_started);
 
@@ -704,20 +706,19 @@ void *conn_loop(void *ret)
 			}
 			rc = riomp_sock_socket(conn_mb, new_socket);
 			if (rc) {
-				if (debug)
-					printf("conn_loop: socket() ERR %d\n",
-					rc);
+				if (debug) {
+					printf("socket() ERR %d\n", rc);
+				}
 				break;
 			};
 		};
 
-		rc = riomp_sock_accept(conn_skt, new_socket, 1000);
+		rc = riomp_sock_accept(conn_skt, new_socket, 1000,
+								&all_must_die);
 		if (rc) {
-			if ((errno == ETIME) || (errno == EINTR) || (errno == EAGAIN))
-				continue;
-			if (debug)
-				printf("conn_loop: riomp_accept() ERR %d\n",
-					rc);
+			if (debug) {
+				printf("riomp_accept() ERR %d\n", rc);
+			}
 			break;
 		}
 

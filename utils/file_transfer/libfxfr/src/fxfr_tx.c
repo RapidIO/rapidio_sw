@@ -157,8 +157,7 @@ fail:
 
 void rx_msg_from_server(struct fxfr_tx_state *info)
 {
-	int ret = riomp_sock_receive(info->req_skt, &info->msg_rx, 
-					sizeof(*info->msg_rx), 0);
+	int ret = riomp_sock_receive(info->req_skt, &info->msg_rx, 0, NULL);
 	if (ret) {
 		if (info->tx_msg->end_of_file) {
 			info->done = 1;
@@ -271,7 +270,7 @@ void send_transfer_msg(struct fxfr_tx_state *info, int idx)
 
 	/* Send  a message back to the client */
 	ret = riomp_sock_send(info->req_skt, info->msg_tx,
-							sizeof(*info->msg_tx));
+		sizeof(*info->msg_tx), NULL);
 	if (ret) {
 		printf("File TX(%d): riomp_sock_send() ERR %d (%d)\n",
 			(int)getpid(), ret, errno);
@@ -447,7 +446,7 @@ int init_server_connect(struct fxfr_tx_state *info,
 
 	info->destID = destID;
         rc = riomp_sock_connect(info->req_skt, info->destID, 
-							info->svr_skt);
+							info->svr_skt, NULL);
         if (rc) {
                 printf("riomp_sock_connect ERR %d\n", rc);
                 goto fail;

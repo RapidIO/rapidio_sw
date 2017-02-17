@@ -92,7 +92,7 @@ struct buffer_info {
 	uint64_t bytes_rxed;
 };
 
-extern int rx_file(struct buffer_info *info, int *abort_flag);
+extern int rx_file(struct buffer_info *info, volatile int *abort_flag);
 
 #ifdef __cplusplus
 }

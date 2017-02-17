@@ -262,11 +262,12 @@ int main(int argc, char** argv)
 		exit(1);
 	}
 
-	ret = riomp_sock_connect(socket, arg.remote_destid, arg.remote_channel);
+	ret = riomp_sock_connect(socket, arg.remote_destid, arg.remote_channel,
+				NULL);
+
 	if (ret) {
 		if (ret == EADDRINUSE) {
-			printf(
-					"riomp_sock_connect: Requested channel already in use, reusing...\n");
+			printf( "Requested channel was in use, reusing...\n");
 		} else {
 			printf("riomp_sock_connect error: %d\n", ret);
 			goto out;
@@ -297,7 +298,8 @@ int main(int argc, char** argv)
 				(int)getpid());
 
 		/** - Send message to the destination */
-		ret = riomp_sock_send(socket, msg_tx, sizeof(*msg_tx));
+		ret = riomp_sock_send(socket, msg_tx,
+			sizeof(*msg_tx), NULL);
 		if (ret) {
 			printf("CM_CLIENT(%d): riomp_sock_send() ERR %d\n",
 					(int)getpid(), ret);
@@ -305,7 +307,7 @@ int main(int argc, char** argv)
 		}
 
 		/** - Get echo response from the server (blocking call, no timeout) */
-		ret = riomp_sock_receive(socket, &msg_rx, sizeof(*msg_rx), 0);
+		ret = riomp_sock_receive(socket, &msg_rx, 0, NULL);
 		if (ret) {
 			printf(
 					"CM_CLIENT(%d): riomp_sock_receive() ERR %d on roundtrip %d\n",

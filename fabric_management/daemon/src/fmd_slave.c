@@ -102,7 +102,7 @@ int send_slave_hello_message(void)
 
 	slv->tx_buff_used = 1;
 	slv->tx_rc |= riomp_sock_send(slv->skt_h, slv->tx_buff,
-				FMD_P_S2M_CM_SZ);
+				FMD_P_S2M_CM_SZ, NULL);
 	if (slv->tx_rc)
 		goto fail;
 	sem_post(&slv->tx_mtx);
@@ -293,7 +293,7 @@ void slave_process_mod(void)
 
 	slv->tx_buff_used = 1;
 	slv->tx_rc |= riomp_sock_send(slv->skt_h, slv->tx_buff, 
-		FMD_P_S2M_CM_SZ);
+		FMD_P_S2M_CM_SZ, NULL);
 	sem_post(&slv->tx_mtx);
 	if (!rc)
 		fmd_notify_apps();
@@ -357,10 +357,7 @@ void cleanup_slave(void)
 void slave_rx_req(void)
 {
 	slv->rx_buff_used = 1;
-	do {
-		slv->rx_rc = riomp_sock_receive(slv->skt_h, 
-			&slv->rx_buff, FMD_P_M2S_CM_SZ, 0);
-	} while ((slv->rx_rc) && ((errno == EINTR) || (errno == ETIME)));
+	slv->rx_rc = riomp_sock_receive(slv->skt_h, &slv->rx_buff, 0, NULL);
 
 	if (slv->rx_rc) {
 		ERR("SLV RX: %d (%d:%s)\n",
@@ -442,6 +439,8 @@ int start_peer_mgmt_slave(uint32_t mast_acc_skt_num, uint32_t mast_did,
 
 	slv->mb_valid = 1;
 	do {
+		volatile int try_once = 1;
+
 		rc = riomp_sock_socket(slv->mb, &slv->skt_h);
 		if (rc) {
 			ERR("riomp_sock_socket ERR %d\n", rc);
@@ -450,7 +449,7 @@ int start_peer_mgmt_slave(uint32_t mast_acc_skt_num, uint32_t mast_did,
 
 		// Note: fmd.opts.mast_cm_port is set by the MASTER node.
 		conn_rc = riomp_sock_connect(slv->skt_h, slv->mast_did,
-					fmd->opts->mast_cm_port);
+					fmd->opts->mast_cm_port, &try_once);
 		if (!conn_rc) {
 			break;
 		}
@@ -544,7 +543,7 @@ void update_master_flags_from_peer(void)
 	
 	slv->tx_buff_used = 1;
 	slv->tx_rc |= riomp_sock_send(slv->skt_h, slv->tx_buff,
-				FMD_P_S2M_CM_SZ);
+				FMD_P_S2M_CM_SZ, NULL);
 	sem_post(&slv->tx_mtx);
 }
 

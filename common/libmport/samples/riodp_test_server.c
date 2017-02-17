@@ -190,16 +190,10 @@ void doprocessing(riomp_sock_t new_socket)
 	}
 
 	while (!srv_exit) {
-		repeat_rx:
 		/** - Receive an inbound message */
-		ret = riomp_sock_receive(new_socket, &msg_rx, sizeof(*msg_rx),
-				60 * 1000);
+		ret = riomp_sock_receive(new_socket, &msg_rx,
+				60 * 1000, &srv_exit);
 		if (ret) {
-			if (ret == ETIME && !srv_exit) {
-				printf("CM_SERVER(%d): ... waiting ...\n",
-						(int)getpid());
-				goto repeat_rx;
-			}
 			printf("CM_SERVER(%d): riomp_sock_receive() ERR=%d\n",
 					(int)getpid(), ret);
 			break;
@@ -211,7 +205,8 @@ void doprocessing(riomp_sock_t new_socket)
 		}
 
 		/** - Send  a message back to the client */
-		ret = riomp_sock_send(new_socket, msg_rx, sizeof(*msg_rx));
+		ret = riomp_sock_send(new_socket, msg_rx,
+				sizeof(*msg_rx), &srv_exit);
 		if (ret) {
 			printf("CM_SERVER(%d): riomp_sock_send() ERR %d (%d)\n",
 					(int)getpid(), ret, errno);
@@ -326,7 +321,7 @@ int main(int argc, char** argv)
 			break;
 		}
 
-		repeat: while (1) {
+		while (1) {
 			wpid = waitpid(-1, &status, WNOHANG);
 			if (wpid != -1 && wpid != 0) {
 				printf(
@@ -337,11 +332,9 @@ int main(int argc, char** argv)
 			}
 		}
 
-		ret = riomp_sock_accept(socket, &new_socket, 3 * 60000); /* TO = 3 min */
+		ret = riomp_sock_accept(socket, &new_socket, 3 * 60000,
+				&srv_exit); /* Time out = 3 min */
 		if (ret) {
-			if (ret == ETIME && !srv_exit) {
-				goto repeat;
-			}
 			printf("CM_SERVER(%d): riomp_sock_accept() ERR %d\n",
 					(int)getpid(), ret);
 			riomp_sock_close(&new_socket);
@@ -349,7 +342,7 @@ int main(int argc, char** argv)
 			break;
 		}
 
-		/* Create child process */
+		// Create child process
 		pid = fork();
 		if (pid < 0) {
 			perror("CM_SERVER: ERROR on fork()\n");
@@ -357,11 +350,11 @@ int main(int argc, char** argv)
 		}
 
 		if (pid == 0) {
-			/* This is the child process */
+			// This is the child process
 			doprocessing(new_socket);
 			exit(0);
 		} else {
-			/* TBD */
+			// TBD
 		}
 		free(new_socket);
 	}

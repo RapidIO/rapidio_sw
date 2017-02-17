@@ -81,7 +81,6 @@ struct fmd_mgmt fmp;
 void send_m2s_flag_update(struct fmd_peer *peer, struct fmd_dd_dev_info *dev)
 {
 	uint8_t flag;
-	uint32_t attempts = 0x100;
 
 	sem_wait(&peer->tx_mtx);
 	peer->m2s->msg_type = htonl(FMD_P_REQ_FSET);
@@ -100,18 +99,16 @@ void send_m2s_flag_update(struct fmd_peer *peer, struct fmd_dd_dev_info *dev)
 		peer->p_did, dev->destID, flag);
 
 	peer->tx_buff_used = 1;
-	do {
-		peer->tx_rc = riomp_sock_send(peer->cm_skt_h,
-				peer->tx_buff, FMD_P_M2S_CM_SZ);
-	} while ((EBUSY == peer->tx_rc) && attempts--);
+	peer->tx_rc = riomp_sock_send(peer->cm_skt_h,
+			peer->tx_buff, FMD_P_M2S_CM_SZ, NULL);
 
 	sem_post(&peer->tx_mtx);
 	INFO("Sent M2S update to %s for %s, flags 0x%2x, tx rc 0x%x\n",
 		peer->peer_name, dev->name, flag, peer->tx_rc);
 	if (peer->tx_rc) {
 		ERR("Failed M2S update to %s for %s, flags 0x%2x,"
-			" tx rc 0x%x attempts remaining %d\n",
-			peer->peer_name, dev->name, flag, peer->tx_rc, attempts);
+			" tx rc 0x%x\n",
+			peer->peer_name, dev->name, flag, peer->tx_rc);
 	};
 };
 
@@ -162,7 +159,7 @@ void send_add_dev_msg(struct fmd_peer *peer, struct fmd_dd_dev_info *dev)
 	peer->m2s->mod_rq.flag = htonl(flag);
 	peer->tx_buff_used = 1;
 	peer->tx_rc = riomp_sock_send(peer->cm_skt_h, 
-				peer->tx_buff, FMD_P_M2S_CM_SZ);
+				peer->tx_buff, FMD_P_M2S_CM_SZ, NULL);
 exit:
 	sem_post(&peer->tx_mtx);
 };
@@ -187,7 +184,7 @@ void send_del_dev_msg(struct fmd_peer *peer, struct fmd_peer *del_peer)
 	peer->m2s->mod_rq.flag = 0;
 	peer->tx_buff_used = 1;
 	peer->tx_rc = riomp_sock_send(peer->cm_skt_h, 
-				peer->tx_buff, FMD_P_M2S_CM_SZ);
+				peer->tx_buff, FMD_P_M2S_CM_SZ, NULL);
 	sem_post(&peer->tx_mtx);
 };
 
@@ -304,7 +301,7 @@ void master_process_hello_peer(struct fmd_peer *peer)
 	};
 	peer->tx_buff_used = 1;
 	peer->tx_rc = riomp_sock_send(peer->cm_skt_h, peer->tx_buff,
-				FMD_P_M2S_CM_SZ);
+				FMD_P_M2S_CM_SZ, NULL);
 	sem_post(&peer->tx_mtx);
 
 	if (!peer->tx_rc && add_to_list) {
@@ -368,17 +365,15 @@ void master_process_flag_set(struct fmd_peer *peer)
 void peer_rx_req(struct fmd_peer *peer)
 {
 	peer->rx_buff_used = 1;
-	do {
-		peer->rx_rc = riomp_sock_receive(peer->cm_skt_h, 
-			&peer->rx_buff, FMD_P_S2M_CM_SZ, 3*60*1000);
-	} while ((peer->rx_rc) && ((errno == EINTR) || (errno == ETIME)));
+	peer->rx_rc = riomp_sock_receive(peer->cm_skt_h, &peer->rx_buff,
+			3 * 60 * 1000, NULL);
 
 	if (peer->rx_rc) {
 		ERR("PEER RX(0x%x): %d (%d:%s)\n",
 			peer->p_ct, peer->rx_rc, errno, strerror(errno));
 		peer->rx_must_die = 1;
-	};
-};
+	}
+}
 
 void cleanup_peer(struct fmd_peer *peer) 
 {
@@ -575,12 +570,8 @@ void *mast_acc(void *unused)
 			};
 		}
 
-		do {
-			errno = 0;
-			rc = riomp_sock_accept(fmp.acc.cm_acc_h,
-				&new_skt, 3*60*1000);
-		} while (rc && ((errno == ETIME) || (errno == EINTR)));
-
+		rc = riomp_sock_accept(fmp.acc.cm_acc_h,
+				&new_skt, 3*60*1000, &fmp.acc.acc_must_die);
 		if (rc) {
 			ERR("riodp_accept() ERR %d\n", rc);
 			break;
