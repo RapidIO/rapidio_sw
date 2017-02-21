@@ -99,7 +99,7 @@ int setup_mport(int mport_num)
 	if (mp_h_valid) {
 		riomp_mgmt_mport_destroy_handle(&mp_h);
 		mp_h_valid = 0;
-	};
+	}
 
 	mp_h_num = mport_num;
 	rc = riomp_mgmt_mport_create_handle(mport_num, 0, &mp_h);
@@ -111,7 +111,7 @@ int setup_mport(int mport_num)
 		mp_h_qresp_valid = 1;
 
 	return rc;
-};
+}
 
 void sig_handler(int signo)
 {
@@ -119,8 +119,8 @@ void sig_handler(int signo)
 	if ((signo == SIGINT) || (signo == SIGHUP) || (signo == SIGTERM)) {
 		printf("Shutting down\n");
 		goodput_thread_shutdown(NULL);
-	};
-};
+	}
+}
 
 int main(int argc, char *argv[])
 {
@@ -156,7 +156,7 @@ int main(int argc, char *argv[])
 	if (setup_mport(mport_num)) {
 		printf("\nCould not open mport %d, exiting\n", mport_num);
 		exit(EXIT_FAILURE);
-	};
+	}
 
 	for (int i = 0; i < MAX_WORKERS; i++)
 		init_worker_info(&wkr[i], 1);
@@ -184,7 +184,7 @@ int main(int argc, char *argv[])
         if (mp_h_valid) {
                 riomp_mgmt_mport_destroy_handle(&mp_h);
 		mp_h_valid = 0;
-	};
+	}
 
 	printf("\nGoodput Evaluation Application EXITING!!!!\n");
 	exit(EXIT_SUCCESS);

@@ -353,7 +353,7 @@ int CLIRegWriteCmd(struct cli_env *env, int argc, char **argv)
 	if (NULL == pe_h) {
 		LOGMSG(env, "\nNo Device Selected...\n");
 		goto exit;
-	};
+	}
 
 	address = store_address;
 	data = store_data;
@@ -528,7 +528,7 @@ int CLIRegWriteNoReadbackCmd(struct cli_env *env, int argc, char **argv)
 	if (NULL == pe_h) {
 		LOGMSG(env, "\nNo Device Selected...\n");
 		goto exit;
-	};
+	}
 
 	address = store_address;
 	data = store_data;
@@ -636,7 +636,7 @@ int expect(struct cli_env *env, int argc, char **argv, int inverse)
 	if (0 != rc) {
 		failedReading(env, address, rc);
 		goto exit;
-	};
+	}
 
 	if (((data == expdata) && (!inverse))
 			|| ((data != expdata) && (inverse))) {
@@ -648,6 +648,7 @@ int expect(struct cli_env *env, int argc, char **argv, int inverse)
 				"\nFAILED: Address: 0x%08x Data 0x%08x ExpData 0x%08x\n",
 				address, data, expdata);
 	}
+
 exit:
 	return errorStat;
 }

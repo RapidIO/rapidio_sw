@@ -2680,7 +2680,7 @@ STATIC void rxs_check_set_all_regs_change(rio_rt_set_all_in_t *set_all_in)
 				set_all_in->rt->mc_masks[mc_idx].mc_mask) {
 				printf("\nPort %d mask %d failed",
 					chk_port, mc_idx);
-			};
+			}
 			assert_int_equal(mc_mask_out,
 				set_all_in->rt->mc_masks[mc_idx].mc_mask);
                 }

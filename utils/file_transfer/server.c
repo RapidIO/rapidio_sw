@@ -111,7 +111,7 @@ void print_server_help(void)
 	printf("	 The default value is %d.\n", FXFR_DFLT_SVR_CM_PORT);
 	printf("	 The cm_skt and mport value must be correct to\n");
 	printf("	 successfully connect .\n");
-};
+}
 
 void parse_options(int argc, char *argv[], 
 		int *cons_skt,
@@ -194,7 +194,7 @@ void parse_options(int argc, char *argv[],
 					printf("\n<size> not specified\n");
 					*print_help = 1;
 					goto exit;
-				};
+				}
 				if (tok_parse_ulong(argv[idx], &tmp32, 0, TOTAL_TX_BUFF_SIZE/1024, 0)) {
 					printf("\n");
 					printf(TOK_ERR_ULONG_HEX_MSG_FMT, "<size>", 0, TOTAL_TX_BUFF_SIZE/1024);
@@ -254,8 +254,8 @@ void set_prompt(struct cli_env *e)
 {
 	if (e != NULL) {
 		SAFE_STRNCPY(e->prompt, "FXServer> ", sizeof(e->prompt));
-	};
-};
+	}
+}
 
 uint8_t mp_h_mport_num;
 struct riomp_mgmt_mport_properties qresp;
@@ -305,7 +305,7 @@ int FXStatusCmd(struct cli_env *env, int argc, char **argv)
 			goto show_help;
 		if (argc > 1)
 			rx_bufs[st_idx].debug = getDecParm(argv[1], 0)?1:0;
-	};
+	}
 
 	
 	LOGMSG(env,
@@ -329,7 +329,7 @@ int FXStatusCmd(struct cli_env *env, int argc, char **argv)
 	LOGMSG(env, "\nCLI Sessions Alive : %d", cli_session_alive);
 	if (!cli_session_alive) {
 		LOGMSG(env, "  FAILED! MULTIPLE FXFR_SERVER PROCESSES?");
-	};
+	}
 	LOGMSG(env, "\nCLI Socket #       : %d", cli_session_portno);
 	LOGMSG(env, "\n\nServer mport       : %d\n", mp_h_mport_num);
 
@@ -340,7 +340,7 @@ show_help:
 	cli_print_help(env, &FXStatus);
 
 	return 0;
-};
+}
 
 struct cli_cmd FXStatus = {
 "status",
@@ -362,7 +362,7 @@ int FXShutdownCmd(struct cli_env *env, int UNUSED(argc), char **UNUSED(argv))
 	fxfr_server_shutdown();
 	LOGMSG(env, "Shutdown initiated...\n");
 	return 0;
-};
+}
 
 struct cli_cmd FXShutdown = {
 "shutdown",
@@ -475,9 +475,9 @@ void batch_start_connections(void)
 			rx_bufs[i].req_skt = pop_conn_req(&conn_reqs);
 			rx_bufs[i].completed = 0;
 			sem_post(&rx_bufs[i].req_avail);
-		};
-	};
-};
+		}
+	}
+}
 	
 	
 int FXPauseCmd(struct cli_env *env, int argc, char **argv)
@@ -485,10 +485,10 @@ int FXPauseCmd(struct cli_env *env, int argc, char **argv)
 	if (argc) {
 		pause_file_xfer_conn = getDecParm(argv[0], 0)?1:0;
 		max_file_xfer_queue = 8;
-	};
+	}
 	if (argc > 1) {
 		max_file_xfer_queue = getDecParm(argv[1], 0);
-	};
+	}
 
 	if ((num_conn_reqs >= max_file_xfer_queue) ||
 		(!pause_file_xfer_conn && num_conn_reqs)) {
@@ -496,7 +496,7 @@ int FXPauseCmd(struct cli_env *env, int argc, char **argv)
 		sem_wait(&conn_reqs_mutex);
 		batch_start_connections();
 		sem_post(&conn_reqs_mutex);
-	};
+	}
 
 	print_file_xfer_status(env);
 
@@ -569,9 +569,9 @@ riomp_sock_t *pop_conn_req(struct req_list_head_t *list)
 		list->head = list->head->next;
 		free(temp);
 		num_conn_reqs--;
-	};
+	}
 	return skt;
-};
+}
 
 void prep_info_for_xfer(struct buffer_info *info)
 {
@@ -579,7 +579,7 @@ void prep_info_for_xfer(struct buffer_info *info)
 	info->rc = 0;
 	info->fd = -1;
 	info->bytes_rxed = 0;
-};
+}
 
 void *xfer_loop(void *ibwin_idx)
 {
@@ -611,7 +611,7 @@ void *xfer_loop(void *ibwin_idx)
 			riomp_sock_close(info->req_skt);
 			free(info->req_skt);
 			info->req_skt = NULL;
-		};
+		}
 
 		if (!pause_file_xfer_conn) {
 			sem_wait(&conn_reqs_mutex);
@@ -619,12 +619,12 @@ void *xfer_loop(void *ibwin_idx)
 			if (NULL == info->req_skt)
 				info->completed = 1;
 			sem_post(&conn_reqs_mutex);
-		};
-	};
+		}
+	}
 
 	if (info->is_an_ibwin) {
 		riomp_dma_ibwin_free(mp_h, &info->handle);
-	};
+	}
 	info->thr_valid = 0;
 	info->valid = 0;
 
@@ -633,7 +633,7 @@ void *xfer_loop(void *ibwin_idx)
 
 	*(int *)(ibwin_idx) = EXIT_SUCCESS;
 	pthread_exit(ibwin_idx);
-};
+}
 
 riomp_mailbox_t conn_mb;
 riomp_sock_t conn_skt;
@@ -653,7 +653,7 @@ void *conn_loop(void *ret)
 		if (debug)
 			printf("conn_loop: Parameter is null, exiting\n");
 		goto exit;
-	};
+	}
 
 	xfer_skt_num = *(int *)(ret);
 	conn_skt_num = xfer_skt_num;
@@ -710,8 +710,8 @@ void *conn_loop(void *ret)
 					printf("socket() ERR %d\n", rc);
 				}
 				break;
-			};
-		};
+			}
+		}
 
 		rc = riomp_sock_accept(conn_skt, new_socket, 1000,
 								&all_must_die);
@@ -728,7 +728,7 @@ void *conn_loop(void *ret)
 			riomp_sock_close(new_socket);
 			sem_post(&conn_reqs_mutex);
 			continue;
-		};
+		}
 
 		found_one = 0;
 		for (i = 0; (i < buff_cnt) && !pause_file_xfer_conn; i++) {
@@ -738,8 +738,8 @@ void *conn_loop(void *ret)
 				sem_post(&rx_bufs[i].req_avail);
 				found_one = 1;
 				break;
-			};
-		};
+			}
+		}
 
 		if (!found_one) {
 			add_conn_req( &conn_reqs, new_socket);
@@ -764,7 +764,7 @@ void *conn_loop(void *ret)
 			printf("conn_loop: nskt riomp_socket_close ERR %d\n", 
 				rc);
 		new_socket = pop_conn_req(&conn_reqs);
-	};
+	}
 		
 close_skt:
 	rc = riomp_sock_close(&conn_skt);
@@ -782,7 +782,7 @@ exit:
 	conn_loop_alive = 0;
 	sem_post(&conn_loop_started);
 	pthread_exit(0);
-};
+}
 
 int setup_ibwins(int num_buffs, uint32_t buff_size)
 {
@@ -792,7 +792,7 @@ int setup_ibwins(int num_buffs, uint32_t buff_size)
 		WARN("Only %d windows created, %d requested.",
 							MAX_IBWIN, num_buffs);
 		num_buffs = MAX_IBWIN;
-	};
+	}
 
 	buff_cnt = num_buffs;
 
@@ -806,7 +806,7 @@ int setup_ibwins(int num_buffs, uint32_t buff_size)
                         rx_bufs[i].length = 0;
                         printf("\nCould not map ibwin %d...\n", i);
                         goto close_ibwin;
-                };
+                }
 
                 rc = riomp_dma_map_memory(mp_h, rx_bufs[i].length,
                                 rx_bufs[i].handle, (void **)&rx_bufs[i].ib_mem);
@@ -816,7 +816,7 @@ int setup_ibwins(int num_buffs, uint32_t buff_size)
                 }
 
                 rx_bufs[i].valid = 1;
-        };
+        }
 
         return 0;
 
@@ -827,13 +827,13 @@ close_ibwin:
                                 riomp_dma_unmap_memory(rx_bufs[i].length,
                                         rx_bufs[i].ib_mem);
                                 rx_bufs[i].ib_mem = (char *)MAP_FAILED;
-                        };
+                        }
                         riomp_dma_ibwin_free(mp_h, &rx_bufs[i].handle);
                         rx_bufs[i].length = 0;
-                };
-        };
+                }
+        }
 	return rc;
-};
+}
 
 int setup_buffers(int num_buffs, uint32_t buff_size)
 {
@@ -851,13 +851,13 @@ int setup_buffers(int num_buffs, uint32_t buff_size)
 	for (i = 0; i < num_buffs; i++) {
 		sem_init(&rx_bufs[i].req_avail, 0, 0);
 		rx_bufs[i].ib_mem = (char *)MAP_FAILED;
-	};
+	}
 
 	rc = get_rsvd_phys_mem(RSVD_PHYS_MEM_FXFR, &rsvd_addr, &rsvd_size);
 	if (rc) {
 		rc = setup_ibwins(num_buffs, buff_size);
 		goto exit;
-	};
+	}
 	
 	/* Reserved memory exists, so map it... */
 
@@ -866,12 +866,12 @@ int setup_buffers(int num_buffs, uint32_t buff_size)
 		WARN("Only %d buffers created, %d requested.",
 						new_num_buffs, num_buffs);
 		num_buffs = new_num_buffs;
-	};
+	}
 	if (!num_buffs) {
 		CRIT("\nRsvd memory size less than one buffer! Exiting\n");
 		rc = -1;
 		goto exit;
-	};
+	}
 
 	buff_cnt = num_buffs;
 
@@ -886,14 +886,14 @@ int setup_buffers(int num_buffs, uint32_t buff_size)
 		printf("rc %d errno %d : %s\n", rc, errno, strerror(errno));
 		rc = -1;
 		goto exit;
-	};
+	}
 	rc = riomp_dma_map_memory(mp_h, rx_bufs[0].length,
 				rx_bufs[0].handle, (void **)&rx_bufs[0].ib_mem);
 	if (rc) {
 		printf("riomp_dma_map_memory failed. Exiting");
 		printf("rc %d errno %d : %s\n", rc, errno, strerror(errno));
 		goto exit;
-	};
+	}
 	rx_bufs[0].is_an_ibwin = true;
 
 	for (i = 0; i < num_buffs; i++) {
@@ -903,13 +903,13 @@ int setup_buffers(int num_buffs, uint32_t buff_size)
 		rx_bufs[i].length = buff_size;
 		rx_bufs[i].is_an_ibwin = true;
 		rx_bufs[i].valid = 1;
-	};
+	}
 
 	return 0;
 exit:
 	return rc;
 	
-};
+}
 
 int setup_mport(uint8_t mport_num, int num_buffs, uint32_t win_size)
 {
@@ -922,13 +922,13 @@ int setup_mport(uint8_t mport_num, int num_buffs, uint32_t win_size)
 	if (rc) {
 		printf("\nUnable to open mport %d...\n", mport_num);
 		goto close_mport;
-	};
+	}
 	mp_h_valid = 1;
 
 	if (riomp_mgmt_query(mp_h, &qresp)) {
 		printf("\nUnable to query mport %d...\n", mport_num);
 		goto close_mport;
-	};
+	}
 
 	if (debug)
 		riomp_mgmt_display_info(&qresp);
@@ -936,20 +936,20 @@ int setup_mport(uint8_t mport_num, int num_buffs, uint32_t win_size)
 	if (!(qresp.flags & RIO_MPORT_DMA)) {
 		printf("\nMport %d has no DMA support...\n", mport_num);
 		goto close_mport;
-	};
+	}
 
 	rc = setup_buffers(num_buffs, win_size);
 	if (!rc) {
 		return 0;
-	};
+	}
 close_mport:
 	if (mp_h_valid) {
 		riomp_mgmt_mport_destroy_handle(&mp_h);
 		mp_h_valid = 0;
-	};
+	}
 
 	return rc;
-};
+}
 
 int spawned_threads;
 void fxfr_server_shutdown_cli(struct cli_env *env);
@@ -994,7 +994,7 @@ void spawn_threads(int cons_skt, int xfer_skt, int run_cons)
 
 		snprintf(thr_name, 15, "CONSOLE");
 		pthread_setname_np(console_thread, thr_name);
-	};
+	}
 
 	/* Prepare and start CM connection handling thread */
 	sem_init(&conn_reqs_mutex, 0, 0);
@@ -1074,7 +1074,7 @@ void fxfr_server_shutdown(void) {
 	if (!all_must_die && spawned_threads) {
 		if (conn_loop_alive)
 			pthread_kill(conn_thread, SIGHUP);
-	};
+	}
 
 	all_must_die = 1;
 	
@@ -1086,15 +1086,15 @@ void fxfr_server_shutdown(void) {
 				sem_post(&rx_bufs[idx].req_avail);
 			} else {
 				riomp_dma_ibwin_free(mp_h, &rx_bufs[idx].handle);
-			};
-		};
-	};
-};
+			}
+		}
+	}
+}
 
 void fxfr_server_shutdown_cli(struct cli_env *UNUSED_PARM(env))
 {
 	fxfr_server_shutdown();
-};
+}
 
 void sig_handler(int signo)
 {
@@ -1128,12 +1128,12 @@ int main(int argc, char *argv[])
 	if (print_help) {
 		print_server_help();
 		goto exit;
-	};
+	}
 
 	rdma_log_init("fxfr_server.log", 1);
 	if (setup_mport(mport_num, num_buffs, win_size)) {
 		goto exit;
-	};
+	}
 
 	spawn_threads(cons_skt, xfer_skt, run_cons);
 
@@ -1146,7 +1146,7 @@ int main(int argc, char *argv[])
 	for (i = 0; i < num_buffs; i++) {
 		if (rx_bufs[i].thr_valid)
 			pthread_join(rx_bufs[i].xfer_thread, NULL);
-	};
+	}
 
 	if (run_cons)
 		pthread_join(console_thread, NULL);

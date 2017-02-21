@@ -698,7 +698,7 @@ int RIOCP_SO_ATTR riocp_pe_handle_get_list(riocp_pe_handle mport,
         *pe_list_size = _pe_list_size;
 
         return ret;
-};
+}
 
 /**
  * Get peer on port of PE from internal handle administration. This will
@@ -831,43 +831,43 @@ int RIOCP_WU riocp_pe_find_comptag(riocp_pe_handle mport, ct_t comptag,
 	if ((NULL == mport) || (NULL == pe)) {
 		errno = -EINVAL;
 		goto fail;
-	};
+	}
 	*pe = NULL;
 
 	if (COMPTAG_UNSET == comptag) {
 		goto found;
-	};
+	}
 
 	// If the component tag is not in use, it will not be found.
 	if (!ct_not_inuse(comptag, dev08_sz)) {
 		goto found;
-	};
+	}
 
 	if (mport->comptag == comptag) {
 		*pe = mport;
 		goto found;
-	};
+	}
 
 	if (riocp_mport_get_pe_list(mport,&count, &pes)) {
 		goto fail;
-	};
+	}
 
 	for (i = 0; i < count; i++) {
 		if (pes[i]->comptag == comptag) {
 			*pe = pes[i];
 			break;
-		};
-	};
+		}
+	}
 
 	if (riocp_mport_free_pe_list(&pes)) {
 		*pe = NULL;
 		goto fail;
-	};
+	}
 found:
 	return NULL == *pe;
 fail:
 	return -1;
-};
+}
 
 #ifdef __cplusplus
 }

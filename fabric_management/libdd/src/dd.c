@@ -80,8 +80,8 @@ void fmd_dd_incr_chg_idx(struct fmd_dd *dd, int dd_rw)
 			next_idx = 1;
 		dd->chg_idx = next_idx;
 		clock_gettime(CLOCK_REALTIME, &dd->chg_time);
-	};
-};
+	}
+}
 
 int fmd_dd_open_rw(char *dd_fn, int *dd_fd, struct fmd_dd **dd, 
 					struct fmd_dd_mtx *dd_mtx)
@@ -94,14 +94,14 @@ int fmd_dd_open_rw(char *dd_fn, int *dd_fd, struct fmd_dd **dd,
         if (-1 == *dd_fd) {
         	CRIT(DEV_DB_FAIL, dd_fn);
 		goto fail;
-	};
+	}
 
         rc = ftruncate(*dd_fd, sizeof(struct fmd_dd));
         if (-1 == rc) {
         	CRIT(DEV_DB_FAIL, dd_fn);
                 shm_unlink(dd_fn);
                 goto fail;
-        };
+        }
 
         *dd = (struct fmd_dd *) mmap(NULL, sizeof(struct fmd_dd),
 		PROT_READ|PROT_WRITE, MAP_SHARED, *dd_fd, 0);
@@ -111,7 +111,7 @@ int fmd_dd_open_rw(char *dd_fn, int *dd_fd, struct fmd_dd **dd,
                 *dd = NULL;
                 shm_unlink(dd_fn);
                 goto fail;
-        };
+        }
 
 	(*dd)->chg_idx = 0;
 	(*dd)->md_ct = 0;
@@ -125,14 +125,14 @@ int fmd_dd_open_rw(char *dd_fn, int *dd_fd, struct fmd_dd **dd,
 		(*dd)->devs[idx].is_mast_pt = 0;
 		(*dd)->devs[idx].flag = FMDD_NO_FLAG;
 		memset((*dd)->devs[idx].name, 0, FMD_MAX_NAME+1);
-	};
+	}
 	fmd_dd_incr_chg_idx(*dd, 1);
 	dd_mtx->dd_ref_cnt++;
 
 	return 0;
 fail:
         return -1;
-};
+}
 
 int fmd_dd_open(char *dd_fn, int *dd_fd, struct fmd_dd **dd, 
 					struct fmd_dd_mtx *dd_mtx)
@@ -150,16 +150,16 @@ int fmd_dd_open(char *dd_fn, int *dd_fd, struct fmd_dd **dd,
         	CRIT(DEV_DB_FAIL, dd_fn);
                 *dd = NULL;
                 goto exit;
-        };
+        }
 
 	if ((NULL != *dd) && (NULL != dd_mtx)) {
 		dd_mtx->dd_ref_cnt++;
-	};
+	}
 
 	return 0;
 exit:
 	return -1;
-};
+}
 
 int fmd_dd_mtx_open_priv(char *dd_mtx_fn, int *dd_mtx_fd,
 		struct fmd_dd_mtx **dd_mtx, bool open_by_fmd)
@@ -170,7 +170,7 @@ int fmd_dd_mtx_open_priv(char *dd_mtx_fn, int *dd_mtx_fd,
 	if ((NULL == dd_mtx_fn) || (NULL == dd_mtx_fd) || (NULL == dd_mtx)) {
 		errno = -EINVAL;
 		goto fail;
-	};
+	}
 
 	if (open_by_fmd) {
 		// FMD owns the MTX file, so it should create the file.
@@ -179,13 +179,13 @@ int fmd_dd_mtx_open_priv(char *dd_mtx_fn, int *dd_mtx_fd,
 		if (EEXIST == errno) {
         		CRIT(DEV_DB_FAIL, dd_mtx_fn);
 			goto fail;
-		};
+		}
 		new_mtx = true;
 	} else {
 
         	*dd_mtx_fd = shm_open(dd_mtx_fn, O_RDWR, 
                         		S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
-	};
+	}
 
         if (-1 == *dd_mtx_fd) {
         	CRIT(DEV_DB_FAIL, dd_mtx_fn);
@@ -196,7 +196,7 @@ int fmd_dd_mtx_open_priv(char *dd_mtx_fn, int *dd_mtx_fd,
         if (-1 == rc) {
         	CRIT(DEV_DB_FAIL, dd_mtx_fn);
                 goto fail;
-        };
+        }
 
         *dd_mtx = (struct fmd_dd_mtx *)mmap(NULL, sizeof(struct fmd_dd_mtx), 
 			PROT_READ|PROT_WRITE, MAP_SHARED, *dd_mtx_fd, 0);
@@ -205,7 +205,7 @@ int fmd_dd_mtx_open_priv(char *dd_mtx_fn, int *dd_mtx_fd,
         	CRIT(DEV_DB_FAIL, dd_mtx_fn);
                 *dd_mtx = NULL;
                 goto fail;
-        };
+        }
 
 	if (new_mtx) {
 		sem_init(&(*dd_mtx)->sem, 1, 0);
@@ -216,21 +216,21 @@ int fmd_dd_mtx_open_priv(char *dd_mtx_fn, int *dd_mtx_fd,
 			(*dd_mtx)->dd_ev[i].proc = 0;
 			(*dd_mtx)->dd_ev[i].waiting = 0;
 			sem_init(&(*dd_mtx)->dd_ev[i].dd_event, 1, 0);
-		};
+		}
 		sem_post(&(*dd_mtx)->sem);
-	};
+	}
 	(*dd_mtx)->mtx_ref_cnt++;
 
 	return 0;
 fail:
 	return -1;
-};
+}
 
 int fmd_dd_mtx_open(char *dd_mtx_fn, int *dd_mtx_fd,
 		struct fmd_dd_mtx **dd_mtx)
 {
 	return fmd_dd_mtx_open_priv(dd_mtx_fn, dd_mtx_fd, dd_mtx, false);
-};
+}
 
 int fmd_dd_init(char *dd_mtx_fn, int *dd_mtx_fd, struct fmd_dd_mtx **dd_mtx,
 		char *dd_fn, int *dd_fd, struct fmd_dd **dd)
@@ -240,16 +240,16 @@ int fmd_dd_init(char *dd_mtx_fn, int *dd_mtx_fd, struct fmd_dd_mtx **dd_mtx,
        	rc = fmd_dd_mtx_open_priv(dd_mtx_fn, dd_mtx_fd, dd_mtx, true);
 	if (rc) {
 		goto fail;
-	};
+	}
 	rc = fmd_dd_open_rw(dd_fn, dd_fd, dd, *dd_mtx);
 	if (rc) {
 		goto fail;
-	};
+	}
 
 	return 0;
 fail:
 	return -1;
-};
+}
 
 void fmd_dd_cleanup(char *dd_mtx_fn, int *dd_mtx_fd,
                         struct fmd_dd_mtx **dd_mtx_p,
@@ -265,14 +265,14 @@ void fmd_dd_cleanup(char *dd_mtx_fn, int *dd_mtx_fd,
 				if (dd_rw)
 					dd->chg_idx = 0;
 				shm_unlink(dd_fn);
-			};
+			}
 		}
 		if (*dd_fd) {
 			close(*dd_fd);
 			*dd_fd = 0;
-		};
+		}
 		*dd_p = NULL;
-	};
+	}
 
 	if (NULL != dd_mtx) {
 		if (dd_mtx->init_done && dd_mtx->mtx_ref_cnt) {
@@ -280,15 +280,15 @@ void fmd_dd_cleanup(char *dd_mtx_fn, int *dd_mtx_fd,
 				sem_destroy(&dd_mtx->sem);
 				dd_mtx->init_done = FALSE;
 				shm_unlink(dd_mtx_fn);
-			};
-		};
+			}
+		}
 		if (*dd_mtx_fd) {
 			close(*dd_mtx_fd);
 			*dd_mtx_fd = 0;
-		};
+		}
 		*dd_mtx_p = NULL;
-	};
-};
+	}
+}
 	
 uint32_t fmd_dd_get_chg_idx(struct fmd_dd *dd)
 {
@@ -296,7 +296,7 @@ uint32_t fmd_dd_get_chg_idx(struct fmd_dd *dd)
 		return dd->chg_idx;
 
 	return 0;
-};
+}
 
 /* Note that get_first_dev and get_next_dev will block until
  * enumeration has been completed.
@@ -319,7 +319,7 @@ uint32_t fmd_dd_atomic_copy(struct fmd_dd *dd,
 	sem_post(&dd_mtx->sem);
 
 	return *num_devs;
-};
+}
 
 #ifdef __cplusplus
 }

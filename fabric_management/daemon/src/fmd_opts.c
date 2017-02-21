@@ -86,7 +86,7 @@ void fmd_print_help(void)
 	printf("-s, -S: Simple initialization, do not populate device dir.\n");
 	printf("       Default is %d\n", FMD_DFLT_INIT_DD);
 	printf("-x, -X: Initialize and then immediately exit.\n");
-};
+}
 
 struct fmd_opt_vals *fmd_parse_options(int argc, char *argv[])
 {

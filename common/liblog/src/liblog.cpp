@@ -83,7 +83,7 @@ extern "C" {
 		if (circ_buf_en && (NULL == log_filename)) {
 			log_file = NULL;
 			return 0;
-		};
+		}
 
 		/* Directory name */
 		string filename(DEFAULT_LOG_DIR);
@@ -165,7 +165,7 @@ extern "C" {
 			if ('\n' != buffer[n + p - 1])
 				fprintf(stdout, "\n");
 			fflush(stdout);
-		};
+		}
 		sem_post(&log_buf_sem);
 
 		/* Return 0 if there is no error */

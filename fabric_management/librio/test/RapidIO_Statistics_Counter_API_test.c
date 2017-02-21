@@ -142,7 +142,7 @@ void test_sc_flag_info(rio_sc_ctr_flag_t sc_f, uint32_t flag, char *name, bool *
 		assert_int_equal(1 << sc_f, flag);
 		assert_int_equal(sc_f,
 			parm_idx(SC_FLAG_NAME(sc_f), (char *)SC_FLAG_NAMES));
-	};
+	}
 
 	assert_false(chk_a[sc_f]);
 	chk_a[sc_f] = true;

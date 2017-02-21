@@ -587,7 +587,7 @@ void cpu_occ_parse_proc_line(char *file_line,
 	while ((NULL != tok) && (tok_cnt < 13)) {
 		tok = strtok_r(NULL, delim, &saveptr);
 		tok_cnt++;
-	};
+	}
 
 	if (NULL == tok)
 		goto error;
@@ -977,7 +977,7 @@ enum riomp_dma_directio_type convert_int_to_riomp_dma_directio_type(uint16_t tra
 	case 2: return RIO_DIRECTIO_TYPE_NWRITE_R;
 	case 3: return RIO_DIRECTIO_TYPE_SWRITE_R;
 	case 4: return RIO_DIRECTIO_TYPE_NWRITE_R_ALL;
-	};
+	}
 }
 
 int dmaCmd(struct cli_env *env, int UNUSED(argc), char **argv)
@@ -1322,7 +1322,7 @@ int dmaRxLatCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 	sem_post(&wkr[idx].run);
 exit:
 	return 0;
-};
+}
 
 struct cli_cmd dmaRxLat = {
 "dRxLat",
@@ -1393,7 +1393,7 @@ int msg_tx_cmd(struct cli_env *env, int UNUSED(argc), char **argv, enum req_type
 	sem_post(&wkr[idx].run);
 exit:
 	return 0;
-};
+}
 
 int msgTxCmd(struct cli_env *env, int argc, char **argv)
 {
@@ -1473,7 +1473,7 @@ int msgRxCmdExt(struct cli_env *env, int UNUSED(argc), char **argv, enum req_typ
 	sem_post(&wkr[idx].run);
 exit:
 	return 0;
-};
+}
 
 int msgRxLatCmd(struct cli_env *env, int argc, char **argv)
 {
@@ -1519,7 +1519,7 @@ int msgRxCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 	sem_post(&wkr[idx].run);
 exit:
 	return 0;
-};
+}
 
 struct cli_cmd msgRx = {
 "msgRx",
@@ -1622,15 +1622,15 @@ int GoodputCmd(struct cli_env *env, int argc, char **UNUSED(argv))
 			tot_byte_cnt += byte_cnt;
 			tot_MBps += MBps;
 			tot_Gbps += Gbps;
-		};
+		}
 		tot_Msgpersec += Msgpersec;
 
 		if (argc) {
 			wkr[i].perf_byte_cnt = 0;
 			wkr[i].perf_msg_cnt = 0;
 			clock_gettime(CLOCK_MONOTONIC, &wkr[i].st_time);
-		};
-	};
+		}
+	}
 	memset(MBps_str, 0, FLOAT_STR_SIZE);
 	memset(Gbps_str, 0, FLOAT_STR_SIZE);
 	memset(link_occ_str, 0, FLOAT_STR_SIZE);
@@ -1698,7 +1698,7 @@ int LatCmd(struct cli_env *env, int argc, char **argv)
 		LOGMSG(env, "%2d %3s %16ld %16s %16s %16s\n", i,
 				THREAD_STR(wkr[i].stat), wkr[i].perf_iter_cnt,
 				min_lat_str, avg_lat_str, max_lat_str);
-	};
+	}
 
 	return 0;
 }
@@ -1740,7 +1740,7 @@ void display_gen_status(struct cli_env *env)
 			wkr[i].wr, wkr[i].mp_h_is_mine,
 			wkr[i].ob_valid, wkr[i].ib_valid, 
 			wkr[i].mb_valid);
-	};
+	}
 }
 
 void display_ibwin_status(struct cli_env *env)
@@ -1886,7 +1886,7 @@ int DumpCmd(struct cli_env *env, int argc, char **argv)
 	LOGMSG(env, "\n");
 exit:
 	return 0;
-};
+}
 
 struct cli_cmd Dump = {
 "dump",
@@ -2023,7 +2023,7 @@ int MpdevsCmd(struct cli_env *env, int UNUSED(argc), char **UNUSED(argv))
                         LOGMSG(env,
 				"ERR: riodp_ep_free_list() ERR %d: %s\n",
 				ret, strerror(ret));
-		};
+		}
 
         }
 
@@ -2034,7 +2034,7 @@ int MpdevsCmd(struct cli_env *env, int UNUSED(argc), char **UNUSED(argv))
                 LOGMSG(env,
 			"ERR: riodp_ep_free_list() ERR %d: %s\n",
 			ret, strerror(ret));
-	};
+	}
 exit:
         return 0;
 }
@@ -2077,7 +2077,7 @@ int UTimeCmd(struct cli_env *env, int argc, char **argv)
 	default:
 		LOGMSG(env, "\nFAILED: <type> not 'd', 'f' or 'm'\n");
 		goto exit;
-	};
+	}
 		
 	switch (argv[2][0]) {
 	case 's':
@@ -2136,13 +2136,13 @@ int UTimeCmd(struct cli_env *env, int argc, char **argv)
 		if (end_i < st_i) {
 			LOGMSG(env, "\nFAILED: End index is less than start index\n");
 			goto exit;
-		};
+		}
 
 		if (ts_p->ts_idx < MAX_TIMESTAMPS - 1) {
 			LOGMSG(env,
 				"\nWARNING: Last valid timestamp is %d\n",
 				ts_p->ts_idx);
-		};
+		}
 
 		LOGMSG(env,
 			"\nIdx ---->> Sec<<---- Nsec---mmmuuunnn Marker\n");
@@ -2151,7 +2151,7 @@ int UTimeCmd(struct cli_env *env, int argc, char **argv)
 				ts_p->ts_val[idx].tv_sec, 
 				ts_p->ts_val[idx].tv_nsec,
 				ts_p->ts_mkr[idx]);
-		};
+		}
 		break;
 
 	case 'l':
@@ -2362,7 +2362,7 @@ void bind_goodput_cmds(void)
 
 	add_commands_to_cmd_db(sizeof(goodput_cmds) / sizeof(goodput_cmds[0]),
 			goodput_cmds);
-};
+}
 
 #ifdef __cplusplus
 }

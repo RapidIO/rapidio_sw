@@ -109,8 +109,8 @@ void send_m2s_flag_update(struct fmd_peer *peer, struct fmd_dd_dev_info *dev)
 		ERR("Failed M2S update to %s for %s, flags 0x%2x,"
 			" tx rc 0x%x\n",
 			peer->peer_name, dev->name, flag, peer->tx_rc);
-	};
-};
+	}
+}
 
 void send_add_dev_msg(struct fmd_peer *peer, struct fmd_dd_dev_info *dev)
 {
@@ -151,8 +151,8 @@ void send_add_dev_msg(struct fmd_peer *peer, struct fmd_dd_dev_info *dev)
 				goto exit;
 			SAFE_STRNCPY(peer->m2s->mod_rq.name, dev->name, 
 				sizeof(peer->m2s->mod_rq.name));
-		};
-	};
+		}
+	}
 	INFO("TX ADD DEV MSG to did 0x%x Name %s Adding did 0x%x ct 0x%x\n",
 		peer->p_did, peer->m2s->mod_rq.name, dev->destID, dev->ct);
 
@@ -162,7 +162,7 @@ void send_add_dev_msg(struct fmd_peer *peer, struct fmd_dd_dev_info *dev)
 				peer->tx_buff, FMD_P_M2S_CM_SZ, NULL);
 exit:
 	sem_post(&peer->tx_mtx);
-};
+}
 
 void send_del_dev_msg(struct fmd_peer *peer, struct fmd_peer *del_peer)
 {
@@ -186,7 +186,7 @@ void send_del_dev_msg(struct fmd_peer *peer, struct fmd_peer *del_peer)
 	peer->tx_rc = riomp_sock_send(peer->cm_skt_h, 
 				peer->tx_buff, FMD_P_M2S_CM_SZ, NULL);
 	sem_post(&peer->tx_mtx);
-};
+}
 
 void update_all_peer_dd_and_flags(uint32_t add_dev)
 {
@@ -210,26 +210,26 @@ void update_all_peer_dd_and_flags(uint32_t add_dev)
 			if (src == tgt) {
 				// INFO("\n         Skip, SRC == TGT\n");
 				continue;
-			};
+			}
 			if (devs[tgt].is_mast_pt) {
 				// INFO("\n         Skip, TGT is mast port\n");
 				continue;
-			};
+			}
 			t_peer = (struct fmd_peer *) 
 				l_find(&fmp.peers, devs[tgt].destID, &li);
 			if (NULL == t_peer) {
 				ERR("\nNo addr for %s 0x%x, can not add %s\n",
 					devs[tgt].name, devs[tgt].destID, devs[src].name);
 				continue;
-			};
+			}
 			if (add_dev) {
 				send_add_dev_msg(t_peer, &devs[src]);
 			} else {
 				send_m2s_flag_update(t_peer, &devs[src]);
 			}
-		};
-	};
-};
+		}
+	}
+}
 
 /* Assumes that peer has already been removed from fmp.peers... */
 void send_peer_removal_messages(struct fmd_peer *del_peer)
@@ -243,10 +243,10 @@ void send_peer_removal_messages(struct fmd_peer *del_peer)
 	while (NULL != t_peer) {
 		send_del_dev_msg(t_peer, del_peer);
 		t_peer = (struct fmd_peer *)l_next(&li);
-	};
+	}
 
 	sem_post(&fmp.peers_mtx);
-};
+}
 
 void master_process_hello_peer(struct fmd_peer *peer)
 {
@@ -298,7 +298,7 @@ void master_process_hello_peer(struct fmd_peer *peer)
 		peer->m2s->hello_rsp.hc_long = htonl(0);
 		add_to_list = 1;
 		peer->p_hc = HC_MP;
-	};
+	}
 	peer->tx_buff_used = 1;
 	peer->tx_rc = riomp_sock_send(peer->cm_skt_h, peer->tx_buff,
 				FMD_P_M2S_CM_SZ, NULL);
@@ -315,8 +315,8 @@ void master_process_hello_peer(struct fmd_peer *peer)
 			(char *)peer_pe->sysfs_name);
 		HIGH("New Peer 0x%x: Updating all dd and flags\n", peer->p_ct);
 		update_all_peer_dd_and_flags(1);
-	};
-};
+	}
+}
 
 void master_process_flag_set(struct fmd_peer *peer)
 {
@@ -349,8 +349,8 @@ void master_process_flag_set(struct fmd_peer *peer)
 			fmd->dd->devs[i].flag = flag;
 			tell_peers = 1;
 			break;
-		};
-	};
+		}
+	}
 	sem_post(&fmd->dd_mtx->sem);
 
 	if (tell_peers) {
@@ -359,8 +359,8 @@ void master_process_flag_set(struct fmd_peer *peer)
 
 		update_all_peer_dd_and_flags(0);
 		fmd_notify_apps();
-	};
-};
+	}
+}
 
 void peer_rx_req(struct fmd_peer *peer)
 {
@@ -384,35 +384,35 @@ void cleanup_peer(struct fmd_peer *peer)
 		l_lremove(&fmp.peers, peer->li);
 		peer->li = NULL;
 		sem_post(&fmp.peers_mtx);
-	};
+	}
 
 	if (!del_device_from_dd(peer->p_ct, peer->p_did)) {
 		send_peer_removal_messages(peer);
-	};
+	}
 
 	if (peer->tx_buff_used) {
 		riomp_sock_release_send_buffer(peer->cm_skt_h,
 						peer->tx_buff);
 		peer->tx_buff = NULL;
 		peer->tx_buff_used = 0;
-	};
+	}
 	
 	if (peer->rx_buff_used) {
 		riomp_sock_release_receive_buffer(peer->cm_skt_h,
 						peer->rx_buff);
 		peer->rx_buff = NULL;
 		peer->rx_buff_used = 0;
-	};
+	}
 
 	if (peer->skt_h_valid && (NULL != peer->cm_skt_h)) {
 		int rc = riomp_sock_close(&peer->cm_skt_h);
 		if (rc) {
 			ERR("socket close rc %d: %s\n", rc, strerror(errno));
-		};
+		}
 		peer->cm_skt_h = NULL;
 		peer->skt_h_valid= 0;
-	};
-};
+	}
+}
 
 void *peer_rx_loop(void *p_i)
 {
@@ -450,14 +450,14 @@ void *peer_rx_loop(void *p_i)
 			WARN("Peer(0x%x) RX Msg type 0x%x\n", peer->p_ct,
 					ntohl(peer->s2m->msg_type));
 			break;
-		};
-	};
+		}
+	}
 
 	cleanup_peer(peer);
 
 	INFO("Peer(0x%x) EXITING\n", peer->p_ct);
 	pthread_exit(NULL);
-};
+}
 
 int start_new_peer(riomp_sock_t new_skt)
 {
@@ -513,14 +513,14 @@ void cleanup_acc_handler(void)
 		riomp_sock_close(&fmp.acc.cm_acc_h);
 		memset(&fmp.acc.cm_acc_h, 0, sizeof(fmp.acc.cm_acc_h));
 		fmp.acc.cm_acc_valid = 0;
-	};
+	}
 
 	if (fmp.acc.mb_valid) {
 		riomp_sock_mbox_destroy_handle(&fmp.acc.mb);
 		memset(&fmp.acc.mb, 0, sizeof(fmp.acc.mb));
 		fmp.acc.mb_valid = 0;
-	};
-};
+	}
+}
 
 void *mast_acc(void *unused)
 {
@@ -575,7 +575,7 @@ void *mast_acc(void *unused)
 			if (rc) {
 				ERR("socket() ERR %d\n", rc);
 				break;
-			};
+			}
 		}
 
 		rc = riomp_sock_accept(fmp.acc.cm_acc_h,
@@ -627,7 +627,7 @@ int start_peer_mgmt_master(uint32_t mast_acc_skt_num, uint32_t mp_num)
 	return 0;
 fail:
 	return 1;
-};
+}
 
 int start_peer_mgmt(uint32_t mast_acc_skt_num, uint32_t mp_num, 
 		uint32_t mast_did, uint32_t master)
@@ -643,9 +643,9 @@ int start_peer_mgmt(uint32_t mast_acc_skt_num, uint32_t mp_num,
 	} else {
 		rc = start_peer_mgmt_slave(mast_acc_skt_num, mast_did, mp_num, 
 			&fmp.slv);
-	};
+	}
 	return rc;
-};
+}
 		
 void update_peer_flags(void)
 {
@@ -653,7 +653,7 @@ void update_peer_flags(void)
 		update_all_peer_dd_and_flags(0);
 	else
 		update_master_flags_from_peer();
-};
+}
 
 #ifdef __cplusplus
 }

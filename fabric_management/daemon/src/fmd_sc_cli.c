@@ -69,7 +69,7 @@ int CLICountReadCmd(struct cli_env *env, int argc, char **argv)
 	if (NULL == pe_h) {
 		LOGMSG(env, "\nNo Device Selected...\n");
 		goto exit;
-	};
+	}
 
 	priv = (struct mpsw_drv_private_data *)(pe_h->private_data);
 	if (NULL == priv) {
@@ -90,7 +90,7 @@ int CLICountReadCmd(struct cli_env *env, int argc, char **argv)
 	}
 exit:
 	return 0;
-};
+}
 
 struct cli_cmd CLICountRead = {
 (char *)"scread",
@@ -123,7 +123,7 @@ int CLICountDisplayCmd(struct cli_env *env, int argc, char **argv)
         if (NULL == pe_h) {
                 LOGMSG(env, "\nNo Device Selected...\n");
                 goto exit;
- 	};
+ 	}
 
         priv = (struct mpsw_drv_private_data *)(pe_h->private_data);
 	if (NULL == priv) {
@@ -189,12 +189,12 @@ int CLICountDisplayCmd(struct cli_env *env, int argc, char **argv)
 			if (chk_rx_tx) {
 				if (stctr->tx != sc_tx) {
 					continue;
-				};
+				}
 			}
 			if (chk_rio_oth) {
 				if (stctr->srio != sc_srio) {
 					continue;
-				};
+				}
 			}
 			if (chk_flags) {
 				if ((flags & SC_FLAG(stctr->sc)) != flags) {
@@ -204,7 +204,7 @@ int CLICountDisplayCmd(struct cli_env *env, int argc, char **argv)
 			if (!got_one) {
 				got_one = true;
 				LOGMSG(env, "\nPt   Counter             Last_Inc   Total\n ");
-			};
+			}
 			LOGMSG(env,
 				"\n%2d  %2s %8s %6s 0x%8x 0x%16llx",
 				dc->p_ctrs[val_p].pnum,
@@ -217,12 +217,12 @@ int CLICountDisplayCmd(struct cli_env *env, int argc, char **argv)
 	}
 	if (!got_one) {
 		LOGMSG(env, "\nAll counters are 0 or no counters selected.\n");
-	};
+	}
 
 	LOGMSG(env, "\n");
 exit:
         return 0;
-};
+}
 
 struct cli_cmd CLICountDisplay = {
 (char *)"scdisplay",
@@ -280,7 +280,7 @@ void fmd_bind_dev_sc_cmds(void)
 
 	add_commands_to_cmd_db(sizeof(sc_cmd_list)/
 			sizeof(struct cli_cmd *), sc_cmd_list);
-};
+}
 
 #ifdef __cplusplus
 }

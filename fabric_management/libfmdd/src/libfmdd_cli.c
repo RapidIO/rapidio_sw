@@ -178,7 +178,7 @@ int CLIDDListCmd(struct cli_env *env, int argc, char **argv)
 exit:
 	free(did_list);
 	return 0;
-};
+}
 
 struct cli_cmd CLIDDList = {
 (char *)"ddlli",
@@ -207,7 +207,7 @@ void fmdd_bind_dbg_cmds(void *fmdd_h)
 					sizeof(libfmdd_cmds[0]), 
 					&libfmdd_cmds[0]);
 		bind_dd_cmds(fml.dd, fml.dd_mtx, fml.dd_fn, fml.dd_mtx_fn);
-	};
+	}
 }
 
 #ifdef __cplusplus

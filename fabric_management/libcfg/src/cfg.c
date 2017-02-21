@@ -83,12 +83,12 @@ void init_rt(rio_rt_state_t *rt)
 	for (k = 0; k < RIO_DAR_RT_DEV_TABLE_SIZE; k++) {
 		rt->dev_table[k].rte_val = RIO_DSF_RT_NO_ROUTE;
 		rt->dom_table[k].rte_val = RIO_DSF_RT_NO_ROUTE;
-	};
+	}
 	for (k = 0; k < RIO_DSF_MAX_MC_MASK; k++) {
 		rt->mc_masks[k].mc_destID = 0xFF;
 		rt->mc_masks[k].tt = tt_dev8;
-	};
-};
+	}
+}
 
 int init_cfg_ptr(char *dd_mtx_fn, char *dd_fn)
 {
@@ -109,9 +109,9 @@ int init_cfg_ptr(char *dd_mtx_fn, char *dd_fn)
 		cfg->mport_info[i].mem_sz = CFG_MEM_SZ_DEFAULT;
 		for (j = 0; j < CFG_DEVID_MAX; j++) {
 			cfg->mport_info[i].devids[j].hc = HC_MP;
-		};
+		}
 		cfg->mport_info[i].ep_pnum = -1;
-	};
+	}
 	cfg->mast_devid_sz = CFG_DFLT_MAST_DEVID_SZ;
 	cfg->mast_devid = CFG_DFLT_MAST_DEVID;
 	cfg->mast_cm_port = FMD_DFLT_MAST_CM_PORT;
@@ -126,8 +126,8 @@ int init_cfg_ptr(char *dd_mtx_fn, char *dd_fn)
 				cfg->eps[i].ports[j].devids[k].hc = HC_MP;
 			}
 			cfg->eps[i].ports[j].conn_end = -1;
-		};
-	};
+		}
+	}
 
 	for (i = 0; i < CFG_MAX_SW; i++) {
 		for (j = 0; j < CFG_MAX_SW_PORT; j++) {
@@ -135,13 +135,13 @@ int init_cfg_ptr(char *dd_mtx_fn, char *dd_fn)
 			cfg->sws[i].ports[j].rio.op_pw = rio_pc_pw_last;
 			cfg->sws[i].ports[j].rio.ls = rio_pc_ls_last;
 			cfg->sws[i].ports[j].conn_end = -1;
-		};
+		}
 		for (j = 0; j < CFG_DEVID_MAX; j++) {
 			init_rt(&cfg->sws[i].rt[j]);
 			for (int k = 0; k < CFG_MAX_SW_PORT; k++)
 				init_rt(&cfg->sws[i].ports[k].rt[j]);
-		};
-	};
+		}
+	}
 
 	for (i = 0; i < CFG_MAX_CONN; i++) {
 		int e;
@@ -149,8 +149,8 @@ int init_cfg_ptr(char *dd_mtx_fn, char *dd_fn)
 		for (e = 0; e < 2; e++) {
 			cfg->cons[i].ends[e].port_num = -1;
 			cfg->cons[i].ends[e].ep = -1;
-		};
-	};
+		}
+	}
 
 	cfg->auto_config = false;
 
@@ -169,7 +169,7 @@ void strip_crlf(char *tok)
 	temp = strchr(tok, '\r');
 	if(NULL != temp)
 		temp[0] = '\0';
-};
+}
 
 const char *delim = " 	";
 char *save_ptr = NULL;
@@ -180,8 +180,8 @@ void flush_comment(char *tok)
 		DBG("%s\n", tok);
 		tok = strtok_r(NULL, delim, &save_ptr);
 		strip_crlf(tok);
-	};
-};
+	}
+}
 
 #define LINE_SIZE 256
 char *line;
@@ -200,7 +200,7 @@ char *try_get_next_token(struct int_cfg_parms *cfg)
 		rc = NULL;
 	} else {
 		rc = strtok_r(NULL, delim, &save_ptr);
-	};
+	}
 
 	while (!done) {
 		while ((NULL == rc) && (byte_cnt > 0)) {
@@ -209,12 +209,12 @@ char *try_get_next_token(struct int_cfg_parms *cfg)
 			byte_cnt = getline(&line, &byte_cnt, cfg_fd);
 			strip_crlf(line);
 			rc = strtok_r(line, delim, &save_ptr);
-		};
+		}
 
 		if (byte_cnt <= 0) {
 			rc = NULL;
 			break;
-		};
+		}
 
 		if (NULL != rc) {
 			done = strncmp(rc, "//", 2);
@@ -223,15 +223,15 @@ char *try_get_next_token(struct int_cfg_parms *cfg)
 				rc = NULL;
 			}
 		}
-	};
+	}
 
 	if (NULL != rc) {
 		DBG("%s\n", rc);
-	};
+	}
 
 fail:
 	return rc;
-};
+}
 
 void parse_err(struct int_cfg_parms *cfg, char *err_msg)
 {
@@ -241,14 +241,14 @@ void parse_err(struct int_cfg_parms *cfg, char *err_msg)
 	if (!cfg->init_err)
 		ERR("\n%s\n", err_msg);
 	cfg->init_err = 1;
-};
+}
 
 int get_next_token(struct int_cfg_parms *cfg, char **token)
 {
 	if (cfg->init_err) {
 		*token = NULL;
 		return 1;
-	};
+	}
 
 	*token = try_get_next_token(cfg);
 
@@ -256,7 +256,7 @@ int get_next_token(struct int_cfg_parms *cfg, char **token)
 		parse_err(cfg, (char *)"Unexpected end of file.");
 
 	return (NULL == *token);
-};
+}
 
 #define DEVID_SZ_TOKENS "dev08 dev16 dev32"
 #define DEVID_SZ_TOKENS_END "dev08 dev16 dev32 END"
@@ -283,13 +283,13 @@ int get_devid_sz(struct int_cfg_parms *cfg, uint32_t *devID_sz)
 	default:
 		parse_err(cfg, (char *)"Unknown devID size.");
 		goto fail;
-	};
+	}
 
 	return 0;
 fail:
 	parse_err(cfg, (char *)"Premature EOF.");
 	return 1;
-};
+}
 
 int get_dec_int(struct int_cfg_parms *cfg, uint32_t *dec_int)
 {
@@ -305,7 +305,7 @@ int get_dec_int(struct int_cfg_parms *cfg, uint32_t *dec_int)
 fail:
 	parse_err(cfg, (char *)"get_dec_int error.");
 	return 1;
-};
+}
 
 int get_hex_int(struct int_cfg_parms *cfg, uint32_t *hex_int)
 {
@@ -321,7 +321,7 @@ int get_hex_int(struct int_cfg_parms *cfg, uint32_t *hex_int)
 fail:
 	parse_err(cfg, (char *)"get_hex_int error.");
 	return 1;
-};
+}
 
 int get_port_num(struct int_cfg_parms *cfg, uint32_t *pnum)
 {
@@ -332,12 +332,12 @@ int get_port_num(struct int_cfg_parms *cfg, uint32_t *pnum)
 	if (*pnum >= RIO_MAX_DEV_PORT) {
 		parse_err(cfg, (char *)"Illegal portnum.");
 		goto fail;
-	};
+	}
 	return 0;
 fail:
 	parse_err(cfg, (char *)"get_port_num error.");
 	return 1;
-};
+}
 
 int get_parm_idx(struct int_cfg_parms *cfg, char *parm_list)
 {
@@ -347,7 +347,7 @@ int get_parm_idx(struct int_cfg_parms *cfg, char *parm_list)
 		return parm_idx(tok, parm_list);
 	parse_err(cfg, (char *)"Premature EOF.");
 	return -1;
-};
+}
 
 int get_string(struct int_cfg_parms *cfg, char **parm)
 {
@@ -358,7 +358,7 @@ int get_string(struct int_cfg_parms *cfg, char **parm)
 	}
 	parse_err(cfg, (char *)"Premature EOF.");
 	return 1;
-};
+}
 
 int get_rt_v(struct int_cfg_parms *cfg, uint32_t *rt_val)
 {
@@ -376,7 +376,7 @@ int get_rt_v(struct int_cfg_parms *cfg, uint32_t *rt_val)
 		if (RIO_DSF_RT_NO_ROUTE == *rt_val) {
 			parse_err(cfg, (char *)"Illegal MC Mask number.");
 			goto fail;
-		};
+		}
 		break;
 	case 1: // NEXT_BYTE
 		*rt_val = RIO_DSF_RT_USE_DEVICE_TABLE;
@@ -393,12 +393,12 @@ int get_rt_v(struct int_cfg_parms *cfg, uint32_t *rt_val)
 			goto fail;
 		}
 		*rt_val = val;
-	};
+	}
 	return 0;
 fail:
 	parse_err(cfg, (char *)"Premature EOF.");
 	return 1;
-};
+}
 
 int find_ep_name(struct int_cfg_parms *cfg, char *name, struct int_cfg_ep **ep)
 {
@@ -409,11 +409,11 @@ int find_ep_name(struct int_cfg_parms *cfg, char *name, struct int_cfg_ep **ep)
 			(strlen(name) == strlen(cfg->eps[i].name))) {
 			*ep = &cfg->eps[i];
 			return 0;
-		};
-	};
+		}
+	}
 	*ep = NULL;
 	return 1;
-};
+}
 
 int find_sw_name(struct int_cfg_parms *cfg, char *name, struct int_cfg_sw **sw)
 {
@@ -424,11 +424,11 @@ int find_sw_name(struct int_cfg_parms *cfg, char *name, struct int_cfg_sw **sw)
 			(strlen(name) == strlen(cfg->sws[i].name))) {
 			*sw = &cfg->sws[i];
 			return 0;
-		};
-	};
+		}
+	}
 	*sw = NULL;
 	return 1;
-};
+}
 
 int find_ep_and_port(struct int_cfg_parms *cfg, char *tok, 
 			struct int_cfg_ep **ep, int *port)
@@ -458,11 +458,11 @@ int find_ep_and_port(struct int_cfg_parms *cfg, char *tok,
 	if (!(*ep)->ports[*port].valid) {
 		parse_err(cfg, (char *)"Invalid port selected.");
 		goto fail;
-	};
+	}
 	return 0;
 fail:
 	return 1;
-};
+}
 
 int find_sw_and_port(struct int_cfg_parms *cfg, char *tok, 
 			struct int_cfg_sw **sw, int *port)
@@ -486,7 +486,7 @@ int find_sw_and_port(struct int_cfg_parms *cfg, char *tok,
 			goto fail;
 		}
 		*port = (int)tmp;
-	};
+	}
 
 	if (find_sw_name(cfg, tok, sw)) {
 		parse_err(cfg, (char *)"Invalid switch selected");
@@ -496,11 +496,11 @@ int find_sw_and_port(struct int_cfg_parms *cfg, char *tok,
 	if (!(*sw)->ports[*port].valid) {
 		parse_err(cfg, (char *)"Invalid port selected.");
 		goto fail;
-	};
+	}
 	return 0;
 fail:
 	return 1;
-};
+}
 
 int get_ep_sw_and_port(struct int_cfg_parms *cfg, struct int_cfg_conn *conn, 
 			int idx)
@@ -530,45 +530,45 @@ int get_ep_sw_and_port(struct int_cfg_parms *cfg, struct int_cfg_conn *conn,
 			goto fail;
 		}
 		conn->ends[idx].port_num = (int)tmp;
-	};
+	}
 
 	if (!find_ep_name(cfg, tok, &conn->ends[idx].ep_h)) {
 		if (conn->ends[idx].port_num >= CFG_MAX_EP_PORT) {
 			parse_err(cfg, (char *)"Illegal port index.");
 			goto fail;
-		};
+		}
 		if (!conn->ends[idx].ep_h->ports[conn->ends[idx].port_num].valid) {
 			parse_err(cfg, (char *)"Invalid port selected.");
 			goto fail;
-		};
+		}
 		conn->ends[idx].ep = 1;
 		conn->ends[idx].ep_h->ports[conn->ends[idx].port_num].conn
 			= conn;
 		conn->ends[idx].ep_h->ports[conn->ends[idx].port_num].conn_end
 			= idx;
 		return 0;
-	};
+	}
 
 	if (!find_sw_name(cfg, tok, &conn->ends[idx].sw_h)) {
 		if (conn->ends[idx].port_num >= CFG_MAX_SW_PORT) {
 			parse_err(cfg, (char *)"Illegal port index.");
 			goto fail;
-		};
+		}
 		if (!conn->ends[idx].sw_h->ports[conn->ends[idx].port_num].valid) {
 			parse_err(cfg, (char *)"Invalid port selected.");
 			goto fail;
-		};
+		}
 		conn->ends[idx].ep = 0;
 		conn->ends[idx].sw_h->ports[conn->ends[idx].port_num].conn 
 			= conn;
 		conn->ends[idx].sw_h->ports[conn->ends[idx].port_num].conn_end 
 			= idx;
 		return 0;
-	};
+	}
 	parse_err(cfg, (char *)"Unknown device.");
 fail:
 	return 1;
-};
+}
 
 int cfg_get_destid(struct int_cfg_parms *cfg, uint32_t *destid, uint32_t devid_sz)
 {
@@ -586,19 +586,19 @@ int cfg_get_destid(struct int_cfg_parms *cfg, uint32_t *destid, uint32_t devid_s
 			goto fail;
 		}
 		return 0;
-	};
+	}
 
 
 	if (!ep->ports[port].devids[devid_sz].valid) {
 		parse_err(cfg, (char *)"Unconfigured devid selected.");
 		goto fail;
-	};
+	}
 	*destid = ep->ports[port].devids[devid_sz].devid;
 	return 0;
 fail:
 	parse_err(cfg, (char *)"cfg_get_destid error.");
 	return 1;
-};
+}
 
 int parse_devid_sizes(struct int_cfg_parms *cfg, int *dev_id_szs)
 {
@@ -621,13 +621,13 @@ int parse_devid_sizes(struct int_cfg_parms *cfg, int *dev_id_szs)
 				break;
 			default:
 				goto fail;
-		};
-	};
+		}
+	}
 	return 0;
 fail:
 	parse_err(cfg, (char *)"parse_devid_sizes error.");
 	return 1;
-};
+}
 
 #define MEM_SZ_TOKENS "mem34 mem50 mem66"
 
@@ -653,7 +653,7 @@ int parse_mport_mem_size(struct int_cfg_parms *cfg, uint8_t *mem_sz)
 fail:
 	parse_err(cfg, (char *)"parse_mport_mem_size error.");
 	return 1;
-};
+}
 
 int parse_ep_devids(struct int_cfg_parms *cfg, struct dev_id *devids)
 {
@@ -664,7 +664,7 @@ int parse_ep_devids(struct int_cfg_parms *cfg, struct dev_id *devids)
 		devids[devid_sz].valid = 0;
 		devids[devid_sz].hc = HC_MP;
 		devids[devid_sz].devid = 0;
-	};
+	}
 
 	while (!done) {
 		devid_sz = get_parm_idx(cfg, (char *)DEVID_SZ_TOKENS_END);
@@ -687,15 +687,15 @@ int parse_ep_devids(struct int_cfg_parms *cfg, struct dev_id *devids)
 				break;
 			default:
 				goto fail;
-		};
-	};
+		}
+	}
 
 
 	return 0;
 fail:
 	parse_err(cfg, (char *)"parse_ep_devids error.");
 	return 1;
-};
+}
 
 int check_match (struct dev_id *mp_did, struct dev_id *ep_did,
 		struct int_mport_info *mpi, struct int_cfg_parms *cfg, 
@@ -712,7 +712,7 @@ int check_match (struct dev_id *mp_did, struct dev_id *ep_did,
 	if (mpi->ep != NULL) {
 		parse_err(cfg, (char *)"Duplicate MPORT definitions");
 		goto fail;
-	};
+	}
 	mpi->ep = ep;
 	mpi->ep_pnum = pnum;
 	mpi->ct = ep->ports[mpi->ep_pnum].ct;
@@ -721,7 +721,7 @@ exit:
 	return 0;
 fail:
 	return -1;
-};
+}
 
 int match_ep_to_mports(struct int_cfg_parms *cfg, struct int_cfg_ep_port *ep_p,
 			int pt_i, struct int_cfg_ep *ep)
@@ -736,10 +736,10 @@ int match_ep_to_mports(struct int_cfg_parms *cfg, struct int_cfg_ep_port *ep_p,
 			if (check_match( &mp_did[did_sz], &ep_did[did_sz],
 					&cfg->mport_info[mp_i], cfg, ep, pt_i))
 				return -1;
-		};
-	};
+		}
+	}
 	return 0;
-};
+}
 
 int parse_mport_info(struct int_cfg_parms *cfg)
 {
@@ -748,7 +748,7 @@ int parse_mport_info(struct int_cfg_parms *cfg)
 	if (cfg->max_mport_info_idx >= CFG_MAX_MPORTS) {
 		parse_err(cfg, (char *)"Too many MPORTs.");
 		goto fail;
-	};
+	}
 
 	idx = cfg->max_mport_info_idx;
 	if (get_dec_int(cfg, &cfg->mport_info[idx].num))
@@ -760,8 +760,8 @@ int parse_mport_info(struct int_cfg_parms *cfg)
 		if (cfg->mport_info[i].num == cfg->mport_info[idx].num) {
 			parse_err(cfg, (char *)"Duplicate mport number.");
 			goto fail;
-		};
-	};
+		}
+	}
 
 	switch (get_parm_idx(cfg, (char *)"master slave")) {
 	case 0: // "master"
@@ -769,7 +769,7 @@ int parse_mport_info(struct int_cfg_parms *cfg)
 			parse_err(cfg, 
 			(char *)"Only one MPORT can be master for now.");
 			goto fail;
-		};
+		}
 		cfg->mport_info[idx].op_mode = CFG_OP_MODE_MASTER;
 		cfg->mast_idx = idx;
 		break;
@@ -779,7 +779,7 @@ int parse_mport_info(struct int_cfg_parms *cfg)
 	default:
 		parse_err(cfg, (char *)"Unknown operating mode.");
 		goto fail;
-	};
+	}
 
 	if (parse_mport_mem_size(cfg, &cfg->mport_info[idx].mem_sz))
 		goto fail;
@@ -788,7 +788,7 @@ int parse_mport_info(struct int_cfg_parms *cfg)
 fail:
 	parse_err(cfg, (char *)"parse_mport_info error.");
 	return 1;
-};
+}
 
 int parse_master_info(struct int_cfg_parms *cfg)
 {
@@ -805,7 +805,7 @@ int parse_master_info(struct int_cfg_parms *cfg)
 fail:
 	parse_err(cfg, (char *)"parse_master_info error.");
 	return 1;
-};
+}
 
 int parse_mc_mask(struct int_cfg_parms *cfg, rio_rt_mc_info_t *mc_info)
 {
@@ -817,7 +817,7 @@ int parse_mc_mask(struct int_cfg_parms *cfg, rio_rt_mc_info_t *mc_info)
 	if (mc_mask_idx >= RIO_DSF_MAX_MC_MASK) {
 		parse_err(cfg, (char *)"Illegal multicast mask index.");
 		goto fail;
-	};
+	}
 
 	mc_info[mc_mask_idx].mc_destID = 0;
 	mc_info[mc_mask_idx].tt = tt_dev8;
@@ -837,8 +837,8 @@ int parse_mc_mask(struct int_cfg_parms *cfg, rio_rt_mc_info_t *mc_info)
 			}
 			mc_info[mc_mask_idx].mc_mask |= (1 << pnum);
 			break;
-		};
-	};
+		}
+	}
 	mc_info[mc_mask_idx].in_use = 1;
 	mc_info[mc_mask_idx].allocd = 1;
 	mc_info[mc_mask_idx].changed = 1;
@@ -846,7 +846,7 @@ int parse_mc_mask(struct int_cfg_parms *cfg, rio_rt_mc_info_t *mc_info)
 fail:
 	parse_err(cfg, (char *)"parse_mc_mask error.");
 	return 1;
-};
+}
 
 int get_port_width(struct int_cfg_parms *cfg, rio_pc_pw_t *pw);
 int get_lane_speed(struct int_cfg_parms *cfg, rio_pc_ls_t *ls);
@@ -873,12 +873,12 @@ int parse_rapidio(struct int_cfg_parms *cfg, struct int_cfg_rapidio *rio)
 	default:
 		parse_err(cfg, (char *)"Unknown error management config.");
 		goto fail;
-	};
+	}
 
 	return 0;
 fail:
 	return 1;
-};
+}
 
 int parse_ep_port(struct int_cfg_parms *cfg, struct int_cfg_ep_port *prt)
 {
@@ -895,7 +895,7 @@ int parse_ep_port(struct int_cfg_parms *cfg, struct int_cfg_ep_port *prt)
 	return 0;
 fail:
 	return 1;
-};
+}
 
 int parse_endpoint(struct int_cfg_parms *cfg)
 {
@@ -905,7 +905,7 @@ int parse_endpoint(struct int_cfg_parms *cfg)
 	if (i >= CFG_MAX_EP) {
 		parse_err(cfg, (char *)"Too many endpoints.");
 		goto fail;
-	};
+	}
 
 	if (get_string(cfg, &cfg->eps[i].name))
 		goto fail;
@@ -919,7 +919,7 @@ int parse_endpoint(struct int_cfg_parms *cfg)
 			if (cfg->eps[i].port_cnt >= CFG_MAX_EP_PORT) {
 				parse_err(cfg, (char *)"Too many ports!");
 				goto fail;
-			};
+			}
 			if (parse_ep_port(cfg, &cfg->eps[i].ports[pt_i]))
 				goto fail;
 			cfg->eps[i].port_cnt++;
@@ -933,15 +933,15 @@ int parse_endpoint(struct int_cfg_parms *cfg)
 		default:
 			parse_err(cfg, (char *)"Unknown parameter.");
 			goto fail;
-		};
-	};
+		}
+	}
 				
 	cfg->eps[i].valid = 1;
 	cfg->ep_cnt++;
 	return 0;
 fail:
 	return 1;
-};
+}
 
 int assign_rt_v(int rt_sz, int st_destid, int end_destid, pe_rt_val rtv, 
 			rio_rt_state_t *rt, struct int_cfg_parms *cfg)
@@ -954,18 +954,18 @@ int assign_rt_v(int rt_sz, int st_destid, int end_destid, pe_rt_val rtv,
 				(end_destid >= RIO_DAR_RT_DEV_TABLE_SIZE)) {
 			parse_err(cfg, (char *)"DestID value too large.");
 			goto fail;
-		};
+		}
 		if (st_destid > end_destid) {
 			int temp = end_destid;
 			end_destid = st_destid;
 			st_destid = temp;
-		};
+		}
 		for (i = st_destid; i <= end_destid; i++) {
 			if (rt->dev_table[i].rte_val != rtv) {
 				rt->dev_table[i].rte_val = rtv;
 				rt->dev_table[i].changed = 1;
-			};
-		};
+			}
+		}
 		break;
 	case 1: // dev16
 		parse_err(cfg, (char *)"Dev16 not supported yet.");
@@ -976,11 +976,11 @@ int assign_rt_v(int rt_sz, int st_destid, int end_destid, pe_rt_val rtv,
 	default:
 		parse_err(cfg, (char *)"Unknown rt size.");
 		goto fail;
-	};
+	}
 	return 0;
 fail:
 	return 1;
-};
+}
 
 int get_lane_speed(struct int_cfg_parms *cfg, rio_pc_ls_t *ls)
 {
@@ -1003,12 +1003,12 @@ int get_lane_speed(struct int_cfg_parms *cfg, rio_pc_ls_t *ls)
 	default:
 		parse_err(cfg, (char *)"Unknown lane speed.");
 		goto fail;
-	};
+	}
 
 	return 0;
 fail:
 	return 1;
-};
+}
 
 int get_port_width(struct int_cfg_parms *cfg, rio_pc_pw_t *pw)
 {
@@ -1034,11 +1034,11 @@ int get_port_width(struct int_cfg_parms *cfg, rio_pc_pw_t *pw)
 	default:
 		parse_err(cfg, (char *)"Unknown port width.");
 		goto fail;
-	};
+	}
 	return 0;
 fail:
 	return 1;
-};
+}
 
 int get_idle_seq(struct int_cfg_parms *cfg, int *idle)
 {
@@ -1046,11 +1046,11 @@ int get_idle_seq(struct int_cfg_parms *cfg, int *idle)
 	if ((*idle < 0) || (*idle > 1)) {
 		parse_err(cfg, (char *)"Unknown idle sequence.");
 		goto fail;
-	};
+	}
 	return 0;
 fail:
 	return 1;
-};
+}
 
 int parse_sw_port(struct int_cfg_parms *cfg)
 {
@@ -1069,7 +1069,7 @@ int parse_sw_port(struct int_cfg_parms *cfg)
 	return 0;
 fail:
 	return 1;
-};
+}
 
 int parse_switch(struct int_cfg_parms *cfg)
 {
@@ -1115,7 +1115,7 @@ int parse_switch(struct int_cfg_parms *cfg)
 			if (rt_sz > 2) {
 				parse_err(cfg, (char *)"Unknown devID size.");
 				goto fail;
-			};
+			}
 			if (get_next_token(cfg, &token))
 				goto fail;
 			switch ( parm_idx(token, (char *)"GLOBAL")) {
@@ -1135,7 +1135,7 @@ int parse_switch(struct int_cfg_parms *cfg)
 					memcpy(rt, &cfg->sws[i].rt[rt_sz],
 						sizeof(rio_rt_state_t));
 				break;
-			};
+			}
 				
 			break;
 		case 2: // DFLTPORT
@@ -1170,7 +1170,7 @@ int parse_switch(struct int_cfg_parms *cfg)
 			if (assign_rt_v(rt_sz, destid, destid, rtv, rt, cfg)) {
 				parse_err(cfg, (char *)"Illegal destID/rtv.");
 				goto fail;
-			};
+			}
 			break;
 		case 4: // RANGE
 			if (cfg_get_destid(cfg, &destid, rt_sz))
@@ -1188,7 +1188,7 @@ int parse_switch(struct int_cfg_parms *cfg)
 			if (assign_rt_v(rt_sz, destid, destid1, rtv, rt, cfg)) {
 				parse_err(cfg, (char *)"RANGE: Illegal destID/rtv.");
 				goto fail;
-			};
+			}
 			break;
 		case 5: // MCMASK
 			// klocwork - see DESTID comment about rt
@@ -1206,15 +1206,15 @@ int parse_switch(struct int_cfg_parms *cfg)
 		default:
 			parse_err(cfg, (char *)"Unknown parameter.");
 			goto fail;
-		};
-	};
+		}
+	}
 
 	cfg->sws[i].valid = 1;
 	cfg->sw_cnt++;
 	return 0;
 fail:
 	return 1;
-};
+}
 
 int parse_connect(struct int_cfg_parms *cfg)
 {
@@ -1223,7 +1223,7 @@ int parse_connect(struct int_cfg_parms *cfg)
 	if (cfg->conn_cnt >= CFG_MAX_CONN) {
 		parse_err(cfg, (char *)"Too many connections.");
 		goto fail;
-	};
+	}
 	if (get_ep_sw_and_port(cfg, &cfg->cons[idx], 0))
 		goto fail;
 	if (get_ep_sw_and_port(cfg, &cfg->cons[idx], 1))
@@ -1234,7 +1234,7 @@ int parse_connect(struct int_cfg_parms *cfg)
 	return 0;
 fail:
 	return 1;
-};
+}
 
 int fmd_parse_cfg(struct int_cfg_parms *cfg)
 {
@@ -1286,14 +1286,14 @@ int fmd_parse_cfg(struct int_cfg_parms *cfg)
 		default:
 			parse_err(cfg, (char *)"Unknown parameter.");
 			goto exit;
-		};
+		}
 		tok = try_get_next_token(cfg);
-	};
+	}
 exit:
 	free(line);
 	line = NULL;
 	return cfg->init_err;
-};
+}
 	
 
 int cfg_find_sys_mast(uint32_t *m_did, uint32_t *m_cm_port)
@@ -1335,7 +1335,7 @@ int cfg_parse_file(char *cfg_fn, char **dd_mtx_fn, char **dd_fn,
 		WARN("CFG: Config file open failed, errno %d : %s\n",
 				errno, strerror(errno));
 		goto fail;
-	};
+	}
 
 	DBG("\nCFG: Config file contents:");
 	fmd_parse_cfg(cfg);
@@ -1343,7 +1343,7 @@ int cfg_parse_file(char *cfg_fn, char **dd_mtx_fn, char **dd_fn,
 	if (fclose(cfg_fd)) {
 		ERR("CFG: Config file close failed, errno %d : %s\n",
 				errno, strerror(errno));
-	};
+	}
 
 	cfg_fd = NULL;
 
@@ -1412,7 +1412,7 @@ int cfg_parse_file(char *cfg_fn, char **dd_mtx_fn, char **dd_fn,
 	return 0;
 fail:
 	return 1;
-};
+}
 
 struct int_cfg_sw *find_cfg_sw_by_ct(ct_t ct, struct int_cfg_parms *cfg)
 {
@@ -1423,11 +1423,11 @@ struct int_cfg_sw *find_cfg_sw_by_ct(ct_t ct, struct int_cfg_parms *cfg)
 		if (cfg->sws[i].ct == ct) {
 			ret = &cfg->sws[i];
 			break;
-		};
-	};
+		}
+	}
 
 	return ret;
-};
+}
 
 struct int_cfg_ep *find_cfg_ep_by_ct(ct_t ct, struct int_cfg_parms *cfg)
 {
@@ -1443,17 +1443,17 @@ struct int_cfg_ep *find_cfg_ep_by_ct(ct_t ct, struct int_cfg_parms *cfg)
 			if (cfg->eps[i].ports[p].ct == ct) {
 				ret = &cfg->eps[i];
 				break;
-			};
-		};
-	};
+			}
+		}
+	}
 
 	for (i = 0; (i < cfg->max_mport_info_idx) && (NULL == ret); i++) {
 		if (cfg->mport_info[i].ct == ct)
 			ret = cfg->mport_info[i].ep;
-	};
+	}
 
 	return ret;
-};
+}
 
 int cfg_find_mport(uint32_t mport, struct cfg_mport_info *mp)
 {
@@ -1470,9 +1470,9 @@ int cfg_find_mport(uint32_t mport, struct cfg_mport_info *mp)
 		memcpy(mp->devids, cfg->mport_info[i].devids,
 			sizeof(mp->devids));
 		return 0;
-	};
+	}
 	return 1;
-};
+}
 
 int cfg_get_mp_mem_sz(uint32_t mport, uint8_t *mem_sz)
 {
@@ -1484,9 +1484,9 @@ int cfg_get_mp_mem_sz(uint32_t mport, uint8_t *mem_sz)
 
 		*mem_sz = cfg->mport_info[i].mem_sz;
 		return 0;
-	};
+	}
 	return 1;
-};
+}
 
 int fill_in_dev_from_ep(struct cfg_dev *dev, struct int_cfg_ep *ep)
 {
@@ -1515,7 +1515,7 @@ int fill_in_dev_from_ep(struct cfg_dev *dev, struct int_cfg_ep *ep)
 	return 0;
 fail:
 	return 1;
-};
+}
 
 int fill_in_dev_from_sw(struct cfg_dev *dev, struct int_cfg_sw *sw)
 {
@@ -1549,17 +1549,17 @@ int fill_in_dev_from_sw(struct cfg_dev *dev, struct int_cfg_sw *sw)
 					&sw->ports[i].rt[sz];
 			else
 				dev->sw_info.sw_pt[i].rt[sz] = NULL;
-		};
-	};
+		}
+	}
 	for (int sz = 0; sz < CFG_DEVID_MAX; sz++) {
 		if (sw->rt_valid[sz])
 			dev->sw_info.rt[sz] = &sw->rt[sz];
 		else
 			dev->sw_info.rt[sz] = NULL;
-	};
+	}
 
 	return 0;
-};
+}
 
 int cfg_find_dev_by_ct(ct_t ct, struct cfg_dev *dev)
 {
@@ -1575,7 +1575,7 @@ int cfg_find_dev_by_ct(ct_t ct, struct cfg_dev *dev)
 		return fill_in_dev_from_sw(dev, sw);
 
 	return 1;
-};
+}
 
 extern int cfg_get_conn_dev(ct_t ct, int pt,
 		struct cfg_dev *dev, int *conn_pt)
@@ -1606,8 +1606,8 @@ extern int cfg_get_conn_dev(ct_t ct, int pt,
 				goto fail;
 			conn = sw->ports[pt].conn;
 			conn_end = sw->ports[pt].conn_end;
-		};
-	};
+		}
+	}
 
 	if (NULL == conn)
 		goto fail;
@@ -1628,7 +1628,7 @@ extern int cfg_get_conn_dev(ct_t ct, int pt,
 fail:
 	return 1;
 	
-};
+}
 
 extern bool cfg_auto(void)
 {

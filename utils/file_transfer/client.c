@@ -84,7 +84,7 @@ void print_client_help(void)
 	printf("Entering ./rftp with no parameters displays this message.\n");
 	printf("The rftp client performs the file transfer and reports\n");
 	printf("elapsed time for the transfer.\n");
-};
+}
 
 struct timespec time_difference( struct timespec start, struct timespec end )
 {
@@ -181,8 +181,8 @@ void sig_handler(int signo)
         if ((signo == SIGINT) || (signo == SIGHUP) || (signo == SIGTERM)) {
                 printf("Shutting down\n");
                 exit(0);
-        };
-};
+        }
+}
 
 int main(int argc, char *argv[])
 {

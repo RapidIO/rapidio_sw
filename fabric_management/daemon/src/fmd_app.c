@@ -71,13 +71,13 @@ void init_app_mgmt(struct fmd_app_mgmt_state *app, int init_sem)
 	} else {
 		if (!sem_destroy(&app->started))
 			sem_init(&app->started, 0, 0);
-	};
+	}
 	app->i_must_die = 0;
 	app->proc_num = 0;
 	memset((void *)app->app_name, 0, MAX_APP_NAME+1);
 	memset((void *)&app->req, 0, sizeof(struct libfmd_dmn_app_msg));
 	memset((void *)&app->resp, 0, sizeof(struct libfmd_dmn_app_msg));
-};
+}
 
 void init_app_mgmt_st(void)
 {
@@ -94,9 +94,9 @@ void init_app_mgmt_st(void)
 	for (i = 0; i < FMD_MAX_APPS; i++) {
 		init_app_mgmt(&app_st.apps[i], INIT_SEM);
 		app_st.apps[i].index = i;
-	};
+	}
 	sem_init(&app_st.apps_avail, 0, FMD_MAX_APPS);
-};
+}
 
 int handle_app_msg(struct fmd_app_mgmt_state *app)
 {
@@ -107,7 +107,7 @@ int handle_app_msg(struct fmd_app_mgmt_state *app)
 	if (htonl(FMD_REQ_HELLO) != app->req.msg_type) {
 		app->resp.msg_type |= htonl(FMD_APP_MSG_FAIL);
 		return 0;
-	};
+	}
 
 	app->proc_num = ntohl(app->req.hello_req.app_pid);
 	app->flag = ntohl(app->req.hello_req.flag);
@@ -120,7 +120,7 @@ int handle_app_msg(struct fmd_app_mgmt_state *app)
 			sizeof(app->resp.hello_resp.dd_mtx_fn));
 	INFO("APP %s Connected!\n", app->app_name);
 	return 1;
-};
+}
 
 void mod_dd_mp_flag(uint8_t flag, int add_it)
 {
@@ -145,10 +145,10 @@ void mod_dd_mp_flag(uint8_t flag, int add_it)
 			fmd->dd->devs[i].flag &= ~flag;
 	} else {
 		ERR("DD Index %d is not master port!", i);
-	};
+	}
 
 	sem_post(&fmd->dd_mtx->sem);
-};
+}
 
 
 /* Initializes and then monitors one application. */
@@ -185,13 +185,13 @@ void *app_loop(void *ip)
 			mod_dd_mp_flag(app->flag, 1);
 			fmd_notify_apps();
 			update_peer_flags();
-		};
+		}
 	}
 
 	if (app->app_fd) {
 		close(app->app_fd);
 		app->app_fd = 0;
-	};
+	}
 
 	app->alloced = 0;
 	app->alive = 0;
@@ -216,7 +216,7 @@ int open_app_conn_socket(void)
 	if (-1 == app_st.fd) {
 		CRIT(LOC_SOCKET_FAIL, app_st.addr.sun_path);
 		goto fail;
-	};
+	}
 
 	if (remove(app_st.addr.sun_path)) {
 		if (ENOENT != errno)
@@ -230,16 +230,16 @@ int open_app_conn_socket(void)
 			sizeof(struct sockaddr_un))) {
 		CRIT(LOC_SOCKET_FAIL, app_st.addr.sun_path);
 		goto fail;
-	};
+	}
 
 	if (listen(app_st.fd, app_st.bklg) == -1) {
 		CRIT(LOC_SOCKET_FAIL, app_st.addr.sun_path);
 		goto fail;
-	};
+	}
 	rc = 0;
 fail:
 	return rc;
-};
+}
 
 void halt_app_handler(void);
 
@@ -278,12 +278,12 @@ void *app_conn_loop( void *unused )
 			if (!app_st.apps[i].alloced) {
 				new_app_i = i;
 				found = 1;
-			};
-		};
+			}
+		}
 		if (!found) {
 			CRIT("FMD: Maximum applications reached!");
 			goto fail;
-		};
+		}
 		new_app = &app_st.apps[new_app_i];
 		init_app_mgmt(new_app, NO_SEM);
 
@@ -295,7 +295,7 @@ void *app_conn_loop( void *unused )
 		if (-1 == new_app->app_fd) {
 			CRIT(LOC_SOCKET_FAIL, app_st.addr.sun_path);
 			goto fail;
-		};
+		}
 
 		new_app->alloced = 2;
         	rc = pthread_create(&new_app->app_thr, NULL, app_loop,
@@ -305,8 +305,8 @@ void *app_conn_loop( void *unused )
 		} else {
         		sem_wait(&new_app->started);
 			new_app->alloced = 1;
-		};
-	};
+		}
+	}
 fail:
 	CRIT("\nFMD Application Connection Thread Exiting\n");
 	halt_app_handler();
@@ -335,12 +335,12 @@ int start_fmd_app_handler(uint32_t port, uint32_t backlog,
         	sem_wait(&app_st.loop_started);
 
 	return ret;
-};
+}
 
 int app_handler_dead(void)
 {
 	return !app_st.loop_alive;
-};
+}
 
 void halt_app_handler(void)
 {
@@ -355,7 +355,7 @@ void halt_app_handler(void)
 	if (app_st.fd > 0) {
 		close(app_st.fd);
 		app_st.fd = -1;
-	};
+	}
 
 	sem_post(&app_st.loop_started);
 
@@ -367,16 +367,16 @@ void halt_app_handler(void)
 		if (app_st.apps[i].app_fd) {
 			close(app_st.apps[i].app_fd);
 			app_st.apps[i].app_fd = 0;
-		};
-	};
-};
+		}
+	}
+}
 
 void cleanup_app_handler(void)
 {
 	if (app_st.loop_alive)
 		pthread_join(app_st.conn_thread, NULL);
-};
-	
+}
+
 void fmd_notify_apps (void)
 {
 	int i;
@@ -393,8 +393,8 @@ void fmd_notify_apps (void)
 			continue;
 			
 		sem_post(&fmd->dd_mtx->dd_ev[i].dd_event); 
-	};
-};
+	}
+}
 
 #ifdef __cplusplus
 }

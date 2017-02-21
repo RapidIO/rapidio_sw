@@ -335,7 +335,7 @@ int fmd_enable_all_endpoints(riocp_pe_handle mp_pe)
 		riocp_pe_maint_read(pes[i], RIO_HOST_LOCK, &lockval);
 		if (RIO_HOST_LOCK_UNLOCKED != lockval) {
 			riocp_pe_maint_write(pes[i], RIO_HOST_LOCK, lockval);
-		};
+		}
 		if (riocp_enable_pe(pes[i], RIO_ALL_PORTS)) {
 			goto cleanup;
 		}

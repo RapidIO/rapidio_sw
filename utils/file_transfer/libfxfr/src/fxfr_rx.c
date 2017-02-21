@@ -92,7 +92,7 @@ int init_message_buffers(struct buffer_info *info)
 	return 0;
 fail:
 	return 1;
-};
+}
 
 int process_rxed_msg(struct buffer_info *info, int *abort_flag)
 {
@@ -107,14 +107,14 @@ int process_rxed_msg(struct buffer_info *info, int *abort_flag)
 		if (-1 == info->fd) {
 			*abort_flag = 1;
 			perror("open");
-		};
+		}
 	} else {
 		if (strncmp(info->file_name, info->rxed_msg->rx_file_name,
 			sizeof(info->file_name))) {
 			*abort_flag = 1;
 			printf("Attempt to write to wrong file!!!\n");
-		};
-	};
+		}
+	}
 
 	if (!*abort_flag && info->rxed_msg->bytes_tx_now) {
 		uint64_t offset = info->rxed_msg->rapidio_addr -
@@ -124,19 +124,19 @@ int process_rxed_msg(struct buffer_info *info, int *abort_flag)
 		if (writn != info->rxed_msg->bytes_tx_now) {
 			*abort_flag = 1;
 			printf("Could not write all bytes!!!\n");
-		};
+		}
 		info->bytes_rxed += info->rxed_msg->bytes_tx_now;
-	};
+	}
 
 	if (info->rxed_msg->end_of_file) {
 		close(info->fd);
 		return 1;
-	};
+	}
 
 	return 0;
 fail:
 	return 1;
-};
+}
 				
 int send_server_msg(struct buffer_info *info, int fail_abort, volatile int *abort_flag)
 { 
@@ -166,12 +166,12 @@ int send_server_msg(struct buffer_info *info, int fail_abort, volatile int *abor
 			(long unsigned int)info->tx_msg->fail_abort);
 		printf("	file name    = %s\n",
 				info->tx_msg->rx_file_name);
-	};
+	}
 
 	/* Send a message to the client */
 	return riomp_sock_send(*info->req_skt, 
 			info->msg_tx, sizeof(*info->msg_tx), abort_flag);
-};
+}
 
 int receive_client_msg(struct buffer_info *info)
 {
@@ -202,10 +202,10 @@ int receive_client_msg(struct buffer_info *info)
 			(long unsigned int)info->rxed_msg->fail_abort);
 		printf("file name    = %s\n",
 			info->rxed_msg->rx_file_name);
-	};
+	}
 
 	return ret;
-};
+}
 
 int rx_file(struct buffer_info *info, volatile int *abort_flag)
 {
@@ -252,12 +252,12 @@ int rx_file(struct buffer_info *info, volatile int *abort_flag)
         	riomp_sock_release_send_buffer(*info->req_skt, info->msg_tx);
         	ret = riomp_sock_close(info->req_skt);
 		info->req_skt = NULL;
-	};
+	}
 
         if (ret)
                 printf("File RX: riomp_socket_close() ERR %d\n", ret);
 	return ret;
-};
+}
 
 #ifdef __cplusplus
 }

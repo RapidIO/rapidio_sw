@@ -680,7 +680,7 @@ int RIOCP_SO_ATTR riocp_pe_probe(riocp_pe_handle pe,
 				"Error setting mtx route for comptag 0x%08x\n",
 				comptag);
 			goto err;
-		};
+		}
 		
 		ret = riocp_pe_lock_clear(pe->mport, ANY_ID, hopcount);
 		if (ret) {
@@ -1299,10 +1299,11 @@ const char RIOCP_SO_ATTR *riocp_pe_get_sysfs_name(riocp_pe_handle pe)
 {
 	if (riocp_pe_handle_check(pe)) {
 		return bad_sysfs_name;
-	};
+	}
 
 	return pe->sysfs_name;
-};
+}
+
 /**
  * Get RapidIO device name string based on device id (did)
  * @param pe Target PE
@@ -1313,7 +1314,7 @@ const char RIOCP_SO_ATTR *riocp_pe_get_device_name(riocp_pe_handle pe)
 {
 	if (riocp_pe_handle_check(pe)) {
 		return bad_device_name;
-	};
+	}
 
 	return pe->dev_name;
 }

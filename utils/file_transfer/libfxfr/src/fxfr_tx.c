@@ -148,12 +148,12 @@ void process_msg_from_server(struct fxfr_tx_state *info)
 			info->rx_rapidio_size = 
 				(info->rxed_msg->rapidio_size/MAX_TX_SEGMENTS)
 				& ((2*MAX_TX_BUFF_SIZE) - 0x1000);
-	};
+	}
 
 	return;
 fail:
 	info->fail_abort = 1;
-};
+}
 
 void rx_msg_from_server(struct fxfr_tx_state *info)
 {
@@ -197,7 +197,7 @@ void fill_dma_buffer(struct fxfr_tx_state *info, int idx)
 				info->buffers[idx], info->rx_rapidio_size);
 	if (info->bytes_txed < info->rx_rapidio_size)
 		info->end_of_file = 1;
-};
+}
 
 void send_dma_buffer(struct fxfr_tx_state *info, int idx)
 {
@@ -223,15 +223,15 @@ void send_dma_buffer(struct fxfr_tx_state *info, int idx)
 				info->bytes_txed,
 				RIO_DIRECTIO_TYPE_NWRITE,
 				RIO_DIRECTIO_TRANSFER_SYNC);
-		};
-	};
+		}
+	}
 	if (rc < 0) {
 		info->fail_abort = 1;
 		info->bytes_txed = 0;
 	} else {
 		info->tot_bytes_txed += info->bytes_txed;
-	};
-};
+	}
+}
 
 void send_transfer_msg(struct fxfr_tx_state *info, int idx)
 {
@@ -266,7 +266,7 @@ void send_transfer_msg(struct fxfr_tx_state *info, int idx)
 			(long unsigned int)info->tx_msg->fail_abort);
 		printf("	file name    = %s\n",
 			info->tx_msg->rx_file_name);
-	};
+	}
 
 	/* Send  a message back to the client */
 	ret = riomp_sock_send(info->req_skt, info->msg_tx,
@@ -276,7 +276,7 @@ void send_transfer_msg(struct fxfr_tx_state *info, int idx)
 			(int)getpid(), ret, errno);
 		info->fail_abort = 1;
 	}
-};
+}
 
 void send_msgs_to_server(struct fxfr_tx_state *info, struct timespec *st_time)
 {
@@ -284,7 +284,7 @@ void send_msgs_to_server(struct fxfr_tx_state *info, struct timespec *st_time)
 	       	if (!info->rxed_msg->fail_abort) {
 			info->bytes_txed = 0;
 			send_transfer_msg(info, 0);
-		};
+		}
 	} else {
 		uint64_t diff = info->tot_bytes_txed - info->tot_bytes_rxed;
 		uint64_t max_diff = MAX_TX_SEGMENTS*info->rx_rapidio_size;
@@ -301,9 +301,9 @@ void send_msgs_to_server(struct fxfr_tx_state *info, struct timespec *st_time)
 			diff = info->tot_bytes_txed - info->tot_bytes_rxed;
 			info->next_buff_idx = 
 				(info->next_buff_idx + 1) % MAX_TX_SEGMENTS;
-		};
-	};
-};
+		}
+	}
+}
 
 int init_info_vals(struct fxfr_tx_state *info)
 {	
@@ -345,7 +345,7 @@ int init_info_vals(struct fxfr_tx_state *info)
 	info->rx_rapidio_size = 0; /* Size of fxfr server window */
 
 	return 0;
-};
+}
 
 int init_file_info(struct fxfr_tx_state *info, char *src_name, char *dst_name)
 {
@@ -358,16 +358,16 @@ int init_file_info(struct fxfr_tx_state *info, char *src_name, char *dst_name)
 		printf("\nFile \"%s\" open read-only failed.\n", 
 			info->src_name);
 		return 1;
-	};
+	}
 
 	return 0;
-};
+}
 
 void cleanup_file_info(struct fxfr_tx_state *info)
 {
 	if (info->src_fd > 0)
 		close(info->src_fd);
-};
+}
 
 int init_message_buffers(struct fxfr_tx_state *info)
 {
@@ -389,13 +389,13 @@ int init_message_buffers(struct fxfr_tx_state *info)
 			(struct fxfr_client_to_svr_msg *) info->msg_tx->msg.payload;
 
 	return 0;
-};
+}
 
 void cleanup_msg_buffers(struct fxfr_tx_state *info)
 {
 	riomp_sock_release_receive_buffer(info->req_skt, info->msg_rx);
 	riomp_sock_release_send_buffer(info->req_skt, info->msg_tx);
-};
+}
 
 int init_server_connect(struct fxfr_tx_state *info, 
 			uint8_t mport_num, uint16_t destID, int svr_skt,
@@ -415,14 +415,14 @@ int init_server_connect(struct fxfr_tx_state *info,
                 printf("\nUnable to create mport handle  for mport %d...\n",
 			info->mport_num);
                 goto fail;
-        };
+        }
 
 	info->mp_h_valid = 1;
 
         if (riomp_mgmt_query(info->mp_h, &qresp)) {
                 printf("\nUnable to query mport %d...\n", info->mport_num);
                 goto fail;
-        };
+        }
 
 	if (info->debug)
         	riomp_mgmt_display_info(&qresp);
@@ -430,7 +430,7 @@ int init_server_connect(struct fxfr_tx_state *info,
         if (!(qresp.flags & RIO_MPORT_DMA)) {
                 printf("\nMport %d has no DMA support...\n", info->mport_num);
                 goto fail;
-        };
+        }
 
         rc = riomp_sock_mbox_create_handle(info->mport_num, 0, &info->req_mb);
         if (rc) {
@@ -474,8 +474,8 @@ int init_server_connect(struct fxfr_tx_state *info,
 			for (i = 1; i < MAX_TX_SEGMENTS; i++) {
                         	info->buffers[i] = info->buffers[0] +
 					(i * MAX_TX_BUFF_SIZE);
-			};
-		};
+			}
+		}
 	} else {
 		for (i = 0; i < MAX_TX_SEGMENTS; i++) {
 			info->buffers[i] = (uint8_t *)malloc(TOTAL_TX_BUFF_SIZE);
@@ -484,13 +484,13 @@ int init_server_connect(struct fxfr_tx_state *info,
 					i);
                 		goto fail;
 			}
-        	};
-	};
+        	}
+	}
 
 	return 0;
 fail:
 	return 1;
-};
+}
 
 void cleanup_server_connect(struct fxfr_tx_state *info)
 {
@@ -502,37 +502,37 @@ void cleanup_server_connect(struct fxfr_tx_state *info)
 			printf("riomp_dbuf_free() ERR: =%d\n", rc);
 		info->buf_h = 0;
 		info->buffers[0] = NULL;
-	};
+	}
 
 	if (!info->use_kbuf) {
 		for (i = 0; i < MAX_TX_SEGMENTS; i++) {
 			if (NULL != info->buffers[i]) {
 				free(info->buffers[i]);
 				info->buffers[i] = NULL;
-			};
-		};
-	};
+			}
+		}
+	}
 
 	if (info->req_skt) {
         	rc = riomp_sock_close(&info->req_skt);
         	if (rc)
                 	printf("riomp_sock_close() ERR %d\n", rc);
 		info->req_skt = NULL;
-	};
+	}
 
         if (info->req_mb) {
 		rc = riomp_sock_mbox_destroy_handle(&info->req_mb);
         	if (rc)
                 	printf("riomp_mbox_shutdown() ERR: %d\n", rc);
 		info->req_mb = NULL;
-	};
+	}
 
 
 	if (info->mp_h_valid) {
                 riomp_mgmt_mport_destroy_handle(&info->mp_h);
 		info->mp_h_valid = 0;
-	};
-};
+	}
+}
 
 void cleanup_all(struct fxfr_tx_state *info)
 {
@@ -562,7 +562,7 @@ int init_info( struct fxfr_tx_state *info, char *src_name, char *dest_name,
 fail:
 	cleanup_all(info);
 	return 1;
-};
+}
 
 static void srv_sig_handler(int signum)
 {
@@ -577,7 +577,7 @@ static void srv_sig_handler(int signum)
                 srv_exit = 1;
                 break;
 	}
-};
+}
 
 int send_file(char *src_file, /* Local source file name */
 		char *dst_file, /* Requested destination file name */
@@ -603,13 +603,13 @@ int send_file(char *src_file, /* Local source file name */
 		rx_msg_from_server(&info);
 		send_msgs_to_server(&info, st_time);
 		st_time = NULL;
-	};
+	}
 
 	*bytes_sent = info.tot_bytes_txed;
 	cleanup_all(&info);
 
 	return info.fail_abort;
-};
+}
 
 #ifdef __cplusplus
 }

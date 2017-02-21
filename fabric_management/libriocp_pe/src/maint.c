@@ -176,7 +176,7 @@ int riocp_pe_maint_unset_anyid_route(struct riocp_pe *pe)
 		pes[i] = ith_pe;
 		if (((hc_t)i) + 1 < pe->hopcount)
 			ith_pe = ith_pe->peers[pe->address[i]].peer;
-	};
+	}
 
 	/* Write ANY_ID route until pe */
 	/* FIXME: Does this loop exit if there is a permanent error
