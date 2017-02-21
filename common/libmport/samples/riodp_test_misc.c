@@ -75,11 +75,11 @@ static void usage(char *program)
 	printf("Usage:\n");
 	printf("  %s [options]\n", program);
 	printf("Options are:\n");
+	printf("  --help (or -h)\n");
 	printf("  -M mport_id\n");
 	printf("  --mport mport_id\n");
 	printf("    local mport device index (default 0)\n");
 	printf("  --debug (or -d)\n");
-	printf("  --help (or -h)\n");
 	printf("  -D xxxx\n");
 	printf("  --destid xxxx\n");
 	printf("    destination ID of target RapidIO device (default any)\n");

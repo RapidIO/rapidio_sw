@@ -81,8 +81,7 @@ static void usage(char *program)
 	printf("  %s [options]\n", program);
 	printf("Options are:\n");
 	printf("    <mport> mport device index\n");
-	printf(
-			"    <channel> channel number to listen for connection requests\n");
+	printf("    <channel> channel number to listen for connection requests\n");
 	printf("    [debug] enable debug output\n");
 	printf("\n");
 }
