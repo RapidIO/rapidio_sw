@@ -33,7 +33,7 @@ TOPDIR?=$(shell pwd)/..
 include $(TOPDIR)/rules.mk
 
 all: libcmocka libset libcli liblist liblog libtime_utils \
-	libmport libunit_test librsvdmem
+	libmport librsvdmem
 
 libcmocka: FORCE
 	$(MAKE) -C libcmocka
@@ -65,11 +65,6 @@ libtime_utils: FORCE libcmocka liblog libcli
 	mkdir -p libs_a
 	cp libtime_utils/libtime_utils.a libs_a/
 		
-libunit_test: FORCE libcmocka liblog libcli libtime_utils
-	$(MAKE) all -C libunit_test
-	mkdir -p libs_a
-	cp libunit_test/libunit_test.a libs_a/
-		
 librsvdmem: FORCE libcmocka libcli
 	$(MAKE) all -C librsvdmem
 	mkdir -p libs_a
@@ -98,6 +93,5 @@ clean:
 	$(MAKE) clean -C librsvdmem
 	$(MAKE) clean -C libset
 	$(MAKE) clean -C libtime_utils
-	$(MAKE) clean -C libunit_test
 	rm -f libs_a/*
 
