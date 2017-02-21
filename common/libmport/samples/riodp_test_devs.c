@@ -82,13 +82,12 @@ static void usage(char *program)
 	printf("Usage:\n");
 	printf("  %s [options]\n", program);
 	printf("Options are:\n");
+	printf("  --help (or -h)\n");
 	printf("  -M mport_id\n");
 	printf("  --mport mport_id\n");
 	printf("    local mport device index (default 0)\n");
-	printf(
-			"  -c create device using provided parameters (-D, -H, -T and -N)\n");
-	printf(
-			"  -d delete device using provided parameters (-D, -H, -T and -N)\n");
+	printf("  -c create device using provided parameters (-D, -H, -T and -N)\n");
+	printf("  -d delete device using provided parameters (-D, -H, -T and -N)\n");
 	printf("  -D xxxx\n");
 	printf("  --destid xxxx\n");
 	printf("    destination ID of target RapidIO device (default 0)\n");
@@ -101,7 +100,6 @@ static void usage(char *program)
 	printf("  -N <device_name>\n");
 	printf("  --name <device_name>\n");
 	printf("    RapidIO device name (default the empty string)\n");
-	printf("  --help (or -h)\n");
 	printf("\n");
 }
 
@@ -165,12 +163,15 @@ int main(int argc, char** argv)
 	int do_delete = 0;
 	int discovered = 0;
 	uint32_t regval = 0;
-	static const struct option options[] = {{"mport", required_argument,
-			NULL, 'M'}, {"destid", required_argument, NULL, 'D'}, {
-			"hop", required_argument, NULL, 'H'}, {"tag",
-			required_argument, NULL, 'T'}, {"name",
-			required_argument, NULL, 'N'}, {"debug", no_argument,
-			NULL, 'd'}, {"help", no_argument, NULL, 'h'}, };
+	static const struct option options[] = {
+			{"mport", required_argument, NULL, 'M'},
+			{"destid", required_argument, NULL, 'D'},
+			{"hop", required_argument, NULL, 'H'},
+			{"tag", required_argument, NULL, 'T'},
+			{"name", required_argument, NULL, 'N'},
+			{"debug", no_argument, NULL, 'd'},
+			{"help", no_argument, NULL, 'h'},
+	};
 
 	struct riomp_mgmt_mport_properties prop;
 	int rc = EXIT_SUCCESS;

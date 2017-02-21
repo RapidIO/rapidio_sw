@@ -88,8 +88,7 @@ static void usage(char *program)
 	printf("Receiver:\n");
 	printf("  -D xxxx\n");
 	printf("  --destid xxxx\n");
-	printf(
-			"    destination ID of receiving RapidIO device (default any)\n");
+	printf("    destination ID of receiving RapidIO device (default any)\n");
 	printf("  -r run in DB receiver mode\n");
 	printf("  -n run receiver in non-blocking mode\n");
 	printf("  -S xxxx\n");
@@ -103,8 +102,6 @@ static void db_sig_handler(int signum)
 {
 	switch (signum) {
 	case SIGTERM:
-		rcv_exit = 1;
-		break;
 	case SIGINT:
 		rcv_exit = 1;
 		break;
@@ -240,10 +237,12 @@ int main(int argc, char** argv)
 	uint32_t db_start = 0x5a5a;
 	uint32_t db_end = 0x5a5a;
 
-	static const struct option options[] = {{"destid", required_argument,
-			NULL, 'D'}, {"mport", required_argument, NULL, 'M'}, {
-			"debug", no_argument, NULL, 'd'}, {"help", no_argument,
-			NULL, 'h'}, };
+	static const struct option options[] = {
+			{"destid", required_argument, NULL, 'D'},
+			{"mport", required_argument, NULL, 'M'},
+			{"debug", no_argument, NULL, 'd'},
+			{"help", no_argument, NULL, 'h'},
+	};
 
 	riomp_mport_t mport_hnd;
 	int flags = 0;

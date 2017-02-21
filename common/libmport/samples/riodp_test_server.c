@@ -91,8 +91,6 @@ static void srv_sig_handler(int signum)
 {
 	switch (signum) {
 	case SIGTERM:
-		srv_exit = 1;
-		break;
 	case SIGINT:
 		srv_exit = 1;
 		break;

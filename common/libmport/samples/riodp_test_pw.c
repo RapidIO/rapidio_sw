@@ -78,6 +78,7 @@ static void usage(char *program)
 	printf("Usage:\n");
 	printf("  %s [options]\n", program);
 	printf("options are:\n");
+	printf("  --help (or -h)\n");
 	printf("  -M mport_id\n");
 	printf("  --mport mport_id\n");
 	printf("    local mport device index (default 0)\n");
@@ -88,7 +89,6 @@ static void usage(char *program)
 	printf("  -H xxxx\n");
 	printf("    high filter value (default 0xffffffff)\n");
 	printf("  -n run in non-blocking mode\n");
-	printf("  --help (or -h)\n");
 	/*printf("  --debug (or -d)\n");*/
 	printf("\n");
 }
@@ -97,8 +97,6 @@ static void db_sig_handler(int signum)
 {
 	switch (signum) {
 	case SIGTERM:
-		rcv_exit = 1;
-		break;
 	case SIGINT:
 		rcv_exit = 1;
 		break;
@@ -205,9 +203,11 @@ int main(int argc, char** argv)
 	uint32_t pw_low = 0;
 	uint32_t pw_high = 0xffffffff;
 	int flags = 0;
-	static const struct option options[] = {{"mport", required_argument,
-			NULL, 'M'}, {"debug", no_argument, NULL, 'd'}, {"help",
-			no_argument, NULL, 'h'}, };
+	static const struct option options[] = {
+			{"mport", required_argument, NULL, 'M'},
+			{"debug", no_argument, NULL, 'd'},
+			{"help",no_argument, NULL, 'h'},
+	};
 
 	struct riomp_mgmt_mport_properties prop;
 	riomp_mport_t mport_hnd;

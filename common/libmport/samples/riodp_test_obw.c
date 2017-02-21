@@ -116,12 +116,12 @@ static void usage(char *program)
 	printf("  %s [options]\n", program);
 	printf("options are:\n");
 	printf("Common:\n");
+	printf("  --help (or -h)\n");
 	printf("  -M mport_id\n");
 	printf("  --mport mport_id\n");
 	printf("    local mport device index (default 0)\n");
 	printf("  -v turn off buffer data verification\n");
 	printf("  --debug (or -d)\n");
-	printf("  --help (or -h)\n");
 	printf("OBW mapping test mode only:\n");
 	printf("  -D xxxx\n");
 	printf("  --destid xxxx\n");
@@ -579,19 +579,22 @@ int main(int argc, char** argv)
 	unsigned int repeat = 1;
 	uint64_t rio_base = RIOMP_MAP_ANY_ADDR;
 	uint64_t loc_addr = RIOMP_MAP_ANY_ADDR;
-	static const struct option options[] = {{"destid", required_argument,
-			NULL, 'D'}, {"taddr", required_argument, NULL, 'A'}, {
-			"size", required_argument, NULL, 'S'}, {"offset",
-			required_argument, NULL, 'O'}, {"align",
-			required_argument, NULL, 'a'}, {"repeat",
-			required_argument, NULL, 'T'}, {"ibwin",
-			required_argument, NULL, 'I'}, {"ibbase",
-			required_argument, NULL, 'R'}, {"mport",
-			required_argument, NULL, 'M'}, {"laddr",
-			required_argument, NULL, 'L'}, {"faf", no_argument,
-			NULL, 'F'}, {"async", no_argument, NULL, 'Y'}, {"debug",
-			no_argument, NULL, 'd'},
-			{"help", no_argument, NULL, 'h'}, };
+	static const struct option options[] = {
+			{"destid", required_argument, NULL, 'D'},
+			{"taddr", required_argument, NULL, 'A'},
+			{"size", required_argument, NULL, 'S'},
+			{"offset", required_argument, NULL, 'O'},
+			{"align", required_argument, NULL, 'a'},
+			{"repeat", required_argument, NULL, 'T'},
+			{"ibwin", required_argument, NULL, 'I'},
+			{"ibbase", required_argument, NULL, 'R'},
+			{"mport", required_argument, NULL, 'M'},
+			{"laddr", required_argument, NULL, 'L'},
+			{"faf", no_argument, NULL, 'F'},
+			{"async", no_argument, NULL, 'Y'},
+			{"debug", no_argument, NULL, 'd'},
+			{"help", no_argument, NULL, 'h'},
+	};
 
 	struct riomp_mgmt_mport_properties prop;
 	int rc = EXIT_SUCCESS;

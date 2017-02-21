@@ -87,23 +87,20 @@ void usage(char *program)
 	printf("Usage:\n");
 	printf("  %s [options]\n", program);
 	printf("Options are:\n");
+	printf("  --help (or -h)\n");
 	printf("  -M mport_id\n");
 	printf("  --mport mport_id\n");
 	printf("    local mport device index (default 0)\n");
-	printf(
-			"  -i buffer allocation mode (0 - common DMA, 1 - IBwin mapping\n");
-	printf("  --help (or -h)\n");
+	printf("  -i buffer allocation mode (0 - common DMA, 1 - IBwin mapping\n");
 	printf("  -S xxxx\n");
 	printf("  --size xxxx\n");
 	printf("    buffer size in bytes (default 0x%x)\n", DEFAULT_IBWIN_SIZE);
 	printf("  -R xxxx\n");
 	printf("  --ibbase xxxx\n");
-	printf(
-			"    inbound window base address in RapidIO address space (default any address)\n");
+	printf("    inbound window base address in RapidIO address space (default any address)\n");
 	printf("  -L xxxx\n");
 	printf("  --laddr xxxx\n");
-	printf(
-			"    physical address of reserved local memory to use (default any address)\n");
+	printf("    physical address of reserved local memory to use (default any address)\n");
 	printf("\n");
 }
 
@@ -342,11 +339,13 @@ int main(int argc, char** argv)
 	uint64_t loc_addr = RIOMP_MAP_ANY_ADDR;
 
 	// long parameter values
-	static const struct option options[] = {{"size", required_argument,
-			NULL, 'S'}, {"ibbase", required_argument, NULL, 'R'}, {
-			"mport", required_argument, NULL, 'M'}, {"laddr",
-			required_argument, NULL, 'L'}, {"help", no_argument,
-			NULL, 'h'}, };
+	static const struct option options[] = {
+			{"size", required_argument, NULL, 'S'},
+			{"ibbase", required_argument, NULL, 'R'},
+			{"mport", required_argument, NULL, 'M'},
+			{"laddr", required_argument, NULL, 'L'},
+			{"help", no_argument, NULL, 'h'},
+	};
 
 	int rc = EXIT_SUCCESS;
 

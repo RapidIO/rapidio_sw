@@ -97,8 +97,7 @@ static void usage(char *program)
 	printf("    perform write operation\n");
 	printf("  -V xxxx\n");
 	printf("  --data xxxx\n");
-	printf(
-			"    32-bit value to write into the device register (default 0)\n");
+	printf("    32-bit value to write into the device register (default 0)\n");
 	printf("  -q\n");
 	printf("    query mport attributes\n");
 	printf("\n");
@@ -129,13 +128,16 @@ int main(int argc, char** argv)
 	uint32_t offset = 0;
 	uint32_t data = 0;
 
-	static const struct option options[] = {{"mport", required_argument,
-			NULL, 'M'}, {"destid", required_argument, NULL, 'D'}, {
-			"hop", required_argument, NULL, 'H'}, {"offset",
-			required_argument, NULL, 'O'}, {"size",
-			required_argument, NULL, 'S'}, {"data",
-			required_argument, NULL, 'V'}, {"debug", no_argument,
-			NULL, 'd'}, {"help", no_argument, NULL, 'h'}, };
+	static const struct option options[] = {
+			{"mport", required_argument, NULL, 'M'},
+			{"destid", required_argument, NULL, 'D'},
+			{"hop", required_argument, NULL, 'H'},
+			{"offset", required_argument, NULL, 'O'},
+			{"size", required_argument, NULL, 'S'},
+			{"data", required_argument, NULL, 'V'},
+			{"debug", no_argument, NULL, 'd'},
+			{"help", no_argument, NULL, 'h'},
+	};
 
 	struct riomp_mgmt_mport_properties prop;
 	riomp_mport_t mport_hnd;
