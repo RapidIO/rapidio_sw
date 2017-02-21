@@ -1544,11 +1544,9 @@ static uint32_t cps_set_regs_to_reset_defaults(DAR_DEV_INFO_t *dev_info, uint8_t
 				goto exit;
 			}
 			in_parm.set_on_port = pnum;
-			in_parm.default_route =
-					(uint8_t)(temp
-							& CPS1848_RTE_DEFAULT_PORT_CSR_DEFAULT_PORT);
-			in_parm.default_route_table_port =
-					RIO_DSF_RT_USE_DEFAULT_ROUTE;
+			in_parm.default_route = (uint8_t)(temp &
+				CPS1848_RTE_DEFAULT_PORT_CSR_DEFAULT_PORT);
+			in_parm.default_route_table_port = RIO_RTE_DFLT_PORT;
 			in_parm.update_hw = true;
 			in_parm.rt = NULL;
 			rc = rio_rt_initialize(dev_info, &in_parm, &out_parm);

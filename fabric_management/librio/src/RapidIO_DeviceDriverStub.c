@@ -383,12 +383,13 @@ uint32_t DSF_rio_rt_set_changed(DAR_DEV_INFO_t *dev_info,
 	return RIO_STUBBED;
 }
 
-uint32_t DSF_rio_rt_alloc_mc_mask(DAR_DEV_INFO_t *dev_info,
+uint32_t DSF_rio_rt_default_alloc_mc_mask(DAR_DEV_INFO_t *dev_info,
 		rio_rt_alloc_mc_mask_in_t *in_parms,
-		rio_rt_alloc_mc_mask_out_t *out_parms)
+		rio_rt_alloc_mc_mask_out_t *out_parms,
+		uint32_t mc_mask_cnt)
 {
 	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
-	uint8_t mc_idx;
+	uint32_t mc_idx;
 
 	NULL_CHECK;
 
@@ -397,10 +398,10 @@ uint32_t DSF_rio_rt_alloc_mc_mask(DAR_DEV_INFO_t *dev_info,
 		goto exit;
 	}
 
-	for (mc_idx = 0; mc_idx < NUM_MC_MASKS(dev_info); mc_idx++) {
+	for (mc_idx = 0; mc_idx < mc_mask_cnt; mc_idx++) {
 		if (!in_parms->rt->mc_masks[mc_idx].in_use
 				&& !in_parms->rt->mc_masks[mc_idx].allocd) {
-			out_parms->mc_mask_rte = RIO_DSF_FIRST_MC_MASK + mc_idx;
+			out_parms->mc_mask_rte = RIO_RTV_MC_MSK(mc_idx);
 			out_parms->imp_rc = RIO_SUCCESS;
 			in_parms->rt->mc_masks[mc_idx].allocd = true;
 			rc = RIO_SUCCESS;
@@ -410,7 +411,7 @@ uint32_t DSF_rio_rt_alloc_mc_mask(DAR_DEV_INFO_t *dev_info,
 
 	if (RIO_SUCCESS != rc) {
 		out_parms->imp_rc = RT_ALLOC_MC_MASK(2);
-		out_parms->mc_mask_rte = RIO_DSF_BAD_MC_MASK;
+		out_parms->mc_mask_rte = RIO_RTE_BAD;
 		rc = RIO_ERR_INSUFFICIENT_RESOURCES;
 	}
 
@@ -418,13 +419,21 @@ exit:
 	return rc;
 }
 
+uint32_t DSF_rio_rt_alloc_mc_mask(DAR_DEV_INFO_t *dev_info,
+		rio_rt_alloc_mc_mask_in_t *in_parms,
+		rio_rt_alloc_mc_mask_out_t *out_parms)
+{
+	return DSF_rio_rt_default_alloc_mc_mask(dev_info, in_parms, out_parms,
+				NUM_MC_MASKS(dev_info));
+}
+
 uint32_t DSF_rio_rt_dealloc_mc_mask(DAR_DEV_INFO_t *dev_info,
 		rio_rt_dealloc_mc_mask_in_t *in_parms,
 		rio_rt_dealloc_mc_mask_out_t *out_parms)
 {
 	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
-	uint8_t mc_idx;
-	uint16_t dev_rte, dom_rte;
+	pe_rt_val mc_idx;
+	pe_rt_val dev_rte, dom_rte;
 
 	out_parms->imp_rc = RIO_SUCCESS;
 
@@ -435,37 +444,35 @@ uint32_t DSF_rio_rt_dealloc_mc_mask(DAR_DEV_INFO_t *dev_info,
 		goto exit;
 	}
 
-	mc_idx = in_parms->mc_mask_rte - RIO_DSF_FIRST_MC_MASK;
+	mc_idx = RIO_RTV_GET_MC_MSK(in_parms->mc_mask_rte);
 
-	if (mc_idx >= RIO_DSF_MAX_MC_MASK) {
+	if (mc_idx >= RIO_MAX_MC_MASKS) {
 		out_parms->imp_rc = RT_DEALLOC_MC_MASK(2);
 		goto exit;
 	}
 
 	rc = RIO_SUCCESS;
 
-	for (dev_rte = 0; dev_rte < RIO_DAR_RT_DOM_TABLE_SIZE; dev_rte++) {
+	for (dev_rte = 0; dev_rte < RIO_RT_GRP_SZ; dev_rte++) {
 		if (in_parms->rt->dev_table[dev_rte].rte_val
 				== in_parms->mc_mask_rte) {
 			in_parms->rt->dev_table[dev_rte].changed = true;
-			in_parms->rt->dev_table[dev_rte].rte_val =
-					RIO_DSF_RT_NO_ROUTE;
+			in_parms->rt->dev_table[dev_rte].rte_val = RIO_RTE_DROP;
 		}
 	}
 
-	for (dom_rte = 0; dom_rte < RIO_DAR_RT_DOM_TABLE_SIZE; dom_rte++) {
+	for (dom_rte = 0; dom_rte < RIO_RT_GRP_SZ; dom_rte++) {
 		if (in_parms->rt->dom_table[dom_rte].rte_val
 				== in_parms->mc_mask_rte) {
 			in_parms->rt->dom_table[dom_rte].changed = true;
-			in_parms->rt->dom_table[dom_rte].rte_val =
-					RIO_DSF_RT_NO_ROUTE;
+			in_parms->rt->dom_table[dom_rte].rte_val = RIO_RTE_DROP;
 		}
 	}
 
 	if (in_parms->rt->mc_masks[mc_idx].in_use) {
 		dev_rte = in_parms->rt->mc_masks[mc_idx].mc_destID & 0x00FF;
 		in_parms->rt->dev_table[dev_rte].changed = true;
-		in_parms->rt->dev_table[dev_rte].rte_val = RIO_DSF_RT_NO_ROUTE;
+		in_parms->rt->dev_table[dev_rte].rte_val = RIO_RTE_DROP;
 	}
 
 	if ((in_parms->rt->mc_masks[mc_idx].in_use)

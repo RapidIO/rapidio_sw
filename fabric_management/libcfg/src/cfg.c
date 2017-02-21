@@ -79,12 +79,12 @@ void init_rt(rio_rt_state_t *rt)
 	int k;
 
 	memset(rt, 0, sizeof(rio_rt_state_t));
-	rt->default_route = RIO_DSF_RT_NO_ROUTE;
-	for (k = 0; k < RIO_DAR_RT_DEV_TABLE_SIZE; k++) {
-		rt->dev_table[k].rte_val = RIO_DSF_RT_NO_ROUTE;
-		rt->dom_table[k].rte_val = RIO_DSF_RT_NO_ROUTE;
-	}
-	for (k = 0; k < RIO_DSF_MAX_MC_MASK; k++) {
+	rt->default_route = RIO_RTE_DROP;
+	for (k = 0; k < RIO_RT_GRP_SZ; k++) {
+		rt->dev_table[k].rte_val = RIO_RTE_DROP;
+		rt->dom_table[k].rte_val = RIO_RTE_DROP;
+	};
+	for (k = 0; k < RIO_MAX_MC_MASKS; k++) {
 		rt->mc_masks[k].mc_destID = 0xFF;
 		rt->mc_masks[k].tt = tt_dev8;
 	}
@@ -371,21 +371,21 @@ int get_rt_v(struct int_cfg_parms *cfg, uint32_t *rt_val)
 	case 0: // MC
 		if (get_dec_int(cfg, &val))
 			goto fail;
-		*rt_val = (val<RIO_DSF_MAX_MC_MASK)?
-			(val + RIO_DSF_MAX_MC_MASK):RIO_DSF_RT_NO_ROUTE;
-		if (RIO_DSF_RT_NO_ROUTE == *rt_val) {
+		*rt_val = (val<RIO_MAX_MC_MASKS)?
+			(val + RIO_MAX_MC_MASKS):RIO_RTE_DROP;
+		if (RIO_RTE_DROP == *rt_val) {
 			parse_err(cfg, (char *)"Illegal MC Mask number.");
 			goto fail;
 		}
 		break;
 	case 1: // NEXT_BYTE
-		*rt_val = RIO_DSF_RT_USE_DEVICE_TABLE;
+		*rt_val = RIO_RTE_LVL_G0;
 		break;
 	case 2: // DEFAULT
-		*rt_val = RIO_DSF_RT_USE_DEFAULT_ROUTE;
+		*rt_val = RIO_RTE_DFLT_PORT;
 		break;
 	case 3: // DROP
-		*rt_val = RIO_DSF_RT_NO_ROUTE;
+		*rt_val = RIO_RTE_DROP;
 		break;
 	default:
 		if (tok_parse_port_num(tok, &val, 0)) {
@@ -814,7 +814,7 @@ int parse_mc_mask(struct int_cfg_parms *cfg, rio_rt_mc_info_t *mc_info)
 
 	if (get_dec_int(cfg, &mc_mask_idx))
 		goto fail;
-	if (mc_mask_idx >= RIO_DSF_MAX_MC_MASK) {
+	if (mc_mask_idx >= RIO_MAX_MC_MASKS) {
 		parse_err(cfg, (char *)"Illegal multicast mask index.");
 		goto fail;
 	}
@@ -950,8 +950,8 @@ int assign_rt_v(int rt_sz, int st_destid, int end_destid, pe_rt_val rtv,
 
 	switch (rt_sz) {
 	case 0: // dev08
-		if ((st_destid >= RIO_DAR_RT_DEV_TABLE_SIZE) ||
-				(end_destid >= RIO_DAR_RT_DEV_TABLE_SIZE)) {
+		if ((st_destid >= RIO_RT_GRP_SZ) ||
+				(end_destid >= RIO_RT_GRP_SZ)) {
 			parse_err(cfg, (char *)"DestID value too large.");
 			goto fail;
 		}

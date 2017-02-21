@@ -152,7 +152,7 @@ static uint32_t cps_check_port_for_discard(DAR_DEV_INFO_t *dev_info,
 	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
 	uint32_t ctlData;
 	uint8_t port;
-	bool dflt_rt = (RIO_DSF_RT_USE_DEFAULT_ROUTE
+	bool dflt_rt = (RIO_RTE_DFLT_PORT
 			== out_parms->routing_table_value) ? true : false;
 	rio_pc_get_config_in_t cfg_in;
 	rio_pc_get_config_out_t cfg_out;
@@ -262,8 +262,8 @@ static uint32_t cps_read_mc_masks(DAR_DEV_INFO_t *dev_info, uint8_t pnum,
 
 	d_in_parm.rt = rt;
 	for (mask_idx = NUM_CPS_MC_MASKS(dev_info);
-			mask_idx < RIO_DSF_MAX_MC_MASK; mask_idx++) {
-		d_in_parm.mc_mask_rte = RIO_DSF_FIRST_MC_MASK + mask_idx;
+			mask_idx < RIO_MAX_MC_MASKS; mask_idx++) {
+		d_in_parm.mc_mask_rte = RIO_RTV_MC_MSK(mask_idx);
 		rc = DSF_rio_rt_dealloc_mc_mask(dev_info, &d_in_parm,
 				&d_out_parm);
 		if (RIO_SUCCESS != rc) {
@@ -311,7 +311,7 @@ static uint32_t cps_read_rte_entries(DAR_DEV_INFO_t *dev_info, uint8_t pnum,
 	rt->default_route = (uint8_t)(rte_val
 			& CPS1848_RTE_DEFAULT_PORT_CSR_DEFAULT_PORT);
 	if (rt->default_route >= NUM_CPS_PORTS(dev_info)) {
-		rt->default_route = RIO_DSF_RT_NO_ROUTE;
+		rt->default_route = RIO_RTE_DROP;
 	}
 
 	// Read all of the domain routing table entries.
@@ -321,11 +321,11 @@ static uint32_t cps_read_rte_entries(DAR_DEV_INFO_t *dev_info, uint8_t pnum,
 	// that the RIO_DOMAIN register is always 0.  Note that RIO_DOMAIN is a
 	// global register, affecting routing on all ports.
 
-	rt->dom_table[0].rte_val = RIO_DSF_RT_USE_DEVICE_TABLE;
+	rt->dom_table[0].rte_val = RIO_RTE_LVL_G0;
 	rt->dom_table[0].changed = false;
 	first_mc_destID = 0;
 
-	for (destID = 1; destID < RIO_DAR_RT_DOM_TABLE_SIZE; destID++) {
+	for (destID = 1; destID < RIO_RT_GRP_SZ; destID++) {
 		rt->dom_table[destID].changed = false;
 
 		// Read routing table entry for deviceID
@@ -345,17 +345,17 @@ static uint32_t cps_read_rte_entries(DAR_DEV_INFO_t *dev_info, uint8_t pnum,
 		}
 		rt->dom_table[destID].rte_val = (uint32_t)(rte_val);
 
-		if (RIO_DSF_RT_USE_DEVICE_TABLE == rte_val) {
+		if (RIO_RTE_LVL_G0 == rte_val) {
 			if (!found_one) {
 				first_mc_destID = (uint16_t)(destID) << 8;
 				found_one = true;
 			}
 		} else {
-			if ((RIO_DSF_RT_USE_DEFAULT_ROUTE != rte_val)
-					&& (RIO_DSF_RT_NO_ROUTE != rte_val)
-					&& (NUM_CPS_PORTS(dev_info) <= rte_val)) {
-				rt->dom_table[destID].rte_val =
-						RIO_DSF_RT_NO_ROUTE;
+			if (((RIO_RTE_DFLT_PORT) != rte_val)
+					&& (RIO_RTE_DROP != rte_val)
+					&& (NUM_CPS_PORTS(dev_info) <= rte_val))
+			{
+				rt->dom_table[destID].rte_val = RIO_RTE_DROP;
 			}
 		}
 	}
@@ -363,7 +363,7 @@ static uint32_t cps_read_rte_entries(DAR_DEV_INFO_t *dev_info, uint8_t pnum,
 	// Read all of the device routing table entries.
 	// Update multicast entries as we go...
 	//
-	for (destID = 0; destID < RIO_DAR_RT_DEV_TABLE_SIZE; destID++) {
+	for (destID = 0; destID < RIO_RT_GRP_SZ; destID++) {
 		uint32_t mask_idx;
 
 		rt->dev_table[destID].changed = false;
@@ -384,8 +384,8 @@ static uint32_t cps_read_rte_entries(DAR_DEV_INFO_t *dev_info, uint8_t pnum,
 		}
 		rt->dev_table[destID].rte_val = (uint32_t)(rte_val);
 
-		mask_idx = MC_MASK_IDX_FROM_ROUTE(rte_val);
-		if ((RIO_DSF_BAD_MC_MASK != mask_idx)
+		mask_idx = RIO_RTV_GET_MC_MSK(rte_val);
+		if ((RIO_RTE_BAD != mask_idx)
 				&& !(rt->mc_masks[mask_idx].in_use)) {
 			rt->mc_masks[mask_idx].tt = tt_dev16;
 			rt->mc_masks[mask_idx].in_use = true;
@@ -393,14 +393,11 @@ static uint32_t cps_read_rte_entries(DAR_DEV_INFO_t *dev_info, uint8_t pnum,
 					+ destID;
 		}
 
-		if (((rte_val >= NUM_CPS_PORTS(dev_info))
-				&& (rte_val < RIO_DSF_FIRST_MC_MASK))
-				|| ((rte_val >= RIO_DSF_BAD_MC_MASK)
-						&& (RIO_DSF_RT_NO_ROUTE
-								!= rte_val)
-						&& (RIO_DSF_RT_USE_DEFAULT_ROUTE
-								!= rte_val))) {
-			rt->dev_table[destID].rte_val = RIO_DSF_RT_NO_ROUTE;
+		if ((rte_val >= NUM_CPS_PORTS(dev_info))
+				&& (!RIO_RTV_IS_MC_MSK(rte_val))
+				&& (RIO_RTE_DROP != rte_val)
+				&& (RIO_RTE_DFLT_PORT != rte_val)) {
+			rt->dev_table[destID].rte_val = RIO_RTE_DROP;
 		}
 	}
 
@@ -499,18 +496,18 @@ static uint32_t cps_program_rte_entries(DAR_DEV_INFO_t *dev_info,
 		goto exit;
 	}
 
-	for (rte_num = 0; rte_num < RIO_DAR_RT_DOM_TABLE_SIZE; rte_num++) {
+	for (rte_num = 0; rte_num < RIO_RT_GRP_SZ; rte_num++) {
 		if (in_parms->rt->dom_table[rte_num].changed || set_all) {
 			// Validate value to be programmed.
 			if (in_parms->rt->dom_table[rte_num].rte_val
 					>= NUM_CPS_PORTS(dev_info)) {
 				// Domain table can be a port number, use device table, use default route, or drop.
 				if ((in_parms->rt->dom_table[rte_num].rte_val
-						!= RIO_DSF_RT_USE_DEVICE_TABLE)
+						!= RIO_RTE_LVL_G0)
 						&& (in_parms->rt->dom_table[rte_num].rte_val
-								!= RIO_DSF_RT_USE_DEFAULT_ROUTE)
+								!= RIO_RTE_DFLT_PORT)
 						&& (in_parms->rt->dom_table[rte_num].rte_val
-								!= RIO_DSF_RT_NO_ROUTE)) {
+								!= RIO_RTE_DROP)) {
 					rc = RIO_ERR_INVALID_PARAMETER;
 					*imp_rc = PROGRAM_RTE_ENTRIES(1);
 					goto exit;
@@ -536,19 +533,19 @@ static uint32_t cps_program_rte_entries(DAR_DEV_INFO_t *dev_info,
 		}
 	}
 
-	for (rte_num = 0; rte_num < RIO_DAR_RT_DEV_TABLE_SIZE; rte_num++) {
+	for (rte_num = 0; rte_num < RIO_RT_GRP_SZ; rte_num++) {
 		if (in_parms->rt->dev_table[rte_num].changed || set_all) {
 			// Validate value to be programmed.
 			if (in_parms->rt->dev_table[rte_num].rte_val
 					>= NUM_CPS_PORTS(dev_info)) {
 				// Device table can be a port number, a multicast mask, use default route, or drop.
-				if ((MC_MASK_IDX_FROM_ROUTE(
+				if ((RIO_RTV_GET_MC_MSK(
 						in_parms->rt->dev_table[rte_num].rte_val)
-						== RIO_DSF_BAD_MC_MASK)
+						== RIO_RTE_BAD)
 						&& (in_parms->rt->dev_table[rte_num].rte_val
-								!= RIO_DSF_RT_USE_DEFAULT_ROUTE)
+								!= RIO_RTE_DFLT_PORT)
 						&& (in_parms->rt->dev_table[rte_num].rte_val
-								!= RIO_DSF_RT_NO_ROUTE)) {
+								!= RIO_RTE_DROP)) {
 					rc = RIO_ERR_INVALID_PARAMETER;
 					*imp_rc = PROGRAM_RTE_ENTRIES(3);
 					goto exit;
@@ -594,7 +591,7 @@ static uint32_t cps_rt_set_common(DAR_DEV_INFO_t *dev_info,
 	}
 
 	if ((NUM_CPS_PORTS(dev_info) <= in_parms->rt->default_route)
-			&& !(RIO_DSF_RT_NO_ROUTE == in_parms->rt->default_route)) {
+			&& !(RIO_RTE_DROP == in_parms->rt->default_route)) {
 		out_parms->imp_rc = RTE_SET_COMMON(2);
 		goto exit;
 	}
@@ -625,11 +622,9 @@ static uint32_t cps_tidy_routing_table(DAR_DEV_INFO_t *dev_info, uint8_t dev_idx
 	uint16_t srch_idx;
 	bool found_one = false;
 
-	if ((rt->dev_table[dev_idx].rte_val >= RIO_DSF_FIRST_MC_MASK)
-			&& (rt->dev_table[dev_idx].rte_val < RIO_DSF_BAD_MC_MASK)) {
-		for (srch_idx = 0;
-				(srch_idx < RIO_DAR_RT_DEV_TABLE_SIZE)
-						&& !found_one; srch_idx++) {
+	if (RIO_RTV_IS_MC_MSK(rt->dev_table[dev_idx].rte_val)) {
+		for (srch_idx = 0; (srch_idx < RIO_RT_GRP_SZ) && !found_one;
+								srch_idx++) {
 			if (dev_idx == srch_idx)
 				continue;
 			if (rt->dev_table[dev_idx].rte_val
@@ -668,15 +663,15 @@ uint32_t CPS_rio_rt_initialize(DAR_DEV_INFO_t *dev_info,
 	// Validate parameters
 
 	if ((in_parms->default_route >= NUM_CPS_PORTS(dev_info))
-			&& !(RIO_DSF_RT_NO_ROUTE == in_parms->default_route)) {
+			&& !(RIO_RTE_DROP == in_parms->default_route)) {
 		out_parms->imp_rc = RT_INITIALIZE(1);
 		goto exit;
 	}
 
 	if ((in_parms->default_route_table_port >= NUM_CPS_PORTS(dev_info))
-			&& !((RIO_DSF_RT_USE_DEFAULT_ROUTE
+			&& !((RIO_RTE_DFLT_PORT
 					== in_parms->default_route_table_port)
-					|| (RIO_DSF_RT_NO_ROUTE
+					|| (RIO_RTE_DROP
 							== in_parms->default_route_table_port))) {
 		out_parms->imp_rc = RT_INITIALIZE(2);
 		goto exit;
@@ -699,30 +694,30 @@ uint32_t CPS_rio_rt_initialize(DAR_DEV_INFO_t *dev_info,
 	all_in.rt->default_route = in_parms->default_route;
 
 	// Configure initialization of all of the routing table entries
-	for (destID = 0; destID < RIO_DAR_RT_DEV_TABLE_SIZE; destID++) {
+	for (destID = 0; destID < RIO_RT_GRP_SZ; destID++) {
 		all_in.rt->dev_table[destID].changed = true;
 		all_in.rt->dev_table[destID].rte_val =
 				in_parms->default_route_table_port;
 	}
 
 	all_in.rt->dom_table[0].changed = true;
-	all_in.rt->dom_table[0].rte_val = RIO_DSF_RT_USE_DEVICE_TABLE;
+	all_in.rt->dom_table[0].rte_val = RIO_RTE_LVL_G0;
 
-	for (destID = 1; destID < RIO_DAR_RT_DOM_TABLE_SIZE; destID++) {
+	for (destID = 1; destID < RIO_RT_GRP_SZ; destID++) {
 		all_in.rt->dom_table[destID].changed = true;
 		all_in.rt->dom_table[destID].rte_val =
 				in_parms->default_route_table_port;
 	}
 
 	// Configure initialization of multicast masks and associations as necessary.
-	for (mc_idx = 0; mc_idx < RIO_DSF_MAX_MC_MASK; mc_idx++) {
+	for (mc_idx = 0; mc_idx < RIO_MAX_MC_MASKS; mc_idx++) {
 		all_in.rt->mc_masks[mc_idx].mc_destID = 0;
 		all_in.rt->mc_masks[mc_idx].tt = tt_dev8;
 		all_in.rt->mc_masks[mc_idx].mc_mask = 0;
 		all_in.rt->mc_masks[mc_idx].in_use = false;
 		all_in.rt->mc_masks[mc_idx].allocd = false;
 		if ((mc_idx < CPS_MAX_MC_MASK)
-				&& (mc_idx < RIO_DSF_MAX_MC_MASK)) {
+				&& (mc_idx < RIO_MAX_MC_MASKS)) {
 			all_in.rt->mc_masks[mc_idx].changed = true;
 		} else {
 			all_in.rt->mc_masks[mc_idx].changed = false;
@@ -843,8 +838,8 @@ uint32_t CPS_rio_rt_probe(DAR_DEV_INFO_t *dev_info, rio_rt_probe_in_t *in_parms,
 	 *  If out_parms->valid_route is true
 	 *  the valid values for out_parms->routing_table_value are
 	 *  - a valid port number, OR
-	 *  - RIO_DSF_RT_USE_DEFAULT_ROUTE
-	 *  When out_parms->routing_table_value is RIO_DSF_RT_USE_DEFAULT_ROUTE, the
+	 *  - RIO_RTE_DFLT_PORT
+	 *  When out_parms->routing_table_value is RIO_RTE_DFLT_PORT, the
 	 *  default route is a valid switch port number.
 	 */
 
@@ -938,15 +933,15 @@ uint32_t CPS_rio_rt_change_rte(DAR_DEV_INFO_t *dev_info,
 	}
 
 	// Validate rte_value
-	if ((RIO_DSF_RT_USE_DEVICE_TABLE != in_parms->rte_value)
-			&& (RIO_DSF_RT_USE_DEFAULT_ROUTE != in_parms->rte_value)
-			&& (RIO_DSF_RT_NO_ROUTE != in_parms->rte_value)
+	if ((RIO_RTE_LVL_G0 != in_parms->rte_value)
+			&& (RIO_RTE_DFLT_PORT != in_parms->rte_value)
+			&& (RIO_RTE_DROP != in_parms->rte_value)
 			&& (in_parms->rte_value >= NUM_CPS_PORTS(dev_info))) {
 		out_parms->imp_rc = RT_CHANGE_RTE(2);
 		goto exit;
 	}
 
-	if ((RIO_DSF_RT_USE_DEVICE_TABLE == in_parms->rte_value)
+	if ((RIO_RTE_LVL_G0 == in_parms->rte_value)
 			&& (!in_parms->dom_entry)) {
 		out_parms->imp_rc = RT_CHANGE_RTE(3);
 		goto exit;
@@ -955,7 +950,7 @@ uint32_t CPS_rio_rt_change_rte(DAR_DEV_INFO_t *dev_info,
 	rc = RIO_SUCCESS;
 
 	// Do not allow any changes to index 0 of the domain table.
-	// This must be set to "RIO_DSF_RT_USE_DEVICE_TABLE" at all times,
+	// This must be set to "RIO_RTE_LVL_G0" at all times,
 	// as this is the behavior required by the CPS RIO Domain register.
 
 	if (in_parms->dom_entry && !in_parms->idx)
@@ -1033,7 +1028,7 @@ uint32_t CPS_rio_rt_change_mc_mask(DAR_DEV_INFO_t *dev_info,
 	// Allow requests to change masks not supported by CPS family
 	// but there's nothing to do...
 
-	chg_idx = MC_MASK_IDX_FROM_ROUTE(in_parms->mc_mask_rte);
+	chg_idx = RIO_RTV_GET_MC_MSK(in_parms->mc_mask_rte);
 
 	if (chg_idx >= NUM_CPS_MC_MASKS(dev_info)) {
 		rc = RIO_ERR_INVALID_PARAMETER;
@@ -1055,10 +1050,10 @@ uint32_t CPS_rio_rt_change_mc_mask(DAR_DEV_INFO_t *dev_info,
 	// the routing tables are set appropriately.
 	dom_idx = (in_parms->mc_info.mc_destID & 0xFF00) >> 8;
 	if ((tt_dev16 == in_parms->mc_info.tt) && (dom_idx)
-			&& (RIO_DSF_RT_USE_DEVICE_TABLE
+			&& (RIO_RTE_LVL_G0
 					!= in_parms->rt->dom_table[dom_idx].rte_val)) {
 		in_parms->rt->dom_table[dom_idx].rte_val =
-				RIO_DSF_RT_USE_DEVICE_TABLE;
+				RIO_RTE_LVL_G0;
 		in_parms->rt->dom_table[dom_idx].changed = true;
 	}
 

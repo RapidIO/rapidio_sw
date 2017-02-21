@@ -48,23 +48,8 @@ extern "C" {
 // - Input and output parameter structures for each routine
 // - List of routines for routing table support
 
-#define RIO_DAR_RT_DEV_TABLE_SIZE                   256
-#define RIO_DAR_RT_DOM_TABLE_SIZE                   256
-
-/* For RXSs */
-#define RIO_DSF_RT_USE_DEVICE_TABLE                 0x0200
-#define RIO_DSF_RT_USE_DEFAULT_ROUTE                0x0300
-#define RIO_DSF_RT_NO_ROUTE                         0x0301
-
-#define RIO_DSF_FIRST_MC_MASK                       0x0100
-#define RIO_DSF_MAX_MC_MASK                         0x00FF
-#define RIO_DSF_BAD_MC_MASK                         (RIO_DSF_FIRST_MC_MASK+RIO_DSF_MAX_MC_MASK)
-
 #define RIO_LAST_DEV8_DESTID  0xFF
 #define RIO_LAST_DEV16_DESTID 0xFFFF
-
-#define MC_MASK_IDX_FROM_ROUTE(x) (uint32_t)(((x >= RIO_DSF_FIRST_MC_MASK) && (x < RIO_DSF_BAD_MC_MASK))?(x - RIO_DSF_FIRST_MC_MASK):RIO_DSF_BAD_MC_MASK)
-#define MC_MASK_ROUTE_FROM_IDX(x) (uint32_t)((x < RIO_DSF_MAX_MC_MASK)?(RIO_DSF_FIRST_MC_MASK + x):RIO_DSF_BAD_MC_MASK)
 
 typedef enum { tt_dev8, tt_dev16 } tt_t;
 
@@ -184,12 +169,12 @@ typedef struct rio_rt_state_t_TAG {
 	uint32_t default_route;
 
 	// Encoded routing table value, should never be RIO_DAR_RT_USE_DEVICE_TABLE
-	rio_rt_uc_info_t dev_table[RIO_DAR_RT_DEV_TABLE_SIZE];
+	rio_rt_uc_info_t dev_table[RIO_RT_GRP_SZ];
 
 	// Encoded routing table value read, should never be DAR_RT_FIRST_MC_MASK
-	rio_rt_uc_info_t dom_table[RIO_DAR_RT_DOM_TABLE_SIZE];
+	rio_rt_uc_info_t dom_table[RIO_RT_GRP_SZ];
 
-	rio_rt_mc_info_t mc_masks[RIO_DSF_MAX_MC_MASK];
+	rio_rt_mc_info_t mc_masks[RIO_MAX_MC_MASKS];
 } rio_rt_state_t;
 
 typedef struct rio_rt_initialize_in_t_TAG {

@@ -336,8 +336,8 @@ int mpdrv_auto_init_rt(struct riocp_pe *pe, DAR_DEV_INFO_t *dh,
 	uint32_t rc;
 
 	init_in.set_on_port = RIO_ALL_PORTS;
-	init_in.default_route = RIO_DSF_RT_NO_ROUTE;
-	init_in.default_route_table_port = RIO_DSF_RT_NO_ROUTE;
+	init_in.default_route = RIO_RTE_DROP;
+	init_in.default_route_table_port = RIO_RTE_DROP;
 	init_in.update_hw = false;
 	init_in.rt = &priv->st.g_rt;
 

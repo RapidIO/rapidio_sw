@@ -81,7 +81,7 @@ typedef uint8_t hc_t; /* hopcount */
 #define RIO_MAX_DEV_PORT    ((rio_port_t)(RIO_SW_PORT_INF_PORT_MAX))
 #define RIO_MAX_PORT_LANES  ((rio_lane_t)(4))
 #define RIO_MAX_DEV_LANES   ((rio_lane_t)(RIO_SW_PORT_INF_LANE_MAX))
-#define RIO_MAX_MC_MASKS    RIO_RT_GRP_SIZE
+#define RIO_MAX_MC_MASKS    RIO_RT_GRP_SZ
 
 /** @brief max number of per-port statistics counters */
 #define RIO_MAX_SC 40

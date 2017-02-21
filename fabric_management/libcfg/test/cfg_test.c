@@ -422,7 +422,7 @@ static void cfg_parse_tor_test(void **state)
 	/* Check out the switch routing table parsing in detail. */
 	assert_int_equal(0, cfg_find_dev_by_ct(0x100f1, &dev));
 	assert_int_equal(1, dev.is_sw);
-	assert_int_equal(RIO_DSF_RT_NO_ROUTE, dev.sw_info.rt[CFG_DEV08]->default_route);
+	assert_int_equal(RIO_RTE_DROP, dev.sw_info.rt[CFG_DEV08]->default_route);
 	assert_int_equal(2, dev.sw_info.rt[CFG_DEV08]->dev_table[0x12].rte_val);
 	assert_int_equal(3, dev.sw_info.rt[CFG_DEV08]->dev_table[0x13].rte_val);
 	assert_int_equal(5, dev.sw_info.rt[CFG_DEV08]->dev_table[0x15].rte_val);

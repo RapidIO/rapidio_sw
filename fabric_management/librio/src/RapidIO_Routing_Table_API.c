@@ -39,6 +39,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "Tsi721_DeviceDriver.h"
 #include "Tsi57x_DeviceDriver.h"
 #include "DSF_DB_Private.h"
+#include "RXS2448.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -94,8 +95,8 @@ void rio_rt_check_multicast_routing(DAR_DEV_INFO_t *dev_info,
 					break;
 				} else {
 					found = true;
-					out_parms->routing_table_value = mc_idx
-							+ RIO_DSF_FIRST_MC_MASK;
+					out_parms->routing_table_value =
+						RIO_RTV_MC_MSK(mc_idx);
 					for (bit = 0; bit < NUM_PORTS(dev_info);
 							bit++) {
 						out_parms->mcast_ports[bit] =
@@ -144,7 +145,7 @@ void rio_rt_check_unicast_routing(DAR_DEV_INFO_t *dev_info,
 		rte = in_parms->rt->dom_table[idx].rte_val;
 	}
 
-	if ((tt_dev8 == in_parms->tt) || (RIO_DSF_RT_USE_DEVICE_TABLE == rte)) {
+	if ((tt_dev8 == in_parms->tt) || (RIO_RTE_LVL_G0 == rte)) {
 		idx = (uint8_t)(in_parms->destID & 0x00FF);
 		rte = in_parms->rt->dev_table[idx].rte_val;
 	}
@@ -152,11 +153,11 @@ void rio_rt_check_unicast_routing(DAR_DEV_INFO_t *dev_info,
 	out_parms->routing_table_value = rte;
 	out_parms->valid_route = true;
 	out_parms->reason_for_discard = rio_rt_disc_not;
-	dflt_pt = (RIO_DSF_RT_USE_DEFAULT_ROUTE == rte) ? true : false;
+	dflt_pt = (RIO_RTE_DFLT_PORT == rte) ? true : false;
 
 	phys_rte = (dflt_pt) ? in_parms->rt->default_route : rte;
 
-	if (RIO_DSF_RT_NO_ROUTE == phys_rte) {
+	if (RIO_RTE_DROP == phys_rte) {
 		out_parms->valid_route = false;
 		out_parms->reason_for_discard =
 				(dflt_pt) ? rio_rt_disc_dflt_pt_deliberately : rio_rt_disc_deliberately;
@@ -324,20 +325,21 @@ uint32_t rio_rt_alloc_mc_mask(DAR_DEV_INFO_t *dev_info,
 	if (VALIDATE_DEV_INFO(dev_info)) {
 		switch (dev_info->driver_family) {
 		case RIO_CPS_DEVICE:
-			return DSF_rio_rt_alloc_mc_mask(dev_info, in_parms,
-					out_parms);
+			return DSF_rio_rt_alloc_mc_mask(dev_info,
+					in_parms, out_parms);
 		case RIO_RXS_DEVICE:
-			return DSF_rio_rt_alloc_mc_mask(dev_info, in_parms,
-					out_parms);
+			return DSF_rio_rt_default_alloc_mc_mask(dev_info,
+					in_parms, out_parms,
+					RXS2448_MC_MASK_CNT);
 		case RIO_TSI721_DEVICE:
-			return DSF_rio_rt_alloc_mc_mask(dev_info, in_parms,
-					out_parms);
+			return DSF_rio_rt_alloc_mc_mask(dev_info,
+					in_parms, out_parms);
 		case RIO_TSI57X_DEVICE:
-			return DSF_rio_rt_alloc_mc_mask(dev_info, in_parms,
-					out_parms);
+			return DSF_rio_rt_alloc_mc_mask(dev_info,
+					in_parms, out_parms);
 		case RIO_UNKNOWN_DEVICE:
-			return DSF_rio_rt_alloc_mc_mask(dev_info, in_parms,
-					out_parms);
+			return DSF_rio_rt_alloc_mc_mask(dev_info,
+					in_parms, out_parms);
 		case RIO_UNITIALIZED_DEVICE:
 		default:
 			return RIO_DAR_IMP_SPEC_FAILURE;

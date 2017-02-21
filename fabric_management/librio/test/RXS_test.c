@@ -114,7 +114,7 @@ static void macros_test(void **state)
 	assert_int_equal(0x80000, RXS_RIO_SPX_MC_Y_S_CSR(0x00, 0x00));
 	assert_int_equal(0x8A050, RXS_RIO_SPX_MC_Y_S_CSR(0x0A, 0x0A));
 
-	assert_int_equal(0x001FF, RIO_DSF_BAD_MC_MASK);
+	assert_int_equal(0x0FFFFFFF, RIO_RTE_BAD);
 
 	(void)state; // unused
 }

@@ -35,6 +35,8 @@
 #include <stddef.h>
 
 #include "RapidIO_Source_Config.h"
+#include "rio_standard.h"
+#include "rio_ecosystem.h"
 #include "RapidIO_Device_Access_Routines_API.h"
 #include "RapidIO_Routing_Table_API.h"
 #include "Tsi57x_DeviceDriver.h"
@@ -71,15 +73,15 @@ static uint32_t tsi57x_read_mc_masks(DAR_DEV_INFO_t *dev_info,
 		rio_rt_state_t *rt, uint32_t *imp_rc)
 {
 	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
-	uint8_t mask_idx;
+	pe_rt_val mask_idx;
 	uint32_t reg_val;
 	rio_rt_dealloc_mc_mask_in_t d_in_parm;
 	rio_rt_dealloc_mc_mask_out_t d_out_parm;
 
 	d_in_parm.rt = rt;
-	for (mask_idx = TSI578_MAX_MC_MASKS; mask_idx < RIO_DSF_MAX_MC_MASK;
+	for (mask_idx = TSI578_MAX_MC_MASKS; mask_idx < RIO_MAX_MC_MASKS;
 			mask_idx++) {
-		d_in_parm.mc_mask_rte = RIO_DSF_FIRST_MC_MASK + mask_idx;
+		d_in_parm.mc_mask_rte = RIO_RTV_MC_MSK(mask_idx);
 		rc = DSF_rio_rt_dealloc_mc_mask(dev_info, &d_in_parm,
 				&d_out_parm);
 		if (RIO_SUCCESS != rc) {
@@ -139,12 +141,12 @@ bool prog_all,  // Use ALL_MASKS or CHG_MASKS
 		uint32_t *imp_rc)
 {
 	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
-	uint8_t mask_idx;
+	pe_rt_val mask_idx;
 	uint32_t reg_val;
 	uint32_t invalid_mc_mask = ~(uint32_t)((1 << TSI57X_NUM_PORTS(dev_info))
 			- 1);
 
-	for (mask_idx = TSI578_MAX_MC_MASKS; mask_idx < RIO_DSF_MAX_MC_MASK;
+	for (mask_idx = TSI578_MAX_MC_MASKS; mask_idx < RIO_MAX_MC_MASKS;
 			mask_idx++) {
 		if (rt->mc_masks[mask_idx].in_use
 				|| rt->mc_masks[mask_idx].changed
@@ -206,7 +208,7 @@ static uint32_t tsi57x_read_rte_entries(DAR_DEV_INFO_t *dev_info, uint8_t pnum,
 	}
 
 	if ( HW_DFLT_RT == (rte_val & TSI578_RIO_LUT_ATTR_DEFAULT_PORT)) {
-		rt->default_route = RIO_DSF_RT_NO_ROUTE;
+		rt->default_route = RIO_RTE_DROP;
 	} else {
 		rt->default_route = rte_val & TSI578_RIO_LUT_ATTR_DEFAULT_PORT;
 	}
@@ -220,7 +222,7 @@ static uint32_t tsi57x_read_rte_entries(DAR_DEV_INFO_t *dev_info, uint8_t pnum,
 
 	// Read all of the domain routing table entries.
 	//
-	for (destID = 0; destID < RIO_DAR_RT_DOM_TABLE_SIZE; destID++) {
+	for (destID = 0; destID < RIO_RT_GRP_SZ; destID++) {
 		rt->dom_table[destID].changed = false;
 
 		// Set deviceID, read routing table entry for deviceID
@@ -241,7 +243,7 @@ static uint32_t tsi57x_read_rte_entries(DAR_DEV_INFO_t *dev_info, uint8_t pnum,
 
 		if (HW_DFLT_RT == rte_val) {
 			rt->dom_table[destID].rte_val =
-					RIO_DSF_RT_USE_DEFAULT_ROUTE;
+					RIO_RTE_DFLT_PORT;
 		} else {
 			rt->dom_table[destID].rte_val = (uint8_t)(rte_val
 					& TSI578_SPX_ROUTE_CFG_PORT_PORT);
@@ -249,13 +251,13 @@ static uint32_t tsi57x_read_rte_entries(DAR_DEV_INFO_t *dev_info, uint8_t pnum,
 	}
 
 	destID = (base_reg & TSI578_SPX_ROUTE_BASE_BASE) >> 24;
-	rt->dom_table[destID].rte_val = RIO_DSF_RT_USE_DEVICE_TABLE;
+	rt->dom_table[destID].rte_val = RIO_RTE_LVL_G0;
 	base_reg = destID << 8;
 
 	// Read all of the device routing table entries.
 	//
 	//
-	for (destID = 0; destID < RIO_DAR_RT_DEV_TABLE_SIZE; destID++) {
+	for (destID = 0; destID < RIO_RT_GRP_SZ; destID++) {
 		rt->dev_table[destID].changed = false;
 
 		// Set deviceID, read routing table entry for deviceID,
@@ -277,7 +279,7 @@ static uint32_t tsi57x_read_rte_entries(DAR_DEV_INFO_t *dev_info, uint8_t pnum,
 
 		if (HW_DFLT_RT == rte_val) {
 			rt->dev_table[destID].rte_val =
-					RIO_DSF_RT_USE_DEFAULT_ROUTE;
+					RIO_RTE_DFLT_PORT;
 		} else {
 			rt->dev_table[destID].rte_val = (uint8_t)(rte_val
 					& TSI578_SPX_ROUTE_CFG_PORT_PORT);
@@ -309,7 +311,7 @@ static uint32_t program_rte_entries(DAR_DEV_INFO_t *dev_info,
 
 	// Set the default route output port
 
-	if ( RIO_DSF_RT_NO_ROUTE == rt->default_route) {
+	if ( RIO_RTE_DROP == rt->default_route) {
 		rte_val = HW_DFLT_RT & TSI578_RIO_LUT_ATTR_DEFAULT_PORT;
 	} else {
 		rte_val = rt->default_route & TSI578_RIO_LUT_ATTR_DEFAULT_PORT;
@@ -322,10 +324,10 @@ static uint32_t program_rte_entries(DAR_DEV_INFO_t *dev_info,
 	}
 
 	// Find base ID, and set it.
-	for (destID = 0; destID < RIO_DAR_RT_DOM_TABLE_SIZE; destID++) {
+	for (destID = 0; destID < RIO_RT_GRP_SZ; destID++) {
 		idx_val = destID << 8;
 		rte_val = rt->dom_table[destID].rte_val;
-		if (RIO_DSF_RT_USE_DEVICE_TABLE == rte_val) {
+		if (RIO_RTE_LVL_G0 == rte_val) {
 			if (set_base) {
 				rc = RIO_ERR_INVALID_PARAMETER;
 				*imp_rc = PROGRAM_RTE_ENTRIES(2);
@@ -347,16 +349,16 @@ static uint32_t program_rte_entries(DAR_DEV_INFO_t *dev_info,
 	}
 
 	// Set all of the domain routing table entries
-	for (destID = 0; destID < RIO_DAR_RT_DOM_TABLE_SIZE; destID++) {
+	for (destID = 0; destID < RIO_RT_GRP_SZ; destID++) {
 		if (prog_all || rt->dom_table[destID].changed) {
 			idx_val = destID << 8;
 			rte_val = rt->dom_table[destID].rte_val;
 
-			if (RIO_DSF_RT_USE_DEVICE_TABLE != rte_val) {
-				if (RIO_DSF_RT_USE_DEFAULT_ROUTE == rte_val) {
+			if (RIO_RTE_LVL_G0 != rte_val) {
+				if (RIO_RTE_DFLT_PORT == rte_val) {
 					rte_val = HW_DFLT_RT;
 				} else {
-					if (RIO_DSF_RT_NO_ROUTE == rte_val) {
+					if (RIO_RTE_DROP == rte_val) {
 						rte_val = HW_DFLT_RT;
 						idx_val |=
 								TSI578_SPX_ROUTE_CFG_DESTID_PAR_INVERT;
@@ -402,20 +404,19 @@ static uint32_t program_rte_entries(DAR_DEV_INFO_t *dev_info,
 	}
 
 	// Set all of the device routing table entries
-	for (destID = 0; destID < RIO_DAR_RT_DEV_TABLE_SIZE; destID++) {
+	for (destID = 0; destID < RIO_RT_GRP_SZ; destID++) {
 		if (prog_all || rt->dev_table[destID].changed) {
 			idx_val = baseID + destID;
 			rte_val = rt->dev_table[destID].rte_val;
-			if (RIO_DSF_RT_USE_DEFAULT_ROUTE == rte_val) {
+			if (RIO_RTE_DFLT_PORT == rte_val) {
 				rte_val = HW_DFLT_RT;
 			} else {
-				if (RIO_DSF_RT_NO_ROUTE == rte_val) {
+				if (RIO_RTE_DROP == rte_val) {
 					rte_val = HW_DFLT_RT;
 					idx_val |=
 							TSI578_SPX_ROUTE_CFG_DESTID_PAR_INVERT;
 				} else {
-					if ((RIO_DSF_RT_USE_DEVICE_TABLE
-							== rte_val)
+					if ((RIO_RTE_LVL_G0 == rte_val)
 							|| (TSI57X_NUM_PORTS(
 									dev_info)
 									<= rte_val)) {
@@ -461,7 +462,7 @@ static uint32_t tsi_check_port_for_discard(DAR_DEV_INFO_t *dev_info,
 	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
 	uint32_t ctlData;
 	uint8_t port;
-	bool dflt_rt = (RIO_DSF_RT_USE_DEFAULT_ROUTE
+	bool dflt_rt = (RIO_RTE_DFLT_PORT
 			== out_parms->routing_table_value) ? true : false;
 	rio_pc_get_config_in_t cfg_in;
 	rio_pc_get_config_out_t cfg_out;
@@ -574,16 +575,16 @@ uint32_t tsi57x_rio_rt_initialize(DAR_DEV_INFO_t *dev_info,
 	// Validate parameters
 
 	if (((in_parms->default_route >= TSI57X_NUM_PORTS(dev_info))
-			&& !((RIO_DSF_RT_USE_DEFAULT_ROUTE
+			&& !((RIO_RTE_DFLT_PORT
 					== in_parms->default_route)
-					|| (RIO_DSF_RT_NO_ROUTE
+					|| (RIO_RTE_DROP
 							== in_parms->default_route)))) {
 		out_parms->imp_rc = RT_INITIALIZE(1);
 		goto exit;
 	}
 
 	if ((in_parms->default_route_table_port >= TSI57X_NUM_PORTS(dev_info))
-			&& !(RIO_DSF_RT_NO_ROUTE
+			&& !(RIO_RTE_DROP
 					== in_parms->default_route_table_port)) {
 		out_parms->imp_rc = RT_INITIALIZE(2);
 		goto exit;
@@ -636,23 +637,23 @@ uint32_t tsi57x_rio_rt_initialize(DAR_DEV_INFO_t *dev_info,
 	}
 
 	// Configure initialization of all of the routing table entries
-	for (destID = 0; destID < RIO_DAR_RT_DEV_TABLE_SIZE; destID++) {
+	for (destID = 0; destID < RIO_RT_GRP_SZ; destID++) {
 		all_in.rt->dev_table[destID].changed = true;
 		all_in.rt->dev_table[destID].rte_val =
 				in_parms->default_route_table_port;
 	}
 
 	all_in.rt->dom_table[0].changed = true;
-	all_in.rt->dom_table[0].rte_val = RIO_DSF_RT_USE_DEVICE_TABLE;
+	all_in.rt->dom_table[0].rte_val = RIO_RTE_LVL_G0;
 
-	for (destID = 1; destID < RIO_DAR_RT_DOM_TABLE_SIZE; destID++) {
+	for (destID = 1; destID < RIO_RT_GRP_SZ; destID++) {
 		all_in.rt->dom_table[destID].changed = true;
 		all_in.rt->dom_table[destID].rte_val =
 				in_parms->default_route_table_port;
 	}
 
 	// Configure initialization of multicast masks and associations as necessary.
-	for (mc_idx = 0; mc_idx < RIO_DSF_MAX_MC_MASK; mc_idx++) {
+	for (mc_idx = 0; mc_idx < RIO_MAX_MC_MASKS; mc_idx++) {
 		all_in.rt->mc_masks[mc_idx].mc_destID = 0;
 		all_in.rt->mc_masks[mc_idx].tt = tt_dev8;
 		all_in.rt->mc_masks[mc_idx].mc_mask = 0;
@@ -719,8 +720,8 @@ uint32_t tsi57x_rio_rt_probe(DAR_DEV_INFO_t *dev_info,
 	 *  If out_parms->valid_route is true
 	 *  the valid values for out_parms->routing_table_value are
 	 *  - a valid port number, OR
-	 *  - RIO_DSF_RT_USE_DEFAULT_ROUTE
-	 *  When out_parms->routing_table_value is RIO_DSF_RT_USE_DEFAULT_ROUTE, the
+	 *  - RIO_RTE_DFLT_PORT
+	 *  When out_parms->routing_table_value is RIO_RTE_DFLT_PORT, the
 	 *  default route is a valid switch port number.
 	 */
 
@@ -777,7 +778,7 @@ uint32_t tsi57x_rio_rt_set_all(DAR_DEV_INFO_t *dev_info,
 	}
 
 	if ((TSI57X_NUM_PORTS(dev_info) <= in_parms->rt->default_route)
-			&& !(RIO_DSF_RT_NO_ROUTE == in_parms->rt->default_route)) {
+			&& !(RIO_RTE_DROP == in_parms->rt->default_route)) {
 		out_parms->imp_rc = RT_SET_ALL(2);
 		goto exit;
 	}
@@ -812,7 +813,7 @@ uint32_t tsi57x_rio_rt_set_changed(DAR_DEV_INFO_t *dev_info,
 	}
 
 	if ((TSI57X_NUM_PORTS(dev_info) <= in_parms->rt->default_route)
-			&& !(RIO_DSF_RT_NO_ROUTE == in_parms->rt->default_route)) {
+			&& !(RIO_RTE_DROP == in_parms->rt->default_route)) {
 		out_parms->imp_rc = RT_SET_CHANGED(2);
 		goto exit;
 	}
@@ -849,15 +850,15 @@ uint32_t tsi57x_rio_rt_change_rte(DAR_DEV_INFO_t *dev_info,
 	}
 
 	// Validate rte_value
-	if ((RIO_DSF_RT_USE_DEVICE_TABLE != in_parms->rte_value)
-			&& (RIO_DSF_RT_USE_DEFAULT_ROUTE != in_parms->rte_value)
-			&& (RIO_DSF_RT_NO_ROUTE != in_parms->rte_value)
+	if ((RIO_RTE_LVL_G0 != in_parms->rte_value)
+			&& (RIO_RTE_DFLT_PORT != in_parms->rte_value)
+			&& (RIO_RTE_DROP != in_parms->rte_value)
 			&& (in_parms->rte_value >= TSI57X_NUM_PORTS(dev_info))) {
 		out_parms->imp_rc = RT_CHANGE_RTE(2);
 		goto exit;
 	}
 
-	if ((RIO_DSF_RT_USE_DEVICE_TABLE == in_parms->rte_value)
+	if ((RIO_RTE_LVL_G0 == in_parms->rte_value)
 			&& (!in_parms->dom_entry)) {
 		out_parms->imp_rc = RT_CHANGE_RTE(3);
 		goto exit;
@@ -877,16 +878,16 @@ uint32_t tsi57x_rio_rt_change_rte(DAR_DEV_INFO_t *dev_info,
 				in_parms->rte_value;
 
 		// Since only one entry in the domain table can have a value of
-		// RIO_DSF_RT_USE_DEVICE_TABLE, if that entry is marked changed
+		// RIO_RTE_LVL_G0, if that entry is marked changed
 		// then it is possible that another entry has this value.  Search
 		// to clear all other entries with this value, and mark them changed.
-		if (RIO_DSF_RT_USE_DEVICE_TABLE == in_parms->rte_value) {
-			for (idx = 0; idx < RIO_DAR_RT_DOM_TABLE_SIZE; idx++) {
-				if ((RIO_DSF_RT_USE_DEVICE_TABLE
+		if (RIO_RTE_LVL_G0 == in_parms->rte_value) {
+			for (idx = 0; idx < RIO_RT_GRP_SZ; idx++) {
+				if ((RIO_RTE_LVL_G0
 						== in_parms->rt->dom_table[idx].rte_val)
 						&& (idx != in_parms->idx)) {
 					in_parms->rt->dom_table[idx].rte_val =
-							RIO_DSF_RT_NO_ROUTE;
+							RIO_RTE_DROP;
 					in_parms->rt->dom_table[idx].changed =
 							true;
 				}
@@ -935,7 +936,7 @@ uint32_t tsi57x_rio_rt_change_mc_mask(DAR_DEV_INFO_t *dev_info,
 	// Check that the destination ID is not duplicated elsewhere in the
 	// multicast table.
 
-	chg_idx = in_parms->mc_mask_rte - RIO_DSF_FIRST_MC_MASK;
+	chg_idx = RIO_RTV_GET_MC_MSK(in_parms->mc_mask_rte);
 
 	for (mc_idx = 0; mc_idx < TSI578_MAX_MC_MASKS; mc_idx++) {
 		if ((mc_idx != chg_idx)
@@ -953,8 +954,7 @@ uint32_t tsi57x_rio_rt_change_mc_mask(DAR_DEV_INFO_t *dev_info,
 
 	// Allow requests to change masks not supported by TSI57x family
 	// but there's nothing to do...
-	if ((RIO_DSF_FIRST_MC_MASK + TSI578_MAX_MC_MASKS)
-			<= in_parms->mc_mask_rte) {
+	if (RIO_RTV_GET_MC_MSK(in_parms->mc_mask_rte) >= TSI578_MAX_MC_MASKS) {
 		goto exit;
 	}
 

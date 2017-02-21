@@ -183,6 +183,11 @@ uint32_t RIO_bind_procs(
 
 #define NULL_CHECK if ((!dev_info) || (!in_parms) || (!out_parms)) return RIO_ERR_NULL_PARM_PTR;
 
+uint32_t DSF_rio_rt_default_alloc_mc_mask(DAR_DEV_INFO_t *dev_info,
+		rio_rt_alloc_mc_mask_in_t *in_parms,
+		rio_rt_alloc_mc_mask_out_t *out_parms,
+		uint32_t mc_mask_cnt);
+
 #ifdef __cplusplus
 }
 #endif

@@ -260,9 +260,10 @@ typedef uint32_t pe_rt_val;
 #define RIO_RTE_DFLT_PORT        (0x00000301)
 #define RIO_RTE_BAD              (0x0FFFFFFF)
 
+#define RIO_RT_GRP_SZ 0x100
+
 #define RIO_LAST_DEV8 (0x0FF)
 #define RIO_LAST_DEV16 (0x0FFFF)
-#define RIO_LVL_GRP_SZ 0x100
 
 #define RIO_RTV_PORT(n) ((n & 0xFFFFFF00)?RIO_RTE_BAD: \
 				(RIO_RTE_PT_0 + ((n) & 0xff)))
@@ -990,8 +991,6 @@ typedef uint32_t RIO_SPX_ERR_STAT_T;
 #define RIO_RT_SPX_LVL0(b,p)     (b+0x050 + 0x020*(p))
 #define RIO_RT_SPX_LVL1(b,p)     (b+0x054 + 0x020*(p))
 #define RIO_RT_SPX_LVL2(b,p)     (b+0x058 + 0x020*(p))
-
-#define RIO_RT_GRP_ENTRIES 256
 
 /* RIO_RT_EFB_HEAD : Register Bits Masks Definitions */
 #define RIO_RT_EFB_HEAD_TYPE     RIO_EFB_T
