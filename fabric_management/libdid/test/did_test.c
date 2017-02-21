@@ -486,8 +486,8 @@ static void did_get_test(void **state)
 
 	did.value = 0x12;
 	did.size = dev16_sz;
-	assert_int_equal(-EKEYEXPIRED, did_get(&did, 1, dev08_sz));
-	assert_int_equal(0, did_invalid(did));
+	assert_int_equal(0, did_get(&did, 1, dev08_sz));
+	assert_int_equal(0, did_equal(did, 1, dev08_sz));
 
 	// look for it, add it, look for it again
 	did.value = 0x12;
@@ -505,9 +505,8 @@ static void did_get_test(void **state)
 
 	did.value = 0x12;
 	did.size = dev08_sz;
-	assert_int_equal(-EKEYEXPIRED,
-			did_get(&did, RIO_LAST_DEV8-1, dev16_sz));
-	assert_int_equal(0, did_invalid(did));
+	assert_int_equal(0, did_get(&did, RIO_LAST_DEV8-1, dev16_sz));
+	assert_int_equal(0, did_equal(did, RIO_LAST_DEV8-1, dev16_sz));
 
 	// look for it, add it, look for it again
 	did.value = 0x12;
@@ -578,15 +577,15 @@ static void did_release_test(void **state)
 	// release a 16-bit did with the same value
 	did.value = 0xca;
 	did.size = dev16_sz;
-	assert_int_equal(-EINVAL, did_release(did));
+	assert_int_equal(0, did_release(did));
 
 	// release the 8-bit did
 	did.size = dev08_sz;
 	assert_int_equal(0, did_equal(did, 0xca, dev08_sz));
-	assert_int_equal(0, did_release(did));
+	assert_int_equal(-EKEYEXPIRED, did_release(did));
 
 	// try and release it again
-	assert_int_equal(0, did_equal(did, 0xca, dev08_sz));
+	assert_int_equal(0, did_equal(did, 0xca, dev16_sz));
 	assert_int_equal(-EKEYEXPIRED, did_release(did));
 
 	// create a 16-bit did
@@ -595,14 +594,10 @@ static void did_release_test(void **state)
 	// release 8-bit did with same value
 	did.value = 0xf0;
 	did.size = dev08_sz;
-	assert_int_equal(-EINVAL, did_release(did));
+	assert_int_equal(0, did_release(did));
 
 	// release the 16-bit did
 	did.size = dev16_sz;
-	assert_int_equal(0, did_equal(did, 0xf0, dev16_sz));
-	assert_int_equal(0, did_release(did));
-
-	// try and release it again
 	assert_int_equal(0, did_equal(did, 0xf0, dev16_sz));
 	assert_int_equal(-EKEYEXPIRED, did_release(did));
 

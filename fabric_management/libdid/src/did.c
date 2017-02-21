@@ -84,7 +84,11 @@ int did_size_from_int(did_sz_t *size, uint32_t asInt)
 }
 
 /**
- * Create a device Id for the specified size
+ * Create a device Id for the specified size.
+ * Note a device Id with a size of dev08 and value XX is equivalent to a device Id
+ * of dev16 of 00XX. Conversely a device Id with a size of dev16 and value of 00YY
+ * is equivalent to a device Id with a size of dev08 and value of YY.
+ *
  * @param[out] did the device Id
  * @param[in] size the device Id size
  * @retval 0 the device Id is valid
@@ -151,7 +155,11 @@ found:
 }
 
 /**
- * Create a device Id for the specified value and size
+ * Create a device Id for the specified value and size.
+ * Note a device Id with a size of dev08 and value XX is equivalent to a device Id
+ * of dev16 of 00XX. Conversely a device Id with a size of dev16 and value of 00YY
+ * is equivalent to a device Id with a size of dev08 and value of YY.
+ *
  * @param[out] did the device Id
  * @param[in] value the device Id value
  * @param[in] size the device Id size
@@ -210,7 +218,11 @@ int did_create_from_data(did_t *did, did_val_t value, did_sz_t size)
 }
 
 /**
- * Release a device Id
+ * Release a device Id.
+ * Note a device Id with a size of dev08 and value XX is equivalent to a device Id
+ * of dev16 of 00XX. Conversely a device Id with a size of dev16 and value of 00YY
+ * is equivalent to a device Id with a size of dev08 and value of YY.
+ *
  * @param did the device Id
  * @retval 0 the device Id is released
  * @retval -EINVAL the specified device Id is out of range
@@ -244,16 +256,16 @@ int did_release(did_t did)
 		return -EKEYEXPIRED;
 	}
 
-	if (did.size != did_ids[idx]) {
-		return -EINVAL;
-	}
-
 	did_ids[idx] = invld_sz;
 	return 0;
 }
 
 /**
- * Get an existing device Id for the specified value and size
+ * Get an existing device Id for the specified value and size.
+ * Note a device Id with a size of dev08 and value XX is equivalent to a device Id
+ * of dev16 of 00XX. Conversely a device Id with a size of dev16 and value of 00YY
+ * is equivalent to a device Id with a size of dev08 and value of YY.
+ *
  * @param[out] did the device Id
  * @param[in] value the device Id value to get
  * @param[in] size the device Id size
@@ -292,7 +304,8 @@ int did_get(did_t *did, did_val_t value, did_sz_t size)
 		return -EPERM;
 	}
 
-	if (size == did_ids[value]) {
+	// the value is in use for all did sizes
+	if (invld_sz != did_ids[value]) {
 		did->value = value;
 		did->size = size;
 		return 0;
@@ -303,7 +316,11 @@ int did_get(did_t *did, did_val_t value, did_sz_t size)
 }
 
 /**
- * Check if a device Id is in use
+ * Check if a device Id is in use.
+ * Note a device Id with a size of dev08 and value XX is equivalent to a device Id
+ * of dev16 of 00XX. Conversely a device Id with a size of dev16 and value of 00YY
+ * is equivalent to a device Id with a size of dev08 and value of YY.
+ *
  * @param did the device Id
  * @retval 0 if the device Id is not in use
  * @retval 1 if the device Id is in use
@@ -331,7 +348,7 @@ int did_not_inuse(did_t did)
 		// only 8 and 16 bit DIDs are supported
 		return -EPERM;
 	}
-	return (did.size == did_ids[did.value] ? 1 : 0);
+	return (invld_sz != did_ids[did.value]);
 }
 
 /**
@@ -362,15 +379,17 @@ void did_reset()
 }
 
 /**
- * Determine if the provided did is as expected
- *
+ * Determine if the provided did is as expected.
+ * Note that two dids are considered equal if their value is equal, and
+ * their size is not "invalid" (i.e. a did with value 8 and size of 8, 16
+ * or 32 are equal).
  * @param[in] did the did to be tested
  * @param[in] value the expected value
  * @param[in] size the expected size
  *
  * @retval 0 the did is as expected
  * @retval 1 the value is not as expected
- * @retval 2 the size is not as expected
+ * @retval 2 the size is invalid
  */
 
 int did_equal(did_t did, did_val_t value, did_sz_t size)
@@ -378,7 +397,10 @@ int did_equal(did_t did, did_val_t value, did_sz_t size)
 	if (value != did.value) {
 		return 1;
 	}
-	if (size != did.size) {
+	if ((invld_sz == size) && (invld_sz == did.size)) {
+		return 0;
+	}
+	if (invld_sz == did.size) {
 		return 2;
 	}
 	return 0;

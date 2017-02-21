@@ -705,12 +705,13 @@ static void ct_release_test(void **state)
 	// valid nr, but did doesn't match
 	assert_int_equal(1, did_not_inuse(did));
 	assert_int_equal(0, did_equal(did, 0x12, dev08_sz));
+	assert_int_equal(0, ct_ids[0x0100]);
 	assert_int_equal(0, ct_create_from_nr_and_did(&ct, 0x100, did));
 	assert_int_equal(0x01000012, ct);
 	assert_int_equal(1, ct_ids[0x0100]);
-	did.size = dev16_sz;
-	assert_int_equal(0, did_equal(did, 0x12, dev16_sz));
-	assert_int_equal(-EINVAL, ct_release(ct, did));
+	did.size = dev32_sz;
+	assert_int_equal(0, did_equal(did, 0x12, dev32_sz));
+	assert_int_equal(-EPERM, ct_release(ct, did));
 	assert_int_equal(1, ct_ids[0x0100]);
 
 	// valid nr, but did previously released
@@ -883,7 +884,7 @@ static void ct_not_inuse_test(void **state)
 	assert_int_equal(0,
 			ct_create_from_data(&ct, &did, 0x100, 0xa1, dev08_sz));
 	assert_int_equal(1, ct_not_inuse(ct, dev08_sz));
-	assert_int_equal(0, ct_not_inuse(ct, dev16_sz));
+	assert_int_equal(1, ct_not_inuse(ct, dev16_sz));
 
 	(void)state; // unused
 }
