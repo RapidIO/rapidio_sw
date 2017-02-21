@@ -407,7 +407,11 @@ int setup_mport_master(int mport)
 		return 1;
 	}
 
-	name = (char *)cfg_dev.name;
+	name = (char *)calloc(1, FMD_MAX_NAME + 1);
+	if (NULL == name) {
+		CRIT(MALLOC_FAIL);
+		return 1;
+	}
 
 	if ((COMPTAG_UNSET == comptag) && cfg_auto()) {
 		if (did_create_from_data(&did, mp.devids[CFG_DEV08].devid,
@@ -419,13 +423,10 @@ int setup_mport_master(int mport)
 			CRIT("\nMaster port DID duplicated...\n");
 			return 1;
 		}
-		name = (char *)calloc(1, 40);
-		if (NULL == name) {
-			CRIT(MALLOC_FAIL);
-			return 1;
-		} else {
-			snprintf(name, 39, "MPORT%d", mport);
-		}
+		snprintf(name, FMD_MAX_NAME + 1, "MPORT%d", mport);
+		name[sizeof(name) - 1] = '\0';
+	} else {
+		SAFE_STRNCPY(name, cfg_dev.name, FMD_MAX_NAME + 1);
 	}
 
 	if (riocp_pe_create_host_handle(&mport_pe, mport, 0, &comptag, name)) {
@@ -435,6 +436,7 @@ int setup_mport_master(int mport)
 		return 1;
 	}
 
+	free(name);
 	delete_sysfs_devices(mport_pe, cfg_auto());
 
 	return fmd_traverse_network(mport_pe, &cfg_dev);
