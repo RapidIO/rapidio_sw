@@ -56,7 +56,7 @@
 
 #if RDMA_LL >= RDMA_LL_DBG
 #define DBG(format, ...) if (RDMA_LL_DBG <= g_level) { \
-		__rdma_log(RDMA_LL_DBG, "DBG", format, ## __VA_ARGS__); \
+		RDMA_LOG_FUNC(RDMA_LL_DBG, "DBG", format, ## __VA_ARGS__); \
 }
 #else
 #define DBG(format, ...) if (0) fprintf(stderr, format, ## __VA_ARGS__)
@@ -64,7 +64,7 @@
 
 #if RDMA_LL >= RDMA_LL_INFO
 #define INFO(format, ...) if (RDMA_LL_INFO <= g_level) { \
-		__rdma_log(RDMA_LL_INFO, "INFO", format, ## __VA_ARGS__); \
+		RDMA_LOG_FUNC(RDMA_LL_INFO, "INFO", format, ## __VA_ARGS__); \
 }
 #else
 #define INFO(format, ...) if (0) fprintf(stderr, format, ## __VA_ARGS__)
@@ -72,7 +72,7 @@
 
 #if RDMA_LL >= RDMA_LL_HIGH
 #define HIGH(format, ...) if (RDMA_LL_HIGH <= g_level) { \
-		__rdma_log(RDMA_LL_HIGH, "HIGH", format, ## __VA_ARGS__); \
+		RDMA_LOG_FUNC(RDMA_LL_HIGH, "HIGH", format, ## __VA_ARGS__); \
 }
 #else
 #define HIGH(format, ...) if (0) fprintf(stderr, format, ## __VA_ARGS__)
@@ -80,7 +80,7 @@
 
 #if RDMA_LL >= RDMA_LL_WARN
 #define WARN(format, ...) if (RDMA_LL_WARN <= g_level) { \
-		__rdma_log(RDMA_LL_WARN, "WARN", format, ## __VA_ARGS__); \
+		RDMA_LOG_FUNC(RDMA_LL_WARN, "WARN", format, ## __VA_ARGS__); \
 }
 #else
 #define WARN(format, ...) if (0) fprintf(stderr, format, ## __VA_ARGS__)
@@ -88,7 +88,7 @@
 
 #if RDMA_LL >= RDMA_LL_ERR
 #define ERR(format, ...) if (RDMA_LL_ERR <= g_level) { \
-		__rdma_log(RDMA_LL_ERR, "ERR", format, ## __VA_ARGS__); \
+		RDMA_LOG_FUNC(RDMA_LL_ERR, "ERR", format, ## __VA_ARGS__); \
 }
 #else
 #define ERR(format, ...) if (0) fprintf(stderr, format, ## __VA_ARGS__)
@@ -96,7 +96,7 @@
 
 #if RDMA_LL >= RDMA_LL_CRITICAL
 #define CRIT(format, ...) if (RDMA_LL_CRIT <= g_level) { \
-		__rdma_log(RDMA_LL_CRIT, "CRIT", format, ## __VA_ARGS__); \
+		RDMA_LOG_FUNC(RDMA_LL_CRIT, "CRIT", format, ## __VA_ARGS__); \
 }
 #else
 #define CRIT(format, ...) if (0) fprintf(stderr, format, ## __VA_ARGS__)
@@ -129,7 +129,7 @@ extern unsigned log_fmt_sel; /* If non-zero, logs are formatted as one line */
 }
 #endif
 
-#define __rdma_log(level, level_str, format, ...) rdma_log(level, level_str, \
+#define RDMA_LOG_FUNC(level, level_str, format, ...) rdma_log(level, level_str, \
 			 __FILE__, __LINE__, __func__, format, ## __VA_ARGS__)
 
 #endif /* __LIBLOG_H__ */
