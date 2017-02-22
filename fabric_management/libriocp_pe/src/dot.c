@@ -152,7 +152,6 @@ int RIOCP_SO_ATTR riocp_pe_dot_dump(const char *filename, riocp_pe_handle mport)
 out:
 	fclose(file);
 	riocp_pe_llist_free(seen);
-	free(seen);
 
 	return ret;
 }
