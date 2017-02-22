@@ -118,14 +118,13 @@ struct cfg_dev {
 	bool auto_config;
 };
 
-extern int cfg_parse_file(char *cfg_fn, char **dd_mtx_fn, char **dd_fn,
-			uint32_t *m_did, uint32_t *m_cm_port, uint32_t *m_mode);
-extern int cfg_find_sys_mast(uint32_t *m_did, uint32_t *m_cm_port);
-extern int cfg_find_mport(uint32_t mport, struct cfg_mport_info *mp);
-extern int cfg_get_mp_mem_sz(uint32_t mport, uint8_t *mem_sz );
-extern int cfg_find_dev_by_ct(ct_t ct, struct cfg_dev *dev);
-extern int cfg_get_conn_dev(ct_t ct, int pt, struct cfg_dev *dev, int *conn_pt);
-extern bool cfg_auto(void);
+int cfg_parse_file(char *cfg_fn, char **dd_mtx_fn, char **dd_fn,
+		uint32_t *m_did, uint32_t *m_cm_port, uint32_t *m_mode);
+int cfg_find_mport(uint32_t mport, struct cfg_mport_info *mp);
+int cfg_get_mp_mem_sz(uint32_t mport, uint8_t *mem_sz );
+int cfg_find_dev_by_ct(ct_t ct, struct cfg_dev *dev);
+int cfg_get_conn_dev(ct_t ct, int pt, struct cfg_dev *dev, int *conn_pt);
+bool cfg_auto(void);
 
 #ifdef __cplusplus
 }
