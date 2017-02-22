@@ -193,10 +193,15 @@ int getCPUCount()
 
 	while (! feof(f)) {
 		char buf[257] = {0};
-		if (NULL == fgets(buf, 256, f))
+		if (NULL == fgets(buf, 256, f)) {
 			break;
-		if (buf[0] == '\0') break;
-		if (strstr(buf, "processor\t:")) count++;
+		}
+		if (buf[0] == '\0') {
+			break;
+		}
+		if (strstr(buf, "processor\t:")) {
+			count++;
+		}
 	}
 
 	fclose(f);
@@ -206,54 +211,54 @@ int getCPUCount()
 
 int migrate_thread_to_cpu(struct thread_cpu *info)
 {
-        cpu_set_t cpuset;
-        int chk_cpu_lim = 10;
+	cpu_set_t cpuset;
+	int chk_cpu_lim = 10;
 	int rc;
 
 	const int cpu_count = getCPUCount();
 
 	if (-1 == info->cpu_req) {
-        	CPU_ZERO(&cpuset);
-
-		for(int c = 0; c < cpu_count; c++) CPU_SET(c, &cpuset);
+		CPU_ZERO(&cpuset);
+		for (int c = 0; c < cpu_count; c++) {
+			CPU_SET(c, &cpuset);
+		}
 	} else {
 		if (info->cpu_req >= cpu_count) {
-			ERR("\n\tInvalid cpu %d cpu count is %d\n", info->cpu_req, cpu_count);
+			ERR("\n\tInvalid cpu %d cpu count is %d\n",
+					info->cpu_req, cpu_count);
 			return 1;
 		}
-        	CPU_ZERO(&cpuset);
-        	CPU_SET(info->cpu_req, &cpuset);
+		CPU_ZERO(&cpuset);
+		CPU_SET(info->cpu_req, &cpuset);
 	}
 
-        rc = pthread_setaffinity_np(info->thr, sizeof(cpu_set_t), &cpuset);
+	rc = pthread_setaffinity_np(info->thr, sizeof(cpu_set_t), &cpuset);
 	if (rc) {
-		ERR("pthread_setaffinity_np rc %d:%s\n",
-					rc, strerror(errno));
-                return 1;
+		ERR("pthread_setaffinity_np rc %d:%s\n", rc, strerror(errno));
+		return 1;
 	}
 
 	if (-1 == info->cpu_req) {
 		info->cpu_run = info->cpu_req;
 		return 0;
 	}
-		
-        rc = pthread_getaffinity_np(info->thr, sizeof(cpu_set_t), &cpuset);
+
+	rc = pthread_getaffinity_np(info->thr, sizeof(cpu_set_t), &cpuset);
 	if (rc) {
-		ERR("pthread_getaffinity_np rc %d:%s\n",
-					rc, strerror(errno));
-                return 1;
+		ERR("pthread_getaffinity_np rc %d:%s\n", rc, strerror(errno));
+		return 1;
 	}
 
-        info->cpu_run = sched_getcpu();
-        while ((info->cpu_run != info->cpu_req) && chk_cpu_lim) {
-                usleep(1);
-                info->cpu_run = sched_getcpu();
-                chk_cpu_lim--;
-        }
+	info->cpu_run = sched_getcpu();
+	while ((info->cpu_run != info->cpu_req) && chk_cpu_lim) {
+		usleep(1);
+		info->cpu_run = sched_getcpu();
+		chk_cpu_lim--;
+	}
 	rc = info->cpu_run != info->cpu_req;
 	if (rc) {
 		ERR("Unable to schedule thread on cpu %d\n", info->cpu_req);
-                return 1;
+		return 1;
 	}
 	return rc;
 }
@@ -268,15 +273,15 @@ void zero_stats(struct worker *info)
 	info->max_iter_time = (struct timespec){0,0};
 	info->iter_time_lim = (struct timespec){0xFFFFFFFF,0xFFFFFFFF};
 
-        info->data8_tx = 0x12;
-        info->data16_tx= 0x3456;
-        info->data32_tx = 0x789abcde;
-        info->data64_tx = 0xf123456789abcdef;
+	info->data8_tx = 0x12;
+	info->data16_tx = 0x3456;
+	info->data32_tx = 0x789abcde;
+	info->data64_tx = 0xf123456789abcdef;
 
-        info->data8_rx = 0;
-        info->data16_rx = 0;
-        info->data32_rx = 0;
-        info->data64_rx = 0;
+	info->data8_rx = 0;
+	info->data16_rx = 0;
+	info->data32_rx = 0;
+	info->data64_rx = 0;
 }
 
 void start_iter_stats(struct worker *info)
