@@ -994,7 +994,6 @@ uint32_t DARDB_rioSetEnumBound(DAR_DEV_INFO_t *dev_info,
 	uint32_t currCSR, tempCSR;
 	struct DAR_ptl good_ptl;
 	uint8_t idx;
-	enum_bnd_val = !!enum_bnd_val;
 
 	if (dev_info->extFPtrForPort) {
 		rc = DARrioGetPortList(dev_info, ptl, &good_ptl);
@@ -1010,7 +1009,7 @@ uint32_t DARDB_rioSetEnumBound(DAR_DEV_INFO_t *dev_info,
 									dev_info->extFPtrPortType,
 									good_ptl.pnums[idx]),
 							&currCSR);
-			if ( RIO_SUCCESS == rc) {
+			if (RIO_SUCCESS == rc) {
 				if (enum_bnd_val) {
 					tempCSR = currCSR | RIO_SPX_CTL_ENUM_B;
 				} else {
@@ -1028,7 +1027,7 @@ uint32_t DARDB_rioSetEnumBound(DAR_DEV_INFO_t *dev_info,
 										dev_info->extFPtrPortType,
 										good_ptl.pnums[idx]),
 								tempCSR);
-				if ( RIO_SUCCESS == rc) {
+				if (RIO_SUCCESS == rc) {
 					rc =
 							DARRegRead(dev_info,
 									RIO_SPX_CTL(
@@ -1067,22 +1066,22 @@ uint32_t DARDB_rioDeviceSupported(DAR_DEV_INFO_t *dev_info)
 	 but it should not hurt to do so here.
 	 */
 	rc = ReadReg(dev_info, RIO_DEV_IDENT, &dev_info->devID);
-	if ( RIO_SUCCESS != rc) {
+	if (RIO_SUCCESS != rc) {
 		return rc;
 	}
 	dev_info->driver_family = rio_get_driver_family(dev_info->devID);
 
 	rc = ReadReg(dev_info, RIO_DEV_INF, &dev_info->devInfo);
-	if ( RIO_SUCCESS != rc) {
+	if (RIO_SUCCESS != rc) {
 		return rc;
 	}
 
 	rc = ReadReg(dev_info, RIO_ASSY_INF, &dev_info->assyInfo);
-	if ( RIO_SUCCESS != rc)
+	if (RIO_SUCCESS != rc)
 		return rc;
 
 	rc = ReadReg(dev_info, RIO_PE_FEAT, &dev_info->features);
-	if ( RIO_SUCCESS != rc) {
+	if (RIO_SUCCESS != rc) {
 		return rc;
 	}
 
@@ -1090,7 +1089,7 @@ uint32_t DARDB_rioDeviceSupported(DAR_DEV_INFO_t *dev_info)
 	 May as well read the register...
 	 */
 	rc = ReadReg(dev_info, RIO_SW_PORT_INF, &dev_info->swPortInfo);
-	if ( RIO_SUCCESS != rc) {
+	if (RIO_SUCCESS != rc) {
 		return rc;
 	}
 
@@ -1100,24 +1099,24 @@ uint32_t DARDB_rioDeviceSupported(DAR_DEV_INFO_t *dev_info)
 
 	if (dev_info->features & RIO_PE_FEAT_SW) {
 		rc = ReadReg(dev_info, RIO_SW_RT_TBL_LIM, &dev_info->swRtInfo);
-		if ( RIO_SUCCESS != rc) {
+		if (RIO_SUCCESS != rc) {
 			return rc;
 		}
 	}
 
 	rc = ReadReg(dev_info, RIO_SRC_OPS, &dev_info->srcOps);
-	if ( RIO_SUCCESS != rc) {
+	if (RIO_SUCCESS != rc) {
 		return rc;
 	}
 
 	rc = ReadReg(dev_info, RIO_DST_OPS, &dev_info->dstOps);
-	if ( RIO_SUCCESS != rc) {
+	if (RIO_SUCCESS != rc) {
 		return rc;
 	}
 
 	if (dev_info->features & RIO_PE_FEAT_MC) {
 		rc = ReadReg(dev_info, RIO_SW_MC_INF, &dev_info->swMcastInfo);
-		if ( RIO_SUCCESS != rc) {
+		if (RIO_SUCCESS != rc) {
 			return rc;
 		}
 	}
