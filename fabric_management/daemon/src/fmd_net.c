@@ -111,7 +111,9 @@ int fmd_traverse_network_from_pe_port(riocp_pe_handle pe, rio_port_t port_num,
 
 				no_cfg->curr_pe = curr_pe;
 				no_cfg->pnum = pnum;
+				//@sonar:off - Dynamically allocated memory should be released
 				l_push_tail(&no_cfg_list, (void *)no_cfg);
+				//@sonar:on
 
 				continue;
 			}
@@ -285,8 +287,10 @@ int fmd_traverse_network_from_pe_port(riocp_pe_handle pe, rio_port_t port_num,
 						}
 						no_cfg->curr_pe = new_pe;
 						no_cfg->pnum = pnum;
+						//@sonar:off - Dynamically allocated memory should be released
 						l_push_tail(&no_cfg_list,
 								(void *)no_cfg);
+						//@sonar:on
 					}
 				}
 			} else {
