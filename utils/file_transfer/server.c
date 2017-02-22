@@ -575,7 +575,7 @@ riomp_sock_t *pop_conn_req(struct req_list_head_t *list)
 
 void prep_info_for_xfer(struct buffer_info *info)
 {
-	bzero(info->file_name, MAX_FILE_NAME);
+	memset(info->file_name, 0, MAX_FILE_NAME);
 	info->rc = 0;
 	info->fd = -1;
 	info->bytes_rxed = 0;

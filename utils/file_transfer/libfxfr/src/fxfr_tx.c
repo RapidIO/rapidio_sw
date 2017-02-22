@@ -326,8 +326,8 @@ int init_info_vals(struct fxfr_tx_state *info)
 	info->rxed_msg = NULL;
 	info->tx_msg = NULL;
 	/* File name data */
-	bzero(info->src_name, MAX_FILE_NAME);
-	bzero(info->dest_name, MAX_FILE_NAME);
+	memset(info->src_name, 0, MAX_FILE_NAME);
+	memset(info->dest_name, 0, MAX_FILE_NAME);
 	info->src_fd = -1;
 	info->end_of_file = 0;
 	/* RapidIO target/rx data */

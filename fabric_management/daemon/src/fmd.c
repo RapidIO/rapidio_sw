@@ -448,6 +448,8 @@ int slave_get_ct_and_name(int mport, ct_t *comptag, char *dev_name)
 	struct cfg_mport_info mp;
 	struct cfg_dev cfg_dev;
 	struct mport_regs regs;
+	struct timespec requested;
+	struct timespec remaining;
 
 	if (!cfg_find_mport(mport, &mp)) {
 		mp_num = mp.num;
@@ -458,13 +460,17 @@ int slave_get_ct_and_name(int mport, ct_t *comptag, char *dev_name)
 		}
 	}
 
+	// 1000 microseconds
+	requested.tv_sec = 0;
+	requested.tv_nsec = 1000 * 1000;
+
 	while (!riocp_get_mport_regs(mp_num, &regs)) {
 		if (!(regs.disc & RIO_SP_GEN_CTL_DISC)
 				|| !(regs.disc & RIO_SP_GEN_CTL_MAST_EN)
 				|| !(regs.p_err_stat & RIO_SPX_ERR_STAT_OK)
 				|| !(regs.p_ctl1 & RIO_SPX_CTL_INP_EN)
 				|| !(regs.p_ctl1 & RIO_SPX_CTL_OTP_EN)) {
-			usleep(1000);
+			nanosleep(&requested, &remaining);
 			continue;
 		}
 		*comptag = regs.comptag;

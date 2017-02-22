@@ -291,7 +291,6 @@ int main(int argc, char** argv)
 	clock_gettime(CLOCK_MONOTONIC, &starttime);
 
 	for (i = 1; i <= arg.repeat; i++) {
-		/* usleep(200 * 1000); */
 		/** - Place message into buffer */
 		snprintf((char *)msg_tx->msg.payload,
 				sizeof(msg_tx->msg.payload), "%d:%d\n", i,

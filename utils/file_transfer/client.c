@@ -112,8 +112,8 @@ int parse_options(int argc, char *argv[],
 {
 	uint16_t tmp16;
 	uint32_t tmp32;
-	bzero(src_fs, sizeof(src_fs));
-	bzero(rem_fs, sizeof(rem_fs));
+	memset(src_fs, 0, sizeof(src_fs));
+	memset(rem_fs, 0, sizeof(rem_fs));
 	*src_name = src_fs;
 	*rem_name = rem_fs;
 	*server_dest = 0;

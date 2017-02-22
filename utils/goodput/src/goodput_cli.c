@@ -36,6 +36,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define __STDC_FORMAT_MACROS
 #endif
 #include <inttypes.h>
+#include <math.h>
 
 #include <map>
 #include <iostream>
@@ -401,11 +402,19 @@ ATTR_NONE
 
 int SleepCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 {
-	float sec = GetFloatParm(argv[0], 0);
+	float sec;
+	struct timespec requested;
+	struct timespec remaining;
+	double fractional;
+	double seconds;
+
+	sec = GetFloatParm(argv[0], 0);
 	if(sec > 0) {
 		LOGMSG(env, "\nSleeping %f sec\n", sec);
-		const long usec = sec * 1000000;
-		usleep(usec);
+		fractional = modf(sec, &seconds);
+		requested.tv_sec = seconds;
+		requested.tv_nsec = fractional * 1000000 * 1000;
+		nanosleep(&requested, &remaining);
 	}
 	return 0;
 }
