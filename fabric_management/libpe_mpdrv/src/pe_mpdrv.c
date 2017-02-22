@@ -116,6 +116,9 @@ int RIOCP_WU mpsw_drv_reg_wr(struct riocp_pe *pe, uint32_t offset, uint32_t val)
 			p_acc =
 					(struct mpsw_drv_pe_acc_info *)priv_ptr->dev_h.accessInfo;
 			ret = riomp_mgmt_destid_set(p_acc->maint, dev8_did);
+			if (ret) {
+				return -ret;
+			}
 		}
 	}
 
@@ -765,6 +768,9 @@ int generic_device_init(struct riocp_pe *pe)
 	rpt_in.ptl.num_ports = RIO_ALL_PORTS;
 	rpt_in.notfn = rio_em_notfn_none;
 	rc = rio_em_dev_rpt_ctl(dev_h, &rpt_in, &priv->st.em_notfn);
+	if (RIO_SUCCESS != rc) {
+		goto exit;
+	}
 
 	// Set up port-write reporting.
 	// Note that this tells the endpoints the destination ID of the

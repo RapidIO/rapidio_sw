@@ -896,6 +896,9 @@ uint32_t tsi721_rio_pc_reset_port(DAR_DEV_INFO_t *dev_info,
 		rc = tsi721_update_reset_policy(dev_info, rio_pc_rst_port,
 				&plmctl, &devctl, &rstint, &rstpw,
 				&out_parms->imp_rc);
+		if (RIO_SUCCESS != rc) {
+			goto exit;
+		}
 
 		if (in_parms->reset_lp) {
 			rc = tsi721_reset_lp(dev_info, &out_parms->imp_rc);

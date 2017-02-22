@@ -1789,6 +1789,9 @@ uint32_t tsi57x_rio_pc_reset_port(DAR_DEV_INFO_t *dev_info,
 											dep_port_num,
 											&saved_regs[1],
 											in_parms->preserve_config);
+							if (RIO_SUCCESS != rc) {
+								goto exit;
+							}
 						} else {
 							dep_port_num =
 									RIO_ALL_PORTS;

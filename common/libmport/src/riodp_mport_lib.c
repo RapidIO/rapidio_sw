@@ -1024,7 +1024,7 @@ int riomp_mgmt_destid_set(riomp_mport_t mport_handle, uint16_t destid)
 	}
 
 	if (ioctl(hnd->fd, RIO_MPORT_MAINT_HDID_SET, &destid)) {
-		return errno;
+		return -errno;
 	}
 	return 0;
 }
@@ -1052,7 +1052,7 @@ int riomp_mgmt_device_add(riomp_mport_t mport_handle, uint16_t destid, hc_t hc,
 	}
 
 	if (ioctl(hnd->fd, RIO_DEV_ADD, &dev)) {
-		return errno;
+		return -errno;
 	}
 	return 0;
 }
@@ -1080,7 +1080,7 @@ int riomp_mgmt_device_del(riomp_mport_t mport_handle, uint16_t destid, hc_t hc,
 	}
 
 	if (ioctl(hnd->fd, RIO_DEV_DEL, &dev)) {
-		return errno;
+		return -errno;
 	}
 	return 0;
 }
@@ -1151,7 +1151,7 @@ int riomp_sock_send(riomp_sock_t socket_handle, rapidio_mport_socket_msg *skt_ms
 		 (EBUSY == errno)));
 
 	if (ret) {
-		return errno;
+		return -errno;
 	}
 	return 0;
 }
@@ -1177,7 +1177,7 @@ int riomp_sock_receive(riomp_sock_t socket_handle,
 		((ETIME == errno) || (EINTR == errno) || (EAGAIN == errno)));
 
 	if (ret) {
-		return errno;
+		return -errno;
 	}
 	return 0;
 }
@@ -1238,7 +1238,7 @@ int riomp_sock_bind(riomp_sock_t socket_handle, uint16_t local_channel)
 
 	ret = ioctl(handle->mbox->fd, RIO_CM_CHAN_CREATE, &ch_num);
 	if (ret < 0) {
-		return errno;
+		return -errno;
 	}
 
 	cdev.id = ch_num;
@@ -1248,7 +1248,7 @@ int riomp_sock_bind(riomp_sock_t socket_handle, uint16_t local_channel)
 
 	ret = ioctl(handle->mbox->fd, RIO_CM_CHAN_BIND, &cdev);
 	if (ret < 0) {
-		return errno;
+		return -errno;
 	}
 	return 0;
 }
@@ -1263,7 +1263,7 @@ int riomp_sock_listen(riomp_sock_t socket_handle)
 
 	ret = ioctl(handle->mbox->fd, RIO_CM_CHAN_LISTEN, &ch_num);
 	if (ret) {
-		return errno;
+		return -errno;
 	}
 	return 0;
 }
@@ -1309,7 +1309,7 @@ int riomp_sock_connect(riomp_sock_t socket_handle, uint32_t remote_destid,
 
 	if (handle->ch.id == 0) {
 		if (ioctl(handle->mbox->fd, RIO_CM_CHAN_CREATE, &ch_num))
-			return errno;
+			return -errno;
 		handle->ch.id = ch_num;
 	}
 
@@ -1330,7 +1330,7 @@ int riomp_sock_connect(riomp_sock_t socket_handle, uint32_t remote_destid,
 		((ETIME == errno) || (EINTR == errno) || (EAGAIN == errno)));
 
 	if (ret) {
-		return errno;
+		return -errno;
 	}
 	return 0;
 }

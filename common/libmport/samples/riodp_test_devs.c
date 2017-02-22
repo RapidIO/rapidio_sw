@@ -277,6 +277,12 @@ int main(int argc, char** argv)
 	if (discovered && prop.hdid == RIO_LAST_DEV16) {
 		err = riomp_mgmt_lcfg_read(mport_hnd, RIO_DEVID,
 				sizeof(uint32_t), &regval);
+		if (err) {
+			printf("Failed to read from RIO_DEVID, err=%d\n", err);
+			rc = EXIT_FAILURE;
+			goto out;
+		}
+
 		prop.hdid = (regval >> 16) & RIO_LAST_DEV8;
 		err = riomp_mgmt_destid_set(mport_hnd, prop.hdid);
 		if (err) {

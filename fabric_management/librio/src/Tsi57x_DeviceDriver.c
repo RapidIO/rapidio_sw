@@ -87,6 +87,9 @@ uint32_t tsi57x_rioDeviceSupported(DAR_DEV_INFO_t *dev_info)
 				== ((dev_info->devID & RIO_DEV_IDENT_DEVI) >> 20)) {
 			/* Now fill out the DAR_info structure... */
 			rc = DARDB_rioDeviceSupported(dev_info);
+			if (RIO_SUCCESS != rc) {
+				return rc;
+			}
 
 			rc = tsi57x_init_scratchpad(dev_info);
 			if (rc == RIO_SUCCESS) {
