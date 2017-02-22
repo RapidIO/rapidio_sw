@@ -38,10 +38,10 @@
 #include <string>
 #include <array>
 
-using namespace std;
 using std::string;
 using std::array;
 using std::cout;
+using std::endl;
 
 template<typename T, size_t N>
 class circ_buf {
