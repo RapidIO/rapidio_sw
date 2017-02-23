@@ -298,7 +298,7 @@ static uint32_t tsi57x_set_int_cfg(DAR_DEV_INFO_t *dev_info,
 		if (i2c_int_en & TSI578_I2C_INT_ENABLE_BL_FAIL) {
 			glob_int_en |= TSI578_GLOB_INT_ENABLE_I2C_EN;
 		} else {
-			glob_int_en |= TSI578_GLOB_INT_ENABLE_I2C_EN;
+			glob_int_en &= ~TSI578_GLOB_INT_ENABLE_I2C_EN;
 		}
 		break;
 	}
