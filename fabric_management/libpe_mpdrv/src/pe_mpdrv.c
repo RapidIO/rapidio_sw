@@ -459,6 +459,7 @@ uint32_t rio_sc_config_dev_ctrs(DAR_DEV_INFO_t *dev_h,
 	rio_sc_cfg_rxs_ctr_in_t rxs_in;
 	rio_sc_cfg_rxs_ctr_out_t rxs_out;
 
+	//@sonar:off - c:S1871
 	switch (dev_h->driver_family) {
 	case RIO_CPS_DEVICE:
 		// Enable counters on all ports.
@@ -484,6 +485,7 @@ uint32_t rio_sc_config_dev_ctrs(DAR_DEV_INFO_t *dev_h,
 		}
 		break;
 
+
 	case RIO_TSI721_DEVICE:
 		// No configuration required.
 		break;
@@ -503,8 +505,11 @@ uint32_t rio_sc_config_dev_ctrs(DAR_DEV_INFO_t *dev_h,
 		break;
 
 	default:
+
 		break;
 	}
+	//@sonar:on
+
 	return rc;
 }
 

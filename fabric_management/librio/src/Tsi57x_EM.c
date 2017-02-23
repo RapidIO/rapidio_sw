@@ -1015,7 +1015,9 @@ static uint32_t tsi57x_set_event_en_cfg(DAR_DEV_INFO_t *dev_info,
 		break;
 
 	case rio_em_d_ttl:
-		// Nothing to do, event is not supported...
+	case rio_em_a_clr_pwpnd:
+	case rio_em_a_no_event:
+		// Nothing to do
 		break;
 
 	case rio_em_d_rte:
@@ -1028,10 +1030,6 @@ static uint32_t tsi57x_set_event_en_cfg(DAR_DEV_INFO_t *dev_info,
 
 	case rio_em_i_rst_req:
 		rc = tsi57x_set_event_en_cfg_rio_em_i_rst_req(dev_info, pnum, event, imp_rc);
-		break;
-
-	case rio_em_a_clr_pwpnd:
-	case rio_em_a_no_event:
 		break;
 
 	default:
@@ -1542,7 +1540,9 @@ uint32_t tsi57x_rio_em_cfg_get(DAR_DEV_INFO_t *dev_info,
 			break;
 
 		case rio_em_d_ttl:
-			// Nothing to do, event is not supported...
+		case rio_em_a_clr_pwpnd:
+		case rio_em_a_no_event:
+			// Nothing to do
 			break;
 
 		case rio_em_d_rte:
@@ -1551,6 +1551,7 @@ uint32_t tsi57x_rio_em_cfg_get(DAR_DEV_INFO_t *dev_info,
 						rio_em_detect_on;
 			}
 			break;
+
 		case rio_em_d_log:
 			rc = DARRegRead(dev_info, TSI578_RIO_LOG_ERR_DET_EN,
 					&log_err_en);
@@ -1566,6 +1567,7 @@ uint32_t tsi57x_rio_em_cfg_get(DAR_DEV_INFO_t *dev_info,
 						& TSI57X_ALL_LOG_ERRS;
 			}
 			break;
+
 		case rio_em_i_sig_det:
 			rc = DARRegRead(dev_info, TSI578_SPX_CTL(pnum),
 					&spx_ctl);
@@ -1590,10 +1592,6 @@ uint32_t tsi57x_rio_em_cfg_get(DAR_DEV_INFO_t *dev_info,
 				in_parms->events[e_idx].em_detect =
 						rio_em_detect_on;
 			}
-			break;
-
-		case rio_em_a_clr_pwpnd:
-		case rio_em_a_no_event:
 			break;
 
 		default:
@@ -2368,7 +2366,9 @@ uint32_t tsi57x_rio_em_clr_events(DAR_DEV_INFO_t *dev_info,
 			}
 			break;
 
-		case rio_em_d_ttl: // Do nothing
+		case rio_em_d_ttl:
+		case rio_em_a_no_event:
+			// Do nothing
 			break;
 
 		case rio_em_d_rte:
@@ -2397,6 +2397,7 @@ uint32_t tsi57x_rio_em_clr_events(DAR_DEV_INFO_t *dev_info,
 			}
 			clear_port_fail = true;
 			break;
+
 		case rio_em_f_err_rate:
 			// Clear all events that contribute to the fatal error rate event
 			rc = DARRegRead(dev_info, TSI578_SPX_ERR_DET(pnum),
@@ -2473,9 +2474,6 @@ uint32_t tsi57x_rio_em_clr_events(DAR_DEV_INFO_t *dev_info,
 			}
 			break;
 		}
-
-		case rio_em_a_no_event:
-			break;
 
 		default:
 			out_parms->imp_rc = EM_CLR_EVENTS(0x2F);

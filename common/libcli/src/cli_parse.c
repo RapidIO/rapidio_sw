@@ -72,11 +72,13 @@ float getFloatParm(char *token, float defaultData)
 {
 	float data;
 
+	//@sonar:off - c:S1871
 	if (token == NULL || token[0] == '/') {
 		data = defaultData;
 	} else if (sscanf(token, "%f", &data) <= 0) {
 		data = defaultData;
 	}
+	//@sonar:on
 	return data;
 }
 

@@ -887,9 +887,6 @@ static uint32_t tsi721_set_event_cfg(tsi721_event_cfg_reg_vals_t *regs,
 		break;
 
 	case rio_em_a_clr_pwpnd:
-		// Nothing to do..
-		break;
-
 	case rio_em_a_no_event:
 		// Nothing to do..
 		break;
@@ -913,6 +910,7 @@ static uint32_t tsi721_get_event_cfg(rio_em_cfg_t *event,
 	event->em_detect = rio_em_detect_0delta;
 	event->em_info = 0;
 
+	//@sonar:off - c:S1871
 	switch (event->em_event) {
 	case rio_em_f_los:
 		event->em_info = regs->plm_imp_spec_ctl
@@ -970,14 +968,17 @@ static uint32_t tsi721_get_event_cfg(rio_em_cfg_t *event,
 			event->em_detect = rio_em_detect_off;
 		}
 		break;
+
 	case rio_em_d_ttl:
 		event->em_detect = rio_em_detect_off;
 		event->em_info = 0;
 		break;
+
 	case rio_em_d_rte:
 		event->em_detect = rio_em_detect_off;
 		event->em_info = 0;
 		break;
+
 	case rio_em_d_log:
 		// Tsi721 logical layer errors are always detected.
 		// There is no support for standard logical layer errors,
@@ -992,6 +993,7 @@ static uint32_t tsi721_get_event_cfg(rio_em_cfg_t *event,
 			event->em_detect = rio_em_detect_off;
 		}
 		break;
+
 	case rio_em_i_sig_det:
 		if (regs->sp_ctl & TSI721_SP_CTL_PORT_LOCKOUT) {
 			event->em_detect = rio_em_detect_on;
@@ -999,6 +1001,7 @@ static uint32_t tsi721_get_event_cfg(rio_em_cfg_t *event,
 			event->em_detect = rio_em_detect_off;
 		}
 		break;
+
 	case rio_em_i_rst_req:
 		if ((regs->plm_imp_spec_ctl & TSI721_PLM_IMP_SPEC_CTL_SELF_RST)
 			|| (regs->plm_imp_spec_ctl
@@ -1008,6 +1011,7 @@ static uint32_t tsi721_get_event_cfg(rio_em_cfg_t *event,
 			event->em_detect = rio_em_detect_on;
 		}
 		break;
+
 	case rio_em_i_init_fail:
 		if ((regs->i2c_int_enable & TSI721_I2C_INT_ENABLE_BL_FAIL) &&
 							tsi721_int_supported) {
@@ -1016,15 +1020,18 @@ static uint32_t tsi721_get_event_cfg(rio_em_cfg_t *event,
 			event->em_detect = rio_em_detect_off;
 		}
 		break;
+
 	case rio_em_a_clr_pwpnd:
 	case rio_em_a_no_event:
 		event->em_detect = rio_em_detect_off;
 		event->em_info = 0;
 		break;
+
 	default:
 		rc = RIO_ERR_INVALID_PARAMETER;
 		goto fail;
 	}
+	//@sonar:on
 	rc = RIO_SUCCESS;
 
 fail:
@@ -1985,6 +1992,7 @@ uint32_t tsi721_rio_em_clr_events(DAR_DEV_INFO_t *dev_info,
 			goto fail;
 		}
 
+		//@sonar:off - c:S1871, c:S3458
 		switch (in_parms->events[i].event) {
 		case rio_em_f_2many_retx:
 			rc = DARRegWrite(dev_info, TSI721_PLM_STATUS,
@@ -1994,6 +2002,7 @@ uint32_t tsi721_rio_em_clr_events(DAR_DEV_INFO_t *dev_info,
 				goto fail;
 			}
 			break;
+
 		case rio_em_d_log:
 			rc = DARRegWrite(dev_info, TSI721_LOCAL_ERR_DET, 0);
 			if (RIO_SUCCESS != rc) {
@@ -2010,6 +2019,7 @@ uint32_t tsi721_rio_em_clr_events(DAR_DEV_INFO_t *dev_info,
 				goto fail;
 			}
 			break;
+
 		case rio_em_i_rst_req:
 			rc = DARRegWrite(dev_info, TSI721_PLM_STATUS,
 						TSI721_PLM_STATUS_RST_REQ);
@@ -2025,6 +2035,7 @@ uint32_t tsi721_rio_em_clr_events(DAR_DEV_INFO_t *dev_info,
 				goto fail;
 			}
 			break;
+
 		case rio_em_i_init_fail:
 			if (!tsi721_int_supported) {
 				break;
@@ -2036,6 +2047,7 @@ uint32_t tsi721_rio_em_clr_events(DAR_DEV_INFO_t *dev_info,
 				goto fail;
 			}
 			break;
+
 		case rio_em_a_clr_pwpnd:
 			rc = DARRegRead(dev_info, TSI721_SP_ERR_STAT, &temp);
 			if (RIO_SUCCESS != rc) {
@@ -2063,6 +2075,7 @@ uint32_t tsi721_rio_em_clr_events(DAR_DEV_INFO_t *dev_info,
 			 // tsi721_clr_events_need_soft_reset
 			break;
 		}
+		//@sonar:on
 	}
 
 	{
@@ -2210,9 +2223,13 @@ uint32_t tsi721_rio_em_create_events(DAR_DEV_INFO_t *dev_info,
 			}
 			break;
 
-		case rio_em_d_ttl: // Nothing to do.
-		case rio_em_d_rte: // Nothing to do.
+		case rio_em_d_ttl:
+		case rio_em_d_rte:
+		case rio_em_a_clr_pwpnd:
+		case rio_em_a_no_event:
+			// Nothing to do.
 			break;
+
 		case rio_em_d_log:
 			rc = DARRegWrite(dev_info, TSI721_LOCAL_ERR_DET,
 					TSI721_LOCAL_ERR_DET_ILL_TYPE |
@@ -2253,9 +2270,6 @@ uint32_t tsi721_rio_em_create_events(DAR_DEV_INFO_t *dev_info,
 			}
 			break;
 
-		case rio_em_a_clr_pwpnd:
-		case rio_em_a_no_event:
-			break;
 		default:
 			out_parms->failure_idx = i;
 			rc = RIO_ERR_INVALID_PARAMETER;

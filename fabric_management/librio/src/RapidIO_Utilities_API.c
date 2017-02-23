@@ -116,8 +116,6 @@ static uint32_t DAR_util_get_ftype(DAR_pkt_type pkt_type)
 		break;
 	case (pkt_resp):
 	case (pkt_resp_data):
-		rc = 13; /* Response (Type 13) packet */
-		break;
 	case (pkt_msg_resp):
 		rc = 13; /* Response (Type 13) packet */
 		break;

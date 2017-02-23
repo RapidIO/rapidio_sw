@@ -566,16 +566,12 @@ fail:
 
 static void srv_sig_handler(int signum)
 {
-        switch(signum) {
-        case SIGTERM:
-                srv_exit = 1;
-                break;
-        case SIGINT:
-                srv_exit = 1;
-                break;
-        case SIGUSR1:
-                srv_exit = 1;
-                break;
+	switch (signum) {
+	case SIGTERM:
+	case SIGINT:
+	case SIGUSR1:
+		srv_exit = 1;
+		break;
 	}
 }
 

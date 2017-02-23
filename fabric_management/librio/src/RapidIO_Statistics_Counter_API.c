@@ -154,6 +154,7 @@ uint32_t rio_sc_init_dev_ctrs(DAR_DEV_INFO_t *dev_info,
 	NULL_CHECK
 
 	if (VALIDATE_DEV_INFO(dev_info)) {
+		//@sonar:off - c:S3458
 		switch (dev_info->driver_family) {
 		case RIO_CPS_DEVICE:
 			return CPS_rio_sc_init_dev_ctrs(dev_info, in_parms,
@@ -174,6 +175,7 @@ uint32_t rio_sc_init_dev_ctrs(DAR_DEV_INFO_t *dev_info,
 		default:
 			return RIO_DAR_IMP_SPEC_FAILURE;
 		}
+		//@sonar:on
 	}
 	return DAR_DB_INVALID_HANDLE;
 }
@@ -185,6 +187,7 @@ uint32_t rio_sc_read_ctrs(DAR_DEV_INFO_t *dev_info,
 	NULL_CHECK
 
 	if (VALIDATE_DEV_INFO(dev_info)) {
+		//@sonar:off - c:S3458
 		switch (dev_info->driver_family) {
 		case RIO_CPS_DEVICE:
 			return CPS_rio_sc_read_ctrs(dev_info, in_parms,
@@ -205,6 +208,7 @@ uint32_t rio_sc_read_ctrs(DAR_DEV_INFO_t *dev_info,
 		default:
 			return RIO_DAR_IMP_SPEC_FAILURE;
 		}
+		//@sonar:on
 	}
 	return DAR_DB_INVALID_HANDLE;
 }

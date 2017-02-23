@@ -3413,13 +3413,11 @@ uint32_t CPS_rio_em_clr_events(DAR_DEV_INFO_t *dev_info,
 			break;
 
 		case rio_em_i_rst_req: // Nothing to do.
+		case rio_em_a_no_event:
 			break;
 
 		case rio_em_a_clr_pwpnd:
 			regs[pnum].clr_pwpnd = true;
-			break;
-
-		case rio_em_a_no_event:
 			break;
 
 		default:

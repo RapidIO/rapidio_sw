@@ -240,6 +240,7 @@ uint32_t rio_em_cfg_pw(DAR_DEV_INFO_t *dev_info, rio_em_cfg_pw_in_t *in_parms,
 	NULL_CHECK
 
 	if (VALIDATE_DEV_INFO(dev_info)) {
+		//@sonar:off - c:S3458
 		switch (dev_info->driver_family) {
 		case RIO_CPS_DEVICE:
 			return CPS_rio_em_cfg_pw(dev_info, in_parms, out_parms);
@@ -257,6 +258,7 @@ uint32_t rio_em_cfg_pw(DAR_DEV_INFO_t *dev_info, rio_em_cfg_pw_in_t *in_parms,
 		default:
 			return RIO_DAR_IMP_SPEC_FAILURE;
 		}
+		//@sonar:on
 	}
 	return DAR_DB_INVALID_HANDLE;
 }
@@ -267,6 +269,7 @@ uint32_t rio_em_cfg_set(DAR_DEV_INFO_t *dev_info, rio_em_cfg_set_in_t *in_parms,
 	NULL_CHECK
 
 	if (VALIDATE_DEV_INFO(dev_info)) {
+		//@sonar:off - c:S1871, c:S3458
 		switch (dev_info->driver_family) {
 		case RIO_CPS_DEVICE:
 			return CPS_rio_em_cfg_set(dev_info, in_parms, out_parms);
@@ -284,6 +287,7 @@ uint32_t rio_em_cfg_set(DAR_DEV_INFO_t *dev_info, rio_em_cfg_set_in_t *in_parms,
 		default:
 			return RIO_DAR_IMP_SPEC_FAILURE;
 		}
+		//@sonar:on
 	}
 	return DAR_DB_INVALID_HANDLE;
 }
@@ -294,6 +298,7 @@ uint32_t rio_em_cfg_get(DAR_DEV_INFO_t *dev_info, rio_em_cfg_get_in_t *in_parms,
 	NULL_CHECK
 
 	if (VALIDATE_DEV_INFO(dev_info)) {
+		//@sonar:off - c:S1871, c:S3458
 		switch (dev_info->driver_family) {
 		case RIO_CPS_DEVICE:
 			return CPS_rio_em_cfg_get(dev_info, in_parms, out_parms);
@@ -311,6 +316,7 @@ uint32_t rio_em_cfg_get(DAR_DEV_INFO_t *dev_info, rio_em_cfg_get_in_t *in_parms,
 		default:
 			return RIO_DAR_IMP_SPEC_FAILURE;
 		}
+		//@sonar:on
 	}
 	return DAR_DB_INVALID_HANDLE;
 }
@@ -325,6 +331,7 @@ uint32_t rio_em_dev_rpt_ctl(DAR_DEV_INFO_t *dev_info,
 	NULL_CHECK
 
 	if (VALIDATE_DEV_INFO(dev_info)) {
+		//@sonar:off - c:S3458
 		switch (dev_info->driver_family) {
 		case RIO_CPS_DEVICE:
 			return CPS_rio_em_dev_rpt_ctl(dev_info, in_parms,
@@ -345,6 +352,7 @@ uint32_t rio_em_dev_rpt_ctl(DAR_DEV_INFO_t *dev_info,
 		default:
 			return RIO_DAR_IMP_SPEC_FAILURE;
 		}
+		//@sonar:on
 	}
 	return DAR_DB_INVALID_HANDLE;
 }
@@ -360,6 +368,7 @@ uint32_t rio_em_parse_pw(DAR_DEV_INFO_t *dev_info,
 	NULL_CHECK
 
 	if (VALIDATE_DEV_INFO(dev_info)) {
+		//@sonar:off - c:S1871, c:S3458
 		switch (dev_info->driver_family) {
 		case RIO_CPS_DEVICE:
 			return CPS_rio_em_parse_pw(dev_info, in_parms,
@@ -380,6 +389,7 @@ uint32_t rio_em_parse_pw(DAR_DEV_INFO_t *dev_info,
 		default:
 			return RIO_DAR_IMP_SPEC_FAILURE;
 		}
+		//@sonar:off
 	}
 	return DAR_DB_INVALID_HANDLE;
 }
@@ -391,6 +401,7 @@ uint32_t rio_em_get_int_stat(DAR_DEV_INFO_t *dev_info,
 	NULL_CHECK
 
 	if (VALIDATE_DEV_INFO(dev_info)) {
+		//@sonar:off - c:S1871, c:S3458
 		switch (dev_info->driver_family) {
 		case RIO_CPS_DEVICE:
 			return CPS_rio_em_get_int_stat(dev_info, in_parms,
@@ -411,6 +422,7 @@ uint32_t rio_em_get_int_stat(DAR_DEV_INFO_t *dev_info,
 		default:
 			return RIO_DAR_IMP_SPEC_FAILURE;
 		}
+		//@sonar:on
 	}
 	return DAR_DB_INVALID_HANDLE;
 }
@@ -422,6 +434,7 @@ uint32_t rio_em_get_pw_stat(DAR_DEV_INFO_t *dev_info,
 	NULL_CHECK
 
 	if (VALIDATE_DEV_INFO(dev_info)) {
+		//@sonar:off - c:S1871, c:S3458
 		switch (dev_info->driver_family) {
 		case RIO_CPS_DEVICE:
 			return CPS_rio_em_get_pw_stat(dev_info, in_parms,
@@ -442,6 +455,7 @@ uint32_t rio_em_get_pw_stat(DAR_DEV_INFO_t *dev_info,
 		default:
 			return RIO_DAR_IMP_SPEC_FAILURE;
 		}
+		//@sonar:on
 	}
 	return DAR_DB_INVALID_HANDLE;
 }
@@ -456,6 +470,7 @@ uint32_t rio_em_clr_events(DAR_DEV_INFO_t *dev_info,
 	NULL_CHECK
 
 	if (VALIDATE_DEV_INFO(dev_info)) {
+		//@sonar:off - c:S1871, c:S3458
 		switch (dev_info->driver_family) {
 		case RIO_CPS_DEVICE:
 			return CPS_rio_em_clr_events(dev_info, in_parms,
@@ -476,6 +491,7 @@ uint32_t rio_em_clr_events(DAR_DEV_INFO_t *dev_info,
 		default:
 			return RIO_DAR_IMP_SPEC_FAILURE;
 		}
+		//@sonar:on
 	}
 	return DAR_DB_INVALID_HANDLE;
 }
@@ -487,6 +503,7 @@ uint32_t rio_em_create_events(DAR_DEV_INFO_t *dev_info,
 	NULL_CHECK
 
 	if (VALIDATE_DEV_INFO(dev_info)) {
+		//@sonar:off - c:S1871, c:S3458
 		switch (dev_info->driver_family) {
 		case RIO_CPS_DEVICE:
 			return CPS_rio_em_create_events(dev_info, in_parms,
@@ -507,6 +524,7 @@ uint32_t rio_em_create_events(DAR_DEV_INFO_t *dev_info,
 		default:
 			return RIO_DAR_IMP_SPEC_FAILURE;
 		}
+		//@sonar:on
 	}
 	return DAR_DB_INVALID_HANDLE;
 }

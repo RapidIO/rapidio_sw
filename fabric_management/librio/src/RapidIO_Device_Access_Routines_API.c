@@ -100,6 +100,7 @@ uint32_t DARRegRead(DAR_DEV_INFO_t *dev_info, uint32_t offset,
 		return RIO_SUCCESS;
 	}
 
+	//@sonar:off - c:S1871
 	switch (dev_info->driver_family) {
 	case RIO_RXS_DEVICE:
 	case RIO_CPS_DEVICE:
@@ -118,6 +119,8 @@ uint32_t DARRegRead(DAR_DEV_INFO_t *dev_info, uint32_t offset,
 		rc = RIO_ERR_SW_FAILURE;
 		break;
 	}
+	//@sonar:on
+
 	return rc;
 }
 
@@ -145,6 +148,7 @@ uint32_t DARRegWrite(DAR_DEV_INFO_t *dev_info, uint32_t offset,
 		return DAR_DB_NO_DRIVER;
 	}
 
+	//@sonar:off - c:S1871
 	switch (dev_info->driver_family) {
 	case RIO_RXS_DEVICE:
 	case RIO_CPS_DEVICE:
@@ -163,6 +167,8 @@ uint32_t DARRegWrite(DAR_DEV_INFO_t *dev_info, uint32_t offset,
 		rc = RIO_ERR_SW_FAILURE;
 		break;
 	}
+	//@sonar:on
+
 	if (RIO_SUCCESS != rc) {
 		return rc;
 	}

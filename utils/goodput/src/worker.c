@@ -1357,25 +1357,25 @@ void *worker_thread(void *parm)
 		if (info->wkr_thr.cpu_req != info->wkr_thr.cpu_run)
 			migrate_thread_to_cpu(&info->wkr_thr);
 
+		//@sonar:off - c:S3458
 		switch (info->action) {
-        	case direct_io: direct_io_goodput(info);
-				break;
+		case direct_io:
+			direct_io_goodput(info);
+			break;
 		case direct_io_tx_lat:
-				direct_io_tx_latency(info);
-				break;
+			direct_io_tx_latency(info);
+			break;
 		case direct_io_rx_lat:
-				direct_io_rx_latency(info);
-				break;
-        	case dma_tx:	
+			direct_io_rx_latency(info);
+			break;
+		case dma_tx:
+		case dma_tx_lat:
 			dma_goodput(info);
 			break;
-        	case dma_tx_num:	
+		case dma_tx_num:
 			dma_tx_num_cmd(info);
 			break;
-        	case dma_tx_lat:	
-			dma_goodput(info);
-			break;
-        	case dma_rx_lat:	
+		case dma_rx_lat:
 			dma_rx_latency(info);
 			break;
 		case message_tx:
@@ -1390,14 +1390,14 @@ void *worker_thread(void *parm)
 		case message_tx_oh:
 			msg_tx_overhead(info);
 			break;
-        	case alloc_ibwin:
-				dma_alloc_ibwin(info);
-				break;
-        	case free_ibwin:
-				dma_free_ibwin(info);
-				break;
-		
-        	case shutdown_worker:
+		case alloc_ibwin:
+			dma_alloc_ibwin(info);
+			break;
+		case free_ibwin:
+			dma_free_ibwin(info);
+			break;
+
+		case shutdown_worker:
 			info->stat = 0;
 			break;
 		case no_action:
@@ -1405,6 +1405,7 @@ void *worker_thread(void *parm)
 		default:
 			break;
 		}
+		//@sonar:on
 
 		if (info->stat) {
 			info->stat = 2;
@@ -1425,18 +1426,18 @@ void start_worker_thread(struct worker *info, int new_mp_h, int cpu)
 	init_worker_info(info, 0);
 
 	if (new_mp_h) {
-        	rc = riomp_mgmt_mport_create_handle(0, 0, &info->mp_h);
-        	if (rc)
+		rc = riomp_mgmt_mport_create_handle(0, 0, &info->mp_h);
+		if (rc)
 			return;
 		info->mp_h_is_mine = 1;
 	} else {
-        	info->mp_h = mp_h;
+		info->mp_h = mp_h;
 	}
 	info->mp_num = mp_h_num;
 	info->wkr_thr.cpu_req = cpu;
 
 	rc = pthread_create(&info->wkr_thr.thr, NULL, worker_thread,
-								(void *)info);
+			(void *)info);
 
 	if (!rc)
 		sem_wait(&info->started);

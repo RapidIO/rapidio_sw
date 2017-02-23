@@ -178,6 +178,7 @@ uint32_t rio_rt_initialize(DAR_DEV_INFO_t *dev_info,
 	NULL_CHECK
 
 	if (VALIDATE_DEV_INFO(dev_info)) {
+		//@sonar:off - c:S1871, c:S3458
 		switch (dev_info->driver_family) {
 		case RIO_CPS_DEVICE:
 			return CPS_rio_rt_initialize(dev_info, in_parms,
@@ -198,6 +199,7 @@ uint32_t rio_rt_initialize(DAR_DEV_INFO_t *dev_info,
 		default:
 			return RIO_DAR_IMP_SPEC_FAILURE;
 		}
+		//@sonar:on
 	}
 	return DAR_DB_INVALID_HANDLE;
 }
@@ -208,6 +210,7 @@ uint32_t rio_rt_probe(DAR_DEV_INFO_t *dev_info, rio_rt_probe_in_t *in_parms,
 	NULL_CHECK
 
 	if (VALIDATE_DEV_INFO(dev_info)) {
+		//@sonar:off - c:S1871, c:S3458
 		switch (dev_info->driver_family) {
 		case RIO_CPS_DEVICE:
 			return CPS_rio_rt_probe(dev_info, in_parms, out_parms);
@@ -224,6 +227,7 @@ uint32_t rio_rt_probe(DAR_DEV_INFO_t *dev_info, rio_rt_probe_in_t *in_parms,
 		default:
 			return RIO_DAR_IMP_SPEC_FAILURE;
 		}
+		//@sonar:on
 	}
 	return DAR_DB_INVALID_HANDLE;
 }
@@ -235,6 +239,7 @@ uint32_t rio_rt_probe_all(DAR_DEV_INFO_t *dev_info,
 	NULL_CHECK
 
 	if (VALIDATE_DEV_INFO(dev_info)) {
+		//@sonar:off - c:S1871, c:S3458
 		switch (dev_info->driver_family) {
 		case RIO_CPS_DEVICE:
 			return CPS_rio_rt_probe_all(dev_info, in_parms,
@@ -255,6 +260,7 @@ uint32_t rio_rt_probe_all(DAR_DEV_INFO_t *dev_info,
 		default:
 			return RIO_DAR_IMP_SPEC_FAILURE;
 		}
+		//@sonar:on
 	}
 	return DAR_DB_INVALID_HANDLE;
 }
@@ -265,6 +271,7 @@ uint32_t rio_rt_set_all(DAR_DEV_INFO_t *dev_info, rio_rt_set_all_in_t *in_parms,
 	NULL_CHECK
 
 	if (VALIDATE_DEV_INFO(dev_info)) {
+		//@sonar:off - c:S1871, c:S3458
 		switch (dev_info->driver_family) {
 		case RIO_CPS_DEVICE:
 			return CPS_rio_rt_set_all(dev_info, in_parms, out_parms);
@@ -281,6 +288,7 @@ uint32_t rio_rt_set_all(DAR_DEV_INFO_t *dev_info, rio_rt_set_all_in_t *in_parms,
 		default:
 			return RIO_DAR_IMP_SPEC_FAILURE;
 		}
+		//@sonar:on
 	}
 	return DAR_DB_INVALID_HANDLE;
 }
@@ -292,6 +300,7 @@ uint32_t rio_rt_set_changed(DAR_DEV_INFO_t *dev_info,
 	NULL_CHECK
 
 	if (VALIDATE_DEV_INFO(dev_info)) {
+		//@sonar:off - c:S1871, c:S3458
 		switch (dev_info->driver_family) {
 		case RIO_CPS_DEVICE:
 			return CPS_rio_rt_set_changed(dev_info, in_parms,
@@ -312,6 +321,7 @@ uint32_t rio_rt_set_changed(DAR_DEV_INFO_t *dev_info,
 		default:
 			return RIO_DAR_IMP_SPEC_FAILURE;
 		}
+		//@sonar:on
 	}
 	return DAR_DB_INVALID_HANDLE;
 }
@@ -323,6 +333,7 @@ uint32_t rio_rt_alloc_mc_mask(DAR_DEV_INFO_t *dev_info,
 	NULL_CHECK
 
 	if (VALIDATE_DEV_INFO(dev_info)) {
+		//@sonar:off - c:S1871, c:S3458
 		switch (dev_info->driver_family) {
 		case RIO_CPS_DEVICE:
 			return DSF_rio_rt_alloc_mc_mask(dev_info,
@@ -344,6 +355,7 @@ uint32_t rio_rt_alloc_mc_mask(DAR_DEV_INFO_t *dev_info,
 		default:
 			return RIO_DAR_IMP_SPEC_FAILURE;
 		}
+		//@sonar:on
 	}
 	return DAR_DB_INVALID_HANDLE;
 }
@@ -355,6 +367,7 @@ uint32_t rio_rt_dealloc_mc_mask(DAR_DEV_INFO_t *dev_info,
 	NULL_CHECK
 
 	if (VALIDATE_DEV_INFO(dev_info)) {
+		//@sonar:off - c:S1871, c:S3458
 		switch (dev_info->driver_family) {
 		case RIO_CPS_DEVICE:
 			return DSF_rio_rt_dealloc_mc_mask(dev_info, in_parms,
@@ -375,6 +388,7 @@ uint32_t rio_rt_dealloc_mc_mask(DAR_DEV_INFO_t *dev_info,
 		default:
 			return RIO_DAR_IMP_SPEC_FAILURE;
 		}
+		//@sonar:on
 	}
 	return DAR_DB_INVALID_HANDLE;
 }
@@ -386,6 +400,7 @@ uint32_t rio_rt_change_rte(DAR_DEV_INFO_t *dev_info,
 	NULL_CHECK
 
 	if (VALIDATE_DEV_INFO(dev_info)) {
+		//@sonar:off - c:S1871, c:S3458
 		switch (dev_info->driver_family) {
 		case RIO_CPS_DEVICE:
 			return CPS_rio_rt_change_rte(dev_info, in_parms,
@@ -406,6 +421,7 @@ uint32_t rio_rt_change_rte(DAR_DEV_INFO_t *dev_info,
 		default:
 			return RIO_DAR_IMP_SPEC_FAILURE;
 		}
+		//@sonar:on
 	}
 	return DAR_DB_INVALID_HANDLE;
 }
@@ -417,6 +433,7 @@ uint32_t rio_rt_change_mc_mask(DAR_DEV_INFO_t *dev_info,
 	NULL_CHECK
 
 	if (VALIDATE_DEV_INFO(dev_info)) {
+		//@sonar:off - c:S1871, c:S3458
 		switch (dev_info->driver_family) {
 		case RIO_CPS_DEVICE:
 			return CPS_rio_rt_change_mc_mask(dev_info, in_parms,
@@ -437,6 +454,7 @@ uint32_t rio_rt_change_mc_mask(DAR_DEV_INFO_t *dev_info,
 		default:
 			return RIO_DAR_IMP_SPEC_FAILURE;
 		}
+		//@sonar:on
 	}
 	return DAR_DB_INVALID_HANDLE;
 }
