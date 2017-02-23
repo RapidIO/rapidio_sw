@@ -141,16 +141,20 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	for(int n = 2; n < argc; n++) {
+	for (int n = 2; n < argc; n++) {
 		const char* arg = argv[n];
-		if(! strcmp(arg,"--rc")) {
-		       if (n == (argc-1)) continue;
-		       rc_script = argv[++n];
-		       continue;
+		if (!strcmp(arg, "--rc")) {
+			if (n == (argc - 1)) {
+				continue;
+			}
+			rc_script = argv[++n];
+			continue;
 		}
-		if(! strstr(arg,"=")) continue;
+		if (!strstr(arg, "=")) {
+			continue;
+		}
 		SetEnvVar((char *)arg);
-        }
+	}
 
 	rdma_log_init("goodput_log.txt", 1);
 	if (setup_mport(mport_num)) {
