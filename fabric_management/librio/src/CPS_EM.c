@@ -1554,6 +1554,309 @@ exit:
 
 }
 
+static uint32_t cps_rio_em_create_events_rio_em_f_los(DAR_DEV_INFO_t *dev_info,
+		rio_em_create_events_out_t *out_parms, uint32_t pnum,
+		rio_pc_ls_t ls, cps_port_info_t *pi)
+{
+	uint8_t quadrant;
+	uint8_t quad_cfg;
+	uint32_t rc;
+
+	// Test both sources of LOS, the per port LOA bit and the
+	// per lane Sync/Ready bits.
+	// Assume that the LOA bit is reliable at 3.125 Gbaud and below,
+	// and that the Sync/Ready bits are required at 5.0 Gbaud and above
+	// for testing purposes only...
+	if (ls <= rio_pc_ls_3p125) {
+		rc = cps_create_rate_event(dev_info, pnum,
+		CPS1848_PORT_X_IMPL_SPEC_ERR_DET_LOA,
+				CPS1848_PORT_X_IMPL_SPEC_ERR_DET(pnum),
+				CPS1848_PORT_X_IMPL_SPEC_ERR_RATE_EN(pnum),
+				&out_parms->imp_rc);
+	} else {
+		quadrant = pi->cpr[pnum].quadrant;
+		quad_cfg = pi->quad_cfg_val[quadrant];
+		rc =
+				cps_create_rate_event(dev_info, pnum,
+						(CPS1848_LANE_X_ERR_DET_LANE_SYNC
+								| CPS1848_LANE_X_ERR_DET_LANE_RDY),
+						CPS1848_LANE_X_ERR_DET(
+								pi->cpr[pnum].cfg[quad_cfg].first_lane),
+						CPS1848_LANE_X_ERR_RATE_EN(
+								pi->cpr[pnum].cfg[quad_cfg].first_lane),
+						&out_parms->imp_rc);
+	}
+
+	return rc;
+}
+
+static uint32_t cps_rio_em_create_events_rio_em_f_port_err(DAR_DEV_INFO_t *dev_info,
+		rio_em_create_events_out_t *out_parms, uint32_t pnum, rio_pc_ls_t ls)
+{
+	uint32_t temp;
+	uint32_t ackID;
+	uint32_t imp_spec_det;
+	uint32_t cmd = RIO_SPX_LM_REQ_CMD_LR_IS;
+	uint32_t rc;
+
+	// Check that port_err detection is enabled.
+	rc = DARRegRead(dev_info, CPS1848_PORT_X_IMPL_SPEC_ERR_RPT_EN(pnum),
+			&temp);
+	if (RIO_SUCCESS != rc) {
+		out_parms->imp_rc = EM_CREATE_EVENTS(0x11);
+		goto exit;
+	}
+
+	if (!(temp & CPS1848_PORT_X_IMPL_SPEC_ERR_RPT_EN_FATAL_TO_EN)) {
+		rc = RIO_ERR_NOT_SUP_BY_CONFIG;
+		out_parms->imp_rc = EM_CREATE_EVENTS(0x12);
+		goto exit;
+	}
+
+	// Invert the next expected ackID, then issue a link request...
+	rc = DARRegRead(dev_info, CPS1848_PORT_X_LOCAL_ACKID_CSR(pnum), &ackID);
+	if (RIO_SUCCESS != rc) {
+		out_parms->imp_rc = EM_CREATE_EVENTS(0x13);
+		goto exit;
+	}
+	ackID = ackID ^ (CPS1848_PORT_X_LOCAL_ACKID_CSR_OUTBOUND | CPS1848_PORT_X_LOCAL_ACKID_CSR_OUTSTD);
+	rc = DARRegWrite(dev_info, CPS1848_PORT_X_LOCAL_ACKID_CSR(pnum), ackID);
+	if (RIO_SUCCESS != rc) {
+		out_parms->imp_rc = EM_CREATE_EVENTS(0x14);
+		goto exit;
+	}
+	// The above access sets the "Set an Illegal Ackid" bit, so we
+	// must clear this bit to avoid bad behavior caused by the
+	// initialization hook.
+	rc = DARRegRead(dev_info, CPS1848_PORT_X_IMPL_SPEC_ERR_DET(pnum),
+			&imp_spec_det);
+	if (RIO_SUCCESS != rc) {
+		out_parms->imp_rc = EM_CREATE_EVENTS(0x15);
+		goto exit;
+	}
+
+	imp_spec_det &= ~CPS1848_PORT_X_IMPL_SPEC_ERR_RPT_EN_SET_ACKID_EN;
+	rc = DARRegWrite(dev_info, CPS1848_PORT_X_IMPL_SPEC_ERR_DET(pnum),
+			imp_spec_det);
+	if (RIO_SUCCESS != rc) {
+		out_parms->imp_rc = EM_CREATE_EVENTS(0x16);
+		goto exit;
+	}
+
+	rc = DARRegWrite(dev_info, CPS1848_PORT_X_LINK_MAINT_REQ_CSR(pnum),
+			cmd);
+	if (RIO_SUCCESS != rc) {
+		out_parms->imp_rc = EM_CREATE_EVENTS(0x17);
+		goto exit;
+	}
+
+	rc = DARRegRead(dev_info, CPS1848_PORT_X_LINK_MAINT_RESP_CSR(pnum),
+			&cmd);
+	if (RIO_SUCCESS != rc) {
+		out_parms->imp_rc = EM_CREATE_EVENTS(0x18);
+		goto exit;
+	}
+
+	// Create the fake timeout/link error indication
+	if (ls <= rio_pc_ls_3p125) {
+		rc = DARRegWrite(dev_info, CPS1848_PORT_X_ERR_DET_CSR(pnum),
+		CPS1848_PORT_X_ERR_DET_CSR_LR_ACKID_ILL);
+		if (RIO_SUCCESS != rc) {
+			out_parms->imp_rc = EM_CREATE_EVENTS(0x19);
+		}
+	} else {
+		rc = DARRegWrite(dev_info,
+				CPS1848_PORT_X_IMPL_SPEC_ERR_DET(pnum),
+				CPS1848_PORT_X_IMPL_SPEC_ERR_DET_FATAL_TO);
+		if (RIO_SUCCESS != rc) {
+			out_parms->imp_rc = EM_CREATE_EVENTS(0x1A);
+		}
+	}
+
+exit:
+	return rc;
+}
+
+static uint32_t cps_rio_em_create_events_rio_em_f_2many_retx(DAR_DEV_INFO_t *dev_info,
+		rio_em_create_events_out_t *out_parms, uint32_t pnum)
+{
+	uint32_t err_rpt;
+	uint32_t impl_err_det;
+	uint32_t rc;
+
+	// No need to create a rate event - just write the register...
+	rc = DARRegRead(dev_info, CPS1848_PORT_X_IMPL_SPEC_ERR_RPT_EN(pnum),
+			&err_rpt);
+	if (RIO_SUCCESS != rc) {
+		out_parms->imp_rc = EM_CREATE_EVENTS(0x21);
+		goto exit;
+	}
+
+	if (!(err_rpt & CPS1848_PORT_X_IMPL_SPEC_ERR_RPT_EN_MANY_RETRY_EN)) {
+		rc = RIO_ERR_NOT_SUP_BY_CONFIG;
+		out_parms->imp_rc = EM_CREATE_EVENTS(0x22);
+		goto exit;
+	}
+
+	rc = DARRegRead(dev_info, CPS1848_PORT_X_IMPL_SPEC_ERR_DET(pnum),
+			&impl_err_det);
+	if (RIO_SUCCESS != rc) {
+		out_parms->imp_rc = EM_CREATE_EVENTS(0x23);
+		goto exit;
+	}
+
+	impl_err_det |= CPS1848_PORT_X_IMPL_SPEC_ERR_DET_MANY_RETRY;
+	rc = DARRegWrite(dev_info, CPS1848_PORT_X_IMPL_SPEC_ERR_DET(pnum),
+			impl_err_det);
+	if (RIO_SUCCESS != rc) {
+		out_parms->imp_rc = EM_CREATE_EVENTS(0x24);
+	}
+
+exit:
+	return rc;
+}
+
+static uint32_t cps_rio_em_create_events_rio_em_d_ttl(DAR_DEV_INFO_t *dev_info,
+		rio_em_create_events_out_t *out_parms, uint32_t pnum)
+{
+	uint32_t temp;
+	uint32_t rc;
+
+	rc = DARRegRead(dev_info, CPS1848_PKT_TTL_CSR, &temp);
+	if (RIO_SUCCESS != rc) {
+		out_parms->imp_rc = EM_CREATE_EVENTS(0x30);
+		goto exit;
+	}
+
+	if (!temp) {
+		rc = RIO_ERR_NOT_SUP_BY_CONFIG;
+		out_parms->imp_rc = EM_CREATE_EVENTS(0x31);
+		goto exit;
+	}
+
+	rc = DARRegWrite(dev_info, CPS1848_PORT_X_IMPL_SPEC_ERR_DET(pnum),
+	CPS1848_PORT_X_IMPL_SPEC_ERR_DET_TTL_EVENT);
+	if (RIO_SUCCESS != rc) {
+		out_parms->imp_rc = EM_CREATE_EVENTS(0x32);
+	}
+
+exit:
+	return rc;
+}
+
+static uint32_t cps_rio_em_create_events_rio_em_d_rte(DAR_DEV_INFO_t *dev_info,
+		rio_em_create_events_out_t *out_parms, uint32_t pnum)
+{
+	uint32_t temp;
+	uint32_t rc;
+
+	rc = DARRegRead(dev_info, CPS1848_PORT_X_IMPL_SPEC_ERR_RPT_EN(pnum),
+			&temp);
+	if (RIO_SUCCESS != rc) {
+		out_parms->imp_rc = EM_CREATE_EVENTS(0x40);
+		goto exit;
+	}
+
+	if (!(temp & CPS1848_PORT_X_IMPL_SPEC_ERR_RPT_EN_RTE_ISSUE_EN)) {
+		rc = RIO_ERR_NOT_SUP_BY_CONFIG;
+		out_parms->imp_rc = EM_CREATE_EVENTS(0x41);
+		goto exit;
+	}
+
+	rc = DARRegWrite(dev_info, CPS1848_PORT_X_IMPL_SPEC_ERR_DET(pnum),
+	CPS1848_PORT_X_IMPL_SPEC_ERR_DET_RTE_ISSUE);
+	if (RIO_SUCCESS != rc) {
+		out_parms->imp_rc = EM_CREATE_EVENTS(0x42);
+	}
+
+exit:
+	return rc;
+}
+
+static uint32_t cps_rio_em_create_events_rio_em_d_log(DAR_DEV_INFO_t *dev_info,
+		rio_em_create_events_out_t *out_parms)
+{
+	uint32_t temp;
+	uint32_t rc;
+
+	rc = DARRegRead(dev_info, CPS1848_LT_ERR_EN_CSR, &temp);
+	if (RIO_SUCCESS != rc) {
+		out_parms->imp_rc = EM_CREATE_EVENTS(0x50);
+		goto exit;
+	}
+
+	if (!temp) {
+		rc = RIO_ERR_NOT_SUP_BY_CONFIG;
+		out_parms->imp_rc = EM_CREATE_EVENTS(0x51);
+		goto exit;
+	}
+
+	rc = DARRegWrite(dev_info, CPS1848_LT_ERR_DET_CSR, CPSGEN2_ALL_LOG);
+	if (RIO_SUCCESS != rc) {
+		out_parms->imp_rc = EM_CREATE_EVENTS(0x52);
+	}
+
+exit:
+	return rc;
+}
+
+static uint32_t cps_rio_em_create_events_rio_em_i_sig_det(DAR_DEV_INFO_t *dev_info,
+		rio_em_create_events_out_t *out_parms, uint32_t pnum)
+{
+	uint32_t temp;
+	uint32_t rc;
+
+	rc = DARRegRead(dev_info, CPS1848_PORT_X_IMPL_SPEC_ERR_RPT_EN(pnum),
+			&temp);
+	if (RIO_SUCCESS != rc) {
+		out_parms->imp_rc = EM_CREATE_EVENTS(0x61);
+		goto exit;
+	}
+
+	if (!(temp & CPS1848_PORT_X_IMPL_SPEC_ERR_RPT_EN_PORT_INIT_EN)) {
+		rc = RIO_ERR_NOT_SUP_BY_CONFIG;
+		out_parms->imp_rc = EM_CREATE_EVENTS(0x62);
+		goto exit;
+	}
+
+	rc = DARRegWrite(dev_info, CPS1848_PORT_X_IMPL_SPEC_ERR_DET(pnum),
+	CPS1848_PORT_X_IMPL_SPEC_ERR_DET_PORT_INIT);
+	if (RIO_SUCCESS != rc) {
+		out_parms->imp_rc = EM_CREATE_EVENTS(0x63);
+	}
+
+exit:
+	return rc;
+}
+
+static uint32_t cps_rio_em_create_events_rio_em_i_init_fail(DAR_DEV_INFO_t *dev_info,
+		rio_em_create_events_out_t *out_parms)
+{
+	uint32_t temp;
+	uint32_t rc;
+
+	rc = DARRegRead(dev_info, CPS1848_I2C_MASTER_CTL, &temp);
+	if (RIO_SUCCESS != rc) {
+		out_parms->imp_rc = EM_CREATE_EVENTS(0x71);
+		goto exit;
+	}
+
+	if (temp & CPS1848_I2C_MASTER_CTL_CHKSUM_DIS) {
+		rc = RIO_ERR_NOT_SUP_BY_CONFIG;
+		out_parms->imp_rc = EM_CREATE_EVENTS(0x72);
+		goto exit;
+	}
+
+	rc = DARRegWrite(dev_info, CPS1848_AUX_PORT_ERR_DET,
+			CPS1848_AUX_PORT_ERR_DET_I2C_CHKSUM_ERR);
+	if (RIO_SUCCESS != rc) {
+		out_parms->imp_rc = EM_CREATE_EVENTS(0x73);
+	}
+
+exit:
+	return rc;
+}
+
 // Error Management
 //
 uint32_t CPS_rio_em_cfg_pw(DAR_DEV_INFO_t *dev_info,
@@ -2927,6 +3230,7 @@ uint32_t CPS_rio_em_clr_events(DAR_DEV_INFO_t *dev_info,
 		rio_em_clr_events_out_t *out_parms)
 {
 	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+	uint32_t temp;
 	int pnum;
 	int idx;
 	uint8_t lnum, quadrant, quad_cfg;
@@ -3026,8 +3330,7 @@ uint32_t CPS_rio_em_clr_events(DAR_DEV_INFO_t *dev_info,
 			clear_port_fail = true;
 			break;
 
-		case rio_em_f_2many_retx: {
-			uint32_t temp;
+		case rio_em_f_2many_retx:
 			regs[pnum].imp_err_det &=
 					~( CPS1848_PORT_X_IMPL_SPEC_ERR_DET_MANY_RETRY);
 
@@ -3038,6 +3341,7 @@ uint32_t CPS_rio_em_clr_events(DAR_DEV_INFO_t *dev_info,
 				out_parms->imp_rc = EM_CLR_EVENTS(0x21);
 				goto exit;
 			}
+
 			temp |= CPS1848_PORT_X_STATUS_AND_CTL_CLR_MANY_RETRY;
 			rc = DARRegWrite(dev_info,
 					CPS1848_PORT_X_STATUS_AND_CTL(pnum),
@@ -3046,7 +3350,7 @@ uint32_t CPS_rio_em_clr_events(DAR_DEV_INFO_t *dev_info,
 				out_parms->imp_rc = EM_CLR_EVENTS(0x22);
 				goto exit;
 			}
-		}
+
 			clear_port_fail = true;
 			break;
 
@@ -3058,7 +3362,6 @@ uint32_t CPS_rio_em_clr_events(DAR_DEV_INFO_t *dev_info,
 			if (RIO_SUCCESS != rc) {
 				goto exit;
 			}
-			;
 			break;
 
 		case rio_em_d_ttl:
@@ -3152,11 +3455,12 @@ uint32_t CPS_rio_em_clr_events(DAR_DEV_INFO_t *dev_info,
 exit:
 	return rc;
 }
+
 uint32_t CPS_rio_em_create_events(DAR_DEV_INFO_t *dev_info,
 		rio_em_create_events_in_t *in_parms,
 		rio_em_create_events_out_t *out_parms)
 {
-	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+	uint32_t rc;
 	uint8_t pnum;
 	uint8_t idx;
 	rio_pc_get_config_in_t cfg_in;
@@ -3169,12 +3473,12 @@ uint32_t CPS_rio_em_create_events(DAR_DEV_INFO_t *dev_info,
 	if ((!in_parms->num_events)
 			|| (in_parms->num_events > EM_MAX_EVENT_LIST_SIZE)
 			|| (NULL == in_parms->events)) {
+		rc = RIO_ERR_INVALID_PARAMETER;
 		out_parms->imp_rc = EM_CREATE_EVENTS(1);
 		goto exit;
 	}
 
 	cfg_in.ptl.num_ports = RIO_ALL_PORTS;
-
 	rc = CPS_rio_pc_get_config(dev_info, &cfg_in, &cfg_out);
 	if (RIO_SUCCESS != rc) {
 		out_parms->imp_rc = cfg_out.imp_rc;
@@ -3226,202 +3530,29 @@ uint32_t CPS_rio_em_create_events(DAR_DEV_INFO_t *dev_info,
 
 		switch (in_parms->events[idx].event) {
 		case rio_em_f_los:
-			// Test both sources of LOS, the per port LOA bit and the
-			// per lane Sync/Ready bits.
-			// Assume that the LOA bit is reliable at 3.125 Gbaud and below,
-			// and that the Sync/Ready bits are required at 5.0 Gbaud and above
-			// for testing purposes only...
-			if (cfg_out.pc[pnum].ls <= rio_pc_ls_3p125) {
-				rc =
-						cps_create_rate_event(dev_info,
-								pnum,
-								CPS1848_PORT_X_IMPL_SPEC_ERR_DET_LOA,
-								CPS1848_PORT_X_IMPL_SPEC_ERR_DET(
-										pnum),
-								CPS1848_PORT_X_IMPL_SPEC_ERR_RATE_EN(
-										pnum),
-								&out_parms->imp_rc);
-			} else {
-				uint8_t quadrant, quad_cfg;
-				quadrant = pi.cpr[pnum].quadrant;
-				quad_cfg = pi.quad_cfg_val[quadrant];
-				rc =
-						cps_create_rate_event(dev_info,
-								pnum,
-								(CPS1848_LANE_X_ERR_DET_LANE_SYNC
-										| CPS1848_LANE_X_ERR_DET_LANE_RDY),
-								CPS1848_LANE_X_ERR_DET(
-										pi.cpr[pnum].cfg[quad_cfg].first_lane),
-								CPS1848_LANE_X_ERR_RATE_EN(
-										pi.cpr[pnum].cfg[quad_cfg].first_lane),
-								&out_parms->imp_rc);
-			}
-
+			rc = cps_rio_em_create_events_rio_em_f_los(dev_info,
+					out_parms, pnum, cfg_out.pc[pnum].ls,
+					&pi);
 			if (RIO_SUCCESS != rc) {
 				goto exit;
 			}
-
 			break;
 
 		case rio_em_f_port_err:
-			// Note: Static code analysis indicates that pnum can be
-			// RIO_ALL_PORTS in this clause.  This is impossible, as to
-			// get to this clause !glob_event && !all_ports must be true.
-		{
-			uint32_t temp;
-			// Check that port_err detection is enabled.
-			rc = DARRegRead(dev_info,
-					CPS1848_PORT_X_IMPL_SPEC_ERR_RPT_EN(
-							pnum), &temp);
+			rc = cps_rio_em_create_events_rio_em_f_port_err(dev_info,
+					out_parms, pnum, cfg_out.pc[pnum].ls);
 			if (RIO_SUCCESS != rc) {
-				out_parms->imp_rc = EM_CREATE_EVENTS(0x11);
 				goto exit;
-			}
-
-			if (!(temp
-					& CPS1848_PORT_X_IMPL_SPEC_ERR_RPT_EN_FATAL_TO_EN)) {
-				rc = RIO_ERR_NOT_SUP_BY_CONFIG;
-				out_parms->imp_rc = EM_CREATE_EVENTS(0x12);
-				goto exit;
-			}
-		}
-		{
-			// Invert the next expected ackID, then issue a link request...
-			uint32_t ackID, imp_spec_det, cmd = RIO_SPX_LM_REQ_CMD_LR_IS;
-
-			rc = DARRegRead(dev_info,
-					CPS1848_PORT_X_LOCAL_ACKID_CSR(
-							pnum), &ackID);
-			if (RIO_SUCCESS != rc) {
-				out_parms->imp_rc = EM_CREATE_EVENTS(
-						0x13);
-				goto exit;
-			}
-			ackID =
-					ackID
-							^ (CPS1848_PORT_X_LOCAL_ACKID_CSR_OUTBOUND
-									| CPS1848_PORT_X_LOCAL_ACKID_CSR_OUTSTD);
-			rc = DARRegWrite(dev_info,
-					CPS1848_PORT_X_LOCAL_ACKID_CSR(
-							pnum), ackID);
-			if (RIO_SUCCESS != rc) {
-				out_parms->imp_rc = EM_CREATE_EVENTS(
-						0x14);
-				goto exit;
-			}
-			// The above access sets the "Set an Illegal Ackid" bit, so we
-			// must clear this bit to avoid bad behavior caused by the
-			// initialization hook.
-			rc =
-					DARRegRead(dev_info,
-							CPS1848_PORT_X_IMPL_SPEC_ERR_DET(
-									pnum),
-							&imp_spec_det);
-			if (RIO_SUCCESS != rc) {
-				out_parms->imp_rc = EM_CREATE_EVENTS(
-						0x15);
-				goto exit;
-			}
-			imp_spec_det &=
-					~CPS1848_PORT_X_IMPL_SPEC_ERR_RPT_EN_SET_ACKID_EN;
-			rc =
-					DARRegWrite(dev_info,
-							CPS1848_PORT_X_IMPL_SPEC_ERR_DET(
-									pnum),
-							imp_spec_det);
-			if (RIO_SUCCESS != rc) {
-				out_parms->imp_rc = EM_CREATE_EVENTS(
-						0x16);
-				goto exit;
-			}
-			rc =
-					DARRegWrite(dev_info,
-							CPS1848_PORT_X_LINK_MAINT_REQ_CSR(
-									pnum),
-							cmd);
-			if (RIO_SUCCESS != rc) {
-				out_parms->imp_rc = EM_CREATE_EVENTS(
-						0x17);
-				goto exit;
-			}
-			rc =
-					DARRegRead(dev_info,
-							CPS1848_PORT_X_LINK_MAINT_RESP_CSR(
-									pnum),
-							&cmd);
-			if (RIO_SUCCESS != rc) {
-				out_parms->imp_rc = EM_CREATE_EVENTS(
-						0x18);
-				goto exit;
-			}
-
-			// Create the fake timeout/link error indication
-			if (cfg_out.pc[pnum].ls <= rio_pc_ls_3p125) {
-				rc =
-						DARRegWrite(dev_info,
-								CPS1848_PORT_X_ERR_DET_CSR(
-										pnum),
-								CPS1848_PORT_X_ERR_DET_CSR_LR_ACKID_ILL);
-				if (RIO_SUCCESS != rc) {
-					out_parms->imp_rc = EM_CREATE_EVENTS(
-							0x19);
-					goto exit;
-				}
-			} else {
-				rc =
-						DARRegWrite(dev_info,
-								CPS1848_PORT_X_IMPL_SPEC_ERR_DET(
-										pnum),
-								CPS1848_PORT_X_IMPL_SPEC_ERR_DET_FATAL_TO);
-				if (RIO_SUCCESS != rc) {
-					out_parms->imp_rc = EM_CREATE_EVENTS(
-							0x1A);
-					goto exit;
-				}
 			}
 			break;
-		}
 
 		case rio_em_f_2many_retx:
-			// No need to create a rate event - just write the register...
-		{
-			uint32_t err_rpt, impl_err_det;
-
-			rc = DARRegRead(dev_info,
-					CPS1848_PORT_X_IMPL_SPEC_ERR_RPT_EN(
-							pnum), &err_rpt);
+			rc = cps_rio_em_create_events_rio_em_f_2many_retx(dev_info,
+					out_parms, pnum);
 			if (RIO_SUCCESS != rc) {
-				out_parms->imp_rc = EM_CREATE_EVENTS(0x21);
-				goto exit;
-			}
-
-			if (!(err_rpt
-					& CPS1848_PORT_X_IMPL_SPEC_ERR_RPT_EN_MANY_RETRY_EN)) {
-				rc = RIO_ERR_NOT_SUP_BY_CONFIG;
-				out_parms->imp_rc = EM_CREATE_EVENTS(0x22);
-				goto exit;
-			}
-
-			rc = DARRegRead(dev_info,
-					CPS1848_PORT_X_IMPL_SPEC_ERR_DET(pnum),
-					&impl_err_det);
-			if (RIO_SUCCESS != rc) {
-				out_parms->imp_rc = EM_CREATE_EVENTS(0x23);
-				goto exit;
-			}
-
-			impl_err_det |=
-			CPS1848_PORT_X_IMPL_SPEC_ERR_DET_MANY_RETRY;
-
-			rc = DARRegWrite(dev_info,
-					CPS1848_PORT_X_IMPL_SPEC_ERR_DET(pnum),
-					impl_err_det);
-			if (RIO_SUCCESS != rc) {
-				out_parms->imp_rc = EM_CREATE_EVENTS(0x24);
 				goto exit;
 			}
 			break;
-		}
 
 		case rio_em_f_2many_pna:
 			rc = cps_create_rate_event(dev_info, pnum,
@@ -3447,116 +3578,36 @@ uint32_t CPS_rio_em_create_events(DAR_DEV_INFO_t *dev_info,
 			break;
 
 		case rio_em_d_ttl:
-
-		{
-			uint32_t temp;
-			rc = DARRegRead(dev_info, CPS1848_PKT_TTL_CSR, &temp);
+			rc = cps_rio_em_create_events_rio_em_d_ttl(dev_info,
+					out_parms, pnum);
 			if (RIO_SUCCESS != rc) {
-				out_parms->imp_rc = EM_CREATE_EVENTS(0x30);
-				goto exit;
-			}
-
-			if (!temp) {
-				rc = RIO_ERR_NOT_SUP_BY_CONFIG;
-				out_parms->imp_rc = EM_CREATE_EVENTS(0x31);
-				goto exit;
-			}
-
-			rc =
-					DARRegWrite(dev_info,
-							CPS1848_PORT_X_IMPL_SPEC_ERR_DET(
-									pnum),
-							CPS1848_PORT_X_IMPL_SPEC_ERR_DET_TTL_EVENT);
-			if (RIO_SUCCESS != rc) {
-				out_parms->imp_rc = EM_CREATE_EVENTS(0x32);
 				goto exit;
 			}
 			break;
-		}
 
 		case rio_em_d_rte:
-		{
-			uint32_t temp;
-			rc = DARRegRead(dev_info,
-					CPS1848_PORT_X_IMPL_SPEC_ERR_RPT_EN(
-							pnum), &temp);
+			rc = cps_rio_em_create_events_rio_em_d_rte(dev_info,
+					out_parms, pnum);
 			if (RIO_SUCCESS != rc) {
-				out_parms->imp_rc = EM_CREATE_EVENTS(0x40);
-				goto exit;
-			}
-
-			if (!(temp
-					& CPS1848_PORT_X_IMPL_SPEC_ERR_RPT_EN_RTE_ISSUE_EN)) {
-				rc = RIO_ERR_NOT_SUP_BY_CONFIG;
-				out_parms->imp_rc = EM_CREATE_EVENTS(0x41);
-				goto exit;
-			}
-
-			rc =
-					DARRegWrite(dev_info,
-							CPS1848_PORT_X_IMPL_SPEC_ERR_DET(
-									pnum),
-							CPS1848_PORT_X_IMPL_SPEC_ERR_DET_RTE_ISSUE);
-			if (RIO_SUCCESS != rc) {
-				out_parms->imp_rc = EM_CREATE_EVENTS(0x42);
 				goto exit;
 			}
 			break;
-		}
 
 		case rio_em_d_log: // Set all logical layer errors
-		{
-			uint32_t temp;
-			rc = DARRegRead(dev_info, CPS1848_LT_ERR_EN_CSR, &temp);
+			rc = cps_rio_em_create_events_rio_em_d_log(dev_info,
+					out_parms);
 			if (RIO_SUCCESS != rc) {
-				out_parms->imp_rc = EM_CREATE_EVENTS(0x50);
-				goto exit;
-			}
-
-			if (!temp) {
-				rc = RIO_ERR_NOT_SUP_BY_CONFIG;
-				out_parms->imp_rc = EM_CREATE_EVENTS(0x51);
-				goto exit;
-			}
-
-			rc = DARRegWrite(dev_info, CPS1848_LT_ERR_DET_CSR,
-			CPSGEN2_ALL_LOG);
-			if (RIO_SUCCESS != rc) {
-				out_parms->imp_rc = EM_CREATE_EVENTS(0x52);
 				goto exit;
 			}
 			break;
-		}
 
 		case rio_em_i_sig_det:
-		{
-			uint32_t temp;
-			rc = DARRegRead(dev_info,
-					CPS1848_PORT_X_IMPL_SPEC_ERR_RPT_EN(
-							pnum), &temp);
+			rc = cps_rio_em_create_events_rio_em_i_sig_det(dev_info,
+					out_parms, pnum);
 			if (RIO_SUCCESS != rc) {
-				out_parms->imp_rc = EM_CREATE_EVENTS(0x61);
-				goto exit;
-			}
-
-			if (!(temp
-					& CPS1848_PORT_X_IMPL_SPEC_ERR_RPT_EN_PORT_INIT_EN)) {
-				rc = RIO_ERR_NOT_SUP_BY_CONFIG;
-				out_parms->imp_rc = EM_CREATE_EVENTS(0x62);
-				goto exit;
-			}
-
-			rc =
-					DARRegWrite(dev_info,
-							CPS1848_PORT_X_IMPL_SPEC_ERR_DET(
-									pnum),
-							CPS1848_PORT_X_IMPL_SPEC_ERR_DET_PORT_INIT);
-			if (RIO_SUCCESS != rc) {
-				out_parms->imp_rc = EM_CREATE_EVENTS(0x63);
 				goto exit;
 			}
 			break;
-		}
 
 		case rio_em_i_rst_req:
 			rc = RIO_ERR_FEATURE_NOT_SUPPORTED;
@@ -3565,30 +3616,12 @@ uint32_t CPS_rio_em_create_events(DAR_DEV_INFO_t *dev_info,
 			break;
 
 		case rio_em_i_init_fail:
-		{
-			uint32_t temp;
-			rc = DARRegRead(dev_info, CPS1848_I2C_MASTER_CTL,
-					&temp);
+			rc = cps_rio_em_create_events_rio_em_i_init_fail(dev_info,
+					out_parms);
 			if (RIO_SUCCESS != rc) {
-				out_parms->imp_rc = EM_CREATE_EVENTS(0x71);
-				goto exit;
-			}
-
-			if (temp & CPS1848_I2C_MASTER_CTL_CHKSUM_DIS) {
-				rc = RIO_ERR_NOT_SUP_BY_CONFIG;
-				out_parms->imp_rc = EM_CREATE_EVENTS(0x72);
-				goto exit;
-			}
-
-			rc = DARRegWrite(dev_info,
-			CPS1848_AUX_PORT_ERR_DET,
-			CPS1848_AUX_PORT_ERR_DET_I2C_CHKSUM_ERR);
-			if (RIO_SUCCESS != rc) {
-				out_parms->imp_rc = EM_CREATE_EVENTS(0x73);
 				goto exit;
 			}
 			break;
-		}
 
 		default:
 			rc = RIO_ERR_INVALID_PARAMETER;

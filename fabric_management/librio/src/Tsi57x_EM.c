@@ -415,30 +415,568 @@ static uint32_t tsi57x_enable_err_ctr(DAR_DEV_INFO_t *dev_info,
 	}
 
 	regData |= TSI578_SPX_CTL_STOP_FAIL_EN | TSI578_SPX_CTL_DROP_EN;
-
 	rc = DARRegWrite(dev_info, TSI578_SPX_CTL(pnum), regData);
 
 exit:
 	return rc;
 }
 
+static uint32_t tsi57x_set_event_en_cfg_rio_f_los(DAR_DEV_INFO_t *dev_info,
+		uint8_t pnum, rio_em_cfg_t *event, uint32_t *imp_rc)
+{
+	uint32_t regData;
+	uint32_t temp;
+	port_mac_relations_t *sw_pmr;
+	bool set_delin_thresh = false;
+	uint32_t rc = RIO_SUCCESS;
+
+	// LOS is the dead link timer
+	// If a short period is required, then single Delineation errors also
+	//    result in LOS.
+
+	rc = tsi57x_init_sw_pmr(dev_info, &sw_pmr);
+	if (RIO_SUCCESS != rc) {
+		*imp_rc = SET_EVENT_EN(0x10);
+		goto exit;
+	}
+
+	if (event->em_detect == rio_em_detect_on) {
+		// First, set up DLT
+		rc = DARRegRead(dev_info,
+				TSI578_SMACX_DLOOP_CLK_SEL(
+						sw_pmr[pnum].pwr_mac_num * 2),
+				&regData);
+		if (RIO_SUCCESS != rc) {
+			*imp_rc = SET_EVENT_EN(0x11);
+			goto exit;
+		}
+
+		temp = event->em_info / 81920;
+		if (!temp) {
+			temp = 1;
+			set_delin_thresh = true;
+		}
+
+		regData |= TSI578_SMACX_DLOOP_CLK_SEL_DLT_EN;
+		regData &= ~TSI578_SMACX_DLOOP_CLK_SEL_DLT_THRESH;
+		regData |=
+				((temp << 16)
+						& TSI578_SMACX_DLOOP_CLK_SEL_DLT_THRESH);
+
+		rc = DARRegWrite(dev_info,
+				TSI578_SMACX_DLOOP_CLK_SEL(
+						sw_pmr[pnum].pwr_mac_num * 2),
+				regData);
+		if (RIO_SUCCESS != rc) {
+			*imp_rc = SET_EVENT_EN(0x12);
+			goto exit;
+		}
+
+		if (set_delin_thresh) {
+			// Set the delineation error threshold to 1.
+			// Configure the device to discard packets when the threshold has been met.
+			// NOTE: This is only effective on the Tsi578A device. See errata.
+			//
+			uint32_t spx_err_rate_en, spx_err_rate, spx_err_thresh;
+			rc = DARRegRead(dev_info, TSI578_SPX_RATE_EN(pnum),
+					&spx_err_rate_en);
+			if (RIO_SUCCESS != rc) {
+				*imp_rc = SET_EVENT_EN(0x13);
+				goto exit;
+			}
+
+			rc = DARRegRead(dev_info, TSI578_SPX_ERR_RATE(pnum),
+					&spx_err_rate);
+			if (RIO_SUCCESS != rc) {
+				*imp_rc = SET_EVENT_EN(0x14);
+				goto exit;
+			}
+
+			rc = DARRegRead(dev_info, TSI578_SPX_ERR_THRESH(pnum),
+					&spx_err_thresh);
+			if (RIO_SUCCESS != rc) {
+				*imp_rc = SET_EVENT_EN(0x15);
+				goto exit;
+			}
+
+			// Set the threshold to 1 only if no other threshold based events are enabled
+			if (!(spx_err_rate_en & ~TSI578_SPX_ERR_DET_DELIN_ERR))
+				spx_err_thresh = 0x01000000;
+
+			rc = tsi57x_enable_err_ctr(dev_info, pnum,
+			TSI578_SPX_ERR_DET_DELIN_ERR,
+			TSI578_SPX_ERR_DET_DELIN_ERR, spx_err_rate,
+					spx_err_thresh, imp_rc);
+			if (RIO_SUCCESS != rc) {
+				goto exit;
+			}
+		}
+	} else { // rio_em_detect_off:
+		rc = DARRegRead(dev_info,
+				TSI578_SMACX_DLOOP_CLK_SEL(
+						sw_pmr[pnum].pwr_mac_num * 2),
+				&regData);
+		if (RIO_SUCCESS != rc) {
+			*imp_rc = SET_EVENT_EN(0x16);
+			goto exit;
+		}
+
+		regData &= ~(TSI578_SMACX_DLOOP_CLK_SEL_DLT_THRESH
+				| TSI578_SMACX_DLOOP_CLK_SEL_DLT_EN);
+
+		rc = DARRegWrite(dev_info,
+				TSI578_SMACX_DLOOP_CLK_SEL(
+						sw_pmr[pnum].pwr_mac_num * 2),
+				regData);
+		if (RIO_SUCCESS != rc) {
+			*imp_rc = SET_EVENT_EN(0x17);
+			goto exit;
+		}
+	}
+
+	if (!set_delin_thresh) {
+		// Disable event counting.
+		rc = DARRegRead(dev_info, TSI578_SPX_RATE_EN(pnum), &regData);
+		if (RIO_SUCCESS != rc) {
+			*imp_rc = SET_EVENT_EN(0x18);
+			goto exit;
+		}
+
+		regData &= ~TSI578_SPX_ERR_DET_DELIN_ERR;
+
+		rc = DARRegWrite(dev_info, TSI578_SPX_RATE_EN(pnum), regData);
+		if (RIO_SUCCESS != rc) {
+			*imp_rc = SET_EVENT_EN(0x19);
+		}
+	}
+
+exit:
+	return rc;
+}
+
+static uint32_t tsi57x_set_event_en_cfg_rio_em_f_port_err(DAR_DEV_INFO_t *dev_info,
+		uint8_t pnum, rio_em_cfg_t *event, uint32_t *imp_rc)
+{
+	uint32_t regData;
+	uint32_t rc = RIO_SUCCESS;
+
+	rc = DARRegRead(dev_info, TSI578_SPX_CTL_INDEP(pnum), &regData);
+	if (RIO_SUCCESS != rc) {
+		*imp_rc = SET_EVENT_EN(0x20);
+		goto exit;
+	}
+
+	if (event->em_detect == rio_em_detect_on) {
+		uint32_t spx_err_rate, spx_err_thresh;
+		rc = DARRegRead(dev_info, TSI578_SPX_ERR_RATE(pnum),
+				&spx_err_rate);
+		if (RIO_SUCCESS != rc) {
+			*imp_rc = SET_EVENT_EN(0x21);
+			goto exit;
+		}
+
+		rc = DARRegRead(dev_info, TSI578_SPX_ERR_THRESH(pnum),
+				&spx_err_thresh);
+		if (RIO_SUCCESS != rc) {
+			*imp_rc = SET_EVENT_EN(0x22);
+			goto exit;
+		}
+
+		if (!(spx_err_thresh & TSI578_SPX_ERR_THRESH_ERR_RFT)) {
+			spx_err_thresh |= 0x01000000;
+		}
+		regData |= TSI578_SPX_CTL_INDEP_PORT_ERR_EN;
+
+		rc = tsi57x_enable_err_ctr(dev_info, pnum,
+		TSI578_SPX_ERR_DET_IMP_SPEC_ERR,
+		TSI578_SPX_ERR_DET_IMP_SPEC_ERR, spx_err_rate, spx_err_thresh,
+				imp_rc);
+		if (RIO_SUCCESS != rc) {
+			goto exit;
+		}
+	} else { // rio_em_detect_off:
+		regData &= ~(TSI578_SPX_CTL_INDEP_PORT_ERR_EN);
+	}
+
+	rc = DARRegWrite(dev_info, TSI578_SPX_CTL_INDEP(pnum), regData);
+	if (RIO_SUCCESS != rc) {
+		*imp_rc = SET_EVENT_EN(0x23);
+	}
+
+exit:
+	return rc;
+}
+
+static uint32_t tsi57x_set_event_en_cfg_rio_em_f_2many_retx(DAR_DEV_INFO_t *dev_info,
+		uint8_t pnum, rio_em_cfg_t *event, uint32_t *imp_rc)
+{
+	uint32_t regData;
+	uint32_t rc = RIO_SUCCESS;
+
+	rc = DARRegRead(dev_info, TSI578_SPX_CTL_INDEP(pnum), &regData);
+	if (RIO_SUCCESS != rc) {
+		*imp_rc = SET_EVENT_EN(0x30);
+		goto exit;
+	}
+
+	if (event->em_detect == rio_em_detect_on) {
+		uint32_t retry_thresh = event->em_info;
+		uint32_t spx_err_rate, spx_err_thresh;
+
+		if (!retry_thresh) {
+			rc = RIO_ERR_INVALID_PARAMETER;
+			*imp_rc = SET_EVENT_EN(0x31);
+			goto exit;
+		}
+
+		if (retry_thresh
+				> (TSI578_SPX_CTL_INDEP_MAX_RETRY_THRESHOLD >> 8)) {
+			retry_thresh =
+			TSI578_SPX_CTL_INDEP_MAX_RETRY_THRESHOLD;
+		} else {
+			retry_thresh = retry_thresh << 8;
+		}
+
+		regData |= TSI578_SPX_CTL_INDEP_MAX_RETRY_EN;
+		regData &= ~TSI578_SPX_CTL_INDEP_MAX_RETRY_THRESHOLD;
+		regData |= retry_thresh;
+
+		rc = DARRegRead(dev_info, TSI578_SPX_ERR_RATE(pnum),
+				&spx_err_rate);
+		if (RIO_SUCCESS != rc) {
+			*imp_rc = SET_EVENT_EN(0x32);
+			goto exit;
+		}
+
+		rc = DARRegRead(dev_info, TSI578_SPX_ERR_THRESH(pnum),
+				&spx_err_thresh);
+		if (RIO_SUCCESS != rc) {
+			*imp_rc = SET_EVENT_EN(0x33);
+			goto exit;
+		}
+
+		if (!(spx_err_thresh & TSI578_SPX_ERR_THRESH_ERR_RFT))
+			spx_err_thresh |= 0x01000000;
+
+		rc = tsi57x_enable_err_ctr(dev_info, pnum,
+		TSI578_SPX_ERR_DET_IMP_SPEC_ERR,
+		TSI578_SPX_ERR_DET_IMP_SPEC_ERR, spx_err_rate, spx_err_thresh,
+				imp_rc);
+		if (RIO_SUCCESS != rc) {
+			goto exit;
+		}
+	} else { // rio_em_detect_off:
+		 // Disable events.
+		regData &= ~(TSI578_SPX_CTL_INDEP_MAX_RETRY_EN
+				| TSI578_SPX_CTL_INDEP_MAX_RETRY_THRESHOLD);
+	}
+
+	rc = DARRegWrite(dev_info, TSI578_SPX_CTL_INDEP(pnum), regData);
+	if (RIO_SUCCESS != rc) {
+		*imp_rc = SET_EVENT_EN(0x34);
+	}
+
+exit:
+	return rc;
+}
+
+static uint32_t tsi57x_set_event_en_cfg_rio_em_f_2many_pna(DAR_DEV_INFO_t *dev_info,
+		uint8_t pnum, rio_em_cfg_t *event, uint32_t *imp_rc)
+{
+	uint32_t regData;
+	uint32_t rc = RIO_SUCCESS;
+
+	// Enable/disable event detection
+	if (event->em_detect == rio_em_detect_on) {
+		uint32_t spx_err_rate, spx_err_thresh;
+		rc = DARRegRead(dev_info, TSI578_SPX_ERR_RATE(pnum),
+				&spx_err_rate);
+		if (RIO_SUCCESS != rc) {
+			*imp_rc = SET_EVENT_EN(0x40);
+			goto exit;
+		}
+		rc = DARRegRead(dev_info, TSI578_SPX_ERR_THRESH(pnum),
+				&spx_err_thresh);
+		if (RIO_SUCCESS != rc) {
+			*imp_rc = SET_EVENT_EN(0x41);
+			goto exit;
+		}
+
+		spx_err_thresh &= ~TSI578_SPX_ERR_THRESH_ERR_RFT;
+		spx_err_thresh |= ((event->em_info << 24)
+				& TSI578_SPX_ERR_THRESH_ERR_RFT);
+
+		rc = tsi57x_enable_err_ctr(dev_info, pnum,
+		TSI578_SPX_RATE_EN_CS_NOT_ACC_EN,
+		TSI578_SPX_RATE_EN_CS_NOT_ACC_EN, spx_err_rate, spx_err_thresh,
+				imp_rc);
+	} else {
+		// Disable event by not counting PNA's in error counter.
+		rc = DARRegRead(dev_info, TSI578_SPX_RATE_EN(pnum), &regData);
+		if (RIO_SUCCESS != rc) {
+			*imp_rc = SET_EVENT_EN(0x42);
+			goto exit;
+		}
+
+		regData &= ~(TSI578_SPX_RATE_EN_CS_NOT_ACC_EN);
+		rc = DARRegWrite(dev_info, TSI578_SPX_RATE_EN(pnum), regData);
+		if (RIO_SUCCESS != rc) {
+			*imp_rc = SET_EVENT_EN(0x43);
+		}
+	}
+
+exit:
+	return rc;
+}
+
+static uint32_t tsi57x_set_event_en_cfg_rio_em_f_err_rate(DAR_DEV_INFO_t *dev_info,
+		uint8_t pnum, rio_em_cfg_t *event, uint32_t *imp_rc)
+{
+	uint32_t spx_rate_en;
+	uint32_t spx_err_rate;
+	uint32_t spx_err_thresh;
+	uint32_t regData;
+	uint32_t rc = RIO_SUCCESS;
+
+	rc = rio_em_get_f_err_rate_info(event->em_info, &spx_rate_en,
+			&spx_err_rate, &spx_err_thresh);
+	if (RIO_SUCCESS != rc) {
+		*imp_rc = SET_EVENT_EN(0x50);
+		goto exit;
+	}
+
+	spx_rate_en &= ~EM_ERR_RATE_EVENT_EXCLUSIONS;
+
+	// Enable/disable event detection
+	if (event->em_detect == rio_em_detect_on) {
+		uint32_t curr_thresh;
+		rc = DARRegRead(dev_info, TSI578_SPX_ERR_THRESH(pnum),
+				&curr_thresh);
+		if (RIO_SUCCESS != rc) {
+			*imp_rc = SET_EVENT_EN(0x51);
+			goto exit;
+		}
+
+		curr_thresh &= ~TSI578_SPX_ERR_THRESH_ERR_RFT;
+		curr_thresh |= (spx_err_thresh & TSI578_SPX_ERR_THRESH_ERR_RFT);
+
+		rc = tsi57x_enable_err_ctr(dev_info, pnum, spx_rate_en,
+				~EM_ERR_RATE_EVENT_EXCLUSIONS, spx_err_rate,
+				curr_thresh, imp_rc);
+	} else {
+		// Disable event by disabling error counting for ALL f_err_rate errors
+		rc = DARRegRead(dev_info, TSI578_SPX_RATE_EN(pnum), &regData);
+		if (RIO_SUCCESS != rc) {
+			*imp_rc = SET_EVENT_EN(0x52);
+			goto exit;
+		}
+
+		regData = regData & EM_ERR_RATE_EVENT_EXCLUSIONS;
+
+		rc = DARRegWrite(dev_info, TSI578_SPX_RATE_EN(pnum), regData);
+		if (RIO_SUCCESS != rc) {
+			*imp_rc = SET_EVENT_EN(0x53);
+		}
+	}
+
+exit:
+	return rc;
+}
+
+static uint32_t tsi57x_set_event_en_cfg_rio_em_i_init_fail(DAR_DEV_INFO_t *dev_info,
+		rio_em_cfg_t *event, uint32_t *imp_rc)
+{
+	uint32_t regData;
+	uint32_t rc = RIO_SUCCESS;
+
+	// Enable reporting to top level
+	// There is a top-level bit which gates whether or not this
+	// event is reported as an interrupt.  It cannot be reported as
+	// a port-write.
+	rc = DARRegRead(dev_info, TSI578_I2C_INT_ENABLE, &regData);
+	if (RIO_SUCCESS != rc) {
+		*imp_rc = SET_EVENT_EN(0x60);
+		goto exit;
+	}
+
+	if (event->em_detect == rio_em_detect_on) {
+		regData |= TSI578_I2C_INT_ENABLE_BL_FAIL;
+	} else {
+		regData &= ~(TSI578_I2C_INT_ENABLE_BL_FAIL);
+	}
+
+	rc = DARRegWrite(dev_info, TSI578_I2C_INT_ENABLE, regData);
+	if (RIO_SUCCESS != rc) {
+		*imp_rc = SET_EVENT_EN(0x61);
+	}
+
+exit:
+	return rc;
+}
+
+static uint32_t tsi57x_set_event_en_cfg_rio_em_d_log(DAR_DEV_INFO_t *dev_info,
+		rio_em_cfg_t *event, uint32_t *imp_rc)
+{
+	uint32_t regData;
+	uint32_t rc = RIO_SUCCESS;
+
+	// Specific logical layer error enables are controlled by info parameter
+	rc = DARRegRead(dev_info, TSI578_RIO_LOG_ERR_DET_EN, &regData);
+	if (RIO_SUCCESS != rc) {
+		*imp_rc = SET_EVENT_EN(0x70);
+		goto exit;
+	}
+
+	if (event->em_detect == rio_em_detect_on) {
+		regData = (regData & ~(TSI57X_ALL_LOG_ERRS))
+				| (event->em_info & TSI57X_ALL_LOG_ERRS);
+	} else {
+		regData &= ~(TSI57X_ALL_LOG_ERRS);
+	}
+
+	rc = DARRegWrite(dev_info, TSI578_RIO_LOG_ERR_DET_EN, regData);
+	if (RIO_SUCCESS != rc) {
+		*imp_rc = SET_EVENT_EN(0x71);
+	}
+
+exit:
+	return rc;
+}
+
+static uint32_t tsi57x_set_event_en_cfg_rio_em_d_rte(DAR_DEV_INFO_t *dev_info,
+		uint8_t pnum, rio_em_cfg_t *event, uint32_t *imp_rc)
+{
+	uint32_t regData;
+	uint32_t rc = RIO_SUCCESS;
+
+	rc = DARRegRead(dev_info, TSI578_SPX_CTL_INDEP(pnum), &regData);
+	if (RIO_SUCCESS != rc) {
+		*imp_rc = SET_EVENT_EN(0x80);
+		goto exit;
+	}
+
+	if (event->em_detect == rio_em_detect_on) {
+		regData |= TSI578_SPX_CTL_INDEP_ILL_TRANS_ERR;
+	} else {
+		regData &= ~(TSI578_SPX_CTL_INDEP_ILL_TRANS_ERR);
+	}
+
+	rc = DARRegWrite(dev_info, TSI578_SPX_CTL_INDEP(pnum), regData);
+	if (RIO_SUCCESS != rc) {
+		*imp_rc = SET_EVENT_EN(0x81);
+	}
+
+exit:
+	return rc;
+}
+
+static uint32_t tsi57x_set_event_en_cfg_rio_em_i_sig_det(DAR_DEV_INFO_t *dev_info,
+		uint8_t pnum, rio_em_cfg_t *event, uint32_t *imp_rc)
+{
+	uint32_t regData;
+	uint32_t rc = RIO_SUCCESS;
+
+	if (!event->em_info) {
+		rio_pc_get_status_in_t stat_in;
+		rio_pc_get_status_out_t stat_out;
+
+		stat_in.ptl.num_ports = 1;
+		stat_in.ptl.pnums[0] = pnum;
+
+		rc = rio_pc_get_status(dev_info, &stat_in, &stat_out);
+		if (RIO_SUCCESS != rc) {
+			*imp_rc = SET_EVENT_EN(0x90);
+			goto exit;
+		}
+
+		if (((rio_em_detect_off == event->em_detect)
+				&& !stat_out.ps[0].port_ok)
+				|| ((rio_em_detect_on == event->em_detect)
+						&& stat_out.ps[0].port_ok)) {
+			goto exit;
+		}
+	}
+
+	rc = DARRegRead(dev_info, TSI578_SPX_CTL_INDEP(pnum), &regData);
+	if (RIO_SUCCESS != rc) {
+		*imp_rc = SET_EVENT_EN(0x91);
+		goto exit;
+	}
+
+	if (event->em_detect == rio_em_detect_on) {
+		regData |= TSI578_SPX_CTL_INDEP_LINK_INIT_NOTIFICATION_EN;
+		rc = DARRegWrite(dev_info, TSI578_SPX_CTL_INDEP(pnum), regData);
+		if (RIO_SUCCESS != rc) {
+			*imp_rc = SET_EVENT_EN(0x92);
+			goto exit;
+		}
+
+		// Must set PORT_LOCKOUT for the event to be detected...
+		rc = DARRegRead(dev_info, TSI578_SPX_CTL(pnum), &regData);
+		if (RIO_SUCCESS != rc) {
+			*imp_rc = SET_EVENT_EN(0x93);
+			goto exit;
+		}
+
+		regData |= TSI578_SPX_CTL_PORT_LOCKOUT;
+		rc = DARRegWrite(dev_info, TSI578_SPX_CTL(pnum), regData);
+		if (RIO_SUCCESS != rc) {
+			*imp_rc = SET_EVENT_EN(0x94);
+		}
+	} else {
+		// Disable detection, reporting/counting remain unaffected.
+		// Do not touch PORT_LOCKOUT. Let the PC routine control PORT_LOCKOUT.
+		regData &= ~(TSI578_SPX_CTL_INDEP_LINK_INIT_NOTIFICATION_EN);
+		rc = DARRegWrite(dev_info, TSI578_SPX_CTL_INDEP(pnum), regData);
+		if (RIO_SUCCESS != rc) {
+			*imp_rc = SET_EVENT_EN(0x95);
+		}
+	}
+
+exit:
+	return rc;
+}
+
+static uint32_t tsi57x_set_event_en_cfg_rio_em_i_rst_req(DAR_DEV_INFO_t *dev_info,
+		uint8_t pnum, rio_em_cfg_t *event, uint32_t *imp_rc)
+{
+	uint32_t regData;
+	uint32_t rc = RIO_SUCCESS;
+
+	rc = DARRegRead(dev_info, TSI578_SPX_MODE(pnum), &regData);
+	if (RIO_SUCCESS != rc) {
+		*imp_rc = SET_EVENT_EN(0xa0);
+		goto exit;
+	}
+
+	if (event->em_detect == rio_em_detect_on) {
+		// Can't detect the event unless self_rst is disabled.
+		regData &= ~(TSI578_SPX_MODE_SELF_RST);
+		regData |= TSI578_SPX_MODE_RCS_INT_EN;
+	} else {
+		// DO NOT CHANGE SELF_RST
+		// This should be handled by the PC routines.
+		regData &= ~(TSI578_SPX_MODE_RCS_INT_EN);
+	}
+
+	rc = DARRegWrite(dev_info, TSI578_SPX_MODE(pnum), regData);
+	if (RIO_SUCCESS != rc) {
+		*imp_rc = SET_EVENT_EN(0xa1);
+	}
+exit:
+	return rc;
+}
+
+
 static uint32_t tsi57x_set_event_en_cfg(DAR_DEV_INFO_t *dev_info,
 		uint8_t pnum, rio_em_cfg_t *event, uint32_t *imp_rc)
 {
 	uint32_t rc = RIO_SUCCESS;
-	uint32_t regData, temp;
-	port_mac_relations_t *sw_pmr;
-
-	rc = tsi57x_init_sw_pmr(dev_info, &sw_pmr);
-	if (RIO_SUCCESS != rc) {
-		*imp_rc = SET_EVENT_EN(1);
-		goto exit;
-	}
 
 	if ((event->em_detect >= rio_em_detect_last)
 			|| (event->em_event >= rio_em_last)) {
 		rc = RIO_ERR_INVALID_PARAMETER;
-		*imp_rc = SET_EVENT_EN(2);
+		*imp_rc = SET_EVENT_EN(0x01);
 		goto exit;
 	}
 
@@ -449,514 +987,47 @@ static uint32_t tsi57x_set_event_en_cfg(DAR_DEV_INFO_t *dev_info,
 
 	switch (event->em_event) {
 	case rio_em_f_los:
-		// LOS is the dead link timer
-		// If a short period is required, then single Delineation errors also
-		//    result in LOS.
-
-	{
-		bool set_delin_thresh = false;
-		if (event->em_detect == rio_em_detect_on) {
-			// First, set up DLT
-			rc = DARRegRead(dev_info,
-					TSI578_SMACX_DLOOP_CLK_SEL(
-							sw_pmr[pnum].pwr_mac_num
-									* 2),
-					&regData);
-			if (RIO_SUCCESS != rc) {
-				*imp_rc = SET_EVENT_EN(3);
-				goto exit;
-			}
-
-			temp = event->em_info / 81920;
-			if (!temp) {
-				temp = 1;
-				set_delin_thresh = true;
-			}
-
-			regData |= TSI578_SMACX_DLOOP_CLK_SEL_DLT_EN;
-			regData &= ~TSI578_SMACX_DLOOP_CLK_SEL_DLT_THRESH;
-			regData |=
-					((temp << 16)
-							& TSI578_SMACX_DLOOP_CLK_SEL_DLT_THRESH);
-
-			rc = DARRegWrite(dev_info,
-					TSI578_SMACX_DLOOP_CLK_SEL(
-							sw_pmr[pnum].pwr_mac_num
-									* 2),
-					regData);
-			if (RIO_SUCCESS != rc) {
-				*imp_rc = SET_EVENT_EN(4);
-				goto exit;
-			}
-
-			if (set_delin_thresh) {
-				// Set the delineation error threshold to 1.
-				// Configure the device to discard packets when the threshold has been met.
-				// NOTE: This is only effective on the Tsi578A device. See errata.
-				//
-				uint32_t spx_err_rate_en, spx_err_rate,
-						spx_err_thresh;
-				rc = DARRegRead(dev_info,
-						TSI578_SPX_RATE_EN(pnum),
-						&spx_err_rate_en);
-				if (RIO_SUCCESS != rc) {
-					*imp_rc = SET_EVENT_EN(0x27);
-					goto exit;
-				}
-
-				rc = DARRegRead(dev_info,
-						TSI578_SPX_ERR_RATE(pnum),
-						&spx_err_rate);
-				if (RIO_SUCCESS != rc) {
-					*imp_rc = SET_EVENT_EN(0x28);
-					goto exit;
-				}
-
-				rc = DARRegRead(dev_info,
-						TSI578_SPX_ERR_THRESH(pnum),
-						&spx_err_thresh);
-				if (RIO_SUCCESS != rc) {
-					*imp_rc = SET_EVENT_EN(0x29);
-					goto exit;
-				}
-
-				// Set the threshold to 1 only if no other threshold based events are enabled
-				if (!(spx_err_rate_en
-						& ~TSI578_SPX_ERR_DET_DELIN_ERR))
-					spx_err_thresh = 0x01000000;
-
-				rc = tsi57x_enable_err_ctr(dev_info, pnum,
-						TSI578_SPX_ERR_DET_DELIN_ERR,
-						TSI578_SPX_ERR_DET_DELIN_ERR,
-						spx_err_rate, spx_err_thresh,
-						imp_rc);
-				if (RIO_SUCCESS != rc) {
-					goto exit;
-				}
-			}
-		} else { // rio_em_detect_off:
-			rc = DARRegRead(dev_info,
-					TSI578_SMACX_DLOOP_CLK_SEL(
-							sw_pmr[pnum].pwr_mac_num
-									* 2),
-					&regData);
-			if (RIO_SUCCESS != rc) {
-				*imp_rc = SET_EVENT_EN(5);
-				goto exit;
-			}
-
-			regData &= ~(TSI578_SMACX_DLOOP_CLK_SEL_DLT_THRESH
-					| TSI578_SMACX_DLOOP_CLK_SEL_DLT_EN);
-
-			rc = DARRegWrite(dev_info,
-					TSI578_SMACX_DLOOP_CLK_SEL(
-							sw_pmr[pnum].pwr_mac_num
-									* 2),
-					regData);
-			if (RIO_SUCCESS != rc) {
-				*imp_rc = SET_EVENT_EN(6);
-				goto exit;
-			}
-		}
-
-		if (!set_delin_thresh) {
-			// Disable event counting.
-			rc = DARRegRead(dev_info, TSI578_SPX_RATE_EN(pnum),
-					&regData);
-			if (RIO_SUCCESS != rc) {
-				*imp_rc = SET_EVENT_EN(7);
-				goto exit;
-			}
-
-			regData &= ~TSI578_SPX_ERR_DET_DELIN_ERR;
-
-			rc = DARRegWrite(dev_info, TSI578_SPX_RATE_EN(pnum),
-					regData);
-			if (RIO_SUCCESS != rc) {
-				*imp_rc = SET_EVENT_EN(8);
-				goto exit;
-			}
-		}
+		rc = tsi57x_set_event_en_cfg_rio_f_los(dev_info, pnum, event, imp_rc);
 		break;
-	}
 
 	case rio_em_f_port_err:
-		rc = DARRegRead(dev_info, TSI578_SPX_CTL_INDEP(pnum), &regData);
-		if (RIO_SUCCESS != rc) {
-			*imp_rc = SET_EVENT_EN(0x10);
-			goto exit;
-		}
-
-		if (event->em_detect == rio_em_detect_on) {
-			uint32_t spx_err_rate, spx_err_thresh;
-			rc = DARRegRead(dev_info, TSI578_SPX_ERR_RATE(pnum),
-					&spx_err_rate);
-			if (RIO_SUCCESS != rc) {
-				*imp_rc = SET_EVENT_EN(0x28);
-				goto exit;
-			}
-
-			rc = DARRegRead(dev_info, TSI578_SPX_ERR_THRESH(pnum),
-					&spx_err_thresh);
-			if (RIO_SUCCESS != rc) {
-				*imp_rc = SET_EVENT_EN(0x28);
-				goto exit;
-			}
-
-			if (!(spx_err_thresh & TSI578_SPX_ERR_THRESH_ERR_RFT)) {
-				spx_err_thresh |= 0x01000000;
-			}
-			regData |= TSI578_SPX_CTL_INDEP_PORT_ERR_EN;
-
-			rc = tsi57x_enable_err_ctr(dev_info, pnum,
-					TSI578_SPX_ERR_DET_IMP_SPEC_ERR,
-					TSI578_SPX_ERR_DET_IMP_SPEC_ERR,
-					spx_err_rate, spx_err_thresh, imp_rc);
-			if (RIO_SUCCESS != rc) {
-				goto exit;
-			}
-		} else { // rio_em_detect_off:
-			regData &= ~(TSI578_SPX_CTL_INDEP_PORT_ERR_EN);
-		}
-
-		rc = DARRegWrite(dev_info, TSI578_SPX_CTL_INDEP(pnum), regData);
-		if (RIO_SUCCESS != rc) {
-			*imp_rc = SET_EVENT_EN(0x13);
-			goto exit;
-		}
+		rc = tsi57x_set_event_en_cfg_rio_em_f_port_err(dev_info, pnum, event, imp_rc);
 		break;
 
 	case rio_em_f_2many_retx:
-		rc = DARRegRead(dev_info, TSI578_SPX_CTL_INDEP(pnum), &regData);
-		if (RIO_SUCCESS != rc) {
-			*imp_rc = SET_EVENT_EN(0x20);
-			goto exit;
-		}
-
-		if (event->em_detect == rio_em_detect_on) {
-			uint32_t retry_thresh = event->em_info;
-			uint32_t spx_err_rate, spx_err_thresh;
-
-			if (!retry_thresh) {
-				rc = RIO_ERR_INVALID_PARAMETER;
-				*imp_rc = SET_EVENT_EN(0x21);
-				goto exit;
-			}
-
-			if (retry_thresh
-					> (TSI578_SPX_CTL_INDEP_MAX_RETRY_THRESHOLD
-							>> 8)) {
-				retry_thresh =
-						TSI578_SPX_CTL_INDEP_MAX_RETRY_THRESHOLD;
-			} else {
-				retry_thresh = retry_thresh << 8;
-			}
-
-			regData |= TSI578_SPX_CTL_INDEP_MAX_RETRY_EN;
-			regData &= ~TSI578_SPX_CTL_INDEP_MAX_RETRY_THRESHOLD;
-			regData |= retry_thresh;
-
-			rc = DARRegRead(dev_info, TSI578_SPX_ERR_RATE(pnum),
-					&spx_err_rate);
-			if (RIO_SUCCESS != rc) {
-				*imp_rc = SET_EVENT_EN(0x28);
-				goto exit;
-			}
-
-			rc = DARRegRead(dev_info, TSI578_SPX_ERR_THRESH(pnum),
-					&spx_err_thresh);
-			if (RIO_SUCCESS != rc) {
-				*imp_rc = SET_EVENT_EN(0x28);
-				goto exit;
-			}
-
-			if (!(spx_err_thresh & TSI578_SPX_ERR_THRESH_ERR_RFT))
-				spx_err_thresh |= 0x01000000;
-
-			rc = tsi57x_enable_err_ctr(dev_info, pnum,
-					TSI578_SPX_ERR_DET_IMP_SPEC_ERR,
-					TSI578_SPX_ERR_DET_IMP_SPEC_ERR,
-					spx_err_rate, spx_err_thresh, imp_rc);
-			if (RIO_SUCCESS != rc) {
-				goto exit;
-			}
-		} else { // rio_em_detect_off:
-			 // Disable events.
-			regData &=
-					~(TSI578_SPX_CTL_INDEP_MAX_RETRY_EN
-							| TSI578_SPX_CTL_INDEP_MAX_RETRY_THRESHOLD);
-		}
-
-		rc = DARRegWrite(dev_info, TSI578_SPX_CTL_INDEP(pnum), regData);
-		if (RIO_SUCCESS != rc) {
-			*imp_rc = SET_EVENT_EN(0x23);
-			goto exit;
-		}
+		rc = tsi57x_set_event_en_cfg_rio_em_f_2many_retx(dev_info, pnum, event, imp_rc);
 		break;
 
 	case rio_em_f_2many_pna:
-		// Enable/disable event detection
-		if (event->em_detect == rio_em_detect_on) {
-			uint32_t spx_err_rate, spx_err_thresh;
-			rc = DARRegRead(dev_info, TSI578_SPX_ERR_RATE(pnum),
-					&spx_err_rate);
-			if (RIO_SUCCESS != rc) {
-				*imp_rc = SET_EVENT_EN(0x28);
-				goto exit;
-			}
-			rc = DARRegRead(dev_info, TSI578_SPX_ERR_THRESH(pnum),
-					&spx_err_thresh);
-			if (RIO_SUCCESS != rc) {
-				*imp_rc = SET_EVENT_EN(0x28);
-				goto exit;
-			}
-
-			spx_err_thresh &= ~TSI578_SPX_ERR_THRESH_ERR_RFT;
-			spx_err_thresh |= ((event->em_info << 24)
-					& TSI578_SPX_ERR_THRESH_ERR_RFT);
-
-			rc = tsi57x_enable_err_ctr(dev_info, pnum,
-					TSI578_SPX_RATE_EN_CS_NOT_ACC_EN,
-					TSI578_SPX_RATE_EN_CS_NOT_ACC_EN,
-					spx_err_rate, spx_err_thresh, imp_rc);
-			if (RIO_SUCCESS != rc) {
-				goto exit;
-			}
-			break;
-		}
-
-		// Disable event by not counting PNA's in error counter.
-		rc = DARRegRead(dev_info, TSI578_SPX_RATE_EN(pnum), &regData);
-		if (RIO_SUCCESS != rc) {
-			*imp_rc = SET_EVENT_EN(0x28);
-			goto exit;
-		}
-
-		regData &= ~(TSI578_SPX_RATE_EN_CS_NOT_ACC_EN);
-
-		rc = DARRegWrite(dev_info, TSI578_SPX_RATE_EN(pnum), regData);
-		if (RIO_SUCCESS != rc) {
-			*imp_rc = SET_EVENT_EN(0x29);
-			goto exit;
-		}
+		rc = tsi57x_set_event_en_cfg_rio_em_f_2many_pna(dev_info, pnum, event, imp_rc);
 		break;
 
-	case rio_em_f_err_rate: {
-		uint32_t spx_rate_en, spx_err_rate, spx_err_thresh;
-		rc = rio_em_get_f_err_rate_info(event->em_info, &spx_rate_en,
-				&spx_err_rate, &spx_err_thresh);
-		if (RIO_SUCCESS != rc) {
-			*imp_rc = SET_EVENT_EN(0x2C);
-			goto exit;
-		}
-
-		spx_rate_en &= ~EM_ERR_RATE_EVENT_EXCLUSIONS;
-
-		// Enable/disable event detection
-		if (event->em_detect == rio_em_detect_on) {
-			uint32_t curr_thresh;
-			rc = DARRegRead(dev_info, TSI578_SPX_ERR_THRESH(pnum),
-					&curr_thresh);
-			if (RIO_SUCCESS != rc) {
-				*imp_rc = SET_EVENT_EN(0x28);
-				goto exit;
-			}
-
-			curr_thresh &= ~TSI578_SPX_ERR_THRESH_ERR_RFT;
-			curr_thresh |= (spx_err_thresh
-					& TSI578_SPX_ERR_THRESH_ERR_RFT);
-
-			rc = tsi57x_enable_err_ctr(dev_info, pnum,
-					spx_rate_en,
-					~EM_ERR_RATE_EVENT_EXCLUSIONS,
-					spx_err_rate, curr_thresh, imp_rc);
-			if (RIO_SUCCESS != rc) {
-				goto exit;
-			}
-			break;
-		}
-
-		// Disable event by disabling error counting for ALL f_err_rate errors
-		rc = DARRegRead(dev_info, TSI578_SPX_RATE_EN(pnum), &regData);
-		if (RIO_SUCCESS != rc) {
-			*imp_rc = SET_EVENT_EN(0x2C);
-			goto exit;
-		}
-
-		regData = regData & EM_ERR_RATE_EVENT_EXCLUSIONS;
-
-		rc = DARRegWrite(dev_info, TSI578_SPX_RATE_EN(pnum), regData);
-		if (RIO_SUCCESS != rc) {
-			*imp_rc = SET_EVENT_EN(0x2D);
-			goto exit;
-		}
+	case rio_em_f_err_rate:
+		rc = tsi57x_set_event_en_cfg_rio_em_f_err_rate(dev_info, pnum, event, imp_rc);
 		break;
-	}
 
 	case rio_em_i_init_fail:
-		// Enable reporting to top level
-		// There is a top-level bit which gates whether or not this
-		// event is reported as an interrupt.  It cannot be reported as
-		// a port-write.
-		rc = DARRegRead(dev_info, TSI578_I2C_INT_ENABLE, &regData);
-		if (RIO_SUCCESS != rc) {
-			*imp_rc = SET_EVENT_EN(0x30);
-			goto exit;
-		}
-
-		if (event->em_detect == rio_em_detect_on) {
-			regData |= TSI578_I2C_INT_ENABLE_BL_FAIL;
-		} else {
-			regData &= ~(TSI578_I2C_INT_ENABLE_BL_FAIL);
-		}
-
-		rc = DARRegWrite(dev_info, TSI578_I2C_INT_ENABLE, regData);
-		if (RIO_SUCCESS != rc) {
-			*imp_rc = SET_EVENT_EN(0x32);
-			goto exit;
-		}
+		rc = tsi57x_set_event_en_cfg_rio_em_i_init_fail(dev_info, event, imp_rc);
 		break;
 
 	case rio_em_d_log:
-		// Specific logical layer error enables are controlled by info parameter
-		rc = DARRegRead(dev_info, TSI578_RIO_LOG_ERR_DET_EN, &regData);
-		if (RIO_SUCCESS != rc) {
-			*imp_rc = SET_EVENT_EN(0x41);
-			goto exit;
-		}
-
-		if (event->em_detect == rio_em_detect_on) {
-			regData =
-					(regData & ~(TSI57X_ALL_LOG_ERRS))
-							| (event->em_info
-									& TSI57X_ALL_LOG_ERRS);
-		} else {
-			regData &= ~(TSI57X_ALL_LOG_ERRS);
-		}
-
-		rc = DARRegWrite(dev_info, TSI578_RIO_LOG_ERR_DET_EN, regData);
-		if (RIO_SUCCESS != rc) {
-			*imp_rc = SET_EVENT_EN(0x42);
-			goto exit;
-		}
+		rc = tsi57x_set_event_en_cfg_rio_em_d_log(dev_info, event, imp_rc);
 		break;
+
 	case rio_em_d_ttl:
 		// Nothing to do, event is not supported...
 		break;
 
 	case rio_em_d_rte:
-		rc = DARRegRead(dev_info, TSI578_SPX_CTL_INDEP(pnum), &regData);
-		if (RIO_SUCCESS != rc) {
-			*imp_rc = SET_EVENT_EN(0x51);
-			goto exit;
-		}
-
-		if (event->em_detect == rio_em_detect_on) {
-			regData |= TSI578_SPX_CTL_INDEP_ILL_TRANS_ERR;
-		} else {
-			regData &= ~(TSI578_SPX_CTL_INDEP_ILL_TRANS_ERR);
-		}
-
-		rc = DARRegWrite(dev_info, TSI578_SPX_CTL_INDEP(pnum), regData);
-		if (RIO_SUCCESS != rc) {
-			*imp_rc = SET_EVENT_EN(0x52);
-			goto exit;
-		}
+		rc = tsi57x_set_event_en_cfg_rio_em_d_rte(dev_info, pnum, event, imp_rc);
 		break;
 
 	case rio_em_i_sig_det:
-		if (!event->em_info) {
-			rio_pc_get_status_in_t stat_in;
-			rio_pc_get_status_out_t stat_out;
-
-			stat_in.ptl.num_ports = 1;
-			stat_in.ptl.pnums[0] = pnum;
-
-			rc = rio_pc_get_status(dev_info, &stat_in, &stat_out);
-			if (RIO_SUCCESS != rc) {
-				*imp_rc = SET_EVENT_EN(0x60);
-				goto exit;
-			}
-
-			if (((rio_em_detect_off == event->em_detect)
-					&& !stat_out.ps[0].port_ok)
-					|| ((rio_em_detect_on
-							== event->em_detect)
-							&& stat_out.ps[0].port_ok))
-				break;
-		}
-
-		rc = DARRegRead(dev_info, TSI578_SPX_CTL_INDEP(pnum), &regData);
-		if (RIO_SUCCESS != rc) {
-			*imp_rc = SET_EVENT_EN(0x61);
-			goto exit;
-		}
-
-		if (event->em_detect == rio_em_detect_on) {
-
-			regData |=
-					TSI578_SPX_CTL_INDEP_LINK_INIT_NOTIFICATION_EN;
-
-			rc = DARRegWrite(dev_info, TSI578_SPX_CTL_INDEP(pnum),
-					regData);
-			if (RIO_SUCCESS != rc) {
-				*imp_rc = SET_EVENT_EN(0x62);
-				goto exit;
-			}
-
-			// Must set PORT_LOCKOUT for the event to be detected...
-			rc = DARRegRead(dev_info, TSI578_SPX_CTL(pnum),
-					&regData);
-			if (RIO_SUCCESS != rc) {
-				*imp_rc = SET_EVENT_EN(0x63);
-				goto exit;
-			}
-
-			regData |= TSI578_SPX_CTL_PORT_LOCKOUT;
-
-			rc = DARRegWrite(dev_info, TSI578_SPX_CTL(pnum),
-					regData);
-			if (RIO_SUCCESS != rc) {
-				*imp_rc = SET_EVENT_EN(0x64);
-				goto exit;
-			}
-		} else {
-			// Disable detection, reporting/counting remain unaffected.
-			// Do not touch PORT_LOCKOUT. Let the PC routine control PORT_LOCKOUT.
-			regData &=
-					~(TSI578_SPX_CTL_INDEP_LINK_INIT_NOTIFICATION_EN);
-
-			rc = DARRegWrite(dev_info, TSI578_SPX_CTL_INDEP(pnum),
-					regData);
-			if (RIO_SUCCESS != rc) {
-				*imp_rc = SET_EVENT_EN(0x65);
-				goto exit;
-			}
-		}
+		rc = tsi57x_set_event_en_cfg_rio_em_i_sig_det(dev_info, pnum, event, imp_rc);
 		break;
 
 	case rio_em_i_rst_req:
-		rc = DARRegRead(dev_info, TSI578_SPX_MODE(pnum), &regData);
-		if (RIO_SUCCESS != rc) {
-			*imp_rc = SET_EVENT_EN(0x70);
-			goto exit;
-		}
-
-		if (event->em_detect == rio_em_detect_on) {
-			// Can't detect the event unless self_rst is disabled.
-			regData &= ~(TSI578_SPX_MODE_SELF_RST);
-			regData |= TSI578_SPX_MODE_RCS_INT_EN;
-		} else {
-			// DO NOT CHANGE SELF_RST
-			// This should be handled by the PC routines.
-			regData &= ~(TSI578_SPX_MODE_RCS_INT_EN);
-		}
-
-		rc = DARRegWrite(dev_info, TSI578_SPX_MODE(pnum), regData);
-		if (RIO_SUCCESS != rc) {
-			*imp_rc = SET_EVENT_EN(0x72);
-			goto exit;
-		}
+		rc = tsi57x_set_event_en_cfg_rio_em_i_rst_req(dev_info, pnum, event, imp_rc);
 		break;
 
 	case rio_em_a_clr_pwpnd:
@@ -965,8 +1036,8 @@ static uint32_t tsi57x_set_event_en_cfg(DAR_DEV_INFO_t *dev_info,
 
 	default:
 		rc = RIO_ERR_INVALID_PARAMETER;
-		*imp_rc = SET_EVENT_EN(0x80);
-		goto exit;
+		*imp_rc = SET_EVENT_EN(0x02);
+		break;
 	}
 
 exit:
