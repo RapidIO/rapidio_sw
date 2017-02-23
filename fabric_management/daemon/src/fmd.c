@@ -247,7 +247,7 @@ void spawn_threads(struct fmd_opt_vals *cfg)
 }
 
 // cleanup the /sys/bus/rapidio/devices directory
-int delete_sysfs_devices(riocp_pe_handle mport_pe, bool auto_config)
+int delete_sysfs_devices(riocp_pe_handle mport_pe, bool delete_all)
 {
 	DIR *dir;
 	struct dirent *entry;
@@ -323,8 +323,10 @@ int delete_sysfs_devices(riocp_pe_handle mport_pe, bool auto_config)
 					continue;
 				}
 
-				// auto: delete all names
-				if (auto_config) {
+				// delete_all: delete all names, asserted
+				// on slave nodes and on master node when
+				// configured as 'auto'
+				if (delete_all) {
 					tmp = strlen(entry->d_name) + 1;
 					sysfs_name = (char *)malloc(tmp);
 					if (NULL == sysfs_name) {
@@ -437,7 +439,7 @@ int setup_mport_master(int mport)
 	}
 
 	free(name);
-	delete_sysfs_devices(mport_pe, cfg_auto());
+	delete_sysfs_devices(mport_pe, true);
 
 	return fmd_traverse_network(mport_pe, &cfg_dev);
 }
@@ -509,7 +511,9 @@ int setup_mport_slave(int mport)
 		return 1;
 	}
 
-	delete_sysfs_devices(mport_pe, cfg_auto());
+	// Slave devices only know what the master tells them.
+	// Delete all pre-existing sysfs devices.
+	delete_sysfs_devices(mport_pe, true);
 
 	ret = riocp_pe_handle_get_private(mport_pe, (void **)&p_dat);
 	if (ret) {
