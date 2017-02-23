@@ -713,7 +713,6 @@ static uint32_t tsi721_set_event_cfg(tsi721_event_cfg_reg_vals_t *regs,
 			*imp_rc = EM_CFG_SET(0x3D);
 			goto fail;
 		}
-		;
 		break;
 
 	case rio_em_f_err_rate:

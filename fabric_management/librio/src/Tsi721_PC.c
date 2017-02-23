@@ -449,6 +449,7 @@ uint32_t tsi721_rio_pc_get_config(DAR_DEV_INFO_t *dev_info,
 	uint32_t plmCtl, spxCtl, devStat, spxCtl2;
 	int32_t lane_num;
 	struct DAR_ptl good_ptl;
+	uint32_t temp;
 
 	out_parms->num_ports = 0;
 	out_parms->imp_rc = 0;
@@ -464,26 +465,20 @@ uint32_t tsi721_rio_pc_get_config(DAR_DEV_INFO_t *dev_info,
 		out_parms->pc[port_idx].pnum = good_ptl.pnums[port_idx];
 
 	// Always get LRTO
-	{
-		uint32_t lrto;
-		rc = DARRegRead(dev_info, TSI721_SP_LT_CTL, &lrto);
-		if (RIO_SUCCESS != rc) {
-			out_parms->imp_rc = PC_SET_CONFIG(0x2);
-			goto exit;
-		}
-		out_parms->lrto = lrto >> 8;
+	rc = DARRegRead(dev_info, TSI721_SP_LT_CTL, &temp);
+	if (RIO_SUCCESS != rc) {
+		out_parms->imp_rc = PC_SET_CONFIG(0x2);
+		goto exit;
 	}
+	out_parms->lrto = temp >> 8;
 
 	// Always get LOG_RTO
-	{
-		uint32_t log_rto;
-		rc = DARRegRead(dev_info, TSI721_SR_RSP_TO, &log_rto);
-		if (RIO_SUCCESS != rc) {
-			out_parms->imp_rc = PC_SET_CONFIG(0x3);
-			goto exit;
-		}
-		out_parms->log_rto = ((log_rto >> 8) * 188) / 100;
+	rc = DARRegRead(dev_info, TSI721_SR_RSP_TO, &temp);
+	if (RIO_SUCCESS != rc) {
+		out_parms->imp_rc = PC_SET_CONFIG(0x3);
+		goto exit;
 	}
+	out_parms->log_rto = ((temp >> 8) * 188) / 100;
 
 	for (port_idx = 0; port_idx < out_parms->num_ports; port_idx++) {
 		out_parms->pc[port_idx].port_available = true;
