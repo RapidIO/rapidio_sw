@@ -1087,7 +1087,7 @@ static uint32_t cps_compute_laneswap_config(DAR_DEV_INFO_t *dev_info, cps_port_i
 		}
 		//@sonar:on
 
-		// @sonar:off - c:S1871
+		//@sonar:off - c:S1871
 		switch (sorted->pc[pnum].fc) {
 		case rio_pc_fc_rx:
 			chgd->ports[pnum].p_ops |=
@@ -1098,13 +1098,12 @@ static uint32_t cps_compute_laneswap_config(DAR_DEV_INFO_t *dev_info, cps_port_i
 					~CPS1848_PORT_X_OPS_TX_FLOW_CTL_DIS;
 			break;
 		case rio_pc_fc_last: /* No change to flow control setting */
-			break;
 		default:
 			// Should never get here, illegal value that would be
 			// detected as part of parameter checking
 			break;
 		}
-		// @sonar:on
+		//@sonar:on
 
 		// Must compute the override value
 		chgd->ports[pnum].p_ctl1 &=
