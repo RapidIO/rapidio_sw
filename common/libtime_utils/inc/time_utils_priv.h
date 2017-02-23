@@ -44,12 +44,12 @@
 extern "C" {
 #endif
 
-	struct seq_ts {
-		int max_idx;
-		int ts_idx;
-		struct timespec ts_val[MAX_TIMESTAMPS];
-		int ts_mkr[MAX_TIMESTAMPS];
-	};
+struct seq_ts {
+	int max_idx;
+	int ts_idx;
+	struct timespec ts_val[MAX_TIMESTAMPS];
+	int ts_mkr[MAX_TIMESTAMPS];
+};
 
 #ifdef __cplusplus
 }

@@ -72,6 +72,8 @@ void time_track_lim(int i, const struct timespec *limit,
 		struct timespec *totaltime, struct timespec *mintime,
 		struct timespec *maxtime);
 
+void time_sleep(const struct timespec *delay);
+
 #ifdef __cplusplus
 }
 #endif

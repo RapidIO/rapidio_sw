@@ -973,11 +973,11 @@ void msg_cleanup_mb(struct worker *info)
 
 int send_resp_msg(struct worker *info)
 {
-	int rc;
 	const struct timespec ten_usec = {0, 10 * 1000};
-	nanosleep(&ten_usec, NULL);
-	errno = 0;
+	int rc;
 
+	time_sleep(&ten_usec);
+	errno = 0;
 	rc = riomp_sock_send(info->con_skt, info->sock_tx_buf, info->msg_size,
 			&info->stop_req);
 	if (rc) {
@@ -1091,6 +1091,7 @@ exit:
 
 void msg_tx_goodput(struct worker *info)
 {
+	const struct timespec ten_usec = {0, 10 * 1000};
 	int rc;
 
 	if (info->mb_valid || info->acc_skt_valid || info->con_skt_valid) {
@@ -1136,8 +1137,7 @@ void msg_tx_goodput(struct worker *info)
 	clock_gettime(CLOCK_MONOTONIC, &info->st_time);
 
 	while (!info->stop_req) {
-		const struct timespec ten_usec = {0, 10 * 1000};
-		nanosleep(&ten_usec, NULL);
+		time_sleep(&ten_usec);
 		if (message_tx_lat == info->action)
 			start_iter_stats(info);
 

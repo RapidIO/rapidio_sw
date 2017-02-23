@@ -34,6 +34,8 @@
 #include <time.h>
 #include <sys/time.h>
 #include <string.h>
+#include <errno.h>
+
 #include "libtime_utils.h"
 
 #ifdef UNIT_TESTING
@@ -248,6 +250,19 @@ void time_track(int i, struct timespec starttime, struct timespec endtime,
 			maxtime);
 }
 
+void time_sleep(const struct timespec *delay)
+{
+	struct timespec dly;
+	struct timespec rem;
+	int rc;
+
+	dly = *delay;
+	do {
+		errno = 0;
+		rc = nanosleep(&dly, &rem);
+		dly = rem;
+	} while (rc && (errno == EINTR));
+}
 #ifdef __cplusplus
 }
 #endif

@@ -33,6 +33,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 
+#include <time.h>
+
+#include "libtime_utils.h"
 #include "rio_misc.h"
 #include "DSF_DB_Private.h"
 #include "pe_mpdrv_private.h"
@@ -130,8 +133,10 @@ exit:
 	return rc;
 }
 
-void SRIO_API_DelayFunc(uint32_t UNUSED(delay_nsec), uint32_t UNUSED(delay_sec))
+void SRIO_API_DelayFunc(uint32_t delay_nsec, uint32_t delay_sec)
 {
+	struct timespec delay = {delay_sec, delay_nsec};
+	time_sleep(&delay);
 }
 
 #ifdef __cplusplus

@@ -37,6 +37,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #endif
 #include <inttypes.h>
 #include <math.h>
+#include <time.h>
 
 #include <map>
 #include <iostream>
@@ -338,9 +339,10 @@ ATTR_NONE
 
 int WaitCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 {
+	const struct timespec ten_usec = {0, 10 * 1000};
+
 	uint16_t idx, limit = 10000;
 	int state = -1;
-	const struct timespec ten_usec = {0, 10 * 1000};
 
 	if (gp_parse_worker_index(env, argv[0], &idx)) {
 		goto exit;
@@ -373,7 +375,7 @@ int WaitCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 	}
 
 	while ((wkr[idx].stat != state) && limit--) {
-		nanosleep(&ten_usec, NULL);
+		time_sleep(&ten_usec);
 	}
 
 	if (wkr[idx].stat == state) {
@@ -403,18 +405,17 @@ ATTR_NONE
 int SleepCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 {
 	float sec;
-	struct timespec requested;
-	struct timespec remaining;
 	double fractional;
 	double seconds;
+	struct timespec delay;
 
 	sec = GetFloatParm(argv[0], 0);
 	if(sec > 0) {
 		LOGMSG(env, "\nSleeping %f sec\n", sec);
 		fractional = modf(sec, &seconds);
-		requested.tv_sec = seconds;
-		requested.tv_nsec = fractional * 1000000 * 1000;
-		nanosleep(&requested, &remaining);
+		delay.tv_sec = seconds;
+		delay.tv_nsec = fractional * 1000000 * 1000;
+		time_sleep(&delay);
 	}
 	return 0;
 }

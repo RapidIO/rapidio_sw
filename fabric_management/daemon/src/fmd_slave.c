@@ -65,6 +65,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rio_ecosystem.h"
 #include "fmd.h"
 #include "cfg.h"
+#include "libtime_utils.h"
 #include "libcli.h"
 #include "liblog.h"
 #include "libfmdd.h"
@@ -410,6 +411,8 @@ fail:
 int start_peer_mgmt_slave(uint32_t mast_acc_skt_num, uint32_t mast_did,
                         uint32_t  mp_num, struct fmd_slave *slave)
 {
+	const struct timespec delay = {5, 0}; // 5 seconds
+
 	int rc;
 	int conn_rc;
 
@@ -456,19 +459,7 @@ int start_peer_mgmt_slave(uint32_t mast_acc_skt_num, uint32_t mast_did,
 
 		ERR("riomp_sock_connect ERR %d\n", conn_rc);
 		if ((ETIME == errno) || (EPERM == errno)) {
-			struct timespec dly, rem;
-
- 			dly.tv_sec = 5;
-			dly.tv_nsec = 0; 
-			rem.tv_sec = 0;
-			rem.tv_nsec = 0;
-
-			do {
-				rc = nanosleep(&dly, &rem);
-				dly = rem;
-				rem.tv_sec = 0;
-				rem.tv_nsec = 0;
-			} while (rc && (errno == EINTR));
+			time_sleep(&delay);
 		}
 
 		rc = riomp_sock_close(&slv->skt_h);
