@@ -305,6 +305,9 @@ static int riocp_pe_create_mport_handle(riocp_pe_handle *handle,
 		if (riocp_pe_lock_clear(pe, ANY_ID, 0)) {
 			return -EAGAIN;
 		}
+		if (riocp_enable_pe(pe, RIOCP_PE_ANY_PORT)) {
+			return -ENOTSUP;
+		}
 	}
 
 	*handle = pe;
