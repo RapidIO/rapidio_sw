@@ -220,7 +220,7 @@ int main(int argc, char** argv)
 			usage(program);
 			exit(EXIT_SUCCESS);
 			break;
-		case '?':
+//		case '?':
 		default:
 			/* Invalid command line option */
 			if (isprint(optopt)) {

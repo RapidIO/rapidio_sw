@@ -1134,8 +1134,10 @@ static uint32_t cps_compute_laneswap_config(DAR_DEV_INFO_t *dev_info, cps_port_i
 			case rio_pc_pw_2x:
 				break;
 
+			//@sonar:off - c:S3458
 			default:
 			case rio_pc_pw_4x:
+			//@sonar:on
 				rc = RIO_ERR_INVALID_PARAMETER;
 				*fail_pt = PC_SET_CONFIG(0x71);
 				goto exit;
@@ -3263,8 +3265,10 @@ uint32_t CPS_rio_pc_secure_port(DAR_DEV_INFO_t *dev_info,
 			}
 			break;
 
+		//@sonar:off - c:S3458
 		case rio_pc_rst_last:
 		default:
+		//@sonar:on
 			rc = RIO_ERR_INVALID_PARAMETER;
 			out_parms->imp_rc = PC_SECURE_PORT(0x2F);
 			goto exit;

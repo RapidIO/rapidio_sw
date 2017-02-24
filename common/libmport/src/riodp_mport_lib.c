@@ -310,15 +310,18 @@ static inline enum rio_exchange convert_directio_type(
 static inline enum rio_transfer_sync convert_directio_sync(
 		enum riomp_dma_directio_transfer_sync sync)
 {
+	//@sonar:off - c:S3458
 	switch (sync) {
-	default: /* sync as default is the smallest pitfall */
+	default:
 	case RIO_DIRECTIO_TRANSFER_SYNC:
+		// sync as default is the smallest pitfall
 		return RIO_TRANSFER_SYNC;
 	case RIO_DIRECTIO_TRANSFER_ASYNC:
 		return RIO_TRANSFER_ASYNC;
 	case RIO_DIRECTIO_TRANSFER_FAF:
 		return RIO_TRANSFER_FAF;
 	}
+	//@sonar:on
 }
 
 /*

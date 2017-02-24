@@ -197,7 +197,7 @@ struct fmd_opt_vals *fmd_parse_options(int argc, char *argv[])
 		case 'X':
 			opts->init_and_quit = 1;
 			break;
-		case '?':
+//		case '?':
 		default:
 			/* Invalid command line option */
 			if (!isprint(optopt)) {

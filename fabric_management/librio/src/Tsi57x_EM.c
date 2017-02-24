@@ -147,8 +147,9 @@ static uint32_t tsi57x_set_pw_cfg(DAR_DEV_INFO_t *dev_info,
 			goto exit;
 		}
 
+		//@sonar:off - c:S3458
 		switch (notfn) {
-		default:  // Default case will not be activated...
+		default: // Default case will not be activated...
 		case rio_em_notfn_none:
 		case rio_em_notfn_int:
 			// Disable port-write event notification
@@ -160,6 +161,8 @@ static uint32_t tsi57x_set_pw_cfg(DAR_DEV_INFO_t *dev_info,
 			regData &= ~(TSI578_SPX_MODE_PW_DIS);
 			break;
 		}
+		//@sonar:on
+
 		rc = DARRegWrite(dev_info, TSI578_SPX_MODE(port_num), regData);
 		if (RIO_SUCCESS != rc) {
 			*imp_rc = SET_EVENT_PW(3);
@@ -230,8 +233,9 @@ static uint32_t tsi57x_set_int_cfg(DAR_DEV_INFO_t *dev_info,
 			goto exit;
 		}
 
+		//@sonar:off - c:S3458
 		switch (notfn) {
-		default:  // Default case will not be activated...
+		default: // Default case will not be activated...
 		case rio_em_notfn_none:
 		case rio_em_notfn_pw:
 			// Disable interrupt event notification
@@ -253,6 +257,7 @@ static uint32_t tsi57x_set_int_cfg(DAR_DEV_INFO_t *dev_info,
 				en_mecs_int = true;
 			break;
 		}
+		//@sonar:on
 
 		rc = DARRegWrite(dev_info, TSI578_SPX_MODE(port_num), spx_mode);
 		if (RIO_SUCCESS != rc) {
@@ -268,8 +273,9 @@ static uint32_t tsi57x_set_int_cfg(DAR_DEV_INFO_t *dev_info,
 		}
 	}
 
+	//@sonar:off - c:S3458
 	switch (notfn) {
-	default:  // Default case will not be activated...
+	default: // Default case will not be activated...
 	case rio_em_notfn_none:
 	case rio_em_notfn_pw:
 		// Disable interrupt event notification
@@ -302,6 +308,7 @@ static uint32_t tsi57x_set_int_cfg(DAR_DEV_INFO_t *dev_info,
 		}
 		break;
 	}
+	//@sonar:on
 
 	rc = DARRegWrite(dev_info, TSI578_GLOB_INT_ENABLE, glob_int_en);
 	if (RIO_SUCCESS != rc) {

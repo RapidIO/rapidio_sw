@@ -166,6 +166,7 @@ static uint32_t tsi721_set_config_with_resets(DAR_DEV_INFO_t *dev_info,
 							| TSI721_SP_CTL_OTP_EN);
 		}
 
+		//@sonar:off - c:S3458
 		spxCtl &= ~TSI721_SP_CTL_OVER_PWIDTH;
 		switch (in_parms->pc[0].pw) {
 		case rio_pc_pw_2x:
@@ -186,6 +187,7 @@ static uint32_t tsi721_set_config_with_resets(DAR_DEV_INFO_t *dev_info,
 			out_parms->imp_rc = PC_SET_CONFIG(8);
 			goto exit;
 		}
+		//@sonar:on
 
 		rc = DARRegWrite(dev_info, TSI721_SP_CTL, spxCtl);
 		if (manage_resets) {
@@ -390,6 +392,7 @@ static uint32_t tsi721_update_reset_policy(DAR_DEV_INFO_t *dev_info,
 	TSI721_PLM_IMP_SPEC_CTL_PORT_SELF_RST);
 	devCtl = *saved_devctl & ~TSI721_DEVCTL_SR_RST_MODE;
 
+	//@sonar:off - c:S3458
 	switch (rst_policy_in) {
 	case rio_pc_rst_device:
 		plmCtl |= TSI721_PLM_IMP_SPEC_CTL_SELF_RST |
@@ -410,6 +413,7 @@ static uint32_t tsi721_update_reset_policy(DAR_DEV_INFO_t *dev_info,
 	default:
 		break;
 	}
+	//@sonar:on
 
 	rc = DARRegWrite(dev_info, TSI721_PLM_IMP_SPEC_CTL, plmCtl);
 	if (RIO_SUCCESS != rc) {

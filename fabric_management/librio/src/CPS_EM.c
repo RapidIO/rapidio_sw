@@ -748,8 +748,10 @@ static uint32_t cps_set_event_en_cfg(DAR_DEV_INFO_t *dev_info, uint8_t pnum,
 		regs->wr_dev_ctl_regs = true;
 		break;
 
+	//@sonar:off - c:S3458
 	case rio_em_last:
 	default:
+	//@sonar:on
 		*fail_pt = SET_EVENT_EN(0x95);
 		goto exit;
 	}
@@ -801,6 +803,7 @@ static uint32_t cps_set_pw_cfg(DAR_DEV_INFO_t *dev_info, struct DAR_ptl *good_pt
 			goto exit;
 		}
 
+		//@sonar:off - c:S3458
 		switch (notfn) {
 		default:  // Default case will not be activated...
 		case rio_em_notfn_none:
@@ -814,6 +817,7 @@ static uint32_t cps_set_pw_cfg(DAR_DEV_INFO_t *dev_info, struct DAR_ptl *good_pt
 			ops |= CPS1848_PORT_X_OPS_PORT_PW_EN;
 			break;
 		}
+		//@sonar:on
 
 		rc = DARRegWrite(dev_info, CPS1848_PORT_X_OPS(pnum), ops);
 		if (RIO_SUCCESS != rc) {
@@ -830,6 +834,8 @@ static uint32_t cps_set_pw_cfg(DAR_DEV_INFO_t *dev_info, struct DAR_ptl *good_pt
 				*fail_pt = SET_EVENT_PW(5);
 				goto exit;
 			}
+
+			//@sonar:off - c:S3458
 			switch (notfn) {
 			default:  // Default case will not be activated...
 			case rio_em_notfn_none:
@@ -843,6 +849,8 @@ static uint32_t cps_set_pw_cfg(DAR_DEV_INFO_t *dev_info, struct DAR_ptl *good_pt
 				lctl |= CPS1848_LANE_X_CTL_LANE_PW_EN;
 				break;
 			}
+			//@sonar:on
+
 			rc = DARRegWrite(dev_info, CPS1848_LANE_X_CTL(lnum),
 					lctl);
 			if (RIO_SUCCESS != rc) {
@@ -868,8 +876,9 @@ static uint32_t cps_set_pw_cfg(DAR_DEV_INFO_t *dev_info, struct DAR_ptl *good_pt
 			goto exit;
 		}
 
+		//@sonar:off - c:S3458
 		switch (notfn) {
-		default:  // Default case will not be activated...
+		default: // Default case will not be activated...
 		case rio_em_notfn_none:
 		case rio_em_notfn_int:
 			// Disable port write event notification
@@ -883,6 +892,7 @@ static uint32_t cps_set_pw_cfg(DAR_DEV_INFO_t *dev_info, struct DAR_ptl *good_pt
 			i2c_ctl |= CPS1848_I2C_MASTER_CTL_I2C_PW_EN;
 			break;
 		}
+		//@sonar:on
 
 		rc = DARRegWrite(dev_info, CPS1848_DEVICE_CTL_1, dev1);
 		if (RIO_SUCCESS != rc) {
@@ -944,8 +954,9 @@ static uint32_t cps_set_int_cfg(DAR_DEV_INFO_t *dev_info, struct DAR_ptl *good_p
 			goto exit;
 		}
 
+		//@sonar:off - c:S3458
 		switch (notfn) {
-		default:  // Default case will not be activated...
+		default: // Default case will not be activated...
 		case rio_em_notfn_none:
 		case rio_em_notfn_pw:
 			// Disable interrupt event notification
@@ -957,6 +968,7 @@ static uint32_t cps_set_int_cfg(DAR_DEV_INFO_t *dev_info, struct DAR_ptl *good_p
 			ops |= CPS1848_PORT_X_OPS_PORT_INT_EN;
 			break;
 		}
+		//@sonar:on
 
 		rc = DARRegWrite(dev_info, CPS1848_PORT_X_OPS(pnum), ops);
 		if (RIO_SUCCESS != rc) {
@@ -974,8 +986,9 @@ static uint32_t cps_set_int_cfg(DAR_DEV_INFO_t *dev_info, struct DAR_ptl *good_p
 				goto exit;
 			}
 
+			//@sonar:off - c:S3458
 			switch (notfn) {
-			default:  // Default case will not be activated...
+			default: // Default case will not be activated...
 			case rio_em_notfn_none:
 			case rio_em_notfn_pw:
 				// Disable interrupt event notification
@@ -987,6 +1000,7 @@ static uint32_t cps_set_int_cfg(DAR_DEV_INFO_t *dev_info, struct DAR_ptl *good_p
 				lctl |= CPS1848_LANE_X_CTL_LANE_INT_EN;
 				break;
 			}
+			//@sonar:on
 
 			rc = DARRegWrite(dev_info, CPS1848_LANE_X_CTL(lnum),
 					lctl);
@@ -1013,8 +1027,9 @@ static uint32_t cps_set_int_cfg(DAR_DEV_INFO_t *dev_info, struct DAR_ptl *good_p
 			goto exit;
 		}
 
+		//@sonar:off - c:S3458
 		switch (notfn) {
-		default:  // Default case will not be activated...
+		default: // Default case will not be activated...
 		case rio_em_notfn_none:
 		case rio_em_notfn_pw:
 			// Disable interrupt event notification
@@ -1028,6 +1043,7 @@ static uint32_t cps_set_int_cfg(DAR_DEV_INFO_t *dev_info, struct DAR_ptl *good_p
 			i2c_ctl |= CPS1848_I2C_MASTER_CTL_I2C_INT_EN;
 			break;
 		}
+		//@sonar:on
 
 		rc = DARRegWrite(dev_info, CPS1848_DEVICE_CTL_1, dev1);
 		if (RIO_SUCCESS != rc) {
