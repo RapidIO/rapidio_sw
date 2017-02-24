@@ -50,8 +50,16 @@
 extern "C" {
 #endif
 
-did_sz_t did_ids[RIO_LAST_DEV16];
+did_sz_t did_ids[RIO_LAST_DEV16 + 1];
 uint32_t did_idx = 0;
+
+static void did_init()
+{
+	did_ids[0] = dev08_sz;
+	did_ids[RIO_LAST_DEV8] = dev08_sz;
+	did_ids[RIO_LAST_DEV16] = dev16_sz;
+	did_idx = 1;
+}
 
 /**
  * Convert an integer representation of the device Id, from a config file for example,
@@ -103,9 +111,7 @@ int did_create(did_t *did, did_sz_t size)
 
 	// lazy initialization
 	if (0 == did_idx) {
-		did_ids[0] = dev08_sz;
-		did_ids[255] = dev08_sz;
-		did_idx = 1;
+		did_init();
 	}
 
 	if (NULL == did) {
@@ -172,16 +178,14 @@ int did_create_from_data(did_t *did, did_val_t value, did_sz_t size)
 {
 	// lazy initialization
 	if (0 == did_idx) {
-		did_ids[0] = dev08_sz;
-		did_ids[255] = dev08_sz;
-		did_idx = 1;
+		did_init();
 	}
 
 	if (NULL == did) {
 		return -EINVAL;
 	}
 
-	if ((0 == value) || (255 == value)) {
+	if ((0 == value) || (RIO_LAST_DEV8 == value)) {
 		*did = DID_INVALID_ID;
 		return -EINVAL;
 	}
@@ -231,19 +235,19 @@ int did_create_from_data(did_t *did, did_val_t value, did_sz_t size)
  */
 int did_release(did_t did)
 {
-	did_val_t idx = did.value;
-	if ((0 == idx) || (255 == idx)) {
+	did_val_t value = did.value;
+	if ((0 == value) || (RIO_LAST_DEV8 == value)) {
 		return -EINVAL;
 	}
 
 	switch (did.size) {
 	case dev08_sz:
-		if (idx > (RIO_LAST_DEV8 - 1)) {
+		if (value > (RIO_LAST_DEV8 - 1)) {
 			return -EINVAL;
 		}
 		break;
 	case dev16_sz:
-		if (idx > (RIO_LAST_DEV16 - 1)) {
+		if (value > (RIO_LAST_DEV16 - 1)) {
 			return -EINVAL;
 		}
 		break;
@@ -252,11 +256,11 @@ int did_release(did_t did)
 		return -EPERM;
 	}
 
-	if (invld_sz == did_ids[idx]) {
+	if (invld_sz == did_ids[value]) {
 		return -EKEYEXPIRED;
 	}
 
-	did_ids[idx] = invld_sz;
+	did_ids[value] = invld_sz;
 	return 0;
 }
 
@@ -276,24 +280,29 @@ int did_release(did_t did)
  */
 int did_get(did_t *did, did_val_t value, did_sz_t size)
 {
+	// lazy initialization
+	if (0 == did_idx) {
+		did_init();
+	}
+
 	if (NULL == did) {
 		return -EINVAL;
 	}
 
-	if ((0 == value) || (RIO_LAST_DEV8 == value)) {
+	if (0 == value) {
 		*did = DID_INVALID_ID;
 		return -EINVAL;
 	}
 
 	switch (size) {
 	case dev08_sz:
-		if (value > (RIO_LAST_DEV8 - 1)) {
+		if (value > RIO_LAST_DEV8) {
 			*did = DID_INVALID_ID;
 			return -EINVAL;
 		}
 		break;
 	case dev16_sz:
-		if (value > (RIO_LAST_DEV16 - 1)) {
+		if (value > RIO_LAST_DEV16) {
 			*did = DID_INVALID_ID;
 			return -EINVAL;
 		}
@@ -329,7 +338,7 @@ int did_get(did_t *did, did_val_t value, did_sz_t size)
  */
 int did_not_inuse(did_t did)
 {
-	if ((0 == did.value) || (RIO_LAST_DEV8 == did.value)) {
+	if (0 == did.value) {
 		return -EINVAL;
 	}
 

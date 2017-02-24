@@ -76,10 +76,11 @@ static void assumptions(void **state)
 
 	// assuming this is the first test ever ran, then can verify the internal did structures
 	assert_int_equal(0, did_idx);
-	assert_int_equal(RIO_LAST_DEV16, sizeof(did_ids) / sizeof(did_ids[0]));
+	assert_int_equal(RIO_LAST_DEV16+1,
+			sizeof(did_ids) / sizeof(did_ids[0]));
 	assert_int_equal(0, did_ids[0]);
 	assert_int_equal(0, did_ids[100]);
-	assert_int_equal(0, did_ids[RIO_LAST_DEV16 - 1]);
+	assert_int_equal(0, did_ids[RIO_LAST_DEV16]);
 
 	(void)state; // unused
 }
@@ -317,16 +318,35 @@ static void did_create_from_data_test(void **state)
 
 	// 0 is reserved
 	did.value = 0x12;
-	did.size = dev08_sz;
+	did.size = dev32_sz;
 	assert_int_equal(-EINVAL, did_create_from_data(&did, 0, dev08_sz));
 	assert_int_equal(0, did_invalid(did));
 	assert_int_equal(1, did_idx); // first call reset the did_idx
 
 	// 255 is reserved
 	did.value = 0x12;
-	did.size = dev08_sz;
+	did.size = dev32_sz;
 	assert_int_equal(-EINVAL,
 			did_create_from_data(&did, RIO_LAST_DEV8, dev08_sz));
+	assert_int_equal(0, did_invalid(did));
+
+	did.value = 0x12;
+	did.size = dev32_sz;
+	assert_int_equal(-EINVAL,
+			did_create_from_data(&did, RIO_LAST_DEV8, dev16_sz));
+	assert_int_equal(0, did_invalid(did));
+
+	// 0xffff is reserved
+	did.value = 0x12;
+	did.size = dev32_sz;
+	assert_int_equal(-EINVAL,
+			did_create_from_data(&did, RIO_LAST_DEV16, dev08_sz));
+	assert_int_equal(0, did_invalid(did));
+
+	did.value = 0x12;
+	did.size = dev32_sz;
+	assert_int_equal(-EINVAL,
+			did_create_from_data(&did, RIO_LAST_DEV16, dev16_sz));
 	assert_int_equal(0, did_invalid(did));
 
 	// invalid size
@@ -398,6 +418,7 @@ static void did_create_from_data_test(void **state)
 	// verify final structure
 	assert_int_equal(dev08_sz, did_ids[0]);
 	assert_int_equal(dev08_sz, did_ids[RIO_LAST_DEV8]);
+	assert_int_equal(dev16_sz, did_ids[RIO_LAST_DEV16]);
 
 	assert_int_equal(dev08_sz, did_ids[1]);
 	assert_int_equal(dev08_sz, did_ids[21]);
@@ -439,15 +460,36 @@ static void did_get_test(void **state)
 	assert_int_equal(-EINVAL, did_get(&did, 0, dev16_sz));
 	assert_int_equal(0, did_invalid(did));
 
-	// 255 is an invalid request
+	// 255 is a valid request
 	did.value = 0x12;
 	did.size = dev16_sz;
-	assert_int_equal(-EINVAL, did_get(&did, RIO_LAST_DEV8, dev08_sz));
+	assert_int_equal(0, did_get(&did, RIO_LAST_DEV8, dev08_sz));
+	assert_int_equal(0, did_equal(did, RIO_LAST_DEV8, dev08_sz));
+
+	did.value = 0x12;
+	did.size = dev08_sz;
+	assert_int_equal(0, did_get(&did, RIO_LAST_DEV8, dev16_sz));
+	assert_int_equal(0, did_equal(did, RIO_LAST_DEV8, dev16_sz));
+
+	did.value = 0x12;
+	did.size = dev08_sz;
+	assert_int_equal(-EPERM, did_get(&did, RIO_LAST_DEV8, dev32_sz));
+	assert_int_equal(0, did_invalid(did));
+
+	// 0xffff is a valid request
+	did.value = 0x12;
+	did.size = dev16_sz;
+	assert_int_equal(-EINVAL, did_get(&did, RIO_LAST_DEV16, dev08_sz));
 	assert_int_equal(0, did_invalid(did));
 
 	did.value = 0x12;
 	did.size = dev08_sz;
-	assert_int_equal(-EINVAL, did_get(&did, RIO_LAST_DEV8, dev32_sz));
+	assert_int_equal(0, did_get(&did, RIO_LAST_DEV16, dev16_sz));
+	assert_int_equal(0, did_equal(did, RIO_LAST_DEV16, dev16_sz));
+
+	did.value = 0x12;
+	did.size = dev08_sz;
+	assert_int_equal(-EPERM, did_get(&did, RIO_LAST_DEV16, dev32_sz));
 	assert_int_equal(0, did_invalid(did));
 
 	// invalid size
@@ -469,7 +511,7 @@ static void did_get_test(void **state)
 
 	did.value = 0x12;
 	did.size = dev08_sz;
-	assert_int_equal(-EINVAL, did_get(&did, RIO_LAST_DEV16, dev16_sz));
+	assert_int_equal(-EINVAL, did_get(&did, RIO_LAST_DEV16+1, dev16_sz));
 	assert_int_equal(0, did_invalid(did));
 
 	// look for it, add it, look for it again
@@ -549,17 +591,48 @@ static void did_release_test(void **state)
 	did.value = 0;
 	assert_int_equal(-EINVAL, did_release(did));
 
+	did.size = dev16_sz;
+	did.value = 0;
+	assert_int_equal(-EINVAL, did_release(did));
+
+	did.size = dev32_sz;
+	did.value = 0;
+	assert_int_equal(-EINVAL, did_release(did));
+
 	// 255 is reserved - cannot be released
+	did.size = dev08_sz;
 	did.value = RIO_LAST_DEV8;
 	assert_int_equal(-EINVAL, did_release(did));
 
+	did.size = dev16_sz;
+	did.value = RIO_LAST_DEV8;
+	assert_int_equal(-EINVAL, did_release(did));
+
+	did.size = dev32_sz;
+	did.value = RIO_LAST_DEV8;
+	assert_int_equal(-EINVAL, did_release(did));
+
+	// 0xffff is reserved - cannot be released
+	did.size = dev08_sz;
+	did.value = RIO_LAST_DEV16;
+	assert_int_equal(-EINVAL, did_release(did));
+
+	did.size = dev16_sz;
+	did.value = RIO_LAST_DEV16;
+	assert_int_equal(-EINVAL, did_release(did));
+
+	did.size = dev32_sz;
+	did.value = RIO_LAST_DEV16;
+	assert_int_equal(-EPERM, did_release(did));
+
 	// 8-bit did, out of range
+	did.size = dev08_sz;
 	did.value = RIO_LAST_DEV8 + 1;
 	assert_int_equal(-EINVAL, did_release(did));
 
 	// 16-bit did, out of range
 	did.size = dev16_sz;
-	did.value = RIO_LAST_DEV16;
+	did.value = RIO_LAST_DEV16 + 1;
 	assert_int_equal(-EINVAL, did_release(did));
 
 	// not in use
