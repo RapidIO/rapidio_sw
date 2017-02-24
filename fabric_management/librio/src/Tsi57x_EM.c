@@ -2346,6 +2346,7 @@ uint32_t tsi57x_rio_em_clr_events(DAR_DEV_INFO_t *dev_info,
 				out_parms->imp_rc = EM_CLR_EVENTS(0x10);
 				goto exit;
 			}
+
 			rc = DARRegRead(dev_info, TSI578_SPX_ERR_DET(pnum),
 					&regData);
 			if (RIO_SUCCESS != rc) {
@@ -2354,7 +2355,6 @@ uint32_t tsi57x_rio_em_clr_events(DAR_DEV_INFO_t *dev_info,
 			}
 
 			regData &= ~(TSI578_SPX_RATE_EN_IMP_SPEC_ERR);
-
 			rc = DARRegWrite(dev_info, TSI578_SPX_ERR_DET(pnum),
 					regData);
 			if (RIO_SUCCESS != rc) {
@@ -2395,6 +2395,7 @@ uint32_t tsi57x_rio_em_clr_events(DAR_DEV_INFO_t *dev_info,
 				out_parms->imp_rc = EM_CLR_EVENTS(0x22);
 				goto exit;
 			}
+
 			regData &= ~TSI578_SPX_ERR_DET_CS_NOT_ACC;
 			rc = DARRegWrite(dev_info, TSI578_SPX_ERR_DET(pnum),
 					regData);
@@ -2413,6 +2414,7 @@ uint32_t tsi57x_rio_em_clr_events(DAR_DEV_INFO_t *dev_info,
 				out_parms->imp_rc = EM_CLR_EVENTS(0x24);
 				goto exit;
 			}
+
 			regData &= EM_ERR_RATE_EVENT_EXCLUSIONS;
 			rc = DARRegWrite(dev_info, TSI578_SPX_ERR_DET(pnum),
 					regData);
@@ -2451,6 +2453,7 @@ uint32_t tsi57x_rio_em_clr_events(DAR_DEV_INFO_t *dev_info,
 				out_parms->imp_rc = EM_CLR_EVENTS(0x2A);
 				goto exit;
 			}
+
 			rc = DARRegWrite(dev_info,
 					TSI578_SPX_CS_INT_STATUS(pnum),
 					TSI578_SPX_CS_INT_STATUS_RCS);
@@ -2461,26 +2464,22 @@ uint32_t tsi57x_rio_em_clr_events(DAR_DEV_INFO_t *dev_info,
 			break;
 
 		case rio_em_a_clr_pwpnd:
-		{
-			uint32_t err_stat;
 			rc = DARRegRead(dev_info, TSI578_SPX_ERR_STATUS(pnum),
-					&err_stat);
+					&regData);
 			if (RIO_SUCCESS != rc) {
 				out_parms->imp_rc = EM_CLR_EVENTS(0x2C);
 				goto exit;
 			}
-			rc =
-					DARRegWrite(dev_info,
-							TSI578_SPX_ERR_STATUS(
-									pnum),
-							err_stat
-									| TSI578_SPX_ERR_STATUS_PORT_W_PEND);
+
+			regData |= TSI578_SPX_ERR_STATUS_PORT_W_PEND;
+			rc = DARRegWrite(dev_info,
+					TSI578_SPX_ERR_STATUS(pnum),
+					regData);
 			if (RIO_SUCCESS != rc) {
 				out_parms->imp_rc = EM_CLR_EVENTS(0x2E);
 				goto exit;
 			}
 			break;
-		}
 
 		default:
 			out_parms->imp_rc = EM_CLR_EVENTS(0x2F);

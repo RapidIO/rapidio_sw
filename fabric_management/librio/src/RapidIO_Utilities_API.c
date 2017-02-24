@@ -1288,6 +1288,8 @@ uint32_t DAR_pkt_fields_to_bytes(DAR_pkt_fields_t *fields_in,
 	uint32_t wdptr, rdsize, wrsize, data_bytes, repeat_data_bytes = 1;
 	uint32_t addr_rc;
 	uint32_t trans_type;
+	uint32_t size_rc;
+	uint32_t mtc_trans_type;
 
 	DAR_util_pkt_bytes_init(bytes_out);
 
@@ -1472,11 +1474,7 @@ uint32_t DAR_pkt_fields_to_bytes(DAR_pkt_fields_t *fields_in,
 
 		case 8: /* Maintenance read/write, maintenance read/write response,
 		 and port-write */
-
-		{
-			uint32_t size_rc;
-			uint32_t mtc_trans_type = (int)(fields_in->pkt_type)
-					- (pkt_mr);
+			mtc_trans_type = (int)(fields_in->pkt_type) - (pkt_mr);
 			/* Add Packet Transaction Type and Size */
 			switch (fields_in->pkt_type) {
 			case pkt_mr: /* Maintenance Read */
@@ -1566,7 +1564,7 @@ uint32_t DAR_pkt_fields_to_bytes(DAR_pkt_fields_t *fields_in,
 			}
 			data_bytes = fields_in->pkt_bytes;
 			break;
-		}
+
 		case 9: /* Data Streaming */
 			/* This clause handles the special case of adding data to
 			 a data streaming packet, since these packets may have

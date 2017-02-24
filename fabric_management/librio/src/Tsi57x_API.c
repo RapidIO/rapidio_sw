@@ -50,6 +50,65 @@ extern "C" {
 #ifdef TSI57X_DAR_WANTED
 
 extern const struct scrpad_info *tsi57x_get_scrpad_info(); // Tsi57x_PC
+
+static void tsi57x_WriteReg_mask_cfg(DAR_DEV_INFO_t *dev_info,
+		uint32_t writedata)
+{
+	uint32_t mask = (writedata & TSI578_RIO_MC_MASK_CFG_MC_MASK_NUM) >> 16;
+	uint8_t port = (writedata & RIO_MC_MSK_CFG_PT_NUM) >> 8;
+	uint32_t cmd  = (writedata & RIO_MC_MSK_CFG_CMD);
+	/* Write to TSI578_RIO_MC_MASK_CFG can update mask registers.
+	 * Emulate effect on mask registers, as we can't trust reading the
+	 * global mask registers if Port 0 is powered down.
+	 */
+
+	switch (cmd) {
+	case RIO_MC_MSK_CFG_CMD_ADD:
+		dev_info->scratchpad[mask+SCRPAD_MASK_IDX] |= ((uint32_t)(1) << (port + 16));
+		break;
+	case RIO_MC_MSK_CFG_CMD_DEL:
+		dev_info->scratchpad[mask+SCRPAD_MASK_IDX] &= ~((uint32_t)(1) << (port + 16));
+		break;
+	case RIO_MC_MSK_CFG_CMD_DEL_ALL:
+		dev_info->scratchpad[mask+SCRPAD_MASK_IDX] &= ~TSI578_RIO_MC_MSKX_MC_MSK;
+		break;
+	case RIO_MC_MSK_CFG_CMD_ADD_ALL:
+		dev_info->scratchpad[mask+SCRPAD_MASK_IDX] |= TSI578_RIO_MC_MSKX_MC_MSK;
+		break;
+	default:
+		break;
+	}
+}
+
+static void tsi57x_WriteReg_destid_assoc(DAR_DEV_INFO_t *dev_info, uint8_t idx)
+{
+	uint8_t mask;
+	uint32_t destid;
+	bool large = (dev_info->scratchpad[idx] & RIO_MC_CON_OP_DEV16M);
+	uint32_t cmd = (dev_info->scratchpad[idx] & RIO_MC_CON_OP_CMD);
+
+	mask = (dev_info->scratchpad[idx - 1] & RIO_MC_CON_SEL_MASK);
+	destid = dev_info->scratchpad[idx - 1] &
+		(RIO_MC_CON_SEL_DEV8 | RIO_MC_CON_SEL_DEV16);
+
+	/* Write to TSI578_RIO_MC_DESTID_ASSOC can update destID registers.
+	 * Must emulate the effect, as it is not possible to trust the value
+	 * of the destID register selected when port 0 is powered down.
+	 */
+	switch (cmd) {
+	case RIO_MC_CON_OP_CMD_DEL:
+		dev_info->scratchpad[mask] = 0;
+		break;
+	case RIO_MC_CON_OP_CMD_ADD:
+		dev_info->scratchpad[mask] = (destid >> 16) |
+		TSI578_RIO_MC_IDX_MC_EN
+				| ((large) ? (TSI578_RIO_MC_IDX_LARGE_SYS) : 0);
+		break;
+	default:
+		break;
+	}
+}
+
 uint32_t tsi57x_WriteReg(DAR_DEV_INFO_t *dev_info, uint32_t offset,
 		uint32_t writedata)
 {
@@ -57,78 +116,29 @@ uint32_t tsi57x_WriteReg(DAR_DEV_INFO_t *dev_info, uint32_t offset,
 	uint8_t idx;
 	uint32_t rc;
 
-	rc = WriteReg( dev_info, offset, writedata );
-	if (RIO_SUCCESS == rc) {
 
+	rc = WriteReg(dev_info, offset, writedata);
+	if (RIO_SUCCESS == rc) {
 		for (idx = SCRPAD_FIRST_IDX; idx < MAX_DAR_SCRPAD_IDX; idx++) {
 			if (scratchpad[idx].offset == offset) {
 				writedata &= scratchpad[idx].rw_mask;
 				dev_info->scratchpad[idx] = writedata;
 
 				switch (offset) {
-				case TSI578_RIO_MC_MASK_CFG    : 
-				{
-					uint32_t mask = (writedata & TSI578_RIO_MC_MASK_CFG_MC_MASK_NUM) >> 16;
-					uint8_t port = (writedata & RIO_MC_MSK_CFG_PT_NUM) >> 8;
-					uint32_t cmd  = (writedata & RIO_MC_MSK_CFG_CMD);
-					/* Write to TSI578_RIO_MC_MASK_CFG can update mask registers.
-					 * Emulate effect on mask registers, as we can't trust reading the
-					 * global mask registers if Port 0 is powered down.
-					 */
-
-					switch (cmd) {
-					case RIO_MC_MSK_CFG_CMD_ADD:
-						dev_info->scratchpad[mask+SCRPAD_MASK_IDX] |= ((uint32_t)(1) << (port + 16));
-						break;
-					case RIO_MC_MSK_CFG_CMD_DEL:
-						dev_info->scratchpad[mask+SCRPAD_MASK_IDX] &= ~((uint32_t)(1) << (port + 16));
-						break;
-					case RIO_MC_MSK_CFG_CMD_DEL_ALL:
-						dev_info->scratchpad[mask+SCRPAD_MASK_IDX] &= ~TSI578_RIO_MC_MSKX_MC_MSK;
-						break;
-					case RIO_MC_MSK_CFG_CMD_ADD_ALL:
-						dev_info->scratchpad[mask+SCRPAD_MASK_IDX] |= TSI578_RIO_MC_MSKX_MC_MSK;
-						break;
-					default:
-						break;
-					}
+				case TSI578_RIO_MC_MASK_CFG:
+					tsi57x_WriteReg_mask_cfg(dev_info,
+							writedata);
 					break;
-				}
-
 				case TSI578_RIO_MC_DESTID_ASSOC:
-				{
-					uint8_t mask;
-					uint32_t destid;
-					bool large = (dev_info->scratchpad[idx] & RIO_MC_CON_OP_DEV16M);
-					uint32_t cmd = (dev_info->scratchpad[idx] & RIO_MC_CON_OP_CMD);
-					
-					if (!idx) {
+					if (idx) {
+						tsi57x_WriteReg_destid_assoc(
+								dev_info, idx);
+					} else {
 						rc = RIO_ERR_SW_FAILURE;
-						break;
-					}
-
-					mask = (dev_info->scratchpad[idx - 1] & RIO_MC_CON_SEL_MASK);
-					destid = dev_info->scratchpad[idx - 1] & 
-						(RIO_MC_CON_SEL_DEV8 | RIO_MC_CON_SEL_DEV16);
-
-					/* Write to TSI578_RIO_MC_DESTID_ASSOC can update destID registers.
-					 * Must emulate the effect, as it is not possible to trust the value
-					 * of the destID register selected when port 0 is powered down.
-					 */
-					switch (cmd) {
-					case RIO_MC_CON_OP_CMD_DEL:
-						dev_info->scratchpad[mask] = 0;
-						break;
-					case RIO_MC_CON_OP_CMD_ADD:
-						dev_info->scratchpad[mask] = (destid >> 16) |
-							TSI578_RIO_MC_IDX_MC_EN | ((large)?(TSI578_RIO_MC_IDX_LARGE_SYS):0);
-						break;
-					default:
-						break;
 					}
 					break;
-				}
-				default: break;
+				default:
+					break;
 				}
 				break;
 			}
@@ -148,8 +158,8 @@ uint32_t tsi57x_ReadReg(DAR_DEV_INFO_t *dev_info, uint32_t offset,
 		if (scratchpad[idx].offset == offset) {
 			switch (offset) {
 			case TSI578_RIO_MC_DESTID_ASSOC:
-			case TSI578_RIO_MC_MASK_CFG    : 
-			case TSI578_RIO_MC_DESTID_CFG  : 
+			case TSI578_RIO_MC_MASK_CFG:
+			case TSI578_RIO_MC_DESTID_CFG:
 				continue;
 			default:
 				*readdata = dev_info->scratchpad[idx];

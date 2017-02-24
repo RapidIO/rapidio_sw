@@ -586,14 +586,342 @@ static uint32_t tsi721_localog_set_notifn(tsi721_event_cfg_reg_vals_t *regs,
 	return rc;
 }
 
+static uint32_t tsi721_set_event_cfg_rio_em_f_los(
+		tsi721_event_cfg_reg_vals_t *regs, rio_em_cfg_t *event,
+		rio_em_notfn_ctl_t nfn, uint32_t *imp_rc)
+{
+	uint32_t rc;
+
+	regs->plm_imp_spec_ctl &= ~TSI721_PLM_IMP_SPEC_CTL_DLT_THRESH;
+	if (rio_em_detect_on == event->em_detect) {
+		// TODO: Could have a more exact figure than 1000
+		// based on link speed/prescaler value
+		//
+		// Round up to ensure delay is at least as long as
+		// what was requested.
+		uint32_t time = (event->em_info + (256 * 1000) - 1)
+						/ 1000 / 256;
+
+		if (!event->em_info) {
+			rc = RIO_ERR_INVALID_PARAMETER;
+			*imp_rc = EM_CFG_SET(0x28);
+			goto fail;
+		}
+
+		if (!time) {
+			time = 1;
+		}
+
+		if (time > TSI721_PLM_IMP_SPEC_CTL_DLT_THRESH) {
+			time = TSI721_PLM_IMP_SPEC_CTL_DLT_THRESH;
+		}
+		regs->plm_imp_spec_ctl &= ~TSI721_PLM_IMP_SPEC_CTL_DLT_THRESH;
+		regs->plm_imp_spec_ctl |= time;
+	}
+
+	rc = tsi721_plm_set_notifn(regs, TSI721_PLM_STATUS_DLT, nfn);
+	if (RIO_SUCCESS != rc) {
+		*imp_rc = EM_CFG_SET(0x29);
+	}
+
+fail:
+	return rc;
+}
+
+static uint32_t tsi721_set_event_cfg_rio_em_f_2many_retx(
+		tsi721_event_cfg_reg_vals_t *regs, rio_em_cfg_t *event,
+		rio_em_notfn_ctl_t nfn, uint32_t *imp_rc)
+{
+	uint32_t rc;
+
+	// Note: only PNA with a reason of
+	// "Packet not accepted due to lack of resources"
+	// count towards this threshold.  All other reasons are
+	// tracked through the standard Error Management thresholds.
+	if (rio_em_detect_on == event->em_detect) {
+		regs->plm_denial_ctl =
+		TSI721_PLM_DENIAL_CTL_CNT_RTY |
+		TSI721_PLM_DENIAL_CTL_CNT_PNA;
+
+		if (!event->em_info) {
+			rc = RIO_ERR_INVALID_PARAMETER;
+			*imp_rc = EM_CFG_SET(0x38);
+			goto fail;
+		}
+
+		if (event->em_info >= TSI721_PLM_DENIAL_CTL_DENIAL_THRESH) {
+			regs->plm_denial_ctl |=
+			TSI721_PLM_DENIAL_CTL_DENIAL_THRESH;
+		} else {
+			regs->plm_denial_ctl |= event->em_info;
+		}
+	} else {
+		regs->plm_denial_ctl = 0;
+	}
+
+	rc = tsi721_plm_set_notifn(regs, TSI721_PLM_STATUS_MAX_DENIAL, nfn);
+	if (RIO_SUCCESS != rc) {
+		*imp_rc = EM_CFG_SET(0x39);
+	}
+
+fail:
+	return rc;
+}
+
+static uint32_t tsi721_set_event_cfg_rio_em_f_2many_pna(
+		tsi721_event_cfg_reg_vals_t *regs, rio_em_cfg_t *event,
+		rio_em_notfn_ctl_t nfn, uint32_t *imp_rc)
+{
+	uint32_t thresh;
+	uint32_t rc;
+
+	// Setting a rate specific to PNA will overwrite the rates
+	// set for rio_em_f_err_rate.
+	if (rio_em_detect_off == event->em_detect) {
+		regs->sp_rate_en &= ~TSI721_SP_RATE_EN_CS_NOT_ACC_EN;
+	} else {
+		thresh = event->em_info;
+		if (!thresh) {
+			rc = RIO_ERR_INVALID_PARAMETER;
+			*imp_rc = EM_CFG_SET(0x3C);
+			goto fail;
+		}
+
+		regs->sp_rate_en |= TSI721_SP_RATE_EN_CS_NOT_ACC_EN;
+		if (thresh > 0xFF) {
+			thresh = 0xFF;
+		}
+
+		thresh = (thresh << 24) & TSI721_SP_ERR_THRESH_ERR_RFT;
+		regs->sp_err_thresh &= ~TSI721_SP_ERR_THRESH_ERR_RFT;
+		regs->sp_err_thresh |= thresh;
+		regs->sp_ctl |= TSI721_SP_CTL_DROP_EN |
+				TSI721_SP_CTL_STOP_FAIL_EN;
+	}
+
+	rc = tsi721_plm_set_notifn(regs, TSI721_PLM_STATUS_OUTPUT_FAIL, nfn);
+	if (RIO_SUCCESS != rc) {
+		*imp_rc = EM_CFG_SET(0x3D);
+	}
+
+fail:
+	return rc;
+}
+
+static uint32_t tsi721_set_event_cfg_rio_em_f_err_rate(
+		tsi721_event_cfg_reg_vals_t *regs, rio_em_cfg_t *event,
+		rio_em_notfn_ctl_t nfn, uint32_t *imp_rc)
+{
+	uint32_t rate_en;
+	uint32_t err_thresh;
+	uint32_t err_rate;
+	uint32_t rc;
+
+	rc = rio_em_get_f_err_rate_info(event->em_info, &rate_en, &err_rate,
+			&err_thresh);
+	if ((RIO_SUCCESS != rc) || !err_thresh) {
+		if (RIO_SUCCESS == rc) {
+			rc = RIO_ERR_INVALID_PARAMETER;
+		}
+		*imp_rc = EM_CFG_SET(0x40);
+		goto fail;
+	}
+
+	if (rio_em_detect_off == event->em_detect) {
+		regs->sp_rate_en &= TSI721_ERR_RATE_EVENT_EXCLUSIONS;
+		regs->sp_err_thresh &= ~TSI721_SP_ERR_THRESH_ERR_RFT;
+		regs->sp_err_rate = 0;
+	} else {
+		if (!(err_thresh & TSI721_SP_ERR_THRESH_ERR_RFT)) {
+			rc = RIO_ERR_INVALID_PARAMETER;
+			*imp_rc = EM_CFG_SET(0x41);
+			goto fail;
+		}
+
+		regs->sp_rate_en = (rate_en
+				& ~TSI721_ERR_RATE_EVENT_EXCLUSIONS)
+				| (regs->sp_rate_en &
+				TSI721_ERR_RATE_EVENT_EXCLUSIONS);
+		regs->sp_err_thresh = (err_thresh
+				& TSI721_SP_ERR_THRESH_ERR_RFT)
+				| (regs->sp_err_thresh &
+				~TSI721_SP_ERR_THRESH_ERR_RFT);
+		regs->sp_err_rate = err_rate;
+		regs->sp_ctl |= TSI721_SP_CTL_DROP_EN |
+				TSI721_SP_CTL_STOP_FAIL_EN;
+	}
+
+	rc = tsi721_plm_set_notifn(regs, TSI721_PLM_STATUS_OUTPUT_FAIL, nfn);
+	if (RIO_SUCCESS != rc) {
+		*imp_rc = EM_CFG_SET(0x42);
+	}
+
+fail:
+	return rc;
+}
+
+static uint32_t tsi721_set_event_cfg_rio_em_d_log(
+		tsi721_event_cfg_reg_vals_t *regs, rio_em_cfg_t *event,
+		rio_em_notfn_ctl_t nfn, uint32_t *imp_rc)
+{
+	uint32_t mask;
+	uint32_t rc;
+
+	// Tsi721 logical layer errors are always detected.
+	// There is no support for standard logical layer errors,
+	//    only implementation specific ones.
+	// Notification is limited to port writes.
+	mask = TSI721_LOCAL_ERR_EN_ILL_TYPE_EN | TSI721_LOCAL_ERR_EN_ILL_ID_EN;
+	switch (event->em_detect) {
+	case rio_em_detect_on:
+		regs->local_err_en &= ~mask;
+		regs->local_err_en |= event->em_info & mask;
+		if (!regs->local_err_en) {
+			rc = RIO_ERR_INVALID_PARAMETER;
+			*imp_rc = EM_CFG_SET(0x43);
+			goto fail;
+		}
+		// INFW - BEW - setting rc
+		rc = tsi721_localog_set_notifn(regs, nfn);
+		break;
+	case rio_em_detect_off:
+		regs->local_err_en &= ~mask;
+		// INFW - BEW - setting rc
+		rc = tsi721_localog_set_notifn(regs, rio_em_notfn_none);
+		break;
+	case rio_em_detect_0delta:
+		// INFW - BEW - setting rc - no call?
+		rc = RIO_SUCCESS;
+		break;
+	default:
+		rc = RIO_ERR_INVALID_PARAMETER;
+		*imp_rc = EM_CFG_SET(0x44);
+	}
+
+fail:
+	return rc;
+}
+
+static uint32_t tsi721_set_event_cfg_rio_em_i_sig_det(
+		tsi721_event_cfg_reg_vals_t *regs, rio_em_cfg_t *event,
+		rio_em_notfn_ctl_t nfn, uint32_t *imp_rc)
+{
+	uint32_t rc;
+
+	switch (event->em_detect) {
+	case rio_em_detect_on:
+		regs->sp_ctl |= TSI721_SP_CTL_PORT_LOCKOUT;
+		break;
+	case rio_em_detect_off:
+		regs->sp_ctl &= ~TSI721_SP_CTL_PORT_LOCKOUT;
+		break;
+	case rio_em_detect_0delta:
+		break;
+	default:
+		rc = RIO_ERR_INVALID_PARAMETER;
+		*imp_rc = EM_CFG_SET(0x48);
+		goto fail;
+	}
+
+	rc = tsi721_plm_set_notifn(regs, TSI721_PLM_STATUS_LINK_INIT, nfn);
+	if (RIO_SUCCESS != rc) {
+		*imp_rc = EM_CFG_SET(0x49);
+	}
+
+fail:
+	return rc;
+}
+
+static uint32_t tsi721_set_event_cfg_rio_em_i_rst_req(
+		tsi721_event_cfg_reg_vals_t *regs,
+		rio_em_notfn_ctl_t nfn, uint32_t *imp_rc)
+{
+	uint32_t rc;
+
+	// Note: Control of PLM detection and notification for
+	// this event is supported by the
+	// rio_pc_dev_reset_config/tsi721_rio_pc_dev_reset_config
+	// routine.
+	//
+	// This routine is responsible for device notification control
+	// for the reset event.
+
+	switch (nfn) {
+	case rio_em_notfn_none:
+		if (tsi721_int_supported) {
+			regs->em_rst_int_en = 0;
+		}
+		regs->em_rst_pw_en = 0;
+		break;
+
+	case rio_em_notfn_int:
+		if (tsi721_int_supported) {
+			regs->em_rst_int_en = TSI721_EM_RST_INT_EN_RST_INT_EN;
+		}
+		regs->em_rst_pw_en = 0;
+		break;
+
+	case rio_em_notfn_pw:
+		if (tsi721_int_supported) {
+			regs->em_rst_int_en = 0;
+		}
+		regs->em_rst_pw_en = TSI721_EM_RST_PW_EN_RST_PW_EN;
+		break;
+
+	case rio_em_notfn_both:
+		if (tsi721_int_supported) {
+			regs->em_rst_int_en = TSI721_EM_RST_INT_EN_RST_INT_EN;
+		}
+		regs->em_rst_pw_en = TSI721_EM_RST_PW_EN_RST_PW_EN;
+		break;
+
+	case rio_em_notfn_0delta:
+		break;
+
+	default:
+		rc = RIO_ERR_INVALID_PARAMETER;
+		*imp_rc = EM_CFG_SET(0x50);
+		goto fail;
+	}
+	rc = RIO_SUCCESS;
+
+fail:
+	return rc;
+}
+
+static uint32_t tsi721_set_event_cfg_rio_em_i_init_fail(
+		tsi721_event_cfg_reg_vals_t *regs,
+		rio_em_notfn_ctl_t nfn)
+{
+	switch (nfn) {
+	case rio_em_notfn_none:
+		if (tsi721_int_supported) {
+			regs->i2c_int_enable &= ~TSI721_I2C_INT_ENABLE_BL_FAIL;
+		}
+		break;
+
+	case rio_em_notfn_both:
+	case rio_em_notfn_int:
+		if (tsi721_int_supported) {
+			regs->i2c_int_enable |= TSI721_I2C_INT_ENABLE_BL_FAIL;
+		}
+		break;
+
+	default:
+		break;
+	}
+
+	return RIO_SUCCESS;
+}
+
 static uint32_t tsi721_set_event_cfg(tsi721_event_cfg_reg_vals_t *regs,
 		rio_em_cfg_t *event, rio_em_notfn_ctl_t nfn, uint32_t *imp_rc)
 {
-	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
-	uint32_t mask;
+	uint32_t rc;
 
 	if ((event->em_detect >= rio_em_detect_last)
 			|| (event->em_event >= rio_em_last)) {
+		rc = RIO_ERR_INVALID_PARAMETER;
 		*imp_rc = EM_CFG_SET(0x20);
 		goto fail;
 	}
@@ -605,161 +933,40 @@ static uint32_t tsi721_set_event_cfg(tsi721_event_cfg_reg_vals_t *regs,
 
 	switch (event->em_event) {
 	case rio_em_f_los:
-		regs->plm_imp_spec_ctl &= ~TSI721_PLM_IMP_SPEC_CTL_DLT_THRESH;
-
-		if (rio_em_detect_on == event->em_detect) {
-			// TODO: Could have a more exact figure than 1000
-			// based on link speed/prescaler value
-			// 
-			// Round up to ensure delay is at least as long as
-			// what was requested.
-			uint32_t time = (event->em_info + (256 * 1000) - 1)
-							/ 1000 / 256;
-
-			if (!event->em_info) {
-				rc = RIO_ERR_INVALID_PARAMETER;
-				*imp_rc = EM_CFG_SET(0x28);
-				goto fail;
-			}
-			if (!time) {
-				time = 1;
-			}
-			if (time > TSI721_PLM_IMP_SPEC_CTL_DLT_THRESH) {
-				time = TSI721_PLM_IMP_SPEC_CTL_DLT_THRESH;
-			}
-			regs->plm_imp_spec_ctl &=
-					~TSI721_PLM_IMP_SPEC_CTL_DLT_THRESH;
-			regs->plm_imp_spec_ctl |= time;
-		}
-		rc = tsi721_plm_set_notifn(regs, TSI721_PLM_STATUS_DLT, nfn);
+		rc = tsi721_set_event_cfg_rio_em_f_los(regs, event, nfn, imp_rc);
 		if (RIO_SUCCESS != rc) {
-			*imp_rc = EM_CFG_SET(0x29);
 			goto fail;
 		}
-
 		break;
 
 	case rio_em_f_port_err:
-		rc = tsi721_plm_set_notifn(regs, TSI721_PLM_STATUS_PORT_ERR,
-				nfn);
+		rc = tsi721_plm_set_notifn(regs, TSI721_PLM_STATUS_PORT_ERR, nfn);
 		if (RIO_SUCCESS != rc) {
 			*imp_rc = EM_CFG_SET(0x30);
 			goto fail;
 		}
-
 		break;
+
 	case rio_em_f_2many_retx:
-		// Note: only PNA with a reason of 
-		// "Packet not accepted due to lack of resources"
-		// count towards this threshold.  All other reasons are
-		// tracked through the standard Error Management thresholds.
-
-		if (rio_em_detect_on == event->em_detect) {
-			regs->plm_denial_ctl =
-			TSI721_PLM_DENIAL_CTL_CNT_RTY |
-			TSI721_PLM_DENIAL_CTL_CNT_PNA;
-
-			if (!event->em_info) {
-				*imp_rc = EM_CFG_SET(0x38);
-				goto fail;
-			}
-			if (event->em_info >=
-			TSI721_PLM_DENIAL_CTL_DENIAL_THRESH) {
-				regs->plm_denial_ctl |=
-				TSI721_PLM_DENIAL_CTL_DENIAL_THRESH;
-			} else {
-				regs->plm_denial_ctl |= event->em_info;
-			}
-		} else {
-			regs->plm_denial_ctl = 0;
-		}
-		rc = tsi721_plm_set_notifn(regs,
-		TSI721_PLM_STATUS_MAX_DENIAL, nfn);
+		rc = tsi721_set_event_cfg_rio_em_f_2many_retx(regs, event, nfn, imp_rc);
 		if (RIO_SUCCESS != rc) {
-			*imp_rc = EM_CFG_SET(0x39);
 			goto fail;
 		}
-
 		break;
 
 	case rio_em_f_2many_pna:
-		// Setting a rate specific to PNA will overwrite the rates
-		// set for rio_em_f_err_rate.
-		if (rio_em_detect_off == event->em_detect) {
-			regs->sp_rate_en &= ~TSI721_SP_RATE_EN_CS_NOT_ACC_EN;
-		} else {
-			uint32_t thresh = event->em_info;
-			if (!thresh) {
-				rc = RIO_ERR_INVALID_PARAMETER;
-				*imp_rc = EM_CFG_SET(0x3C);
-				goto fail;
-			}
-			regs->sp_rate_en |=
-					TSI721_SP_RATE_EN_CS_NOT_ACC_EN;
-			if (thresh > 0xFF) {
-				thresh = 0xFF;
-			}
-			thresh = (thresh << 24) &
-					     TSI721_SP_ERR_THRESH_ERR_RFT;
-			regs->sp_err_thresh &=
-					~TSI721_SP_ERR_THRESH_ERR_RFT;
-			regs->sp_err_thresh |= thresh;
-			regs->sp_ctl |= TSI721_SP_CTL_DROP_EN |
-					TSI721_SP_CTL_STOP_FAIL_EN;
-		}
-		rc = tsi721_plm_set_notifn(regs,
-		TSI721_PLM_STATUS_OUTPUT_FAIL, nfn);
+		rc = tsi721_set_event_cfg_rio_em_f_2many_pna(regs, event, nfn, imp_rc);
 		if (RIO_SUCCESS != rc) {
-			*imp_rc = EM_CFG_SET(0x3D);
 			goto fail;
 		}
 		break;
 
 	case rio_em_f_err_rate:
-	{
-		uint32_t rate_en, err_thresh, err_rate;
-
-		rc = rio_em_get_f_err_rate_info(event->em_info, &rate_en,
-				&err_rate, &err_thresh);
-		if ((RIO_SUCCESS != rc) || !err_thresh) {
-			if (RIO_SUCCESS == rc) {
-				rc = RIO_ERR_INVALID_PARAMETER;
-			}
-			*imp_rc = EM_CFG_SET(0x40);
-			goto fail;
-		}
-
-		if (rio_em_detect_off == event->em_detect) {
-			regs->sp_rate_en &=
-				TSI721_ERR_RATE_EVENT_EXCLUSIONS;
-			regs->sp_err_thresh &= ~TSI721_SP_ERR_THRESH_ERR_RFT;
-			regs->sp_err_rate = 0;
-		} else {
-			if (!(err_thresh & TSI721_SP_ERR_THRESH_ERR_RFT)) {
-				*imp_rc = EM_CFG_SET(0x41);
-				goto fail;
-			}
-			regs->sp_rate_en = (rate_en
-					& ~TSI721_ERR_RATE_EVENT_EXCLUSIONS)
-					| (regs->sp_rate_en &
-					TSI721_ERR_RATE_EVENT_EXCLUSIONS);
-			regs->sp_err_thresh = (err_thresh
-					& TSI721_SP_ERR_THRESH_ERR_RFT)
-					| (regs->sp_err_thresh &
-					~TSI721_SP_ERR_THRESH_ERR_RFT);
-			regs->sp_err_rate = err_rate;
-			regs->sp_ctl |= TSI721_SP_CTL_DROP_EN |
-					TSI721_SP_CTL_STOP_FAIL_EN;
-		}
-
-		rc = tsi721_plm_set_notifn(regs,
-		TSI721_PLM_STATUS_OUTPUT_FAIL, nfn);
+		rc = tsi721_set_event_cfg_rio_em_f_err_rate(regs, event, nfn, imp_rc);
 		if (RIO_SUCCESS != rc) {
-			*imp_rc = EM_CFG_SET(0x42);
 			goto fail;
 		}
 		break;
-	}
 
 	case rio_em_d_ttl:
 		// Time to live is only supported by switches, not Tsi721
@@ -771,118 +978,30 @@ static uint32_t tsi721_set_event_cfg(tsi721_event_cfg_reg_vals_t *regs,
 		break;
 
 	case rio_em_d_log:
-		// Tsi721 logical layer errors are always detected.
-		// There is no support for standard logical layer errors,
-		//    only implementation specific ones.
-		// Notification is limited to port writes.
-		mask = TSI721_LOCAL_ERR_EN_ILL_TYPE_EN |
-			TSI721_LOCAL_ERR_EN_ILL_ID_EN;
-		switch (event->em_detect) {
-		case rio_em_detect_on:
-			regs->local_err_en &= ~mask;
-			regs->local_err_en |= event->em_info & mask;
-			if (!regs->local_err_en) {
-				rc = RIO_ERR_INVALID_PARAMETER;
-				*imp_rc = EM_CFG_SET(0x43);
-				goto fail;
-			}
-			tsi721_localog_set_notifn(regs, nfn);
-			break;
-		case rio_em_detect_off:
-			regs->local_err_en &= ~mask;
-			tsi721_localog_set_notifn(regs, rio_em_notfn_none);
-			break;
-		case rio_em_detect_0delta:
-			break;
-		default:
-			*imp_rc = EM_CFG_SET(0x44);
+		rc = tsi721_set_event_cfg_rio_em_d_log(regs, event, nfn, imp_rc);
+		if (RIO_SUCCESS != rc) {
 			goto fail;
 		}
 		break;
 
 	case rio_em_i_sig_det:
-		switch (event->em_detect) {
-		case rio_em_detect_on:
-			regs->sp_ctl |= TSI721_SP_CTL_PORT_LOCKOUT;
-			break;
-		case rio_em_detect_off:
-			regs->sp_ctl &= ~TSI721_SP_CTL_PORT_LOCKOUT;
-			break;
-		case rio_em_detect_0delta:
-			break;
-		default:
-			*imp_rc = EM_CFG_SET(0x48);
-			goto fail;
-		}
-		rc = tsi721_plm_set_notifn(regs,
-					TSI721_PLM_STATUS_LINK_INIT, nfn);
+		rc = tsi721_set_event_cfg_rio_em_i_sig_det(regs, event, nfn, imp_rc);
 		if (RIO_SUCCESS != rc) {
-			*imp_rc = EM_CFG_SET(0x49);
 			goto fail;
 		}
 		break;
 
 	case rio_em_i_rst_req:
-		// Note: Control of PLM detection and notification for 
-		// this event is supported by the
-		// rio_pc_dev_reset_config/tsi721_rio_pc_dev_reset_config
-		// routine.
-		//
-		// This routine is responsible for device notification control
-		// for the reset event.
-		
-		switch (nfn) {
-		case rio_em_notfn_none:  
-			if (tsi721_int_supported) {
-				regs->em_rst_int_en = 0;
-			}
-			regs->em_rst_pw_en = 0;
-			break;
-		case rio_em_notfn_int:
-			if (tsi721_int_supported) {
-				regs->em_rst_int_en =
-						TSI721_EM_RST_INT_EN_RST_INT_EN;
-			}
-			regs->em_rst_pw_en = 0;
-			break;
-		case rio_em_notfn_pw:
-			if (tsi721_int_supported) {
-				regs->em_rst_int_en = 0;
-			}
-			regs->em_rst_pw_en = TSI721_EM_RST_PW_EN_RST_PW_EN;
-			break;
-		case rio_em_notfn_both:
-			if (tsi721_int_supported) {
-				regs->em_rst_int_en =
-						TSI721_EM_RST_INT_EN_RST_INT_EN;
-			}
-			regs->em_rst_pw_en = TSI721_EM_RST_PW_EN_RST_PW_EN;
-			break;
-		case rio_em_notfn_0delta:
-			break;
-		default:
-			*imp_rc = EM_CFG_SET(0x50);
+		rc = tsi721_set_event_cfg_rio_em_i_rst_req(regs, nfn, imp_rc);
+		if (RIO_SUCCESS != rc) {
 			goto fail;
 		}
 		break;
 
 	case rio_em_i_init_fail:
-		switch (nfn) {
-		case rio_em_notfn_none:
-			if (tsi721_int_supported) {
-				regs->i2c_int_enable &=
-					~TSI721_I2C_INT_ENABLE_BL_FAIL;
-			}
-			break;
-		case rio_em_notfn_both:
-		case rio_em_notfn_int:
-			if (tsi721_int_supported) {
-				regs->i2c_int_enable |=
-					TSI721_I2C_INT_ENABLE_BL_FAIL;
-			}
-			break;
-		default:
-			break;
+		rc = tsi721_set_event_cfg_rio_em_i_init_fail(regs, nfn);
+		if (RIO_SUCCESS != rc) {
+			goto fail;
 		}
 		break;
 
@@ -897,6 +1016,7 @@ static uint32_t tsi721_set_event_cfg(tsi721_event_cfg_reg_vals_t *regs,
 		goto fail;
 	}
 	rc = RIO_SUCCESS;
+
 fail:
 	return rc;
 }
@@ -1951,6 +2071,54 @@ fail:
 	return rc;
 }
 
+static uint32_t tsi721_rio_em_clr_events_get_int_stat(DAR_DEV_INFO_t *dev_info,
+		rio_em_clr_events_out_t *out_parms)
+{
+	rio_em_get_int_stat_in_t in_i;
+	rio_em_get_int_stat_out_t out_i;
+	rio_em_event_n_loc_t stat_e[1];
+	uint32_t rc;
+
+	in_i.ptl.num_ports = 1;
+	in_i.ptl.pnums[0] = 0;
+	in_i.num_events = 1;
+	in_i.events = stat_e;
+
+	rc = tsi721_rio_em_get_int_stat(dev_info, &in_i, &out_i);
+	if (RIO_SUCCESS != rc) {
+		out_parms->imp_rc = out_i.imp_rc;
+	} else {
+		if (out_i.num_events || out_i.other_events) {
+			out_parms->int_events_remain = true;
+		}
+	}
+	return rc;
+}
+
+static uint32_t tsi721_rio_em_clr_events_get_pw_stat(DAR_DEV_INFO_t *dev_info,
+		rio_em_clr_events_out_t *out_parms)
+{
+	rio_em_get_pw_stat_in_t in_p;
+	rio_em_get_pw_stat_out_t out_p;
+	rio_em_event_n_loc_t stat_e[1];
+	uint32_t rc;
+
+	in_p.ptl.num_ports = 1;
+	in_p.ptl.pnums[0] = 0;
+	in_p.num_events = 1;
+	in_p.events = stat_e;
+
+	rc = tsi721_rio_em_get_pw_stat(dev_info, &in_p, &out_p);
+	if (RIO_SUCCESS != rc) {
+		out_parms->imp_rc = out_p.imp_rc;
+	} else {
+		if (out_p.num_events || out_p.other_events) {
+			out_parms->pw_events_remain = true;
+		}
+	}
+	return rc;
+}
+
 uint32_t tsi721_rio_em_clr_events(DAR_DEV_INFO_t *dev_info,
 		rio_em_clr_events_in_t *in_parms,
 		rio_em_clr_events_out_t *out_parms)
@@ -2078,43 +2246,16 @@ uint32_t tsi721_rio_em_clr_events(DAR_DEV_INFO_t *dev_info,
 		//@sonar:on
 	}
 
-	{
-		rio_em_get_int_stat_in_t in_i;
-		rio_em_get_int_stat_out_t out_i;
-		rio_em_event_n_loc_t stat_e[1];
-
-		in_i.ptl.num_ports = 1;
-		in_i.ptl.pnums[0] = 0;
-		in_i.num_events = 1;
-		in_i.events = stat_e;
-		rc = tsi721_rio_em_get_int_stat(dev_info, &in_i, & out_i);
-		if (RIO_SUCCESS != rc) {
-			out_parms->imp_rc = out_i.imp_rc;
-			goto fail;
-		}
-		if (out_i.num_events || out_i.other_events) {
-			out_parms->int_events_remain = true;
-		}
+	rc = tsi721_rio_em_clr_events_get_int_stat(dev_info, out_parms);
+	if (RIO_SUCCESS != rc) {
+		goto fail;
 	}
 
-	{
-		rio_em_get_pw_stat_in_t in_p;
-		rio_em_get_pw_stat_out_t out_p;
-		rio_em_event_n_loc_t stat_e[1];
-
-		in_p.ptl.num_ports = 1;
-		in_p.ptl.pnums[0] = 0;
-		in_p.num_events = 1;
-		in_p.events = stat_e;
-		rc = tsi721_rio_em_get_pw_stat(dev_info, &in_p, &out_p);
-		if (RIO_SUCCESS != rc) {
-			out_parms->imp_rc = out_p.imp_rc;
-			goto fail;
-		}
-		if (out_p.num_events || out_p.other_events) {
-			out_parms->pw_events_remain = true;
-		}
+	rc = tsi721_rio_em_clr_events_get_pw_stat(dev_info, out_parms);
+	if (RIO_SUCCESS != rc) {
+		goto fail;
 	}
+
 	rc = RIO_SUCCESS;
 
 fail:

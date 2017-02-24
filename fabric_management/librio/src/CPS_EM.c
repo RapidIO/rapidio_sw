@@ -2165,6 +2165,9 @@ uint32_t CPS_rio_em_cfg_get(DAR_DEV_INFO_t *dev_info,
 	uint8_t e_idx;
 	rio_pc_get_config_in_t cfg_in;
 	rio_pc_get_config_out_t cfg_out;
+	uint32_t rate_en, rate, thresh;
+	uint32_t log_en;
+	uint32_t mast_ctl;
 
 	out_parms->imp_rc = RIO_SUCCESS;
 	out_parms->fail_idx = rio_em_last;
@@ -2317,9 +2320,6 @@ uint32_t CPS_rio_em_cfg_get(DAR_DEV_INFO_t *dev_info,
 			break;
 
 		case rio_em_f_err_rate:
-		{
-			uint32_t rate_en, rate, thresh;
-
 			rc = DARRegRead(dev_info,
 					CPS1848_PORT_X_ERR_RATE_EN_CSR(pnum),
 					&rate_en);
@@ -2361,7 +2361,6 @@ uint32_t CPS_rio_em_cfg_get(DAR_DEV_INFO_t *dev_info,
 				}
 			}
 			break;
-		}
 
 		case rio_em_d_ttl:
 			if (imp_err_rpt
@@ -2391,8 +2390,6 @@ uint32_t CPS_rio_em_cfg_get(DAR_DEV_INFO_t *dev_info,
 			break;
 
 		case rio_em_d_log:
-		{
-			uint32_t log_en;
 			rc = DARRegRead(dev_info, CPS1848_LT_ERR_EN_CSR,
 					&log_en);
 			if (RIO_SUCCESS != rc) {
@@ -2407,7 +2404,6 @@ uint32_t CPS_rio_em_cfg_get(DAR_DEV_INFO_t *dev_info,
 						& CPSGEN2_ALL_LOG;
 			}
 			break;
-		}
 
 		case rio_em_i_sig_det:
 			if (err_rpt
@@ -2423,8 +2419,6 @@ uint32_t CPS_rio_em_cfg_get(DAR_DEV_INFO_t *dev_info,
 			break;  // Not supported...
 
 		case rio_em_i_init_fail: // Notification for I2C Initialization failures
-		{
-			uint32_t mast_ctl;
 			rc = DARRegRead(dev_info, CPS1848_I2C_MASTER_CTL,
 					&mast_ctl);
 			if (RIO_SUCCESS != rc) {
@@ -2437,7 +2431,6 @@ uint32_t CPS_rio_em_cfg_get(DAR_DEV_INFO_t *dev_info,
 						rio_em_detect_on;
 			}
 			break;
-		}
 
 		default:
 			rc = RIO_ERR_INVALID_PARAMETER;
