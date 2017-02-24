@@ -873,8 +873,11 @@ void dma_rx_latency(struct worker *info)
 
 		iter_cnt_as_byte = info->perf_iter_cnt;
 		*tx_flag = iter_cnt_as_byte;
-		while ((*rx_flag != iter_cnt_as_byte) && !info->stop_req)
-			{}
+		//@sonar:off - c:EmptyCompoundStatement
+		while ((*rx_flag != iter_cnt_as_byte) && !info->stop_req) {
+
+		}
+		//@sonar:on
 		*rx_flag = info->perf_iter_cnt + 2;
 
 		dma_rc = single_dma_access(info, 0);

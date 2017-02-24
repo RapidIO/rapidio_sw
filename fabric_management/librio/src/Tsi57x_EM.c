@@ -2257,8 +2257,6 @@ uint32_t tsi57x_rio_em_get_pw_stat(DAR_DEV_INFO_t *dev_info,
 			out_parms->too_many = last_out_parms.too_many;
 			out_parms->other_events |= last_out_parms.other_events;
 		}
-	} else {
-
 	}
 
 exit:

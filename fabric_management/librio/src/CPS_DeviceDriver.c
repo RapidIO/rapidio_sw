@@ -55,6 +55,8 @@ extern "C" {
 uint32_t CPS_rioGetPortList(DAR_DEV_INFO_t *dev_info, struct DAR_ptl *ptl_in,
 		struct DAR_ptl *ptl_out)
 {
+	uint8_t idx;
+	bool dup_ports[RIO_MAX_PORTS];
 	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
 
 	if (RIO_DEVI_IDT_CPS1432 == (DECODE_DEVICE_ID(dev_info->devID))) {
@@ -68,22 +70,19 @@ uint32_t CPS_rioGetPortList(DAR_DEV_INFO_t *dev_info, struct DAR_ptl *ptl_in,
 		}
 
 		if (ptl_in->num_ports == RIO_ALL_PORTS) {
-			uint8_t idx;
 			ptl_out->num_ports = 14;
-			for (idx = 0; idx < 8; idx++)
+			for (idx = 0; idx < 8; idx++) {
 				ptl_out->pnums[idx] = idx;
-			for (idx = 10; idx < 16; idx++)
+			}
+			for (idx = 10; idx < 16; idx++) {
 				ptl_out->pnums[idx - 2] = idx;
+			}
 			rc = RIO_SUCCESS;
 			goto exit;
 		} else {
-			bool dup_ports[RIO_MAX_PORTS];
-			uint8_t idx;
-
-			if (ptl_in->num_ports > RIO_MAX_PORTS) {
-			}
-			for (idx = 0; idx < RIO_MAX_PORTS; idx++)
+			for (idx = 0; idx < RIO_MAX_PORTS; idx++) {
 				dup_ports[idx] = false;
+			}
 			dup_ports[8] = true;
 			dup_ports[9] = true;
 
