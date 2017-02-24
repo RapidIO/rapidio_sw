@@ -495,6 +495,8 @@ static uint32_t cps_set_event_en_cfg(DAR_DEV_INFO_t *dev_info, uint8_t pnum,
 		uint8_t first_lane, uint8_t last_lane, rio_em_cfg_t *event,
 		cps_event_cfg_reg_values_t *regs, uint32_t *fail_pt)
 {
+	uint32_t ttl;
+	uint32_t rate_en;
 	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
 
 	if ((event->em_detect >= rio_em_detect_last)
@@ -611,9 +613,6 @@ static uint32_t cps_set_event_en_cfg(DAR_DEV_INFO_t *dev_info, uint8_t pnum,
 		break;
 
 	case rio_em_f_err_rate:
-	{
-		uint32_t rate_en;
-
 		// Always clear the counter on enable or disable...
 		regs->wr_err_rate_csr = true;
 		regs->err_rate_csr &= (RIO_EMHS_SPX_RATE_RB
@@ -641,12 +640,8 @@ static uint32_t cps_set_event_en_cfg(DAR_DEV_INFO_t *dev_info, uint8_t pnum,
 			CPSGEN2_ERR_RATE_EVENT_EXCLUSIONS;
 		}
 		break;
-	}
 
 	case rio_em_d_ttl:  // TTL is a REPORT event
-	{
-		uint32_t ttl;
-
 		if (rio_em_detect_on == event->em_detect) {
 			ttl = (((event->em_info + 1599) / 1600) << 16)
 					& CPS1848_PKT_TTL_CSR_TTL;
@@ -664,7 +659,6 @@ static uint32_t cps_set_event_en_cfg(DAR_DEV_INFO_t *dev_info, uint8_t pnum,
 					~CPS1848_PORT_X_IMPL_SPEC_ERR_RPT_EN_TTL_EVENT_EN;
 		}
 		break;
-	}
 
 	case rio_em_d_rte: // Routing issues are a REPORT event.
 
