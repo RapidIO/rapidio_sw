@@ -125,6 +125,7 @@ struct riocp_pe {
 	struct riocp_pe_capabilities cap;	/**< RapidIO Capabilities */
 	uint16_t efptr;				/**< RapidIO extended feature pointer */
 	uint32_t efptr_phys;			/**< RapidIO Physical extended feature pointer */
+	uint32_t efptr_phys_type;		/**< RapidIO Physical extended feature pointer type */
 	uint32_t efptr_em;			/**< RapidIO Error Management feature pointer */
 	struct riocp_pe *mport;			/**< Mport that created this PE */
 	struct riocp_pe_mport *minfo;		/**< Mport information (set when PE is mport) */

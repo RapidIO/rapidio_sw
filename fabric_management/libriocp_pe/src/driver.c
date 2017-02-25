@@ -35,7 +35,7 @@ int riocp_pe_port_clear_enumerated(struct riocp_pe *pe, uint8_t port)
 	uint32_t val;
 	int ret = 0;
 
-	offset = pe->efptr_phys + RIO_PORT_N_CTL_CSR(port);
+	offset = RIO_SPX_CTL(pe->efptr_phys, pe->efptr_phys_type, port);
 	ret = riocp_pe_maint_read(pe, offset, &val);
 	if (ret)
 		return ret;
@@ -81,7 +81,7 @@ int riocp_pe_switch_port_is_enumerated(struct riocp_pe *sw, uint8_t port)
 	uint32_t val;
 	int ret = 0;
 
-	offset = sw->efptr_phys + RIO_PORT_N_CTL_CSR(port);
+	offset = RIO_SPX_CTL(sw->efptr_phys, sw->efptr_phys_type, port);
 	ret = riocp_pe_maint_read(sw, offset, &val);
 	if (ret) {
 		return ret;
@@ -101,7 +101,7 @@ int riocp_pe_switch_port_set_enumerated(struct riocp_pe *sw, uint8_t port)
 	uint32_t val;
 	int ret = 0;
 
-	offset = sw->efptr_phys + RIO_PORT_N_CTL_CSR(port);
+	offset = RIO_SPX_CTL(sw->efptr_phys, sw->efptr_phys_type, port);
 	ret = riocp_pe_maint_read(sw, offset, &val);
 	if (ret) {
 		return ret;

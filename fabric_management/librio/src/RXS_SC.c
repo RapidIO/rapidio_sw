@@ -38,15 +38,13 @@
 #include "RapidIO_Device_Access_Routines_API.h"
 #include "RapidIO_Statistics_Counter_API.h"
 #include "RXS2448.h"
+#include "src/RXS_DeviceDriver.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 #ifdef RXSx_DAR_WANTED
-
-#define NUM_RXS_PORTS(x) ((NUM_PORTS(x) > RXS2448_MAX_PORTS) ? \
-		RXS2448_MAX_PORTS : NUM_PORTS(x))
 
 static uint32_t rxs_read_ctrs(DAR_DEV_INFO_t *dev_info,
 		rio_sc_read_ctrs_in_t *in_parms,

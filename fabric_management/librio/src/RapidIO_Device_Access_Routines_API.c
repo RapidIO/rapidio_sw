@@ -1168,7 +1168,7 @@ uint32_t DARDB_rioDeviceSupported(DAR_DEV_INFO_t *dev_info)
 				dev_info->extFPtrForVC= prev_addr;
 				break;
 
-			case RIO_EFB_T_V0Q:
+			case RIO_EFB_T_VOQ:
 				dev_info->extFPtrForVOQ = prev_addr;
 				break;
 

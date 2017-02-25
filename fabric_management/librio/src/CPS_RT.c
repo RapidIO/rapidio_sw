@@ -86,7 +86,6 @@ extern "C" {
 uint32_t cps_rte_translate_std_to_CPS(DAR_DEV_INFO_t *dev_info,
 				uint32_t std_in, uint32_t *cps_out) 
 {
-
 	switch(std_in) {
 	case RIO_RTE_DFLT_PORT: *cps_out = CPS_RT_USE_DEFAULT_ROUTE;
 				goto success;
@@ -95,6 +94,10 @@ uint32_t cps_rte_translate_std_to_CPS(DAR_DEV_INFO_t *dev_info,
 	case RIO_RTE_LVL_G0: *cps_out = CPS_RT_USE_DEVICE_TABLE;
 				goto success;
 	default:
+		// CPS does not support implementation specific bits
+		if (std_in & ~RIO_RTE_VAL) {
+			break;
+		}
 		if (RIO_RTV_IS_PORT(std_in)) {
 			if (RIO_RTV_GET_PORT(std_in) < NUM_PORTS(dev_info)) {
 				*cps_out = std_in;

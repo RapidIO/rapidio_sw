@@ -208,13 +208,17 @@ typedef uint32_t RIO_DST_OPS_T;
 #define RIO_LCS_ADDR1_50           (0xFFFFFFFF)
 #define RIO_LCS_ADDR1_66           (0xFFFFFFFF)
 
-#define RIO_LCS_ADDR34(a0,a1) ((a0 & 0x0) | ((a1 & RIO_LCS_ADDR1_34) << 3))
-#define RIO_LCS_ADDR50(a0,a1) (((a0 & RIO_LCS_ADDR0_50) << 3) | \
-		 	       ((a1 & RIO_LCS_ADDR1_50) << 3))
-#define RIO_LCS_ADDR66M(a0) (((a0 & RIO_LCS_ADDR0_50) << 3) | \
-		 	       ((a1 & RIO_LCS_ADDR1_50) << 3))
-#define RIO_LCS_ADDR66L(a0,a1) (((a0 & RIO_LCS_ADDR0_66) << 3) | \
-		 	       ((a1 & RIO_LCS_ADDR1_66) << 3))
+#define RIO_LCS_LOW64(a0,a1,m0,m1) ((((uint64_t)a0 & m0) << 35) | \
+				    (((uint64_t)a1 & m1) << 3))
+#define RIO_LCS_ADDR34(a0,a1) \
+	((uint64_t)RIO_LCS_LOW64(a0, a1, RIO_LCS_ADDR0_34, RIO_LCS_ADDR1_34))
+
+#define RIO_LCS_ADDR50(a0,a1) \
+	((uint64_t)RIO_LCS_LOW64(a0, a1, RIO_LCS_ADDR0_50, RIO_LCS_ADDR1_50))
+
+#define RIO_LCS_ADDR66M(a0) ((a0 & RIO_LCS_ADDR0_66M) >> 29)
+#define RIO_LCS_ADDR66L(a0,a1) \
+	((uint64_t)RIO_LCS_LOW64(a0, a1, RIO_LCS_ADDR0_66L, RIO_LCS_ADDR1_66))
 
 /* RIO_DEVID : Register Bits Masks Definitions */
 #define RIO_DEVID_DEV16             (0x0000ffff)
@@ -246,7 +250,14 @@ typedef uint32_t RIO_DST_OPS_T;
 #define RIO_RTE_EXTD_PORT_3    (0xff000000)
 
 #define RIO_RTE_IMP_SPEC (0xF0000000)
-#define RIO_RTE_VAL      (0x000003FF)
+
+#define RIO_RTE_TYPE     (0x00000300)
+#define RIO_RTE_TYPE_PORT	(0x00000000)
+#define RIO_RTE_TYPE_MC_MSK	(0x00000100)
+#define RIO_RTE_TYPE_LVL_GRP	(0x00000200)
+
+#define RIO_RTE_IDX      (0x000000FF)
+#define RIO_RTE_VAL      (RIO_RTE_TYPE | RIO_RTE_IDX)
 
 typedef uint32_t pe_rt_val;
 
@@ -265,23 +276,23 @@ typedef uint32_t pe_rt_val;
 #define RIO_LAST_DEV8 (0x0FF)
 #define RIO_LAST_DEV16 (0x0FFFF)
 
-#define RIO_RTV_PORT(n) ((n & 0xFFFFFF00)?RIO_RTE_BAD: \
-				(RIO_RTE_PT_0 + ((n) & 0xff)))
-#define RIO_RTV_MC_MSK(n) ((n & 0xFFFFFF00)?RIO_RTE_BAD: \
-				(RIO_RTE_MC_0 + ((n) & 0xff)))
-#define RIO_RTV_LVL_GRP(n) ((n & 0xFFFFFF00)?RIO_RTE_BAD: \
-				(RIO_RTE_LVL_G0 + ((n) & 0xff)))
+#define RIO_RTV_IS_PORT(n) (RIO_RTE_TYPE_PORT == ((n) & RIO_RTE_TYPE))
+#define RIO_RTV_IS_MC_MSK(n) (RIO_RTE_TYPE_MC_MSK == ((n) & RIO_RTE_TYPE))
+#define RIO_RTV_IS_LVL_GRP(n) (RIO_RTE_TYPE_LVL_GRP == ((n) & RIO_RTE_TYPE))
 
-#define RIO_RTV_IS_PORT(n)    ((n) <= RIO_RTE_PT_LAST)
-#define RIO_RTV_IS_MC_MSK(n) ((n) >= RIO_RTE_MC_0 && (n) <= RIO_RTE_MC_LAST)
-#define RIO_RTV_IS_LVL_GRP(n) (((n) >= RIO_RTE_LVL_G0) && \
-				((n) <= RIO_RTE_LVL_GLAST))
+#define RIO_RTV_PORT(n) ((n & ~RIO_RTE_IDX) ? RIO_RTE_BAD : \
+				(RIO_RTE_TYPE_PORT + (n) ))
+#define RIO_RTV_MC_MSK(n) ((n & ~RIO_RTE_IDX) ? RIO_RTE_BAD : \
+				(RIO_RTE_TYPE_MC_MSK + ((n))))
+#define RIO_RTV_LVL_GRP(n) ((n & ~RIO_RTE_IDX) ? RIO_RTE_BAD : \
+				(RIO_RTE_TYPE_LVL_GRP + ((n))))
 
-#define RIO_RTV_GET_PORT(n)     (RIO_RTV_IS_PORT(n)?(((n) & 0xff)):RIO_RTE_BAD)
-#define RIO_RTV_GET_MC_MSK(n)  (RIO_RTV_IS_MC_MSK(n)? \
-				(((n) - RIO_RTE_MC_0) & 0xff):RIO_RTE_BAD)
-#define RIO_RTV_GET_LVL_GRP(n)  (RIO_RTV_IS_LVL_GRP(n)? \
-				(((n) - RIO_RTE_LVL_G0) & 0xff):RIO_RTE_BAD)
+#define RIO_RTV_GET_PORT(n) (!RIO_RTV_IS_PORT(n) ? RIO_RTE_BAD : \
+				((n) & RIO_RTE_IDX))
+#define RIO_RTV_GET_MC_MSK(n) (!RIO_RTV_IS_MC_MSK(n) ? RIO_RTE_BAD : \
+				((n) & RIO_RTE_IDX))
+#define RIO_RTV_GET_LVL_GRP(n) (!RIO_RTV_IS_LVL_GRP(n) ? RIO_RTE_BAD : \
+				((n) & RIO_RTE_IDX))
 
 
 /* RIO_DFLT_RTE : Register Bits Masks Definitions */
@@ -323,11 +334,14 @@ typedef uint32_t pe_rt_val;
 #define RIO_EFB_NEXT      (0xffff0000)
 #define RIO_EFB_NO_NEXT   (0x00000000)
 
-#define RIO_EFB_T_FIXME        (0xDEAD)
-#define RIO_EFB_T_SP_EP        (0x0001)
-#define RIO_EFB_T_SP_EP_SAER   (0x0002)
-#define RIO_EFB_T_SP_NOEP      (0x0003)
-#define RIO_EFB_T_SP_NOEP_SAER (0x0009)
+#define RIO_EFB_T_FIXME		(0xDEAD)
+#define RIO_EFB_T_SP_EP		(0x0001)
+#define RIO_EFB_T_SP_EP_SAER	(0x0002)
+#define RIO_EFB_T_SP_NOEP	(0x0003)
+#define RIO_EFB_SER_EP_ID	(0x0004) /* [VI] LP/Serial EP Devices */
+#define RIO_EFB_SER_EP_REC_ID	(0x0005) /* [VI] LP/Serial EP Recovery Devices */
+#define RIO_EFB_SER_EP_FREE_ID	(0x0006) /* [VI] LP/Serial EP Free Devices */
+#define RIO_EFB_T_SP_NOEP_SAER	(0x0009)
 
 #define RIO_EFB_T_SP_EP3           (0x0011)
 #define RIO_EFB_T_SP_EP3_SAER      (0x0012)
@@ -337,7 +351,7 @@ typedef uint32_t pe_rt_val;
 #define RIO_EFB_T_EMHS  (0x0007)  /* Error Management & Hot Swap */
 #define RIO_EFB_T_HS    (0x0017)  /* Hot Swap */
 #define RIO_EFB_T_VC    (0x000A)  /* Virtual Channel Support */
-#define RIO_EFB_T_V0Q   (0x000B)  /* VoQ Backpressure Support */
+#define RIO_EFB_T_VOQ   (0x000B)  /* VoQ Backpressure Support */
 #define RIO_EFB_T_LANE  (0x000D)  /* Lane Status */
 #define RIO_EFB_T_RT    (0x000E)  /* Routing Table */
 #define RIO_EFB_T_TS    (0x000F)  /* Timestamp Synchronization */
@@ -346,16 +360,6 @@ typedef uint32_t pe_rt_val;
 #define RIO_EFB_GET_NEXT(x) ((x & RIO_EFB_NEXT) >> 16)
 #define RIO_EFB_ID(x) (x & RIO_EFB_T)
 
-/* [VI] LP/Serial EP Devices, RapidIO Spec ver 1.3 and above */
-#define RIO_EFB_SER_EP_ID_V13P          (0x0001)
-/* [VI] LP/Serial EP Recovery Devices, RapidIO Spec ver 1.3 and above */
-#define RIO_EFB_SER_EP_REC_ID_V13P      (0x0002)
-/* [VI] LP/Serial EP Free Devices, RapidIO Spec ver 1.3 and above */
-#define RIO_EFB_SER_EP_FREE_ID_V13P     (0x0003)
-#define RIO_EFB_SER_EP_ID               (0x0004) /* [VI] LP/Serial EP Devices */
-#define RIO_EFB_SER_EP_REC_ID           (0x0005) /* [VI] LP/Serial EP Recovery Devices */
-#define RIO_EFB_SER_EP_FREE_ID          (0x0006) /* [VI] LP/Serial EP Free Devices */
-#define RIO_EFB_SER_EP_FREC_ID          (0x0009) /* [VI] LP/Serial EP Free Recovery Devices */
 
 #define RIO_PEF_EXT_FEATURES            (0x00000008) /* [I] EFT_PTR valid */
 
@@ -389,7 +393,7 @@ typedef uint32_t pe_rt_val;
 			RIO_SP3_VLD(t))?1:0)
 
 #define RIO_SP3_SAER(t)  (((t == RIO_EFB_T_SP_EP3_SAER  ) || \
-		 	   (t == RIO_EFB_T_SP_NOEP_SAER ))?1:0)
+		 	   (t == RIO_EFB_T_SP_NOEP3_SAER ))?1:0)
 
 #define RIO_SP12_SAER(t) (((t == RIO_EFB_T_SP_EP_SAER  ) || \
 		 	   (t == RIO_EFB_T_SP_NOEP_SAER))?1:0)
@@ -453,10 +457,10 @@ typedef uint32_t RIO_SPX_LM_RESP_STAT_T;
 #define RIO_SPX_LM_RESP_STAT12_NOERR           (0x00000010)
 
 #define RIO_SPX_LM_RESP_ACK_ID(idle,v) \
-	(((3 == idle)?(v & RIO_SPX_LM_RESP_ACK_ID_STAT3): \
-	  (2 == idle)?(v & RIO_SPX_LM_RESP_ACK_ID_STAT2): \
-	  (1 == idle)?(v & RIO_SPX_LM_RESP_ACK_ID_STAT1): \
-	  0xFFFFFFFF) >> 5)
+	(((3 == idle)?(v & RIO_SPX_LM_RESP_ACK_ID3): \
+	  (2 == idle)?(v & RIO_SPX_LM_RESP_ACK_ID2): \
+	  (1 == idle)?(v & RIO_SPX_LM_RESP_ACK_ID1): \
+	  0xFFFFFFE0) >> 5)
 
 #define RIO_SPX_LM_RESP_STAT3_I_STAT           (0x0C000000)
 #define RIO_SPX_LM_RESP_STAT3_I_STAT_NOERR     (0x00000000)
@@ -544,11 +548,6 @@ typedef uint32_t RIO_SPX_ERR_STAT_T;
 
 #define RIO_PORT_OK(x) ((x & RIO_SPX_ERR_STAT_OK)?1:0)
 
-#define RIO_PORT_N_CTL_CSR(x)       (0x005c + x*0x20)
-#define RIO_PORT_GEN_CTL_CSR        (0x003c)
-#define RIO_PORT_N_ERR_STS_CSR(x)   (0x0058 + x*0x20)
-
-
 /* RIO_SPX_CTL : Register Bits Masks Definitions */
 #define RIO_SPX_CTL_PTYP            (0x00000001)
 #define RIO_SPX_CTL_LOCKOUT         (0x00000002)
@@ -629,20 +628,20 @@ typedef uint32_t RIO_SPX_ERR_STAT_T;
 #define RIO_EMHS_EM(t) ((t==RIO_EFB_T_EMHS)?1:0)
 #define RIO_EMHS_HS(t) ((t==RIO_EFB_T_HS)?1:0)
 
-#define RIO_EMHS_EFB_HEAD(b)      (b+0x000)
-#define RIO_EMHS_INFO(b)          (b+0x004)
-#define RIO_EMHS_LL_DET(b,t)     ((b+0x008)*RIO_EMHS_EM(t))
-#define RIO_EMHS_LL_EN(b,t)      ((b+0x00c)*RIO_EMHS_EM(t))
-#define RIO_EMHS_LL_H_ADDR(b,t)  ((b+0x010)*RIO_EMHS_EM(t))
-#define RIO_EMHS_LL_ADDR(b,t)    ((b+0x014)*RIO_EMHS_EM(t))
-#define RIO_EMHS_LL_ID(b,t)      ((b+0x018)*RIO_EMHS_EM(t))
-#define RIO_EMHS_LL_CTRL(b,t)    ((b+0x01c)*RIO_EMHS_EM(t))
-#define RIO_EMHS_DEV32_DEST(b,t) ((b+0x020)*RIO_EMHS_EM(t))
-#define RIO_EMHS_DEV32_SRC(b,t)  ((b+0x024)*RIO_EMHS_EM(t))
-#define RIO_EMHS_PW_DESTID(b,t)   ((b+0x028)*RIO_EMHS_EM(t))
-#define RIO_EMHS_TTL(b)           (b+0x02c)
-#define RIO_EMHS_PW_DEV32(b)      (b+0x030)
-#define RIO_EMHS_PW_TRAN_CTL(b)   (b+0x034)
+#define RIO_EMHS_EFB_HEAD(b)	(b+0x000)
+#define RIO_EMHS_INFO(b)	(b+0x004)
+#define RIO_EMHS_LL_DET(b)	(b+0x008)
+#define RIO_EMHS_LL_EN(b)	(b+0x00c)
+#define RIO_EMHS_LL_H_ADDR(b)	(b+0x010)
+#define RIO_EMHS_LL_ADDR(b)	(b+0x014)
+#define RIO_EMHS_LL_ID(b)	(b+0x018)
+#define RIO_EMHS_LL_CTRL(b)	(b+0x01c)
+#define RIO_EMHS_DEV32_DEST(b)	(b+0x020)
+#define RIO_EMHS_DEV32_SRC(b)	(b+0x024)
+#define RIO_EMHS_PW_DESTID(b)	(b+0x028)
+#define RIO_EMHS_TTL(b)		(b+0x02c)
+#define RIO_EMHS_PW_DEV32(b)	(b+0x030)
+#define RIO_EMHS_PW_TRAN_CTL(b)	(b+0x034)
 
 #define RIO_EMHS_SPX_ERR_DET(b,p)     (b+0x040 + 0x040*(p))
 #define RIO_EMHS_SPX_RATE_EN(b,p)     (b+0x044 + 0x040*(p))
@@ -711,9 +710,9 @@ typedef uint32_t RIO_SPX_ERR_STAT_T;
 #define RIO_EMHS_PW_DESTID_DEV8          (0x00ff0000)
 #define RIO_EMHS_PW_DESTID_DEV16         (0xffff0000)
 #define GET_DEV8_FROM_PW_TGT_HW(x) ((x & RIO_EMHS_PW_DESTID_16CTL)? \
-                        ANY_ID:((x & RIO_EMHS_PW_DESTID_DEV8) >> 16))
+                        RIO_LAST_DEV8:((x & RIO_EMHS_PW_DESTID_DEV8) >> 16))
 #define GET_DEV16_FROM_PW_TGT_HW(x) (!(x & RIO_EMHS_PW_DESTID_16CTL)? \
-                DID_ANY_DEV16_ID:((x & RIO_EMHS_PW_DESTID_DEV16) >> 16))
+                RIO_LAST_DEV16:((x & RIO_EMHS_PW_DESTID_DEV16) >> 16))
 
 /* RIO_EMHS_TTL : Register Bits Masks Definitions */
 #define RIO_EMHS_TTL_MASK                (0xffff0000)
@@ -891,14 +890,15 @@ typedef uint32_t RIO_SPX_ERR_STAT_T;
 /* Lane Status Extended Features Block Register Offsets and bit fields
 */
 
-#define RIO_LN_EFB_HEAD           (b+0x000)
-#define RIO_LNX_ST0(b,l)          (b+0x010 + 0x020*(l))
-#define RIO_LNX_ST1(b,l)          (b+0x014 + 0x020*(l))
-#define RIO_LNX_ST2(b,l)          (b+0x018 + 0x020*(l))
-#define RIO_LNX_ST3(b,l)          (b+0x01c + 0x020*(l))
-#define RIO_LNX_ST4(b,l)          (b+0x020 + 0x020*(l))
-#define RIO_LNX_ST5(b,l)          (b+0x024 + 0x020*(l))
-#define RIO_LNX_ST6(b,l)          (b+0x028 + 0x020*(l))
+#define RIO_LN_EFB_HEAD(b)	(b+0x000)
+#define RIO_LNX_ST0(b,l)	(b+0x010 + 0x020*(l))
+#define RIO_LNX_ST1(b,l)	(b+0x014 + 0x020*(l))
+#define RIO_LNX_ST2(b,l)	(b+0x018 + 0x020*(l))
+#define RIO_LNX_ST3(b,l)	(b+0x01c + 0x020*(l))
+#define RIO_LNX_ST4(b,l)	(b+0x020 + 0x020*(l))
+#define RIO_LNX_ST5(b,l)	(b+0x024 + 0x020*(l))
+#define RIO_LNX_ST6(b,l)	(b+0x028 + 0x020*(l))
+#define RIO_LNX_ST7(b,l)	(b+0x02C + 0x020*(l))
 
 /* RIO_EMHS_EFB_HEAD : Register Bits Masks Definitions */
 #define RIO_EMHS_EFB_HEAD_TYPE     RIO_EFB_T
@@ -1006,20 +1006,22 @@ typedef uint32_t RIO_SPX_ERR_STAT_T;
 #define RIO_RT_BC_CTL_MC_MASK_SZ32   (0x02000000)
 #define RIO_RT_BC_CTL_MC_MASK_SZ64   (0x03000000)
 
+#define RIO_RT_PTR_MASK (0X00fffc00)
+
 /* RIO_RT_BC_MC : Register Bits Masks Definitions */
-#define RIO_RT_BC_MC_MASK_PTR        (0x00fffc00)
+#define RIO_RT_BC_MC_MASK_PTR        RIO_RT_PTR_MASK
 #define RIO_RT_BC_MC_MASK_CNT        (0xff000000)
 
 /* RIO_RT_BC_LVL0 : Register Bits Masks Definitions */
-#define RIO_RT_BC_LVL0_PTR (0x00fffc00)
+#define RIO_RT_BC_LVL0_PTR RIO_RT_PTR_MASK
 #define RIO_RT_BC_LVL0_CNT (0xff000000)
 
 /* RIO_RT_BC_LVL1 : Register Bits Masks Definitions */
-#define RIO_RT_BC_LVL1_PTR (0x00fffc00)
+#define RIO_RT_BC_LVL1_PTR RIO_RT_PTR_MASK
 #define RIO_RT_BC_LVL1_CNT (0xff000000)
 
 /* RIO_RT_BC_LVL2 : Register Bits Masks Definitions */
-#define RIO_RT_BC_LVL2_PTR (0x00fffc00)
+#define RIO_RT_BC_LVL2_PTR RIO_RT_PTR_MASK
 #define RIO_RT_BC_LVL2_CNT (0xff000000)
 
 /* RIO_RT_SPX_CTL : Register Bits Masks Definitions */
@@ -1033,19 +1035,19 @@ typedef uint32_t RIO_SPX_ERR_STAT_T;
 #define RIO_RT_SPX_CTL_MC_MASK_SZ64 RIO_RT_BC_CTL_MC_MASK_SZ64
 
 /* RIO_RT_SPX_MC : Register Bits Masks Definitions */
-#define RIO_RT_SPX_MC_MASK_PTR     (0x00fffc00)
+#define RIO_RT_SPX_MC_MASK_PTR     RIO_RT_PTR_MASK
 #define RIO_RT_SPX_MC_MAXK_CNT     (0xff000000)
 
 /* RIO_RT_SPX_LVL0 : Register Bits Masks Definitions */
-#define RIO_RT_SPX_LVL0_PTR        (0x00fffc00)
+#define RIO_RT_SPX_LVL0_PTR        RIO_RT_PTR_MASK
 #define RIO_RT_SPX_LVL0_CNT        (0xff000000)
 
 /* RIO_RT_SPX_LVL1 : Register Bits Masks Definitions */
-#define RIO_RT_SPX_LVL1_PTR        (0x00fffc00)
+#define RIO_RT_SPX_LVL1_PTR        RIO_RT_PTR_MASK
 #define RIO_RT_SPX_LVL1_CNT        (0xff000000)
 
 /* RIO_RT_SPX_LVL2 : Register Bits Masks Definitions */
-#define RIO_RT_SPX_LVL2_PTR        (0x00fffc00)
+#define RIO_RT_SPX_LVL2_PTR        RIO_RT_PTR_MASK
 #define RIO_RT_SPX_LVL2_CNT        (0xff000000)
 
 /* Macros to determine addresses of routing table entries and MC MASK regs */
@@ -1057,18 +1059,20 @@ typedef uint32_t RIO_SPX_ERR_STAT_T;
  * m   : Mask number
  */
 
-#define RIO_RT_RTE_ADDR(ptr,g,idx) (ptr + (g * 256) + (idx * 4))
+#define RIO_RT_RTE_ADDR(ptr,g,idx) ((ptr & RIO_RT_PTR_MASK) + \
+					(g * RIO_RT_GRP_SZ * 4) + (idx * 4))
 
-#define RIO_RT_MC_MASK_SZ(sz) \
-			((sz == RIO_RT_SPX_CTL_MC_MASK_SZ8 )?8:  \
-			 (sz == RIO_RT_SPX_CTL_MC_MASK_SZ16)?16: \
-			 (sz == RIO_RT_SPX_CTL_MC_MASK_SZ32)?32: \
-			 (sz == RIO_RT_SPX_CTL_MC_MASK_SZ64)?64: 0xFFFFFFFF)
+#define RIO_RT_MC_MASK_SZ(sz) ((sz == RIO_RT_SPX_CTL_MC_MASK_SZ8) ? 8 : \
+		(sz == RIO_RT_SPX_CTL_MC_MASK_SZ16) ? 16 : \
+		(sz == RIO_RT_SPX_CTL_MC_MASK_SZ32) ? 32 : \
+		(sz == RIO_RT_SPX_CTL_MC_MASK_SZ64) ? 64 : 0xFFFFFFFF)
 
-#define RIO_RT_MC_SET_MASK_ADDR(ptr,sz,m) (ptr + (RIO_RT_MC_MASK_SZ(sz) * m))
-#define RIO_RT_MC_CLR_MASK_ADDR(ptr,sz,m)  \
-			(RIO_RT_MC_SET_MASK_ADDR(ptr,sz,m) + \
-			(RIO_RT_MC_MASK_SZ(sz)\2))
+#define RIO_RT_MC_SET_MASK_ADDR(ptr,sz,m) ((ptr & RIO_RT_PTR_MASK) + \
+					(RIO_RT_MC_MASK_SZ(sz) * m))
+
+#define RIO_RT_MC_CLR_MASK_ADDR(ptr,sz,m)  ((ptr & RIO_RT_PTR_MASK) + \
+			((RIO_RT_MC_MASK_SZ(sz)) * m) + \
+			((RIO_RT_MC_MASK_SZ(sz)) / 2))
 
 #ifdef __cplusplus
 }

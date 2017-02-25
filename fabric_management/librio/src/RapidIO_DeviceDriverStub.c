@@ -434,6 +434,7 @@ uint32_t DSF_rio_rt_dealloc_mc_mask(DAR_DEV_INFO_t *dev_info,
 	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
 	pe_rt_val mc_idx;
 	pe_rt_val dev_rte, dom_rte;
+	rio_rt_mc_info_t *mc_mask;
 
 	out_parms->imp_rc = RIO_SUCCESS;
 
@@ -475,14 +476,15 @@ uint32_t DSF_rio_rt_dealloc_mc_mask(DAR_DEV_INFO_t *dev_info,
 		in_parms->rt->dev_table[dev_rte].rte_val = RIO_RTE_DROP;
 	}
 
-	if ((in_parms->rt->mc_masks[mc_idx].in_use)
-			|| (in_parms->rt->mc_masks[mc_idx].allocd)) {
+	mc_mask = &in_parms->rt->mc_masks[mc_idx];
+
+	if (mc_mask->in_use || mc_mask->allocd) {
+		in_parms->rt->mc_masks[mc_idx].changed = mc_mask->in_use;
 		in_parms->rt->mc_masks[mc_idx].mc_destID = 0;
 		in_parms->rt->mc_masks[mc_idx].tt = tt_dev8;
 		in_parms->rt->mc_masks[mc_idx].mc_mask = 0;
 		in_parms->rt->mc_masks[mc_idx].in_use = false;
 		in_parms->rt->mc_masks[mc_idx].allocd = false;
-		in_parms->rt->mc_masks[mc_idx].changed = true;
 	}
 
 exit:

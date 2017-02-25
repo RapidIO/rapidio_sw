@@ -47,6 +47,9 @@
 extern "C" {
 #endif
 
+#define NUM_RXS_PORTS(dev_info) ((NUM_PORTS(dev_info) > RXS2448_MAX_PORTS) ? \
+                RXS2448_MAX_PORTS : NUM_PORTS(dev_info))
+
 // Device Access
 //
 uint32_t rxs_rioSetEnumBound(DAR_DEV_INFO_t *dev_info,

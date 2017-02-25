@@ -165,13 +165,12 @@ typedef struct rio_rt_uc_info_t_TAG {
 #define MC_MASK_GOT_PORT(m,p) (m &  (uint32_t)(1 << p))
 
 typedef struct rio_rt_state_t_TAG {
-	// The 'default route' for ports routed using RIO_DAR_RT_USE_DEFAULT_ROUTE
+	// The 'default route' for ports routed using RIO_RTE_DFLT_PORT
 	uint32_t default_route;
 
-	// Encoded routing table value, should never be RIO_DAR_RT_USE_DEVICE_TABLE
+	// Encoded routing table value, device specific restrictions
+	// may apply.
 	rio_rt_uc_info_t dev_table[RIO_RT_GRP_SZ];
-
-	// Encoded routing table value read, should never be DAR_RT_FIRST_MC_MASK
 	rio_rt_uc_info_t dom_table[RIO_RT_GRP_SZ];
 
 	rio_rt_mc_info_t mc_masks[RIO_MAX_MC_MASKS];
@@ -485,7 +484,6 @@ uint32_t rio_rt_change_rte(DAR_DEV_INFO_t *dev_info,
 uint32_t rio_rt_change_mc_mask(DAR_DEV_INFO_t *dev_info,
 		rio_rt_change_mc_mask_in_t *in_parms,
 		rio_rt_change_mc_mask_out_t *out_parms);
-
 
 void rio_rt_check_multicast_routing(DAR_DEV_INFO_t *dev_info,
 		rio_rt_probe_in_t *in_parms, rio_rt_probe_out_t *out_parms);
