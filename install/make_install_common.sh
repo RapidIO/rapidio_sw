@@ -57,7 +57,7 @@ while read -r line || [[ -n "$line" ]]; do
         REVNODELIST="$REVNODELIST ${arr[2]}"
         if [ -n "$MASTER" ]; then
             echo "Multiple master entries ($line) in $NODEDATA_FILE, exiting ..."
-            exit
+            exit 1
         fi
         MASTER=${arr[1]}
     elif [ "${arr[0]}" = 'slave' ]; then
@@ -65,13 +65,13 @@ while read -r line || [[ -n "$line" ]]; do
         REVNODELIST="${arr[2]} $REVNODELIST"
     else
         echo "Invalid entry ($line)) in $NODEDATA_FILE, exiting ..."
-        exit
+        exit 1
     fi
 done < "$INSTALL_ROOT/$NODEDATA_FILE"
 
 if [ -z "$MASTER" ]; then
     echo "No master entry in $NODEDATA_FILE, exiting ..."
-    exit
+    exit 1
 fi
 
 cat > $NODELIST_FILE <<EOF
@@ -81,15 +81,36 @@ EOF
 
 
 cd $SOURCE_PATH
-tar -xomf $INSTALL_ROOT/$SRC_TAR > /dev/null
-cp $SCRIPTS_PATH/rsvd_phys_mem.conf $RSRV_CONF
+if [ $? -ne 0 ]
+then
+	echo cd failed, aborting...
+	exit $?
+fi
 
+tar -xomf $INSTALL_ROOT/$SRC_TAR > /dev/null
+if [ $? -ne 0 ]
+then
+	echo tar failed, aborting...
+	exit $?
+fi
+
+cp $SCRIPTS_PATH/rsvd_phys_mem.conf $RSRV_CONF
+if [ $? -ne 0 ]
+then
+	echo Copy failed, aborting...
+	exit $?
+fi
 
 # Compile the source
 #
 echo "Compile sources..."
 make -s clean
 make -s all
+if [ $? -ne 0 ]
+then
+	echo Make of installed code failed, aborting...
+	exit $?
+fi
 
 echo "Generate documentation..."
 doxygen doxyconfig
