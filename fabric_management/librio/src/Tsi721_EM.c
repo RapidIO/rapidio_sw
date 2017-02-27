@@ -970,11 +970,13 @@ static uint32_t tsi721_set_event_cfg(tsi721_event_cfg_reg_vals_t *regs,
 
 	case rio_em_d_ttl:
 		// Time to live is only supported by switches, not Tsi721
-		break;
-
 	case rio_em_d_rte:
 		// Routing table events are only supported by switches,
 		// not Tsi721
+	case rio_em_a_clr_pwpnd:
+		// Nothing to do..
+	case rio_em_a_no_event:
+		// Nothing to do..
 		break;
 
 	case rio_em_d_log:
@@ -1003,11 +1005,6 @@ static uint32_t tsi721_set_event_cfg(tsi721_event_cfg_reg_vals_t *regs,
 		if (RIO_SUCCESS != rc) {
 			goto fail;
 		}
-		break;
-
-	case rio_em_a_clr_pwpnd:
-	case rio_em_a_no_event:
-		// Nothing to do..
 		break;
 
 	default:
