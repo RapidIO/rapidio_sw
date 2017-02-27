@@ -140,6 +140,22 @@ bool rxs_chk_dflt_rte_reg(DAR_DEV_INFO_t *dev_info, pe_rt_val val)
 	return rtv.changed;
 }
 
+bool rxs_chk_dom_rte_reg(DAR_DEV_INFO_t *dev_info, pe_rt_val val)
+{
+	rio_rt_uc_info_t rtv = {val, false};
+
+	rxs_chk_and_corr_rtv(dev_info, &rtv, true, false);
+	return rtv.changed;
+}
+
+bool rxs_chk_dev_rte_reg(DAR_DEV_INFO_t *dev_info, pe_rt_val val)
+{
+	rio_rt_uc_info_t rtv = {val, false};
+
+	rxs_chk_and_corr_rtv(dev_info, &rtv, false, false);
+	return rtv.changed;
+}
+
 uint32_t rxs_rio_rt_initialize(DAR_DEV_INFO_t *dev_info,
 		rio_rt_initialize_in_t *in_parms,
 		rio_rt_initialize_out_t *out_parms)
@@ -432,66 +448,55 @@ uint32_t rxs_rio_rt_set_changed(DAR_DEV_INFO_t *dev_info,
 }
 
 static void rxs_check_multicast_routing(DAR_DEV_INFO_t *dev_info,
-		rio_rt_probe_in_t *in_parms, rio_rt_probe_out_t *out_parms)
+		rio_rt_probe_in_t *in_parms, rio_rt_probe_out_t *out_parms,
+		pe_rt_val rte)
 {
-	uint32_t mc_idx, bit;
-	uint32_t mc_mask;
-	bool found = false;
+	uint32_t mc_idx = RIO_RTV_GET_MC_MSK(rte);
+	uint32_t bit, set_cnt = 0;
+	uint32_t legal_ports = (1 << NUM_RXS_PORTS(dev_info)) - 1;
+	rio_rt_mc_info_t *mc;
 
-	for (mc_idx = 0; mc_idx < RXS2448_MC_MASK_CNT; mc_idx++) {
-		if ((in_parms->tt == in_parms->rt->mc_masks[mc_idx].tt)
-				&& (in_parms->rt->mc_masks[mc_idx].in_use)) {
-			if (tt_dev8 == in_parms->tt) {
-				mc_mask = 0x00FF;
-			} else {
-				mc_mask = 0xFFFF;
-			}
+	mc_idx = RIO_RTV_GET_MC_MSK(rte);
+	if (mc_idx > RXS2448_MAX_MC_MASK) {
+		out_parms->valid_route = false;
+		out_parms->reason_for_discard = rio_rt_disc_mc_mult_masks;
+		return;
+	}
 
-			if ((in_parms->destID & mc_mask)
-					== (in_parms->rt->mc_masks[mc_idx].mc_destID
-							& mc_mask)) {
-				if (found) {
-					out_parms->reason_for_discard =
-							rio_rt_disc_mc_mult_masks;
-					out_parms->valid_route = false;
-					break;
-				} else {
-					found = true;
-					out_parms->routing_table_value =
-						RIO_RTV_MC_MSK(mc_idx);
-					for (bit = 0;
-						bit < NUM_RXS_PORTS(dev_info);
-							bit++)
-						out_parms->mcast_ports[bit] =
-								((uint32_t)(1
-										<< bit)
-										& in_parms->rt->mc_masks[mc_idx].mc_mask) ?
-										true :
-										false;
-					if (in_parms->rt->mc_masks[mc_idx].mc_mask) {
-						if ((uint32_t)((uint32_t)(1)
-								<< in_parms->probe_on_port)
-								== in_parms->rt->mc_masks[mc_idx].mc_mask) {
-							out_parms->reason_for_discard =
-									rio_rt_disc_mc_one_bit;
-						} else {
-							out_parms->reason_for_discard =
-									rio_rt_disc_not;
-							out_parms->valid_route =
-									true;
-						}
-					} else {
-						out_parms->reason_for_discard =
-								rio_rt_disc_mc_empty;
-					}
-				}
-			}
+	mc = &in_parms->rt->mc_masks[mc_idx];
+
+	// If mask is invalid, we're done...
+	if (!mc->in_use) {
+		out_parms->valid_route = false;
+		out_parms->reason_for_discard = rio_rt_disc_mc_empty;
+		return;
+	}
+
+	// If there aren't any bits set in the mask, we're done...
+	if (!(mc->mc_mask & legal_ports)) {
+		out_parms->valid_route = false;
+		out_parms->reason_for_discard = rio_rt_disc_mc_empty;
+		return;
+	}
+
+	for (bit = 0; bit < NUM_RXS_PORTS(dev_info); bit++) {
+		out_parms->mcast_ports[bit] = (1 << bit) & (mc->mc_mask);
+		if ((1 << bit) & (mc->mc_mask)) {
+			set_cnt++;
+		}
+	}
+	if ((1 == set_cnt) && (RIO_ALL_PORTS != in_parms->probe_on_port)) {
+		if (out_parms->mcast_ports[in_parms->probe_on_port]) {
+			// Only one bit set, for the port that we're probing...
+			out_parms->valid_route = false;
+			out_parms->reason_for_discard = rio_rt_disc_mc_one_bit;
 		}
 	}
 }
 
-static void rxs_check_unicast_routing(DAR_DEV_INFO_t *dev_info,
-		rio_rt_probe_in_t *in_parms, rio_rt_probe_out_t *out_parms)
+static void rxs_check_routing(DAR_DEV_INFO_t *dev_info,
+		rio_rt_probe_in_t *in_parms,
+		rio_rt_probe_out_t *out_parms)
 {
 	uint8_t idx;
 	uint32_t rte = 0;
@@ -500,43 +505,74 @@ static void rxs_check_unicast_routing(DAR_DEV_INFO_t *dev_info,
 		return;
 
 	if (tt_dev16 == in_parms->tt) {
-		idx = (uint8_t)((in_parms->destID & (uint16_t)(0xFF00)) >> 8);
+		idx = (uint8_t)((in_parms->destID &
+					(uint16_t)(RIO_DEVID_RTE_DEV16)) >> 8);
 		rte = in_parms->rt->dom_table[idx].rte_val;
+		if (rxs_chk_dom_rte_reg(dev_info, rte)) {
+			out_parms->valid_route = false;
+			out_parms->reason_for_discard = rio_rt_disc_rt_invalid;
+			return;
+		}
 	}
 
-	if ((tt_dev8 == in_parms->tt) || (RIO_RTE_LVL_G0 == rte)) {
+	if ((tt_dev8 == in_parms->tt) ||
+				(RIO_RTE_LVL_G0 == (rte & RIO_RTE_VAL))) {
 		idx = (uint8_t)(in_parms->destID & 0x00FF);
 		rte = in_parms->rt->dev_table[idx].rte_val;
+		if (rxs_chk_dev_rte_reg(dev_info, rte)) {
+			out_parms->valid_route = false;
+			out_parms->reason_for_discard = rio_rt_disc_rt_invalid;
+			return;
+		}
 	}
 
 	out_parms->routing_table_value = rte;
 	out_parms->valid_route = true;
 	out_parms->reason_for_discard = rio_rt_disc_not;
 
-	if (in_parms->rt->default_route >= NUM_RXS_PORTS(dev_info)) {
+	if (RIO_RTE_DROP == rte) {
 		out_parms->valid_route = false;
-		out_parms->reason_for_discard = rio_rt_disc_dflt_pt_invalid;
+		out_parms->reason_for_discard = rio_rt_disc_deliberately;
+		return;
+	}
+
+	if (RIO_RTE_DFLT_PORT == (rte & RIO_RTE_VAL)) {
+		out_parms->default_route = in_parms->rt->default_route;
+		rte = in_parms->rt->default_route;
+		if (rxs_chk_dflt_rte_reg(dev_info, rte)) {
+			out_parms->valid_route = false;
+			out_parms->reason_for_discard =
+						rio_rt_disc_dflt_pt_invalid;
+			return;
+		}
+		if (RIO_RTE_DROP == rte) {
+			out_parms->valid_route = false;
+			out_parms->reason_for_discard =
+					rio_rt_disc_dflt_pt_deliberately;
+			return;
+		}
+	}
+
+	if (RIO_RTV_IS_MC_MSK(rte)) {
+		rxs_check_multicast_routing(dev_info, in_parms, out_parms, rte);
 	}
 }
 
 static uint32_t rxs_check_port_for_discard(DAR_DEV_INFO_t *dev_info,
-		rio_rt_probe_in_t *in_parms, rio_rt_probe_out_t *out_parms)
+		rio_rt_probe_out_t *out_parms,
+		rio_port_t port,
+		bool dflt_port)
 {
-	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+	uint32_t rc = RIO_SUCCESS;
 	uint32_t ctlData;
-	uint8_t port;
-	bool dflt_rt = (RIO_RTE_DFLT_PORT
-			== out_parms->routing_table_value) ? true : false;
 	rio_pc_get_config_in_t cfg_in;
 	rio_pc_get_config_out_t cfg_out;
 	rio_pc_get_status_in_t stat_in;
 	rio_pc_get_status_out_t stat_out;
-
-	port = (dflt_rt) ?
-			in_parms->rt->default_route :
-			out_parms->routing_table_value;
+	uint32_t en_mask = RIO_SPX_CTL_INP_EN | RIO_SPX_CTL_OTP_EN;
 
 	if (NUM_RXS_PORTS(dev_info) <= port) {
+		out_parms->valid_route = false;
 		out_parms->reason_for_discard = rio_rt_disc_probe_abort;
 		out_parms->imp_rc = RT_PROBE(1);
 		goto exit;
@@ -561,64 +597,156 @@ static uint32_t rxs_check_port_for_discard(DAR_DEV_INFO_t *dev_info,
 	}
 
 	if (!cfg_out.pc[0].port_available) {
-		out_parms->reason_for_discard =
-				(dflt_rt) ? rio_rt_disc_dflt_pt_unavail : rio_rt_disc_port_unavail;
-	} else {
-		if (!cfg_out.pc[0].powered_up) {
+		if (dflt_port) {
 			out_parms->reason_for_discard =
-					(dflt_rt) ? rio_rt_disc_dflt_pt_pwdn : rio_rt_disc_port_pwdn;
+					rio_rt_disc_dflt_pt_unavail;
 		} else {
-			if (!stat_out.ps[0].port_ok) {
-				if (cfg_out.pc[0].xmitter_disable) {
-					out_parms->reason_for_discard =
-							(dflt_rt) ? rio_rt_disc_dflt_pt_lkout_or_dis : rio_rt_disc_port_lkout_or_dis;
-				} else {
-					out_parms->reason_for_discard =
-							(dflt_rt) ? rio_rt_disc_dflt_pt_no_lp : rio_rt_disc_port_no_lp;
-				}
-			} else {
-				if (stat_out.ps[0].port_error) {
-					out_parms->reason_for_discard =
-							(dflt_rt) ? rio_rt_disc_dflt_pt_fail : rio_rt_disc_port_fail;
-				} else {
-					if (cfg_out.pc[0].port_lockout) {
-						out_parms->reason_for_discard =
-								(dflt_rt) ? rio_rt_disc_dflt_pt_lkout_or_dis : rio_rt_disc_port_lkout_or_dis;
-					} else {
-						rc =
-								DARRegRead(
-										dev_info,
-										RXS_RIO_SPX_CTL(
-												port),
-										&ctlData);
-						if (RIO_SUCCESS != rc) {
-							out_parms->reason_for_discard =
-									rio_rt_disc_probe_abort;
-							out_parms->imp_rc =
-									RT_PROBE(
-											4);
-							goto exit;
-						}
-
-						if ((RIO_SPX_CTL_INP_EN
-								| RIO_SPX_CTL_OTP_EN)
-								!= ((RIO_SPX_CTL_INP_EN
-										| RIO_SPX_CTL_OTP_EN)
-										& ctlData)) {
-							out_parms->reason_for_discard =
-									(dflt_rt) ? rio_rt_disc_dflt_pt_in_out_dis : rio_rt_disc_port_in_out_dis;
-						}
-					}
-				}
-			}
-		}
+			out_parms->reason_for_discard =
+					rio_rt_disc_port_unavail;
+		};
+		goto exit;
 	}
 
-	rc = RIO_SUCCESS;
+	if (!cfg_out.pc[0].powered_up) {
+		if (dflt_port) {
+			out_parms->reason_for_discard =
+					rio_rt_disc_dflt_pt_pwdn;
+		} else {
+			out_parms->reason_for_discard =
+					 rio_rt_disc_port_pwdn;
+		}
+		goto exit;
+	}
 
+	if (!stat_out.ps[0].port_ok) {
+		if (cfg_out.pc[0].xmitter_disable) {
+			if (dflt_port) {
+				out_parms->reason_for_discard =
+					rio_rt_disc_dflt_pt_lkout_or_dis;
+			} else {
+				out_parms->reason_for_discard =
+					rio_rt_disc_port_lkout_or_dis;
+			}
+			goto exit;
+		}
+		if (dflt_port) {
+			out_parms->reason_for_discard =
+					rio_rt_disc_dflt_pt_no_lp;
+		} else {
+			out_parms->reason_for_discard =
+					rio_rt_disc_port_no_lp;
+		}
+		goto exit;
+	}
+	if (stat_out.ps[0].port_error) {
+		if (dflt_port) {
+			out_parms->reason_for_discard =
+					rio_rt_disc_dflt_pt_fail;
+		} else {
+			out_parms->reason_for_discard =
+					rio_rt_disc_port_fail;
+		}
+		goto exit;
+	}
+
+	if (cfg_out.pc[0].port_lockout) {
+		if (dflt_port) {
+			out_parms->reason_for_discard =
+					rio_rt_disc_dflt_pt_lkout_or_dis;
+		} else {
+			out_parms->reason_for_discard =
+					rio_rt_disc_port_lkout_or_dis;
+		}
+		goto exit;
+	}
+	rc = DARRegRead(dev_info, RXS_RIO_SPX_CTL(port), &ctlData);
+	if (RIO_SUCCESS != rc) {
+		out_parms->reason_for_discard = rio_rt_disc_probe_abort;
+		out_parms->imp_rc = RT_PROBE(4);
+		goto exit;
+	}
+
+	if (en_mask != (en_mask & ctlData)) {
+		if (dflt_port) {
+			out_parms->reason_for_discard =
+					rio_rt_disc_dflt_pt_in_out_dis;
+		} else {
+			out_parms->reason_for_discard =
+					rio_rt_disc_port_in_out_dis;
+		}
+		goto exit;
+	}
+
+	rc = DARRegRead(dev_info, RXS_RIO_PLM_SPX_IMP_SPEC_CTL(port), &ctlData);
+	if (RIO_SUCCESS != rc) {
+		out_parms->reason_for_discard = rio_rt_disc_probe_abort;
+		out_parms->imp_rc = RT_PROBE(4);
+		goto exit;
+	}
+	if (RXS_RIO_PLM_SPX_IMP_SPEC_CTL_LLB_EN & ctlData) {
+		out_parms->reason_for_discard = rio_rt_disc_imp_spec;
+		goto exit;
+	}
+
+	rc = DARRegRead(dev_info, RXS_RIO_PLM_SPX_STAT(port), &ctlData);
+	if (RIO_SUCCESS != rc) {
+		out_parms->reason_for_discard = rio_rt_disc_probe_abort;
+		out_parms->imp_rc = RT_PROBE(4);
+		goto exit;
+	}
+	if (ctlData & (RXS_RIO_PLM_SPX_STAT_PBM_FATAL |
+			RXS_RIO_PLM_SPX_STAT_MAX_DENIAL)) {
+		out_parms->reason_for_discard = rio_rt_disc_imp_spec;
+		goto exit;
+	}
+
+	rc = DARRegRead(dev_info, RXS_RIO_TLM_SPX_FTYPE_FILT(port), &ctlData);
+	if (RIO_SUCCESS != rc) {
+		out_parms->reason_for_discard = rio_rt_disc_probe_abort;
+		out_parms->imp_rc = RT_PROBE(4);
+		goto exit;
+	}
+
+	out_parms->filter_function_active = ctlData ? true : false;
 exit:
 	if (rio_rt_disc_not != out_parms->reason_for_discard) {
 		out_parms->valid_route = false;
+	}
+	return rc;
+}
+
+static uint32_t rxs_check_for_discard(DAR_DEV_INFO_t *dev_info,
+		rio_rt_probe_in_t *in_parms, rio_rt_probe_out_t *out_parms)
+{
+	uint32_t rc = RIO_SUCCESS;
+	rio_port_t port;
+	pe_rt_val rte = out_parms->routing_table_value;
+	bool dflt_port = false;
+
+	if (RIO_RTE_DFLT_PORT == rte) {
+		rte = out_parms->default_route;
+		dflt_port = true;
+	}
+
+	if (RIO_RTV_IS_PORT(rte)) {
+		return rxs_check_port_for_discard(dev_info, out_parms,
+				RIO_RTV_GET_PORT(rte), dflt_port);
+	}
+
+	// Must be a multicast mask...
+	for (port = 0; port < NUM_RXS_PORTS(dev_info); port++) {
+		if (port == in_parms->probe_on_port) {
+			continue;
+		}
+		if (!out_parms->mcast_ports[port]) {
+			continue;
+		}
+
+		rc = rxs_check_port_for_discard(dev_info, out_parms,
+						port, false);
+		if (rc || !out_parms->valid_route) {
+			break;
+		}
 	}
 	return rc;
 }
@@ -634,7 +762,7 @@ uint32_t rxs_rio_rt_probe(DAR_DEV_INFO_t *dev_info, rio_rt_probe_in_t *in_parms,
 	out_parms->imp_rc = RIO_SUCCESS;
 	out_parms->valid_route = false;
 	out_parms->routing_table_value = RIO_ALL_PORTS;
-	out_parms->filter_function_active = false; /* not supported on RXS */
+	out_parms->filter_function_active = false;
 	out_parms->trace_function_active = false; /* not supported on RXS */
 
 	for (bit = 0; bit < NUM_RXS_PORTS(dev_info); bit++)
@@ -656,30 +784,12 @@ uint32_t rxs_rio_rt_probe(DAR_DEV_INFO_t *dev_info, rio_rt_probe_in_t *in_parms,
 	out_parms->time_to_live_active =
 			(regVal & RXS_RIO_PKT_TIME_LIVE_PKT_TIME_LIVE) ?
 					true : false;
-
 	rc = RIO_SUCCESS;
 
-	// Note, no failure possible...
-	rxs_check_multicast_routing(dev_info, in_parms, out_parms);
-
-	/* Done if hit in multicast masks. */
-	if (RIO_ALL_PORTS != out_parms->routing_table_value) {
-		goto exit;
-	}
-
-	/*  Determine routing table value for the specified destination ID.
-	 *  If out_parms->valid_route is true
-	 *  the valid values for out_parms->routing_table_value are
-	 *  - a valid port number, OR
-	 *  - RIO_RTE_DFLT_PORT
-	 *  When out_parms->routing_table_value is RIO_RTE_DFLT_PORT, the
-	 *  default route is a valid switch port number.
-	 */
-
-	rxs_check_unicast_routing(dev_info, in_parms, out_parms);
+	rxs_check_routing(dev_info, in_parms, out_parms);
 
 	if (out_parms->valid_route) {
-		rc = rxs_check_port_for_discard(dev_info, in_parms, out_parms);
+		rc = rxs_check_for_discard(dev_info, in_parms, out_parms);
 	}
 
 exit:

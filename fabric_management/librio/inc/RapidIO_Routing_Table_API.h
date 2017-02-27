@@ -115,8 +115,11 @@ typedef enum rio_rt_disc_reason_t_TAG
 	// Default route port input/output enable bits are clear
 	rio_rt_disc_dflt_pt_in_out_dis = 0x13,
 
+	// An implementation specific reason causes the packet discard
+	rio_rt_disc_imp_spec = 0x14,
+
 	// Probe aborted due to routing error
-	rio_rt_disc_probe_abort = 0x14,
+	rio_rt_disc_probe_abort = 0x15,
 
 	// Last entry...
 	rio_rt_disc_last = 0x15,
@@ -237,7 +240,7 @@ typedef struct rio_rt_probe_out_t_TAG {
 	// Encoded routing table value read
 	uint32_t routing_table_value;
 
-	// When routing_table_value is RIO_DSF_RT_USE_DEFAULT_ROUTE, this field
+	// When routing_table_value is RIO_RTE_DFLT_PORT, this field
 	//   contains the value of the default route register.
 	uint8_t default_route;
 

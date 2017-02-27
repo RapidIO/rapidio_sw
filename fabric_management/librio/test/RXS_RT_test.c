@@ -76,9 +76,6 @@ int main(int argc, char** argv)
 #ifdef RXSx_DAR_WANTED
 
 #define DEBUG_PRINTF 0
-// FIXME: STATIC should be static
-// #define STATIC static
-#define STATIC
 
 typedef struct RXS_test_state_t_TAG {
 	int argc;
@@ -94,7 +91,7 @@ typedef struct RXS_test_state_t_TAG {
 
 RXS_test_state_t st;
 
-STATIC int grp_setup(void **state)
+static int grp_setup(void **state)
 {
 	*state = (void *)&st;
 	char *token_list = (char *)"-m -h -d ";
@@ -166,7 +163,7 @@ fail:
 	return -1;
 }
 
-STATIC int grp_teardown(void **state)
+static int grp_teardown(void **state)
 {
 	if (st.real_hw) {
 		if (st.mp_h_valid) {
@@ -178,9 +175,9 @@ STATIC int grp_teardown(void **state)
 	(void)state;
 }
 
-STATIC DAR_DEV_INFO_t mock_dev_info;
+static DAR_DEV_INFO_t mock_dev_info;
 
-STATIC uint32_t RXSReadReg(DAR_DEV_INFO_t *dev_info,
+static uint32_t RXSReadReg(DAR_DEV_INFO_t *dev_info,
 			uint32_t  offset, uint32_t *readdata)
 {
 	uint32_t rc = 0xFFFFFFFF;
@@ -206,7 +203,7 @@ STATIC uint32_t RXSReadReg(DAR_DEV_INFO_t *dev_info,
 	return rc;
 }
 
-STATIC void update_mc_masks(DAR_DEV_INFO_t *dev_info,
+static void update_mc_masks(DAR_DEV_INFO_t *dev_info,
 			rio_port_t port, uint32_t idx, uint32_t new_mask)
 {
 	uint32_t reg_idx;
@@ -236,7 +233,7 @@ STATIC void update_mc_masks(DAR_DEV_INFO_t *dev_info,
 /* The function tries to find the index of the offset in the dar_reg array and returns the idx,
  * otherwise it returns UPB_DAR_REG.
  */
-STATIC void check_write_bc(DAR_DEV_INFO_t *dev_info,
+static void check_write_bc(DAR_DEV_INFO_t *dev_info,
 			uint32_t offset, uint32_t writedata)
 {
 	uint32_t did, mask_idx, mask;
@@ -321,7 +318,7 @@ STATIC void check_write_bc(DAR_DEV_INFO_t *dev_info,
 	}
 }
 
-STATIC uint32_t RXSWriteReg(DAR_DEV_INFO_t *dev_info,
+static uint32_t RXSWriteReg(DAR_DEV_INFO_t *dev_info,
 			uint32_t  offset, uint32_t writedata)
 {
 	uint32_t rc = 0xFFFFFFFF;
@@ -345,7 +342,7 @@ STATIC uint32_t RXSWriteReg(DAR_DEV_INFO_t *dev_info,
 	return rc;
 }
 
-STATIC void RXSWaitSec(uint32_t delay_nsec, uint32_t delay_sec)
+static void RXSWaitSec(uint32_t delay_nsec, uint32_t delay_sec)
 {
 	if (st.real_hw) {
 		uint64_t counter = delay_nsec + ((uint64_t)delay_sec * 1000000000);
@@ -368,7 +365,7 @@ rio_perf_opt_reg_t mock_dar_reg[UPB_DAR_REG];
 
 /* Create a mock dev_info.
  */
-STATIC void rxs_test_setup(void)
+static void rxs_test_setup(void)
 {
 	uint8_t idx;
 
@@ -404,7 +401,7 @@ STATIC void rxs_test_setup(void)
 
 /* Initialize the mock register structure for different registers.
  */
-STATIC void init_mock_rxs_reg(void **state)
+static void init_mock_rxs_reg(void **state)
 {
 	// idx is always should be less than UPB_DAR_REG.
 	uint32_t port, idev;
@@ -520,7 +517,7 @@ STATIC void init_mock_rxs_reg(void **state)
 // The setup function which should be called before any unit tests that
 // need to be executed.
 
-STATIC int setup(void **state)
+static int setup(void **state)
 {
 	uint32_t sw_port_info;
 	uint32_t rc;
@@ -538,12 +535,12 @@ STATIC int setup(void **state)
         return 0;
 }
 
-STATIC void rxs_init_mock_rt(rio_rt_state_t *rt)
+static void rxs_init_mock_rt(rio_rt_state_t *rt)
 {
 	memset(rt, 0xFF, sizeof(rio_rt_state_t));
 }
 
-STATIC void rxs_chk_and_corr_rtv_success_test_x(uint32_t imp_spec)
+static void rxs_chk_and_corr_rtv_success_test_x(uint32_t imp_spec)
 {
 	rio_rt_uc_info_t tst;
 	uint32_t idx;
@@ -665,7 +662,7 @@ STATIC void rxs_chk_and_corr_rtv_success_test_x(uint32_t imp_spec)
 	}
 }
 	
-STATIC void rxs_chk_and_corr_rtv_success_test(void **state)
+static void rxs_chk_and_corr_rtv_success_test(void **state)
 {
 	uint64_t imp_spec;
 	for (imp_spec = 0; imp_spec <= RIO_RTE_IMP_SPEC; imp_spec += 0x10000000)
@@ -676,7 +673,7 @@ STATIC void rxs_chk_and_corr_rtv_success_test(void **state)
 	(void)state;
 }
 
-STATIC void rxs_chk_and_corr_rtv_error_test(void **state)
+static void rxs_chk_and_corr_rtv_error_test(void **state)
 {
 	uint32_t tst_vals[] = {0x302, 0x1000, 0x20234, 0x33333, 0xFFFFFFFF};
 	uint32_t num_tsts = sizeof(tst_vals)/sizeof(tst_vals[0]);
@@ -701,7 +698,7 @@ STATIC void rxs_chk_and_corr_rtv_error_test(void **state)
 	(void)state;
 }
 
-STATIC void rxs_reg_dev_dom(uint32_t port, uint32_t rte_num,
+static void rxs_reg_dev_dom(uint32_t port, uint32_t rte_num,
 			    uint32_t *dom_out, uint32_t *dev_out)
 {
 	uint32_t dev_rte_base, dom_rte_base;
@@ -720,7 +717,7 @@ STATIC void rxs_reg_dev_dom(uint32_t port, uint32_t rte_num,
 			DARRegRead(&mock_dev_info, DEV_RTE_ADDR(dev_rte_base, rte_num), dev_out));
 }
 
-STATIC void rxs_reg_mc_mask(uint32_t port, uint32_t mc_mask_num,
+static void rxs_reg_mc_mask(uint32_t port, uint32_t mc_mask_num,
 		uint32_t *mc_mask_out)
 {
 	uint32_t base_mask_addr;
@@ -735,7 +732,7 @@ STATIC void rxs_reg_mc_mask(uint32_t port, uint32_t mc_mask_num,
 			DARRegRead(&mock_dev_info, MC_MASK_ADDR(base_mask_addr, mc_mask_num), mc_mask_out));
 }
 
-STATIC void check_init_rt_regs_port(
+static void check_init_rt_regs_port(
 		uint32_t chk_on_port,
 		uint32_t chk_dflt_val,
 		uint32_t chk_rt_val,
@@ -766,7 +763,7 @@ STATIC void check_init_rt_regs_port(
 	}
 }
 
-STATIC void check_init_rt_regs(void **state, uint32_t port, bool hw,
+static void check_init_rt_regs(void **state, uint32_t port, bool hw,
 		rio_rt_initialize_in_t *mock_init_in)
 {
 	uint32_t st_p = port;
@@ -794,7 +791,7 @@ STATIC void check_init_rt_regs(void **state, uint32_t port, bool hw,
 	}
 }
 
-STATIC void check_init_struct(rio_rt_initialize_in_t *mock_init_in)
+static void check_init_struct(rio_rt_initialize_in_t *mock_init_in)
 {
 	uint32_t idx;
 
@@ -836,7 +833,7 @@ STATIC void check_init_struct(rio_rt_initialize_in_t *mock_init_in)
 	}
 }
 
-STATIC void rxs_init_rt_test_success_val(void **state, bool hw,
+static void rxs_init_rt_test_success_val(void **state, bool hw,
 			rio_port_t port, pe_rt_val val)
 {
 	rio_rt_initialize_in_t init_in;
@@ -867,7 +864,7 @@ STATIC void rxs_init_rt_test_success_val(void **state, bool hw,
 
 // Verify complete init of routing table structure and hardware
 // for all valid values.
-STATIC void rxs_init_rt_test_success(void **state)
+static void rxs_init_rt_test_success(void **state)
 {
 	bool hw = true;
 	bool no_hw = !hw;
@@ -896,7 +893,7 @@ STATIC void rxs_init_rt_test_success(void **state)
 
 // Verify that the initialization succeeds when the routing table pointer
 // passed in is null, whether or not hardware is updated.
-STATIC void rxs_init_rt_null_test_success(void **state)
+static void rxs_init_rt_null_test_success(void **state)
 {
 	rio_rt_initialize_in_t init_in;
 	rio_rt_initialize_out_t init_out;
@@ -944,7 +941,7 @@ pe_rt_val bad_default_route_array[] = {
 static uint32_t num_bad_default_routes = sizeof(bad_default_route_array) /
 					sizeof(bad_default_route_array[0]);
 
-STATIC void rxs_init_rt_test_bad_default_route(void **state)
+static void rxs_init_rt_test_bad_default_route(void **state)
 {
 	rio_rt_initialize_in_t init_in;
 	rio_rt_initialize_out_t init_out;
@@ -972,7 +969,7 @@ STATIC void rxs_init_rt_test_bad_default_route(void **state)
 	(void)state; // unused
 }
 
-STATIC void rxs_init_rt_test_bad_default_route_table(void **state)
+static void rxs_init_rt_test_bad_default_route_table(void **state)
 {
 	rio_rt_initialize_in_t init_in;
 	rio_rt_initialize_out_t init_out;
@@ -1019,7 +1016,7 @@ STATIC void rxs_init_rt_test_bad_default_route_table(void **state)
 }
 
 // Check that initializing on a bad port number is detected
-STATIC void rxs_init_rt_test_bad_port(void **state)
+static void rxs_init_rt_test_bad_port(void **state)
 {
 	rio_rt_initialize_in_t init_in;
 	rio_rt_initialize_out_t init_out;
@@ -1042,7 +1039,7 @@ STATIC void rxs_init_rt_test_bad_port(void **state)
 	(void)state; // unused
 }
 
-STATIC void rxs_change_rte_rt_test_success_val(rio_port_t port,
+static void rxs_change_rte_rt_test_success_val(rio_port_t port,
 			uint32_t idx, bool dom, pe_rt_val new_val)
 {
 	rio_rt_initialize_in_t init_in;
@@ -1091,7 +1088,7 @@ STATIC void rxs_change_rte_rt_test_success_val(rio_port_t port,
 	}
 }
 
-STATIC void rxs_change_rte_rt_test_success(void **state)
+static void rxs_change_rte_rt_test_success(void **state)
 {
 	const rio_port_t pmax = NUM_RXS_PORTS(&mock_dev_info) - 1;
 	uint32_t imax = RIO_RT_GRP_SZ - 1; 
@@ -1138,7 +1135,7 @@ STATIC void rxs_change_rte_rt_test_success(void **state)
 	(void)state; // unused
 }
 
-STATIC void rxs_change_rte_rt_null_test(void **state)
+static void rxs_change_rte_rt_null_test(void **state)
 {
 	rio_rt_change_rte_in_t chg_in;
 	rio_rt_change_rte_out_t chg_out;
@@ -1155,7 +1152,7 @@ STATIC void rxs_change_rte_rt_null_test(void **state)
 	(void)state; // unused
 }
 
-STATIC void rxs_change_rte_rt_bad_rte_test(void **state)
+static void rxs_change_rte_rt_bad_rte_test(void **state)
 {
 	rio_rt_initialize_in_t init_in;
 	rio_rt_initialize_out_t init_out;
@@ -1222,7 +1219,7 @@ STATIC void rxs_change_rte_rt_bad_rte_test(void **state)
 	(void)state; // unused
 }
 
-STATIC void rxs_check_alloc_mc_rt_change(uint32_t mc_idx,
+static void rxs_check_alloc_mc_rt_change(uint32_t mc_idx,
 		rio_rt_alloc_mc_mask_in_t *mock_alloc_in)
 {
 	uint32_t idx;
@@ -1240,7 +1237,7 @@ STATIC void rxs_check_alloc_mc_rt_change(uint32_t mc_idx,
 	}
 }
 
-STATIC void rxs_alloc_mc_rt_test_success(void **state)
+static void rxs_alloc_mc_rt_test_success(void **state)
 {
 	rio_rt_initialize_in_t init_in;
 	rio_rt_initialize_out_t init_out;
@@ -1304,7 +1301,7 @@ STATIC void rxs_alloc_mc_rt_test_success(void **state)
 	(void)state; // unused
 }
 
-STATIC void rxs_alloc_mc_rt_null_test(void **state)
+static void rxs_alloc_mc_rt_null_test(void **state)
 {
 	rio_rt_alloc_mc_mask_in_t alloc_in;
 	rio_rt_alloc_mc_mask_out_t alloc_out;
@@ -1319,7 +1316,7 @@ STATIC void rxs_alloc_mc_rt_null_test(void **state)
 	(void)state; // unused
 }
 
-STATIC void rxs_alloc_mc_rt_bad_in_use_allocd_test(void **state)
+static void rxs_alloc_mc_rt_bad_in_use_allocd_test(void **state)
 {
 	rio_rt_alloc_mc_mask_in_t alloc_in;
 	rio_rt_alloc_mc_mask_out_t alloc_out;
@@ -1375,7 +1372,7 @@ STATIC void rxs_alloc_mc_rt_bad_in_use_allocd_test(void **state)
 	(void)state; // unused
 }
 
-STATIC void rxs_check_change_mc_rt_change(uint32_t mc_idx,
+static void rxs_check_change_mc_rt_change(uint32_t mc_idx,
 		rio_rt_change_mc_mask_in_t *mc_chg_in)
 {
 	uint32_t idx = RIO_RTV_GET_MC_MSK(mc_chg_in->mc_mask_rte);
@@ -1391,7 +1388,7 @@ STATIC void rxs_check_change_mc_rt_change(uint32_t mc_idx,
 			mc_chg_in->rt->mc_masks[idx].mc_mask);
 	assert_true(mc_chg_in->rt->mc_masks[idx].in_use);
 	assert_true(mc_chg_in->rt->mc_masks[idx].changed);
-	assert_false(mc_chg_in->rt->mc_masks[idx].allocd);
+	assert_true(mc_chg_in->rt->mc_masks[idx].allocd);
 
 	//Check dom_table
 	if ((mc_chg_in->mc_info.tt == tt_dev16) && idx) {
@@ -1407,7 +1404,7 @@ STATIC void rxs_check_change_mc_rt_change(uint32_t mc_idx,
 	}
 }
 
-STATIC void rxs_change_mc_rt_test_success(bool dom)
+static void rxs_change_mc_rt_test_success(bool dom)
 {
 	rio_rt_initialize_in_t init_in;
 	rio_rt_initialize_out_t init_out;
@@ -1441,7 +1438,6 @@ STATIC void rxs_change_mc_rt_test_success(bool dom)
 		// Change all multicast masks without allocating them.
 		// Should change corresponding dev/dom routing table entry.
 		for (mc_idx = 0; mc_idx < RXS2448_MC_MASK_CNT; mc_idx++) {
-			printf("\nport %d mc_idx %d\n", port, mc_idx);
 			mc_chg_in.mc_mask_rte = RIO_RTV_MC_MSK(mc_idx);
 			mc_chg_in.mc_info.mc_mask = mc_mask_val;
 			if (dom) {
@@ -1467,19 +1463,19 @@ STATIC void rxs_change_mc_rt_test_success(bool dom)
 	}
 }
 
-STATIC void rxs_change_mc_rt_dom_inuse_hw_test_success(void **state)
+static void rxs_change_mc_rt_dom_inuse_hw_test_success(void **state)
 {
 	rxs_change_mc_rt_test_success(true);
 	(void)state; // unused
 }
 
-STATIC void rxs_change_mc_rt_dev_inuse_hw_test_success(void **state)
+static void rxs_change_mc_rt_dev_inuse_hw_test_success(void **state)
 {
 	rxs_change_mc_rt_test_success(false);
 	(void)state; // unused
 }
 
-STATIC void rxs_check_change_allocd_mc_rt_change(
+static void rxs_check_change_allocd_mc_rt_change(
 		rio_rt_change_mc_mask_in_t *mc_chg_in1,
 		rio_rt_change_mc_mask_in_t *mc_chg_in2)
 {
@@ -1516,7 +1512,7 @@ STATIC void rxs_check_change_allocd_mc_rt_change(
 	}
 }
 
-STATIC void rxs_change_allocd_mc_rt_test_success(void **state)
+static void rxs_change_allocd_mc_rt_test_success(void **state)
 {
 	rio_rt_initialize_in_t init_in;
 	rio_rt_initialize_out_t init_out;
@@ -1616,7 +1612,7 @@ STATIC void rxs_change_allocd_mc_rt_test_success(void **state)
 	}
 }
 
-STATIC void rxs_change_mc_rt_test_bad_parms(void **state)
+static void rxs_change_mc_rt_test_bad_parms(void **state)
 {
 	rio_rt_change_mc_mask_in_t chg_in;
 	rio_rt_change_mc_mask_out_t chg_out;
@@ -1677,56 +1673,8 @@ STATIC void rxs_change_mc_rt_test_bad_parms(void **state)
 	(void)state; // unused
 }
 
-STATIC void rxs_check_dealloc_mc_rt_change(rio_rt_initialize_in_t *init_in,
-		rio_rt_dealloc_mc_mask_in_t *dealloc_in)
-{
-	uint32_t idx;
-
-	//Check mc_mask	
-	for (idx = 0; idx < RXS2448_MC_MASK_CNT; ++idx) {
-		assert_true(dealloc_in->rt->mc_masks[idx].changed);
-		assert_false(dealloc_in->rt->mc_masks[idx].allocd);
-		assert_false(dealloc_in->rt->mc_masks[idx].in_use);
-		assert_int_equal(tt_dev8,
-				dealloc_in->rt->mc_masks[idx].tt);
-		assert_int_equal(0,
-				dealloc_in->rt->mc_masks[idx].mc_destID);
-	}
-
-	//Check dom_table
-	for (idx = 0; idx < RIO_RT_GRP_SZ; idx++) {
-		if (idx == 0) {
-			assert_int_equal(RIO_RTE_LVL_G0,
-				dealloc_in->rt->dom_table[idx].rte_val);
-			assert_false(
-				dealloc_in->rt->dom_table[idx].changed);
-			continue;
-		}
-		if (init_in->set_on_port == RIO_ALL_PORTS) {
-			assert_int_equal(init_in->default_route_table_port,
-				dealloc_in->rt->dom_table[idx].rte_val);
-		} else {
-			assert_int_equal(dealloc_in->rt->default_route,
-				dealloc_in->rt->dom_table[idx].rte_val);
-		}
-		assert_false(dealloc_in->rt->dom_table[idx].changed);
-	}
-
-	//Check dev_table
-	for (idx = 0; idx < RIO_RT_GRP_SZ; idx++) {
-		if (init_in->set_on_port == RIO_ALL_PORTS) {
-			assert_int_equal(init_in->default_route_table_port,
-				dealloc_in->rt->dev_table[idx].rte_val);
-		} else {
-			assert_int_equal(dealloc_in->rt->default_route,
-					dealloc_in->rt->dev_table[idx].rte_val);
-		}
-		assert_false(dealloc_in->rt->dev_table[idx].changed);
-	}
-}
-
 // Demonstrate deallocation for unallocated multicast masks
-STATIC void rxs_dealloc_mc_rt_test_unalloced_success(void **state)
+static void rxs_dealloc_mc_rt_test_unalloced_success(void **state)
 {
 	rio_rt_initialize_in_t init_in;
 	rio_rt_initialize_out_t init_out;
@@ -1769,7 +1717,7 @@ STATIC void rxs_dealloc_mc_rt_test_unalloced_success(void **state)
 }
 
 // Demonstrate repeated allocation and deallocation for all multicast masks
-STATIC void rxs_dealloc_mc_rt_test_success(void **state)
+static void rxs_dealloc_mc_rt_test_success(void **state)
 {
 	rio_rt_initialize_in_t init_in;
 	rio_rt_initialize_out_t init_out;
@@ -1825,7 +1773,7 @@ STATIC void rxs_dealloc_mc_rt_test_success(void **state)
 	(void)state; // unused
 }
 
-STATIC void rxs_check_dealloc_change_mc_rt_change(rio_rt_state_t *rt, bool chg_mc)
+static void rxs_check_dealloc_change_mc_rt_change(rio_rt_state_t *rt, bool chg_mc)
 {
 	uint32_t idx;
 
@@ -1881,7 +1829,7 @@ STATIC void rxs_check_dealloc_change_mc_rt_change(rio_rt_state_t *rt, bool chg_m
 }
 
 // Demonstrate routing table using rio_rt_change_mc_mask for multicast masks
-STATIC void rxs_dealloc_change_mc_rt_test_success(void **state)
+static void rxs_dealloc_change_mc_rt_test_success(void **state)
 {
 	rio_rt_initialize_in_t init_in;
 	rio_rt_initialize_out_t init_out;
@@ -1991,7 +1939,7 @@ STATIC void rxs_dealloc_change_mc_rt_test_success(void **state)
 }
 
 // Demonstrate routing table using rio_rt_change_rte for multicast masks
-STATIC void rxs_dealloc_change_rt_rt_test_success(void **state)
+static void rxs_dealloc_change_rt_rt_test_success(void **state)
 {
 	rio_rt_initialize_in_t init_in;
 	rio_rt_initialize_out_t init_out;
@@ -2086,7 +2034,7 @@ STATIC void rxs_dealloc_change_rt_rt_test_success(void **state)
 	(void)state; // unused
 }
 
-STATIC void rxs_dealloc_mc_rt_bad_parms(void **state)
+static void rxs_dealloc_mc_rt_bad_parms(void **state)
 {
 	rio_rt_dealloc_mc_mask_in_t dealloc_in;
 	rio_rt_dealloc_mc_mask_out_t dealloc_out;
@@ -2133,7 +2081,7 @@ STATIC void rxs_dealloc_mc_rt_bad_parms(void **state)
 	(void)state; // unused
 }
 
-STATIC void rxs_check_set_rt_regs(rio_rt_set_all_in_t *set_in)
+static void rxs_check_set_rt_regs(rio_rt_set_all_in_t *set_in)
 {
 	uint32_t dev_out, dom_out, mc_mask_out;
 	uint32_t idx;
@@ -2168,45 +2116,7 @@ STATIC void rxs_check_set_rt_regs(rio_rt_set_all_in_t *set_in)
 	}
 }
 
-STATIC void rxs_check_set_changed_rt_change(rio_rt_initialize_in_t *init_in,
-				     rio_rt_change_rte_in_t *chg_in,
-				     rio_rt_set_changed_in_t *set_chg_in)
-{
-        uint32_t idx;
-
-	//Check dev_table is unchanged except the changed entry.
-	for (idx = 0; idx < RIO_RT_GRP_SZ; idx++) {
-		assert_false(set_chg_in->rt->dev_table[idx].changed);
-		if (chg_in->dom_entry || (chg_in->idx != idx)) {
-			assert_int_equal(init_in->default_route_table_port,
-				set_chg_in->rt->dev_table[idx].rte_val);
-			continue;
-		}
-		assert_int_equal(chg_in->rte_value,
-				set_chg_in->rt->dev_table[idx].rte_val);
-        }
-
-	//Check dom_table
-	for (idx = 0; idx < RIO_RT_GRP_SZ; idx++) {
-		assert_false(set_chg_in->rt->dom_table[idx].changed);
-
-		if (!idx) {
-			assert_int_equal(RIO_RTE_LVL_G0,
-					set_chg_in->rt->dom_table[idx].rte_val);
-			continue;
-		}
-
-		if (!chg_in->dom_entry || (chg_in->idx != idx)) {
-			assert_int_equal(init_in->default_route_table_port,
-				set_chg_in->rt->dom_table[idx].rte_val);
-			continue;
-		}
-		assert_int_equal(chg_in->rte_value,
-					set_chg_in->rt->dom_table[idx].rte_val);
-        }
-}
-
-STATIC void rxs_set_changed_rt_test_success_val(void **state, rio_port_t port,
+static void rxs_set_changed_rt_test_success_val(void **state, rio_port_t port,
 				pe_rt_val dflt_rt, pe_rt_val dflt_val,
 				pe_rt_val chg_val)
 {
@@ -2323,7 +2233,7 @@ STATIC void rxs_set_changed_rt_test_success_val(void **state, rio_port_t port,
 	rxs_check_set_rt_regs(&set_in);
 }
 
-STATIC void rxs_set_changed_rt_test_success(void **state)
+static void rxs_set_changed_rt_test_success(void **state)
 {
 	rio_port_t max = NUM_RXS_PORTS(&mock_dev_info) - 1;
 
@@ -2338,7 +2248,7 @@ STATIC void rxs_set_changed_rt_test_success(void **state)
 		RIO_RTE_DROP, RIO_RTE_DFLT_PORT, RIO_RTE_DROP);
 }
 
-STATIC void rxs_set_changed_rt_null_test(void **state)
+static void rxs_set_changed_rt_null_test(void **state)
 {
 	rio_rt_set_changed_in_t set_in;
 	rio_rt_set_changed_out_t set_out;
@@ -2360,7 +2270,7 @@ STATIC void rxs_set_changed_rt_null_test(void **state)
 	(void)state; // unused
 }
 
-STATIC void rxs_set_changed_rt_bad_port_test(void **state)
+static void rxs_set_changed_rt_bad_port_test(void **state)
 {
 	rio_rt_set_changed_in_t set_in;
 	rio_rt_set_changed_out_t set_out;
@@ -2376,7 +2286,7 @@ STATIC void rxs_set_changed_rt_bad_port_test(void **state)
 	assert_int_not_equal(RIO_SUCCESS, set_out.imp_rc);
 }
 
-STATIC void rxs_set_changed_rt_dev_hw_bad_default_route_test(void **state)
+static void rxs_set_changed_rt_dev_hw_bad_default_route_test(void **state)
 {
 	rio_rt_set_changed_in_t set_in;
 	rio_rt_set_changed_out_t set_out;
@@ -2398,7 +2308,7 @@ STATIC void rxs_set_changed_rt_dev_hw_bad_default_route_test(void **state)
 	}
 }
 
-STATIC void rxs_set_all_rt_test_success_val(void **state, rio_port_t port,
+static void rxs_set_all_rt_test_success_val(void **state, rio_port_t port,
 				pe_rt_val dflt_rt, pe_rt_val dflt_val,
 				pe_rt_val chg_val)
 {
@@ -2503,7 +2413,7 @@ STATIC void rxs_set_all_rt_test_success_val(void **state, rio_port_t port,
 	rxs_check_set_rt_regs(&set_in);
 }
 
-STATIC void rxs_set_all_rt_test_success(void **state)
+static void rxs_set_all_rt_test_success(void **state)
 {
 	rio_port_t max = NUM_RXS_PORTS(&mock_dev_info) - 1;
 
@@ -2518,7 +2428,7 @@ STATIC void rxs_set_all_rt_test_success(void **state)
 		RIO_RTE_DROP, RIO_RTE_DFLT_PORT, RIO_RTE_DROP);
 }
 
-STATIC void rxs_set_all_rt_null_test(void **state)
+static void rxs_set_all_rt_null_test(void **state)
 {
 	rio_rt_set_all_in_t set_in;
 	rio_rt_set_all_out_t set_out;
@@ -2541,7 +2451,7 @@ STATIC void rxs_set_all_rt_null_test(void **state)
 	(void)state; // unused
 }
 
-STATIC void rxs_set_all_rt_bad_port_test(void **state)
+static void rxs_set_all_rt_bad_port_test(void **state)
 {
 	rio_rt_set_all_in_t set_in;
 	rio_rt_set_all_out_t set_out;
@@ -2557,7 +2467,7 @@ STATIC void rxs_set_all_rt_bad_port_test(void **state)
 	assert_int_not_equal(RIO_SUCCESS, set_out.imp_rc);
 }
 
-STATIC void rxs_set_all_rt_dev_hw_bad_default_route_test(void **state)
+static void rxs_set_all_rt_dev_hw_bad_default_route_test(void **state)
 {
 	rio_rt_set_all_in_t set_in;
 	rio_rt_set_all_out_t set_out;
@@ -2579,7 +2489,7 @@ STATIC void rxs_set_all_rt_dev_hw_bad_default_route_test(void **state)
 	}
 }
 
-STATIC void rxs_rio_rt_probe_all_success_test(void **state)
+static void rxs_rio_rt_probe_all_success_test(void **state)
 {
 	rio_rt_initialize_in_t init_in;
 	rio_rt_initialize_out_t init_out;
@@ -2719,7 +2629,7 @@ STATIC void rxs_rio_rt_probe_all_success_test(void **state)
 	}
 }
 
-STATIC void rxs_rio_rt_probe_all_bad_parms_test(void **state)
+static void rxs_rio_rt_probe_all_bad_parms_test(void **state)
 {
 	rio_rt_probe_all_in_t pr_all_in;
 	rio_rt_probe_all_out_t pr_all_out;
@@ -2828,6 +2738,15 @@ int main(int argc, char** argv)
 					NULL),
 			cmocka_unit_test_setup_teardown(
 					rxs_dealloc_mc_rt_bad_parms,
+					setup,
+					NULL),
+
+			cmocka_unit_test_setup_teardown(
+					rxs_change_mc_rt_dev_inuse_hw_test_success,
+					setup,
+					NULL),
+			cmocka_unit_test_setup_teardown(
+					rxs_change_mc_rt_dom_inuse_hw_test_success,
 					setup,
 					NULL),
 
