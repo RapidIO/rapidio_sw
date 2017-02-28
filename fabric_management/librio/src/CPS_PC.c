@@ -882,7 +882,11 @@ static uint32_t cps_compute_baudrate_config(DAR_DEV_INFO_t *dev_info, cps_port_i
 								| CPS1848_LANE_X_CTL_TX_RATE);
 				chgd->lanes[lane_num].l_ctl |= 0x000001e80;
 				chgd->lanes[lane_num].l_ctl_r = 0x10;
-				chgd->lanes[lane_num].l_stat_4 = 0x80011388;
+				// NOTE: The value below does not match real reset value,
+				// as link partner control of transmit emphasis should
+				// always be disabled.
+				chgd->lanes[lane_num].l_stat_4 = 0x10011388 &
+						~CPS1848_LANE_X_STATUS_4_CSR_CTL_BY_LP_EN;
 			}
 
 			switch (sorted->pc[pnum].ls) {
@@ -893,7 +897,7 @@ static uint32_t cps_compute_baudrate_config(DAR_DEV_INFO_t *dev_info, cps_port_i
 						~(CPS1848_LANE_X_CTL_RX_RATE
 								| CPS1848_LANE_X_CTL_TX_RATE);
 				chgd->lanes[lane_num].l_stat_4 =
-						CPS1848_LANE_X_STATUS_4_CSR_CC_MONITOR_THRESH;
+						CPS1848_LANE_X_STATUS_4_CSR_CC_MONITOR_THRESH_10K;
 				break;
 			case rio_pc_ls_2p5:
 			case rio_pc_ls_3p125:
@@ -903,7 +907,7 @@ static uint32_t cps_compute_baudrate_config(DAR_DEV_INFO_t *dev_info, cps_port_i
 				chgd->lanes[lane_num].l_ctl |=
 						CPS1848_LANE_X_CTL_SPD1;
 				chgd->lanes[lane_num].l_stat_4 =
-						CPS1848_LANE_X_STATUS_4_CSR_CC_MONITOR_THRESH;
+						CPS1848_LANE_X_STATUS_4_CSR_CC_MONITOR_THRESH_10K;
 				break;
 			case rio_pc_ls_5p0:
 			case rio_pc_ls_6p25:
@@ -913,9 +917,8 @@ static uint32_t cps_compute_baudrate_config(DAR_DEV_INFO_t *dev_info, cps_port_i
 				chgd->lanes[lane_num].l_ctl |=
 						CPS1848_LANE_X_CTL_SPD2;
 				chgd->lanes[lane_num].l_stat_4 =
-						CPS1848_LANE_X_STATUS_4_CSR_CC_MONITOR_THRESH
-								|
-								CPS1848_LANE_X_STATUS_4_CSR_CC_MONITOR_EN;
+						CPS1848_LANE_X_STATUS_4_CSR_CC_MONITOR_THRESH_10K
+					| 	CPS1848_LANE_X_STATUS_4_CSR_CC_MONITOR_EN;
 				break;
 			default:
 				*fail_pt = PC_SET_CONFIG(0x61);
@@ -1408,8 +1411,8 @@ static uint32_t cps_set_config_preserve_host_port(DAR_DEV_INFO_t *dev_info,
 					regs->lanes[lane_num].l_ctl;
 			chgd->lanes[lane_num].l_ctl_r =
 					regs->lanes[lane_num].l_ctl_r;
-			chgd->lanes[lane_num].l_stat_4 =
-					regs->lanes[lane_num].l_stat_4;
+			// NOTE: l_ctrl_4 does not affect master port operation.
+			// Do not roll it back...
 		}
 	} else {
 		// No PLL control change, roll back any lane speed/inverstion changes for this port
@@ -1420,8 +1423,8 @@ static uint32_t cps_set_config_preserve_host_port(DAR_DEV_INFO_t *dev_info,
 					regs->lanes[lane_num].l_ctl;
 			chgd->lanes[lane_num].l_ctl_r =
 					regs->lanes[lane_num].l_ctl_r;
-			chgd->lanes[lane_num].l_stat_4 =
-					regs->lanes[lane_num].l_stat_4;
+			// NOTE: l_ctrl_4 does not affect master port operation.
+			// Do not roll it back...
 		}
 	}
 
@@ -1785,9 +1788,7 @@ static uint32_t cps_set_config_write_changes(DAR_DEV_INFO_t *dev_info,
 			if ((regs->lanes[lane_num].l_ctl
 					!= chgd->lanes[lane_num].l_ctl)
 					|| (regs->lanes[lane_num].l_ctl_r
-							!= chgd->lanes[lane_num].l_ctl_r)
-					|| (regs->lanes[lane_num].l_stat_4
-							!= chgd->lanes[lane_num].l_stat_4)) {
+							!= chgd->lanes[lane_num].l_ctl_r)) {
 				make_chg = true;
 				reset_val |= 1 << pnum;
 			}
@@ -1927,22 +1928,7 @@ static uint32_t cps_set_config_write_changes(DAR_DEV_INFO_t *dev_info,
 					regs->lanes[lane_num].l_ctl_r =
 							chgd->lanes[lane_num].l_ctl_r;
 				}
-
-				if (regs->lanes[lane_num].l_stat_4
-						!= chgd->lanes[lane_num].l_stat_4) {
-					rc =
-							DARRegWrite(dev_info,
-									CPS1848_LANE_X_STATUS_4_CSR(
-											lane_num),
-									chgd->lanes[lane_num].l_stat_4);
-					if (RIO_SUCCESS != rc) {
-						*fail_pt = PC_SET_CONFIG(0x97);
-						goto exit;
-					}
-					// Stop dependent ports, if any, from redoing the same change.
-					regs->lanes[lane_num].l_stat_4 =
-							chgd->lanes[lane_num].l_stat_4;
-				}
+				// Note: l_stat_4 is handled at the end for each port
 			}
 
 			if (dep_ports) {
@@ -2007,25 +1993,7 @@ static uint32_t cps_set_config_write_changes(DAR_DEV_INFO_t *dev_info,
 							regs->lanes[lane_num].l_ctl_r =
 									chgd->lanes[lane_num].l_ctl_r;
 						}
-
-						if (regs->lanes[lane_num].l_stat_4
-								!= chgd->lanes[lane_num].l_stat_4) {
-							rc =
-									DARRegWrite(
-											dev_info,
-											CPS1848_LANE_X_STATUS_4_CSR(
-													lane_num),
-											chgd->lanes[lane_num].l_stat_4);
-							if (RIO_SUCCESS != rc) {
-								*fail_pt =
-										PC_SET_CONFIG(
-												0x98);
-								goto exit;
-							}
-							// Stop dependent ports, if any, from redoing the same change.
-							regs->lanes[lane_num].l_stat_4 =
-									chgd->lanes[lane_num].l_stat_4;
-						}
+						// Note: l_stat_4 changes are made at the end for each port.
 					}
 				}
 			}
@@ -2122,6 +2090,17 @@ static uint32_t cps_set_config_write_changes(DAR_DEV_INFO_t *dev_info,
 			}
 		}
 
+		// Set lane clock compensation sequence monitoring.
+		// This can be changed without affecting normal port operation.
+		for (lane_num = start_lane; lane_num < end_lane; lane_num++) {
+			if ((regs->lanes[lane_num].l_stat_4 != chgd->lanes[lane_num].l_stat_4)) {
+				rc = DARRegWrite(dev_info, CPS1848_LANE_X_STATUS_4_CSR(lane_num), chgd->lanes[lane_num].l_stat_4);
+				if (RIO_SUCCESS != rc) {
+					*fail_pt = PC_SET_CONFIG(0xBA);
+					goto exit;
+				}
+			}
+		}
 		// NOTE: Always write the register twice, once to remove PORT_DIS, the second time
 		// to set the port-width override value.
 		//
@@ -2130,14 +2109,14 @@ static uint32_t cps_set_config_write_changes(DAR_DEV_INFO_t *dev_info,
 		rc = DARRegWrite(dev_info, CPS1848_PORT_X_CTL_1_CSR(pnum),
 				chgd->ports[pnum].p_ctl1);
 		if (RIO_SUCCESS != rc) {
-			*fail_pt = PC_SET_CONFIG(0xBA);
+			*fail_pt = PC_SET_CONFIG(0xBB);
 			goto exit;
 		}
 
 		rc = DARRegWrite(dev_info, CPS1848_PORT_X_CTL_1_CSR(pnum),
 				chgd->ports[pnum].p_ctl1);
 		if (RIO_SUCCESS != rc) {
-			*fail_pt = PC_SET_CONFIG(0xBB);
+			*fail_pt = PC_SET_CONFIG(0xBC);
 			goto exit;
 		}
 
@@ -2151,7 +2130,7 @@ static uint32_t cps_set_config_write_changes(DAR_DEV_INFO_t *dev_info,
 			rc = DARRegWrite(dev_info, CPS1848_PORT_X_OPS(pnum),
 					chgd->ports[pnum].p_ops);
 			if (RIO_SUCCESS != rc) {
-				*fail_pt = PC_SET_CONFIG(0xBC);
+				*fail_pt = PC_SET_CONFIG(0xBD);
 				goto exit;
 			}
 		}

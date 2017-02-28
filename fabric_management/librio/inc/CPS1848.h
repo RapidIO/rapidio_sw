@@ -754,6 +754,10 @@ extern "C" {
 #define CPS1848_LANE_X_STATUS_4_CSR_CC_MONITOR_STATUS              (0x00020000)
 #define CPS1848_LANE_X_STATUS_4_CSR_CTL_BY_LP_EN                   (0x80000000)
 
+#define CPS1848_LANE_X_STATUS_4_CSR_CC_MONITOR_THRESH_5K           (5000)
+#define CPS1848_LANE_X_STATUS_4_CSR_CC_MONITOR_THRESH_10K          (10000)
+#define CPS1848_LANE_X_STATUS_4_CSR_CC_MONITOR_THRESH_15K          (15000)
+
 /* CPS1848_RTE_PORT_SEL : Register Bits Masks Definitions */
 #define CPS1848_RTE_PORT_SEL_PORT                                  (0x0000001f)
 
