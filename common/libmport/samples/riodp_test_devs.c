@@ -55,8 +55,7 @@
 #include <pthread.h>
 
 #include "string_util.h"
-#include "rio_ecosystem.h"
-#include "ct.h"
+#include "rio_route.h"
 #include "tok_parse.h"
 #include "rapidio_mport_dma.h"
 #include "rapidio_mport_mgmt.h"
@@ -70,7 +69,7 @@ extern "C" {
 #define RIODP_MAX_DEV_NAME_SZ 20
 
 static riomp_mport_t mport_hnd;
-static uint32_t tgt_destid;
+static did_val_t tgt_destid = 0;
 static hc_t tgt_hop = HC_MP;
 static ct_t comptag = 0;
 
@@ -207,8 +206,7 @@ int main(int argc, char** argv)
 			}
 			break;
 		case 'N':
-			SAFE_STRNCPY(dev_name, optarg, sizeof(dev_name))
-			;
+			SAFE_STRNCPY(dev_name, optarg, sizeof(dev_name));
 			break;
 		case 'c':
 			do_create = 1;
@@ -274,7 +272,7 @@ int main(int argc, char** argv)
 		printf("ATTN: Port DISCOVERED flag is not set\n");
 	}
 
-	if (discovered && prop.hdid == RIO_LAST_DEV16) {
+	if (discovered && (RIO_LAST_DEV16 == prop.destid)) {
 		err = riomp_mgmt_lcfg_read(mport_hnd, RIO_DEVID,
 				sizeof(uint32_t), &regval);
 		if (err) {
@@ -283,12 +281,12 @@ int main(int argc, char** argv)
 			goto out;
 		}
 
-		prop.hdid = (regval >> 16) & RIO_LAST_DEV8;
-		err = riomp_mgmt_destid_set(mport_hnd, prop.hdid);
+		prop.destid = (regval >> 16) & RIO_LAST_DEV8;
+		err = riomp_mgmt_destid_set(mport_hnd, prop.destid);
 		if (err) {
 			printf("Failed to update local destID, err=%d\n", err);
 		} else {
-			printf("Updated destID=0x%x\n", prop.hdid);
+			printf("Updated destID=0x%x\n", prop.destid);
 		}
 	}
 

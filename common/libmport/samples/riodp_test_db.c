@@ -55,9 +55,10 @@
 #include <time.h>
 #include <signal.h>
 
-#include "tok_parse.h"
 #include "rio_misc.h"
-#include <rapidio_mport_mgmt.h>
+#include "rio_route.h"
+#include "tok_parse.h"
+#include "rapidio_mport_mgmt.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -115,7 +116,7 @@ static void db_sig_handler(int signum)
  * \brief Called by main() when DB receive mode is specified
  *
  * \param[in] hnd mport device handle
- * \param[in] rioid sender RapidIO destination ID
+ * \param[in] destid sender RapidIO destination ID
  * \param[in] start doorbell range start
  * \param[in] end doorbell range end
  *
@@ -125,14 +126,14 @@ static void db_sig_handler(int signum)
  * Performs the following steps:
  *
  */
-int do_dbrcv_test(riomp_mport_t hnd, uint32_t rioid, uint16_t start,
+int do_dbrcv_test(riomp_mport_t hnd, did_val_t destid, uint16_t start,
 		uint16_t end)
 {
 	int ret;
 	struct riomp_mgmt_event evt;
 
 	/** - enable receiving doorbells in specified range */
-	ret = riomp_mgmt_dbrange_enable(hnd, rioid, start, end);
+	ret = riomp_mgmt_dbrange_enable(hnd, destid, start, end);
 	if (ret) {
 		printf("Failed to enable DB range, err=%d\n", ret);
 		return ret;
@@ -159,14 +160,14 @@ int do_dbrcv_test(riomp_mport_t hnd, uint32_t rioid, uint16_t start,
 		if (evt.header == RIO_EVENT_DOORBELL) {
 			printf("\tDB 0x%04x from destID %d\n",
 					evt.u.doorbell.payload,
-					evt.u.doorbell.rioid);
+					evt.u.doorbell.destid);
 		} else {
 			printf("\tIgnoring event type %d)\n", evt.header);
 		}
 	}
 
 	/** - on exit, disable specified doorbell range */
-	ret = riomp_mgmt_dbrange_disable(hnd, rioid, start, end);
+	ret = riomp_mgmt_dbrange_disable(hnd, destid, start, end);
 	if (ret) {
 		printf("Failed to disable DB range, err=%d\n", ret);
 		return ret;
@@ -178,7 +179,7 @@ int do_dbrcv_test(riomp_mport_t hnd, uint32_t rioid, uint16_t start,
  * \brief Called by main() when in DB send mode
  *
  * \param[in] hnd mport device handle
- * \param[in] rioid target's RapidIO destination ID
+ * \param[in] destid target's RapidIO destination ID
  * \param[in] dbval doorbell info field value
  *
  * \retval 0 means success
@@ -187,13 +188,13 @@ int do_dbrcv_test(riomp_mport_t hnd, uint32_t rioid, uint16_t start,
  * Performs the following steps:
  *
  */
-int do_dbsnd_test(riomp_mport_t hnd, uint32_t rioid, uint16_t dbval)
+int do_dbsnd_test(riomp_mport_t hnd, did_val_t destid, uint16_t dbval)
 {
 	struct riomp_mgmt_event evt;
 	int ret = 0;
 
 	evt.header = RIO_EVENT_DOORBELL;
-	evt.u.doorbell.rioid = rioid;
+	evt.u.doorbell.destid = destid;
 	evt.u.doorbell.payload = dbval;
 
 	/** - send a single doorbell message to a target device */
@@ -232,7 +233,7 @@ int main(int argc, char** argv)
 
 	// command line parameters, all optional
 	uint32_t mport_id = 0;
-	uint32_t rio_destid = UINT32_MAX;
+	did_val_t destid = UINT32_MAX;
 	uint32_t db_info = 0x5a5a;
 	uint32_t db_start = 0x5a5a;
 	uint32_t db_end = 0x5a5a;
@@ -258,7 +259,7 @@ int main(int argc, char** argv)
 					options, NULL))) {
 		switch (c) {
 		case 'D':
-			if (tok_parse_did(optarg, &rio_destid, 0)) {
+			if (tok_parse_did(optarg, &destid, 0)) {
 				printf(TOK_ERR_DID_MSG_FMT);
 				exit(EXIT_FAILURE);
 			}
@@ -313,10 +314,10 @@ int main(int argc, char** argv)
 	}
 
 	// set default for receive if value not provided
-	if (do_dbrecv && (UINT32_MAX == rio_destid)) {
-		rio_destid = RIO_LAST_DEV8;
+	if (do_dbrecv && (UINT32_MAX == destid)) {
+		destid = RIO_LAST_DEV8;
 	}
-	if (rio_destid > RIO_LAST_DEV8) {
+	if (destid > RIO_LAST_DEV8) {
 		printf("Please specify a %s destination Id\n",
 				do_dbrecv ? "receive" : "transmit");
 	}
@@ -356,16 +357,16 @@ int main(int argc, char** argv)
 	if (do_dbrecv) {
 		printf("+++ RapidIO Doorbell Receive Mode +++\n");
 		printf("\tmport%d PID:%d\n", mport_id, (int)getpid());
-		printf("\tfilter: destid=%x start=%x end=%x\n", rio_destid,
+		printf("\tfilter: destid=%x start=%x end=%x\n", destid,
 				db_start, db_end);
 
-		do_dbrcv_test(mport_hnd, rio_destid, db_start, db_end);
+		do_dbrcv_test(mport_hnd, destid, db_start, db_end);
 	} else {
 		printf("+++ RapidIO Doorbell Send +++\n");
 		printf("\tmport%d destID=%d db_info=0x%x\n", mport_id,
-				rio_destid, db_info);
+				destid, db_info);
 
-		do_dbsnd_test(mport_hnd, rio_destid, db_info);
+		do_dbsnd_test(mport_hnd, destid, db_info);
 	}
 
 out:

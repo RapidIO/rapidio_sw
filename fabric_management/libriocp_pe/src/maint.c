@@ -23,6 +23,7 @@
 #include "inc/riocp_pe.h"
 #include "inc/riocp_pe_internal.h"
 
+#include "rio_route.h"
 #include "rio_standard.h"
 #include "lock.h"
 #include "maint.h"

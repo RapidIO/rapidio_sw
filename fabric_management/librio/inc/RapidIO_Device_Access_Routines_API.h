@@ -37,6 +37,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdint.h>
 #include <stdbool.h>
 
+#include "rio_route.h"
 #include "rio_standard.h"
 #include "rio_ecosystem.h"
 

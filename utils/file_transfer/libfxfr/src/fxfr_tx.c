@@ -56,6 +56,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <pthread.h>
 
 #include "string_util.h"
+#include "rio_route.h"
 #include "rapidio_mport_mgmt.h"
 #include "rapidio_mport_sock.h"
 #include "rapidio_mport_dma.h"
@@ -94,7 +95,7 @@ struct fxfr_tx_state {
 	char dest_name[MAX_FILE_NAME+1];
 	uint8_t end_of_file;
 	/* RapidIO target/rx data */
-	uint16_t destID; /* DestID of fxfr server */
+	did_val_t destid; /* DestID of fxfr server */
 	uint8_t use_kbuf; /* 1 => Use kernel buffers, 0 => use malloc/free */
 	uint64_t buf_h; /* Handle for DMA buffer, if using Kernel Buffs */
 	uint8_t *buffers[MAX_TX_SEGMENTS]; /* Data to DMA to fxfr server */
@@ -206,7 +207,7 @@ void send_dma_buffer(struct fxfr_tx_state *info, int idx)
 	if (info->bytes_txed) {
 		if (info->use_kbuf) {
 			rc = riomp_dma_write_d(info->mp_h, 
-				info->destID, 
+				info->destid,
 				info->rx_rapidio_addr +
 					(idx * info->rx_rapidio_size),
 				info->buf_h,
@@ -216,7 +217,7 @@ void send_dma_buffer(struct fxfr_tx_state *info, int idx)
 				RIO_DIRECTIO_TRANSFER_SYNC);
 		} else {
 			rc = riomp_dma_write(info->mp_h, 
-				info->destID, 
+				info->destid,
 				info->rx_rapidio_addr +
 					(idx * info->rx_rapidio_size),
 				info->buffers[idx], 
@@ -333,7 +334,7 @@ int init_info_vals(struct fxfr_tx_state *info)
 	/* RapidIO target/rx data */
 	info->buf_h = 0;
 	info->use_kbuf = 1;
-	info->destID = -1;
+	info->destid = -1;
 	for (i = 0; i < MAX_TX_SEGMENTS; i++) 
 		info->buffers[i] = NULL; 
 	info->next_buff_idx = 0;
@@ -397,9 +398,8 @@ void cleanup_msg_buffers(struct fxfr_tx_state *info)
 	riomp_sock_release_send_buffer(info->req_skt, info->msg_tx);
 }
 
-int init_server_connect(struct fxfr_tx_state *info, 
-			uint8_t mport_num, uint16_t destID, int svr_skt,
-			uint8_t k_buff)
+int init_server_connect(struct fxfr_tx_state *info, uint8_t mport_num,
+		did_val_t destid, int svr_skt, uint8_t k_buff)
 {
         int rc;
 	int i;
@@ -444,8 +444,8 @@ int init_server_connect(struct fxfr_tx_state *info,
                 goto fail;
         }
 
-	info->destID = destID;
-        rc = riomp_sock_connect(info->req_skt, info->destID, 
+	info->destid = destid;
+	rc = riomp_sock_connect(info->req_skt, info->destid,
 							info->svr_skt, NULL);
         if (rc) {
                 printf("riomp_sock_connect ERR %d\n", rc);
@@ -541,9 +541,9 @@ void cleanup_all(struct fxfr_tx_state *info)
 	cleanup_server_connect(info);
 }
 
-int init_info( struct fxfr_tx_state *info, char *src_name, char *dest_name,
-                	uint16_t destID, int svr_skt, uint8_t mport_num,
-			uint8_t debug, uint8_t k_buff)
+int init_info(struct fxfr_tx_state *info, char *src_name, char *dest_name,
+		did_val_t destid, int svr_skt, uint8_t mport_num,
+		uint8_t debug, uint8_t k_buff)
 {
 	init_info_vals(info);
 	
@@ -555,7 +555,7 @@ int init_info( struct fxfr_tx_state *info, char *src_name, char *dest_name,
 	if (init_message_buffers(info))
 		goto fail;
 
-	if (init_server_connect(info, mport_num, destID, svr_skt, k_buff))
+	if (init_server_connect(info, mport_num, destid, svr_skt, k_buff))
 		goto fail;
 
 	return 0;
@@ -577,7 +577,7 @@ static void srv_sig_handler(int signum)
 
 int send_file(char *src_file, /* Local source file name */
 		char *dst_file, /* Requested destination file name */
-		uint16_t destID, /* DestID of fxfr server */
+		did_val_t destid, /* DestID of fxfr server */
 		uint16_t skt_num, /* Channel # of fxfr server */
 		uint8_t mport_num, /* MPORT index to use */
 		uint8_t debug, /* MPORT index to use */
@@ -591,7 +591,7 @@ int send_file(char *src_file, /* Local source file name */
         signal(SIGUSR1, srv_sig_handler);
 
 	/* Confirm local file, connectivity to remote mport/socket etc. */
-	if (init_info(&info, src_file, dst_file, destID, skt_num, 
+	if (init_info(&info, src_file, dst_file, destid, skt_num,
 			mport_num, debug, k_buff))
 		return -errno;
 

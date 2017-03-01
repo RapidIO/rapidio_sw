@@ -52,11 +52,11 @@
 #include <fcntl.h>
 #include <sys/ioctl.h>
 
+#include "rio_route.h"
 #include "tok_parse.h"
+#include "rapidio_mport_dma.h"
 #include "rapidio_mport_mgmt.h"
 #include "rapidio_mport_sock.h"
-#include "rapidio_mport_dma.h"
-#include "riodp_mport_lib.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -64,10 +64,10 @@ extern "C" {
 
 /// @cond
 struct args {
-	uint32_t mport_id;	// local mport ID
-	uint32_t remote_destid;	// RapidIO device destination ID
+	uint32_t mport_id;		// local mport ID
+	did_val_t remote_destid;	// RapidIO device destination ID
 	uint16_t remote_channel;	// remote channel number
-	uint32_t repeat;	// number of repetitions
+	uint32_t repeat;		// number of repetitions
 };
 /// @endcond
 
@@ -89,15 +89,16 @@ static void usage(char *program)
  */
 void show_rio_devs(void)
 {
-	uint32_t *mport_list = NULL;
-	uint32_t *ep_list = NULL;
-	uint32_t *list_ptr;
-	uint32_t number_of_eps = 0;
+	mport_list_t *mport_list = NULL;
+	mport_list_t *list_ptr;
 	uint8_t number_of_mports = RIO_MAX_MPORTS;
-	uint32_t ep = 0;
+	uint8_t mport_id;
+
+	did_val_t *ep_list = NULL;
+	uint32_t number_of_eps = 0;
+	uint32_t ep;
+	int ret;
 	int i;
-	int mport_id;
-	int ret = 0;
 
 	/** - request from driver list of available local mport devices */
 	ret = riomp_mgmt_get_mport_list(&mport_list, &number_of_mports);
@@ -177,10 +178,10 @@ static struct timespec timediff(struct timespec start, struct timespec end)
  */
 int main(int argc, char** argv)
 {
-	int ret = 0;
-	uint32_t ep = 0;
+	int ret;
+	uint32_t ep;
 	uint32_t number_of_eps = 0;
-	uint32_t *ep_list = NULL;
+	did_val_t *ep_list = NULL;
 	int ep_found = 0;
 	rapidio_mport_socket_msg *msg_rx = NULL;
 	rapidio_mport_socket_msg *msg_tx = NULL;
@@ -211,6 +212,7 @@ int main(int argc, char** argv)
 		printf(TOK_ERR_DID_MSG_FMT);
 		exit(EXIT_FAILURE);
 	}
+
 	if (tok_parse_socket(argv[3], &arg.remote_channel, 0)) {
 		printf(TOK_ERR_SOCKET_MSG_FMT, "Remote channel");
 		exit(EXIT_FAILURE);

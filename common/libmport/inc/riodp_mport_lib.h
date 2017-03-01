@@ -37,22 +37,12 @@
 #ifndef __RIODP_MPORT_LIB_H__
 #define __RIODP_MPORT_LIB_H__
 
-#include <map>
-
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 #define RIO_MPORT_DEV_PATH "/dev/rio_mport"
 #define RIO_CMDEV_PATH "/dev/rio_cm"
-
-/**
- * @brief mport opaque handle structure
- */
-struct rapidio_mport_handle;
-
-void* riomp_mgmt_mport_get_stats(struct rapidio_mport_handle* hnd);
-void riomp_mgmt_mport_set_stats(struct rapidio_mport_handle* hnd, void* stats);
 
 #ifdef __cplusplus
 }

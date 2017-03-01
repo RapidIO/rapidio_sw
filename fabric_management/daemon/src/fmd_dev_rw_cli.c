@@ -38,8 +38,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <string.h>
 #include <stdlib.h>
 
-#include "rio_ecosystem.h"
+#include "rio_route.h"
 #include "tok_parse.h"
+#include "did.h"
 #include "ct.h"
 #include "fmd.h"
 #include "fmd_dev_rw_cli.h"

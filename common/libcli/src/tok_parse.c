@@ -36,6 +36,7 @@
 #include <stdlib.h>
 #include <errno.h>
 
+#include "rio_route.h"
 #include "tok_parse.h"
 #include "liblog.h"
 
@@ -381,8 +382,8 @@ int tok_parse_s(char *token, int16_t *value, int base)
 /**
  * Parse a string for a destination Id value
  *
- * @param[in] token the string representation of the  destination Id
- * @param[out] did the numeric representation for the destination Id
+ * @param[in] token the string representation of the destination Id
+ * @param[out] did the destination Id, limited to dev08_sz range
  * @param[in] base the base of the numeric value
  *
  * @retval 0 on success, -1 on failure

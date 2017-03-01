@@ -40,6 +40,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <signal.h>
 
 #include "string_util.h"
+#include "rio_route.h"
 #include "tok_parse.h"
 #include "rrmap_config.h"
 #include "libfxfr.h"
@@ -103,7 +104,7 @@ struct timespec time_difference( struct timespec start, struct timespec end )
 int parse_options(int argc, char *argv[], 
 		char **src_name,
 		char **rem_name,
-		uint16_t *server_dest,
+		did_val_t *server_destid,
 		int *xfer_skt,
 		uint8_t *mport_num,
 		int *debug,
@@ -116,7 +117,7 @@ int parse_options(int argc, char *argv[],
 	memset(rem_fs, 0, sizeof(rem_fs));
 	*src_name = src_fs;
 	*rem_name = rem_fs;
-	*server_dest = 0;
+	*server_destid = 0;
 	*xfer_skt = FXFR_DFLT_SVR_CM_PORT;
 	*mport_num = 0;
 	*debug = 0;
@@ -129,11 +130,10 @@ int parse_options(int argc, char *argv[],
 	SAFE_STRNCPY(rem_fs, argv[2], sizeof(rem_fs));
 
 	if (argc > 3) {
-		if (tok_parse_did(argv[3], &tmp32, 0)) {
+		if (tok_parse_did(argv[3], server_destid, 0)) {
 			printf(TOK_ERR_DID_MSG_FMT);
 			goto print_help;
 		}
-		*server_dest = (uint16_t)tmp32;
 	}
 
 	if (argc > 4) {
@@ -190,7 +190,7 @@ int main(int argc, char *argv[])
 	char *src_name; /* Name of file to send */
 	char *rem_name; /* Name of file received */
 	uint8_t mport_num; /* Master port number to use on this node */
-	uint16_t destID; /* DestID where fxfr server is running */
+	did_val_t destid; /* DestID where fxfr server is running */
 	int svr_skt; /* Socket fxfr server is accepting requests */
 	int debug = 0;
 	uint8_t k_buff = 0;
@@ -202,7 +202,7 @@ int main(int argc, char *argv[])
 	signal(SIGTERM, sig_handler);
 	signal(SIGUSR1, sig_handler);
 
-	if (parse_options(argc, argv, &src_name, &rem_name, &destID, 
+	if (parse_options(argc, argv, &src_name, &rem_name, &destid,
 		&svr_skt, &mport_num, &debug, &k_buff))
 		goto exit;
 
@@ -210,7 +210,7 @@ int main(int argc, char *argv[])
 		printf("\nLocal  file: \"%s\"\n", src_name);
 		printf("\nRemote file: \"%s\"\n", rem_name);
 	}
-	printf("\nDestID     : %d\n", destID);
+	printf("\nDestID     : %d\n", destid);
 	if (debug > 0) {
 		printf("\nSocket     : %d\n", svr_skt);
 		printf("\nMport      : %d\n", mport_num);
@@ -219,7 +219,7 @@ int main(int argc, char *argv[])
 	}
 
 	clock_gettime(CLOCK_MONOTONIC, &req_time);
-	rc = send_file(src_name, rem_name, destID, svr_skt, mport_num, (debug>0? debug: 0), 
+	rc = send_file(src_name, rem_name, destid, svr_skt, mport_num, (debug>0? debug: 0),
 		&st_time, &bytes_sent, k_buff);
 	clock_gettime(CLOCK_MONOTONIC, &end_time);
 

@@ -56,9 +56,10 @@
 #include <time.h>
 #include <signal.h>
 
-#include <rapidio_mport_mgmt.h>
-#include <rapidio_mport_dma.h>
+#include "rio_route.h"
 #include "tok_parse.h"
+#include "rapidio_mport_dma.h"
+#include "rapidio_mport_mgmt.h"
 
 #ifdef __cplusplus
 extern "C" {

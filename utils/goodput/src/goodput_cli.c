@@ -44,7 +44,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sstream>
 #include <vector>
 
-#include "rio_ecosystem.h"
+#include "rio_route.h"
 #include "rapidio_mport_dma.h"
 #include "string_util.h"
 #include "tok_parse.h"
@@ -184,9 +184,9 @@ int gp_parse_cpu(struct cli_env *env, char *dec_parm, int *cpu)
 	return 0;
 }
 
-int gp_parse_did(struct cli_env *env, char *tok, uint32_t *did)
+int gp_parse_did(struct cli_env *env, char *tok, did_val_t *destid)
 {
-	if (tok_parse_did(tok, did, 0)) {
+	if (tok_parse_did(tok, destid, 0)) {
 		LOGMSG(env, "\n");
 		LOGMSG(env, "<did> must be between 0 and 0xff\n");
 		return 1;
@@ -828,7 +828,7 @@ ATTR_RPT
 int obdio_cmd(struct cli_env *env, int UNUSED(argc), char **argv, enum req_type action)
 {
 	uint16_t idx;
-	uint32_t did;
+	did_val_t destid;
 	uint64_t rio_addr;
 	uint64_t bytes;
 	uint64_t acc_sz;
@@ -840,7 +840,7 @@ int obdio_cmd(struct cli_env *env, int UNUSED(argc), char **argv, enum req_type 
 		goto exit;
 	}
 
-	if (gp_parse_did(env, argv[n++], &did)) {
+	if (gp_parse_did(env, argv[n++], &destid)) {
 		goto exit;
 	}
 
@@ -886,7 +886,7 @@ int obdio_cmd(struct cli_env *env, int UNUSED(argc), char **argv, enum req_type 
 
 	wkr[idx].action = action;
 	wkr[idx].action_mode = kernel_action;
-	wkr[idx].did = did;
+	wkr[idx].destid = destid;
 	wkr[idx].rio_addr = rio_addr;
 	wkr[idx].byte_cnt = bytes;
 	wkr[idx].acc_size = acc_sz;
@@ -993,7 +993,7 @@ enum riomp_dma_directio_type convert_int_to_riomp_dma_directio_type(uint16_t tra
 int dmaCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 {
 	uint16_t idx;
-	uint32_t did;
+	did_val_t destid;
 	uint64_t rio_addr;
 	uint64_t bytes;
 	uint64_t acc_sz;
@@ -1007,7 +1007,7 @@ int dmaCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 		goto exit;
 	}
 
-	if (gp_parse_did(env, argv[n++], &did)) {
+	if (gp_parse_did(env, argv[n++], &destid)) {
 		goto exit;
 	}
 
@@ -1050,7 +1050,7 @@ int dmaCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 
 	wkr[idx].action = dma_tx;
 	wkr[idx].action_mode = kernel_action;
-	wkr[idx].did = did;
+	wkr[idx].destid = destid;
 	wkr[idx].rio_addr = rio_addr;
 	wkr[idx].byte_cnt = bytes;
 	wkr[idx].acc_size = acc_sz;
@@ -1088,7 +1088,7 @@ ATTR_NONE
 int dmaNumCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 {
 	uint16_t idx;
-	uint32_t did;
+	did_val_t destid;
 	uint64_t rio_addr;
 	uint64_t bytes;
 	uint64_t acc_sz;
@@ -1103,7 +1103,7 @@ int dmaNumCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 		goto exit;
 	}
 
-	if (gp_parse_did(env, argv[n++], &did)) {
+	if (gp_parse_did(env, argv[n++], &destid)) {
 		goto exit;
 	}
 
@@ -1152,7 +1152,7 @@ int dmaNumCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 
 	wkr[idx].action = dma_tx_num;
 	wkr[idx].action_mode = kernel_action;
-	wkr[idx].did = did;
+	wkr[idx].destid = destid;
 	wkr[idx].rio_addr = rio_addr;
 	wkr[idx].byte_cnt = bytes;
 	wkr[idx].acc_size = acc_sz;
@@ -1192,7 +1192,7 @@ ATTR_NONE
 int dmaTxLatCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 {
 	uint16_t idx;
-	uint32_t did;
+	did_val_t destid;
 	uint64_t rio_addr;
 	uint64_t bytes;
 	uint16_t wr;
@@ -1204,7 +1204,7 @@ int dmaTxLatCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 		goto exit;
 	}
 
-	if (gp_parse_did(env, argv[n++], &did)) {
+	if (gp_parse_did(env, argv[n++], &destid)) {
 		goto exit;
 	}
 
@@ -1242,7 +1242,7 @@ int dmaTxLatCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 
 	wkr[idx].action = dma_tx_lat;
 	wkr[idx].action_mode = kernel_action;
-	wkr[idx].did = did;
+	wkr[idx].destid = destid;
 	wkr[idx].rio_addr = rio_addr;
 	wkr[idx].byte_cnt = bytes;
 	wkr[idx].acc_size = bytes;
@@ -1284,7 +1284,7 @@ ATTR_NONE
 int dmaRxLatCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 {
 	uint16_t idx;
-	uint32_t did;
+	did_val_t destid;
 	uint64_t rio_addr;
 	uint64_t bytes;
 
@@ -1293,7 +1293,7 @@ int dmaRxLatCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 		goto exit;
 	}
 
-	if (gp_parse_did(env, argv[n++], &did)) {
+	if (gp_parse_did(env, argv[n++], &destid)) {
 		goto exit;
 	}
 
@@ -1313,7 +1313,7 @@ int dmaRxLatCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 
 	wkr[idx].action = dma_rx_lat;
 	wkr[idx].action_mode = kernel_action;
-	wkr[idx].did = did;
+	wkr[idx].destid = destid;
 	wkr[idx].rio_addr = rio_addr;
 	wkr[idx].byte_cnt = bytes;
 	wkr[idx].acc_size = bytes;
@@ -1364,7 +1364,7 @@ void roundoff_message_size(uint32_t *bytes)
 int msg_tx_cmd(struct cli_env *env, int UNUSED(argc), char **argv, enum req_type req)
 {
 	uint16_t idx;
-	uint32_t did;
+	did_val_t destid;
 	uint16_t sock_num;
 	uint32_t bytes;
 
@@ -1373,7 +1373,7 @@ int msg_tx_cmd(struct cli_env *env, int UNUSED(argc), char **argv, enum req_type
 		goto exit;
 	}
 
-	if (gp_parse_did(env, argv[n++], &did)) {
+	if (gp_parse_did(env, argv[n++], &destid)) {
 		goto exit;
 	}
 
@@ -1395,7 +1395,7 @@ int msg_tx_cmd(struct cli_env *env, int UNUSED(argc), char **argv, enum req_type
 
 	wkr[idx].action = req;
 	wkr[idx].action_mode = kernel_action;
-	wkr[idx].did = did;
+	wkr[idx].destid = destid;
 	wkr[idx].sock_num = sock_num;
 	wkr[idx].msg_size = bytes;
 
@@ -1475,7 +1475,7 @@ int msgRxCmdExt(struct cli_env *env, int UNUSED(argc), char **argv, enum req_typ
 
 	wkr[idx].action = action;
 	wkr[idx].action_mode = kernel_action;
-	wkr[idx].did = 0;
+	wkr[idx].destid = 0;
 	wkr[idx].sock_num = sock_num;
 	wkr[idx].msg_size = bytes;
 
@@ -1522,7 +1522,7 @@ int msgRxCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 
 	wkr[idx].action = message_rx;
 	wkr[idx].action_mode = kernel_action;
-	wkr[idx].did = 0;
+	wkr[idx].destid = 0;
 	wkr[idx].sock_num = sock_num;
 
 	wkr[idx].stop_req = 0;
@@ -1745,7 +1745,7 @@ void display_gen_status(struct cli_env *env)
 		LOGMSG(env, 
 			"%7s %4s %3d %16lx %7lx %7lx %1d %1d %2d %2d %2d\n",
 			ACTION_STR(wkr[i].action), 
-			MODE_STR(wkr[i].action_mode), wkr[i].did,
+			MODE_STR(wkr[i].action_mode), wkr[i].destid,
 			wkr[i].rio_addr, wkr[i].byte_cnt, wkr[i].acc_size, 
 			wkr[i].wr, wkr[i].mp_h_is_mine,
 			wkr[i].ob_valid, wkr[i].ib_valid, 
@@ -1981,15 +1981,16 @@ ATTR_RPT
 
 int MpdevsCmd(struct cli_env *env, int UNUSED(argc), char **UNUSED(argv))
 {
-        uint32_t *mport_list = NULL;
-        uint32_t *ep_list = NULL;
-        uint32_t *list_ptr;
+        mport_list_t *mport_list = NULL;
+        mport_list_t *list_ptr;
+        uint8_t number_of_mports = RIO_MAX_MPORTS;
+        uint8_t mport_id;
+
+        did_val_t *ep_list = NULL;
         uint32_t number_of_eps = 0;
-        uint8_t  number_of_mports = RIO_MAX_MPORTS;
-        uint32_t ep = 0;
+        uint32_t ep;
         int i;
-        int mport_id;
-        int ret = 0;
+        int ret;
 
         ret = riomp_mgmt_get_mport_list(&mport_list, &number_of_mports);
         if (ret) {
@@ -2009,8 +2010,8 @@ int MpdevsCmd(struct cli_env *env, int UNUSED(argc), char **UNUSED(argv))
         list_ptr = mport_list;
         for (i = 0; i < number_of_mports; i++, list_ptr++) {
                 mport_id = *list_ptr >> 16;
-                LOGMSG(env, "+++ mport_id: %u dest_id: %u\n",
-                                mport_id, *list_ptr & 0xffff);
+                LOGMSG(env, "+++ mport_id: %u dest_id: %u\n", mport_id,
+                                *list_ptr & 0xffff);
 
                 /* Display EPs for this MPORT */
 

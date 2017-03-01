@@ -42,7 +42,7 @@ COMMON_LIBS_DIR?=../../common/libs_a
 
 CXXFLAGS+=-D$(DEBUG_CTL) -DRDMA_LL=$(LOG_LEVEL)
 CXXFLAGS+=-I. -I./file_xfer_lib/inc -I./libcdev/inc -I./libfxfr/inc
-CXXFLAGS+=-I$(FMDDIR)/librio/inc -I$(FMDDIR)/libdid/inc -I$(FMDDIR)/libct/inc
+CXXFLAGS+=-I$(FMDDIR)/librio/inc
 
 LDFLAGS_STATIC+=-L$(LOCAL_LIBRARY_DIR) -L$(COMMON_LIBS_DIR)
 LDFLAGS_STATIC+=-lfxfr -lmport -lrsvdmem -llog -lcli

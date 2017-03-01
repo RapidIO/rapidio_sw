@@ -34,7 +34,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef __RAPIDIO_STATISTICS_COUNTER_API_H__
 #define __RAPIDIO_STATISTICS_COUNTER_API_H__
 
-#include "rio_ecosystem.h"
+#include <stdint.h>
+#include <stdbool.h>
+
+#include "rio_route.h"
 
 #ifdef __cplusplus
 extern "C" {

@@ -1,7 +1,7 @@
 /*
  ****************************************************************************
- Copyright (c) 2016, Integrated Device Technology Inc.
- Copyright (c) 2016, RapidIO Trade Association
+ Copyright (c) 2017, Integrated Device Technology Inc.
+ Copyright (c) 2017, RapidIO Trade Association
  All rights reserved.
 
  Redistribution and use in source and binary forms, with or without modification,
@@ -31,44 +31,30 @@
  *************************************************************************
  */
 
-#ifndef __DID_H__
-#define __DID_H__
+#ifndef __RIO_ROUTE_H__
+#define __RIO_ROUTE_H__
 
 #include <stdint.h>
-#include <stdbool.h>
-
-#include "rio_route.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-typedef enum {
-	invld_sz = 0, dev08_sz = 8, dev16_sz = 16, dev32_sz = 32,
-} did_sz_t;
+typedef uint8_t mport_id_t;
+typedef uint32_t did_val_t;	// destination id
+typedef uint32_t ct_t;		// component tag
+typedef uint8_t hc_t;		// hopcount
 
-typedef struct {
-	did_val_t value;
-	did_sz_t size;
-} did_t;
-
-#define ANY_ID 0xff
-#define DID_ANY_DEV8_ID ((did_t) {RIO_LAST_DEV8, dev08_sz})
-#define DID_ANY_DEV16_ID ((did_t) {RIO_LAST_DEV16, dev16_sz})
-#define DID_INVALID_ID ((did_t) {0, invld_sz})
-
-int did_size_from_int(did_sz_t *size, uint32_t asInt);
-int did_create(did_t *did, did_sz_t size);
-int did_create_from_data(did_t *did, did_val_t value, did_sz_t size);
-int did_get(did_t *did, did_val_t value, did_sz_t size);
-int did_release(did_t did);
-int did_not_inuse(did_t did);
-
-did_val_t did_get_value(did_t did);
-did_sz_t did_get_size(did_t did);
+// The hopcount is initially set to 0xff, it can roll to 0 and from
+// then on it does not exceed the max value of 0xfe
+#define HC_MP ((hc_t)0x0ff)
+#define HC_MAX ((hc_t)0x0fe)
+#define HC_INCR(dest, src) { \
+	dest = (hc_t)((src + 1) == HC_MP ? HC_MAX : ((src + 1) & HC_MP)); \
+}
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* __DID_H__ */
+#endif /* __RIO_ROUTE_H__ */

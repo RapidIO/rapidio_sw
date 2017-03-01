@@ -48,7 +48,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sys/types.h>
 #include <netinet/in.h>
 
-#include "rio_ecosystem.h"
+#include "rio_route.h"
 #include "fmd_dd.h"
 #include "liblog.h"
 #include "riocp_pe.h"

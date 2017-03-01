@@ -57,14 +57,14 @@
 #include <pthread.h>
 
 #include <linux/rio_mport_cdev.h>
-#include "RapidIO_Device_Access_Routines_API.h"
 #include "rio_standard.h"
 #include "rio_ecosystem.h"
+#include "rio_route.h"
 
+#include "RapidIO_Device_Access_Routines_API.h"
 #include "RapidIO_Utilities_API.h"
 
 #include "string_util.h"
-#include "rio_ecosystem.h"
 #include "libcli.h"
 #include "libtime_utils.h"
 #include "riocp_pe.h"
