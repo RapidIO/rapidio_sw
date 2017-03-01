@@ -35,13 +35,14 @@
 #define __CT_H__
 
 #include <stdint.h>
+
+#include "rio_route.h"
 #include "did.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-typedef uint32_t ct_t;
 typedef uint16_t ct_nr_t;
 
 /**

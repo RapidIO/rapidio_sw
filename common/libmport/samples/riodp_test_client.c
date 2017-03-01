@@ -65,7 +65,7 @@ extern "C" {
 /// @cond
 struct args {
 	uint32_t mport_id;		// local mport ID
-	riomp_did_val_t remote_destid;	// RapidIO device destination ID
+	did_val_t remote_destid;	// RapidIO device destination ID
 	uint16_t remote_channel;	// remote channel number
 	uint32_t repeat;		// number of repetitions
 };
@@ -94,7 +94,7 @@ void show_rio_devs(void)
 	uint8_t number_of_mports = RIO_MAX_MPORTS;
 	uint8_t mport_id;
 
-	riomp_did_val_t *ep_list = NULL;
+	did_val_t *ep_list = NULL;
 	uint32_t number_of_eps = 0;
 	uint32_t ep;
 	int ret;
@@ -181,7 +181,7 @@ int main(int argc, char** argv)
 	int ret;
 	uint32_t ep;
 	uint32_t number_of_eps = 0;
-	riomp_did_val_t *ep_list = NULL;
+	did_val_t *ep_list = NULL;
 	int ep_found = 0;
 	rapidio_mport_socket_msg *msg_rx = NULL;
 	rapidio_mport_socket_msg *msg_tx = NULL;

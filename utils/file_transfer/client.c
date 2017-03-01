@@ -40,6 +40,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <signal.h>
 
 #include "string_util.h"
+#include "rio_route.h"
 #include "tok_parse.h"
 #include "rrmap_config.h"
 #include "libfxfr.h"
@@ -103,7 +104,7 @@ struct timespec time_difference( struct timespec start, struct timespec end )
 int parse_options(int argc, char *argv[], 
 		char **src_name,
 		char **rem_name,
-		riomp_did_val_t *server_destid,
+		did_val_t *server_destid,
 		int *xfer_skt,
 		uint8_t *mport_num,
 		int *debug,
@@ -189,7 +190,7 @@ int main(int argc, char *argv[])
 	char *src_name; /* Name of file to send */
 	char *rem_name; /* Name of file received */
 	uint8_t mport_num; /* Master port number to use on this node */
-	riomp_did_val_t destid; /* DestID where fxfr server is running */
+	did_val_t destid; /* DestID where fxfr server is running */
 	int svr_skt; /* Socket fxfr server is accepting requests */
 	int debug = 0;
 	uint8_t k_buff = 0;

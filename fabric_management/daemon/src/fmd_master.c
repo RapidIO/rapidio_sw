@@ -62,7 +62,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <rapidio_mport_sock.h>
 
 #include "string_util.h"
-#include "rio_ecosystem.h"
+#include "rio_route.h"
 #include "libcli.h"
 #include "fmd.h"
 #include "cfg.h"

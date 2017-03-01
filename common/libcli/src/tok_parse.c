@@ -36,6 +36,7 @@
 #include <stdlib.h>
 #include <errno.h>
 
+#include "rio_route.h"
 #include "tok_parse.h"
 #include "liblog.h"
 

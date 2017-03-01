@@ -42,10 +42,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <unistd.h>
 #include <dirent.h>
 #include <errno.h>
+
+#include "rio_route.h"
 #include "rrmap_config.h"
 #include "RapidIO_Routing_Table_API.h"
 #include "RapidIO_Port_Config_API.h"
-#include "ct.h"
 
 #ifdef __cplusplus
 extern "C" {

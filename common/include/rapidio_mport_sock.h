@@ -233,7 +233,7 @@ int riomp_sock_accept(riomp_sock_t socket_handle, riomp_sock_t *conn,
  * @retval 0 on success
  * @retval -errno on error
  */
-int riomp_sock_connect(riomp_sock_t socket_handle, riomp_did_val_t destid,
+int riomp_sock_connect(riomp_sock_t socket_handle, did_val_t destid,
 		uint16_t channel, volatile int *stop_req);
 
 /**

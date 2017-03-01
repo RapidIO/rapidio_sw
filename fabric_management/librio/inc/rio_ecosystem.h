@@ -43,7 +43,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdint.h>
 #include "rio_standard.h"
 
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -51,21 +50,7 @@ extern "C" {
 typedef uint8_t rio_port_t;
 typedef uint8_t rio_lane_t;
 
-typedef uint16_t rio_dev16_t; /* Also supports dev8 */
-typedef uint32_t rio_dev32_t; /* Also supports dev8 & dev16 */
-
 typedef uint32_t rio_mc_mask_t; /* Biggest mask available */
-
-typedef uint8_t hc_t; /* hopcount */
-
-// The hopcount is initially set to 0xff, it can roll to 0 and from
-// then on it does not exceed the max value of 0xfe
-#define HC_MP ((hc_t)0x0ff)
-#define HC_MAX ((hc_t)0x0fe)
-#define HC_INCR(dest, src) { \
-	dest = (hc_t)((src + 1) == HC_MP ? HC_MAX : ((src + 1) & HC_MP)); \
-}
-
 
 /** @brief max number of RIO mports supported by platform */
 #define RIO_MAX_MPORTS 8

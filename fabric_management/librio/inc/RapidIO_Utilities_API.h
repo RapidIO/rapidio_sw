@@ -34,8 +34,10 @@
 #ifndef __RAPIDIO_UTILITIES_API_H__
 #define __RAPIDIO_UTILITIES_API_H__
 
-#include "stdint.h"
-#include "rio_ecosystem.h"
+#include <stdint.h>
+#include <stdbool.h>
+
+#include "rio_route.h"
 #include "RapidIO_Device_Access_Routines_API.h"
 
 #ifdef __cplusplus

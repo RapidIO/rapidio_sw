@@ -34,13 +34,24 @@
 #ifndef __RIO_ROUTE_H__
 #define __RIO_ROUTE_H__
 
+#include <stdint.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-typedef uint32_t riomp_did_val_t;
-typedef uint32_t riomp_ct_t;
-typedef uint8_t riomp_hc_t;
+typedef uint8_t mport_id_t;
+typedef uint32_t did_val_t;	// destination id
+typedef uint32_t ct_t;		// component tag
+typedef uint8_t hc_t;		// hopcount
+
+// The hopcount is initially set to 0xff, it can roll to 0 and from
+// then on it does not exceed the max value of 0xfe
+#define HC_MP ((hc_t)0x0ff)
+#define HC_MAX ((hc_t)0x0fe)
+#define HC_INCR(dest, src) { \
+	dest = (hc_t)((src + 1) == HC_MP ? HC_MAX : ((src + 1) & HC_MP)); \
+}
 
 #ifdef __cplusplus
 }

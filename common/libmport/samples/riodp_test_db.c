@@ -126,7 +126,7 @@ static void db_sig_handler(int signum)
  * Performs the following steps:
  *
  */
-int do_dbrcv_test(riomp_mport_t hnd, riomp_did_val_t destid, uint16_t start,
+int do_dbrcv_test(riomp_mport_t hnd, did_val_t destid, uint16_t start,
 		uint16_t end)
 {
 	int ret;
@@ -188,7 +188,7 @@ int do_dbrcv_test(riomp_mport_t hnd, riomp_did_val_t destid, uint16_t start,
  * Performs the following steps:
  *
  */
-int do_dbsnd_test(riomp_mport_t hnd, riomp_did_val_t destid, uint16_t dbval)
+int do_dbsnd_test(riomp_mport_t hnd, did_val_t destid, uint16_t dbval)
 {
 	struct riomp_mgmt_event evt;
 	int ret = 0;
@@ -233,7 +233,7 @@ int main(int argc, char** argv)
 
 	// command line parameters, all optional
 	uint32_t mport_id = 0;
-	riomp_did_val_t destid = UINT32_MAX;
+	did_val_t destid = UINT32_MAX;
 	uint32_t db_info = 0x5a5a;
 	uint32_t db_start = 0x5a5a;
 	uint32_t db_end = 0x5a5a;

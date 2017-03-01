@@ -44,7 +44,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sstream>
 #include <vector>
 
-#include "rio_ecosystem.h"
+#include "rio_route.h"
 #include "rapidio_mport_dma.h"
 #include "string_util.h"
 #include "tok_parse.h"
@@ -184,7 +184,7 @@ int gp_parse_cpu(struct cli_env *env, char *dec_parm, int *cpu)
 	return 0;
 }
 
-int gp_parse_did(struct cli_env *env, char *tok, riomp_did_val_t *destid)
+int gp_parse_did(struct cli_env *env, char *tok, did_val_t *destid)
 {
 	if (tok_parse_did(tok, destid, 0)) {
 		LOGMSG(env, "\n");
@@ -828,7 +828,7 @@ ATTR_RPT
 int obdio_cmd(struct cli_env *env, int UNUSED(argc), char **argv, enum req_type action)
 {
 	uint16_t idx;
-	riomp_did_val_t destid;
+	did_val_t destid;
 	uint64_t rio_addr;
 	uint64_t bytes;
 	uint64_t acc_sz;
@@ -993,7 +993,7 @@ enum riomp_dma_directio_type convert_int_to_riomp_dma_directio_type(uint16_t tra
 int dmaCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 {
 	uint16_t idx;
-	riomp_did_val_t destid;
+	did_val_t destid;
 	uint64_t rio_addr;
 	uint64_t bytes;
 	uint64_t acc_sz;
@@ -1088,7 +1088,7 @@ ATTR_NONE
 int dmaNumCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 {
 	uint16_t idx;
-	riomp_did_val_t destid;
+	did_val_t destid;
 	uint64_t rio_addr;
 	uint64_t bytes;
 	uint64_t acc_sz;
@@ -1192,7 +1192,7 @@ ATTR_NONE
 int dmaTxLatCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 {
 	uint16_t idx;
-	riomp_did_val_t destid;
+	did_val_t destid;
 	uint64_t rio_addr;
 	uint64_t bytes;
 	uint16_t wr;
@@ -1284,7 +1284,7 @@ ATTR_NONE
 int dmaRxLatCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 {
 	uint16_t idx;
-	riomp_did_val_t destid;
+	did_val_t destid;
 	uint64_t rio_addr;
 	uint64_t bytes;
 
@@ -1364,7 +1364,7 @@ void roundoff_message_size(uint32_t *bytes)
 int msg_tx_cmd(struct cli_env *env, int UNUSED(argc), char **argv, enum req_type req)
 {
 	uint16_t idx;
-	riomp_did_val_t destid;
+	did_val_t destid;
 	uint16_t sock_num;
 	uint32_t bytes;
 
@@ -1986,7 +1986,7 @@ int MpdevsCmd(struct cli_env *env, int UNUSED(argc), char **UNUSED(argv))
         uint8_t number_of_mports = RIO_MAX_MPORTS;
         uint8_t mport_id;
 
-        riomp_did_val_t *ep_list = NULL;
+        did_val_t *ep_list = NULL;
         uint32_t number_of_eps = 0;
         uint32_t ep;
         int i;

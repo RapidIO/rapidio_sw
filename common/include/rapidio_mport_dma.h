@@ -76,7 +76,7 @@ enum riomp_dma_directio_transfer_sync {
  * @retval 0 on success
  * @retval -errno on error
  */
-int riomp_dma_write(riomp_mport_t mport_handle, riomp_did_val_t destid,
+int riomp_dma_write(riomp_mport_t mport_handle, did_val_t destid,
 		uint64_t tgt_addr, void *buf, uint32_t size,
 		enum riomp_dma_directio_type wr_mode,
 		enum riomp_dma_directio_transfer_sync sync);
@@ -96,7 +96,7 @@ int riomp_dma_write(riomp_mport_t mport_handle, riomp_did_val_t destid,
  * @retval 0 on success
  * @retval -errno on error
  */
-int riomp_dma_write_d(riomp_mport_t mport_handle, riomp_did_val_t destid,
+int riomp_dma_write_d(riomp_mport_t mport_handle, did_val_t destid,
 		uint64_t tgt_addr, uint64_t handle, uint32_t offset,
 		uint32_t size, enum riomp_dma_directio_type wr_mode,
 		enum riomp_dma_directio_transfer_sync sync);
@@ -114,7 +114,7 @@ int riomp_dma_write_d(riomp_mport_t mport_handle, riomp_did_val_t destid,
  * @retval 0 on success
  * @retval -errno on error
  */
-int riomp_dma_read(riomp_mport_t mport_handle, riomp_did_val_t destid,
+int riomp_dma_read(riomp_mport_t mport_handle, did_val_t destid,
 		uint64_t tgt_addr, void *buf, uint32_t size,
 		enum riomp_dma_directio_transfer_sync sync);
 
@@ -132,7 +132,7 @@ int riomp_dma_read(riomp_mport_t mport_handle, riomp_did_val_t destid,
  * @retval 0 on success
  * @retval -errno on error
  */
-int riomp_dma_read_d(riomp_mport_t mport_handle, riomp_did_val_t destid,
+int riomp_dma_read_d(riomp_mport_t mport_handle, did_val_t destid,
 		uint64_t tgt_addr, uint64_t handle, uint32_t offset,
 		uint32_t size, enum riomp_dma_directio_transfer_sync sync);
 
@@ -196,7 +196,7 @@ int riomp_dma_ibwin_free(riomp_mport_t mport_handle, uint64_t *handle);
  * @retval 0 on success
  * @retval -errno on error
  */
-int riomp_dma_obwin_map(riomp_mport_t mport_handle, riomp_did_val_t destid,
+int riomp_dma_obwin_map(riomp_mport_t mport_handle, did_val_t destid,
 		uint64_t rio_base, uint32_t size, uint64_t *handle);
 
 /**

@@ -54,7 +54,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <netinet/tcp.h>
 #include <pthread.h>
 
-#include "rio_ecosystem.h"
+#include "rio_route.h"
 #include "string_util.h"
 #include "tok_parse.h"
 #include "rio_misc.h"
@@ -382,7 +382,7 @@ int FXMpdevsCmd(struct cli_env *env, int argc, char **argv)
 	uint8_t  number_of_mports = RIO_MAX_MPORTS;
 	uint8_t mport_id;
 
-	riomp_did_val_t *ep_list = NULL;
+	did_val_t *ep_list = NULL;
 	uint32_t number_of_eps = 0;
 	uint32_t ep;
 	int i;

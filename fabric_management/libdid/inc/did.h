@@ -37,11 +37,11 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#include "rio_route.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-typedef uint32_t did_val_t;
 
 typedef enum {
 	invld_sz = 0, dev08_sz = 8, dev16_sz = 16, dev32_sz = 32,

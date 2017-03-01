@@ -109,7 +109,7 @@ void show_rio_devs(void)
 	uint8_t number_of_mports = RIO_MAX_MPORTS;
 	uint8_t mport_id;
 
-	riomp_did_val_t *ep_list = NULL;
+	did_val_t *ep_list = NULL;
 	uint32_t number_of_eps = 0;
 	uint32_t ep;
 	int i;

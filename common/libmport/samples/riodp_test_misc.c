@@ -120,9 +120,9 @@ int main(int argc, char** argv)
 	char *program = argv[0];
 
 	// command line parameters
-	riomp_did_val_t tgt_destid = RIO_LAST_DEV8;
+	did_val_t tgt_destid = RIO_LAST_DEV8;
 	uint32_t mport_id = 0;
-	riomp_hc_t tgt_hc = 0xff;
+	hc_t tgt_hc = 0xff;
 	uint32_t tgt_remote = 0, tgt_write = 0, do_query = 0;
 	uint32_t op_size = 4; // sizeof(uint32_t);
 	uint32_t offset = 0;

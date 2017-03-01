@@ -43,6 +43,7 @@
 #include <setjmp.h>
 #include "cmocka.h"
 
+#include "rio_route.h"
 #include "tok_parse.h"
 #include "liblog.h"
 #include "rio_ecosystem.h"

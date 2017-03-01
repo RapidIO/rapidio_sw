@@ -69,9 +69,9 @@ extern "C" {
 #define RIODP_MAX_DEV_NAME_SZ 20
 
 static riomp_mport_t mport_hnd;
-static riomp_did_val_t tgt_destid = 0;
-static riomp_hc_t tgt_hop = HC_MP;
-static riomp_ct_t comptag = 0;
+static did_val_t tgt_destid = 0;
+static hc_t tgt_hop = HC_MP;
+static ct_t comptag = 0;
 
 static char dev_name[RIODP_MAX_DEV_NAME_SZ + 1];
 

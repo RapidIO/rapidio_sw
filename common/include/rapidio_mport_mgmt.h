@@ -90,7 +90,7 @@ enum riomp_mgmt_mport_flags {
 /** TODO: Check if all the listed mport properties are really needed */
 /** @brief RapidIO mport properties */
 struct riomp_mgmt_mport_properties {
-	riomp_did_val_t destid; /**< mport host device ID */
+	did_val_t destid; /**< mport host device ID */
 	uint8_t id; /**< Physical port ID number */
 	uint8_t index; /**< Mport driver index numer */
 	uint32_t flags; /**< TODO: what is this */
@@ -110,7 +110,7 @@ struct riomp_mgmt_mport_properties {
 
 /** @brief doorbell event data */
 struct riomp_mgmt_doorbell {
-	riomp_did_val_t destid; /**< RapidIO peer ID */
+	did_val_t destid; /**< RapidIO peer ID */
 	uint16_t payload; /**< doorbell payload */
 };
 
@@ -173,7 +173,7 @@ int riomp_mgmt_free_mport_list(mport_list_t **dev_ids);
  * @retval 0 on success
  * @retval -errno on error
  */
-int riomp_mgmt_get_ep_list(uint8_t mport_id, riomp_did_val_t **destids,
+int riomp_mgmt_get_ep_list(uint8_t mport_id, did_val_t **destids,
 		uint32_t *number_of_eps);
 
 /**
@@ -184,7 +184,7 @@ int riomp_mgmt_get_ep_list(uint8_t mport_id, riomp_did_val_t **destids,
  * @retval 0 on success
  * @retval -errno on error
  */
-int riomp_mgmt_free_ep_list(riomp_did_val_t **destids);
+int riomp_mgmt_free_ep_list(did_val_t **destids);
 
 /**
  * @brief create mport handle
@@ -250,7 +250,7 @@ void riomp_mgmt_display_info(struct riomp_mgmt_mport_properties *prop);
  * @retval 0 on success
  * @retval -errno on error
  */
-int riomp_mgmt_destid_set(riomp_mport_t mport_handle, riomp_did_val_t destid);
+int riomp_mgmt_destid_set(riomp_mport_t mport_handle, did_val_t destid);
 
 /**
  * @brief read mport local CSR register
@@ -293,8 +293,8 @@ int riomp_mgmt_lcfg_write(riomp_mport_t mport_handle, uint32_t offset,
  * @retval 0 on success
  * @retval -errno on error
  */
-int riomp_mgmt_rcfg_read(riomp_mport_t mport_handle, riomp_did_val_t destid,
-		riomp_hc_t hc, uint32_t offset, uint32_t size, uint32_t *data);
+int riomp_mgmt_rcfg_read(riomp_mport_t mport_handle, did_val_t destid,
+		hc_t hc, uint32_t offset, uint32_t size, uint32_t *data);
 
 /**
  * @brief write mport local CSR register
@@ -309,8 +309,8 @@ int riomp_mgmt_rcfg_read(riomp_mport_t mport_handle, riomp_did_val_t destid,
  * @retval 0 on success
  * @retval -errno on error
  */
-int riomp_mgmt_rcfg_write(riomp_mport_t mport_handle, riomp_did_val_t destid,
-		riomp_hc_t hc, uint32_t offset, uint32_t size, uint32_t data);
+int riomp_mgmt_rcfg_write(riomp_mport_t mport_handle, did_val_t destid,
+		hc_t hc, uint32_t offset, uint32_t size, uint32_t data);
 
 /**
  * @brief enable a range of doorbell events
@@ -324,7 +324,7 @@ int riomp_mgmt_rcfg_write(riomp_mport_t mport_handle, riomp_did_val_t destid,
  * @retval -errno on error
  */
 int riomp_mgmt_dbrange_enable(riomp_mport_t mport_handle,
-		riomp_did_val_t destid, uint16_t start, uint16_t end);
+		did_val_t destid, uint16_t start, uint16_t end);
 
 /**
  * @brief disable a range of doorbell events
@@ -338,7 +338,7 @@ int riomp_mgmt_dbrange_enable(riomp_mport_t mport_handle,
  * @retval -errno on error
  */
 int riomp_mgmt_dbrange_disable(riomp_mport_t mport_handle,
-		riomp_did_val_t destid, uint16_t start, uint16_t end);
+		did_val_t destid, uint16_t start, uint16_t end);
 
 /**
  * @brief enable a range of port write events
@@ -430,8 +430,8 @@ int riomp_mgmt_send_event(riomp_mport_t mport_handle,
  * @retval 0 on success
  * @retval -errno on error
  */
-int riomp_mgmt_device_add(riomp_mport_t mport_handle, riomp_did_val_t destid,
-		riomp_hc_t hc, riomp_ct_t ct, const char *name);
+int riomp_mgmt_device_add(riomp_mport_t mport_handle, did_val_t destid,
+		hc_t hc, ct_t ct, const char *name);
 
 /**
  * @brief delete kernel object
@@ -445,8 +445,8 @@ int riomp_mgmt_device_add(riomp_mport_t mport_handle, riomp_did_val_t destid,
  * @retval 0 on success
  * @retval -errno on error
  */
-int riomp_mgmt_device_del(riomp_mport_t mport_handle, riomp_did_val_t destid,
-		riomp_hc_t hc, riomp_ct_t ct, const char *name);
+int riomp_mgmt_device_del(riomp_mport_t mport_handle, did_val_t destid,
+		hc_t hc, ct_t ct, const char *name);
 
 #ifdef __cplusplus
 }

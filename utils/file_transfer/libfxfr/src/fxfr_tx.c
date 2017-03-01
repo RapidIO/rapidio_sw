@@ -56,6 +56,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <pthread.h>
 
 #include "string_util.h"
+#include "rio_route.h"
 #include "rapidio_mport_mgmt.h"
 #include "rapidio_mport_sock.h"
 #include "rapidio_mport_dma.h"
@@ -94,7 +95,7 @@ struct fxfr_tx_state {
 	char dest_name[MAX_FILE_NAME+1];
 	uint8_t end_of_file;
 	/* RapidIO target/rx data */
-	riomp_did_val_t destid; /* DestID of fxfr server */
+	did_val_t destid; /* DestID of fxfr server */
 	uint8_t use_kbuf; /* 1 => Use kernel buffers, 0 => use malloc/free */
 	uint64_t buf_h; /* Handle for DMA buffer, if using Kernel Buffs */
 	uint8_t *buffers[MAX_TX_SEGMENTS]; /* Data to DMA to fxfr server */
@@ -398,7 +399,7 @@ void cleanup_msg_buffers(struct fxfr_tx_state *info)
 }
 
 int init_server_connect(struct fxfr_tx_state *info, uint8_t mport_num,
-		riomp_did_val_t destid, int svr_skt, uint8_t k_buff)
+		did_val_t destid, int svr_skt, uint8_t k_buff)
 {
         int rc;
 	int i;
@@ -541,7 +542,7 @@ void cleanup_all(struct fxfr_tx_state *info)
 }
 
 int init_info(struct fxfr_tx_state *info, char *src_name, char *dest_name,
-		riomp_did_val_t destid, int svr_skt, uint8_t mport_num,
+		did_val_t destid, int svr_skt, uint8_t mport_num,
 		uint8_t debug, uint8_t k_buff)
 {
 	init_info_vals(info);
@@ -576,7 +577,7 @@ static void srv_sig_handler(int signum)
 
 int send_file(char *src_file, /* Local source file name */
 		char *dst_file, /* Requested destination file name */
-		riomp_did_val_t destid, /* DestID of fxfr server */
+		did_val_t destid, /* DestID of fxfr server */
 		uint16_t skt_num, /* Channel # of fxfr server */
 		uint8_t mport_num, /* MPORT index to use */
 		uint8_t debug, /* MPORT index to use */
