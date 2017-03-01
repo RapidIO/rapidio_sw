@@ -87,6 +87,9 @@ static void assumptions_test(void **state)
 
 static void macros_test(void **state)
 {
+	assert_int_equal(0x80000000, RIO_SPX_CTL_PTW_MAX_2X);
+	assert_int_equal(0x40000000, RIO_SPX_CTL_PTW_MAX_4X);
+
 	assert_int_equal(0x1C100, RXS_RIO_SPX_PCNTR_EN(0x00));
 	assert_int_equal(0x1D800, RXS_RIO_SPX_PCNTR_EN(0x17));
 	assert_int_equal(0x1C110, RXS_RIO_SPX_PCNTR_CTL(0x00, 0x00));
@@ -115,6 +118,43 @@ static void macros_test(void **state)
 	assert_int_equal(0x8A050, RXS_RIO_SPX_MC_Y_S_CSR(0x0A, 0x0A));
 
 	assert_int_equal(0x0FFFFFFF, RIO_RTE_BAD);
+
+	assert_int_equal(RXS_RIO_SPX_CTL2_BAUD_SEL_UNINIT, 0x00000000);
+	assert_int_equal(RXS_RIO_SPX_CTL2_BAUD_SEL_UNSUP, 0x10000000);
+	assert_int_equal(RXS_RIO_SPX_CTL2_BAUD_SEL_2_5GB, 0x20000000);
+	assert_int_equal(RXS_RIO_SPX_CTL2_BAUD_SEL_3_125GB, 0x30000000);
+	assert_int_equal(RXS_RIO_SPX_CTL2_BAUD_SEL_5_0GB, 0x40000000);
+	assert_int_equal(RXS_RIO_SPX_CTL2_BAUD_SEL_6_25GB, 0x50000000);
+	assert_int_equal(RXS_RIO_SPX_CTL2_BAUD_SEL_10_3125GB, 0x60000000);
+	assert_int_equal(RXS_RIO_SPX_CTL2_BAUD_SEL_12_5GB, 0x70000000);
+
+	assert_int_equal(RXS_RIO_SPX_CTL2_BAUD_SEL &
+			RXS_RIO_SPX_CTL2_BAUD_SEL_UNINIT, 0x00000000);
+	assert_int_equal(RXS_RIO_SPX_CTL2_BAUD_SEL &
+			RXS_RIO_SPX_CTL2_BAUD_SEL_UNSUP, 0x10000000);
+	assert_int_equal(RXS_RIO_SPX_CTL2_BAUD_SEL &
+			RXS_RIO_SPX_CTL2_BAUD_SEL_2_5GB, 0x20000000);
+	assert_int_equal(RXS_RIO_SPX_CTL2_BAUD_SEL &
+			RXS_RIO_SPX_CTL2_BAUD_SEL_3_125GB, 0x30000000);
+	assert_int_equal(RXS_RIO_SPX_CTL2_BAUD_SEL &
+			RXS_RIO_SPX_CTL2_BAUD_SEL_5_0GB, 0x40000000);
+	assert_int_equal(RXS_RIO_SPX_CTL2_BAUD_SEL &
+			RXS_RIO_SPX_CTL2_BAUD_SEL_6_25GB, 0x50000000);
+	assert_int_equal(RXS_RIO_SPX_CTL2_BAUD_SEL &
+			RXS_RIO_SPX_CTL2_BAUD_SEL_10_3125GB, 0x60000000);
+	assert_int_equal(RXS_RIO_SPX_CTL2_BAUD_SEL &
+			RXS_RIO_SPX_CTL2_BAUD_SEL_12_5GB, 0x70000000);
+
+	assert_int_equal(RXS_PLM_SPX_POL_CTL_TX_ALL_POL,
+			RXS_PLM_SPX_POL_CTL_TX0_POL |
+			RXS_PLM_SPX_POL_CTL_TX1_POL |
+			RXS_PLM_SPX_POL_CTL_TX2_POL |
+			RXS_PLM_SPX_POL_CTL_TX3_POL);
+	assert_int_equal(RXS_PLM_SPX_POL_CTL_RX_ALL_POL,
+			RXS_PLM_SPX_POL_CTL_RX0_POL |
+			RXS_PLM_SPX_POL_CTL_RX1_POL |
+			RXS_PLM_SPX_POL_CTL_RX2_POL |
+			RXS_PLM_SPX_POL_CTL_RX3_POL);
 
 	(void)state; // unused
 }

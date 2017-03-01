@@ -477,6 +477,15 @@ extern "C" {
 #define RXS_RIO_SPX_CTL2_BAUD_DISC                       ((uint32_t)0x08000000)
 #define RXS_RIO_SPX_CTL2_BAUD_SEL                        ((uint32_t)0xf0000000)
 
+#define RXS_RIO_SPX_CTL2_BAUD_SEL_UNINIT                 ((uint32_t)0x00000000)
+#define RXS_RIO_SPX_CTL2_BAUD_SEL_UNSUP                  ((uint32_t)0x10000000)
+#define RXS_RIO_SPX_CTL2_BAUD_SEL_2_5GB                  ((uint32_t)0x20000000)
+#define RXS_RIO_SPX_CTL2_BAUD_SEL_3_125GB                ((uint32_t)0x30000000)
+#define RXS_RIO_SPX_CTL2_BAUD_SEL_5_0GB                  ((uint32_t)0x40000000)
+#define RXS_RIO_SPX_CTL2_BAUD_SEL_6_25GB                 ((uint32_t)0x50000000)
+#define RXS_RIO_SPX_CTL2_BAUD_SEL_10_3125GB              ((uint32_t)0x60000000)
+#define RXS_RIO_SPX_CTL2_BAUD_SEL_12_5GB                 ((uint32_t)0x70000000)
+
 /* RXS_RIO_SPX_ERR_STAT : Register Bits Masks Definitions */
 #define RXS_RIO_SPX_ERR_STAT_PORT_UNINIT                 ((uint32_t)0x00000001)
 #define RXS_RIO_SPX_ERR_STAT_PORT_OK                     ((uint32_t)0x00000002)
@@ -955,6 +964,9 @@ extern "C" {
 #define RXS_PLM_SPX_POL_CTL_TX1_POL                      ((uint32_t)0x00020000)
 #define RXS_PLM_SPX_POL_CTL_TX2_POL                      ((uint32_t)0x00040000)
 #define RXS_PLM_SPX_POL_CTL_TX3_POL                      ((uint32_t)0x00080000)
+
+#define RXS_PLM_SPX_POL_CTL_RX_ALL_POL                   ((uint32_t)0x0000000F)
+#define RXS_PLM_SPX_POL_CTL_TX_ALL_POL                   ((uint32_t)0x000F0000)
 
 /* RXS_RIO_PLM_SPX_CLKCOMP_CTL : Register Bits Masks Definitions */
 #define RXS_RIO_PLM_SPX_CLKCOMP_CTL_CLK_COMP_CNT         ((uint32_t)0x00001fff)

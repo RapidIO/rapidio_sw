@@ -569,7 +569,6 @@ static uint32_t rxs_check_port_for_discard(DAR_DEV_INFO_t *dev_info,
 	rio_pc_get_config_out_t cfg_out;
 	rio_pc_get_status_in_t stat_in;
 	rio_pc_get_status_out_t stat_out;
-	uint32_t en_mask = RIO_SPX_CTL_INP_EN | RIO_SPX_CTL_OTP_EN;
 
 	if (NUM_RXS_PORTS(dev_info) <= port) {
 		out_parms->valid_route = false;
@@ -659,20 +658,14 @@ static uint32_t rxs_check_port_for_discard(DAR_DEV_INFO_t *dev_info,
 		}
 		goto exit;
 	}
-	rc = DARRegRead(dev_info, RXS_RIO_SPX_CTL(port), &ctlData);
-	if (RIO_SUCCESS != rc) {
-		out_parms->reason_for_discard = rio_rt_disc_probe_abort;
-		out_parms->imp_rc = RT_PROBE(4);
-		goto exit;
-	}
 
-	if (en_mask != (en_mask & ctlData)) {
+	if (!cfg_out.pc[0].nmtc_xfer_enable) {
 		if (dflt_port) {
 			out_parms->reason_for_discard =
-					rio_rt_disc_dflt_pt_in_out_dis;
+					rio_rt_disc_dflt_pt_lkout_or_dis;
 		} else {
 			out_parms->reason_for_discard =
-					rio_rt_disc_port_in_out_dis;
+					rio_rt_disc_port_lkout_or_dis;
 		}
 		goto exit;
 	}

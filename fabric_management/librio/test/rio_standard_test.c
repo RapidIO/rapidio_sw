@@ -295,6 +295,10 @@ static void macros(void **state)
 	assert_true(RIO_PORT_OK(2));
 	assert_false(RIO_PORT_OK(~2));
 
+	assert_int_equal(4, RIO_SPX_CTL_PTW_MAX_LANES(0xC0000000));
+	assert_int_equal(2, RIO_SPX_CTL_PTW_MAX_LANES(0x80000000));
+	assert_int_equal(1, RIO_SPX_CTL_PTW_MAX_LANES(0x00000000));
+
 	assert_int_equal(RIO_EMHS_EFB_HEAD(0x1000), 0x1000);
 	assert_int_equal(RIO_EMHS_INFO(0x1000), 0x1004);
 	assert_int_equal(RIO_EMHS_LL_DET(0x1000), 0x1008);

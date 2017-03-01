@@ -580,6 +580,11 @@ typedef uint32_t RIO_SPX_ERR_STAT_T;
 #define RIO_SPX_CTL_PTW_OVER_4x_NO_2X (0x06000000)
 #define RIO_SPX_CTL_PTW_OVER_NONE_2   (0x07000000)
 
+#define RIO_SPX_CTL_PTW_MAX_2X      (0x80000000)
+#define RIO_SPX_CTL_PTW_MAX_4X      (0x40000000)
+#define RIO_SPX_CTL_PTW_MAX_LANES(x) ((x & RIO_SPX_CTL_PTW_MAX_4X) ? 4 : \
+			((x & RIO_SPX_CTL_PTW_MAX_2X) ? 2 : 1)) \
+
 /* RIO_SPX_OUT_ACKID : Register Bits Masks Definitions */
 #define RIO_SPX_OUT_ACKID_OUTB_ACKID                     (0x00000fff)
 #define RIO_SPX_OUT_ACKID_OUTSTD_ACKID                   (0x00fff000)
