@@ -45,7 +45,7 @@ all: $(TARGETS)
 
 src/%.o: src/%.c $(HEADERS)
 	$(CC) -c $(CFLAGS) $< -o $@ \
-	-I$(FMDDIR)/librio/inc -I$(FMDDIR)/libdid/inc -I$(FMDDIR)/libct/inc
+	-I$(FMDDIR)/librio/inc
 
 clean:
 	@echo ---------- Cleaning lib$(NAME)...

@@ -54,10 +54,10 @@
 #include <fcntl.h>
 #include <sys/ioctl.h>
 
-#include <rapidio_mport_mgmt.h>
-#include <rapidio_mport_sock.h>
-#include "rio_ecosystem.h"
+#include "rio_route.h"
 #include "tok_parse.h"
+#include "rapidio_mport_mgmt.h"
+#include "rapidio_mport_sock.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -104,15 +104,16 @@ static void srv_sig_handler(int signum)
  */
 void show_rio_devs(void)
 {
-	uint32_t *mport_list = NULL;
-	uint32_t *ep_list = NULL;
-	uint32_t *list_ptr;
-	uint32_t number_of_eps = 0;
+	mport_list_t *mport_list = NULL;
+	mport_list_t *list_ptr;
 	uint8_t number_of_mports = RIO_MAX_MPORTS;
-	uint32_t ep = 0;
+	uint8_t mport_id;
+
+	riomp_did_val_t *ep_list = NULL;
+	uint32_t number_of_eps = 0;
+	uint32_t ep;
 	int i;
-	int mport_id;
-	int ret = 0;
+	int ret;
 
 	/** - request from driver list of available local mport devices */
 	ret = riomp_mgmt_get_mport_list(&mport_list, &number_of_mports);

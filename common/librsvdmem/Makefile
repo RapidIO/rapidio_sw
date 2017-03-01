@@ -40,7 +40,7 @@ OBJECTS:=$(patsubst src/%.c,src/%.o,$(wildcard src/*.c))
 TEST_OBJECTS:=$(patsubst test/%.c,test/%.o,$(wildcard test/*.c))
 
 CXXFLAGS+=-D$(DEBUG_CTL) -DRDMA_LL=$(LOG_LEVEL)
-CXXFLAGS+=-I$(FMDDIR)/librio/inc -I$(FMDDIR)/libdid/inc -I$(FMDDIR)/libct/inc
+CXXFLAGS+=-I$(FMDDIR)/librio/inc
 
 LDFLAGS_STATIC+=-L. -L$(COMMONLIB) -l$(NAME)
 LDFLAGS_STATIC+=$(TST_LIBS) -lcli

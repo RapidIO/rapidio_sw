@@ -47,6 +47,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <time.h>
 #include <sys/time.h>
 
+#include "rio_route.h"
 #include "rapidio_mport_mgmt.h"
 #include "rapidio_mport_sock.h"
 #include "rapidio_mport_dma.h"
@@ -57,9 +58,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 extern "C" {
 #endif
 
-int send_file(char *src_name, char *dest_name,
-		uint16_t destID, uint16_t skt_num, uint8_t mport_num, uint8_t debug,
-		struct timespec *st_time, uint64_t *bytes_sent, uint8_t k_buff);
+int send_file(char *src_name, char *dest_name, riomp_did_val_t destid,
+		uint16_t skt_num, uint8_t mport_num, uint8_t debug,
+		struct timespec *st_time, uint64_t *bytes_sent,
+		uint8_t k_buff);
 
 #ifdef __cplusplus
 }

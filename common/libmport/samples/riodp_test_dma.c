@@ -40,6 +40,7 @@
  */
 
 #include <stdio.h>
+#include <stdbool.h>
 #include <string.h>
 #include <errno.h>
 #include <stdlib.h>
@@ -59,11 +60,11 @@
 extern "C" {
 #endif
 
-#include "rio_standard.h"
 #include "rio_misc.h"
+#include "rio_route.h"
 #include "tok_parse.h"
-#include <rapidio_mport_dma.h>
-#include <rapidio_mport_mgmt.h>
+#include "rapidio_mport_dma.h"
+#include "rapidio_mport_mgmt.h"
 
 /// @cond
 /*
@@ -108,7 +109,7 @@ static uint32_t max_size = 4096;
 #define DEFAULT_IBWIN_SIZE (2 * 1024 * 1024)
 
 static riomp_mport_t mport_hnd;
-static uint32_t tgt_destid = RIO_LAST_DEV8;
+static riomp_did_val_t tgt_destid = RIO_LAST_DEV8;
 static uint64_t tgt_addr;
 static uint32_t offset = 0;
 static uint16_t align = 0;
@@ -215,7 +216,8 @@ static void dmatest_init_dsts(uint8_t *buf, unsigned int start,
 	}
 	for (; i < buf_size; i++) {
 		buf[i] = PATTERN_DST | (~i & PATTERN_COUNT_MASK);
-	}}
+	}
+}
 
 static void dmatest_mismatch(uint8_t actual, uint8_t pattern,
 		unsigned int index, unsigned int counter, int is_srcbuf)

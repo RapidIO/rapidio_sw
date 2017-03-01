@@ -56,11 +56,11 @@
 #include <getopt.h>
 #include <ctype.h>
 
-#include "rio_ecosystem.h"
+#include "rio_route.h"
 #include "tok_parse.h"
-#include <rapidio_mport_dma.h>
-#include <rapidio_mport_mgmt.h>
-#include <rapidio_mport_sock.h>
+#include "rapidio_mport_dma.h"
+#include "rapidio_mport_mgmt.h"
+#include "rapidio_mport_sock.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -120,9 +120,9 @@ int main(int argc, char** argv)
 	char *program = argv[0];
 
 	// command line parameters
-	uint32_t tgt_destid = RIO_LAST_DEV8;
+	riomp_did_val_t tgt_destid = RIO_LAST_DEV8;
 	uint32_t mport_id = 0;
-	uint8_t tgt_hc = 0xff;
+	riomp_hc_t tgt_hc = 0xff;
 	uint32_t tgt_remote = 0, tgt_write = 0, do_query = 0;
 	uint32_t op_size = 4; // sizeof(uint32_t);
 	uint32_t offset = 0;

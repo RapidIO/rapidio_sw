@@ -40,6 +40,7 @@
  */
 
 #include <stdio.h>
+#include <stdbool.h>
 #include <string.h>
 #include <errno.h>
 #include <stdlib.h>
@@ -55,10 +56,11 @@
 #include <signal.h>
 #include <pthread.h>
 
-#include "tok_parse.h"
 #include "rio_misc.h"
-#include <rapidio_mport_dma.h>
-#include <rapidio_mport_mgmt.h>
+#include "rio_route.h"
+#include "tok_parse.h"
+#include "rapidio_mport_dma.h"
+#include "rapidio_mport_mgmt.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -99,7 +101,7 @@ struct dma_async_wait_param {
 #define DEFAULT_IBWIN_SIZE (2 * 1024 * 1024)
 
 static riomp_mport_t mport_hnd;
-static uint32_t tgt_destid;
+static riomp_did_val_t tgt_destid = 0;
 static uint64_t tgt_addr;
 static uint32_t offset = 0;
 static uint16_t align = 0;

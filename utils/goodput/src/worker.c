@@ -63,12 +63,12 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <sched.h>
 
+#include "rio_route.h"
 #include "string_util.h"
 #include "libcli.h"
 #include "rapidio_mport_mgmt.h"
 #include "rapidio_mport_sock.h"
 #include "rapidio_mport_dma.h"
-#include "riodp_mport_lib.h"
 #include "liblog.h"
 
 #include "libtime_utils.h"
@@ -92,7 +92,7 @@ void init_worker_info(struct worker *info, int first_time)
 	info->wkr_thr.cpu_run = -1;
 	info->action = no_action;
 	info->action_mode = kernel_action;
-	info->did = -1;
+	info->destid = -1;
 	
 
         info->rio_addr = 0;
@@ -398,7 +398,7 @@ int direct_io_obwin_map(struct worker *info)
 {
 	int rc;
 
-	rc = riomp_dma_obwin_map(info->mp_h, info->did, info->rio_addr, 
+	rc = riomp_dma_obwin_map(info->mp_h, info->destid, info->rio_addr,
 					info->ob_byte_cnt, &info->ob_handle);
 	if (rc) {
 		ERR("FAILED: riomp_dma_obwin_map rc %d:%s\n",
@@ -638,7 +638,7 @@ int single_dma_access(struct worker *info, uint64_t offset)
 	do {
 		if (info->use_kbuf && info->wr)
 			dma_rc = riomp_dma_write_d(info->mp_h,
-						info->did,
+						info->destid,
 						ADDR_L(info->rio_addr, offset),
 						info->rdma_kbuff,
 						offset,
@@ -648,7 +648,7 @@ int single_dma_access(struct worker *info, uint64_t offset)
 
 		if (info->use_kbuf && !info->wr)
 			dma_rc = riomp_dma_read_d(info->mp_h,
-						info->did,
+						info->destid,
 						ADDR_L(info->rio_addr, offset),
 						info->rdma_kbuff,
 						offset,
@@ -657,7 +657,7 @@ int single_dma_access(struct worker *info, uint64_t offset)
 
 		if (!info->use_kbuf && info->wr)
 			dma_rc = riomp_dma_write(info->mp_h,
-						info->did,
+						info->destid,
 						ADDR_L(info->rio_addr, offset),
 						ADDR_P(info->rdma_ptr, offset),
 						info->acc_size,
@@ -666,7 +666,7 @@ int single_dma_access(struct worker *info, uint64_t offset)
 
 		if (!info->use_kbuf && info->wr)
 			dma_rc = riomp_dma_read(info->mp_h,
-						info->did,
+						info->destid,
 						ADDR_L(info->rio_addr, offset),
 						ADDR_P(info->rdma_ptr, offset),
 						info->acc_size,
@@ -1125,7 +1125,7 @@ void msg_tx_goodput(struct worker *info)
 
 	info->con_skt_valid = 1;
 
-        rc = riomp_sock_connect(info->con_skt, info->did, info->sock_num,
+        rc = riomp_sock_connect(info->con_skt, info->destid, info->sock_num,
 				&info->stop_req);
 	if (rc) {
 		ERR("FAILED: riomp_sock_connect rc %d:%s\n",
@@ -1221,7 +1221,7 @@ void msg_tx_overhead(struct worker *info)
 		start_iter_stats(info);
 
 		info->con_skt_valid = 1;
-		rc = riomp_sock_connect(info->con_skt, info->did,
+		rc = riomp_sock_connect(info->con_skt, info->destid,
 				info->sock_num, &info->stop_req);
 		if (rc) {
 			ERR("FAILED: riomp_sock_connect rc %d:%s\n",

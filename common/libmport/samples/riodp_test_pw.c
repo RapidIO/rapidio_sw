@@ -55,13 +55,14 @@
 #include <unistd.h>
 #include <getopt.h>
 #include <ctype.h>
-#include <rapidio_mport_dma.h>
 #include <time.h>
 #include <signal.h>
 
+#include "rio_route.h"
 #include "tok_parse.h"
-#include <rapidio_mport_mgmt.h>
-#include <rapidio_mport_sock.h>
+#include "rapidio_mport_dma.h"
+#include "rapidio_mport_mgmt.h"
+#include "rapidio_mport_sock.h"
 
 #ifdef __cplusplus
 extern "C" {

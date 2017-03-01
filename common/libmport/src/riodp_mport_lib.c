@@ -51,14 +51,11 @@
 #define CONFIG_RAPIDIO_DMA_ENGINE
 #include <linux/rio_mport_cdev.h>
 
-#include "string_util.h"
-#include "rio_ecosystem.h"
-#include "ct.h"
 #include "rio_misc.h"
+#include "string_util.h"
 #include "rapidio_mport_mgmt.h"
 #include "rapidio_mport_dma.h"
 #include "rapidio_mport_sock.h"
-#include "riodp_mport_lib.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -76,7 +73,7 @@ struct rapidio_mport_mailbox {
 
 struct rio_channel {
 	uint16_t id;
-	uint32_t remote_destid;
+	riomp_did_val_t remote_destid;
 	uint16_t remote_channel;
 	uint8_t mport_id;
 };
@@ -168,11 +165,11 @@ int riomp_sock_mbox_init(void)
  * \note Free dev_ids via riomp_mgmt_free_mport_list.
  * \returns 0 if OK, negative on error
  */
-int riomp_mgmt_get_mport_list(uint32_t **dev_ids, uint8_t *number_of_mports)
+int riomp_mgmt_get_mport_list(mport_list_t **dev_ids, uint8_t *number_of_mports)
 {
+	mport_list_t entries = *number_of_mports;
+	mport_list_t *list;
 	int fd;
-	uint32_t entries = *number_of_mports;
-	uint32_t *list;
 	int ret = -1;
 
 	/* Open RapidIO Channel Manager */
@@ -181,7 +178,7 @@ int riomp_mgmt_get_mport_list(uint32_t **dev_ids, uint8_t *number_of_mports)
 		return -1;
 	}
 
-	list = (uint32_t *)calloc((entries + 1), sizeof(*list));
+	list = (mport_list_t *)calloc((entries + 1), sizeof(*list));
 	if (NULL == list) {
 		goto outfd;
 	}
@@ -205,12 +202,12 @@ outfd:
 	return ret;
 }
 
-int riomp_mgmt_free_mport_list(uint32_t **dev_ids)
+int riomp_mgmt_free_mport_list(mport_list_t **dev_ids)
 {
 	/* Get head of the list, because we did hide the list size and mport ID
 	 * parameters
 	 */
-	uint32_t *list;
+	mport_list_t *list;
 
 	if (NULL == dev_ids) {
 		return -1;
@@ -221,13 +218,13 @@ int riomp_mgmt_free_mport_list(uint32_t **dev_ids)
 	return 0;
 }
 
-int riomp_mgmt_get_ep_list(uint8_t mport_id, uint32_t **destids,
+int riomp_mgmt_get_ep_list(uint8_t mport_id, riomp_did_val_t **destids,
 		uint32_t *number_of_eps)
 {
 	int fd;
 	int ret = 0;
-	uint32_t entries;
-	uint32_t *list;
+	riomp_did_val_t entries;
+	riomp_did_val_t *list;
 
 	/* Open mport */
 	fd = riomp_sock_mbox_init();
@@ -248,7 +245,7 @@ int riomp_mgmt_get_ep_list(uint8_t mport_id, uint32_t **destids,
 	printf("RIODP: %s() has %d entries\n", __func__, entries);
 #endif
 	/* Get list */
-	list = (uint32_t *)calloc((entries + 2), sizeof(*list));
+	list = (riomp_did_val_t *)calloc((entries + 2), sizeof(*list));
 	if (NULL == list) {
 		ret = -1;
 		goto outfd;
@@ -272,12 +269,12 @@ outfd:
 	return ret;
 }
 
-int riomp_mgmt_free_ep_list(uint32_t **destids)
+int riomp_mgmt_free_ep_list(riomp_did_val_t **destids)
 {
 	/* Get head of the list, because we did hide the list size and mport ID
 	 * parameters
 	 */
-	uint32_t *list;
+	riomp_did_val_t *list;
 
 	if (NULL == destids) {
 		return -1;
@@ -327,7 +324,7 @@ static inline enum rio_transfer_sync convert_directio_sync(
 /*
  * Perform DMA data write to target transfer using user space source buffer
  */
-int riomp_dma_write(riomp_mport_t mport_handle, uint16_t destid,
+int riomp_dma_write(riomp_mport_t mport_handle, riomp_did_val_t destid,
 		uint64_t tgt_addr, void *buf, uint32_t size,
 		enum riomp_dma_directio_type wr_mode,
 		enum riomp_dma_directio_transfer_sync sync)
@@ -362,7 +359,7 @@ int riomp_dma_write(riomp_mport_t mport_handle, uint16_t destid,
 /*
  * Perform DMA data write to target transfer using kernel space source buffer
  */
-int riomp_dma_write_d(riomp_mport_t mport_handle, uint16_t destid,
+int riomp_dma_write_d(riomp_mport_t mport_handle, riomp_did_val_t destid,
 		uint64_t tgt_addr, uint64_t handle, uint32_t offset,
 		uint32_t size, enum riomp_dma_directio_type wr_mode,
 		enum riomp_dma_directio_transfer_sync sync)
@@ -399,7 +396,7 @@ int riomp_dma_write_d(riomp_mport_t mport_handle, uint16_t destid,
 /*
  * Perform DMA data read from target transfer using user space destination buffer
  */
-int riomp_dma_read(riomp_mport_t mport_handle, uint16_t destid,
+int riomp_dma_read(riomp_mport_t mport_handle, riomp_did_val_t destid,
 		uint64_t tgt_addr, void *buf, uint32_t size,
 		enum riomp_dma_directio_transfer_sync sync)
 {
@@ -432,7 +429,7 @@ int riomp_dma_read(riomp_mport_t mport_handle, uint16_t destid,
 /*
  * Perform DMA data read from target transfer using kernel space destination buffer
  */
-int riomp_dma_read_d(riomp_mport_t mport_handle, uint16_t destid,
+int riomp_dma_read_d(riomp_mport_t mport_handle, riomp_did_val_t destid,
 		uint64_t tgt_addr, uint64_t handle, uint32_t offset,
 		uint32_t size, enum riomp_dma_directio_transfer_sync sync)
 {
@@ -531,7 +528,7 @@ int riomp_dma_ibwin_free(riomp_mport_t mport_handle, uint64_t *handle)
 	return 0;
 }
 
-int riomp_dma_obwin_map(riomp_mport_t mport_handle, uint16_t destid,
+int riomp_dma_obwin_map(riomp_mport_t mport_handle, riomp_did_val_t destid,
 		uint64_t rio_base, uint32_t size, uint64_t *handle)
 {
 	struct rio_mmap ob;
@@ -658,7 +655,7 @@ int riomp_mgmt_query(riomp_mport_t mport_handle,
 		return -errno;
 	}
 
-	qresp->hdid = prop.hdid;
+	qresp->destid = prop.hdid;
 	qresp->id = prop.id;
 	qresp->index = prop.index;
 	qresp->flags = prop.flags;
@@ -733,8 +730,8 @@ int riomp_mgmt_lcfg_write(riomp_mport_t mport_handle, uint32_t offset,
 /*
  * Maintenance read from target RapidIO device register
  */
-int riomp_mgmt_rcfg_read(riomp_mport_t mport_handle, uint32_t destid, hc_t hc,
-		uint32_t offset, uint32_t size, uint32_t *data)
+int riomp_mgmt_rcfg_read(riomp_mport_t mport_handle, riomp_did_val_t destid,
+		riomp_hc_t hc, uint32_t offset, uint32_t size, uint32_t *data)
 {
 	struct rio_mport_maint_io mt;
 	struct rapidio_mport_handle *hnd = mport_handle;
@@ -763,8 +760,8 @@ int riomp_mgmt_rcfg_read(riomp_mport_t mport_handle, uint32_t destid, hc_t hc,
 /*
  * Maintenance write to target RapidIO device register
  */
-int riomp_mgmt_rcfg_write(riomp_mport_t mport_handle, uint32_t destid, hc_t hc,
-		uint32_t offset, uint32_t size, uint32_t data)
+int riomp_mgmt_rcfg_write(riomp_mport_t mport_handle, riomp_did_val_t destid,
+		riomp_hc_t hc, uint32_t offset, uint32_t size, uint32_t data)
 {
 	struct rio_mport_maint_io mt;
 	struct rapidio_mport_handle *hnd = mport_handle;
@@ -789,8 +786,8 @@ int riomp_mgmt_rcfg_write(riomp_mport_t mport_handle, uint32_t destid, hc_t hc,
 /*
  * Enable (register) receiving range of RapidIO doorbell events
  */
-int riomp_mgmt_dbrange_enable(riomp_mport_t mport_handle, uint32_t rioid,
-		uint16_t start, uint16_t end)
+int riomp_mgmt_dbrange_enable(riomp_mport_t mport_handle,
+		riomp_did_val_t destid, uint16_t start, uint16_t end)
 {
 	struct rio_doorbell_filter dbf;
 	struct rapidio_mport_handle *hnd = mport_handle;
@@ -799,7 +796,7 @@ int riomp_mgmt_dbrange_enable(riomp_mport_t mport_handle, uint32_t rioid,
 		return -EINVAL;
 	}
 
-	dbf.rioid = rioid;
+	dbf.rioid = destid;
 	dbf.low = start;
 	dbf.high = end;
 
@@ -812,8 +809,8 @@ int riomp_mgmt_dbrange_enable(riomp_mport_t mport_handle, uint32_t rioid,
 /*
  * Disable (unregister) range of inbound RapidIO doorbell events
  */
-int riomp_mgmt_dbrange_disable(riomp_mport_t mport_handle, uint32_t rioid,
-		uint16_t start, uint16_t end)
+int riomp_mgmt_dbrange_disable(riomp_mport_t mport_handle,
+		riomp_did_val_t destid, uint16_t start, uint16_t end)
 {
 	struct rio_doorbell_filter dbf;
 	struct rapidio_mport_handle *hnd = mport_handle;
@@ -822,7 +819,7 @@ int riomp_mgmt_dbrange_disable(riomp_mport_t mport_handle, uint32_t rioid,
 		return -EINVAL;
 	}
 
-	dbf.rioid = rioid;
+	dbf.rioid = destid;
 	dbf.low = start;
 	dbf.high = end;
 
@@ -963,7 +960,7 @@ int riomp_mgmt_get_event(riomp_mport_t mport_handle,
 
 	if (revent.header == RIO_EVENT_DOORBELL) {
 		evt->u.doorbell.payload = revent.u.doorbell.payload;
-		evt->u.doorbell.rioid = revent.u.doorbell.rioid;
+		evt->u.doorbell.destid = revent.u.doorbell.rioid;
 	} else if (revent.header == RIO_EVENT_PORTWRITE) {
 		memcpy(&evt->u.portwrite.payload, &revent.u.portwrite.payload,
 				sizeof(evt->u.portwrite.payload));
@@ -1000,7 +997,7 @@ int riomp_mgmt_send_event(riomp_mport_t mport_handle,
 	}
 
 	sevent.header = RIO_DOORBELL;
-	sevent.u.doorbell.rioid = evt->u.doorbell.rioid;
+	sevent.u.doorbell.rioid = evt->u.doorbell.destid;
 	sevent.u.doorbell.payload = evt->u.doorbell.payload;
 
 	while (len < sizeof(sevent)) {
@@ -1018,7 +1015,7 @@ int riomp_mgmt_send_event(riomp_mport_t mport_handle,
 /*
  * Set destination ID of local mport device
  */
-int riomp_mgmt_destid_set(riomp_mport_t mport_handle, uint16_t destid)
+int riomp_mgmt_destid_set(riomp_mport_t mport_handle, riomp_did_val_t destid)
 {
 	struct rapidio_mport_handle *hnd = mport_handle;
 
@@ -1035,8 +1032,8 @@ int riomp_mgmt_destid_set(riomp_mport_t mport_handle, uint16_t destid)
 /*
  * Create a new kernel device object
  */
-int riomp_mgmt_device_add(riomp_mport_t mport_handle, uint16_t destid, hc_t hc,
-		ct_t ctag, const char *name)
+int riomp_mgmt_device_add(riomp_mport_t mport_handle, riomp_did_val_t destid,
+		riomp_hc_t hc, riomp_ct_t ct, const char *name)
 {
 	struct rio_rdev_info dev;
 	struct rapidio_mport_handle *hnd = mport_handle;
@@ -1047,7 +1044,7 @@ int riomp_mgmt_device_add(riomp_mport_t mport_handle, uint16_t destid, hc_t hc,
 
 	dev.destid = destid;
 	dev.hopcount = hc;
-	dev.comptag = ctag;
+	dev.comptag = ct;
 	if (name) {
 		SAFE_STRNCPY(dev.name, name, sizeof(dev.name));
 	} else {
@@ -1063,8 +1060,8 @@ int riomp_mgmt_device_add(riomp_mport_t mport_handle, uint16_t destid, hc_t hc,
 /*
  * Delete existing kernel device object
  */
-int riomp_mgmt_device_del(riomp_mport_t mport_handle, uint16_t destid, hc_t hc,
-		ct_t ctag, const char *name)
+int riomp_mgmt_device_del(riomp_mport_t mport_handle, riomp_did_val_t destid,
+		riomp_hc_t hc, riomp_ct_t ct, const char *name)
 {
 	struct rio_rdev_info dev;
 	struct rapidio_mport_handle *hnd = mport_handle;
@@ -1075,7 +1072,7 @@ int riomp_mgmt_device_del(riomp_mport_t mport_handle, uint16_t destid, hc_t hc,
 
 	dev.destid = destid;
 	dev.hopcount = hc;
-	dev.comptag = ctag;
+	dev.comptag = ct;
 	if (name) {
 		SAFE_STRNCPY(dev.name, name, sizeof(dev.name));
 	} else {
@@ -1135,7 +1132,9 @@ int riomp_sock_socket(riomp_mailbox_t mailbox, riomp_sock_t *socket_handle)
 	return 0;
 }
 
-int riomp_sock_send(riomp_sock_t socket_handle, rapidio_mport_socket_msg *skt_msg, uint32_t size, volatile int *stop_req)
+int riomp_sock_send(riomp_sock_t socket_handle,
+		rapidio_mport_socket_msg *skt_msg, uint32_t size,
+		volatile int *stop_req)
 {
 	int ret;
 	struct rapidio_mport_socket *handle = socket_handle;
@@ -1302,8 +1301,8 @@ int riomp_sock_accept(riomp_sock_t socket_handle, riomp_sock_t *conn,
 	return 0;
 }
 
-int riomp_sock_connect(riomp_sock_t socket_handle, uint32_t remote_destid,
-		uint16_t remote_channel, volatile int *stop_req)
+int riomp_sock_connect(riomp_sock_t socket_handle, riomp_did_val_t destid,
+		uint16_t channel, volatile int *stop_req)
 {
 	struct rapidio_mport_socket *handle = socket_handle;
 	uint16_t ch_num = 0;
@@ -1318,11 +1317,11 @@ int riomp_sock_connect(riomp_sock_t socket_handle, uint32_t remote_destid,
 
 	do {
 		/* Configure and Send Connect IOCTL */
-		handle->ch.remote_destid = remote_destid;
-		handle->ch.remote_channel = remote_channel;
+		handle->ch.remote_destid = destid;
+		handle->ch.remote_channel = channel;
 		handle->ch.mport_id = handle->mbox->mport_id;
-		cdev.remote_destid = remote_destid;
-		cdev.remote_channel = remote_channel;
+		cdev.remote_destid = destid;
+		cdev.remote_channel = channel;
 		cdev.mport_id = handle->mbox->mport_id;
 		cdev.id = handle->ch.id;
 		errno = 0;
@@ -1403,7 +1402,7 @@ void riomp_mgmt_display_info(struct riomp_mgmt_mport_properties *attr)
 {
 	printf("\n+++ SRIO mport configuration +++\n");
 	printf("mport: hdid=%d, id=%d, idx=%d, flags=0x%x, sys_size=%s\n",
-			attr->hdid, attr->id, attr->index, attr->flags,
+			attr->destid, attr->id, attr->index, attr->flags,
 			attr->sys_size ? "large" : "small");
 
 	printf("link: speed=%s width=%s\n", speed_to_string(attr->link_speed),

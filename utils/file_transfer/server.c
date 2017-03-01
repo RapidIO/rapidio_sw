@@ -321,7 +321,7 @@ int FXStatusCmd(struct cli_env *env, int argc, char **argv)
 				rx_bufs[idx].is_an_ibwin ? "Y" : "N");
 	}
 	LOGMSG(env, "\nall_must_die status : %d\n", all_must_die);
-	LOGMSG(env, "Server destID       : %d\n", qresp.hdid);
+	LOGMSG(env, "Server destID       : %d\n", qresp.destid);
 	LOGMSG(env, "Server cm_skt       : %d\n", conn_skt_num);
 	LOGMSG(env, "Server Accept Lp OK : %d\n", conn_loop_alive);
 	LOGMSG(env, "Pending conn reqs   : %s\n",
@@ -377,15 +377,16 @@ ATTR_NONE
 
 int FXMpdevsCmd(struct cli_env *env, int argc, char **argv)
 {
-	uint32_t *mport_list = NULL;
-	uint32_t *ep_list = NULL;
-	uint32_t *list_ptr;
-	uint32_t number_of_eps = 0;
+	mport_list_t *mport_list = NULL;
+	mport_list_t *list_ptr;
 	uint8_t  number_of_mports = RIO_MAX_MPORTS;
-	uint32_t ep = 0;
+	uint8_t mport_id;
+
+	riomp_did_val_t *ep_list = NULL;
+	uint32_t number_of_eps = 0;
+	uint32_t ep;
 	int i;
-	int mport_id;
-	int ret = 0;
+	int ret;
 
 	if (argc) {
 		LOGMSG(env, "FAILED: Extra parameters ignored: %s\n", argv[0]);
@@ -411,8 +412,8 @@ int FXMpdevsCmd(struct cli_env *env, int argc, char **argv)
 
 		/* Display EPs for this MPORT */
 
-		ret = riomp_mgmt_get_ep_list(mport_id, &ep_list, 
-						&number_of_eps);
+		ret = riomp_mgmt_get_ep_list(mport_id, &ep_list,
+				&number_of_eps);
 		if (ret) {
 			LOGMSG(env, "ERR: riomp_ep_get_list() ERR %d\n", ret);
 			break;

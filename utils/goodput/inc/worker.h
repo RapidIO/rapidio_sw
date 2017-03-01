@@ -37,10 +37,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
-#include <stdlib.h>
-#include <stdarg.h>
-#include <stdio.h>
-#include <string.h>
+#include <stdbool.h>
 #include <stdlib.h>
 #include <stdarg.h>
 #include <semaphore.h>
@@ -49,30 +46,24 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sys/stat.h>
 #include <sys/mman.h>
 #include <sys/sem.h>
+#include <sys/ioctl.h>
 #include <fcntl.h>
 #include <signal.h>
 #include <time.h>
-#include <sys/stat.h>
 
-#include <stdint.h>
 #include <unistd.h>
 #include <dirent.h>
 #include <errno.h>
-#include <sys/ioctl.h>
-#include <sys/types.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
-#include <pthread.h>
 
-#include <string>
-#include <sstream>
-
+#include "rio_route.h"
 #include "rapidio_mport_dma.h"
 #include "rapidio_mport_mgmt.h"
 #include "rapidio_mport_sock.h"
-
 #include "libtime_utils.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -131,12 +122,12 @@ struct worker {
 	sem_t run;  /* Managed by controller, post this sem to start a stopped woker */
 	enum req_type action;
 	enum req_mode action_mode;
-	int did; /* destID */
+	riomp_did_val_t destid;
 
 	uint64_t rio_addr; /* Target RapidIO address for direct IO and DMA */
 	uint64_t byte_cnt; /* Number of bytes to access for direct IO and DMA */
 	uint64_t acc_size; /* Bytes per transfer for direct IO and DMA */
-	int      max_iter; /* For \inft loop tests make this the upper bound of loops*/
+	int      max_iter; /* For infinite loop tests make this the upper bound of loops*/
 
 	int wr; 
 	int mp_num;	/* Mport index */

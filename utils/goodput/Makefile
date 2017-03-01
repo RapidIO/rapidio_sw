@@ -39,15 +39,10 @@ DEBUG?=DEBUG
 INCLUDES= inc/worker.h inc/goodput.h inc/goodput_cli.h
 OBJECTS:=$(patsubst src/%.c,src/%.o,$(wildcard src/*.c))
 
-config?=NODEBUG
-LIBMPINCDIR=$(COMMONDIR)/libmport/inc
-REGSDIR=$(FMDDIR)/librio/inc
-
 # Kernel-mode flags
 CXXFLAGS+=-Wno-sign-compare
 CXXFLAGS+=-D$(DEBUG_CTL) -DRDMA_LL=$(LOG_LEVEL)
-CXXFLAGS+=-I$(LIBMPINCDIR) -I$(REGSDIR)
-CXXFLAGS+=-I$(FMDDIR)/libdid/inc -I$(FMDDIR)/libct/inc
+CXXFLAGS+=-I$(FMDDIR)/librio/inc
 CXXFLAGS+=-pthread
 
 LDFLAGS_STATIC+=-L$(COMMONLIB) -lmport -lrsvdmem -ltime_utils -llog -lcli

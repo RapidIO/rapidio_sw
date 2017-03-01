@@ -49,7 +49,6 @@ CXXFLAGS+=-I../librio/inc
 CXXFLAGS+=-I../libriocp_pe/inc
 CXXFLAGS+=-I../libpe_mpdrv/inc
 CXXFLAGS+=-I../libcfg/inc
-CXXFLAGS+=-I../libmport/inc
 
 LDFLAGS_STATIC+=-L$(COMMONLIB) -L../libs_a
 LDFLAGS_STATIC+=-lriocp_pe -lpe_mpdrv -lrio -lcfg -ldid -lct

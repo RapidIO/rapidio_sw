@@ -40,7 +40,7 @@ OBJECTS:=$(patsubst src/%.c,src/%.o,$(wildcard src/*.c))
 SAMPLE_OBJECTS:=$(patsubst samples/%.c,samples/%.o,$(wildcard samples/*.c))
 
 INC=-I$(KDIR) -I$(RIODIR)
-INC+=-I$(FMDDIR)/libdid/inc -I$(FMDDIR)/libct/inc -I$(FMDDIR)/librio/inc
+INC+=-I$(FMDDIR)/librio/inc
 
 0?=.
 CXXFLAGS+=-D$(DEBUG_CTL)

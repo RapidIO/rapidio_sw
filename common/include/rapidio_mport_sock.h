@@ -38,6 +38,8 @@
 #ifndef __RAPIDIO_MPORT_SOCK_H__
 #define __RAPIDIO_MPORT_SOCK_H__
 
+#include "rio_route.h"
+
 #ifndef RIO_MAX_MSG_SIZE
 #define RIO_MAX_MSG_SIZE (0x1000)
 #endif
@@ -221,8 +223,8 @@ int riomp_sock_accept(riomp_sock_t socket_handle, riomp_sock_t *conn,
  * @brief connect to a remote RapidIO socket
  *
  * @param[in] socket_handle valid socket handle
- * @param[in] remote_destid peer destination ID
- * @param[in] remote_channel peer channel number
+ * @param[in] destid peer destination ID
+ * @param[in] channel peer channel number
  * @param[in] stop_req NULL if the parameter should be ignored.
  * 		if *stop_req is 0, reattempt the send in the event of
  * 		a non-fatal error i.e. errno = EAGAIN, EBUSY, EINTR.
@@ -231,8 +233,8 @@ int riomp_sock_accept(riomp_sock_t socket_handle, riomp_sock_t *conn,
  * @retval 0 on success
  * @retval -errno on error
  */
-int riomp_sock_connect(riomp_sock_t socket_handle, uint32_t remote_destid,
-		uint16_t remote_channel, volatile int *stop_req);
+int riomp_sock_connect(riomp_sock_t socket_handle, riomp_did_val_t destid,
+		uint16_t channel, volatile int *stop_req);
 
 /**
  * @brief allocate send buffer

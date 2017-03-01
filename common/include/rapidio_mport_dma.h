@@ -38,7 +38,7 @@
 #ifndef __RAPIDIO_MPORT_DMA_H__
 #define __RAPIDIO_MPORT_DMA_H__
 
-#include "ct.h"
+#include "rio_route.h"
 #include "rapidio_mport_mgmt.h"
 
 #ifdef __cplusplus
@@ -76,7 +76,7 @@ enum riomp_dma_directio_transfer_sync {
  * @retval 0 on success
  * @retval -errno on error
  */
-int riomp_dma_write(riomp_mport_t mport_handle, uint16_t destid,
+int riomp_dma_write(riomp_mport_t mport_handle, riomp_did_val_t destid,
 		uint64_t tgt_addr, void *buf, uint32_t size,
 		enum riomp_dma_directio_type wr_mode,
 		enum riomp_dma_directio_transfer_sync sync);
@@ -96,7 +96,7 @@ int riomp_dma_write(riomp_mport_t mport_handle, uint16_t destid,
  * @retval 0 on success
  * @retval -errno on error
  */
-int riomp_dma_write_d(riomp_mport_t mport_handle, uint16_t destid,
+int riomp_dma_write_d(riomp_mport_t mport_handle, riomp_did_val_t destid,
 		uint64_t tgt_addr, uint64_t handle, uint32_t offset,
 		uint32_t size, enum riomp_dma_directio_type wr_mode,
 		enum riomp_dma_directio_transfer_sync sync);
@@ -114,7 +114,7 @@ int riomp_dma_write_d(riomp_mport_t mport_handle, uint16_t destid,
  * @retval 0 on success
  * @retval -errno on error
  */
-int riomp_dma_read(riomp_mport_t mport_handle, uint16_t destid,
+int riomp_dma_read(riomp_mport_t mport_handle, riomp_did_val_t destid,
 		uint64_t tgt_addr, void *buf, uint32_t size,
 		enum riomp_dma_directio_transfer_sync sync);
 
@@ -132,7 +132,7 @@ int riomp_dma_read(riomp_mport_t mport_handle, uint16_t destid,
  * @retval 0 on success
  * @retval -errno on error
  */
-int riomp_dma_read_d(riomp_mport_t mport_handle, uint16_t destid,
+int riomp_dma_read_d(riomp_mport_t mport_handle, riomp_did_val_t destid,
 		uint64_t tgt_addr, uint64_t handle, uint32_t offset,
 		uint32_t size, enum riomp_dma_directio_transfer_sync sync);
 
@@ -163,7 +163,7 @@ int riomp_dma_wait_async(riomp_mport_t mport_handle, uint32_t cookie,
  * @retval 0 on success
  * @retval -errno on error
  */
-#define RIO_ANY_ADDR        (uint64_t)(~((uint64_t) 0))
+#define RIO_ANY_ADDR (uint64_t)(~((uint64_t) 0))
 
 int riomp_dma_ibwin_map(riomp_mport_t mport_handle, uint64_t *rio_base,
 		uint32_t size, uint64_t *handle);
@@ -196,7 +196,7 @@ int riomp_dma_ibwin_free(riomp_mport_t mport_handle, uint64_t *handle);
  * @retval 0 on success
  * @retval -errno on error
  */
-int riomp_dma_obwin_map(riomp_mport_t mport_handle, uint16_t destid,
+int riomp_dma_obwin_map(riomp_mport_t mport_handle, riomp_did_val_t destid,
 		uint64_t rio_base, uint32_t size, uint64_t *handle);
 
 /**
