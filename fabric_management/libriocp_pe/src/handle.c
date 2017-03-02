@@ -421,7 +421,7 @@ err:
 }
 
 /**
- * Create mport handle with minfo field and initialized maintainance access
+ * Create mport handle with minfo field and initialized maintenance access
  * @param mport   Mport device number
  * @param is_host Create host or agent mport handle
  * @param handle  Handle created for mport

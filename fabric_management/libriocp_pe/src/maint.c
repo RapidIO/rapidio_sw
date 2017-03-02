@@ -5,7 +5,7 @@
  */
 /**
  * @file maint.c
- * Processing element maintainance access using librio_maint
+ * Processing element maintenance access using librio_maint
  */
 #define _XOPEN_SOURCE 500
 
