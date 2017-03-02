@@ -192,16 +192,18 @@ int update_devid_status(void)
 {
         uint32_t i, j, found;
 	uint32_t changed = 0;
+	did_val_t did_val;
 
         for (i = 0; i <= FMD_MAX_DEVID; i++) {
                 found = 0;
                 for (j = 0; j < fml.num_devs; j++) {
-                        if (fml.devs[j].destID > FMD_MAX_DEVID) {
+                        did_val = did_get_value(fml.devs[j].did);
+                        if (did_val > FMD_MAX_DEVID) {
                                 ERR("Devid 0x%x, out of range, MAX is 0x%x",
-                                        fml.devs[j].destID, FMD_MAX_DEVID);
+                                		did_val, FMD_MAX_DEVID);
                                 continue;
                         }
-                        if (fml.devs[j].destID == i) {
+                        if (did_val == i) {
 				uint8_t temp_flag = FMDD_FLAG_OK;
 				temp_flag |= fml.devs[j].flag;
 
@@ -348,7 +350,7 @@ uint8_t fmdd_check_ct(fmdd_h h, ct_t ct, uint8_t flag)
 
 	for (i = 0; i < fml.num_devs; i++) {
 		if (fml.devs[i].ct == ct) {
-			return flag & fml.devid_status[fml.devs[i].destID];
+			return flag & fml.devid_status[did_get_value(fml.devs[i].did)];
 		}
 	}
 fail:

@@ -41,9 +41,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <semaphore.h>
 #include <riocp_pe.h>
 
-#include <rrmap_config.h>
-#include "rio_ecosystem.h"
-#include "ct.h"
+#include "rio_route.h"
+#include "did.h"
+#include "rrmap_config.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -59,8 +59,7 @@ extern "C" {
 
 struct fmd_dd_dev_info {
 	ct_t ct;
-	uint32_t destID;
-	uint32_t destID_sz;
+	did_t did;
 	hc_t hc;
 	uint32_t is_mast_pt;
 	uint8_t flag;
@@ -70,7 +69,7 @@ struct fmd_dd_dev_info {
 struct fmd_dd {
 	uint32_t chg_idx;
 	struct timespec chg_time;
-	uint32_t md_ct;  
+	ct_t md_ct;
 	uint32_t num_devs;
 	uint32_t loc_mp_idx;
 	struct fmd_dd_dev_info devs[FMD_MAX_DEVS];

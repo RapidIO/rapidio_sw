@@ -713,7 +713,7 @@ static void did_to_value_null_parms_test(void **state)
 	did_reset();
 	assert_int_equal(0, did_idx);
 
-	did = (did_t){123, dev08_sz};
+	did = TEST_DID(123, dev08_sz);
 	value = 0xdead;
 	size = 0xbeef;
 	assert_int_equal(-EINVAL, did_to_value(did, NULL, &size));
@@ -722,7 +722,7 @@ static void did_to_value_null_parms_test(void **state)
 	assert_int_equal(123, did.value);
 	assert_int_equal(dev08_sz, did.size);
 
-	did = (did_t){123, dev08_sz};
+	did = TEST_DID(123, dev08_sz);
 	value = 0xdead;
 	size = 0xbeef;
 	assert_int_equal(-EINVAL, did_to_value(did, &value, NULL));
@@ -744,28 +744,28 @@ static void did_to_value_test(void **state)
 	did_reset();
 	assert_int_equal(0, did_idx);
 
-	did = (did_t){0xdead, dev08_sz}; // actually impossible ...
+	did = TEST_DID(0xdead, dev08_sz); // actually impossible ...
 	value = 0xcafe;
 	size = 0xbabe;
 	assert_int_equal(0, did_to_value(did, &value, &size));
 	assert_int_equal(0xdead, value);
 	assert_int_equal(0, size);
 
-	did = (did_t){0xbeef, dev16_sz};
+	did = TEST_DID(0xbeef, dev16_sz);
 	value = 0xcafe;
 	size = 0xbabe;
 	assert_int_equal(0, did_to_value(did, &value, &size));
 	assert_int_equal(0xbeef, value);
 	assert_int_equal(1, size);
 
-	did = (did_t){0xdead, dev32_sz};
+	did = TEST_DID(0xdead, dev32_sz);
 	value = 0xcafe;
 	size = 0xbabe;
 	assert_int_equal(-EPERM, did_to_value(did, &value, &size));
 	assert_int_equal(0, value);
 	assert_int_equal(0, size);
 
-	did = (did_t){0xbeef, invld_sz};
+	did = TEST_DID(0xbeef, invld_sz);
 	value = 0xcafe;
 	size = 0xbabe;
 	assert_int_equal(-EPERM, did_to_value(did, &value, &size));

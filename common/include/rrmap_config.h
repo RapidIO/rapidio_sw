@@ -63,7 +63,6 @@ extern "C" {
 #define FMD_DFLT_RUN_CONS 1
 #define FMD_DFLT_LOG_LEVEL ((RDMA_LL_ERR < RDMA_LL)?RDMA_LL_WARN:RDMA_LL)
 #define FMD_DFLT_MAST_INTERVAL 5
-#define FMD_DFLT_MAST_DEVID_SZ FMD_DEV08
 #define FMD_DFLT_MAST_DEVID 0xFD
 
 /** \brief File transfer and CM_SOCK demo default CM ports */

@@ -122,18 +122,21 @@ static void cfg_parse_mport_size_test(void **state)
 	char *test_dd_mtx_fn = (char *)FMD_DFLT_DD_MTX_FN;
 	char *test_dd_fn  = (char *)FMD_DFLT_DD_FN;
 	uint8_t mem_sz;
-	uint32_t m_did, m_cm_port, m_mode;
+	did_t m_did;
+	uint32_t m_cm_port;
+	uint32_t m_mode;
 
 	check_file_exists(MASTER_SUCCESS);
 
-	m_did = 0xcafe;
+	m_did = DID_INVALID_ID;
 	m_cm_port = 0xbabe;
 	m_mode = 0xdead;
 	assert_int_equal(0, cfg_parse_file(MASTER_SUCCESS, &dd_mtx_fn, &dd_fn, &m_did,
 			&m_cm_port, &m_mode));
 	assert_int_equal(0, strncmp(dd_mtx_fn, test_dd_mtx_fn, strlen(dd_mtx_fn)));
 	assert_int_equal(0, strncmp(dd_fn, test_dd_fn, strlen(test_dd_fn)));
-	assert_int_equal(5, m_did);
+	assert_int_equal(5, did_get_value(m_did));
+	assert_int_equal(dev08_sz, did_get_size(m_did));
 	assert_int_equal(FMD_DFLT_MAST_CM_PORT, m_cm_port);
 	assert_int_equal(1, m_mode);
 
@@ -158,7 +161,7 @@ static void cfg_parse_fail(const char *filename)
 {
 	char *dd_mtx_fn = NULL;
 	char *dd_fn = NULL;
-	uint32_t m_did = 0xdead;
+	did_t m_did = DID_INVALID_ID;
 	uint32_t m_cm_port = 0xbeef;
 	uint32_t m_mode = 0xcafe;
 
@@ -283,7 +286,7 @@ static void cfg_parse_master_test(void **state)
 	int conn_pt;
 	char *dd_mtx_fn = NULL;
 	char *dd_fn = NULL;
-	uint32_t m_did = 0xdead;
+	did_t m_did = DID_INVALID_ID;
 	uint32_t m_cm_port = 0xbeef;
 	uint32_t m_mode = 0xcafe;
 
@@ -362,7 +365,7 @@ static void cfg_parse_slave_test(void **state)
 	char *dd_fn = NULL;
 	char *test_dd_mtx_fn = (char *)FMD_DFLT_DD_MTX_FN;
 	char *test_dd_fn = (char *)FMD_DFLT_DD_FN;
-	uint32_t m_did = 0xcafe;
+	did_t m_did = DID_INVALID_ID;
 	uint32_t m_cm_port = 0xbabe;
 	uint32_t m_mode = 0xdead;
 
@@ -373,7 +376,8 @@ static void cfg_parse_slave_test(void **state)
 			&m_cm_port, &m_mode));
 	assert_int_equal(0, strncmp(dd_mtx_fn, test_dd_mtx_fn, strlen(dd_mtx_fn)));
 	assert_int_equal(0, strncmp(dd_fn, test_dd_fn, strlen(test_dd_fn)));
-	assert_int_equal(5, m_did);
+	assert_int_equal(5, did_get_value(m_did));
+	assert_int_equal(dev08_sz, did_get_size(m_did));
 	assert_int_equal(FMD_DFLT_MAST_CM_PORT,m_cm_port);
 	assert_int_equal(0, m_mode);
 
@@ -395,7 +399,7 @@ static void cfg_parse_tor_test(void **state)
 	char *dd_fn = NULL;
 	char *test_dd_mtx_fn = (char *)FMD_DFLT_DD_MTX_FN;
 	char *test_dd_fn = (char *)FMD_DFLT_DD_FN;
-	uint32_t m_did = 0xcafe;
+	did_t m_did = DID_INVALID_ID;
 	uint32_t m_cm_port = 0xbabe;
 	uint32_t m_mode = 0xdead;
 	int p_idx, idx;
@@ -410,7 +414,9 @@ static void cfg_parse_tor_test(void **state)
 
 	assert_int_equal(0, strncmp(dd_mtx_fn, test_dd_mtx_fn, strlen(dd_mtx_fn)));
 	assert_int_equal(0, strncmp(dd_fn, test_dd_fn, strlen(test_dd_fn)));
-	assert_int_equal(0x1A, m_did);
+	assert_int_equal(0x1a, did_get_value(m_did));
+	assert_int_equal(dev08_sz, did_get_size(m_did));
+
 	assert_int_equal(FMD_DFLT_MAST_CM_PORT, m_cm_port);
 	assert_int_equal(1, m_mode);
 
@@ -482,7 +488,7 @@ static void cfg_parse_rxs_test(void **state)
 	char *dd_fn = NULL;
 	char *test_dd_mtx_fn = (char *)FMD_DFLT_DD_MTX_FN;
 	char *test_dd_fn = (char *)FMD_DFLT_DD_FN;
-	uint32_t m_did = 0xdead;
+	did_t m_did = DID_INVALID_ID;
 	uint32_t m_cm_port = 0xbeef;
 	uint32_t m_mode = 0xcafe;
 	int conn_pt;
@@ -494,7 +500,8 @@ static void cfg_parse_rxs_test(void **state)
 		&m_cm_port, &m_mode));
 	assert_int_equal(0, strncmp(dd_mtx_fn, test_dd_mtx_fn, strlen(dd_mtx_fn)));
 	assert_int_equal(0, strncmp(dd_fn, test_dd_fn, strlen(test_dd_fn)));
-	assert_int_equal (5, m_did);
+	assert_int_equal(5, did_get_value(m_did));
+	assert_int_equal(dev08_sz, did_get_size(m_did));
 	assert_int_equal(FMD_DFLT_MAST_CM_PORT, m_cm_port);
 
 	assert_int_equal(0, cfg_find_dev_by_ct(0x10005, &dev));

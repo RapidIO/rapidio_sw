@@ -71,7 +71,7 @@ struct fmd_app_hello_resp {
 /* Format of messages that can be sent by the library */
 
 struct libfmd_dmn_app_msg { /* Messages sent FROM application TO FMD */
-        uint32_t msg_type;
+	uint32_t msg_type;
 	union {
 		struct fmd_app_hello_req hello_req;
 		struct fmd_app_hello_resp hello_resp;

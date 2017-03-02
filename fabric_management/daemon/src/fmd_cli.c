@@ -141,8 +141,8 @@ int CLIStatusCmd(struct cli_env *env, int argc, char **argv)
 	peer = (struct fmd_peer *)l_head(&fmp.peers, &li);
 	while (NULL != peer) {
 		LOGMSG(env, "         %8x %8x %2x %1d %1d %1d %1d %s\n",
-				peer->p_ct, peer->p_did, peer->p_hc,
-				peer->rx_alive, peer->rx_must_die,
+				peer->p_ct, did_get_value(peer->p_did),
+				peer->p_hc, peer->rx_alive, peer->rx_must_die,
 				peer->init_cplt, peer->restart_init,
 				peer->peer_name);
 		peer = (struct fmd_peer *)l_next(&li);

@@ -112,8 +112,8 @@ static int init_cfg_ptr(char *dd_mtx_fn, char *dd_fn)
 		}
 		cfg->mport_info[i].ep_pnum = -1;
 	}
-	cfg->mast_devid_sz = CFG_DFLT_MAST_DEVID_SZ;
-	cfg->mast_devid = CFG_DFLT_MAST_DEVID;
+	cfg->mast_did_sz = CFG_DFLT_MAST_DEVID_SZ;
+	cfg->mast_destid = CFG_DFLT_MAST_DEVID;
 	cfg->mast_cm_port = FMD_DFLT_MAST_CM_PORT;
 
 	for (i = 0; i < CFG_MAX_EP; i++) {
@@ -538,7 +538,7 @@ static int cfg_get_destid(struct int_cfg_parms *cfg, uint32_t *destid, uint32_t 
 		parse_err(cfg, (char *)"Unconfigured devid selected.");
 		goto fail;
 	}
-	*destid = ep->ports[port].devids[devid_sz].devid;
+	*destid = ep->ports[port].devids[devid_sz].destid;
 	return 0;
 fail:
 	parse_err(cfg, (char *)"cfg_get_destid error.");
@@ -579,7 +579,7 @@ static int parse_ep_devids(struct int_cfg_parms *cfg, struct dev_id *devids)
 	for (devid_sz = 0; devid_sz < 3; devid_sz++) {
 		devids[devid_sz].valid = 0;
 		devids[devid_sz].hc = HC_MP;
-		devids[devid_sz].devid = 0;
+		devids[devid_sz].destid = 0;
 	}
 
 	while (!done) {
@@ -593,7 +593,7 @@ static int parse_ep_devids(struct int_cfg_parms *cfg, struct dev_id *devids)
 					goto fail;
 				}
 
-				if (get_hex_int(cfg, &devids[devid_sz].devid))
+				if (get_hex_int(cfg, &devids[devid_sz].destid))
 					goto fail;
 				if (get_dec_int(cfg, &tmp))
 					goto fail;
@@ -626,7 +626,7 @@ static int check_match (struct dev_id *mp_did, struct dev_id *ep_did,
 		goto exit;
 	if (!ep_did->valid)
 		goto exit;
-	if (mp_did->devid != ep_did->devid)
+	if (mp_did->destid != ep_did->destid)
 		goto exit;
 	if (mp_did->hc != ep_did->hc)
 		goto exit;
@@ -713,10 +713,10 @@ fail:
 
 static int parse_master_info(struct int_cfg_parms *cfg)
 {
-	if (get_devid_sz(cfg, &cfg->mast_devid_sz))
+	if (get_devid_sz(cfg, &cfg->mast_did_sz))
 		goto fail;
 
-	if (get_hex_int(cfg, &cfg->mast_devid))
+	if (get_hex_int(cfg, &cfg->mast_destid))
 		goto fail;
 
 	if (get_dec_int(cfg, &cfg->mast_cm_port))
@@ -1009,7 +1009,7 @@ static int parse_switch(struct int_cfg_parms *cfg)
 		goto fail;
 	if (get_devid_sz(cfg, &cfg->sws[i].did_sz))
 		goto fail;
-	if (get_hex_int(cfg, &cfg->sws[i].did))
+	if (get_hex_int(cfg, &cfg->sws[i].destid))
 		goto fail;
 	if (get_dec_int(cfg, &tmp))
 		goto fail;
@@ -1214,7 +1214,7 @@ exit:
 	
 
 int cfg_parse_file(char *cfg_fn, char **dd_mtx_fn, char **dd_fn,
-		uint32_t *m_did, uint32_t *m_cm_port, uint32_t *m_mode)
+		did_t *m_did, uint32_t *m_cm_port, uint32_t *m_mode)
 {
 	int j,k;
 	uint32_t i;
@@ -1223,7 +1223,7 @@ int cfg_parse_file(char *cfg_fn, char **dd_mtx_fn, char **dd_fn,
 	ct_nr_t nr;
 
 	did_t did;
-	did_val_t devid;
+	did_val_t destid;
 	did_sz_t size;
 
 	struct int_cfg_ep ep;
@@ -1251,9 +1251,6 @@ int cfg_parse_file(char *cfg_fn, char **dd_mtx_fn, char **dd_fn,
 
 	cfg_fd = NULL;
 
-	*m_did = cfg->mast_devid;
-	*m_cm_port = cfg->mast_cm_port;
-	*m_mode = !(CFG_SLAVE == cfg->mast_idx);
 	if (cfg->dd_mtx_fn && strlen(cfg->dd_mtx_fn))
 		if (update_string(dd_mtx_fn, cfg->dd_mtx_fn,
 				strlen(cfg->dd_mtx_fn))) {
@@ -1285,9 +1282,9 @@ int cfg_parse_file(char *cfg_fn, char **dd_mtx_fn, char **dd_fn,
 							continue;
 						}
 
-						devid = (did_val_t)port.devids[k].devid;
-						if (devid) {
-							if (ct_create_from_data(&ct, &did, nr, devid, size)) {
+						destid = port.devids[k].destid;
+						if (destid) {
+							if (ct_create_from_data(&ct, &did, nr, destid, size)) {
 								goto fail;
 							}
 						}
@@ -1308,11 +1305,22 @@ int cfg_parse_file(char *cfg_fn, char **dd_mtx_fn, char **dd_fn,
 			if (did_size_from_int(&size, sw.did_sz)) {
 				continue;
 			}
-			if (ct_create_from_data(&ct, &did, nr, (did_val_t)sw.did, size)) {
+			if (ct_create_from_data(&ct, &did, nr, sw.destid, size)) {
 				goto fail;
 			}
 		}
 	}
+
+	// update parameters
+	if (CFG_SLAVE == cfg->mast_idx) {
+		did_size_from_int(&size, cfg->mast_did_sz);
+		*m_did = (did_t){cfg->mast_destid, size};
+	} else {
+		did_from_value(m_did, cfg->mast_destid, cfg->mast_did_sz);
+	}
+	*m_cm_port = cfg->mast_cm_port;
+	*m_mode = !(CFG_SLAVE == cfg->mast_idx);
+
 	return 0;
 fail:
 	return 1;
@@ -1405,7 +1413,7 @@ static int fill_in_dev_from_ep(struct cfg_dev *dev, struct int_cfg_ep *ep)
 	dev->is_sw = 0;
 	dev->ct = ep->ports[0].ct;
 	dev->hc = ep->ports[0].devids[CFG_DEV08].hc;
-	dev->did = ep->ports[0].devids[CFG_DEV08].devid;
+	dev->destid = ep->ports[0].devids[CFG_DEV08].destid;
 	dev->ep_pt.valid = 1;
 	dev->ep_pt.port = 0;
 	dev->ep_pt.max_pw = ep->ports[0].rio.max_pw;
@@ -1430,8 +1438,8 @@ static int fill_in_dev_from_sw(struct cfg_dev *dev, struct int_cfg_sw *sw)
 	dev->name = sw->name;
 	dev->dev_type = sw->dev_type;
 	dev->port_cnt = CFG_MAX_SW_PORT;
-	dev->did_sz = CFG_DEV08;
-	dev->did = sw->did;
+	dev->did_sz = sw->did_sz;
+	dev->destid = sw->destid;
 	dev->hc = sw->hc;
 	dev->ct = sw->ct;
 	dev->is_sw = 1;

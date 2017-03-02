@@ -131,8 +131,8 @@ typedef uint8_t pe_port_t;
 
 struct mport_regs {
 	uint32_t memaddr_sz; // RIO_PE_LL_CTL
-	uint32_t host_destID; // 
-	uint32_t my_destID; // RIO_DEVID
+	did_val_t host_destid; //
+	did_val_t my_destid; // RIO_DEVID
 	ct_t comptag; // RIO_COMP_TAG
 	uint32_t disc; // RIO_SP_GEN_CTL
 	uint32_t p_err_stat; // RIO_SPX_ERR_STAT

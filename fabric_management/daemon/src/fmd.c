@@ -228,7 +228,7 @@ void spawn_threads(struct fmd_opt_vals *cfg)
 		CRIT(THREAD_FAIL, ret);
 		exit(EXIT_FAILURE);
 	}
-	ret = start_peer_mgmt(cfg->mast_cm_port, 0, cfg->mast_devid,
+	ret = start_peer_mgmt(cfg->mast_cm_port, 0, cfg->mast_did,
 			cfg->mast_mode);
 	if (ret) {
 		CRIT(THREAD_FAIL, ret);
@@ -418,7 +418,7 @@ int setup_mport_master(int mport)
 	}
 
 	if ((COMPTAG_UNSET == comptag) && cfg_auto()) {
-		if (did_create_from_data(&did, mp.devids[CFG_DEV08].devid,
+		if (did_create_from_data(&did, mp.devids[CFG_DEV08].destid,
 				dev08_sz)) {
 			CRIT("\nCannot create dev08 did 0x%d, exiting...\n");
 			return 1;
@@ -476,8 +476,8 @@ int slave_get_ct_and_name(int mport, ct_t *comptag, char *dev_name)
 		*comptag = regs.comptag;
 		memset(dev_name, 0, FMD_MAX_DEV_FN);
 		snprintf(dev_name, FMD_MAX_DEV_FN, "LOCAL_MP%d", mp_num);
-		fmd->opts->mast_devid = GET_DEV8_FROM_PW_TGT_HW(
-				regs.host_destID);
+		did_from_value(&fmd->opts->mast_did, GET_DEV8_FROM_PW_TGT_HW(
+				regs.host_destid), FMD_DEV08);
 		fmd->opts->mast_cm_port = regs.scratch_cm_sock;
 		return 0;
 	}
@@ -489,6 +489,7 @@ int setup_mport_slave(int mport)
 {
 	int rc, ret;
 	ct_t comptag;
+	did_val_t destid;
 	char mast_dev_fn[FMD_MAX_DEV_FN] = {0};
 	struct mpsw_drv_private_data *p_dat = NULL;
 	struct mpsw_drv_pe_acc_info *acc_p = NULL;
@@ -535,10 +536,10 @@ int setup_mport_slave(int mport)
 		if (access(mast_dev_fn, F_OK) != -1) {
 			rc = 0;
 		} else {
-			rc = riomp_mgmt_device_add(acc_p->maint,
-					(uint16_t)fmd->opts->mast_devid,
-					HC_MP, fmd->opts->mast_devid,
-					FMD_SLAVE_MASTER_NAME);
+			destid = did_get_value(fmd->opts->mast_did);
+			rc = riomp_mgmt_device_add(acc_p->maint, destid,
+			HC_MP, destid,
+			FMD_SLAVE_MASTER_NAME);
 		}
 		if (rc) {
 			CRIT("\nFMD Master inaccessible, wait & try again\n");
@@ -579,12 +580,15 @@ fail:
 int fmd_dd_update(riocp_pe_handle mp_h, struct fmd_dd *dd,
 		struct fmd_dd_mtx *dd_mtx)
 {
+	did_t did;
+
 	if (NULL == mp_h) {
 		WARN("\nMaster port is NULL, device directory not updated\n");
 		goto fail;
 	}
 
-	add_device_to_dd(mp_h->comptag, mp_h->destid, FMD_DEV08, mp_h->hopcount,
+	did_from_value(&did, mp_h->destid, FMD_DEV08);
+	add_device_to_dd(mp_h->comptag, did, mp_h->hopcount,
 			1, FMDD_FLAG_OK_MP, (char *)mp_h->sysfs_name);
 
 	fmd_dd_incr_chg_idx(dd, 1);
@@ -629,7 +633,7 @@ int main(int argc, char *argv[])
 	// Parse the configuration file, continue no matter what
 	// errors are found.
 	cfg_parse_file(opts->fmd_cfg, &fmd->dd_mtx_fn, &fmd->dd_fn,
-			&fmd->opts->mast_devid, &fmd->opts->mast_cm_port,
+			&fmd->opts->mast_did, &fmd->opts->mast_cm_port,
 			&fmd->opts->mast_mode);
 
 	if (fmd_dd_init(opts->dd_mtx_fn, &fmd->dd_mtx_fd, &fmd->dd_mtx,
