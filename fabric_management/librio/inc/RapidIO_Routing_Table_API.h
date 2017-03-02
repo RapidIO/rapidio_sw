@@ -50,9 +50,6 @@ extern "C" {
 // - Input and output parameter structures for each routine
 // - List of routines for routing table support
 
-#define RIO_LAST_DEV8_DESTID  0xFF
-#define RIO_LAST_DEV16_DESTID 0xFFFF
-
 typedef enum { tt_dev8, tt_dev16 } tt_t;
 
 typedef enum rio_rt_disc_reason_t_TAG

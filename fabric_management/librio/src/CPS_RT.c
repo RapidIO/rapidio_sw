@@ -41,6 +41,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "CPS_DeviceDriver.h"
 #include "CPS1848.h"
 #include "CPS1616.h"
+#include "rio_standard.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -1005,8 +1006,8 @@ uint32_t CPS_rio_rt_change_mc_mask(DAR_DEV_INFO_t *dev_info,
 
 	// Check destination ID value against tt, and that the multicast mask
 	// does not select ports which do not exist on the CPS device.
-	if ((in_parms->mc_info.mc_destID > RIO_LAST_DEV16_DESTID)
-			|| ((in_parms->mc_info.mc_destID > RIO_LAST_DEV8_DESTID)
+	if ((in_parms->mc_info.mc_destID > RIO_LAST_DEV16)
+			|| ((in_parms->mc_info.mc_destID > RIO_LAST_DEV8)
 					&& (tt_dev8 == in_parms->mc_info.tt))
 			|| (in_parms->mc_info.mc_mask & illegal_ports)) {
 		out_parms->imp_rc = CHANGE_MC_MASK(2);

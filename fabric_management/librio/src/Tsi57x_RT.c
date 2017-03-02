@@ -42,6 +42,7 @@
 #include "Tsi57x_DeviceDriver.h"
 #include "Tsi578.h"
 #include "DSF_DB_Private.h"
+#include "rio_standard.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -925,8 +926,8 @@ uint32_t tsi57x_rio_rt_change_mc_mask(DAR_DEV_INFO_t *dev_info,
 
 	// Check destination ID value against tt, and that the multicast mask
 	// does not select ports which do not exist on the Tsi57x device.
-	if ((in_parms->mc_info.mc_destID > RIO_LAST_DEV16_DESTID)
-			|| ((in_parms->mc_info.mc_destID > RIO_LAST_DEV8_DESTID)
+	if ((in_parms->mc_info.mc_destID > RIO_LAST_DEV16)
+			|| ((in_parms->mc_info.mc_destID > RIO_LAST_DEV8)
 					&& (tt_dev8 == in_parms->mc_info.tt))
 			|| (in_parms->mc_info.mc_mask & illegal_ports)) {
 		out_parms->imp_rc = CHANGE_MC_MASK(2);
