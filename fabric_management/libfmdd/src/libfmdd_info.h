@@ -64,39 +64,38 @@ extern "C" {
 #endif
 
 struct fml_globals {
-        int portno;     /* FMD port number to connect to */
-        int init_ok;    /* Equal to portno when initialization is successful */
-	char app_name[MAX_APP_NAME+1];
-	uint8_t flag;   /* Flag for this app. FMDD_NO_FLAG means what is says */
+	int portno; /* FMD port number to connect to */
+	int init_ok; /* Equal to portno when initialization is successful */
+	char app_name[MAX_APP_NAME + 1];
+	uint8_t flag; /* Flag for this app. FMDD_NO_FLAG means what is says */
 
-        struct sockaddr_un addr; /* FMD Linux socket address */
-        int addr_sz;    /* size of addr */
-        int fd;         /* Connection to FMD */
+	struct sockaddr_un addr; /* FMD Linux socket address */
+	int addr_sz; /* size of addr */
+	int fd; /* Connection to FMD */
 
 	struct libfmd_dmn_app_msg req;
 	struct libfmd_dmn_app_msg resp;
 
-	char   dd_fn[MAX_DD_FN_SZ+1];
-	char   dd_mtx_fn[MAX_DD_MTX_FN_SZ+1];
+	char dd_fn[MAX_DD_FN_SZ + 1];
+	char dd_mtx_fn[MAX_DD_MTX_FN_SZ + 1];
 	int dd_fd;
 	int dd_mtx_fd;
 	struct fmd_dd *dd;
 	struct fmd_dd_mtx *dd_mtx;
 
-        int all_must_die; /* When non-zero, all threads exit immediately */
-                        /* FMD must cleanup */
+	int all_must_die; /* When non-zero, all threads exit immediately */
+	/* FMD must cleanup */
 
 	int app_idx;
-        pthread_t mon_thr;  /* Thread for monitoring DD */
+	pthread_t mon_thr; /* Thread for monitoring DD */
 	sem_t mon_started;
 	int mon_must_die;
 	int mon_alive;
 
 	uint32_t num_devs;
-	struct fmd_dd_dev_info devs[FMD_MAX_DEVS+1];
-	uint8_t devid_status[FMD_MAX_DEVID+1];
+	struct fmd_dd_dev_info devs[FMD_MAX_DEVS + 1];
+	uint8_t devid_status[FMD_MAX_DEVID + 1];
 
-	
 	sem_t pend_waits_mtx;
 	struct l_head_t pend_waits;
 };

@@ -112,7 +112,6 @@ struct fmd_opt_vals *fmd_parse_options(int argc, char *argv[])
 	opts->log_level = FMD_DFLT_LOG_LEVEL;
 	opts->mast_mode = 0;
 	opts->mast_interval = FMD_DFLT_MAST_INTERVAL;
-	// INFW - BEW - not creating this did
 	opts->mast_did = (did_t){FMD_DFLT_MAST_DEVID, dev08_sz};
 	opts->mast_cm_port = FMD_DFLT_MAST_CM_PORT;
 
