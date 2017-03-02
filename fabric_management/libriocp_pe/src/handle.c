@@ -839,7 +839,7 @@ int RIOCP_WU riocp_pe_find_comptag(riocp_pe_handle mport, ct_t comptag,
 	}
 
 	// If the component tag is not in use, it will not be found.
-	if (!ct_not_inuse(comptag, dev08_sz)) {
+	if (!ct_not_inuse(comptag)) {
 		goto found;
 	}
 
