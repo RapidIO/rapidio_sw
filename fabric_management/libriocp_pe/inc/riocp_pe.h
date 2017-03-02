@@ -97,7 +97,7 @@ struct riocp_pe_port {
  * Device Driver Functions
  */
 
-#define ALL_PE_PORTS ((uint8_t)(0xFF))
+#define RIOCP_PE_ALL_PE_PORTS ((uint8_t)(0xFF))
 
 typedef uint32_t pe_rt_val;
 #define RT_VAL_FIRST_PORT	((pe_rt_val)(0x00000000))

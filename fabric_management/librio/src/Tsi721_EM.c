@@ -781,16 +781,13 @@ static uint32_t tsi721_set_event_cfg_rio_em_d_log(
 			*imp_rc = EM_CFG_SET(0x43);
 			goto fail;
 		}
-		// INFW - BEW - setting rc
 		rc = tsi721_localog_set_notifn(regs, nfn);
 		break;
 	case rio_em_detect_off:
 		regs->local_err_en &= ~mask;
-		// INFW - BEW - setting rc
 		rc = tsi721_localog_set_notifn(regs, rio_em_notfn_none);
 		break;
 	case rio_em_detect_0delta:
-		// INFW - BEW - setting rc - no call?
 		rc = RIO_SUCCESS;
 		break;
 	default:

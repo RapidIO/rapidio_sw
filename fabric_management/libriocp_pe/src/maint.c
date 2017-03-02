@@ -70,7 +70,7 @@ int riocp_pe_maint_set_anyid_route(struct riocp_pe *pe)
 			goto err;
 		}
 
-		ret = riocp_drv_set_route_entry(ith_pe, ALL_PE_PORTS, ANY_ID,
+		ret = riocp_drv_set_route_entry(ith_pe, RIOCP_PE_ALL_PE_PORTS, ANY_ID,
 			pe->address[i]);
 
 		RIOCP_TRACE("switch[hop: %d] ANY_ID -> port %d programmed\n",
@@ -119,7 +119,7 @@ int RIOCP_WU riocp_pe_maint_set_route(struct riocp_pe *pe, did_t did, pe_port_t 
 
 	/* Write did.value route */
 	for (i = 0; i < pe->hopcount; i++) {
-		ret = riocp_drv_set_route_entry(ith_pe, ALL_PE_PORTS, did.value,
+		ret = riocp_drv_set_route_entry(ith_pe, RIOCP_PE_ALL_PE_PORTS, did.value,
 			pe->address[i]);
 		if (ret) {
 			goto err;
@@ -132,7 +132,7 @@ int RIOCP_WU riocp_pe_maint_set_route(struct riocp_pe *pe, did_t did, pe_port_t 
 		}
 	}
 
-	ret = riocp_drv_set_route_entry(pe, ALL_PE_PORTS, did.value, pnum);
+	ret = riocp_drv_set_route_entry(pe, RIOCP_PE_ALL_PE_PORTS, did.value, pnum);
 	if (ret) {
 		goto err;
 	}

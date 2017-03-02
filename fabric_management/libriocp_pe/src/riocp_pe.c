@@ -21,9 +21,10 @@
 #include <fcntl.h>
 #include <dirent.h>
 
+#include "rio_route.h"
 #include "rio_ecosystem.h"
 #include "rio_standard.h"
-#include "did.h"
+#include "lock.h"
 #include "riocp_pe.h"
 #include "riocp_pe_internal.h"
 
@@ -34,7 +35,7 @@
 #include "driver.h"
 #include "liblog.h"
 
-#include <rapidio_mport_mgmt.h>
+#include "rapidio_mport_mgmt.h"
 
 #ifdef __cplusplus
 extern "C" {
