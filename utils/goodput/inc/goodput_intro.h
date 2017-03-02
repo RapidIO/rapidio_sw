@@ -84,10 +84,10 @@
  *
  * All results are found on the MAST node, in the
  * goodput/logs/mport{MAST_MPNUM} directory.
- * This directory contains the following after a successful test:
+ * This directory contains the following after a successfull test:
  * - label.res    : Information about regression parameters,
  *                  platform hardware, and execution time
- * - all_thru.res : Summary of all throughput measurementa, as described in
+ * - all_thru.res : Summary of all throughput measurement, as described in
  *                  \ref thru_sum_res.
  * - all_lat.res  : Summary of all latency measurements, as described in
  *                  \ref thru_sum_res.

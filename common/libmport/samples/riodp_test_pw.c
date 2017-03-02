@@ -116,7 +116,7 @@ static void db_sig_handler(int signum)
  * \param[in] low  Low boundary of masked CT range
  * \param[in] high Upper boundary of masked CT range
  *
- * \return 0 if successful or error code returned by mport API.
+ * \return 0 if successfull or error code returned by mport API.
  *
  * Performs the following steps:
  */

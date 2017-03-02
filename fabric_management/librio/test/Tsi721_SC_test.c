@@ -834,7 +834,7 @@ static void tsi721_read_dev_ctrs_test(void **state)
 						tsi721_dev_ctrs[idx].os, data));
 	}
 
-	// Check for successful reads...
+	// Check for successfull reads...
 	assert_int_equal(RIO_SUCCESS,
 			tsi721_rio_sc_read_ctrs(&mock_dev_info, &mock_sc_in,
 					&mock_sc_out));
@@ -877,7 +877,7 @@ static void tsi721_read_dev_ctrs_test(void **state)
 						tsi721_dev_ctrs[idx].os, data));
 	}
 
-	// Check for successful reads...
+	// Check for successfull reads...
 	assert_int_equal(RIO_SUCCESS,
 			tsi721_rio_sc_read_ctrs(&mock_dev_info, &mock_sc_in,
 					&mock_sc_out));

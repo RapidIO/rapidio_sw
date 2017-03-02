@@ -65,7 +65,7 @@ extern "C" {
 
 struct fml_globals {
 	int portno; /* FMD port number to connect to */
-	int init_ok; /* Equal to portno when initialization is successful */
+	int init_ok; /* Equal to portno when initialization is successfull */
 	char app_name[MAX_APP_NAME + 1];
 	uint8_t flag; /* Flag for this app. FMDD_NO_FLAG means what is says */
 

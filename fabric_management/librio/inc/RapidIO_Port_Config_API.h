@@ -388,7 +388,7 @@ typedef struct rio_pc_clr_errs_in_t_TAG {
 	// Port on this device which should have its input-err stop, output-err
 	// stop and port_err error conditions cleared. RIO_ALL_PORTS is an
 	// illegal value for this field. The port MUST have PORT_OK status for
-	// this routine to be successful.  If the port does not have PORT_OK
+	// this routine to be successfull.  If the port does not have PORT_OK
 	// status, then the port may be reset to clear errors.
 	uint8_t port_num;
 

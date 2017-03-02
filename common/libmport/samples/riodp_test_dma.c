@@ -373,7 +373,7 @@ void dmatest_buf_free(riomp_mport_t mport_hnd, void *buf, uint32_t size,
  * \param[in] loc_addr Physical address in reserved memory range
  * \param[in] verify Flag to enable/disable data verification on exit
  *
- * \return 0 if successful or error code returned by mport API.
+ * \return 0 if successfull or error code returned by mport API.
  *
  * Performs the following steps:
  *
@@ -458,7 +458,7 @@ static void *dma_async_wait(void *arg)
  * \param[in] sync DMA transfer synchronization mode
  * \param[in] loc_addr Physical address in reserved memory range
  *
- * \return 0 if successful or error code returned by mport API.
+ * \return 0 if successfull or error code returned by mport API.
  *
  * Performs the following steps:
  */
