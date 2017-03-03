@@ -197,7 +197,7 @@
  * and other switch and endpoint configuration details on startup.  The 
  * slave Fabric Management Daemons use Channelized Messaging (rio_cm kernel
  * module) to connect to the Master Fabric Management Daemons.  Once this
- * connection is successful, the slave Fabric Management Daemons are informed 
+ * connection is successfull, the slave Fabric Management Daemons are informed 
  * of changes in the system. 
  *
  * The Slave Fabric Management Daemons will not allow applications to connect

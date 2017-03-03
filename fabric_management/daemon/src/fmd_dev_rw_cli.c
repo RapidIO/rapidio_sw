@@ -569,7 +569,7 @@ int CLIRegWriteNoReadbackCmd(struct cli_env *env, int argc, char **argv)
 		failedWrite(env, address, data, rc);
 		goto exit;
 	} else {
-		LOGMSG(env, "\nWrite successful\n");
+		LOGMSG(env, "\nWrite successfull\n");
 	}
 exit:
 	return errorStat;

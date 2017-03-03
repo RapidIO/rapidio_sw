@@ -2349,7 +2349,7 @@ static void tsi721_rio_em_create_events_success_test(void **state)
 	(void)state;
 }
 
-// Test that events which should be ignored are successful.
+// Test that events which should be ignored are successfull.
 
 static void tsi721_rio_em_create_ignored_events_test(void **state)
 {

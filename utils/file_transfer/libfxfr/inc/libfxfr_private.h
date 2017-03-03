@@ -77,7 +77,7 @@ struct buffer_info {
         pthread_t xfer_thread; /* The thread handling this window */
         sem_t req_avail; /* server kicks this when new request comes in
                               * for this thread to process. */
-        riomp_sock_t *req_skt; /* Socket from successfule connect request */
+        riomp_sock_t *req_skt; /* Socket from successfull connect request */
         char file_name[MAX_FILE_NAME+1]; /* Name of local file */
         int fd; /* File descriptor for received file */
         volatile uint8_t completed; /* 0 - currently processing request.

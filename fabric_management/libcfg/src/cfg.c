@@ -1076,7 +1076,7 @@ static int parse_switch(struct int_cfg_parms *cfg)
 			// klocwork sees rt as null, but...
 			// rt is set whenever ROUTING_TABLE option (above) is hit
 			//
-			// That option, if successful, will set
+			// That option, if successfull, will set
 			// cfg->sws[i].rt_valid[rt_sz] = true; or
 			// cfg->sws[i].ports[port].rt_valid[rt_sz] = true;
 			//

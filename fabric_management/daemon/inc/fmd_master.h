@@ -60,13 +60,13 @@ struct fmd_peer {
 	struct l_item_t *li; /* Position of this peer in the fmp.peers list */
 
 	pthread_t rx_thr; /* Thread listening for responses */
-	sem_t started; /* Wait in ths sema to ensure thread starts */
+	sem_t started; /* Wait in this sema to ensure thread starts */
 	int got_hello; /* 0 until received hello request */
 	int rx_alive; /* 1 - RX thread is alive, 0 - RX thread is dead */
 			/* Not 1 until hello response is received */
 	sem_t init_cplt_mtx;
 	int init_cplt; /* 1 - initial set of messages sent to peer */
-	int restart_init; /* 1 - Additions/deletions occurrd during init */
+	int restart_init; /* 1 - Additions/deletions occurred during init */
 	int rx_must_die; /* 1 - RX thread should die */
 
 	int tx_buff_used;

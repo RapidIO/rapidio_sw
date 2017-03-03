@@ -2233,7 +2233,7 @@ uint32_t tsi57x_rio_em_get_pw_stat(DAR_DEV_INFO_t *dev_info,
 	if ((RIO_ALL_PORTS != in_parms->pw_port_num)
 			&& (!out_parms->too_many)) {
 		// Recursively request events for the last port.
-		// Note that if successful, this will detect a logical layer error.
+		// Note that if successfull, this will detect a logical layer error.
 		rio_em_get_pw_stat_in_t last_in_parms;
 		rio_em_get_pw_stat_out_t last_out_parms;
 
