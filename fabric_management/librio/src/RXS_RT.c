@@ -452,7 +452,7 @@ static void rxs_check_multicast_routing(DAR_DEV_INFO_t *dev_info,
 		rio_rt_probe_in_t *in_parms, rio_rt_probe_out_t *out_parms,
 		pe_rt_val rte)
 {
-	uint32_t mc_idx = RIO_RTV_GET_MC_MSK(rte);
+	uint32_t mc_idx;
 	uint32_t bit, set_cnt = 0;
 	uint32_t legal_ports = (1 << NUM_RXS_PORTS(dev_info)) - 1;
 	rio_rt_mc_info_t *mc;
@@ -463,7 +463,6 @@ static void rxs_check_multicast_routing(DAR_DEV_INFO_t *dev_info,
 		out_parms->reason_for_discard = rio_rt_disc_mc_mult_masks;
 		return;
 	}
-
 	mc = &in_parms->rt->mc_masks[mc_idx];
 
 	// If mask is invalid, we're done...
@@ -490,6 +489,7 @@ static void rxs_check_multicast_routing(DAR_DEV_INFO_t *dev_info,
 		}
 		out_parms->mcast_ports[bit] = (1 << bit) & (mc->mc_mask);
 	}
+
 	// Mask was not zero, but no bits are set.  This indicates the
 	// was only one bit set, for the probed port.  Since a packet cannot
 	// be multicast out the port it was received on, the mask is
