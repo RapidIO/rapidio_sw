@@ -64,8 +64,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <netinet/tcp.h>
 #include <pthread.h>
 
-#include <rapidio_mport_mgmt.h>#include <rapidio_mport_rdma.h>#include <rapidio_mport_sock.h>
-
+#include "rapidio_mport_mgmt.h"
+#include "rapidio_mport_sock.h"
 #include "libcli.h"
 #include "fmd_app_msg.h"
 
