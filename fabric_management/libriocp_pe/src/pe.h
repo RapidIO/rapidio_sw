@@ -44,11 +44,6 @@ int RIOCP_WU riocp_pe_add_peer(struct riocp_pe *pe, struct riocp_pe *peer,
 		uint8_t pe_port, uint8_t peer_port);
 int RIOCP_WU riocp_pe_remove_peer(struct riocp_pe *pe, uint8_t port);
 
-int RIOCP_WU riocp_pe_lock_read(struct riocp_pe *mport, uint32_t destid, hc_t hopcount, uint32_t *lock);
-int RIOCP_WU riocp_pe_lock_write(struct riocp_pe *mport, uint32_t destid, hc_t hopcount, uint32_t lock);
-int RIOCP_WU riocp_pe_lock_set(struct riocp_pe *mport, uint32_t destid, hc_t hopcount);
-int RIOCP_WU riocp_pe_lock_clear(struct riocp_pe *mport, uint32_t destid, hc_t hopcount);
-
 int RIOCP_WU riocp_pe_probe_prepare(struct riocp_pe *pe, uint8_t port);
 int RIOCP_WU riocp_pe_probe_verify_found(struct riocp_pe *pe, uint8_t port, struct riocp_pe *peer);
 int RIOCP_WU riocp_pe_probe_initialize_peer(struct riocp_pe *peer);

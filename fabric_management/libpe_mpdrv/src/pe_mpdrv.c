@@ -1136,7 +1136,7 @@ int RIOCP_WU mpsw_get_mport_regs(int mp_num, struct mport_regs *regs)
 		goto close;
 	}
 
-	if (riomp_mgmt_lcfg_read(mp_h, RIO_DEVID, 4, &regs->my_destID)) {
+	if (riomp_mgmt_lcfg_read(mp_h, RIO_DEVID, 4, &regs->my_destid)) {
 		goto close;
 	}
 
@@ -1150,7 +1150,7 @@ int RIOCP_WU mpsw_get_mport_regs(int mp_num, struct mport_regs *regs)
 	// For now, works with Tsi721.
 
 	if (riomp_mgmt_lcfg_read(mp_h, TSI721_PW_TGT_ID, 4,
-			&regs->host_destID)) {
+			&regs->host_destid)) {
 		goto close;
 	}
 

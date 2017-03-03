@@ -55,11 +55,12 @@ int ct_create_from_data(ct_t *ct, did_t *did, ct_nr_t nr,
 		did_val_t value, did_sz_t size);
 int ct_create_from_nr_and_did(ct_t *ct, ct_nr_t nr, did_t did);
 int ct_create_from_did(ct_t *ct, did_t did);
+int ct_from_value(ct_t *ct, uint32_t ct_val);
 int ct_release(ct_t ct, did_t did);
 
 int ct_get_nr(ct_nr_t *nr, ct_t ct);
-int ct_get_destid(did_t *did, ct_t ct, did_sz_t size);
-int ct_not_inuse(ct_t ct, did_sz_t size);
+int ct_get_destid(did_t *did, ct_t ct);
+int ct_not_inuse(ct_t ct);
 
 #ifdef __cplusplus
 }

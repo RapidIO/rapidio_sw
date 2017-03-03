@@ -421,7 +421,7 @@ err:
 }
 
 /**
- * Create mport handle with minfo field and initialized maintainance access
+ * Create mport handle with minfo field and initialized maintenance access
  * @param mport   Mport device number
  * @param is_host Create host or agent mport handle
  * @param handle  Handle created for mport
@@ -839,7 +839,7 @@ int RIOCP_WU riocp_pe_find_comptag(riocp_pe_handle mport, ct_t comptag,
 	}
 
 	// If the component tag is not in use, it will not be found.
-	if (!ct_not_inuse(comptag, dev08_sz)) {
+	if (!ct_not_inuse(comptag)) {
 		goto found;
 	}
 

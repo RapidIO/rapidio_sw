@@ -101,8 +101,8 @@ struct app_mgmt_globals {
 	struct fmd_app_mgmt_state apps[FMD_MAX_APPS];
 };
 
-int start_fmd_app_handler(uint32_t port, uint32_t backlog,
-			char *dd_fn, char *dd_mtx_fn);
+int start_fmd_app_handler(uint32_t port, uint32_t backlog, char *dd_fn,
+		char *dd_mtx_fn);
 
 void halt_app_handler(void);
 

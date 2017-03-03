@@ -119,8 +119,7 @@ int fmd_dd_open_rw(char *dd_fn, int *dd_fd, struct fmd_dd **dd,
 	(*dd)->loc_mp_idx = FMD_MAX_DEVS;
 	for (idx = 0; idx < FMD_MAX_DEVS; idx++) {
 		(*dd)->devs[idx].ct = 0;
-		(*dd)->devs[idx].destID = 0;
-		(*dd)->devs[idx].destID_sz = FMD_DEV08;
+		(*dd)->devs[idx].did = (did_t){0, dev08_sz};
 		(*dd)->devs[idx].hc = HC_MP;
 		(*dd)->devs[idx].is_mast_pt = 0;
 		(*dd)->devs[idx].flag = FMDD_NO_FLAG;

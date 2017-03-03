@@ -63,6 +63,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "string_util.h"
 #include "rio_route.h"
+#include "did.h"
 #include "libcli.h"
 #include "fmd.h"
 #include "cfg.h"
@@ -81,12 +82,17 @@ struct fmd_mgmt fmp;
 void send_m2s_flag_update(struct fmd_peer *peer, struct fmd_dd_dev_info *dev)
 {
 	uint8_t flag;
+	did_val_t peer_did_val;
+	did_val_t dev_did_val;
+	uint32_t dev_did_sz;
 
 	sem_wait(&peer->tx_mtx);
 	peer->m2s->msg_type = htonl(FMD_P_REQ_FSET);
-	peer->m2s->dest_did = htonl(peer->p_did);
-	peer->m2s->fset.did = htonl(dev->destID);
-	peer->m2s->fset.did_sz = htonl(dev->destID_sz);
+	peer_did_val = did_get_value(peer->p_did);
+	peer->m2s->dest_did_val = htonl(peer_did_val);
+	did_to_value(dev->did, &dev_did_val, &dev_did_sz);
+	peer->m2s->fset.did_val = htonl(dev_did_val);
+	peer->m2s->fset.did_sz = htonl(dev_did_sz);
 	peer->m2s->fset.ct = htonl(dev->ct);
 	flag = dev->flag;
 
@@ -96,7 +102,7 @@ void send_m2s_flag_update(struct fmd_peer *peer, struct fmd_dd_dev_info *dev)
 	peer->m2s->fset.flag = htonl(flag);
 
 	INFO("TX M2S FLAG UPDATE to did 0x%x for did 0x%x flag 0x%x\n",
-		peer->p_did, dev->destID, flag);
+			peer_did_val, dev_did_val, flag);
 
 	peer->tx_buff_used = 1;
 	peer->tx_rc = riomp_sock_send(peer->cm_skt_h,
@@ -115,15 +121,20 @@ void send_m2s_flag_update(struct fmd_peer *peer, struct fmd_dd_dev_info *dev)
 void send_add_dev_msg(struct fmd_peer *peer, struct fmd_dd_dev_info *dev)
 {
 	uint8_t flag;
+	did_val_t peer_did_val;
+	did_val_t dev_did_val;
+	uint32_t dev_did_sz;
 
 	sem_wait(&peer->tx_mtx);
  	flag = (dev->flag & ~FMDD_FLAG_OK_MP) | FMDD_FLAG_OK;
 
 	peer->m2s->msg_type = htonl(FMD_P_REQ_MOD);
-	peer->m2s->dest_did = htonl(peer->p_did);
+	peer_did_val = did_get_value(peer->p_did);
+	peer->m2s->dest_did_val = htonl(peer_did_val);
 	peer->m2s->mod_rq.op = htonl(FMD_P_OP_ADD);
-	peer->m2s->mod_rq.did = htonl(dev->destID);
-	peer->m2s->mod_rq.did_sz = htonl(dev->destID_sz);
+	did_to_value(dev->did, &dev_did_val, &dev_did_sz);
+	peer->m2s->mod_rq.did_val = htonl(dev_did_val);
+	peer->m2s->mod_rq.did_sz = htonl(dev_did_sz);
 	peer->m2s->mod_rq.hc_long = htonl(HC_MP);
 	peer->m2s->mod_rq.ct = htonl(dev->ct);
 	peer->m2s->mod_rq.is_mp = 0;
@@ -132,7 +143,7 @@ void send_add_dev_msg(struct fmd_peer *peer, struct fmd_dd_dev_info *dev)
 		SAFE_STRNCPY(peer->m2s->mod_rq.name, FMD_SLAVE_MASTER_NAME, 
 			sizeof(peer->m2s->mod_rq.name));
 	} else {
-		if (dev->destID == peer->p_did) {
+		if (did_equal(dev->did, peer->p_did)) {
 			SAFE_STRNCPY(peer->m2s->mod_rq.name, FMD_SLAVE_MPORT_NAME,
 				sizeof(peer->m2s->mod_rq.name));
 			peer->m2s->mod_rq.is_mp = htonl(1);
@@ -142,8 +153,8 @@ void send_add_dev_msg(struct fmd_peer *peer, struct fmd_dd_dev_info *dev)
 			struct fmd_peer *t_peer;
 
 			sem_wait(&fmp.peers_mtx);
-			t_peer = (struct fmd_peer *)
-				l_find(&fmp.peers, dev->destID, &li);
+			t_peer = (struct fmd_peer *)l_find(&fmp.peers,
+					dev_did_val, &li);
 			sem_post(&fmp.peers_mtx);
 
 			/* Only tell peers about other connected peers */
@@ -154,7 +165,8 @@ void send_add_dev_msg(struct fmd_peer *peer, struct fmd_dd_dev_info *dev)
 		}
 	}
 	INFO("TX ADD DEV MSG to did 0x%x Name %s Adding did 0x%x ct 0x%x\n",
-		peer->p_did, peer->m2s->mod_rq.name, dev->destID, dev->ct);
+			peer_did_val, peer->m2s->mod_rq.name, dev_did_val,
+			dev->ct);
 
 	peer->m2s->mod_rq.flag = htonl(flag);
 	peer->tx_buff_used = 1;
@@ -166,20 +178,26 @@ exit:
 
 void send_del_dev_msg(struct fmd_peer *peer, struct fmd_peer *del_peer)
 {
+	did_val_t peer_did_val;
+	did_val_t del_did_val;
+	uint32_t del_did_sz;
+
 	sem_wait(&peer->tx_mtx);
 
 	peer->m2s->msg_type = htonl(FMD_P_REQ_MOD);
-	peer->m2s->dest_did = htonl(peer->p_did);
+	peer_did_val = did_get_value(peer->p_did);
+	peer->m2s->dest_did_val = htonl(peer_did_val);
 	peer->m2s->mod_rq.op = htonl(FMD_P_OP_DEL);
-	peer->m2s->mod_rq.did = htonl(del_peer->p_did);
-	peer->m2s->mod_rq.did_sz = htonl(del_peer->p_did_sz);
+	did_to_value(del_peer->p_did, &del_did_val, &del_did_sz);
+	peer->m2s->mod_rq.did_val = htonl(del_did_val);
+	peer->m2s->mod_rq.did_sz = htonl(del_did_sz);
 	peer->m2s->mod_rq.hc_long = htonl(del_peer->p_hc);
 	peer->m2s->mod_rq.ct = htonl(del_peer->p_ct);
 	peer->m2s->mod_rq.is_mp = 0;
 	memcpy(peer->m2s->mod_rq.name, del_peer->peer_name, MAX_P_NAME+1);
 
 	INFO("TX DEL DEV MSG to did 0x%x Dropping did 0x%x ct 0x%x\n",
-		peer->p_did, del_peer->p_did, del_peer->p_ct);
+			peer->p_did, del_peer->p_did, del_peer->p_ct);
 
 	peer->m2s->mod_rq.flag = 0;
 	peer->tx_buff_used = 1;
@@ -190,10 +208,13 @@ void send_del_dev_msg(struct fmd_peer *peer, struct fmd_peer *del_peer)
 
 void update_all_peer_dd_and_flags(uint32_t add_dev)
 {
-	uint32_t src, tgt;
+	uint32_t src;
+	uint32_t tgt;
 	struct fmd_peer *t_peer = NULL;
 	struct l_item_t *li = NULL;
 	uint32_t num_devs;
+	did_val_t src_did_val;
+	did_val_t tgt_did_val;
 
 	struct fmd_dd_dev_info devs[FMD_MAX_DEVS];
 	memset(devs, 0, sizeof(devs));
@@ -203,10 +224,12 @@ void update_all_peer_dd_and_flags(uint32_t add_dev)
 		return;
 
 	for (src = 0; src < num_devs; src++) {
-		INFO("\nSRC DestID 0x%x %s\n", devs[src].destID, devs[src].name);
+		src_did_val = did_get_value(devs[src].did);
+		INFO("\nSRC DestID 0x%x %s\n", src_did_val, devs[src].name);
 		for (tgt = 0; tgt < num_devs; tgt++) {
-			INFO("    TGT DestID 0x%x %s\n",
-				devs[tgt].destID, devs[tgt].name);
+			tgt_did_val = did_get_value(devs[tgt].did);
+			INFO("    TGT DestID 0x%x %s\n", tgt_did_val,
+					devs[tgt].name);
 			if (src == tgt) {
 				// INFO("\n         Skip, SRC == TGT\n");
 				continue;
@@ -215,11 +238,12 @@ void update_all_peer_dd_and_flags(uint32_t add_dev)
 				// INFO("\n         Skip, TGT is mast port\n");
 				continue;
 			}
-			t_peer = (struct fmd_peer *) 
-				l_find(&fmp.peers, devs[tgt].destID, &li);
+			t_peer = (struct fmd_peer *)l_find(&fmp.peers,
+					tgt_did_val, &li);
 			if (NULL == t_peer) {
 				ERR("\nNo addr for %s 0x%x, can not add %s\n",
-					devs[tgt].name, devs[tgt].destID, devs[src].name);
+						devs[tgt].name, tgt_did_val,
+						devs[src].name);
 				continue;
 			}
 			if (add_dev) {
@@ -253,18 +277,20 @@ void master_process_hello_peer(struct fmd_peer *peer)
 	riocp_pe_handle peer_pe;
 	int add_to_list = 0;
 	int peer_not_found;
+	did_val_t did_val;
+	uint32_t did_sz;
 
 	INFO("Peer(%x) RX HELLO Req %s 0x%x 0x%x 0x%x 0x%x 0x%x\n",
 		peer->p_ct, peer->s2m->hello_rq.peer_name,
 		ntohl(peer->s2m->hello_rq.pid),
-		ntohl(peer->s2m->hello_rq.did),
+		ntohl(peer->s2m->hello_rq.did_val),
 		ntohl(peer->s2m->hello_rq.did_sz),
 		ntohl(peer->s2m->hello_rq.ct),
 		ntohl(peer->s2m->hello_rq.hc_long));
 
 	peer->p_pid = ntohl(peer->s2m->hello_rq.pid);
-	peer->p_did = ntohl(peer->s2m->hello_rq.did);
-	peer->p_did_sz = ntohl(peer->s2m->hello_rq.did_sz);
+	did_from_value(&peer->p_did, ntohl(peer->s2m->hello_rq.did_val),
+			ntohl(peer->s2m->hello_rq.did_sz));
 	peer->p_ct = ntohl(peer->s2m->hello_rq.ct);
 	peer->p_hc = ntohl(peer->s2m->hello_rq.hc_long);
 	SAFE_STRNCPY(peer->peer_name, peer->s2m->hello_rq.peer_name,
@@ -284,7 +310,7 @@ void master_process_hello_peer(struct fmd_peer *peer)
 		snprintf(peer->m2s->hello_rsp.peer_name, (size_t)MAX_P_NAME,
 			"%s", "REQUEST_DENIED!");
 		peer->m2s->hello_rsp.pid = htonl(0);
-		peer->m2s->hello_rsp.did = htonl(0);
+		peer->m2s->hello_rsp.did_val = htonl(0);
 		peer->m2s->hello_rsp.did_sz = htonl(0);
 		peer->m2s->hello_rsp.ct = htonl(0);
 		peer->m2s->hello_rsp.hc_long = htonl(0);
@@ -292,8 +318,9 @@ void master_process_hello_peer(struct fmd_peer *peer)
 		SAFE_STRNCPY(peer->m2s->hello_rsp.peer_name, peer_pe->sysfs_name,
 			sizeof(peer->m2s->hello_rsp.peer_name));
 		peer->m2s->hello_rsp.pid = htonl(getpid());
-		peer->m2s->hello_rsp.did = htonl(fmd->opts->mast_devid);
-		peer->m2s->hello_rsp.did_sz = htonl(fmd->opts->mast_devid_sz);
+		did_to_value(fmd->opts->mast_did, &did_val, &did_sz);
+		peer->m2s->hello_rsp.did_val = htonl(did_val);
+		peer->m2s->hello_rsp.did_sz = htonl(did_sz);
 		peer->m2s->hello_rsp.ct = htonl(peer_pe->comptag);
 		peer->m2s->hello_rsp.hc_long = htonl(0);
 		add_to_list = 1;
@@ -308,11 +335,10 @@ void master_process_hello_peer(struct fmd_peer *peer)
 		peer->rx_alive = 2;
 		peer->got_hello = 1;
 		sem_wait(&fmp.peers_mtx);
-		peer->li = l_add(&fmp.peers, peer->p_did, peer);
+		peer->li = l_add(&fmp.peers, did_get_value(peer->p_did), peer);
 		sem_post(&fmp.peers_mtx);
-		add_device_to_dd(peer->p_ct, peer->p_did, peer->p_did_sz,
-			peer->p_hc, 0, FMDD_FLAG_OK,
-			(char *)peer_pe->sysfs_name);
+		add_device_to_dd(peer->p_ct, peer->p_did, peer->p_hc, 0,
+				FMDD_FLAG_OK, (char *)peer_pe->sysfs_name);
 		HIGH("New Peer 0x%x: Updating all dd and flags\n", peer->p_ct);
 		update_all_peer_dd_and_flags(1);
 	}
@@ -320,32 +346,35 @@ void master_process_hello_peer(struct fmd_peer *peer)
 
 void master_process_flag_set(struct fmd_peer *peer)
 {
-	uint32_t did;
+	did_t did;
 	ct_t ct;
 	uint8_t flag;
 	uint32_t i;
 	int tell_peers = 0;
 
-	if ((NULL == fmd->dd) || (NULL == fmd->dd_mtx))
+	if ((NULL == fmd->dd) || (NULL == fmd->dd_mtx)) {
 		return;
+	}
 
 	INFO("Peer(0x%x) RX FLAG Set 0x%x 0x%x 0x%x\n",
-		peer->p_ct, ntohl(peer->s2m->fset.did),
+		peer->p_ct, ntohl(peer->s2m->fset.did_val),
 		ntohl(peer->s2m->fset.ct),
 		ntohl(peer->s2m->fset.flag));
 
-	did = ntohl(peer->s2m->fset.did);
+	did_from_value(&did, ntohl(peer->s2m->fset.did_val),
+			ntohl(peer->s2m->fset.did_sz));
 	ct = ntohl(peer->s2m->fset.ct);
 	flag = ntohl(peer->s2m->fset.flag);
 
-	if ((did != peer->p_did) || (ct != peer->p_ct))
+	if (!did_equal(did, peer->p_did) || (ct != peer->p_ct)) {
 		return;
+	}
 
 	sem_wait(&fmd->dd_mtx->sem);
 
 	for (i = 0; i < fmd->dd->num_devs; i++) {
-		if ((did == fmd->dd->devs[i].destID) &&
-				(ct == fmd->dd->devs[i].ct)) {
+		if (did_equal(did, fmd->dd->devs[i].did)
+				&& (ct == fmd->dd->devs[i].ct)) {
 			fmd->dd->devs[i].flag = flag;
 			tell_peers = 1;
 			break;
@@ -436,7 +465,7 @@ void *peer_rx_loop(void *p_i)
 			INFO(
 			"Peer(0x%x) RX MOD Resp 0x%x 0x%x 0x%x 0x%x 0x%x rc %d\n",
 				peer->p_ct,
-				ntohl(peer->s2m->mod_rsp.did),
+				ntohl(peer->s2m->mod_rsp.did_val),
 				ntohl(peer->s2m->mod_rsp.did_sz),
 				ntohl(peer->s2m->mod_rsp.ct),
 				ntohl(peer->s2m->mod_rsp.hc_long),
@@ -629,8 +658,8 @@ fail:
 	return 1;
 }
 
-int start_peer_mgmt(uint32_t mast_acc_skt_num, uint32_t mp_num, 
-		uint32_t mast_did, uint32_t master)
+int start_peer_mgmt(uint32_t mast_acc_skt_num, uint32_t mp_num, did_t mast_did,
+		uint32_t master)
 {
 	uint32_t rc = 0;
 

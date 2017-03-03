@@ -54,9 +54,8 @@ struct fmd_peer {
 	riomp_sock_t cm_skt_h;
 	char peer_name[MAX_P_NAME+1];
 	uint32_t p_pid;
-	uint32_t p_did;
-	uint32_t p_did_sz;
-	uint32_t p_ct;
+	did_t p_did;
+	ct_t p_ct;
 	hc_t p_hc;
 	struct l_item_t *li; /* Position of this peer in the fmp.peers list */
 
@@ -121,8 +120,8 @@ struct fmd_mgmt {
 
 extern struct fmd_mgmt fmp;
 
-int start_peer_mgmt(uint32_t mast_acc_skt_num, uint32_t mp_num,
-	uint32_t mast_did, uint32_t master);
+int start_peer_mgmt(uint32_t mast_acc_skt_num, uint32_t mp_num, did_t mast_did,
+		uint32_t master);
 
 void update_peer_flags(void);
 

@@ -57,8 +57,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <pthread.h>
-// #include "RapidIO_Routing_Table_API.h"
-// #include "RapidIO_Port_Config_API.h"
+
 #include "riocp_pe_internal.h"
 #include "fmd_dd.h"
 #include "cfg.h"

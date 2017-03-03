@@ -74,7 +74,7 @@ struct fxfr_tx_state {
 				* 1 - Abort transfer
 				*/
 	uint8_t done; 	/* 0 - Transfer continuing
-			* 1 - Transfer successful completion
+			* 1 - Transfer successfull completion
 			*/
 	uint8_t debug;
 	/* MPORT selection and data */

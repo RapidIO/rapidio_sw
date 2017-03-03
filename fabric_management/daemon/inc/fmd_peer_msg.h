@@ -40,9 +40,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include <stdint.h>
+
+#include "rio_route.h"
 #include "rio_ecosystem.h"
-#include "did.h"
-#include "ct.h"
+#include "rapidio_mport_sock.h"
 
 #define FMD_P_MSG_RESP 0x80000000
 #define FMD_P_MSG_FAIL 0x40000000
@@ -59,7 +60,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 struct fmd_p_hello {
 	char peer_name[MAX_P_NAME+1];
 	uint32_t pid; /* Process ID */
-	uint32_t did;
+	did_val_t did_val;
 	uint32_t did_sz;
 	ct_t ct;
 	union {
@@ -79,7 +80,7 @@ typedef struct fmd_p_hello fmd_m_hello_resp;
 
 struct fmd_m_peer_mod_req {
 	uint32_t op;
-	uint32_t did;
+	did_val_t did_val;
 	uint32_t did_sz;
 	union {
 		uint32_t hc_long; // Messaging alignment requires 4 bytes
@@ -92,7 +93,7 @@ struct fmd_m_peer_mod_req {
 };
 
 struct fmd_s_peer_mod_resp {
-	uint32_t did;
+	did_val_t did_val;
 	uint32_t did_sz;
 	union {
 		uint32_t hc_long; // Messaging alignment requires 4 bytes
@@ -107,7 +108,7 @@ struct fmd_s_peer_mod_resp {
 /* Note, this message is sent from master to slave and from slave to master */
 /* No response. */
 struct fmd_flag_set_req {
-	uint32_t did;
+	did_val_t did_val;
 	uint32_t did_sz;
 	ct_t ct;
 	uint32_t flag;
@@ -116,9 +117,9 @@ struct fmd_flag_set_req {
 /* Format of messages that can be sent by the Master FMD  to the Slave FMD */
 
 struct fmd_mast_to_slv_msg {
-	uint8_t unused[20];
-        uint32_t msg_type;
-	uint32_t dest_did;
+	uint8_t unused[RIO_SOCKET_RSVD_SIZE];
+	uint32_t msg_type;
+	did_val_t dest_did_val;
 	union {
 		fmd_m_hello_resp hello_rsp;
 		struct fmd_m_peer_mod_req mod_rq;
@@ -131,9 +132,9 @@ struct fmd_mast_to_slv_msg {
 #define FMD_P_M2S_CM_SZ (FMD_P_M2S_SZ+(FMD_P_M2S_SZ%8))
 
 struct fmd_slv_to_mast_msg {
-	uint8_t unused[20];
-        uint32_t msg_type;
-	uint32_t src_did;
+	uint8_t unused[RIO_SOCKET_RSVD_SIZE];
+	uint32_t msg_type;
+	did_val_t src_did_val;
 	union {
 		fmd_s_hello_req hello_rq;
 		struct fmd_s_peer_mod_resp mod_rsp;

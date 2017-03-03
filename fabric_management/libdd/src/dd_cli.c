@@ -83,7 +83,10 @@ extern struct cli_cmd CLIDDDump;
 
 int CLIDDDumpCmd(struct cli_env *env, int UNUSED(argc), char **UNUSED(argv))
 {
-	uint32_t i, found = 0;
+	uint32_t i;
+	uint32_t found = 0;
+	did_val_t did_val;
+	uint32_t did_sz;
 
 	if (NULL == cli_dd) {
 		snprintf(env->output, sizeof(env->output), "\nDevice Directory not available.\n");
@@ -100,10 +103,9 @@ int CLIDDDumpCmd(struct cli_env *env, int UNUSED(argc), char **UNUSED(argv))
 	if (cli_dd->num_devs > 0) {
 		LOGMSG(env, "Idx ---CT--- -destID- SZ HC MP FL Name\n");
 		for (i = 0; (i < cli_dd->num_devs) && (i < FMD_MAX_DEVS); i++) {
+			did_to_value(cli_dd->devs[i].did, &did_val, &did_sz);
 			LOGMSG(env, "%3d %8x %8x %2x %2x %2s %2x %30s\n", i,
-					cli_dd->devs[i].ct,
-					cli_dd->devs[i].destID,
-					cli_dd->devs[i].destID_sz,
+					cli_dd->devs[i].ct, did_val, did_sz,
 					cli_dd->devs[i].hc,
 					cli_dd->devs[i].is_mast_pt ?
 							"MP" : "..",

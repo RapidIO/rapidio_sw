@@ -5,7 +5,7 @@
  */
 /**
  * @file maint.c
- * Processing element maintainance access using librio_maint
+ * Processing element maintenance access using librio_maint
  */
 #define _XOPEN_SOURCE 500
 
@@ -70,7 +70,7 @@ int riocp_pe_maint_set_anyid_route(struct riocp_pe *pe)
 			goto err;
 		}
 
-		ret = riocp_drv_set_route_entry(ith_pe, ALL_PE_PORTS, ANY_ID,
+		ret = riocp_drv_set_route_entry(ith_pe, RIOCP_PE_ALL_PE_PORTS, ANY_ID,
 			pe->address[i]);
 
 		RIOCP_TRACE("switch[hop: %d] ANY_ID -> port %d programmed\n",
@@ -108,6 +108,7 @@ int RIOCP_WU riocp_pe_maint_set_route(struct riocp_pe *pe, did_t did, pe_port_t 
 	int32_t i;
 	int ret = 0;
 	struct riocp_pe *ith_pe = pe->mport->peers[0].peer;
+	did_val_t did_val;
 
 	if (!RIOCP_PE_IS_HOST(pe)) {
 		return 0;
@@ -117,32 +118,33 @@ int RIOCP_WU riocp_pe_maint_set_route(struct riocp_pe *pe, did_t did, pe_port_t 
 		return 0;
 	}
 
-	/* Write did.value route */
+	/* Write destid route */
+	did_val = did_get_value(did);
 	for (i = 0; i < pe->hopcount; i++) {
-		ret = riocp_drv_set_route_entry(ith_pe, ALL_PE_PORTS, did.value,
-			pe->address[i]);
+		ret = riocp_drv_set_route_entry(ith_pe, RIOCP_PE_ALL_PE_PORTS,
+				did_val, pe->address[i]);
 		if (ret) {
 			goto err;
 		}
 
 		RIOCP_TRACE("switch[hop: %d] %d -> port %d programmed\n",
-			i, did.value, pe->address[i]);
+			i, did_val, pe->address[i]);
 		if (i + 1 < pe->hopcount) {
 			ith_pe = ith_pe->peers[pe->address[i]].peer;
 		}
 	}
 
-	ret = riocp_drv_set_route_entry(pe, ALL_PE_PORTS, did.value, pnum);
+	ret = riocp_drv_set_route_entry(pe, RIOCP_PE_ALL_PE_PORTS, did_val, pnum);
 	if (ret) {
 		goto err;
 	}
 
-	RIOCP_TRACE("Programming did 0x%08x route to PE 0x%08x successfull\n", did.value, pe->comptag);
+	RIOCP_TRACE("Programming did 0x%08x route to PE 0x%08x successfull\n", did_val, pe->comptag);
 
 	return ret;
 
 err:
-	RIOCP_TRACE("Error in programming did 0x%08x route\n", did.value);
+	RIOCP_TRACE("Error in programming did 0x%08x route\n", did_val);
 	return ret;
 }
 

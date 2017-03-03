@@ -935,7 +935,7 @@ static void rxs_read_dev_ctrs_test(void **state)
 		}
 	}
 
-	// Check for successful reads...
+	// Check for successfull reads...
 	assert_int_equal(RIO_SUCCESS,
 			rxs_rio_sc_read_ctrs(&mock_dev_info, &mock_sc_in,
 					&mock_sc_out));
@@ -979,7 +979,7 @@ static void rxs_read_dev_ctrs_test(void **state)
 		}
 	}
 
-	// Check for successful reads...
+	// Check for successfull reads...
 	assert_int_equal(RIO_SUCCESS,
 			rxs_rio_sc_read_ctrs(&mock_dev_info, &mock_sc_in,
 					&mock_sc_out));
@@ -1027,7 +1027,7 @@ static void rxs_read_dev_ctrs_test(void **state)
 		}
 	}
 
-	// Check for successful reads...
+	// Check for successfull reads...
 	assert_int_equal(RIO_SUCCESS,
 			rxs_rio_sc_read_ctrs(&mock_dev_info, &mock_sc_in,
 					&mock_sc_out));

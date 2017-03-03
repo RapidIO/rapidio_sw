@@ -21,9 +21,10 @@
 #include <fcntl.h>
 #include <dirent.h>
 
+#include "rio_route.h"
 #include "rio_ecosystem.h"
 #include "rio_standard.h"
-#include "did.h"
+#include "lock.h"
 #include "riocp_pe.h"
 #include "riocp_pe_internal.h"
 
@@ -34,7 +35,7 @@
 #include "driver.h"
 #include "liblog.h"
 
-#include <rapidio_mport_mgmt.h>
+#include "rapidio_mport_mgmt.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -676,7 +677,7 @@ int RIOCP_SO_ATTR riocp_pe_probe(riocp_pe_handle pe,
                 // Note that this updates the component tag of the device
 		RIOCP_DEBUG("Peer not found on mport %u with comptag 0x%08x\n",
 			pe->mport->minfo->id, comptag);
-		ct_get_destid(&did, *comptag_in, dev08_sz);
+		ct_get_destid(&did, *comptag_in);
 		ret = riocp_pe_maint_set_route(pe, did, port);
 		if (ret) {
 			RIOCP_ERROR(

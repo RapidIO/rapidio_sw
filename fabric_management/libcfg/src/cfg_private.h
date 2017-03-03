@@ -148,7 +148,7 @@ struct int_cfg_sw {
 	char *name;
 	char *dev_type;
 	uint32_t did_sz;
-	uint32_t did;
+	did_val_t destid;
 	hc_t hc;
 	ct_t ct;
 	uint32_t traversed;
@@ -179,8 +179,8 @@ struct int_cfg_parms {
 	int mast_idx;		/* Idx of the mport_info that is master */
 	uint32_t max_mport_info_idx; /* Maximum number of mports */
 	struct int_mport_info mport_info[CFG_MAX_MPORTS]; 
-	uint32_t mast_devid_sz;	/* Master CFG location information */
-	uint32_t mast_devid;		/* Master CFG location information */
+	uint32_t mast_did_sz;	/* Master CFG location information */
+	did_val_t mast_destid;	/* Master CFG location information */
 	uint32_t mast_cm_port; 	/* Master CFG location information */
 	uint32_t ep_cnt;
 	struct int_cfg_ep eps[CFG_MAX_EP];

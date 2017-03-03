@@ -69,10 +69,10 @@ static void assumptions(void **state)
 	// verify constants
 	assert_int_equal(0xff, ANY_ID);
 	assert_int_equal(0,
-			did_equal(DID_ANY_DEV8_ID, RIO_LAST_DEV8, dev08_sz));
+			did_match(DID_ANY_DEV8_ID, RIO_LAST_DEV8, dev08_sz));
 	assert_int_equal(0,
-			did_equal(DID_ANY_DEV16_ID, RIO_LAST_DEV16, dev16_sz));
-	assert_int_equal(0, did_equal(DID_INVALID_ID, 0, invld_sz));
+			did_match(DID_ANY_DEV16_ID, RIO_LAST_DEV16, dev16_sz));
+	assert_int_equal(0, did_match(DID_INVALID_ID, 0, invld_sz));
 
 	// assuming this is the first test ever ran, then can verify the internal did structures
 	assert_int_equal(0, did_idx);
@@ -160,7 +160,7 @@ static void did_create_test(void **state)
 	did.value = 0x12;
 	assert_int_equal(invld_sz, did_ids[1]);
 	assert_int_equal(0, did_create(&did, dev08_sz));
-	assert_int_equal(0, did_equal(did, 1, dev08_sz));
+	assert_int_equal(0, did_match(did, 1, dev08_sz));
 	assert_int_equal(2, did_idx);
 	assert_int_equal(dev08_sz, did_ids[1]);
 
@@ -169,7 +169,7 @@ static void did_create_test(void **state)
 	did.value = 0x12;
 	assert_int_equal(invld_sz, did_ids[2]);
 	assert_int_equal(0, did_create(&did, dev16_sz));
-	assert_int_equal(0, did_equal(did, 2, dev16_sz));
+	assert_int_equal(0, did_match(did, 2, dev16_sz));
 	assert_int_equal(3, did_idx);
 	assert_int_equal(dev16_sz, did_ids[2]);
 
@@ -196,7 +196,7 @@ static void did_create_test(void **state)
 	assert_int_equal(dev08_sz, did_ids[RIO_LAST_DEV8]);
 
 	// verify the 16-bit did requested
-	assert_int_equal(0, did_equal(did, 1, dev16_sz));
+	assert_int_equal(0, did_match(did, 1, dev16_sz));
 	assert_int_equal(2, did_idx);
 	assert_int_equal(dev16_sz, did_ids[1]);
 
@@ -208,7 +208,7 @@ static void did_create_test(void **state)
 	did.size = dev16_sz;
 	did.value = 0x12;
 	assert_int_equal(0, did_create(&did, dev08_sz));
-	assert_int_equal(0, did_equal(did, 1, dev08_sz));
+	assert_int_equal(0, did_match(did, 1, dev08_sz));
 	assert_int_equal(2, did_idx);
 	assert_int_equal(dev08_sz, did_ids[1]);
 
@@ -217,14 +217,14 @@ static void did_create_test(void **state)
 	did.value = 0x12;
 	did_idx = RIO_LAST_DEV8 - 2;
 	assert_int_equal(0, did_create(&did, dev08_sz));
-	assert_int_equal(0, did_equal(did, RIO_LAST_DEV8 - 2, dev08_sz));
+	assert_int_equal(0, did_match(did, RIO_LAST_DEV8 - 2, dev08_sz));
 	assert_int_equal(RIO_LAST_DEV8-1, did_idx);
 	assert_int_equal(dev08_sz, did_ids[RIO_LAST_DEV8-2]);
 
 	did.size = dev16_sz;
 	did.value = 0x12;
 	assert_int_equal(0, did_create(&did, dev08_sz));
-	assert_int_equal(0, did_equal(did, RIO_LAST_DEV8 - 1, dev08_sz));
+	assert_int_equal(0, did_match(did, RIO_LAST_DEV8 - 1, dev08_sz));
 	assert_int_equal(RIO_LAST_DEV8, did_idx);
 	assert_int_equal(dev08_sz, did_ids[RIO_LAST_DEV8-1]);
 
@@ -232,7 +232,7 @@ static void did_create_test(void **state)
 	did.size = dev16_sz;
 	did.value = 0x12;
 	assert_int_equal(0, did_create(&did, dev08_sz));
-	assert_int_equal(0, did_equal(did, 2, dev08_sz));
+	assert_int_equal(0, did_match(did, 2, dev08_sz));
 	assert_int_equal(3, did_idx);
 	assert_int_equal(dev08_sz, did_ids[2]);
 
@@ -240,7 +240,7 @@ static void did_create_test(void **state)
 	did.size = dev08_sz;
 	did.value = 0x12;
 	assert_int_equal(0, did_create(&did, dev16_sz));
-	assert_int_equal(0, did_equal(did, 3, dev16_sz));
+	assert_int_equal(0, did_match(did, 3, dev16_sz));
 	assert_int_equal(4, did_idx);
 	assert_int_equal(dev16_sz, did_ids[3]);
 
@@ -249,7 +249,7 @@ static void did_create_test(void **state)
 	did.value = 0x12;
 	did_idx = RIO_LAST_DEV8 - 1;
 	assert_int_equal(0, did_create(&did, dev16_sz));
-	assert_int_equal(0, did_equal(did, RIO_LAST_DEV8+1, dev16_sz));
+	assert_int_equal(0, did_match(did, RIO_LAST_DEV8+1, dev16_sz));
 	assert_int_equal(RIO_LAST_DEV8+2, did_idx);
 	assert_int_equal(dev16_sz, did_ids[RIO_LAST_DEV8+1]);
 
@@ -258,14 +258,14 @@ static void did_create_test(void **state)
 	did.value = 0x12;
 	did_idx = RIO_LAST_DEV16 - 2;
 	assert_int_equal(0, did_create(&did, dev16_sz));
-	assert_int_equal(0, did_equal(did, RIO_LAST_DEV16-2, dev16_sz));
+	assert_int_equal(0, did_match(did, RIO_LAST_DEV16-2, dev16_sz));
 	assert_int_equal(RIO_LAST_DEV16-1, did_idx);
 	assert_int_equal(dev16_sz, did_ids[RIO_LAST_DEV16-2]);
 
 	did.size = dev08_sz;
 	did.value = 0x12;
 	assert_int_equal(0, did_create(&did, dev16_sz));
-	assert_int_equal(0, did_equal(did, RIO_LAST_DEV16-1, dev16_sz));
+	assert_int_equal(0, did_match(did, RIO_LAST_DEV16-1, dev16_sz));
 	assert_int_equal(RIO_LAST_DEV16, did_idx);
 	assert_int_equal(dev16_sz, did_ids[RIO_LAST_DEV16-1]);
 
@@ -273,7 +273,7 @@ static void did_create_test(void **state)
 	did.size = dev08_sz;
 	did.value = 0x12;
 	assert_int_equal(0, did_create(&did, dev16_sz));
-	assert_int_equal(0, did_equal(did, 4, dev16_sz));
+	assert_int_equal(0, did_match(did, 4, dev16_sz));
 	assert_int_equal(5, did_idx);
 	assert_int_equal(dev16_sz, did_ids[4]);
 
@@ -381,25 +381,25 @@ static void did_create_from_data_test(void **state)
 	did.value = 0x12;
 	did.size = dev08_sz;
 	assert_int_equal(0, did_create_from_data(&did, 123, dev16_sz));
-	assert_int_equal(0, did_equal(did, 123, dev16_sz));
+	assert_int_equal(0, did_match(did, 123, dev16_sz));
 	assert_int_equal(dev16_sz, did_ids[123]);
 
 	did.value = 0x12;
 	did.size = dev08_sz;
 	assert_int_equal(0, did_create_from_data(&did, 321, dev16_sz));
-	assert_int_equal(0, did_equal(did, 321, dev16_sz));
+	assert_int_equal(0, did_match(did, 321, dev16_sz));
 	assert_int_equal(dev16_sz, did_ids[321]);
 
 	did.value = 0x12;
 	did.size = dev16_sz;
 	assert_int_equal(0, did_create_from_data(&did, 21, dev08_sz));
-	assert_int_equal(0, did_equal(did, 21, dev08_sz));
+	assert_int_equal(0, did_match(did, 21, dev08_sz));
 	assert_int_equal(dev08_sz, did_ids[21]);
 
 	did.value = 0x12;
 	did.size = dev16_sz;
 	assert_int_equal(0, did_create_from_data(&did, 1, dev08_sz));
-	assert_int_equal(0, did_equal(did, 1, dev08_sz));
+	assert_int_equal(0, did_match(did, 1, dev08_sz));
 	assert_int_equal(dev08_sz, did_ids[1]);
 
 	assert_int_equal(1, did_idx);
@@ -432,12 +432,7 @@ static void did_create_from_data_test(void **state)
 
 static void did_get_null_parms_test(void **state)
 {
-	// would be nice to iterate over the enum, but not contiguous
-	// since it is test code, just hit the values
-	assert_int_equal(-EINVAL, did_get(NULL, 0x01, invld_sz));
-	assert_int_equal(-EINVAL, did_get(NULL, 0x02, dev08_sz));
-	assert_int_equal(-EINVAL, did_get(NULL, 0x03, dev16_sz));
-	assert_int_equal(-EINVAL, did_get(NULL, 0x04, dev32_sz));
+	assert_int_equal(-EINVAL, did_get(NULL, 0x01));
 
 	(void)state; // unused
 }
@@ -452,124 +447,331 @@ static void did_get_test(void **state)
 	// 0 is an invalid request
 	did.value = 0x12;
 	did.size = dev16_sz;
-	assert_int_equal(-EINVAL, did_get(&did, 0, dev08_sz));
-	assert_int_equal(0, did_invalid(did));
-
-	did.value = 0x12;
-	did.size = dev08_sz;
-	assert_int_equal(-EINVAL, did_get(&did, 0, dev16_sz));
+	assert_int_equal(-EINVAL, did_get(&did, 0));
 	assert_int_equal(0, did_invalid(did));
 
 	// 255 is a valid request
 	did.value = 0x12;
 	did.size = dev16_sz;
-	assert_int_equal(0, did_get(&did, RIO_LAST_DEV8, dev08_sz));
-	assert_int_equal(0, did_equal(did, RIO_LAST_DEV8, dev08_sz));
-
-	did.value = 0x12;
-	did.size = dev08_sz;
-	assert_int_equal(0, did_get(&did, RIO_LAST_DEV8, dev16_sz));
-	assert_int_equal(0, did_equal(did, RIO_LAST_DEV8, dev16_sz));
-
-	did.value = 0x12;
-	did.size = dev08_sz;
-	assert_int_equal(-EPERM, did_get(&did, RIO_LAST_DEV8, dev32_sz));
-	assert_int_equal(0, did_invalid(did));
+	assert_int_equal(0, did_get(&did, RIO_LAST_DEV8));
+	assert_int_equal(0, did_match(did, RIO_LAST_DEV8, dev08_sz));
 
 	// 0xffff is a valid request
 	did.value = 0x12;
 	did.size = dev16_sz;
-	assert_int_equal(-EINVAL, did_get(&did, RIO_LAST_DEV16, dev08_sz));
-	assert_int_equal(0, did_invalid(did));
-
-	did.value = 0x12;
-	did.size = dev08_sz;
-	assert_int_equal(0, did_get(&did, RIO_LAST_DEV16, dev16_sz));
-	assert_int_equal(0, did_equal(did, RIO_LAST_DEV16, dev16_sz));
-
-	did.value = 0x12;
-	did.size = dev08_sz;
-	assert_int_equal(-EPERM, did_get(&did, RIO_LAST_DEV16, dev32_sz));
-	assert_int_equal(0, did_invalid(did));
-
-	// invalid size
-	did.value = 0x12;
-	did.size = dev08_sz;
-	assert_int_equal(-EPERM, did_get(&did, 0xca, invld_sz));
-	assert_int_equal(0, did_invalid(did));
-
-	did.value = 0x12;
-	did.size = dev08_sz;
-	assert_int_equal(-EPERM, did_get(&did, 0xca, dev32_sz));
-	assert_int_equal(0, did_invalid(did));
+	assert_int_equal(0, did_get(&did, RIO_LAST_DEV16));
+	assert_int_equal(0, did_match(did, RIO_LAST_DEV16, dev16_sz));
 
 	// value out of range
 	did.value = 0x12;
 	did.size = dev16_sz;
-	assert_int_equal(-EINVAL, did_get(&did, RIO_LAST_DEV8+1, dev08_sz));
+	assert_int_equal(-EKEYEXPIRED, did_get(&did, RIO_LAST_DEV8+1));
 	assert_int_equal(0, did_invalid(did));
 
 	did.value = 0x12;
 	did.size = dev08_sz;
-	assert_int_equal(-EINVAL, did_get(&did, RIO_LAST_DEV16+1, dev16_sz));
+	assert_int_equal(-EINVAL, did_get(&did, RIO_LAST_DEV16+1));
 	assert_int_equal(0, did_invalid(did));
 
 	// look for it, add it, look for it again
 	did.value = 0x12;
 	did.size = dev16_sz;
-	assert_int_equal(-EKEYEXPIRED, did_get(&did, 1, dev08_sz));
+	assert_int_equal(-EKEYEXPIRED, did_get(&did, 1));
 	assert_int_equal(0, did_invalid(did));
 
 	assert_int_equal(0, did_create_from_data(&did, 1, dev16_sz));
 	did.value = 0x12;
 	did.size = dev08_sz;
-	assert_int_equal(0, did_get(&did, 1, dev16_sz));
-	assert_int_equal(0, did_equal(did, 1, dev16_sz));
+	assert_int_equal(0, did_get(&did, 1));
+	assert_int_equal(0, did_match(did, 1, dev16_sz));
 
 	did.value = 0x12;
 	did.size = dev16_sz;
-	assert_int_equal(0, did_get(&did, 1, dev08_sz));
-	assert_int_equal(0, did_equal(did, 1, dev08_sz));
+	assert_int_equal(0, did_get(&did, 1));
+	assert_int_equal(0, did_match(did, 1, dev08_sz));
 
 	// look for it, add it, look for it again
 	did.value = 0x12;
 	did.size = dev16_sz;
 	assert_int_equal(-EKEYEXPIRED,
-			did_get(&did, RIO_LAST_DEV8-1, dev08_sz));
+			did_get(&did, RIO_LAST_DEV8-1));
 	assert_int_equal(0, did_invalid(did));
 
 	assert_int_equal(0,
 			did_create_from_data(&did, RIO_LAST_DEV8-1, dev08_sz));
 	did.value = 0x12;
 	did.size = dev16_sz;
-	assert_int_equal(0, did_get(&did, RIO_LAST_DEV8-1, dev08_sz));
-	assert_int_equal(0, did_equal(did, RIO_LAST_DEV8-1, dev08_sz));
+	assert_int_equal(0, did_get(&did, RIO_LAST_DEV8-1));
+	assert_int_equal(0, did_match(did, RIO_LAST_DEV8-1, dev08_sz));
 
 	did.value = 0x12;
 	did.size = dev08_sz;
-	assert_int_equal(0, did_get(&did, RIO_LAST_DEV8-1, dev16_sz));
-	assert_int_equal(0, did_equal(did, RIO_LAST_DEV8-1, dev16_sz));
+	assert_int_equal(0, did_get(&did, RIO_LAST_DEV8-1));
+	assert_int_equal(0, did_match(did, RIO_LAST_DEV8-1, dev16_sz));
 
 	// look for it, add it, look for it again
 	did.value = 0x12;
 	did.size = dev08_sz;
 	assert_int_equal(-EKEYEXPIRED,
-			did_get(&did, RIO_LAST_DEV16-1, dev16_sz));
+			did_get(&did, RIO_LAST_DEV16-1));
 	assert_int_equal(0, did_invalid(did));
 
 	assert_int_equal(0,
 			did_create_from_data(&did, RIO_LAST_DEV16-1, dev16_sz));
 	did.value = 0x12;
 	did.size = dev08_sz;
-	assert_int_equal(0, did_get(&did, RIO_LAST_DEV16-1, dev16_sz));
-	assert_int_equal(0, did_equal(did, RIO_LAST_DEV16-1, dev16_sz));
+	assert_int_equal(0, did_get(&did, RIO_LAST_DEV16-1));
+	assert_int_equal(0, did_match(did, RIO_LAST_DEV16-1, dev16_sz));
 
 	did.value = 0x12;
 	did.size = dev16_sz;
-	assert_int_equal(-EINVAL, did_get(&did, RIO_LAST_DEV16-1, dev08_sz));
-	assert_int_equal(0, did_invalid(did));
+	assert_int_equal(0, did_get(&did, RIO_LAST_DEV16-1));
+	assert_int_equal(0, did_match(did, RIO_LAST_DEV16-1, dev16_sz));
 
 	(void)state; // unused
+}
+
+static void did_from_value_null_parms_test(void **state)
+{
+	// the internal did_idx should not change with these calls
+	did_reset();
+	assert_int_equal(0, did_idx);
+
+	assert_int_equal(-EINVAL, did_from_value(NULL, 0xa1, 0));
+
+	(void)state; //unused
+}
+
+static void did_from_value_test(void **state)
+{
+	did_t did;
+	uint32_t idx;
+
+	// the internal did_idx should not change with these calls
+	did_reset();
+	assert_int_equal(0, did_idx);
+
+	// 0 is reserved
+	did.value = 0x12;
+	did.size = dev32_sz;
+	assert_int_equal(-EINVAL, did_from_value(&did, 0, 0));
+	assert_int_equal(0, did_invalid(did));
+	assert_int_equal(1, did_idx);
+
+	did.value = 0x12;
+	did.size = dev32_sz;
+	assert_int_equal(-EINVAL, did_from_value(&did, 0, 1));
+	assert_int_equal(0, did_invalid(did));
+	assert_int_equal(1, did_idx);
+
+	for (idx = 2; idx < 10; idx++) {
+		did.value = 0x12;
+		did.size = dev32_sz;
+		assert_int_equal(-EINVAL, did_from_value(&did, 0, idx));
+		assert_int_equal(0, did_invalid(did));
+		assert_int_equal(1, did_idx);
+	}
+
+	// 255 is reserved
+	did.value = 0x12;
+	did.size = dev32_sz;
+	assert_int_equal(0, did_from_value(&did, 0xff, 0));
+	assert_int_equal(0, did_match(did, 0xff, dev08_sz));
+	assert_int_equal(1, did_idx);
+
+	did.value = 0x12;
+	did.size = dev32_sz;
+	assert_int_equal(0, did_from_value(&did, 0xff, 1));
+	assert_int_equal(0, did_match(did, 0xff, dev08_sz));
+	assert_int_equal(1, did_idx);
+
+	for (idx = 2; idx < 10; idx++) {
+		did.value = 0x12;
+		did.size = dev32_sz;
+		assert_int_equal(-EPERM, did_from_value(&did, 0xff, idx));
+		assert_int_equal(0, did_invalid(did));
+		assert_int_equal(1, did_idx);
+	}
+
+	// 0xffff is reserved
+	did.value = 0x12;
+	did.size = dev32_sz;
+	assert_int_equal(-EINVAL, did_from_value(&did, 0xffff, 0));
+	assert_int_equal(0, did_invalid(did));
+	assert_int_equal(1, did_idx);
+
+	did.value = 0x12;
+	did.size = dev32_sz;
+	assert_int_equal(0, did_from_value(&did, 0xffff, 1));
+	assert_int_equal(0, did_match(did, 0xffff, dev16_sz));
+	assert_int_equal(1, did_idx);
+
+	for (idx = 2; idx < 10; idx++) {
+		did.value = 0x12;
+		did.size = dev32_sz;
+		assert_int_equal(-EPERM, did_from_value(&did, 0xffff, idx));
+		assert_int_equal(0, did_invalid(did));
+		assert_int_equal(1, did_idx);
+	}
+
+	// 8-bit out of range
+	did.value = 0x12;
+	did.size = dev32_sz;
+	assert_int_equal(-EINVAL, did_from_value(&did, 0x100, 0));
+	assert_int_equal(0, did_invalid(did));
+	assert_int_equal(1, did_idx);
+
+	// 16-bit out of range
+	did.value = 0x12;
+	did.size = dev08_sz;
+	assert_int_equal(-EINVAL, did_from_value(&did, RIO_LAST_DEV16 + 2, 1));
+	assert_int_equal(0, did_invalid(did));
+	assert_int_equal(1, did_idx);
+
+	// valid values, first try
+	did.value = 0x12;
+	did.size = dev08_sz;
+	assert_int_equal(0, did_from_value(&did, 123, 1));
+	assert_int_equal(0, did_match(did, 123, dev16_sz));
+	assert_int_equal(dev16_sz, did_ids[123]);
+
+	did.value = 0x12;
+	did.size = dev08_sz;
+	assert_int_equal(0, did_from_value(&did, 321, 1));
+	assert_int_equal(0, did_match(did, 321, dev16_sz));
+	assert_int_equal(dev16_sz, did_ids[321]);
+
+	did.value = 0x12;
+	did.size = dev16_sz;
+	assert_int_equal(0, did_from_value(&did, 21, 0));
+	assert_int_equal(0, did_match(did, 21, dev08_sz));
+	assert_int_equal(dev08_sz, did_ids[21]);
+
+	did.value = 0x12;
+	did.size = dev16_sz;
+	assert_int_equal(0, did_from_value(&did, 1, 0));
+	assert_int_equal(0, did_match(did, 1, dev08_sz));
+	assert_int_equal(dev08_sz, did_ids[1]);
+
+	assert_int_equal(1, did_idx);
+
+	// get previously created values, for both valid sizes
+	did.value = 0x12;
+	did.size = dev16_sz;
+	assert_int_equal(0, did_from_value(&did, 1, 0));
+	assert_int_equal(0, did_match(did, 1, dev08_sz));
+
+	did.value = 0x12;
+	did.size = dev16_sz;
+	assert_int_equal(0, did_from_value(&did, 1, 1));
+	assert_int_equal(0, did_match(did, 1, dev08_sz));
+
+	// get previously created values, for both valid sizes
+	did.value = 0x12;
+	did.size = dev08_sz;
+	assert_int_equal(0, did_from_value(&did, 21, 0));
+	assert_int_equal(0, did_match(did, 21, dev08_sz));
+
+	did.value = 0x12;
+	did.size = dev08_sz;
+	assert_int_equal(0, did_from_value(&did, 21, 1));
+	assert_int_equal(0, did_match(did, 21, dev08_sz));
+
+	// get previously created value, watch the range
+	did.value = 0x12;
+	did.size = dev08_sz;
+	assert_int_equal(-EINVAL, did_from_value(&did, 321, 0));
+	assert_int_equal(0, did_invalid(did));
+
+	did.value = 0x12;
+	did.size = dev08_sz;
+	assert_int_equal(0, did_from_value(&did, 321, 1));
+	assert_int_equal(0, did_match(did, 321, dev16_sz));
+
+	// verify final structure
+	assert_int_equal(dev08_sz, did_ids[0]);
+	assert_int_equal(dev08_sz, did_ids[RIO_LAST_DEV8]);
+	assert_int_equal(dev16_sz, did_ids[RIO_LAST_DEV16]);
+
+	assert_int_equal(dev08_sz, did_ids[1]);
+	assert_int_equal(dev08_sz, did_ids[21]);
+	assert_int_equal(dev16_sz, did_ids[123]);
+	assert_int_equal(dev16_sz, did_ids[321]);
+	assert_int_equal(invld_sz, did_ids[5]); // random verification
+	assert_int_equal(invld_sz, did_ids[RIO_LAST_DEV16-3]); // random verification
+
+	(void)state; // unused
+}
+
+static void did_to_value_null_parms_test(void **state)
+{
+	did_t did;
+	uint32_t value;
+	uint32_t size;
+
+	// the internal did_idx should not change with these calls
+	did_reset();
+	assert_int_equal(0, did_idx);
+
+	did = TEST_DID(123, dev08_sz);
+	value = 0xdead;
+	size = 0xbeef;
+	assert_int_equal(-EINVAL, did_to_value(did, NULL, &size));
+	assert_int_equal(0xdead, value);
+	assert_int_equal(0, size);
+	assert_int_equal(123, did.value);
+	assert_int_equal(dev08_sz, did.size);
+
+	did = TEST_DID(123, dev08_sz);
+	value = 0xdead;
+	size = 0xbeef;
+	assert_int_equal(-EINVAL, did_to_value(did, &value, NULL));
+	assert_int_equal(0, value);
+	assert_int_equal(0xbeef, size);
+	assert_int_equal(123, did.value);
+	assert_int_equal(dev08_sz, did.size);
+
+	(void)state; //unused
+}
+
+static void did_to_value_test(void **state)
+{
+	did_t did;
+	uint32_t value;
+	uint32_t size;
+
+	// the internal did_idx should not change with these calls
+	did_reset();
+	assert_int_equal(0, did_idx);
+
+	did = TEST_DID(0xdead, dev08_sz); // actually impossible ...
+	value = 0xcafe;
+	size = 0xbabe;
+	assert_int_equal(0, did_to_value(did, &value, &size));
+	assert_int_equal(0xdead, value);
+	assert_int_equal(0, size);
+
+	did = TEST_DID(0xbeef, dev16_sz);
+	value = 0xcafe;
+	size = 0xbabe;
+	assert_int_equal(0, did_to_value(did, &value, &size));
+	assert_int_equal(0xbeef, value);
+	assert_int_equal(1, size);
+
+	did = TEST_DID(0xdead, dev32_sz);
+	value = 0xcafe;
+	size = 0xbabe;
+	assert_int_equal(-EPERM, did_to_value(did, &value, &size));
+	assert_int_equal(0, value);
+	assert_int_equal(0, size);
+
+	did = TEST_DID(0xbeef, invld_sz);
+	value = 0xcafe;
+	size = 0xbabe;
+	assert_int_equal(-EPERM, did_to_value(did, &value, &size));
+	assert_int_equal(0, value);
+	assert_int_equal(0, size);
+	(void)state; //unused
 }
 
 static void did_release_test(void **state)
@@ -654,11 +856,11 @@ static void did_release_test(void **state)
 
 	// release the 8-bit did
 	did.size = dev08_sz;
-	assert_int_equal(0, did_equal(did, 0xca, dev08_sz));
+	assert_int_equal(0, did_match(did, 0xca, dev08_sz));
 	assert_int_equal(-EKEYEXPIRED, did_release(did));
 
 	// try and release it again
-	assert_int_equal(0, did_equal(did, 0xca, dev16_sz));
+	assert_int_equal(0, did_match(did, 0xca, dev16_sz));
 	assert_int_equal(-EKEYEXPIRED, did_release(did));
 
 	// create a 16-bit did
@@ -671,7 +873,7 @@ static void did_release_test(void **state)
 
 	// release the 16-bit did
 	did.size = dev16_sz;
-	assert_int_equal(0, did_equal(did, 0xf0, dev16_sz));
+	assert_int_equal(0, did_match(did, 0xf0, dev16_sz));
 	assert_int_equal(-EKEYEXPIRED, did_release(did));
 
 	(void)state; // unused
@@ -826,6 +1028,10 @@ int main(int argc, char** argv)
 	cmocka_unit_test(did_create_from_data_test),
 	cmocka_unit_test(did_get_null_parms_test),
 	cmocka_unit_test(did_get_test),
+	cmocka_unit_test(did_from_value_null_parms_test),
+	cmocka_unit_test(did_from_value_test),
+	cmocka_unit_test(did_to_value_null_parms_test),
+	cmocka_unit_test(did_to_value_test),
 	cmocka_unit_test(did_release_test),
 	cmocka_unit_test(did_not_inuse_test),
 	cmocka_unit_test(did_get_value_test),

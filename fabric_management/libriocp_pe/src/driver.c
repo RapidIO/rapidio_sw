@@ -160,7 +160,7 @@ int RIOCP_WU riocp_drv_recover_port(struct riocp_pe *pe, pe_port_t port,
  *
  * @param[in] pe Processing element to be queried
  * @param[in] port Port number on the pe to be queried.
- *       Note that ALL_PE_PORTS is a valid parameter.
+ *       Note that RIOCP_PE_ALL_PE_PORTS is a valid parameter.
  * @param[in] did Destination ID whose routing behavior will be returned.
  * @param[in] rt_val Current routing table control value for the Destination ID;
  *
@@ -189,7 +189,7 @@ bool reset_lp)
  *
  * @param[in] pe Processing element to be programmed
  * @param[in] port Port number on the pe to be programmed.
- *       Note that ALL_PE_PORTS is a valid parameter.
+ *       Note that RIOCP_PE_ALL_PE_PORTS is a valid parameter.
  * @param[in] did Destination ID whose routing behavior will be changed.
  * @param[in] rt_val New routing table control value for the Destination ID;
  *
@@ -207,7 +207,7 @@ int RIOCP_WU riocp_drv_set_route_entry(struct riocp_pe *pe, pe_port_t port,
  *
  * @param[in] pe Processing element to be queried
  * @param[in] port Port number on the pe to be queried.
- *       Note that ALL_PE_PORTS is a valid parameter.
+ *       Note that RIOCP_PE_ALL_PE_PORTS is a valid parameter.
  * @param[in] did Destination ID whose routing behavior will be returned.
  * @param[in] rt_val Current routing table control value for the Destination ID;
  *

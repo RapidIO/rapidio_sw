@@ -148,14 +148,14 @@ static void ct_next_nr_test(void **state)
 
 	(void)state; // unused
 }
+
 static void ct_create_all_test_null_parms(void **state)
 {
 	ct_t ct;
 	did_t did;
 
 	// initial values, so can check return is updated appropriately
-	did.value = 0x1234;
-	did.size = dev16_sz;
+	did = TEST_DID(0x1234, dev16_sz);
 	ct = CT_FROM_NR_DID(0xdead, 0xbeef);
 
 	assert_int_equal(-EINVAL, ct_create_all(NULL, NULL, dev08_sz));
@@ -183,15 +183,14 @@ static void ct_create_all_test(void **state)
 	assert_int_equal(1, ct_idx);
 
 	// initial values, so can check return is updated appropriately
-	did.value = 0x1234;
-	did.size = dev16_sz;
+	did = TEST_DID(0x1234, dev16_sz);
 	ct = CT_FROM_NR_DID(0xdead, 0xbeef);
 
 	// valid 8-bit did request
 	assert_int_equal(1, ct_idx);
 	assert_int_equal(0, ct_create_all(&ct, &did, dev08_sz));
 	assert_int_equal(0x00010001, ct);
-	assert_int_equal(0, did_equal(did, 1, dev08_sz));
+	assert_int_equal(0, did_match(did, 1, dev08_sz));
 	assert_int_equal(2, ct_idx);
 	assert_int_equal(1, ct_ids[1]);
 
@@ -200,7 +199,7 @@ static void ct_create_all_test(void **state)
 	assert_int_equal(0xdeadbeef, ct);
 	assert_int_equal(0, ct_create_all(&ct, &did, dev16_sz));
 	assert_int_equal(0x00020002, ct);
-	assert_int_equal(0, did_equal(did, 2, dev16_sz));
+	assert_int_equal(0, did_match(did, 2, dev16_sz));
 	assert_int_equal(3, ct_idx);
 	assert_int_equal(1, ct_ids[2]);
 
@@ -230,7 +229,7 @@ static void ct_create_all_test(void **state)
 	assert_int_equal(0xdeadbeef, ct);
 	assert_int_equal(0, ct_create_all(&ct, &did, dev08_sz));
 	assert_int_equal(0xffff0003, ct);
-	assert_int_equal(0, did_equal(did, 3, dev08_sz));
+	assert_int_equal(0, did_match(did, 3, dev08_sz));
 	assert_int_equal(0, ct_idx);
 	assert_int_equal(1, ct_ids[0xffff]);
 
@@ -239,7 +238,7 @@ static void ct_create_all_test(void **state)
 	assert_int_equal(0xdeadbeef, ct);
 	assert_int_equal(0, ct_create_all(&ct, &did, dev08_sz));
 	assert_int_equal(0x00030004, ct);
-	assert_int_equal(0, did_equal(did, 4, dev08_sz));
+	assert_int_equal(0, did_match(did, 4, dev08_sz));
 	assert_int_equal(4, ct_idx);
 	assert_int_equal(1, ct_ids[3]);
 
@@ -267,8 +266,7 @@ static void ct_create_from_data_test_null_parms(void **state)
 	assert_int_equal(1, ct_idx);
 
 	// initial values, so can check return is updated appropriately
-	did.value = 0x1234;
-	did.size = dev16_sz;
+	did = TEST_DID(0x1234, dev16_sz);
 	ct = CT_FROM_NR_DID(0xdead, 0xbeef);
 
 	assert_int_equal(-EINVAL,
@@ -300,8 +298,7 @@ static void ct_create_from_data_test(void **state)
 	assert_int_equal(1, ct_idx);
 
 	// initial values, so can check return is updated appropriately
-	did.value = 0x1234;
-	did.size = dev16_sz;
+	did = TEST_DID(0x1234, dev16_sz);
 	ct = CT_FROM_NR_DID(0xdead, 0xbeef);
 
 	// valid 8-bit request
@@ -310,7 +307,7 @@ static void ct_create_from_data_test(void **state)
 	assert_int_equal(0,
 			ct_create_from_data(&ct, &did, 0x100, 0xca, dev08_sz));
 	assert_int_equal(0x010000ca, ct);
-	assert_int_equal(0, did_equal(did, 0xca, dev08_sz));
+	assert_int_equal(0, did_match(did, 0xca, dev08_sz));
 	assert_int_equal(1, ct_idx);
 	assert_int_equal(1, ct_ids[0x100]);
 
@@ -321,7 +318,7 @@ static void ct_create_from_data_test(void **state)
 			ct_create_from_data(&ct, &did, 0x200, 0xbabe,
 					dev16_sz));
 	assert_int_equal(0x0200babe, ct);
-	assert_int_equal(0, did_equal(did, 0xbabe, dev16_sz));
+	assert_int_equal(0, did_match(did, 0xbabe, dev16_sz));
 	assert_int_equal(1, ct_idx);
 
 	// invalid size
@@ -342,7 +339,7 @@ static void ct_create_from_data_test(void **state)
 			ct_create_from_data(&ct, &did, 0x100, 0xcafe,
 					dev16_sz));
 	assert_int_equal(0x0100cafe, ct);
-	assert_int_equal(0, did_equal(did, 0xcafe, dev16_sz));
+	assert_int_equal(0, did_match(did, 0xcafe, dev16_sz));
 	assert_int_equal(1, ct_idx);
 	assert_int_equal(2, ct_ids[0x100]);
 
@@ -355,7 +352,7 @@ static void ct_create_from_data_test(void **state)
 			ct_create_from_data(&ct, &did, 0xffff, 0x03, dev08_sz));
 	assert_int_equal(0xffff0003, ct);
 	assert_int_equal(1, ct_idx);
-	assert_int_equal(0, did_equal(did, 0x03, dev08_sz));
+	assert_int_equal(0, did_match(did, 0x03, dev08_sz));
 	assert_int_equal(1, ct_ids[0xffff]);
 
 	ct = CT_FROM_NR_DID(0xdead, 0xbeef);
@@ -366,7 +363,7 @@ static void ct_create_from_data_test(void **state)
 			ct_create_from_data(&ct, &did, 0x03, 0x04, dev08_sz));
 	assert_int_equal(0x00030004, ct);
 	assert_int_equal(1, ct_idx);
-	assert_int_equal(0, did_equal(did, 0x04, dev08_sz));
+	assert_int_equal(0, did_match(did, 0x04, dev08_sz));
 	assert_int_equal(1, ct_ids[3]);
 
 	// previous used nr with a previously used 8-bit did value, orig was same 8-bit value
@@ -396,7 +393,7 @@ static void ct_create_from_data_test(void **state)
 	assert_int_equal(0,
 			ct_create_from_data(&ct, &did, 0x200, 0xa1, dev08_sz));
 	assert_int_equal(0x020000a1, ct);
-	assert_int_equal(0, did_equal(did, 0xa1, dev08_sz));
+	assert_int_equal(0, did_match(did, 0xa1, dev08_sz));
 	assert_int_equal(1, ct_idx);
 	assert_int_equal(2, ct_ids[0x200]);
 
@@ -442,37 +439,32 @@ static void ct_create_from_nr_and_did_null_parms_test(void **state)
 	assert_int_equal(1, ct_idx);
 
 	// initial values, so can check return is updated appropriately
-	did.value = 0x1234;
-	did.size = dev16_sz;
+	did = TEST_DID(0x1234, dev16_sz);
 	ct = CT_FROM_NR_DID(0xdead, 0xbeef);
 
-	did.value = 0xcafebabe;
-	did.size = invld_sz;
+	did = TEST_DID(0xcafebabe, invld_sz);
 	assert_int_equal(-EINVAL, ct_create_from_nr_and_did(NULL, 0, did));
 	assert_int_equal(0xdeadbeef, ct);
-	assert_int_equal(0, did_equal(did, 0xcafebabe, invld_sz));
+	assert_int_equal(0, did_match(did, 0xcafebabe, invld_sz));
 
-	did.value = 0x12;
-	did.size = dev08_sz;
+	did = TEST_DID(0x12, dev08_sz);
 	assert_int_equal(-EINVAL, ct_create_from_nr_and_did(NULL, 2, did));
 	assert_int_equal(0xdeadbeef, ct);
-	assert_int_equal(0, did_equal(did, 0x12, dev08_sz));
+	assert_int_equal(0, did_match(did, 0x12, dev08_sz));
 
 	assert_int_equal(-EINVAL, ct_create_from_nr_and_did(NULL, 0, did));
 	assert_int_equal(0xdeadbeef, ct);
-	assert_int_equal(0, did_equal(did, 0x12, dev08_sz));
+	assert_int_equal(0, did_match(did, 0x12, dev08_sz));
 
-	did.value = 0xcaca;
-	did.size = dev16_sz;
+	did = TEST_DID(0xcaca, dev16_sz);
 	assert_int_equal(-EINVAL, ct_create_from_nr_and_did(NULL, 0, did));
 	assert_int_equal(0xdeadbeef, ct);
-	assert_int_equal(0, did_equal(did, 0xcaca, dev16_sz));
+	assert_int_equal(0, did_match(did, 0xcaca, dev16_sz));
 
-	did.value = 0xcafebabe;
-	did.size = dev32_sz;
+	did = TEST_DID(0xcafebabe, dev32_sz);
 	assert_int_equal(-EINVAL, ct_create_from_nr_and_did(NULL, 0, did));
 	assert_int_equal(0xdeadbeef, ct);
-	assert_int_equal(0, did_equal(did, 0xcafebabe, dev32_sz));
+	assert_int_equal(0, did_match(did, 0xcafebabe, dev32_sz));
 
 	assert_int_equal(1, ct_idx);
 
@@ -492,8 +484,7 @@ static void ct_create_from_nr_and_did_test(void **state)
 	assert_int_equal(1, ct_idx);
 
 	// initial values, so can check return is updated appropriately
-	did.value = 0x1234;
-	did.size = dev16_sz;
+	did = TEST_DID(0x1234, dev16_sz);
 	ct = CT_FROM_NR_DID(0xdead, 0xbeef);
 
 	// valid nr and 8-bit did request
@@ -501,7 +492,7 @@ static void ct_create_from_nr_and_did_test(void **state)
 	assert_int_equal(0xdeadbeef, ct);
 	assert_int_equal(0, ct_create_from_nr_and_did(&ct, 0x100, did));
 	assert_int_equal(0x010000ca, ct);
-	assert_int_equal(0, did_equal(did, 0xca, dev08_sz));
+	assert_int_equal(0, did_match(did, 0xca, dev08_sz));
 	assert_int_equal(1, ct_idx);
 	assert_int_equal(1, ct_ids[0x100]);
 
@@ -511,29 +502,27 @@ static void ct_create_from_nr_and_did_test(void **state)
 	assert_int_equal(0xdeadbeef, ct);
 	assert_int_equal(0, ct_create_from_nr_and_did(&ct, 0x200, did));
 	assert_int_equal(0x0200babe, ct);
-	assert_int_equal(0, did_equal(did, 0xbabe, dev16_sz));
+	assert_int_equal(0, did_match(did, 0xbabe, dev16_sz));
 	assert_int_equal(1, ct_idx);
 	assert_int_equal(1, ct_ids[0x200]);
 
 	// valid nr, invalid did request
 	ct = CT_FROM_NR_DID(0xdead, 0xbeef);
-	did.value = 0xcafe; // emulate an invalid did previously created
-	did.size = dev32_sz;
+	did = TEST_DID(0xcafe, dev32_sz); // emulate an invalid did previously created
 	assert_int_equal(0xdeadbeef, ct);
-	assert_int_equal(-EPERM, ct_create_from_nr_and_did(&ct, 0x300, did));
+	assert_int_equal(-EKEYEXPIRED, ct_create_from_nr_and_did(&ct, 0x300, did));
 	assert_int_equal(COMPTAG_UNSET, ct);
-	assert_int_equal(0, did_equal(did, 0xcafe, dev32_sz));
+	assert_int_equal(0, did_match(did, 0xcafe, dev32_sz));
 	assert_int_equal(1, ct_idx);
 	assert_int_equal(0, ct_ids[0x300]);
 
 	// valid nr, invalid did request
 	ct = CT_FROM_NR_DID(0xdead, 0xbeef);
-	did.value = 0xcafe; // emulate an invalid did previously created
-	did.size = invld_sz;
+	did = TEST_DID(0xcafe, invld_sz);  // emulate an invalid did previously created
 	assert_int_equal(0xdeadbeef, ct);
-	assert_int_equal(-EPERM, ct_create_from_nr_and_did(&ct, 0x100, did));
+	assert_int_equal(-EKEYEXPIRED, ct_create_from_nr_and_did(&ct, 0x100, did));
 	assert_int_equal(COMPTAG_UNSET, ct);
-	assert_int_equal(0, did_equal(did, 0xcafe, invld_sz));
+	assert_int_equal(0, did_match(did, 0xcafe, invld_sz));
 	assert_int_equal(1, ct_idx);
 	assert_int_equal(1, ct_ids[0x100]);
 
@@ -545,7 +534,7 @@ static void ct_create_from_nr_and_did_test(void **state)
 	assert_int_equal(0xdeadbeef, ct);
 	assert_int_equal(0, ct_create_from_nr_and_did(&ct, 0xffff, did));
 	assert_int_equal(0xffff0003, ct);
-	assert_int_equal(0, did_equal(did, 0x03, dev08_sz));
+	assert_int_equal(0, did_match(did, 0x03, dev08_sz));
 	assert_int_equal(1, ct_idx);
 	assert_int_equal(1, ct_ids[0xffff]);
 
@@ -555,30 +544,28 @@ static void ct_create_from_nr_and_did_test(void **state)
 	assert_int_equal(0xdeadbeef, ct);
 	assert_int_equal(0, ct_create_from_nr_and_did(&ct, 0x03, did));
 	assert_int_equal(0x00030004, ct);
-	assert_int_equal(0, did_equal(did, 0x04, dev08_sz));
+	assert_int_equal(0, did_match(did, 0x04, dev08_sz));
 	assert_int_equal(1, ct_idx);
 	assert_int_equal(0, ct_ids[0x300]);
 
 	// previous nr value, different did value - which doesn't exist
 	ct = CT_FROM_NR_DID(0xdead, 0xbeef);
-	did.value = 0xac;
-	did.size = dev08_sz;
+	did = TEST_DID(0xac, dev08_sz);
 	assert_int_equal(0xdeadbeef, ct);
 	assert_int_equal(-EKEYEXPIRED,
 			ct_create_from_nr_and_did(&ct, 0x100, did));
 	assert_int_equal(COMPTAG_UNSET, ct);
-	assert_int_equal(0, did_equal(did, 0xac, dev08_sz));
+	assert_int_equal(0, did_match(did, 0xac, dev08_sz));
 	assert_int_equal(1, ct_idx);
 	assert_int_equal(1, ct_ids[0x100]);
 
 	// previous nr and did value combo
 	ct = CT_FROM_NR_DID(0xdead, 0xbeef);
-	did.value = 0xbabe;
-	did.size = dev16_sz;
+	did = TEST_DID(0xbabe, dev16_sz);
 	assert_int_equal(0xdeadbeef, ct);
 	assert_int_equal(0, ct_create_from_nr_and_did(&ct, 0x200, did));
 	assert_int_equal(0x0200babe, ct);
-	assert_int_equal(0, did_equal(did, 0xbabe, dev16_sz));
+	assert_int_equal(0, did_match(did, 0xbabe, dev16_sz));
 	assert_int_equal(1, ct_idx);
 	assert_int_equal(2, ct_ids[0x200]);
 
@@ -612,14 +599,14 @@ static void ct_create_from_did_null_parms_test(void **state)
 
 	// initial values, so can check return is updated appropriately
 	assert_int_equal(0, did_create(&did, dev08_sz));
-	assert_int_equal(0, did_equal(did, 1, dev08_sz));
+	assert_int_equal(0, did_match(did, 1, dev08_sz));
 	ct = CT_FROM_NR_DID(0xdead, 0x0001);
 	assert_int_equal(ct, 0xdead0001);
 
 	// null ct
 	assert_int_equal(-EINVAL, ct_create_from_did(NULL, did));
 	assert_int_equal(ct, 0xdead0001);
-	assert_int_equal(0, did_equal(did, 1, dev08_sz));
+	assert_int_equal(0, did_match(did, 1, dev08_sz));
 
 	(void)state; // unused
 }
@@ -636,31 +623,67 @@ static void ct_create_from_did_test(void **state)
 
 	// initial values, so can check return is updated appropriately
 	assert_int_equal(0, did_create(&did, dev08_sz));
-	assert_int_equal(0, did_equal(did, 1, dev08_sz));
+	assert_int_equal(0, did_match(did, 1, dev08_sz));
 	ct = CT_FROM_NR_DID(0xdead, 0x0001);
 	assert_int_equal(ct, 0xdead0001);
 
 	// valid did
 	assert_int_equal(0, ct_create_from_did(&ct, did));
 	assert_int_equal(ct, 0x00010001);
-	assert_int_equal(0, did_equal(did, 1, dev08_sz));
+	assert_int_equal(0, did_match(did, 1, dev08_sz));
 
 	// previously used did, creates a new ct at a new nr
 	assert_int_equal(0, ct_create_from_did(&ct, did));
 	assert_int_equal(ct, 0x00020001);
-	assert_int_equal(0, did_equal(did, 1, dev08_sz));
+	assert_int_equal(0, did_match(did, 1, dev08_sz));
 
 	// fake out a did
-	did.value = 0x2;
-	did.size = dev08_sz;
+	did = TEST_DID(0x2, dev08_sz);
 	assert_int_equal(0, did_not_inuse(did));
 	assert_int_equal(-EKEYEXPIRED, ct_create_from_did(&ct, did));
 	assert_int_equal(ct, COMPTAG_UNSET);
-	assert_int_equal(0, did_equal(did, 0x2, dev08_sz));
+	assert_int_equal(0, did_match(did, 0x2, dev08_sz));
 
 	(void)state; // unused
 }
 
+static void ct_from_value_null_parms_test(void **state)
+{
+	ct_reset();
+	did_reset();
+	assert_int_equal(-1, ct_ids[0]);
+	assert_int_equal(1, ct_idx);
+
+	// null ct
+	assert_int_equal(-EINVAL, ct_from_value(NULL, 0xdeadbeef));
+
+	(void)state; // unused
+}
+
+static void ct_from_value_test(void **state)
+{
+	ct_t ct;
+	uint32_t value;
+
+	ct_reset();
+	did_reset();
+	assert_int_equal(-1, ct_ids[0]);
+	assert_int_equal(1, ct_idx);
+
+	// get a new ct
+	value = CT_FROM_NR_DID(0xdead, 0xbeef);
+	ct = COMPTAG_UNSET;
+	assert_int_equal(0, ct_from_value(&ct, value));
+	assert_int_equal(0xdeadbeef, ct);
+
+	// get the same ct
+	ct = COMPTAG_UNSET;
+	assert_int_equal(0xdeadbeef, value);
+	assert_int_equal(0, ct_from_value(&ct, value));
+	assert_int_equal(0xdeadbeef, ct);
+
+	(void)state; // unused
+}
 static void ct_release_test(void **state)
 {
 	ct_t ct;
@@ -704,13 +727,13 @@ static void ct_release_test(void **state)
 
 	// valid nr, but did doesn't match
 	assert_int_equal(1, did_not_inuse(did));
-	assert_int_equal(0, did_equal(did, 0x12, dev08_sz));
+	assert_int_equal(0, did_match(did, 0x12, dev08_sz));
 	assert_int_equal(0, ct_ids[0x0100]);
 	assert_int_equal(0, ct_create_from_nr_and_did(&ct, 0x100, did));
 	assert_int_equal(0x01000012, ct);
 	assert_int_equal(1, ct_ids[0x0100]);
 	did.size = dev32_sz;
-	assert_int_equal(0, did_equal(did, 0x12, dev32_sz));
+	assert_int_equal(0, did_match(did, 0x12, dev32_sz));
 	assert_int_equal(-EPERM, ct_release(ct, did));
 	assert_int_equal(1, ct_ids[0x0100]);
 
@@ -732,10 +755,10 @@ static void ct_release_test(void **state)
 	assert_int_equal(3, ct_ids[0x0400]);
 	assert_int_equal(0, ct_release(ct, did));
 	assert_int_equal(2, ct_ids[0x0400]);
-	assert_int_equal(0, did_get(&did, 0xcafe, dev16_sz));
+	assert_int_equal(0, did_get(&did, 0xcafe));
 	assert_int_equal(0, ct_release(ct, did));
 	assert_int_equal(1, ct_ids[0x0400]);
-	assert_int_equal(0, did_get(&did, 0xbabe, dev16_sz));
+	assert_int_equal(0, did_get(&did, 0xbabe));
 	assert_int_equal(0, ct_release(ct, did));
 	assert_int_equal(-1, ct_ids[0x0400]);
 
@@ -752,7 +775,7 @@ static void ct_release_test(void **state)
 	assert_int_equal(3, ct_ids[0x0500]);
 	assert_int_equal(0, ct_release(ct, did));
 	assert_int_equal(2, ct_ids[0x0500]);
-	assert_int_equal(0, did_get(&did, 0xcafe, dev16_sz));
+	assert_int_equal(0, did_get(&did, 0xcafe));
 	assert_int_equal(0, ct_release(ct, did));
 	assert_int_equal(1, ct_ids[0x0500]);
 	assert_int_equal(0, did_create_from_data(&did, 0xa5, dev08_sz));
@@ -782,7 +805,7 @@ static void ct_internal_create_release_test(void **state)
 
 	assert_int_equal(0, ct_release(ct, did));
 	assert_int_equal(1, ct_ids[0x0500]);
-	assert_int_equal(0, did_get(&did, 0xcafe, dev16_sz));
+	assert_int_equal(0, did_get(&did, 0xcafe));
 	assert_int_equal(0, ct_release(ct, did));
 	assert_int_equal(-1, ct_ids[0x0500]);
 
@@ -831,32 +854,20 @@ static void ct_get_destid_test(void **state)
 	// null parm
 	ct = CT_FROM_NR_DID(0xdead, 0xbeef);
 	assert_int_equal(0xdeadbeef, ct);
-	assert_int_equal(-EINVAL, ct_get_destid(NULL, ct, dev08_sz));
+	assert_int_equal(-EINVAL, ct_get_destid(NULL, ct));
 	assert_int_equal(0xdeadbeef, ct);
 
 	// valid did
 	assert_int_equal(0, did_create_from_data(&did, 0xbabe, dev16_sz));
 	ct = CT_FROM_NR_DID(0xcafe, 0xbabe);
 	did = DID_ANY_DEV8_ID;
-	assert_int_equal(0, ct_get_destid(&did, ct, dev16_sz));
-	assert_int_equal(0, did_equal(did, 0xbabe, dev16_sz));
-
-	// invalid did - size
-	did = DID_ANY_DEV8_ID;
-	assert_int_equal(-EINVAL, ct_get_destid(&did, ct, dev08_sz));
-	assert_int_equal(0, did_invalid(did));
+	assert_int_equal(0, ct_get_destid(&did, ct));
+	assert_int_equal(0, did_match(did, 0xbabe, dev16_sz));
 
 	// invalid did - does not exist
-	ct = CT_FROM_NR_DID(0x0000, 0xbabe);
-	did.value = 0xa1;
-	did.size = dev08_sz;
-	assert_int_equal(-EINVAL, ct_get_destid(&did, ct, dev08_sz));
-	assert_int_equal(0, did_invalid(did));
-
-	// invalid did - value too large
-	did.value = 0xdead;
-	did.size = dev08_sz;
-	assert_int_equal(-EINVAL, ct_get_destid(&did, ct, dev08_sz));
+	ct = CT_FROM_NR_DID(0x0000, 0xcafe);
+	did = TEST_DID(0xa1, dev08_sz);
+	assert_int_equal(-EKEYEXPIRED, ct_get_destid(&did, ct));
 	assert_int_equal(0, did_invalid(did));
 
 	(void)state; // unused
@@ -874,17 +885,20 @@ static void ct_not_inuse_test(void **state)
 
 	// nr == 0
 	ct = CT_FROM_NR_DID(0x0000, 0xbabe);
-	assert_int_equal(-EINVAL, ct_not_inuse(ct, dev16_sz));
+	assert_int_equal(-EINVAL, ct_not_inuse(ct));
 
 	// nr not in use
 	ct = CT_FROM_NR_DID(0xcafe, 0xbabe);
-	assert_int_equal(0, ct_not_inuse(ct, dev16_sz));
+	assert_int_equal(0, ct_not_inuse(ct));
 
 	// nr in use, did exists
 	assert_int_equal(0,
 			ct_create_from_data(&ct, &did, 0x100, 0xa1, dev08_sz));
-	assert_int_equal(1, ct_not_inuse(ct, dev08_sz));
-	assert_int_equal(1, ct_not_inuse(ct, dev16_sz));
+	assert_int_equal(1, ct_not_inuse(ct));
+
+	// nr in use, did does not exist
+	ct = CT_FROM_NR_DID(0x100, 0x1a);
+	assert_int_equal(0, ct_not_inuse(ct));
 
 	(void)state; // unused
 }
@@ -906,6 +920,8 @@ int main(int argc, char** argv)
 	cmocka_unit_test(ct_create_from_nr_and_did_test),
 	cmocka_unit_test(ct_create_from_did_null_parms_test),
 	cmocka_unit_test(ct_create_from_did_test),
+	cmocka_unit_test(ct_from_value_null_parms_test),
+	cmocka_unit_test(ct_from_value_test),
 	cmocka_unit_test(ct_release_test),
 	cmocka_unit_test(ct_get_nr_test),
 	cmocka_unit_test(ct_get_destid_test),

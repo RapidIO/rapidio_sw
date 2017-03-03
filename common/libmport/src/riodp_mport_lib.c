@@ -690,7 +690,7 @@ int riomp_mgmt_lcfg_read(riomp_mport_t mport_handle, uint32_t offset,
 
 	// Klokwork appears to loose track of *data and claims it can be used uninitialized
 	// Perhaps because of the mt_buffer wrapping, or perhaps it thinks -errno can be 0
-	// on a successful return
+	// on a successfull return
 	*data = 0;
 
 	mt.offset = offset;
@@ -742,7 +742,7 @@ int riomp_mgmt_rcfg_read(riomp_mport_t mport_handle, did_val_t destid,
 
 	// Klokwork appears to loose track of *data and claims it can be used uninitialized
 	// Perhaps because of the mt_buffer wrapping, or perhaps it thinks -errno can be 0
-	// on a successful return
+	// on a successfull return
 	*data = 0;
 
 	mt.rioid = destid;

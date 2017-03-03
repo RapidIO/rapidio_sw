@@ -43,10 +43,12 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <pthread.h>
 #include <stdint.h>
 
+#include "rio_route.h"
 #include "rio_ecosystem.h"
 #include "fmd_peer_msg.h"
-#include <rapidio_mport_mgmt.h>
-#include <rapidio_mport_sock.h>
+#include "did.h"
+#include "rapidio_mport_mgmt.h"
+#include "rapidio_mport_sock.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -60,7 +62,7 @@ struct fmd_slave {
 	int slave_must_die;
 
         uint32_t mp_num;
-	uint32_t mast_did;
+	did_t mast_did;
         uint32_t mast_skt_num; /* Socket number to connect to */
         uint32_t mb_valid;
         riomp_mailbox_t mb;
@@ -83,15 +85,13 @@ struct fmd_slave {
 	struct fmd_p_hello m_h_rsp;
 };
 
-extern int start_peer_mgmt_slave(uint32_t mast_acc_skt_num, uint32_t mast_did,
-			uint32_t  mp_num, struct fmd_slave *slave);
+int start_peer_mgmt_slave(uint32_t mast_acc_skt_num, did_t mast_did,
+			uint32_t mp_num, struct fmd_slave *slave);
 
-extern void shutdown_slave_mgmt(void);
+int add_device_to_dd(ct_t ct, did_t did, hc_t hc, uint32_t is_mast_pt,
+		uint8_t flag, char *name);
 
-int add_device_to_dd(ct_t ct, uint32_t did, uint32_t did_sz, hc_t hc,
-                uint32_t is_mast_pt, uint8_t flag, char *name);
-
-int del_device_from_dd(ct_t ct, uint32_t did);
+int del_device_from_dd(ct_t ct, did_t did);
 
 void update_master_flags_from_peer(void);
 

@@ -44,8 +44,10 @@ extern "C" {
 #endif
 
 #ifdef UNIT_TESTING
+#define TEST_DID(v,s) (did_t){v,s}
+
 void did_reset();
-int did_equal(did_t did, did_val_t value, did_sz_t size);
+int did_match(did_t did, did_val_t value, did_sz_t size);
 int did_invalid(did_t did);
 #endif
 

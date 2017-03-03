@@ -92,11 +92,11 @@ int send_slave_hello_message(void)
 
 	sem_wait(&slv->tx_mtx);
 	slv->s2m->msg_type = htonl(FMD_P_REQ_HELLO);
-	slv->s2m->src_did = htonl(regs.host_destID);
+	slv->s2m->src_did_val = htonl(regs.host_destid);
 	SAFE_STRNCPY(slv->s2m->hello_rq.peer_name, (*fmd->mp_h)->sysfs_name,
 			sizeof(slv->s2m->hello_rq.peer_name));
 	slv->s2m->hello_rq.pid = htonl(getpid());
-	slv->s2m->hello_rq.did = htonl((regs.my_destID & RIO_DEVID_DEV8) >> 16);
+	slv->s2m->hello_rq.did_val = htonl((regs.my_destid & RIO_DEVID_DEV8) >> 16);
 	slv->s2m->hello_rq.did_sz = htonl(FMD_DEV08);
 	slv->s2m->hello_rq.ct = htonl(regs.comptag);
 	slv->s2m->hello_rq.hc_long = htonl(HC_MP);
@@ -113,19 +113,20 @@ fail:
 	return 1;
 }
 
-int add_device_to_dd(ct_t ct, uint32_t did, uint32_t did_sz, hc_t hc,
-		uint32_t is_mast_pt, uint8_t flag, char *name)
+int add_device_to_dd(ct_t ct, did_t did, hc_t hc, uint32_t is_mast_pt,
+		uint8_t flag, char *name)
 {
-	uint32_t idx, found_one = 0;
+	uint32_t idx;
+	uint32_t found_one = 0;
 
-	if ((NULL == fmd->dd) || (NULL == fmd->dd_mtx))
+	if ((NULL == fmd->dd) || (NULL == fmd->dd_mtx)) {
 		goto fail;
+	}
 
 	sem_wait(&fmd->dd_mtx->sem);
 	for (idx = 0; (idx < fmd->dd->num_devs) && !found_one; idx++) {
 		if ((fmd->dd->devs[idx].ct == ct)
-				&& (fmd->dd->devs[idx].destID == did)) {
-			fmd->dd->devs[idx].destID_sz = did_sz;
+				&& did_equal(did, fmd->dd->devs[idx].did)) {
 			fmd->dd->devs[idx].hc = hc;
 			fmd->dd->devs[idx].is_mast_pt = is_mast_pt;
 			fmd->dd->devs[idx].flag |= flag;
@@ -150,8 +151,7 @@ int add_device_to_dd(ct_t ct, uint32_t did, uint32_t did_sz, hc_t hc,
 	idx = fmd->dd->num_devs;
 	memset(&fmd->dd->devs[idx], 0, sizeof(fmd->dd->devs[0]));
 	fmd->dd->devs[idx].ct = ct;
-	fmd->dd->devs[idx].destID = did;
-	fmd->dd->devs[idx].destID_sz = did_sz;
+	fmd->dd->devs[idx].did = did;
 	fmd->dd->devs[idx].hc = hc;
 	fmd->dd->devs[idx].is_mast_pt = is_mast_pt;
 	fmd->dd->devs[idx].flag = flag;
@@ -170,32 +170,38 @@ fail:
 	return 1;
 }
 	
-int del_device_from_dd(ct_t ct, uint32_t did)
+int del_device_from_dd(ct_t ct, did_t did)
 {
-	uint32_t idx, found_idx = -1, found_one = 0;
+	uint32_t idx;
+	uint32_t found_idx = -1;
+	uint32_t found_one = 0;
 
-	if ((NULL == fmd->dd) || (NULL == fmd->dd_mtx))
+	if ((NULL == fmd->dd) || (NULL == fmd->dd_mtx)) {
 		goto fail;
+	}
 
 	sem_wait(&fmd->dd_mtx->sem);
 	for (idx = 0; (idx < fmd->dd->num_devs) && !found_one; idx++) {
-		if ((fmd->dd->devs[idx].ct == ct) && 
-				(fmd->dd->devs[idx].destID == did)) {
+		if ((fmd->dd->devs[idx].ct == ct)
+				&& did_equal(did, fmd->dd->devs[idx].did)) {
 			found_idx = idx;
 			found_one = 1;
 		}
 	}
 
-	if (!found_one)
+	if (!found_one) {
 		goto fail;
+	}
 
 	memset(&fmd->dd->devs[found_idx], 0, sizeof(fmd->dd->devs[0]));
 
-	for (idx = found_idx; (idx + 1) < fmd->dd->num_devs; idx++)
+	for (idx = found_idx; (idx + 1) < fmd->dd->num_devs; idx++) {
 		fmd->dd->devs[idx] = fmd->dd->devs[idx+1];
+	}
 
-	if (fmd->dd->num_devs >= FMD_MAX_DEVS)
+	if (fmd->dd->num_devs >= FMD_MAX_DEVS) {
 		goto fail;
+	}
 
 	fmd->dd->num_devs--;
 		
@@ -208,13 +214,14 @@ fail:
 	
 void slave_process_mod(void)
 {
+	did_t did;
 	uint32_t rc = 0xFFFFFFFF;
 	char dev_fn[FMD_MAX_DEV_FN] = {0};
 
 	sem_wait(&slv->tx_mtx);
 
 	slv->s2m->msg_type = slv->m2s->msg_type | htonl(FMD_P_MSG_RESP);
-	slv->s2m->mod_rsp.did = slv->m2s->mod_rq.did;
+	slv->s2m->mod_rsp.did_val = slv->m2s->mod_rq.did_val;
 	slv->s2m->mod_rsp.did_sz = slv->m2s->mod_rq.did_sz;
 	slv->s2m->mod_rsp.hc_long = slv->m2s->mod_rq.hc_long;
 	slv->s2m->mod_rsp.ct = slv->m2s->mod_rq.ct;
@@ -254,7 +261,7 @@ void slave_process_mod(void)
 			}
 
 			rc = riomp_mgmt_device_add(p_acc->maint,
-					ntohl(slv->m2s->mod_rq.did), 
+					ntohl(slv->m2s->mod_rq.did_val),
 					ntohl(slv->m2s->mod_rq.hc_long),
 					ntohl(slv->m2s->mod_rq.ct),
 					(const char *)slv->m2s->mod_rq.name);
@@ -263,12 +270,14 @@ void slave_process_mod(void)
 			slv->s2m->mod_rsp.rc = htonl(rc);
 			break;
 		}
-		rc = add_device_to_dd( ntohl(slv->m2s->mod_rq.ct),
-				ntohl(slv->m2s->mod_rq.did), 
-				FMD_DEV08, 
+
+		did_from_value(&did, ntohl(slv->m2s->mod_rq.did_val),
+				ntohl(slv->m2s->mod_rq.did_sz));
+		rc = add_device_to_dd(ntohl(slv->m2s->mod_rq.ct), did,
 				ntohl(slv->m2s->mod_rq.hc_long),
 				ntohl(slv->m2s->mod_rq.is_mp),
-				(uint8_t)(ntohl(slv->m2s->mod_rq.flag) & FMDD_ANY_FLAG),
+				(uint8_t)(ntohl(slv->m2s->mod_rq.flag)
+						& FMDD_ANY_FLAG),
 				slv->m2s->mod_rq.name);
 		slv->s2m->mod_rsp.rc = htonl(rc);
 		break;
@@ -285,8 +294,9 @@ void slave_process_mod(void)
 		}
 		FIXME: END COMMENT
 		*/
-		rc = del_device_from_dd(ntohl(slv->m2s->mod_rq.ct),
-				ntohl(slv->m2s->mod_rq.did));
+		did_from_value(&did, ntohl(slv->m2s->mod_rq.did_val),
+				ntohl(slv->m2s->mod_rq.did_sz));
+		rc = del_device_from_dd(ntohl(slv->m2s->mod_rq.ct), did);
 		slv->s2m->mod_rsp.rc = htonl(rc);
 		break;
 	default: slv->s2m->mod_rsp.rc = 0xFFFFFFFF;
@@ -302,23 +312,26 @@ void slave_process_mod(void)
 
 void slave_process_fset(void)
 {
-        uint32_t i;
-	uint32_t did = ntohl(slv->m2s->fset.did); 
+	uint32_t i;
+	did_t did;
 	uint32_t ct = ntohl(slv->m2s->fset.ct);
 	uint8_t flag = (uint8_t)(ntohl(slv->m2s->fset.flag) & FMDD_ANY_FLAG);
 
-        if ((NULL == fmd->dd) || (NULL == fmd->dd_mtx))
-                return;
+	if ((NULL == fmd->dd) || (NULL == fmd->dd_mtx)) {
+		return;
+	}
 
-        sem_wait(&fmd->dd_mtx->sem);
+	sem_wait(&fmd->dd_mtx->sem);
+	did_from_value(&did, ntohl(slv->m2s->fset.did_val),
+			ntohl(slv->m2s->fset.did_sz));
 	for (i = 0; i < fmd->dd->num_devs; i++) {
-        	if ((fmd->dd->devs[i].destID == did) &&
-        			(fmd->dd->devs[i].ct == ct)) {
-                        fmd->dd->devs[i].flag = flag;
+		if (did_equal(did, fmd->dd->devs[i].did)
+				&& (fmd->dd->devs[i].ct == ct)) {
+			fmd->dd->devs[i].flag = flag;
 			break;
 		}
 	}
-        sem_post(&fmd->dd_mtx->sem);
+	sem_post(&fmd->dd_mtx->sem);
 
 	fmd_notify_apps();
 }
@@ -382,7 +395,7 @@ void *mgmt_slave(void *unused)
 		case FMD_P_RESP_HELLO:
 			slv->m_h_rsp = slv->m2s->hello_rsp;
 			if (!slv->m2s->hello_rsp.pid &&
-			!slv->m2s->hello_rsp.did && !slv->m2s->hello_rsp.ct) {
+			!slv->m2s->hello_rsp.did_val && !slv->m2s->hello_rsp.ct) {
 				ERR("Hello pi, did, ct all 0!\n");
 				goto fail;
 			}
@@ -408,8 +421,8 @@ fail:
 	pthread_exit(unused);
 }
 
-int start_peer_mgmt_slave(uint32_t mast_acc_skt_num, uint32_t mast_did,
-                        uint32_t  mp_num, struct fmd_slave *slave)
+int start_peer_mgmt_slave(uint32_t mast_acc_skt_num, did_t mast_did,
+		uint32_t mp_num, struct fmd_slave *slave)
 {
 	const struct timespec delay = {5, 0}; // 5 seconds
 
@@ -451,7 +464,7 @@ int start_peer_mgmt_slave(uint32_t mast_acc_skt_num, uint32_t mast_did,
 		}
 
 		// Note: fmd.opts.mast_cm_port is set by the MASTER node.
-		conn_rc = riomp_sock_connect(slv->skt_h, slv->mast_did,
+		conn_rc = riomp_sock_connect(slv->skt_h, did_get_value(slv->mast_did),
 					fmd->opts->mast_cm_port, &try_once);
 		if (!conn_rc) {
 			break;
@@ -501,8 +514,10 @@ fail:
 
 void update_master_flags_from_peer(void)
 {
-	uint32_t did, did_sz, i;
+	uint32_t i;
 	uint8_t flag;
+	did_val_t did_val;
+	uint32_t did_sz;
 	ct_t ct;
 
 	if ((NULL == fmd->dd) || (NULL == fmd->dd_mtx) || (NULL == slv->s2m)) {
@@ -517,8 +532,7 @@ void update_master_flags_from_peer(void)
 	}
 
 	i = fmd->dd->loc_mp_idx;
-	did = fmd->dd->devs[i].destID;
-	did_sz = fmd->dd->devs[i].destID_sz;
+	did_to_value(fmd->dd->devs[i].did, &did_val, &did_sz);
 	ct = fmd->dd->devs[i].ct;
 	flag = (fmd->dd->devs[i].flag & ~FMDD_FLAG_OK_MP) | FMDD_FLAG_OK;
 
@@ -526,15 +540,15 @@ void update_master_flags_from_peer(void)
 	sem_wait(&slv->tx_mtx);
 
 	slv->s2m->msg_type = htonl(FMD_P_REQ_FSET);
-	slv->s2m->src_did = htonl(did);
-	slv->s2m->fset.did = htonl(did);
+	slv->s2m->src_did_val = htonl(did_val);
+	slv->s2m->fset.did_val = htonl(did_val);
 	slv->s2m->fset.did_sz = htonl(did_sz);
 	slv->s2m->fset.ct = htonl(ct);
 	slv->s2m->fset.flag = htonl(flag);
-	
+
 	slv->tx_buff_used = 1;
 	slv->tx_rc |= riomp_sock_send(slv->skt_h, slv->tx_buff,
-				FMD_P_S2M_CM_SZ, NULL);
+			FMD_P_S2M_CM_SZ, NULL);
 	sem_post(&slv->tx_mtx);
 }
 

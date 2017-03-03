@@ -287,7 +287,7 @@ static void obwtest_buf_free(void *buf)
  * \param[in] loc_addr Physical address in reserved memory range
  * \param[in] verify Flag to enable/disable data verification on exit
  *
- * \return 0 if successful or error code returned by mport API.
+ * \return 0 if successfull or error code returned by mport API.
  *
  * Performs the following steps:
  *
@@ -360,7 +360,7 @@ out:
  * \param[in] verify Flag to enable/disable data verification for each write-read cycle
  * \param[in] loop_count Number of write-read cycles to perform
  *
- * \return 0 if successful or error code returned by mport API.
+ * \return 0 if successfull or error code returned by mport API.
  *
  * Performs the following steps:
  */

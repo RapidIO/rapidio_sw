@@ -44,6 +44,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <errno.h>
 
 #include "rio_route.h"
+#include "did.h"
 #include "rrmap_config.h"
 #include "RapidIO_Routing_Table_API.h"
 #include "RapidIO_Port_Config_API.h"
@@ -67,9 +68,9 @@ extern "C" {
 #define CFG_MEM_SZ_DEFAULT CFG_MEM_SZ_34
 
 struct dev_id {
-        uint32_t devid;
-        hc_t hc;
-        uint32_t valid;
+	did_val_t destid;
+	hc_t hc;
+	uint32_t valid;
 };
 
 struct cfg_mport_info {
@@ -110,7 +111,7 @@ struct cfg_dev {
 	const char *dev_type; /* Device type */
 	int port_cnt; /* Number of ports on device */
 	uint32_t did_sz; /* CFG_DEVID_MAX if all are supported */
-	uint32_t did; /* Device ID used to access the device */
+	did_val_t destid; /* Device ID used to access the device */
 	hc_t hc; /* Hopcount used to access the device */
 	ct_t ct; /* Component tag value */
 	uint32_t is_sw; /* 0 - endpint, 1 - switch */
@@ -120,7 +121,7 @@ struct cfg_dev {
 };
 
 int cfg_parse_file(char *cfg_fn, char **dd_mtx_fn, char **dd_fn,
-		uint32_t *m_did, uint32_t *m_cm_port, uint32_t *m_mode);
+		did_t *m_did, uint32_t *m_cm_port, uint32_t *m_mode);
 int cfg_find_mport(uint32_t mport, struct cfg_mport_info *mp);
 int cfg_get_mp_mem_sz(uint32_t mport, uint8_t *mem_sz );
 int cfg_find_dev_by_ct(ct_t ct, struct cfg_dev *dev);
