@@ -175,16 +175,49 @@ static int grp_teardown(void **state)
 	(void)state;
 }
 
-static DAR_DEV_INFO_t mock_dev_info;
+// The behavior of the performance optimization register access
+// must be overridden when registers are mocked.
+//
+// The elegant way to do this, while retaining transparency in the code,
+// is to add 1 to the defined register offset to compute the mocked register
+// offset.  This prevents the standard performance optimization register
+// support from recognizing the register and updating the poregs array.
+
+#define MOCK_REG_ADDR(x) (x | 1)
+
+static uint32_t rxs_get_poreg_idx(DAR_DEV_INFO_t *dev_info, uint32_t offset)
+{
+        return DAR_get_poreg_idx(dev_info, MOCK_REG_ADDR(offset));
+}
+
+static uint32_t rxs_add_poreg(DAR_DEV_INFO_t *dev_info, uint32_t offset,
+                uint32_t data)
+{
+        return DAR_add_poreg(dev_info, MOCK_REG_ADDR(offset), data);
+}
 
 static uint32_t RXSReadReg(DAR_DEV_INFO_t *dev_info,
 			uint32_t  offset, uint32_t *readdata)
 {
 	uint32_t rc = 0xFFFFFFFF;
+	uint32_t idx = rxs_get_poreg_idx(dev_info, MOCK_REG_ADDR(offset));
 
 	if (NULL == dev_info) {
 		return rc;
 	}
+
+	if (!st.real_hw) {
+		if ((DAR_POREG_BAD_IDX == idx) && DEBUG_PRINTF) {
+			printf("\nMissing offset is 0x%x\n", offset);
+			assert_true(st.real_hw);
+			idx = 0;
+		} else {
+			rc = RIO_SUCCESS;
+		}
+		*readdata = dev_info->poregs[idx].data;
+		goto exit;
+	}
+
 
 	// Should only get here when st.real_hw is true, since
 	// when real_hw is false, all registers are mocked.
@@ -199,7 +232,7 @@ static uint32_t RXSReadReg(DAR_DEV_INFO_t *dev_info,
 	} else {
 		rc = riomp_mgmt_rcfg_read(st.mp_h, st.destid, st.hc, offset, 4, readdata);
 	}
-
+exit:
 	return rc;
 }
 
@@ -211,7 +244,7 @@ static void update_mc_masks(DAR_DEV_INFO_t *dev_info,
 	// Update register values for both the set and
 	// clear mask.
 
-	reg_idx = DAR_get_poreg_idx(dev_info,
+	reg_idx = rxs_get_poreg_idx(dev_info,
 				RXS_RIO_SPX_MC_Y_S_CSR(port, idx));
 	if ((DAR_POREG_BAD_IDX == reg_idx) && DEBUG_PRINTF) {
 		printf("\nMissing offset 0x%x port %d idx %d\n",
@@ -220,7 +253,7 @@ static void update_mc_masks(DAR_DEV_INFO_t *dev_info,
 	assert_int_not_equal(DAR_POREG_BAD_IDX, reg_idx);
 	dev_info->poregs[reg_idx].data = new_mask;
 
-	reg_idx = DAR_get_poreg_idx(dev_info,
+	reg_idx = rxs_get_poreg_idx(dev_info,
 					RXS_RIO_SPX_MC_Y_C_CSR(port, idx));
 	if ((DAR_POREG_BAD_IDX == reg_idx) && DEBUG_PRINTF) {
 		printf("\nMissing offset 0x%x port %d idx %d\n",
@@ -233,6 +266,21 @@ static void update_mc_masks(DAR_DEV_INFO_t *dev_info,
 /* The function tries to find the index of the offset in the dar_reg array and returns the idx,
  * otherwise it returns UPB_DAR_REG.
  */
+static void rxs_emulate_reg_write(DAR_DEV_INFO_t *dev_info,
+                        uint32_t  offset, uint32_t writedata)
+{
+        uint32_t idx = rxs_get_poreg_idx(dev_info, MOCK_REG_ADDR(offset));
+
+        if ((DAR_POREG_BAD_IDX == idx) && DEBUG_PRINTF) {
+                printf("\nMissing offset is 0x%x\n", offset);
+                assert_int_equal(0xFFFFFFFF, offset);
+                assert_true(st.real_hw);
+                return;
+        }
+
+        dev_info->poregs[idx].data = writedata;
+}
+
 static void check_write_bc(DAR_DEV_INFO_t *dev_info,
 			uint32_t offset, uint32_t writedata)
 {
@@ -252,9 +300,9 @@ static void check_write_bc(DAR_DEV_INFO_t *dev_info,
 		mask_idx = (offset - RXS_RIO_BC_MC_X_S_CSR(0)) / 8;
 		assert_in_range(mask_idx, 0, RXS2448_MAX_MC_MASK);
 
-		for (port = 0; port < NUM_RXS_PORTS(&mock_dev_info);  port++) {
+		for (port = 0; port < NUM_RXS_PORTS(dev_info);  port++) {
 			assert_int_equal(RIO_SUCCESS,
-				DARRegRead(&mock_dev_info,
+				DARRegRead(dev_info,
 				RXS_RIO_SPX_MC_Y_S_CSR(port, mask_idx),
 				&mask));
 			if (do_clear) {
@@ -268,7 +316,7 @@ static void check_write_bc(DAR_DEV_INFO_t *dev_info,
 	}
 
 	// Handle writes to per-port set/clear multicast mask registers
-	for (port = 0; port < NUM_RXS_PORTS(&mock_dev_info);  port++) {
+	for (port = 0; port < NUM_RXS_PORTS(dev_info);  port++) {
 		if ((offset >= RXS_RIO_SPX_MC_Y_S_CSR(port, 0)) &&
 		(offset < RXS_RIO_SPX_MC_Y_C_CSR(port, RXS2448_MC_MASK_CNT))) {
 			uint32_t new_mask;
@@ -279,7 +327,7 @@ static void check_write_bc(DAR_DEV_INFO_t *dev_info,
 			assert_in_range(mask_idx, 0, RXS2448_MAX_MC_MASK);
 
 			assert_int_equal(RIO_SUCCESS,
-				DARRegRead(&mock_dev_info,
+				DARRegRead(dev_info,
 				RXS_RIO_SPX_MC_Y_S_CSR(port, mask_idx),
 				&mask));
 			if (do_clear) {
@@ -296,26 +344,27 @@ static void check_write_bc(DAR_DEV_INFO_t *dev_info,
 		(offset <= RXS_RIO_BC_L2_GX_ENTRYY_CSR(0, RIO_RT_GRP_SZ-1))) {
 		did = (offset - RXS_RIO_BC_L2_GX_ENTRYY_CSR(0,0)) / 4;
 
-		for (port = 0; port < NUM_RXS_PORTS(&mock_dev_info);  port++) {
+		for (port = 0; port < NUM_RXS_PORTS(dev_info);  port++) {
 			assert_int_equal(RIO_SUCCESS,
-				DARRegWrite(&mock_dev_info,
+				DARRegWrite(dev_info,
 				RXS_RIO_SPX_L2_GY_ENTRYZ_CSR(port, 0, did),
 				writedata));
 		}
 		return;
 	}
 
-	if ((offset >= RXS_RIO_BC_L1_GX_ENTRYY_CSR(0,0)) && 
+	if ((offset >= RXS_RIO_BC_L1_GX_ENTRYY_CSR(0,0)) &&
 		(offset <= RXS_RIO_BC_L1_GX_ENTRYY_CSR(0, RIO_RT_GRP_SZ-1))) {
 		did = (offset - RXS_RIO_BC_L1_GX_ENTRYY_CSR(0,0)) / 4;
 
-		for (port = 0; port < NUM_RXS_PORTS(&mock_dev_info);  port++) {
+		for (port = 0; port < NUM_RXS_PORTS(dev_info);  port++) {
 			assert_int_equal(RIO_SUCCESS,
-				DARRegWrite(&mock_dev_info,
+				DARRegWrite(dev_info,
 				RXS_RIO_SPX_L1_GY_ENTRYZ_CSR(port, 0, did),
 				writedata));
 		}
 	}
+	rxs_emulate_reg_write(dev_info, offset, writedata);
 }
 
 static uint32_t RXSWriteReg(DAR_DEV_INFO_t *dev_info,
@@ -350,21 +399,67 @@ static void RXSWaitSec(uint32_t delay_nsec, uint32_t delay_sec)
 	}
 }
 
+uint32_t rxs_mock_reg_oset[] = {
+	RXS_RIO_PRESCALAR_SRV_CLK,
+	RXS_RIO_MPM_CFGSIG0,
+	RXS_RIO_SP_LT_CTL,
+	RXS_RIO_SP_GEN_CTL,
+	RXS_RIO_ROUTE_DFLT_PORT,
+	RXS_RIO_PKT_TIME_LIVE,
+	RXS_RIO_SP_LT_CTL
+};
+
+typedef struct rxs_mock_pp_reg_t_TAG {
+        uint32_t base;
+        uint32_t pp_oset;
+        uint32_t val;
+} rxs_mock_pp_reg_t;
+
+#define RXS_RIO_SPX_CTL2_DFLT (RXS_RIO_SPX_CTL2_GB_6p25_EN | \
+                                RXS_RIO_SPX_CTL2_GB_6p25 | \
+                                RIO_SPX_CTL2_BAUD_SEL_6P25_BR)
+#define RXS_RIO_SPX_ERR_STAT_DFLT (RXS_RIO_SPX_ERR_STAT_PORT_UNAVL)
+#define RXS_RIO_SPX_CTL_DFLT (RXS_RIO_SPX_CTL_PORT_DIS | \
+                                RIO_SPX_CTL_PTW_INIT_4x | \
+                                RXS_RIO_SPX_CTL_PORT_WIDTH)
+#define RXS_RIO_PLM_SPX_IMP_SPEC_CTL_DFLT 0
+#define RXS_RIO_PLM_SPX_PWDN_CTL_DFLT (RXS_RIO_PLM_SPX_PWDN_CTL_PWDN_PORT)
+#define RXS_PLM_SPX_POL_CTL_DFLT 0
+#define RXS_RIO_TLM_SPX_FTYPE_FILT_DFLT 0
+#define RXS_RIO_PLM_SPX_STAT_DFLT 0
+
+rxs_mock_pp_reg_t rxs_mock_pp_reg[] = {
+        {RXS_RIO_SPX_CTL2(0), 0x40, RXS_RIO_SPX_CTL2_DFLT},
+        {RXS_RIO_SPX_ERR_STAT(0), 0x40, RXS_RIO_SPX_ERR_STAT_DFLT},
+        {RXS_RIO_SPX_CTL(0), 0x40, RXS_RIO_SPX_CTL_DFLT},
+        {RXS_RIO_PLM_SPX_IMP_SPEC_CTL(0), 0x100,
+                                RXS_RIO_PLM_SPX_IMP_SPEC_CTL_DFLT},
+        {RXS_RIO_PLM_SPX_STAT(0), 0x100, RXS_RIO_PLM_SPX_STAT_DFLT},
+        {RXS_RIO_PLM_SPX_PWDN_CTL(0), 0x100, RXS_RIO_PLM_SPX_PWDN_CTL_DFLT},
+        {RXS_PLM_SPX_POL_CTL(0), 0x100, RXS_PLM_SPX_POL_CTL_DFLT},
+        {RXS_RIO_TLM_SPX_FTYPE_FILT(0), 0x100, RXS_RIO_TLM_SPX_FTYPE_FILT_DFLT}
+};
+
 // Count up maximum registers saved.
 // Note: only the first level 1 and level 2 routing table groups are supported
 // Use *_MAX_PORTS + 1 to account for device broadcast registers
 // There are 2 multicast mask registers for each multicast mask:
 //    one to set, and one to clear
-#define NUM_DAR_REG ((RXS2448_MAX_PORTS * 5) + 3 + \
-	((RXS2448_MAX_PORTS + 1) * RXS2448_MC_MASK_CNT * 2) + \
-	((RXS2448_MAX_PORTS + 1) * RIO_RT_GRP_SZ * 2))
 
-#define UPB_DAR_REG (NUM_DAR_REG+1)
+#define MOCK_DEV_REG (sizeof(rxs_mock_reg_oset)/sizeof(rxs_mock_reg_oset[0]))
+#define MOCK_PP_REG (sizeof(rxs_mock_pp_reg)/sizeof(rxs_mock_pp_reg[0]))
+#define MOCK_MC_REG ((RXS2448_MAX_PORTS + 1) * RXS2448_MC_MASK_CNT * 2)
+#define MOCK_RT_REG ((RXS2448_MAX_PORTS + 1) * RIO_RT_GRP_SZ * 2)
 
-rio_perf_opt_reg_t mock_dar_reg[UPB_DAR_REG];
+#define TOT_MOCK_REG ((MOCK_DEV_REG + MOCK_MC_REG + MOCK_RT_REG) + \
+			(MOCK_PP_REG * RXS2448_MAX_PORTS))
+#define UPB_MOCK_REG (TOT_MOCK_REG + 1)
 
 /* Create a mock dev_info.
  */
+
+static DAR_DEV_INFO_t mock_dev_info;
+
 static void rxs_test_setup(void)
 {
 	uint8_t idx;
@@ -399,12 +494,15 @@ static void rxs_test_setup(void)
 	}
 }
 
-/* Initialize the mock register structure for different registers.
+/* Initialize the mock register structure for all mocked registers.
  */
+
+static rio_perf_opt_reg_t mock_dar_reg[UPB_MOCK_REG];
+
 static void init_mock_rxs_reg(void **state)
 {
 	// idx is always should be less than UPB_DAR_REG.
-	uint32_t port, idev;
+	uint32_t port, idev, i, val;
 	RXS_test_state_t *l_st = *(RXS_test_state_t **)state;
 
 	DAR_proc_ptr_init(RXSReadReg, RXSWriteReg, RXSWaitSec);
@@ -414,51 +512,45 @@ static void init_mock_rxs_reg(void **state)
 		mock_dev_info.poregs = NULL;
 		return;
 	}
-	mock_dev_info.poregs_max = UPB_DAR_REG;
+
+	mock_dev_info.poregs_max = UPB_MOCK_REG;
 	mock_dev_info.poreg_cnt = 0;
 	mock_dev_info.poregs = mock_dar_reg;
 
-	// Initialize RXS_RIO_SPX_CTL, RXS_RIO_SPX_CTL2,
-	// RXS_RIO_PLM_SPX_IMP_SPEC_CTL,
-	// RXS_PLM_SPX_POL_CTL, and RXS_RIO_SPX_ERR_STAT
-
-	for (port = 0; port < RXS2448_MAX_PORTS; port++) {
+	// Initialize RXS device regs
+	for (i = 0; i < MOCK_DEV_REG; i++) {
 		assert_int_equal(RIO_SUCCESS,
-			DAR_add_poreg(&mock_dev_info, RXS_RIO_SPX_CTL(port), 0x00));
-		assert_int_equal(RIO_SUCCESS,
-			DAR_add_poreg(&mock_dev_info,
-				RXS_RIO_SPX_ERR_STAT(port), 0x00));
-		assert_int_equal(RIO_SUCCESS,
-			DAR_add_poreg(&mock_dev_info,
-				RXS_RIO_SPX_CTL2(port), 0x00));
-		assert_int_equal(RIO_SUCCESS,
-			DAR_add_poreg(&mock_dev_info,
-				RXS_RIO_PLM_SPX_IMP_SPEC_CTL(port), 0x00));
-		assert_int_equal(RIO_SUCCESS,
-			DAR_add_poreg(&mock_dev_info,
-			    RXS_PLM_SPX_POL_CTL(port), 0x00));
+			rxs_add_poreg(&mock_dev_info, rxs_mock_reg_oset[i], 0));
 	}
 
-	// Initialize RXS_RIO_ROUTE_DFLT_PORT
-	assert_int_equal(RIO_SUCCESS,
-		DAR_add_poreg(&mock_dev_info, RXS_RIO_ROUTE_DFLT_PORT, 0x00));
-
-	// Initialize RXS_RIO_PKT_TIME_LIVE
-	assert_int_equal(RIO_SUCCESS,
-		DAR_add_poreg(&mock_dev_info, RXS_RIO_PKT_TIME_LIVE, 0x00));
-
-	// Initialize RXS_RIO_SP_LT_CTL
-	assert_int_equal(RIO_SUCCESS,
-		DAR_add_poreg(&mock_dev_info, RXS_RIO_SP_LT_CTL, 0x00));
+	// Initialize RXS per port regs
+	for (port = 0; port < RXS2448_MAX_PORTS; port++) {
+		for (i = 0; i < MOCK_PP_REG; i++) {
+			// Odd ports cannot support 4x, and they train at 2x
+			val = rxs_mock_pp_reg[i].val;
+			if (RXS_RIO_SPX_CTL(0) == rxs_mock_pp_reg[i].base) {
+				if (port & 1) {
+					val &= ~RIO_SPX_CTL_PTW_MAX_4X;
+					val &= ~RIO_SPX_CTL_PTW_INIT_4x;
+					val |= RIO_SPX_CTL_PTW_INIT_2x;
+				}
+			}
+			assert_int_equal(RIO_SUCCESS,
+				rxs_add_poreg(&mock_dev_info,
+					rxs_mock_pp_reg[i].base +
+					(rxs_mock_pp_reg[i].pp_oset * port),
+					val));
+		}
+	}
 
 	// Initialize RXS_RIO_BC_MC_Y_S_CSR and RXS_RIO_BC_MC_Y_C_CSR
 	for (idev = 0; idev < RXS2448_MC_MASK_CNT; idev++) {
 		assert_int_equal(RIO_SUCCESS,
-			DAR_add_poreg(&mock_dev_info,
+			rxs_add_poreg(&mock_dev_info,
 				RXS_RIO_BC_MC_X_S_CSR(idev),
 				0x00));
 		assert_int_equal(RIO_SUCCESS,
-			DAR_add_poreg(&mock_dev_info,
+			rxs_add_poreg(&mock_dev_info,
 				RXS_RIO_BC_MC_X_C_CSR(idev),
 				0x00));
 	}
@@ -467,11 +559,11 @@ static void init_mock_rxs_reg(void **state)
 	for (port = 0; port < RXS2448_MAX_PORTS; port++) {
 		for (idev = 0; idev < RXS2448_MC_MASK_CNT; idev++) {
 			assert_int_equal(RIO_SUCCESS,
-				DAR_add_poreg(&mock_dev_info,
+				rxs_add_poreg(&mock_dev_info,
 					RXS_RIO_SPX_MC_Y_S_CSR(port, idev),
 					0x00));
 			assert_int_equal(RIO_SUCCESS,
-				DAR_add_poreg(&mock_dev_info,
+				rxs_add_poreg(&mock_dev_info,
 					RXS_RIO_SPX_MC_Y_C_CSR(port, idev),
 					0x00));
 		}
@@ -480,7 +572,7 @@ static void init_mock_rxs_reg(void **state)
 	// Initialize RXS_RIO_BC_L2_GX_ENTRYY_CSR
 	for (idev = 0; idev < RIO_RT_GRP_SZ; idev++) {
 		assert_int_equal(RIO_SUCCESS,
-			DAR_add_poreg(&mock_dev_info,
+			rxs_add_poreg(&mock_dev_info,
 				RXS_RIO_BC_L2_GX_ENTRYY_CSR(0, idev),
 				0x00));
 	}
@@ -488,7 +580,7 @@ static void init_mock_rxs_reg(void **state)
 	// Initialize RXS_RIO_BC_L1_GX_ENTRYY_CSR
 	for (idev = 0; idev < RIO_RT_GRP_SZ; idev++) {
 		assert_int_equal(RIO_SUCCESS,
-			DAR_add_poreg(&mock_dev_info,
+			rxs_add_poreg(&mock_dev_info,
 				RXS_RIO_BC_L1_GX_ENTRYY_CSR(0, idev),
 				0x00));
 	}
@@ -497,7 +589,7 @@ static void init_mock_rxs_reg(void **state)
 	for (port = 0; port < RXS2448_MAX_PORTS; port++) {
 		for (idev = 0; idev < RIO_RT_GRP_SZ; idev++) {
 			assert_int_equal(RIO_SUCCESS,
-					DAR_add_poreg(&mock_dev_info,
+					rxs_add_poreg(&mock_dev_info,
 				RXS_RIO_SPX_L2_GY_ENTRYZ_CSR(port, 0, idev),
 					0x00));
 		}
@@ -507,7 +599,7 @@ static void init_mock_rxs_reg(void **state)
 	for (port = 0; port < RXS2448_MAX_PORTS; port++) {
 		for (idev = 0; idev < RIO_RT_GRP_SZ; idev++) {
 			assert_int_equal(RIO_SUCCESS,
-					DAR_add_poreg(&mock_dev_info,
+					rxs_add_poreg(&mock_dev_info,
 				RXS_RIO_SPX_L1_GY_ENTRYZ_CSR(port, 0, idev),
 					(!idev)? RIO_RTE_LVL_G0 : 0x00));
 		}
@@ -533,6 +625,165 @@ static int setup(void **state)
 	}
 
         return 0;
+}
+
+// Routine to set virtual register status for
+// rxs_pc_get_config and rxs_pc_get_status
+
+typedef enum config_hw_t_TAG {
+	cfg_unavl,
+	cfg_avl_pwdn,
+	cfg_pwup_txdis,
+	cfg_txen_no_lp,
+	cfg_txen_lp_perr,
+	cfg_lp_lkout,
+	cfg_lp_nmtc_dis,
+	cfg_lp_lpbk,
+	cfg_lp_ecc,
+	cfg_perfect
+} config_hw_t;
+
+#define NO_TTL false
+#define YES_TTL true
+#define NO_FILT false
+#define YES_FILT true
+
+static void set_all_port_config(config_hw_t cfg,
+					bool ttl,
+					bool filter,
+					rio_port_t port)
+{
+	uint32_t ctl2, err_stat, ctl, plm_ctl, plm_stat, pwdn;
+	uint32_t err_stat_avail = RXS_RIO_SPX_ERR_STAT_DFLT &
+				~RXS_RIO_SPX_ERR_STAT_PORT_UNAVL;
+	uint32_t err_stat_nolp = err_stat_avail |
+			RXS_RIO_SPX_ERR_STAT_PORT_UNINIT;
+	uint32_t err_stat_lp_ok = err_stat_avail |
+			RXS_RIO_SPX_ERR_STAT_PORT_OK;
+	uint32_t err_stat_lp_perr = err_stat_lp_ok |
+			RXS_RIO_SPX_ERR_STAT_PORT_ERR;
+	uint32_t lpbk_mask = RXS_RIO_PLM_SPX_IMP_SPEC_CTL_DLB_EN |
+				RXS_RIO_PLM_SPX_IMP_SPEC_CTL_LLB_EN;
+
+	uint32_t ttl_reg = (ttl) ? 0xFFFFFFFF : 0;
+	uint32_t filt = (filter) ? 0xFFFFFFFF : 0;
+	rio_port_t st_port = port, end_port = port;
+
+	if (RIO_ALL_PORTS == port) {
+		st_port = 0;
+		end_port = NUM_RXS_PORTS(&mock_dev_info) - 1;
+	}
+
+	assert_int_equal(RIO_SUCCESS,
+		RXSWriteReg(&mock_dev_info, RXS_RIO_PKT_TIME_LIVE, ttl_reg));
+
+	for (port = st_port; port <= end_port; port++) {
+		assert_int_equal(RIO_SUCCESS,
+			RXSReadReg(&mock_dev_info,
+				RXS_RIO_SPX_CTL2(port), &ctl2));
+		assert_int_equal(RIO_SUCCESS,
+			RXSReadReg(&mock_dev_info,
+				RXS_RIO_SPX_ERR_STAT(port), &err_stat));
+		assert_int_equal(RIO_SUCCESS,
+			RXSReadReg(&mock_dev_info,
+				RXS_RIO_SPX_CTL(port), &ctl));
+		assert_int_equal(RIO_SUCCESS,
+			RXSReadReg(&mock_dev_info,
+				RXS_RIO_PLM_SPX_IMP_SPEC_CTL(port), &plm_ctl));
+		assert_int_equal(RIO_SUCCESS,
+			RXSReadReg(&mock_dev_info,
+				RXS_RIO_PLM_SPX_STAT(port),
+								&plm_stat));
+		assert_int_equal(RIO_SUCCESS,
+			RXSReadReg(&mock_dev_info,
+				RXS_RIO_PLM_SPX_PWDN_CTL(port), &pwdn));
+		switch(cfg) {
+		case cfg_unavl:
+			err_stat = RXS_RIO_SPX_ERR_STAT_DFLT;
+			break;;
+		case cfg_avl_pwdn:
+			err_stat = err_stat_avail;
+			pwdn = RXS_RIO_PLM_SPX_PWDN_CTL_DFLT;
+			break;
+		case cfg_pwup_txdis:
+			err_stat = err_stat_avail;
+			pwdn = 0;
+			ctl |= RXS_RIO_SPX_CTL_PORT_DIS;
+			break;
+		case cfg_txen_no_lp:
+			err_stat = err_stat_nolp;
+			pwdn = 0;
+			ctl &= ~RXS_RIO_SPX_CTL_PORT_DIS;
+			break;
+		case cfg_txen_lp_perr:
+			err_stat = err_stat_lp_perr;
+			pwdn = 0;
+			ctl &= ~RXS_RIO_SPX_CTL_PORT_DIS;
+			break;
+		case cfg_lp_lkout:
+			err_stat = err_stat_lp_ok;
+			pwdn = 0;
+			ctl &= ~RXS_RIO_SPX_CTL_PORT_DIS;
+			ctl |= RXS_RIO_SPX_CTL_PORT_LOCKOUT;
+			break;
+		case cfg_lp_nmtc_dis:
+			err_stat = err_stat_lp_ok;
+			pwdn = 0;
+			ctl &= ~RXS_RIO_SPX_CTL_PORT_DIS;
+			ctl &= ~RXS_RIO_SPX_CTL_PORT_LOCKOUT;
+			ctl &= ~(RXS_RIO_SPX_CTL_INP_EN |
+				RXS_RIO_SPX_CTL_OTP_EN);
+			break;
+		case cfg_lp_lpbk:
+			err_stat = err_stat_lp_ok;
+			pwdn = 0;
+			ctl &= ~RXS_RIO_SPX_CTL_PORT_DIS;
+			ctl &= ~RXS_RIO_SPX_CTL_PORT_LOCKOUT;
+			ctl |= RXS_RIO_SPX_CTL_INP_EN | RXS_RIO_SPX_CTL_OTP_EN;
+			plm_ctl |= lpbk_mask;
+			break;
+		case cfg_lp_ecc:
+			err_stat = err_stat_lp_ok;
+			pwdn = 0;
+			ctl &= ~RXS_RIO_SPX_CTL_PORT_DIS;
+			ctl &= ~RXS_RIO_SPX_CTL_PORT_LOCKOUT;
+			ctl |= RXS_RIO_SPX_CTL_INP_EN | RXS_RIO_SPX_CTL_OTP_EN;
+			plm_ctl &= ~lpbk_mask;
+			plm_stat = RXS_RIO_PLM_SPX_STAT_PBM_FATAL;
+			break;
+		case cfg_perfect:
+			err_stat = err_stat_lp_ok;
+			pwdn = 0;
+			ctl &= ~RXS_RIO_SPX_CTL_PORT_DIS;
+			ctl &= ~RXS_RIO_SPX_CTL_PORT_LOCKOUT;
+			ctl |= RXS_RIO_SPX_CTL_INP_EN | RXS_RIO_SPX_CTL_OTP_EN;
+			plm_ctl &= ~RXS_RIO_PLM_SPX_IMP_SPEC_CTL_LLB_EN;
+			plm_stat = 0;
+			break;
+		default:
+			assert_true(false);
+		}
+		assert_int_equal(RIO_SUCCESS,
+			RXSWriteReg(&mock_dev_info,
+				RXS_RIO_SPX_CTL2(port), ctl2));
+		assert_int_equal(RIO_SUCCESS,
+			RXSWriteReg(&mock_dev_info,
+				RXS_RIO_SPX_ERR_STAT(port), err_stat));
+		assert_int_equal(RIO_SUCCESS,
+			RXSWriteReg(&mock_dev_info, RXS_RIO_SPX_CTL(port), ctl));
+		assert_int_equal(RIO_SUCCESS,
+			RXSWriteReg(&mock_dev_info,
+				RXS_RIO_PLM_SPX_IMP_SPEC_CTL(port), plm_ctl));
+		assert_int_equal(RIO_SUCCESS,
+			RXSWriteReg(&mock_dev_info,
+				RXS_RIO_PLM_SPX_STAT(port), plm_stat));
+		assert_int_equal(RIO_SUCCESS,
+			RXSWriteReg(&mock_dev_info,
+				RXS_RIO_PLM_SPX_PWDN_CTL(port), pwdn));
+		assert_int_equal(RIO_SUCCESS,
+			RXSWriteReg(&mock_dev_info,
+				RXS_RIO_TLM_SPX_FTYPE_FILT(port), filt));
+	}
 }
 
 static void rxs_init_mock_rt(rio_rt_state_t *rt)
@@ -878,7 +1129,7 @@ static void rxs_init_rt_test_success(void **state)
 	rxs_init_rt_test_success_val(state, no_hw,
 					RIO_ALL_PORTS, RIO_RTV_PORT(12));
 
-	// Test init with a multicast mask 
+	// Test init with a multicast mask
 	rxs_init_rt_test_success_val(state, no_hw, 0, RIO_RTE_MC_0);
 	rxs_init_rt_test_success_val(state, no_hw, 0, RIO_RTE_MC_LAST);
 
@@ -1091,7 +1342,7 @@ static void rxs_change_rte_rt_test_success_val(rio_port_t port,
 static void rxs_change_rte_rt_test_success(void **state)
 {
 	const rio_port_t pmax = NUM_RXS_PORTS(&mock_dev_info) - 1;
-	uint32_t imax = RIO_RT_GRP_SZ - 1; 
+	uint32_t imax = RIO_RT_GRP_SZ - 1;
 	rio_port_t port;
 	rio_port_t port_array[] = {0, 4, pmax, RIO_ALL_PORTS};
 	rio_port_t num_ports = sizeof(port_array) / sizeof(port_array[0]);
@@ -1285,7 +1536,7 @@ static void rxs_alloc_mc_rt_test_success(void **state)
 			rxs_check_alloc_mc_rt_change(mc_idx, &alloc_in);
 		}
 
-		// Check that it is not possible to allocate another 
+		// Check that it is not possible to allocate another
 		// multicast mask.
 		assert_int_not_equal(RIO_SUCCESS,
 			rio_rt_alloc_mc_mask(&mock_dev_info,
@@ -2091,7 +2342,7 @@ static void rxs_check_set_rt_regs(rio_rt_set_all_in_t *set_in)
 
 	if (RIO_ALL_PORTS == set_in->set_on_port) {
 		st_port = 0;
-		end_port = NUM_RXS_PORTS(&mock_dev_info) - 1; 
+		end_port = NUM_RXS_PORTS(&mock_dev_info) - 1;
 	}
 
 	for (port = st_port; port <= end_port; port++) {
@@ -2109,7 +2360,7 @@ static void rxs_check_set_rt_regs(rio_rt_set_all_in_t *set_in)
 		// Confirm no multicast values changed.
                 for (idx = 0; idx < RXS2448_MC_MASK_CNT; idx++) {
 			rxs_reg_mc_mask(port, idx, &mc_mask_out);
-			assert_int_equal(mc_mask_out, 
+			assert_int_equal(mc_mask_out,
 				set_in->rt->mc_masks[idx].mc_mask);
 			assert_false(set_in->rt->mc_masks[idx].changed);
                 }
@@ -2652,6 +2903,780 @@ static void rxs_rio_rt_probe_all_bad_parms_test(void **state)
 	(void)state;
 }
 
+static void rxs_rio_rt_probe_bad_parms_test(void **state)
+{
+	rio_rt_probe_in_t pr_in;
+	rio_rt_probe_out_t pr_out;
+	rio_rt_state_t rt;
+
+	// Test bad port
+	pr_in.probe_on_port = NUM_RXS_PORTS(&mock_dev_info);
+	pr_in.tt = tt_dev16;
+	pr_in.destID = 0;
+	pr_in.rt = &rt;
+	pr_out.imp_rc = RIO_SUCCESS;
+
+	assert_int_not_equal(RIO_SUCCESS,
+		rxs_rio_rt_probe(&mock_dev_info, &pr_in, &pr_out));
+	assert_int_not_equal(RIO_SUCCESS, pr_out.imp_rc);
+
+	// Test bad tt value
+	pr_in.probe_on_port = 0;
+	pr_in.tt = tt_t(3);
+	pr_in.destID = 0;
+	pr_in.rt = &rt;
+	pr_out.imp_rc = RIO_SUCCESS;
+
+	assert_int_not_equal(RIO_SUCCESS,
+		rxs_rio_rt_probe(&mock_dev_info, &pr_in, &pr_out));
+	assert_int_not_equal(RIO_SUCCESS, pr_out.imp_rc);
+
+	// Test bad destID
+	pr_in.probe_on_port = 0;
+	pr_in.tt = tt_dev8;
+	pr_in.destID = 0x1FF;
+	pr_in.rt = &rt;
+	pr_out.imp_rc = RIO_SUCCESS;
+
+	assert_int_not_equal(RIO_SUCCESS,
+		rxs_rio_rt_probe(&mock_dev_info, &pr_in, &pr_out));
+	assert_int_not_equal(RIO_SUCCESS, pr_out.imp_rc);
+
+	// Test NULL routing table pointer
+	pr_in.probe_on_port = 0;
+	pr_in.tt = tt_dev8;
+	pr_in.destID = 0x1FF;
+	pr_in.rt = NULL;
+	pr_out.imp_rc = RIO_SUCCESS;
+
+	assert_int_not_equal(RIO_SUCCESS,
+		rxs_rio_rt_probe(&mock_dev_info, &pr_in, &pr_out));
+	assert_int_not_equal(RIO_SUCCESS, pr_out.imp_rc);
+
+	(void)state;
+}
+
+static void rxs_rio_rt_probe_success_port_test(void **state)
+{
+	rio_rt_initialize_in_t init_in;
+	rio_rt_initialize_out_t init_out;
+	rio_rt_alloc_mc_mask_in_t alloc_in;
+	rio_rt_alloc_mc_mask_out_t alloc_out;
+	rio_rt_change_mc_mask_in_t mc_chg_in;
+	rio_rt_change_mc_mask_out_t mc_chg_out;
+	rio_rt_change_rte_in_t chg_in;
+	rio_rt_change_rte_out_t chg_out;
+	rio_rt_probe_in_t pr_in;
+	rio_rt_probe_out_t pr_out;
+	rio_rt_probe_out_t pr_out2;
+	rio_rt_state_t rt;
+
+	// Multicast mask for port 2, 4, 5, 9, and 12...
+	uint32_t mc_mask = 0x1234;
+	rio_port_t pt;
+	uint32_t destid;
+
+	// Set all ports to "perfect"
+	set_all_port_config(cfg_perfect, NO_TTL, NO_FILT, RIO_ALL_PORTS);
+
+	// Initialize routing table
+	init_in.set_on_port = 0;
+	init_in.default_route = RIO_RTV_PORT(0);
+	init_in.default_route_table_port = RIO_RTV_PORT(1);
+	init_in.update_hw = false;
+	init_in.rt = &rt;
+	memset(&rt, 0, sizeof(rt));
+
+	assert_int_equal(RIO_SUCCESS,
+		rxs_rio_rt_initialize(&mock_dev_info, &init_in, &init_out));
+	assert_int_equal(RIO_SUCCESS, init_out.imp_rc);
+
+	// Allocate multicast mask
+	alloc_in.rt = &rt;
+	assert_int_equal(RIO_SUCCESS,
+		rio_rt_alloc_mc_mask(&mock_dev_info, &alloc_in, &alloc_out));
+	assert_int_equal(0, alloc_out.imp_rc);
+
+	// Modify dev8 routing table entry 1 to
+	// use the multicast mask
+	mc_chg_in.mc_mask_rte = alloc_out.mc_mask_rte;
+	mc_chg_in.mc_info.in_use = true;
+	mc_chg_in.mc_info.tt = tt_dev8;
+	mc_chg_in.mc_info.mc_destID = 1;
+	mc_chg_in.mc_info.mc_mask = mc_mask;
+	mc_chg_in.rt = &rt;
+	assert_int_equal(RIO_SUCCESS,
+		rxs_rio_rt_change_mc_mask(&mock_dev_info,
+					&mc_chg_in, &mc_chg_out));
+	assert_int_equal(0, mc_chg_out.imp_rc);
+
+	// Modify Dev16 routing table entry 2 (destIDs 0x0200 through 0x02FF)
+	// use the multicast mask
+	chg_in.dom_entry = true;
+	chg_in.idx = 2;
+	chg_in.rte_value = alloc_out.mc_mask_rte;
+	chg_in.rt = &rt;
+	assert_int_equal(RIO_SUCCESS,
+		rxs_rio_rt_change_rte(&mock_dev_info, &chg_in, &chg_out));
+	assert_int_equal(0, chg_out.imp_rc);
+
+	// Modify dev8 routing table entry 3 to use the default port
+	chg_in.dom_entry = false;
+	chg_in.idx = 3;
+	chg_in.rte_value = RIO_RTE_DFLT_PORT;
+	chg_in.rt = &rt;
+	assert_int_equal(RIO_SUCCESS,
+		rxs_rio_rt_change_rte(&mock_dev_info, &chg_in, &chg_out));
+	assert_int_equal(0, chg_out.imp_rc);
+
+	// Modify dev16 routing table entry 4 (destIDs 0x0400 through 0x04FF)
+	// to use the device routing table
+	chg_in.dom_entry = true;
+	chg_in.idx = 4;
+	chg_in.rte_value = RIO_RTV_LVL_GRP(0);
+	chg_in.rt = &rt;
+	assert_int_equal(RIO_SUCCESS,
+		rxs_rio_rt_change_rte(&mock_dev_info, &chg_in, &chg_out));
+	assert_int_equal(0, chg_out.imp_rc);
+
+	// Check routing for all destIDs of the form 0xXX, 0x00XX and 0x04XX
+
+	for (destid = 0; destid <= RIO_LAST_DEV8; destid++) {
+		// Check destID 0xXX
+		pr_in.probe_on_port = 0;
+		pr_in.tt = tt_dev8;
+		pr_in.destID = destid;
+		pr_in.rt = &rt;
+		memset(&pr_out, 0, sizeof(pr_out));
+
+		assert_int_equal(RIO_SUCCESS,
+			rxs_rio_rt_probe(&mock_dev_info, &pr_in, &pr_out));
+
+		assert_int_equal(RIO_SUCCESS, pr_out.imp_rc);
+		assert_true(pr_out.valid_route);
+
+		switch (destid) {
+		case 1:
+			assert_int_equal(pr_out.routing_table_value,
+							alloc_out.mc_mask_rte);
+			for (pt = 0; pt < NUM_RXS_PORTS(&mock_dev_info); pt++) {
+				if (mc_mask & (1 << pt)) {
+					assert_true(pr_out.mcast_ports[pt]);
+				} else {
+					assert_false(pr_out.mcast_ports[pt]);
+				}
+			}
+			break;
+		case 3:
+			assert_int_equal(pr_out.routing_table_value,
+							RIO_RTE_DFLT_PORT);
+			assert_int_equal(pr_out.default_route,
+					init_in.default_route);
+			break;
+		default:
+			assert_int_equal(pr_out.routing_table_value,
+					init_in.default_route_table_port);
+			break;
+		}
+		// Check destID 0x00XX matches destID 0xXX
+		pr_in.probe_on_port = 0;
+		pr_in.tt = tt_dev16;
+		pr_in.destID = destid;
+		pr_in.rt = &rt;
+		memset(&pr_out2, 0, sizeof(pr_out2));
+
+		assert_int_equal(RIO_SUCCESS,
+			rxs_rio_rt_probe(&mock_dev_info, &pr_in, &pr_out2));
+		assert_int_equal(0, memcmp(&pr_out, &pr_out2, sizeof(pr_out)));
+
+		// Check destID 0x04XX matches destID 0xXX
+		pr_in.probe_on_port = 0;
+		pr_in.tt = tt_dev16;
+		pr_in.destID = 0x0400 + destid;
+		pr_in.rt = &rt;
+		memset(&pr_out2, 0, sizeof(pr_out2));
+
+		assert_int_equal(RIO_SUCCESS,
+			rxs_rio_rt_probe(&mock_dev_info, &pr_in, &pr_out2));
+		assert_int_equal(0, memcmp(&pr_out, &pr_out2, sizeof(pr_out)));
+	}
+
+	// Check routing for all dev16 destIDs of the form 0x02XX
+
+	for (destid = 0; destid <= RIO_LAST_DEV8; destid++) {
+		pr_in.probe_on_port = 0;
+		pr_in.tt = tt_dev16;
+		pr_in.destID = 0x0200 + destid;
+		pr_in.rt = &rt;
+		memset(&pr_out, 0, sizeof(pr_out));
+
+		assert_int_equal(RIO_SUCCESS,
+			rxs_rio_rt_probe(&mock_dev_info, &pr_in, &pr_out));
+
+		assert_int_equal(RIO_SUCCESS, pr_out.imp_rc);
+		assert_true(pr_out.valid_route);
+
+		assert_int_equal(pr_out.routing_table_value,
+							alloc_out.mc_mask_rte);
+		for (pt = 0; pt < NUM_RXS_PORTS(&mock_dev_info); pt++) {
+			if (mc_mask & (1 << pt)) {
+				assert_true(pr_out.mcast_ports[pt]);
+			} else {
+				assert_false(pr_out.mcast_ports[pt]);
+			}
+		}
+	}
+
+	(void)state;
+}
+
+static void rxs_rio_rt_probe_success_mc_port_test(void **state)
+{
+	rio_rt_initialize_in_t init_in;
+	rio_rt_initialize_out_t init_out;
+	rio_rt_alloc_mc_mask_in_t alloc_in;
+	rio_rt_alloc_mc_mask_out_t alloc_out;
+	rio_rt_change_mc_mask_in_t mc_chg_in;
+	rio_rt_change_mc_mask_out_t mc_chg_out;
+	rio_rt_probe_in_t pr_in;
+	rio_rt_probe_out_t pr_out;
+	rio_rt_state_t rt;
+
+	// Set all ports to "perfect"
+	set_all_port_config(cfg_perfect, NO_TTL, NO_FILT, RIO_ALL_PORTS);
+
+	// Multicast mask for all ports
+	uint32_t mc_mask = (1 << NUM_RXS_PORTS(&mock_dev_info)) - 1;
+	rio_port_t pt, chk_pt;
+	uint32_t destid = 1;
+
+	// Initialize routing table
+	init_in.set_on_port = 0;
+	init_in.default_route = RIO_RTV_PORT(0);
+	init_in.default_route_table_port = RIO_RTV_PORT(1);
+	init_in.update_hw = false;
+	init_in.rt = &rt;
+	memset(&rt, 0, sizeof(rt));
+
+	assert_int_equal(RIO_SUCCESS,
+		rxs_rio_rt_initialize(&mock_dev_info, &init_in, &init_out));
+	assert_int_equal(RIO_SUCCESS, init_out.imp_rc);
+
+	// Allocate multicast mask
+	alloc_in.rt = &rt;
+	assert_int_equal(RIO_SUCCESS,
+		rio_rt_alloc_mc_mask(&mock_dev_info, &alloc_in, &alloc_out));
+	assert_int_equal(0, alloc_out.imp_rc);
+
+	// Modify dev8 routing table entry 1 to
+	// use the multicast mask
+	mc_chg_in.mc_mask_rte = alloc_out.mc_mask_rte;
+	mc_chg_in.mc_info.in_use = true;
+	mc_chg_in.mc_info.tt = tt_dev8;
+	mc_chg_in.mc_info.mc_destID = destid;
+	mc_chg_in.mc_info.mc_mask = mc_mask;
+	mc_chg_in.rt = &rt;
+	assert_int_equal(RIO_SUCCESS,
+		rxs_rio_rt_change_mc_mask(&mock_dev_info,
+					&mc_chg_in, &mc_chg_out));
+	assert_int_equal(0, mc_chg_out.imp_rc);
+
+	// Check multicast routing excludes the probed on port
+
+	for (pt = 0; pt <= NUM_RXS_PORTS(&mock_dev_info); pt++) {
+		// Check destID 0xXX
+		if (pt == NUM_RXS_PORTS(&mock_dev_info)) {
+			pr_in.probe_on_port = RIO_ALL_PORTS;
+		} else {
+			pr_in.probe_on_port = pt;
+		}
+		pr_in.tt = tt_dev8;
+		pr_in.destID = destid;
+		pr_in.rt = &rt;
+		memset(&pr_out, 0, sizeof(pr_out));
+
+		assert_int_equal(RIO_SUCCESS,
+			rxs_rio_rt_probe(&mock_dev_info, &pr_in, &pr_out));
+
+		assert_int_equal(RIO_SUCCESS, pr_out.imp_rc);
+		assert_true(pr_out.valid_route);
+
+		assert_int_equal(pr_out.routing_table_value,
+							alloc_out.mc_mask_rte);
+		for (chk_pt = 0; chk_pt < NUM_RXS_PORTS(&mock_dev_info);
+								chk_pt++) {
+			if ((mc_mask & (1 << chk_pt)) && (pt != chk_pt)) {
+				assert_true(pr_out.mcast_ports[chk_pt]);
+			} else {
+				assert_false(pr_out.mcast_ports[chk_pt]);
+			}
+		}
+	}
+
+	(void)state;
+}
+
+static void rxs_rio_rt_probe_discard_rt_port_test(void **state)
+{
+	rio_rt_initialize_in_t init_in;
+	rio_rt_initialize_out_t init_out;
+	rio_rt_change_rte_in_t chg_in;
+	rio_rt_change_rte_out_t chg_out;
+	rio_rt_probe_in_t pr_in;
+	rio_rt_probe_out_t pr_out;
+	rio_rt_probe_out_t pr_out2;
+	rio_rt_state_t rt;
+
+	uint32_t destid;
+
+	// Initialize routing table
+	init_in.set_on_port = RIO_ALL_PORTS;
+	init_in.default_route = RIO_RTE_DROP;
+	init_in.default_route_table_port = RIO_RTE_DROP;
+	init_in.update_hw = false;
+	init_in.rt = &rt;
+	memset(&rt, 0, sizeof(rt));
+
+	assert_int_equal(RIO_SUCCESS,
+		rxs_rio_rt_initialize(&mock_dev_info, &init_in, &init_out));
+	assert_int_equal(RIO_SUCCESS, init_out.imp_rc);
+
+	// Modify dev8 routing table entry 3 to use the default port
+	chg_in.dom_entry = false;
+	chg_in.idx = 3;
+	chg_in.rte_value = RIO_RTE_DFLT_PORT;
+	chg_in.rt = &rt;
+	assert_int_equal(RIO_SUCCESS,
+		rxs_rio_rt_change_rte(&mock_dev_info, &chg_in, &chg_out));
+	assert_int_equal(0, chg_out.imp_rc);
+
+	// Modify dev16 routing table entry 0xFF00 to use the default port
+	chg_in.dom_entry = true;
+	chg_in.idx = RIO_RT_GRP_SZ - 1;
+	chg_in.rte_value = RIO_RTE_DFLT_PORT;
+	chg_in.rt = &rt;
+	assert_int_equal(RIO_SUCCESS,
+		rxs_rio_rt_change_rte(&mock_dev_info, &chg_in, &chg_out));
+	assert_int_equal(0, chg_out.imp_rc);
+
+	// Check routing for all destIDs of the form 0xXX, 0x00XX and 0xffXX
+
+	for (destid = 0; destid <= RIO_LAST_DEV8; destid++) {
+		// Check destID 0xXX
+		pr_in.probe_on_port = 0;
+		pr_in.tt = tt_dev8;
+		pr_in.destID = destid;
+		pr_in.rt = &rt;
+		memset(&pr_out, 0, sizeof(pr_out));
+
+		assert_int_equal(RIO_SUCCESS,
+			rxs_rio_rt_probe(&mock_dev_info, &pr_in, &pr_out));
+
+		assert_int_equal(RIO_SUCCESS, pr_out.imp_rc);
+		assert_false(pr_out.valid_route);
+
+		if (3 == destid) {
+			assert_int_equal(pr_out.routing_table_value,
+							RIO_RTE_DFLT_PORT);
+			assert_int_equal(pr_out.default_route, RIO_RTE_DROP);
+			assert_int_equal(pr_out.default_route,
+					rt.default_route);
+			assert_int_equal(pr_out.reason_for_discard,
+					rio_rt_disc_dflt_pt_deliberately);
+		} else {
+			assert_int_equal(pr_out.default_route,
+					rt.default_route);
+			assert_int_equal(pr_out.routing_table_value,
+					RIO_RTE_DROP);
+			assert_int_equal(pr_out.reason_for_discard,
+					rio_rt_disc_deliberately);
+		}
+		// Check destID 0x00XX matches destID 0xXX
+		pr_in.probe_on_port = 0;
+		pr_in.tt = tt_dev16;
+		pr_in.destID = destid;
+		pr_in.rt = &rt;
+		memset(&pr_out2, 0, sizeof(pr_out2));
+
+		assert_int_equal(RIO_SUCCESS,
+			rxs_rio_rt_probe(&mock_dev_info, &pr_in, &pr_out2));
+		assert_int_equal(0, memcmp(&pr_out, &pr_out2, sizeof(pr_out)));
+
+	}
+
+	for (destid = 0; destid <= RIO_LAST_DEV8; destid++) {
+		// Check destID 0xffXX matches destID 0xXX
+		pr_in.probe_on_port = 0;
+		pr_in.tt = tt_dev16;
+		pr_in.destID = 0xFF00 + destid;
+		pr_in.rt = &rt;
+		memset(&pr_out, 0, sizeof(pr_out));
+
+		assert_int_equal(RIO_SUCCESS,
+			rxs_rio_rt_probe(&mock_dev_info, &pr_in, &pr_out));
+		assert_int_equal(pr_out.routing_table_value, RIO_RTE_DFLT_PORT);
+		assert_int_equal(pr_out.default_route, RIO_RTE_DROP);
+		assert_int_equal(pr_out.reason_for_discard,
+				rio_rt_disc_dflt_pt_deliberately);
+	}
+
+	(void)state;
+}
+
+static void rxs_rio_rt_probe_discard_rt_mc_test(void **state)
+{
+	rio_rt_initialize_in_t init_in;
+	rio_rt_initialize_out_t init_out;
+	rio_rt_alloc_mc_mask_in_t alloc_in;
+	rio_rt_alloc_mc_mask_out_t alloc_out;
+	rio_rt_change_mc_mask_in_t mc_chg_in;
+	rio_rt_change_mc_mask_out_t mc_chg_out;
+	rio_rt_probe_in_t pr_in;
+	rio_rt_probe_out_t pr_out;
+	rio_rt_state_t rt;
+
+	uint32_t mc_mask;
+	rio_port_t pt, c_pt;
+	uint32_t destid = 1;
+
+	// Set all ports to "perfect"
+	set_all_port_config(cfg_perfect, NO_TTL, NO_FILT, 0);
+
+	// Initialize routing table
+	init_in.set_on_port = 0;
+	init_in.default_route = RIO_RTE_DROP;
+	init_in.default_route_table_port = RIO_RTE_DROP;
+	init_in.update_hw = false;
+	init_in.rt = &rt;
+	memset(&rt, 0, sizeof(rt));
+
+	assert_int_equal(RIO_SUCCESS,
+		rxs_rio_rt_initialize(&mock_dev_info, &init_in, &init_out));
+	assert_int_equal(RIO_SUCCESS, init_out.imp_rc);
+
+	// Allocate multicast mask
+	alloc_in.rt = &rt;
+	assert_int_equal(RIO_SUCCESS,
+		rio_rt_alloc_mc_mask(&mock_dev_info, &alloc_in, &alloc_out));
+	assert_int_equal(0, alloc_out.imp_rc);
+
+	for (pt = 0; pt < NUM_RXS_PORTS(&mock_dev_info); pt++) {
+		// Multicast mask has a single bit set, equal to port number
+		mc_mask = 1 << pt;
+
+		// Modify dev8 routing table entry 1 to
+		// use the multicast mask, and set multicast mask
+		mc_chg_in.mc_mask_rte = alloc_out.mc_mask_rte;
+		mc_chg_in.mc_info.in_use = true;
+		mc_chg_in.mc_info.tt = tt_dev8;
+		mc_chg_in.mc_info.mc_destID = destid;
+		mc_chg_in.mc_info.mc_mask = mc_mask;
+		mc_chg_in.rt = &rt;
+		assert_int_equal(RIO_SUCCESS,
+			rxs_rio_rt_change_mc_mask(&mock_dev_info,
+						&mc_chg_in, &mc_chg_out));
+		assert_int_equal(0, mc_chg_out.imp_rc);
+
+		for (c_pt = 0; c_pt < NUM_RXS_PORTS(&mock_dev_info); c_pt++) {
+			// Check destID 0xXX
+			pr_in.probe_on_port = c_pt;
+			pr_in.tt = tt_dev8;
+			pr_in.destID = destid;
+			pr_in.rt = &rt;
+			memset(&pr_out, 0, sizeof(pr_out));
+
+			assert_int_equal(RIO_SUCCESS,
+				rxs_rio_rt_probe(&mock_dev_info, &pr_in, &pr_out));
+
+			assert_int_equal(RIO_SUCCESS, pr_out.imp_rc);
+			assert_int_equal(pr_out.routing_table_value,
+							alloc_out.mc_mask_rte);
+			if (pt == c_pt) {
+				assert_false(pr_out.valid_route);
+				assert_int_equal(pr_out.reason_for_discard,
+							rio_rt_disc_mc_one_bit);
+				continue;
+			}
+			assert_true(pr_out.valid_route);
+			for (pt = 0; pt < NUM_RXS_PORTS(&mock_dev_info); pt++) {
+				if (mc_mask & (1 << pt)) {
+					assert_true(pr_out.mcast_ports[pt]);
+				} else {
+					assert_false(pr_out.mcast_ports[pt]);
+				}
+			}
+		}
+	}
+
+	// Test when multicast mask has no bits set...
+	mc_mask = 0;
+
+	// Modify dev8 routing table entry 1 to
+	// use the multicast mask, and set multicast mask
+	mc_chg_in.mc_mask_rte = alloc_out.mc_mask_rte;
+	mc_chg_in.mc_info.in_use = true;
+	mc_chg_in.mc_info.tt = tt_dev8;
+	mc_chg_in.mc_info.mc_destID = 1;
+	mc_chg_in.mc_info.mc_mask = mc_mask;
+	mc_chg_in.rt = &rt;
+	assert_int_equal(RIO_SUCCESS,
+		rxs_rio_rt_change_mc_mask(&mock_dev_info,
+						&mc_chg_in, &mc_chg_out));
+	assert_int_equal(0, mc_chg_out.imp_rc);
+
+	for (c_pt = 0; c_pt <= NUM_RXS_PORTS(&mock_dev_info); c_pt++) {
+		// Check destID 0xXX
+		pr_in.probe_on_port = 0;
+		pr_in.tt = tt_dev8;
+		pr_in.destID = destid;
+		pr_in.rt = &rt;
+		memset(&pr_out, 0, sizeof(pr_out));
+
+		assert_int_equal(RIO_SUCCESS,
+			rxs_rio_rt_probe(&mock_dev_info, &pr_in, &pr_out));
+
+		assert_int_equal(RIO_SUCCESS, pr_out.imp_rc);
+		assert_int_equal(pr_out.routing_table_value,
+						alloc_out.mc_mask_rte);
+		assert_false(pr_out.valid_route);
+		assert_int_equal(pr_out.reason_for_discard,
+						rio_rt_disc_mc_empty);
+	}
+	(void)state;
+}
+
+static void rxs_rio_rt_probe_discard_pt_fail_test_did(rio_rt_state_t *rt,
+					tt_t tt,
+					uint32_t did,
+					rio_port_t probe_on_port,
+					rio_port_t cfg_port)
+{
+	rio_rt_probe_in_t pr_in;
+	rio_rt_probe_out_t pr_out;
+
+	uint32_t lpbk_mask = RXS_RIO_PLM_SPX_IMP_SPEC_CTL_DLB_EN |
+				RXS_RIO_PLM_SPX_IMP_SPEC_CTL_LLB_EN;
+	uint32_t temp;
+
+	set_all_port_config(cfg_unavl, NO_TTL, NO_FILT, cfg_port);
+	pr_in.probe_on_port = probe_on_port;
+	pr_in.tt = tt;
+	pr_in.destID = did;
+	pr_in.rt = rt;
+	memset(&pr_out, 0, sizeof(pr_out));
+
+	assert_int_equal(RIO_SUCCESS,
+			rxs_rio_rt_probe(&mock_dev_info, &pr_in, &pr_out));
+	assert_false(pr_out.valid_route);
+	assert_false(pr_out.trace_function_active);
+	assert_false(pr_out.time_to_live_active);
+	assert_false(pr_out.filter_function_active);
+	assert_int_equal(pr_out.reason_for_discard, rio_rt_disc_port_unavail);
+
+	set_all_port_config(cfg_avl_pwdn, NO_TTL, NO_FILT, cfg_port);
+	pr_in.probe_on_port = probe_on_port;
+	pr_in.tt = tt;
+	pr_in.destID = did;
+	pr_in.rt = rt;
+	memset(&pr_out, 0, sizeof(pr_out));
+
+	assert_int_equal(RIO_SUCCESS,
+			rxs_rio_rt_probe(&mock_dev_info, &pr_in, &pr_out));
+	assert_false(pr_out.valid_route);
+	assert_false(pr_out.trace_function_active);
+	assert_false(pr_out.time_to_live_active);
+	assert_false(pr_out.filter_function_active);
+	assert_int_equal(pr_out.reason_for_discard, rio_rt_disc_port_pwdn);
+
+	set_all_port_config(cfg_pwup_txdis, NO_TTL, NO_FILT, cfg_port);
+	pr_in.probe_on_port = probe_on_port;
+	pr_in.tt = tt;
+	pr_in.destID = did;
+	pr_in.rt = rt;
+	memset(&pr_out, 0, sizeof(pr_out));
+
+	assert_int_equal(RIO_SUCCESS,
+			rxs_rio_rt_probe(&mock_dev_info, &pr_in, &pr_out));
+	assert_false(pr_out.valid_route);
+	assert_false(pr_out.trace_function_active);
+	assert_false(pr_out.time_to_live_active);
+	assert_false(pr_out.filter_function_active);
+	assert_int_equal(pr_out.reason_for_discard,
+						rio_rt_disc_port_lkout_or_dis);
+
+	set_all_port_config(cfg_txen_no_lp, NO_TTL, NO_FILT, cfg_port);
+	pr_in.probe_on_port = probe_on_port;
+	pr_in.tt = tt;
+	pr_in.destID = did;
+	pr_in.rt = rt;
+	memset(&pr_out, 0, sizeof(pr_out));
+
+	assert_int_equal(RIO_SUCCESS,
+			rxs_rio_rt_probe(&mock_dev_info, &pr_in, &pr_out));
+	assert_false(pr_out.valid_route);
+	assert_false(pr_out.trace_function_active);
+	assert_false(pr_out.time_to_live_active);
+	assert_false(pr_out.filter_function_active);
+	assert_int_equal(pr_out.reason_for_discard, rio_rt_disc_port_no_lp);
+
+	set_all_port_config(cfg_txen_lp_perr, NO_TTL, NO_FILT, cfg_port);
+	pr_in.probe_on_port = probe_on_port;
+	pr_in.tt = tt;
+	pr_in.destID = did;
+	pr_in.rt = rt;
+	memset(&pr_out, 0, sizeof(pr_out));
+
+	assert_int_equal(RIO_SUCCESS,
+			rxs_rio_rt_probe(&mock_dev_info, &pr_in, &pr_out));
+	assert_false(pr_out.valid_route);
+	assert_false(pr_out.trace_function_active);
+	assert_false(pr_out.time_to_live_active);
+	assert_false(pr_out.filter_function_active);
+	assert_int_equal(pr_out.reason_for_discard, rio_rt_disc_port_fail);
+
+	set_all_port_config(cfg_lp_lkout, NO_TTL, NO_FILT, cfg_port);
+	pr_in.probe_on_port = probe_on_port;
+	pr_in.tt = tt;
+	pr_in.destID = did;
+	pr_in.rt = rt;
+	memset(&pr_out, 0, sizeof(pr_out));
+
+	assert_int_equal(RIO_SUCCESS,
+			rxs_rio_rt_probe(&mock_dev_info, &pr_in, &pr_out));
+	assert_false(pr_out.valid_route);
+	assert_false(pr_out.trace_function_active);
+	assert_false(pr_out.time_to_live_active);
+	assert_false(pr_out.filter_function_active);
+	assert_int_equal(pr_out.reason_for_discard,
+						rio_rt_disc_port_lkout_or_dis);
+
+	set_all_port_config(cfg_lp_nmtc_dis, YES_TTL, NO_FILT, cfg_port);
+	pr_in.probe_on_port = probe_on_port;
+	pr_in.tt = tt;
+	pr_in.destID = did;
+	pr_in.rt = rt;
+	memset(&pr_out, 0, sizeof(pr_out));
+
+	assert_int_equal(RIO_SUCCESS,
+			rxs_rio_rt_probe(&mock_dev_info, &pr_in, &pr_out));
+	assert_false(pr_out.valid_route);
+	assert_false(pr_out.trace_function_active);
+	assert_true(pr_out.time_to_live_active);
+	assert_false(pr_out.filter_function_active);
+	assert_int_equal(pr_out.reason_for_discard,
+						rio_rt_disc_port_in_out_dis);
+
+	set_all_port_config(cfg_lp_lpbk, NO_TTL, YES_FILT, cfg_port);
+	pr_in.probe_on_port = probe_on_port;
+	pr_in.tt = tt;
+	pr_in.destID = did;
+	pr_in.rt = rt;
+	memset(&pr_out, 0, sizeof(pr_out));
+
+	assert_int_equal(RIO_SUCCESS,
+			rxs_rio_rt_probe(&mock_dev_info, &pr_in, &pr_out));
+
+	assert_int_equal(RIO_SUCCESS,
+		RXSReadReg(&mock_dev_info, RXS_RIO_PLM_SPX_IMP_SPEC_CTL(cfg_port),
+						&temp));
+	assert_int_equal(temp & lpbk_mask, lpbk_mask);
+	assert_int_equal(pr_out.reason_for_discard, rio_rt_disc_imp_spec);
+	assert_false(pr_out.valid_route);
+	assert_false(pr_out.trace_function_active);
+	assert_false(pr_out.time_to_live_active);
+	assert_true(pr_out.filter_function_active);
+
+	set_all_port_config(cfg_lp_ecc, YES_TTL, YES_FILT, cfg_port);
+	pr_in.probe_on_port = probe_on_port;
+	pr_in.tt = tt;
+	pr_in.destID = did;
+	pr_in.rt = rt;
+	memset(&pr_out, 0, sizeof(pr_out));
+
+	assert_int_equal(RIO_SUCCESS,
+			rxs_rio_rt_probe(&mock_dev_info, &pr_in, &pr_out));
+	assert_false(pr_out.valid_route);
+	assert_false(pr_out.trace_function_active);
+	assert_true(pr_out.time_to_live_active);
+	assert_true(pr_out.filter_function_active);
+	assert_int_equal(pr_out.reason_for_discard, rio_rt_disc_imp_spec);
+
+	set_all_port_config(cfg_perfect, NO_TTL, NO_FILT, cfg_port);
+}
+
+static void rxs_rio_rt_probe_discard_pt_fail_test(void **state)
+{
+	rio_rt_initialize_in_t init_in;
+	rio_rt_initialize_out_t init_out;
+	rio_rt_change_rte_in_t chg_in;
+	rio_rt_change_rte_out_t chg_out;
+	rio_rt_state_t rt;
+
+	// Initialize routing table
+	init_in.set_on_port = 0;
+	init_in.default_route = RIO_RTE_DROP;
+	init_in.default_route_table_port = RIO_RTE_DROP;
+	init_in.update_hw = false;
+	init_in.rt = &rt;
+	memset(&rt, 0, sizeof(rt));
+
+	assert_int_equal(RIO_SUCCESS,
+		rxs_rio_rt_initialize(&mock_dev_info, &init_in, &init_out));
+	assert_int_equal(RIO_SUCCESS, init_out.imp_rc);
+
+	// Modify dev8 routing table entry 3 to select port 2
+	chg_in.dom_entry = false;
+	chg_in.idx = 3;
+	chg_in.rte_value = RIO_RTV_PORT(2);
+	chg_in.rt = &rt;
+	assert_int_equal(RIO_SUCCESS,
+		rxs_rio_rt_change_rte(&mock_dev_info, &chg_in, &chg_out));
+	assert_int_equal(0, chg_out.imp_rc);
+
+	// Modify dev16 routing table entry 7 (destID 0x0700 to 0x07FF)
+	// to select port 2
+	chg_in.dom_entry = true;
+	chg_in.idx = 7;
+	chg_in.rte_value = RIO_RTV_PORT(2);
+	chg_in.rt = &rt;
+	assert_int_equal(RIO_SUCCESS,
+		rxs_rio_rt_change_rte(&mock_dev_info, &chg_in, &chg_out));
+	assert_int_equal(0, chg_out.imp_rc);
+
+	// Modify dev16 routing table entry 0xFF (destID 0xff00 to 0xffFF)
+	// to use the device routing table
+	chg_in.dom_entry = true;
+	chg_in.idx = RIO_LAST_DEV8;
+	chg_in.rte_value = RIO_RTV_LVL_GRP(0);
+	chg_in.rt = &rt;
+	assert_int_equal(RIO_SUCCESS,
+		rxs_rio_rt_change_rte(&mock_dev_info, &chg_in, &chg_out));
+	assert_int_equal(0, chg_out.imp_rc);
+
+	// Perform the same packet discard tests with the configured
+	// destination IDs, with full range of ports
+
+	if (DEBUG_PRINTF) {
+		printf("\ndev08 3 probe 0 config 2\n");
+	}
+	rxs_rio_rt_probe_discard_pt_fail_test_did(&rt, tt_dev8, 3, 0, 2);
+	if (DEBUG_PRINTF) {
+		printf("\ndev16 0x799 probe 6 config 2\n");
+	}
+	rxs_rio_rt_probe_discard_pt_fail_test_did(&rt, tt_dev16, 0x0799, 6, 2);
+	if (DEBUG_PRINTF) {
+		printf("\ndev16 0x0700 probe 14 config 2\n");
+	}
+	rxs_rio_rt_probe_discard_pt_fail_test_did(&rt, tt_dev16, 0x0700, 14, 2);
+	if (DEBUG_PRINTF) {
+		printf("\ndev16 0xFF03 23 or 15 config 2\n");
+	}
+	rxs_rio_rt_probe_discard_pt_fail_test_did(&rt, tt_dev16, 0xFF03,
+					NUM_RXS_PORTS(&mock_dev_info) - 1, 2);
+
+	(void)state;
+}
+
 int main(int argc, char** argv)
 {
 	const struct CMUnitTest tests[] = {
@@ -2790,6 +3815,30 @@ int main(int argc, char** argv)
 					NULL),
 			cmocka_unit_test_setup_teardown(
 					rxs_rio_rt_probe_all_bad_parms_test,
+					setup,
+					NULL),
+			cmocka_unit_test_setup_teardown(
+					rxs_rio_rt_probe_success_port_test,
+					setup,
+					NULL),
+			cmocka_unit_test_setup_teardown(
+					rxs_rio_rt_probe_success_mc_port_test,
+					setup,
+					NULL),
+			cmocka_unit_test_setup_teardown(
+					rxs_rio_rt_probe_discard_rt_mc_test,
+					setup,
+					NULL),
+			cmocka_unit_test_setup_teardown(
+					rxs_rio_rt_probe_discard_rt_port_test,
+					setup,
+					NULL),
+			cmocka_unit_test_setup_teardown(
+					rxs_rio_rt_probe_discard_pt_fail_test,
+					setup,
+					NULL),
+			cmocka_unit_test_setup_teardown(
+					rxs_rio_rt_probe_bad_parms_test,
 					setup,
 					NULL)
 	};

@@ -237,11 +237,11 @@ typedef struct rio_rt_probe_out_t_TAG {
 	bool valid_route;
 
 	// Encoded routing table value read
-	uint32_t routing_table_value;
+	pe_rt_val routing_table_value;
 
 	// When routing_table_value is RIO_RTE_DFLT_PORT, this field
 	//   contains the value of the default route register.
-	uint8_t default_route;
+	pe_rt_val default_route;
 
 	// If true, packets that match the FILTER MASK will be dropped.
 	bool filter_function_active;
