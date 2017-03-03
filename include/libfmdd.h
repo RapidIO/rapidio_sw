@@ -45,8 +45,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdarg.h>
 #include <stdint.h>
 
-#include "did.h"
-#include "ct.h"
+#include "rio_route.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -113,7 +112,7 @@ typedef void *fmdd_h;
  *
  * @param[in] my_name Name of application requesting the handle.
  * @param[in] flag Flag value associated with this application.
- * @return Fabric Management Defice Database handle.
+ * @return Fabric Management Device Database handle.
  * @retval NULL if the call failed.
  *
  * The flag value passed in will be propagated to all other
