@@ -3,6 +3,9 @@
 # Files required for installation
 # Note the names of these file name (different root) are also used by make_install.sh
 #
+INSTALL_ROOT="/opt/rapidio/.install"
+SCRIPTS_PATH="$(pwd)"/install
+
 NODEDATA_FILE="nodeData.txt"
 SRC_TAR="rapidio_sw.tar"
 TMPL_FILE="config.tmpl"
@@ -29,8 +32,12 @@ else
         PRINTHELP=1
     fi
 
-    if [ $SW_TYPE != 'PD_tor' -a $SW_TYPE != 'SB_re' -a $SW_TYPE != 'AUTO' -a $SW_TYPE != 'RXS' ] ; then
-        echo $'\nsw parameter must be PD_tor, SB_re, AUTO or RXS.\n'
+    MASTER_CONFIG_FILE=$SCRIPTS_PATH/$SW_TYPE-master.conf
+    MASTER_MAKE_FILE=$SCRIPTS_PATH/$SW_TYPE-master-make.sh
+
+    if [ ! -e "$MASTER_CONFIG_FILE" ] || [ ! -e "$MASTER_MAKE_FILE" ]
+    then
+	echo Switch type \"$SW_TYPE\" configuration support files do not exist.
         PRINTHELP=1
     fi
 fi
@@ -46,10 +53,11 @@ if [ $PRINTHELP = 1 ] ; then
     echo "<memsz>  RapidIO memory size, one of mem34, mem50, mem66"
     echo "         If any node has more than 8 GB of memory, MUST use mem50"
     echo "<sw>     Type of switch the four nodes are connected to."
-    echo "         PD_tor - Prodrive Technologies Top of Rack Switch"
-    echo "         SB_re  - StarBridge Inc RapidExpress Switch"
-    echo "         AUTO   - configuration determined at runtime"
-    echo "         RXS    - RXS configuration"
+    echo "         Files exist for the following switch types:"
+    echo "         tor  - Prodrive Technologies Top of Rack Switch"
+    echo "         cps  - StarBridge Inc RapidExpress Switch"
+    echo "         auto - configuration determined at runtime"
+    echo "         rxs  - StarBridge Inc RXS RapidExpress Switch"
     echo "<group>  Unix file ownership group which should have access to"
     echo "         the RapidIO software"
     echo "<rel>    The software release/version to install."
@@ -112,20 +120,7 @@ tar -cf $ROOT/$SRC_TAR * .git* &>/dev/null
 
 # Copy the template file
 #
-if [ "$SW_TYPE" = 'AUTO' ]; then
-    MASTER_CONFIG_FILE=auto-master.conf
-    MASTER_MAKE_FILE=auto-master-make.sh
-elif [ "$SW_TYPE" = 'SB_re' ]; then
-    MASTER_CONFIG_FILE=node-master.conf
-    MASTER_MAKE_FILE=node-master-make.sh
-elif [ "$SW_TYPE" = 'PD_tor' ]; then
-    MASTER_CONFIG_FILE=tor-master.conf
-    MASTER_MAKE_FILE=tor-master-make.sh
-elif [ "$SW_TYPE" = 'RXS' ]; then
-    MASTER_CONFIG_FILE=rxs-master.conf
-    MASTER_MAKE_FILE=rxs-master-make.sh
-fi
-cp install/$MASTER_CONFIG_FILE $ROOT/$TMPL_FILE
+cp $MASTER_CONFIG_FILE $ROOT/$TMPL_FILE
 
 # Transfer the files to the server
 #
@@ -138,15 +133,13 @@ rm -rf $ROOT
 
 # Transfer the make_install.sh script to a known location on the target machines
 #
-INSTALL_ROOT="/opt/rapidio/.install"
-SCRIPTS_PATH="$(pwd)"/install
 for host in "${ALLNODES[@]}"; do
     [ "$host" = 'none' ] && continue;
     echo "Transferring install script to $host..."
     ssh root@"$host" "rm -rf $INSTALL_ROOT;mkdir -p $INSTALL_ROOT/script"
     scp $SCRIPTS_PATH/make_install_common.sh root@"$host":$INSTALL_ROOT/script/make_install_common.sh > /dev/null
     if [ "$host" = "$MASTER" ]; then
-        scp $SCRIPTS_PATH/$MASTER_MAKE_FILE root@"$host":$INSTALL_ROOT/script/make_install.sh > /dev/null
+        scp $MASTER_MAKE_FILE root@"$host":$INSTALL_ROOT/script/make_install.sh > /dev/null
     else
         scp $SCRIPTS_PATH/make_install-slave.sh root@"$host":$INSTALL_ROOT/script/make_install.sh > /dev/null
     fi
