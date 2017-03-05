@@ -316,35 +316,35 @@ static void init_mock_rxs_reg(void **state)
 	mock_dev_info.poreg_cnt = 0;
 	mock_dev_info.poregs = mock_dar_reg;
 
-	// Initialize RXS_RIO_SPX_PCNTR_EN
+	// Initialize RXS_SPX_PCNTR_EN
 	for (port = 0; port < RXS2448_MAX_PORTS; port++) {
 		assert_int_equal(RIO_SUCCESS,
-				DAR_add_poreg(&mock_dev_info, RXS_RIO_SPX_PCNTR_EN(port), 0x00));
+				DAR_add_poreg(&mock_dev_info, RXS_SPX_PCNTR_EN(port), 0x00));
 	}
 
-	// initialize RXS_RIO_SPX_PCNTR_CTL
+	// initialize RXS_SPX_PCNTR_CTL
 	for (port = 0; port < RXS2448_MAX_PORTS; port++) {
 		for (cntr = 0; cntr < RXS2448_MAX_SC; cntr++) {
 			assert_int_equal(RIO_SUCCESS,
 				DAR_add_poreg(&mock_dev_info,
-					RXS_RIO_SPX_PCNTR_CTL(port, cntr),
+					RXS_SPX_PCNTR_CTL(port, cntr),
 					0x02));
 		}
 	}
 
-	// Initialize RXS_RIO_SPX_PCNTR_CNTR
+	// Initialize RXS_SPX_PCNTR_CNTR
 	for (port = 0; port < RXS2448_MAX_PORTS; port++) {
 		for (cntr = 0; cntr < RXS2448_MAX_SC; cntr++) {
 			assert_int_equal(RIO_SUCCESS,
 				DAR_add_poreg(&mock_dev_info,
-					RXS_RIO_SPX_PCNTR_CNT(port, cntr),
+					RXS_SPX_PCNTR_CNT(port, cntr),
 					0x10));
 		}
 	}
 
-	// Initialize RXS_RIO_PCNTR_CTL
+	// Initialize RXS_PCNTR_CTL
 	assert_int_equal(RIO_SUCCESS,
-		DAR_add_poreg(&mock_dev_info, RXS_RIO_PCNTR_CTL, 0x00));
+		DAR_add_poreg(&mock_dev_info, RXS_PCNTR_CTL, 0x00));
 }
 
 /* The setup function which should be called before any unit tests that need to be executed.
@@ -589,36 +589,36 @@ static void test_rxs_cfg_dev_ctr(void **state, rio_sc_cfg_rxs_ctr_in_t *mock_sc_
 	switch (sc_cfg) {
 	case 0:
 		mock_sc_in->ctr_type = rio_sc_pkt;
-		reg_val = RXS_RIO_SPX_PCNTR_CTL_SEL_RIO_PKT;
+		reg_val = RXS_SPX_PCNTR_CTL_SEL_RIO_PKT;
 		break;
 	case 1:
 		mock_sc_in->ctr_type = rio_sc_pkt;
 		mock_sc_in->tx = !mock_sc_in->tx;
-		reg_val = RXS_RIO_SPX_PCNTR_CTL_SEL_RIO_PKT;
+		reg_val = RXS_SPX_PCNTR_CTL_SEL_RIO_PKT;
 		break;
 	case 2:
 		mock_sc_in->ctr_type = rio_sc_fab_pkt;
-		reg_val = RXS_RIO_SPX_PCNTR_CTL_SEL_FAB_PKT;
+		reg_val = RXS_SPX_PCNTR_CTL_SEL_FAB_PKT;
 		srio = false;
 		break;
 	case 3:
 		mock_sc_in->ctr_type = rio_sc_fab_pkt;
 		mock_sc_in->tx = !mock_sc_in->tx;
-		reg_val = RXS_RIO_SPX_PCNTR_CTL_SEL_FAB_PKT;
+		reg_val = RXS_SPX_PCNTR_CTL_SEL_FAB_PKT;
 		srio = false;
 		break;
 	case 4:
 		mock_sc_in->ctr_type = rio_sc_rio_pload;
-		reg_val = RXS_RIO_SPX_PCNTR_CTL_SEL_RIO_PAYLOAD;
+		reg_val = RXS_SPX_PCNTR_CTL_SEL_RIO_PAYLOAD;
 		break;
 	case 5:
 		mock_sc_in->ctr_type = rio_sc_rio_pload;
 		mock_sc_in->tx = !mock_sc_in->tx;
-		reg_val = RXS_RIO_SPX_PCNTR_CTL_SEL_RIO_PAYLOAD;
+		reg_val = RXS_SPX_PCNTR_CTL_SEL_RIO_PAYLOAD;
 		break;
 	case 6:
 		mock_sc_in->ctr_type = rio_sc_rio_bwidth;
-		reg_val = RXS_RIO_SPX_PCNTR_CTL_SEL_RIO_TTL_PKTCNTR;
+		reg_val = RXS_SPX_PCNTR_CTL_SEL_RIO_TTL_PKTCNTR;
 		// RIO BANDWIDTH is a free running counter, incremented on
 		// every TX clock cycle.  The counter will never be 0 on
 		// hardware.
@@ -626,79 +626,79 @@ static void test_rxs_cfg_dev_ctr(void **state, rio_sc_cfg_rxs_ctr_in_t *mock_sc_
 		break;
 	case 7:
 		mock_sc_in->ctr_type = rio_sc_disabled;
-		reg_val = RXS_RIO_SPX_PCNTR_CTL_SEL_DISABLED;
+		reg_val = RXS_SPX_PCNTR_CTL_SEL_DISABLED;
 		break;
 	case 8:
 		mock_sc_in->ctr_type = rio_sc_fab_pload;
-		reg_val = RXS_RIO_SPX_PCNTR_CTL_SEL_FAB_PAYLOAD;
+		reg_val = RXS_SPX_PCNTR_CTL_SEL_FAB_PAYLOAD;
 		srio = false;
 		break;
 	case 9:
 		mock_sc_in->ctr_type = rio_sc_fab_pload;
 		mock_sc_in->tx = !mock_sc_in->tx;
-		reg_val = RXS_RIO_SPX_PCNTR_CTL_SEL_FAB_PAYLOAD;
+		reg_val = RXS_SPX_PCNTR_CTL_SEL_FAB_PAYLOAD;
 		srio = false;
 		break;
 	case 10:
 		mock_sc_in->ctr_type = rio_sc_retries;
-		reg_val = RXS_RIO_SPX_PCNTR_CTL_SEL_RETRIES;
+		reg_val = RXS_SPX_PCNTR_CTL_SEL_RETRIES;
 		break;
 	case 11:
 		mock_sc_in->ctr_type = rio_sc_retries;
 		mock_sc_in->tx = !mock_sc_in->tx;
-		reg_val = RXS_RIO_SPX_PCNTR_CTL_SEL_RETRIES;
+		reg_val = RXS_SPX_PCNTR_CTL_SEL_RETRIES;
 		break;
 	case 12:
 		mock_sc_in->ctr_type = rio_sc_pna;
-		reg_val = RXS_RIO_SPX_PCNTR_CTL_SEL_PNA;
+		reg_val = RXS_SPX_PCNTR_CTL_SEL_PNA;
 		break;
 	case 13:
 		mock_sc_in->ctr_type = rio_sc_pna;
 		mock_sc_in->tx = !mock_sc_in->tx;
-		reg_val = RXS_RIO_SPX_PCNTR_CTL_SEL_PNA;
+		reg_val = RXS_SPX_PCNTR_CTL_SEL_PNA;
 		break;
 	case 14:
 		mock_sc_in->ctr_type = rio_sc_pkt_drop;
-		reg_val = RXS_RIO_SPX_PCNTR_CTL_SEL_PKT_DROP;
+		reg_val = RXS_SPX_PCNTR_CTL_SEL_PKT_DROP;
 		break;
 	case 15:
 		mock_sc_in->ctr_type = rio_sc_pkt_drop;
 		mock_sc_in->tx = !mock_sc_in->tx;
-		reg_val = RXS_RIO_SPX_PCNTR_CTL_SEL_PKT_DROP;
+		reg_val = RXS_SPX_PCNTR_CTL_SEL_PKT_DROP;
 		break;
 	case 16:
 		mock_sc_in->ctr_type = rio_sc_fab_pkt;
-		reg_val = RXS_RIO_SPX_PCNTR_CTL_SEL_FAB_PKT;
+		reg_val = RXS_SPX_PCNTR_CTL_SEL_FAB_PKT;
 		mock_sc_in->prio_mask = 0;
 		expect_fail = true;
 		break;
 	case 17:
 		mock_sc_in->ctr_type = rio_sc_rio_bwidth;
-		reg_val = RXS_RIO_SPX_PCNTR_CTL_SEL_FAB_PAYLOAD;
+		reg_val = RXS_SPX_PCNTR_CTL_SEL_FAB_PAYLOAD;
 		mock_sc_in->tx = !mock_sc_in->tx;
 		mock_sc_in->prio_mask = 0;
 		expect_fail = true;
 		break;
 	case 18:
 		mock_sc_in->ctr_type = rio_sc_fab_pload;
-		reg_val = RXS_RIO_SPX_PCNTR_CTL_SEL_FAB_PAYLOAD;
+		reg_val = RXS_SPX_PCNTR_CTL_SEL_FAB_PAYLOAD;
 		mock_sc_in->prio_mask = 0;
 		expect_fail = true;
 		break;
 	case 19:
 		mock_sc_in->ctr_type = rio_sc_pkt_drop;
-		reg_val = RXS_RIO_SPX_PCNTR_CTL_SEL_PKT_DROP;
+		reg_val = RXS_SPX_PCNTR_CTL_SEL_PKT_DROP;
 		mock_sc_in->prio_mask = 0;
 		expect_fail = true;
 		break;
 	case 20:
 		mock_sc_in->ctr_type = rio_sc_uc_req_pkts;
-		reg_val = RXS_RIO_SPX_PCNTR_CTL_SEL_DISABLED;
+		reg_val = RXS_SPX_PCNTR_CTL_SEL_DISABLED;
 		expect_fail = true;
 		break;
 	case MAX_SC_CFG_VAL:
 		mock_sc_in->ctr_type = rio_sc_pkt_drop_ttl;
-		reg_val = RXS_RIO_SPX_PCNTR_CTL_SEL_DISABLED;
+		reg_val = RXS_SPX_PCNTR_CTL_SEL_DISABLED;
 		expect_fail = true;
 		break;
 	}
@@ -715,15 +715,15 @@ static void test_rxs_cfg_dev_ctr(void **state, rio_sc_cfg_rxs_ctr_in_t *mock_sc_
 	for (port = st_pt; port <= end_pt; port++) {
 		// Zero control register for the port
 		assert_int_equal(RIO_SUCCESS,
-				DARRegWrite(&mock_dev_info, RXS_RIO_SPX_PCNTR_EN(port), 0));
+				DARRegWrite(&mock_dev_info, RXS_SPX_PCNTR_EN(port), 0));
 
 		// Set invalid control value
 		assert_int_equal(RIO_SUCCESS,
-				DARRegWrite(&mock_dev_info, RXS_RIO_SPX_PCNTR_CTL(port, ctr_idx), RXS_RIO_SPX_PCNTR_CTL_SEL_DISABLED));
+				DARRegWrite(&mock_dev_info, RXS_SPX_PCNTR_CTL(port, ctr_idx), RXS_SPX_PCNTR_CTL_SEL_DISABLED));
 
 		// Set non-zero counter value for the port
 		assert_int_equal(RIO_SUCCESS,
-				DARRegWrite(&mock_dev_info, RXS_RIO_SPX_PCNTR_CNT(port, ctr_idx), 0x12345678));
+				DARRegWrite(&mock_dev_info, RXS_SPX_PCNTR_CNT(port, ctr_idx), 0x12345678));
 	}
 
 	// If something is expected to fail, do not do any more checking.
@@ -765,23 +765,23 @@ static void test_rxs_cfg_dev_ctr(void **state, rio_sc_cfg_rxs_ctr_in_t *mock_sc_
 
 		// Check register values.
 		assert_int_equal(RIO_SUCCESS,
-				DARRegRead(&mock_dev_info, RXS_RIO_SPX_PCNTR_EN(port), &cdata));
-		assert_int_equal(cdata, RXS_RIO_SPX_PCNTR_EN_ENABLE);
+				DARRegRead(&mock_dev_info, RXS_SPX_PCNTR_EN(port), &cdata));
+		assert_int_equal(cdata, RXS_SPX_PCNTR_EN_ENABLE);
 
 		// Check control value
 		assert_int_equal(RIO_SUCCESS,
-				DARRegRead(&mock_dev_info, RXS_RIO_SPX_PCNTR_CTL(port, ctr_idx), &cdata));
+				DARRegRead(&mock_dev_info, RXS_SPX_PCNTR_CTL(port, ctr_idx), &cdata));
 		mask_temp = mock_sc_in->prio_mask << 8;
-		mask_temp &= RXS_RIO_SPC_PCNTR_CTL_PRIO;
+		mask_temp &= RXS_SPC_PCNTR_CTL_PRIO;
 		reg_val_temp = reg_val;
-		reg_val_temp |= mock_sc_in->tx ? RXS_RIO_SPX_PCNTR_CTL_TX : 0;
+		reg_val_temp |= mock_sc_in->tx ? RXS_SPX_PCNTR_CTL_TX : 0;
 		reg_val_temp |= mask_temp;
 		assert_int_equal(cdata, reg_val_temp);
 
 		// Check counter value
 		if ((port != RXS->conn_port) && (check_ctr)) {
 			assert_int_equal(RIO_SUCCESS,
-					DARRegRead(&mock_dev_info, RXS_RIO_SPX_PCNTR_CNT(port, ctr_idx), &cdata));
+					DARRegRead(&mock_dev_info, RXS_SPX_PCNTR_CNT(port, ctr_idx), &cdata));
 			assert_int_equal(cdata, 0);
 		}
 	}
@@ -931,7 +931,7 @@ static void rxs_read_dev_ctrs_test(void **state)
 			// Set non-zero counter value for the port
 			rval = st_val + (port * RXS2448_MAX_SC) + ctr_idx;
 			assert_int_equal(RIO_SUCCESS,
-					DARRegWrite( &mock_dev_info, RXS_RIO_SPX_PCNTR_CNT(port, ctr_idx), rval));
+					DARRegWrite( &mock_dev_info, RXS_SPX_PCNTR_CNT(port, ctr_idx), rval));
 		}
 	}
 
@@ -951,7 +951,7 @@ static void rxs_read_dev_ctrs_test(void **state)
 		for (ctr_idx = 0; ctr_idx < RXS2448_MAX_SC; ctr_idx++) {
 			// Check the counter value for the port...
 			assert_int_equal(RIO_SUCCESS,
-					DARRegRead( &mock_dev_info, RXS_RIO_SPX_PCNTR_CNT(port, ctr_idx), &cdata));
+					DARRegRead( &mock_dev_info, RXS_SPX_PCNTR_CNT(port, ctr_idx), &cdata));
 			// Do not read disabled counters, they should always
 			// be zero.
 			rval = st_val + (port * RXS2448_MAX_SC) + ctr_idx;
@@ -975,7 +975,7 @@ static void rxs_read_dev_ctrs_test(void **state)
 			rval = st_val + (port * RXS2448_MAX_SC) + ctr_idx;
 			rval = rval * 3;
 			assert_int_equal(RIO_SUCCESS,
-					DARRegWrite( &mock_dev_info, RXS_RIO_SPX_PCNTR_CNT(port, ctr_idx), rval));
+					DARRegWrite( &mock_dev_info, RXS_SPX_PCNTR_CNT(port, ctr_idx), rval));
 		}
 	}
 
@@ -996,7 +996,7 @@ static void rxs_read_dev_ctrs_test(void **state)
 			// Check the counter value for the port...
 			rval = st_val + (port * RXS2448_MAX_SC) + ctr_idx;
 			assert_int_equal(RIO_SUCCESS,
-					DARRegRead( &mock_dev_info, RXS_RIO_SPX_PCNTR_CNT(port, ctr_idx), &cdata));
+					DARRegRead( &mock_dev_info, RXS_SPX_PCNTR_CNT(port, ctr_idx), &cdata));
 			// Do not read disabled counters, they should always
 			// be zero.
 			if (rio_sc_disabled == pp_ctrs[port].ctrs[ctr_idx].sc) {
@@ -1023,7 +1023,7 @@ static void rxs_read_dev_ctrs_test(void **state)
 			// Set non-zero counter value for the port
 			rval = st_val + (port * RXS2448_MAX_SC) + ctr_idx;
 			assert_int_equal(RIO_SUCCESS,
-					DARRegWrite( &mock_dev_info, RXS_RIO_SPX_PCNTR_CNT(port, ctr_idx), rval));
+					DARRegWrite( &mock_dev_info, RXS_SPX_PCNTR_CNT(port, ctr_idx), rval));
 		}
 	}
 
@@ -1045,7 +1045,7 @@ static void rxs_read_dev_ctrs_test(void **state)
 			// Check the counter value for the port...
 			rval = st_val + (port * RXS2448_MAX_SC) + ctr_idx;
 			assert_int_equal(RIO_SUCCESS,
-					DARRegRead( &mock_dev_info, RXS_RIO_SPX_PCNTR_CNT(port, ctr_idx), &cdata));
+					DARRegRead( &mock_dev_info, RXS_SPX_PCNTR_CNT(port, ctr_idx), &cdata));
 			// Do not read disabled counters, they should always
 			// be zero.
 			if (rio_sc_disabled == pp_ctrs[port].ctrs[ctr_idx].sc) {

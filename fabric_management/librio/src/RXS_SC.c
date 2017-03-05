@@ -65,7 +65,7 @@ static uint32_t rxs_read_ctrs(DAR_DEV_INFO_t *dev_info,
 			continue;
 		}
 
-		rc = DARRegRead(dev_info, RXS_RIO_SPX_PCNTR_CNT(port_num, cntr),
+		rc = DARRegRead(dev_info, RXS_SPX_PCNTR_CNT(port_num, cntr),
 				&count);
 		if (RIO_SUCCESS != rc) {
 			out_parms->imp_rc = SC_READ_RXS_CTRS(0x71 + cntr);
@@ -155,15 +155,15 @@ uint32_t rio_sc_cfg_rxs_ctr(DAR_DEV_INFO_t *dev_info,
 
 	// Create SC_CTL
 	new_ctl = ((uint32_t)(in_parms->prio_mask) << 8);
-	new_ctl &= RXS_RIO_SPC_PCNTR_CTL_PRIO;
-	new_ctl |= (in_parms->tx) ? RXS_RIO_SPX_PCNTR_CTL_TX : 0;
+	new_ctl &= RXS_SPC_PCNTR_CTL_PRIO;
+	new_ctl |= (in_parms->tx) ? RXS_SPX_PCNTR_CTL_TX : 0;
 
 	switch (in_parms->ctr_type) {
 	case rio_sc_pkt:
-		new_ctl |= RXS_RIO_SPX_PCNTR_CTL_SEL_RIO_PKT;
+		new_ctl |= RXS_SPX_PCNTR_CTL_SEL_RIO_PKT;
 		break;
 	case rio_sc_fab_pkt:
-		new_ctl |= RXS_RIO_SPX_PCNTR_CTL_SEL_FAB_PKT;
+		new_ctl |= RXS_SPX_PCNTR_CTL_SEL_FAB_PKT;
 		srio = false;
 		// Fabric packet counts are prioirty specific.
 		// Report a programming error if the priority mask is 0.
@@ -174,10 +174,10 @@ uint32_t rio_sc_cfg_rxs_ctr(DAR_DEV_INFO_t *dev_info,
 		}
 		break;
 	case rio_sc_rio_pload:
-		new_ctl |= RXS_RIO_SPX_PCNTR_CTL_SEL_RIO_PAYLOAD;
+		new_ctl |= RXS_SPX_PCNTR_CTL_SEL_RIO_PAYLOAD;
 		break;
 	case rio_sc_fab_pload:
-		new_ctl |= RXS_RIO_SPX_PCNTR_CTL_SEL_FAB_PAYLOAD;
+		new_ctl |= RXS_SPX_PCNTR_CTL_SEL_FAB_PAYLOAD;
 		srio = false;
 		// Fabric packet data counts are prioirty specific.
 		// Report a programming error if the priority mask is 0.
@@ -191,7 +191,7 @@ uint32_t rio_sc_cfg_rxs_ctr(DAR_DEV_INFO_t *dev_info,
 		// Count of the total number of code-groups/codewords
 		// transmitted on the RapidIO interface per lane.
 		// Hardware does not support count for RX (!TX).
-		new_ctl |= RXS_RIO_SPX_PCNTR_CTL_SEL_RIO_TTL_PKTCNTR;
+		new_ctl |= RXS_SPX_PCNTR_CTL_SEL_RIO_TTL_PKTCNTR;
 		if (!in_parms->tx) {
 			rc = RIO_ERR_INVALID_PARAMETER;
 			out_parms->imp_rc = SC_CFG_RXS_CTRS(0x33);
@@ -199,13 +199,13 @@ uint32_t rio_sc_cfg_rxs_ctr(DAR_DEV_INFO_t *dev_info,
 		}
 		break;
 	case rio_sc_retries:
-		new_ctl |= RXS_RIO_SPX_PCNTR_CTL_SEL_RETRIES;
+		new_ctl |= RXS_SPX_PCNTR_CTL_SEL_RETRIES;
 		break;
 	case rio_sc_pna:
-		new_ctl |= RXS_RIO_SPX_PCNTR_CTL_SEL_PNA;
+		new_ctl |= RXS_SPX_PCNTR_CTL_SEL_PNA;
 		break;
 	case rio_sc_pkt_drop:
-		new_ctl |= RXS_RIO_SPX_PCNTR_CTL_SEL_PKT_DROP;
+		new_ctl |= RXS_SPX_PCNTR_CTL_SEL_PKT_DROP;
 		// Packet drop counts are prioirty specific.
 		// Report a programming error if the priority mask is 0.
 		if (!in_parms->prio_mask) {
@@ -215,7 +215,7 @@ uint32_t rio_sc_cfg_rxs_ctr(DAR_DEV_INFO_t *dev_info,
 		}
 		break;
 	case rio_sc_disabled:
-		new_ctl |= RXS_RIO_SPX_PCNTR_CTL_SEL_DISABLED;
+		new_ctl |= RXS_SPX_PCNTR_CTL_SEL_DISABLED;
 		break;
 	default:
 		rc = RIO_ERR_INVALID_PARAMETER;
@@ -230,8 +230,8 @@ uint32_t rio_sc_cfg_rxs_ctr(DAR_DEV_INFO_t *dev_info,
 		// Enable counters for each port before programming the counter
 		// control value.
 		if (in_parms->ctr_en) {
-			rc = DARRegWrite(dev_info, RXS_RIO_SPX_PCNTR_EN(pt),
-			RXS_RIO_SPX_PCNTR_EN_ENABLE);
+			rc = DARRegWrite(dev_info, RXS_SPX_PCNTR_EN(pt),
+			RXS_SPX_PCNTR_EN_ENABLE);
 			if (RIO_SUCCESS != rc) {
 				out_parms->imp_rc = SC_CFG_RXS_CTRS(0x40);
 				goto exit;
@@ -247,7 +247,7 @@ uint32_t rio_sc_cfg_rxs_ctr(DAR_DEV_INFO_t *dev_info,
 			found = true;
 			// Always program the control value...
 			rc = DARRegRead(dev_info,
-					RXS_RIO_SPX_PCNTR_CTL(pt, c_i),
+					RXS_SPX_PCNTR_CTL(pt, c_i),
 					&ctl_reg);
 			if (RIO_SUCCESS != rc) {
 				out_parms->imp_rc = SC_CFG_RXS_CTRS(0x41);
@@ -255,7 +255,7 @@ uint32_t rio_sc_cfg_rxs_ctr(DAR_DEV_INFO_t *dev_info,
 			}
 
 			rc = DARRegWrite(dev_info,
-					RXS_RIO_SPX_PCNTR_CTL(pt, c_i),
+					RXS_SPX_PCNTR_CTL(pt, c_i),
 					new_ctl);
 			if (RIO_SUCCESS != rc) {
 				out_parms->imp_rc = SC_CFG_RXS_CTRS(0x42);
@@ -272,7 +272,7 @@ uint32_t rio_sc_cfg_rxs_ctr(DAR_DEV_INFO_t *dev_info,
 				ctr_p->total = 0;
 				ctr_p->last_inc = 0;
 				rc = DARRegWrite(dev_info,
-						RXS_RIO_SPX_PCNTR_CNT(pt, c_i),
+						RXS_SPX_PCNTR_CNT(pt, c_i),
 						0);
 				if (RIO_SUCCESS != rc) {
 					out_parms->imp_rc = SC_CFG_RXS_CTRS(
@@ -292,7 +292,7 @@ uint32_t rio_sc_cfg_rxs_ctr(DAR_DEV_INFO_t *dev_info,
 			rio_sc_ctr_val_t init_val = INIT_RIO_SC_CTR_VAL;
 			int cntr_i;
 
-			rc = DARRegWrite(dev_info, RXS_RIO_SPX_PCNTR_EN(pt), 0);
+			rc = DARRegWrite(dev_info, RXS_SPX_PCNTR_EN(pt), 0);
 			if (RIO_SUCCESS != rc) {
 				out_parms->imp_rc = SC_CFG_RXS_CTRS(0x60);
 				goto exit;

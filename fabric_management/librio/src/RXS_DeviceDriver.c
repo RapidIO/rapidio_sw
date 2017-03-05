@@ -61,7 +61,7 @@ uint32_t rxs_rioDeviceSupported(DAR_DEV_INFO_t *dev_info)
 {
 	uint32_t rc = DAR_DB_NO_DRIVER;
 
-	if (RXS_RIO_DEVICE_VENDOR == (dev_info->devID & RIO_DEV_IDENT_VEND)) {
+	if (RXS_DEVICE_VENDOR == (dev_info->devID & RIO_DEV_IDENT_VEND)) {
 		if ((RIO_DEVI_IDT_RXS2448)
 				== ((dev_info->devID & RIO_DEV_IDENT_DEVI) >> 16)) {
 			/* Now fill out the DAR_info structure... */

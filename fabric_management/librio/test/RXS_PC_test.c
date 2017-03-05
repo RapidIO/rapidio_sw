@@ -176,10 +176,10 @@ static int grp_teardown(void **state)
 }
 
 uint32_t rxs_mock_reg_oset[] = {
-	RXS_RIO_PRESCALAR_SRV_CLK,
-	RXS_RIO_MPM_CFGSIG0,
-	RXS_RIO_SP_LT_CTL,
-	RXS_RIO_SP_GEN_CTL
+	RXS_PRESCALAR_SRV_CLK,
+	RXS_MPM_CFGSIG0,
+	RXS_SP_LT_CTL,
+	RXS_SP_GEN_CTL
 };
 
 typedef struct rxs_mock_pp_reg_t_TAG {
@@ -188,25 +188,25 @@ typedef struct rxs_mock_pp_reg_t_TAG {
 	uint32_t val;
 } rxs_mock_pp_reg_t;
 
-#define RXS_RIO_SPX_CTL2_DFLT (RXS_RIO_SPX_CTL2_GB_6p25_EN | \
-				RXS_RIO_SPX_CTL2_GB_6p25 | \
+#define RXS_SPX_CTL2_DFLT (RXS_SPX_CTL2_GB_6p25_EN | \
+				RXS_SPX_CTL2_GB_6p25 | \
 				RIO_SPX_CTL2_BAUD_SEL_6P25_BR)
-#define RXS_RIO_SPX_ERR_STAT_DFLT (RXS_RIO_SPX_ERR_STAT_PORT_UNAVL)
-#define RXS_RIO_SPX_CTL_DFLT (RXS_RIO_SPX_CTL_PORT_DIS | \
+#define RXS_SPX_ERR_STAT_DFLT (RXS_SPX_ERR_STAT_PORT_UNAVL)
+#define RXS_SPX_CTL_DFLT (RXS_SPX_CTL_PORT_DIS | \
 				RIO_SPX_CTL_PTW_INIT_4x | \
-				RXS_RIO_SPX_CTL_PORT_WIDTH)
-#define RXS_RIO_PLM_SPX_IMP_SPEC_CTL_DFLT 0
-#define RXS_RIO_PLM_SPX_PWDN_CTL_DFLT (RXS_RIO_PLM_SPX_PWDN_CTL_PWDN_PORT)
+				RXS_SPX_CTL_PORT_WIDTH)
+#define RXS_PLM_SPX_IMP_SPEC_CTL_DFLT 0
+#define RXS_PLM_SPX_PWDN_CTL_DFLT (RXS_PLM_SPX_PWDN_CTL_PWDN_PORT)
 #define RXS_PLM_SPX_POL_CTL_DFLT 0
 
 rxs_mock_pp_reg_t rxs_mock_spx_reg[] = {
-	{RXS_RIO_SPX_CTL2(0), 0x40, RXS_RIO_SPX_CTL2_DFLT},
-	{RXS_RIO_SPX_ERR_STAT(0), 0x40, RXS_RIO_SPX_ERR_STAT_DFLT},
-	{RXS_RIO_SPX_CTL(0), 0x40, RXS_RIO_SPX_CTL_DFLT},
-	{RXS_RIO_PLM_SPX_IMP_SPEC_CTL(0), 0x100,
-				RXS_RIO_PLM_SPX_IMP_SPEC_CTL_DFLT},
-	{RXS_RIO_PLM_SPX_PWDN_CTL(0), 0x100,
-				RXS_RIO_PLM_SPX_PWDN_CTL_DFLT},
+	{RXS_SPX_CTL2(0), 0x40, RXS_SPX_CTL2_DFLT},
+	{RXS_SPX_ERR_STAT(0), 0x40, RXS_SPX_ERR_STAT_DFLT},
+	{RXS_SPX_CTL(0), 0x40, RXS_SPX_CTL_DFLT},
+	{RXS_PLM_SPX_IMP_SPEC_CTL(0), 0x100,
+				RXS_PLM_SPX_IMP_SPEC_CTL_DFLT},
+	{RXS_PLM_SPX_PWDN_CTL(0), 0x100,
+				RXS_PLM_SPX_PWDN_CTL_DFLT},
 	{RXS_PLM_SPX_POL_CTL(0), 0x100, RXS_PLM_SPX_POL_CTL_DFLT}
 };
 
@@ -389,7 +389,7 @@ static void init_mock_rxs_reg(void **state)
 		for (i = 0; i < NUM_PP_REG; i++) {
 			// Odd ports cannot support 4x, and they train at 2x
 			val = rxs_mock_spx_reg[i].val;
-			if (RXS_RIO_SPX_CTL(0) == rxs_mock_spx_reg[i].base) {
+			if (RXS_SPX_CTL(0) == rxs_mock_spx_reg[i].base) {
 				if (port & 1) {
 					val &= ~RIO_SPX_CTL_PTW_MAX_4X;
 					val &= ~RIO_SPX_CTL_PTW_INIT_4x;
@@ -449,12 +449,12 @@ typedef struct clk_pd_tests_t_TAG {
 	uint32_t clk_pd; // Expected clock period
 } clk_pd_tests_t;
 
-#define LO_LAT     RXS_RIO_MPM_CFGSIG0_CORECLK_SELECT_LO_LAT
-#define LO_RSVD    RXS_RIO_MPM_CFGSIG0_CORECLK_SELECT_RSVD
-#define LO_PWR_12G RXS_RIO_MPM_CFGSIG0_CORECLK_SELECT_LO_PWR_12G
-#define LO_PWR_10G RXS_RIO_MPM_CFGSIG0_CORECLK_SELECT_LO_PWR_10G
-#define MHZ_100    RXS_RIO_MPM_CFGSIG0_REFCLK_SELECT_100MHz
-#define MHZ_156    RXS_RIO_MPM_CFGSIG0_REFCLK_SELECT_156p25MHz
+#define LO_LAT     RXS_MPM_CFGSIG0_CORECLK_SELECT_LO_LAT
+#define LO_RSVD    RXS_MPM_CFGSIG0_CORECLK_SELECT_RSVD
+#define LO_PWR_12G RXS_MPM_CFGSIG0_CORECLK_SELECT_LO_PWR_12G
+#define LO_PWR_10G RXS_MPM_CFGSIG0_CORECLK_SELECT_LO_PWR_10G
+#define MHZ_100    RXS_MPM_CFGSIG0_REFCLK_SELECT_100MHz
+#define MHZ_156    RXS_MPM_CFGSIG0_REFCLK_SELECT_156p25MHz
 
 static clk_pd_tests_t clk_pd_pass[] = {
 	{ 42, LO_LAT | MHZ_100, 1001},
@@ -487,10 +487,10 @@ static void rxs_rio_pc_clk_pd_success_test(void **state)
 			printf("\ni = %d\n", i);
 		}
 		assert_int_equal(RIO_SUCCESS,
-			DARRegWrite(&mock_dev_info, RXS_RIO_PRESCALAR_SRV_CLK,
+			DARRegWrite(&mock_dev_info, RXS_PRESCALAR_SRV_CLK,
 			clk_pd_pass[i].ps));
 		assert_int_equal(RIO_SUCCESS,
-			DARRegWrite(&mock_dev_info, RXS_RIO_MPM_CFGSIG0,
+			DARRegWrite(&mock_dev_info, RXS_MPM_CFGSIG0,
 			clk_pd_pass[i].cfgsig0));
 		assert_int_equal(RIO_SUCCESS,
 			rxs_rio_pc_clk_pd(&mock_dev_info, &srv_pd));
@@ -533,10 +533,10 @@ static void rxs_rio_pc_clk_pd_fail_test(void **state)
 			printf("\ni = %d\n", i);
 		}
 		assert_int_equal(RIO_SUCCESS,
-			DARRegWrite(&mock_dev_info, RXS_RIO_PRESCALAR_SRV_CLK,
+			DARRegWrite(&mock_dev_info, RXS_PRESCALAR_SRV_CLK,
 			clk_pd_fail[i].ps));
 		assert_int_equal(RIO_SUCCESS,
-			DARRegWrite(&mock_dev_info, RXS_RIO_MPM_CFGSIG0,
+			DARRegWrite(&mock_dev_info, RXS_MPM_CFGSIG0,
 			clk_pd_fail[i].cfgsig0));
 		assert_int_not_equal(RIO_SUCCESS,
 			rxs_rio_pc_clk_pd(&mock_dev_info, &srv_pd));
@@ -574,13 +574,13 @@ static void rxs_rio_pc_get_config_success(void **state)
 	rio_pc_get_config_out_t pc_out;
 	rio_pc_one_port_config_t curr_pc;
 
-	uint32_t err_stat = RXS_RIO_SPX_ERR_STAT_DFLT;
-	uint32_t ctl = RXS_RIO_SPX_CTL_DFLT;
-	uint32_t plm_ctl = RXS_RIO_PLM_SPX_IMP_SPEC_CTL_DFLT;
-	uint32_t pwdn = RXS_RIO_PLM_SPX_PWDN_CTL_DFLT;
+	uint32_t err_stat = RXS_SPX_ERR_STAT_DFLT;
+	uint32_t ctl = RXS_SPX_CTL_DFLT;
+	uint32_t plm_ctl = RXS_PLM_SPX_IMP_SPEC_CTL_DFLT;
+	uint32_t pwdn = RXS_PLM_SPX_PWDN_CTL_DFLT;
 	uint32_t pol = RXS_PLM_SPX_POL_CTL_DFLT;
 	uint32_t lrto = 0;
-	uint32_t nmtc_en_mask = RXS_RIO_SPX_CTL_INP_EN | RXS_RIO_SPX_CTL_OTP_EN;
+	uint32_t nmtc_en_mask = RXS_SPX_CTL_INP_EN | RXS_SPX_CTL_OTP_EN;
 
 	rio_port_t port;
 	uint32_t lane;
@@ -622,22 +622,22 @@ static void rxs_rio_pc_get_config_success(void **state)
 	}
 	// Make port available and powered down
 	// Doesn't work this way on real hardware
-	err_stat &= ~RXS_RIO_SPX_ERR_STAT_PORT_UNAVL;
-	pwdn |= RXS_RIO_PLM_SPX_PWDN_CTL_PWDN_PORT;
+	err_stat &= ~RXS_SPX_ERR_STAT_PORT_UNAVL;
+	pwdn |= RXS_PLM_SPX_PWDN_CTL_PWDN_PORT;
 	curr_pc.port_available = true;
 
 	for (port = 0; port < NUM_RXS_PORTS(&mock_dev_info); port++) {
 		assert_int_equal(RIO_SUCCESS,
 			DARRegWrite(&mock_dev_info,
-				RXS_RIO_SPX_ERR_STAT(port), err_stat));
+				RXS_SPX_ERR_STAT(port), err_stat));
 		assert_int_equal(RIO_SUCCESS,
 			DARRegWrite(&mock_dev_info,
-				RXS_RIO_PLM_SPX_PWDN_CTL(port), pwdn));
+				RXS_PLM_SPX_PWDN_CTL(port), pwdn));
 	}
 	// Also update LRTO value
 	lrto = 0x123456;
 	assert_int_equal(RIO_SUCCESS,
-		DARRegWrite(&mock_dev_info, RXS_RIO_SP_LT_CTL, lrto << 8));
+		DARRegWrite(&mock_dev_info, RXS_SP_LT_CTL, lrto << 8));
 
 	pc_in.ptl.num_ports = RIO_ALL_PORTS;
 	assert_int_equal(RIO_SUCCESS,
@@ -657,8 +657,8 @@ static void rxs_rio_pc_get_config_success(void **state)
 	}
 	// Power up the port, with transmitter disabled
 	// Doesn't work this way on real hardware
-	ctl |= RXS_RIO_SPX_CTL_PORT_DIS;
-	pwdn &= ~RXS_RIO_PLM_SPX_PWDN_CTL_PWDN_PORT;
+	ctl |= RXS_SPX_CTL_PORT_DIS;
+	pwdn &= ~RXS_PLM_SPX_PWDN_CTL_PWDN_PORT;
 	curr_pc.powered_up = true;
 	curr_pc.xmitter_disable = true;
 	curr_pc.pw = rio_pc_pw_4x;
@@ -668,10 +668,10 @@ static void rxs_rio_pc_get_config_success(void **state)
 	for (port = 0; port < NUM_RXS_PORTS(&mock_dev_info); port++) {
 		assert_int_equal(RIO_SUCCESS,
 			DARRegWrite(&mock_dev_info,
-				RXS_RIO_SPX_CTL(port), ctl));
+				RXS_SPX_CTL(port), ctl));
 		assert_int_equal(RIO_SUCCESS,
 			DARRegWrite(&mock_dev_info,
-				RXS_RIO_PLM_SPX_PWDN_CTL(port), pwdn));
+				RXS_PLM_SPX_PWDN_CTL(port), pwdn));
 	}
 
 	pc_in.ptl.num_ports = RIO_ALL_PORTS;
@@ -692,17 +692,17 @@ static void rxs_rio_pc_get_config_success(void **state)
 	}
 	// Enable transmitter, set lockout, disable non-maintenance
 	// Doesn't work this way on real hardware
-	ctl &= ~RXS_RIO_SPX_CTL_PORT_DIS;
+	ctl &= ~RXS_SPX_CTL_PORT_DIS;
 	curr_pc.xmitter_disable = false;
 
 	ctl &= ~nmtc_en_mask;
-	ctl |= RXS_RIO_SPX_CTL_PORT_LOCKOUT;
+	ctl |= RXS_SPX_CTL_PORT_LOCKOUT;
 	curr_pc.port_lockout = true;
 
 	for (port = 0; port < NUM_RXS_PORTS(&mock_dev_info); port++) {
 		assert_int_equal(RIO_SUCCESS,
 			DARRegWrite(&mock_dev_info,
-				RXS_RIO_SPX_CTL(port), ctl));
+				RXS_SPX_CTL(port), ctl));
 	}
 
 	pc_in.ptl.num_ports = RIO_ALL_PORTS;
@@ -723,7 +723,7 @@ static void rxs_rio_pc_get_config_success(void **state)
 	}
 	// Clear lockout, enable non-maintenance
 	// Doesn't work this way on real hardware
-	ctl &= ~RXS_RIO_SPX_CTL_PORT_LOCKOUT;
+	ctl &= ~RXS_SPX_CTL_PORT_LOCKOUT;
 	ctl |= nmtc_en_mask;
 	curr_pc.port_lockout = false;
 	curr_pc.nmtc_xfer_enable = true;
@@ -731,7 +731,7 @@ static void rxs_rio_pc_get_config_success(void **state)
 	for (port = 0; port < NUM_RXS_PORTS(&mock_dev_info); port++) {
 		assert_int_equal(RIO_SUCCESS,
 			DARRegWrite(&mock_dev_info,
-				RXS_RIO_SPX_CTL(port), ctl));
+				RXS_SPX_CTL(port), ctl));
 	}
 
 	pc_in.ptl.num_ports = RIO_ALL_PORTS;
@@ -754,17 +754,17 @@ static void rxs_rio_pc_get_config_success(void **state)
 	// l_vec is a bit mask of conditions for tx & rx swap,
 	// and various lane inversions...
 	for (l_vec = 0; l_vec < 1 << RIO_MAX_PORT_LANES; l_vec++) {
-		plm_ctl &= ~RXS_RIO_PLM_SPX_IMP_SPEC_CTL_SWAP_RX;
-		plm_ctl &= ~RXS_RIO_PLM_SPX_IMP_SPEC_CTL_SWAP_TX;
+		plm_ctl &= ~RXS_PLM_SPX_IMP_SPEC_CTL_SWAP_RX;
+		plm_ctl &= ~RXS_PLM_SPX_IMP_SPEC_CTL_SWAP_TX;
 		curr_pc.tx_lswap = false;
 		curr_pc.rx_lswap = false;
 
 		if (l_vec & 1) {
-			plm_ctl |= RXS_RIO_PLM_SPX_IMP_SPEC_CTL_SWAP_RX;
+			plm_ctl |= RXS_PLM_SPX_IMP_SPEC_CTL_SWAP_RX;
 			curr_pc.rx_lswap = true;
 		}
 		if (l_vec & 2) {
-			plm_ctl |= RXS_RIO_PLM_SPX_IMP_SPEC_CTL_SWAP_TX;
+			plm_ctl |= RXS_PLM_SPX_IMP_SPEC_CTL_SWAP_TX;
 			curr_pc.tx_lswap = true;
 		}
 		pol = l_vec;
@@ -776,7 +776,7 @@ static void rxs_rio_pc_get_config_success(void **state)
 		for (port = 0; port < NUM_RXS_PORTS(&mock_dev_info); port++) {
 			assert_int_equal(RIO_SUCCESS,
 				DARRegWrite(&mock_dev_info,
-					RXS_RIO_PLM_SPX_IMP_SPEC_CTL(port),
+					RXS_PLM_SPX_IMP_SPEC_CTL(port),
 					plm_ctl));
 			assert_int_equal(RIO_SUCCESS,
 				DARRegWrite(&mock_dev_info,
@@ -841,8 +841,8 @@ static void rxs_rio_pc_get_status_success(void **state)
 	uint32_t pw;
 	uint32_t lane_adj = 0;
 
-	uint32_t err_stat = RXS_RIO_SPX_ERR_STAT_DFLT;
-	uint32_t ctl = RXS_RIO_SPX_CTL_DFLT;
+	uint32_t err_stat = RXS_SPX_ERR_STAT_DFLT;
+	uint32_t ctl = RXS_SPX_CTL_DFLT;
 
 	// Default register values have all ports uninitialized
 	curr_ps.port_ok = false;
@@ -877,12 +877,12 @@ static void rxs_rio_pc_get_status_success(void **state)
 	for (port = 0; port < NUM_RXS_PORTS(&mock_dev_info); port++) {
 		assert_int_equal(RIO_SUCCESS,
 			DARRegRead(&mock_dev_info,
-				RXS_RIO_SPX_ERR_STAT(port), &err_stat));
-		err_stat &= ~RXS_RIO_SPX_ERR_STAT_PORT_UNAVL;
-		err_stat |= RXS_RIO_SPX_ERR_STAT_PORT_UNINIT;
+				RXS_SPX_ERR_STAT(port), &err_stat));
+		err_stat &= ~RXS_SPX_ERR_STAT_PORT_UNAVL;
+		err_stat |= RXS_SPX_ERR_STAT_PORT_UNINIT;
 		assert_int_equal(RIO_SUCCESS,
 			DARRegWrite(&mock_dev_info,
-				RXS_RIO_SPX_ERR_STAT(port), err_stat));
+				RXS_SPX_ERR_STAT(port), err_stat));
 	}
 
 	ps_in.ptl.num_ports = RIO_ALL_PORTS;
@@ -909,13 +909,13 @@ static void rxs_rio_pc_get_status_success(void **state)
 	for (port = 0; port < NUM_RXS_PORTS(&mock_dev_info); port++) {
 		assert_int_equal(RIO_SUCCESS,
 			DARRegRead(&mock_dev_info,
-				RXS_RIO_SPX_ERR_STAT(port), &err_stat));
-		err_stat &= ~RXS_RIO_SPX_ERR_STAT_PORT_UNINIT;
-		err_stat |= RXS_RIO_SPX_ERR_STAT_PORT_OK |
-				RXS_RIO_SPX_ERR_STAT_PORT_ERR;
+				RXS_SPX_ERR_STAT(port), &err_stat));
+		err_stat &= ~RXS_SPX_ERR_STAT_PORT_UNINIT;
+		err_stat |= RXS_SPX_ERR_STAT_PORT_OK |
+				RXS_SPX_ERR_STAT_PORT_ERR;
 		assert_int_equal(RIO_SUCCESS,
 			DARRegWrite(&mock_dev_info,
-				RXS_RIO_SPX_ERR_STAT(port), err_stat));
+				RXS_SPX_ERR_STAT(port), err_stat));
 	}
 
 	ps_in.ptl.num_ports = RIO_ALL_PORTS;
@@ -940,12 +940,12 @@ static void rxs_rio_pc_get_status_success(void **state)
 	for (port = 0; port < NUM_RXS_PORTS(&mock_dev_info); port++) {
 		assert_int_equal(RIO_SUCCESS,
 			DARRegRead(&mock_dev_info,
-				RXS_RIO_SPX_ERR_STAT(port), &err_stat));
-		err_stat &= ~RXS_RIO_SPX_ERR_STAT_PORT_ERR;
-		err_stat |= RXS_RIO_SPX_ERR_STAT_INPUT_ERR_STOP;
+				RXS_SPX_ERR_STAT(port), &err_stat));
+		err_stat &= ~RXS_SPX_ERR_STAT_PORT_ERR;
+		err_stat |= RXS_SPX_ERR_STAT_INPUT_ERR_STOP;
 		assert_int_equal(RIO_SUCCESS,
 			DARRegWrite(&mock_dev_info,
-				RXS_RIO_SPX_ERR_STAT(port), err_stat));
+				RXS_SPX_ERR_STAT(port), err_stat));
 	}
 
 	ps_in.ptl.num_ports = RIO_ALL_PORTS;
@@ -970,12 +970,12 @@ static void rxs_rio_pc_get_status_success(void **state)
 	for (port = 0; port < NUM_RXS_PORTS(&mock_dev_info); port++) {
 		assert_int_equal(RIO_SUCCESS,
 			DARRegRead(&mock_dev_info,
-				RXS_RIO_SPX_ERR_STAT(port), &err_stat));
-		err_stat &= ~RXS_RIO_SPX_ERR_STAT_INPUT_ERR_STOP;
-		err_stat |= RXS_RIO_SPX_ERR_STAT_OUTPUT_ERR_STOP;
+				RXS_SPX_ERR_STAT(port), &err_stat));
+		err_stat &= ~RXS_SPX_ERR_STAT_INPUT_ERR_STOP;
+		err_stat |= RXS_SPX_ERR_STAT_OUTPUT_ERR_STOP;
 		assert_int_equal(RIO_SUCCESS,
 			DARRegWrite(&mock_dev_info,
-				RXS_RIO_SPX_ERR_STAT(port), err_stat));
+				RXS_SPX_ERR_STAT(port), err_stat));
 	}
 
 	ps_in.ptl.num_ports = RIO_ALL_PORTS;
@@ -1001,22 +1001,22 @@ static void rxs_rio_pc_get_status_success(void **state)
 	for (port = 0; port < NUM_RXS_PORTS(&mock_dev_info); port++) {
 		assert_int_equal(RIO_SUCCESS,
 			DARRegRead(&mock_dev_info,
-				RXS_RIO_SPX_ERR_STAT(port), &err_stat));
-		err_stat |= RXS_RIO_SPX_ERR_STAT_INPUT_ERR_STOP;
-		err_stat |= RXS_RIO_SPX_ERR_STAT_OUTPUT_ERR_STOP;
-		err_stat |= RXS_RIO_SPX_ERR_STAT_OUTPUT_FAIL;
+				RXS_SPX_ERR_STAT(port), &err_stat));
+		err_stat |= RXS_SPX_ERR_STAT_INPUT_ERR_STOP;
+		err_stat |= RXS_SPX_ERR_STAT_OUTPUT_ERR_STOP;
+		err_stat |= RXS_SPX_ERR_STAT_OUTPUT_FAIL;
 		assert_int_equal(RIO_SUCCESS,
 			DARRegWrite(&mock_dev_info,
-				RXS_RIO_SPX_ERR_STAT(port), err_stat));
+				RXS_SPX_ERR_STAT(port), err_stat));
 		// Must read/modify/write ctl to avoid complexity with which
 		// port widths are enabled...
 		assert_int_equal(RIO_SUCCESS,
 			DARRegRead(&mock_dev_info,
-				RXS_RIO_SPX_CTL(port), &ctl));
-		ctl |= RXS_RIO_SPX_CTL_STOP_FAIL_EN;
+				RXS_SPX_CTL(port), &ctl));
+		ctl |= RXS_SPX_CTL_STOP_FAIL_EN;
 		assert_int_equal(RIO_SUCCESS,
 			DARRegWrite(&mock_dev_info,
-				RXS_RIO_SPX_CTL(port), ctl));
+				RXS_SPX_CTL(port), ctl));
 	}
 
 	ps_in.ptl.num_ports = RIO_ALL_PORTS;
@@ -1042,22 +1042,22 @@ static void rxs_rio_pc_get_status_success(void **state)
 	for (port = 0; port < NUM_RXS_PORTS(&mock_dev_info); port++) {
 		assert_int_equal(RIO_SUCCESS,
 			DARRegRead(&mock_dev_info,
-				RXS_RIO_SPX_ERR_STAT(port), &err_stat));
-		err_stat &= ~RXS_RIO_SPX_ERR_STAT_INPUT_ERR_STOP;
-		err_stat &= ~RXS_RIO_SPX_ERR_STAT_OUTPUT_ERR_STOP;
-		err_stat &= ~RXS_RIO_SPX_ERR_STAT_OUTPUT_FAIL;
+				RXS_SPX_ERR_STAT(port), &err_stat));
+		err_stat &= ~RXS_SPX_ERR_STAT_INPUT_ERR_STOP;
+		err_stat &= ~RXS_SPX_ERR_STAT_OUTPUT_ERR_STOP;
+		err_stat &= ~RXS_SPX_ERR_STAT_OUTPUT_FAIL;
 		assert_int_equal(RIO_SUCCESS,
 			DARRegWrite(&mock_dev_info,
-				RXS_RIO_SPX_ERR_STAT(port), err_stat));
+				RXS_SPX_ERR_STAT(port), err_stat));
 		// Must read/modify/write ctl to avoid complexity with which
 		// port widths are enabled...
 		assert_int_equal(RIO_SUCCESS,
 			DARRegRead(&mock_dev_info,
-				RXS_RIO_SPX_CTL(port), &ctl));
-		ctl |= RXS_RIO_SPX_CTL_STOP_FAIL_EN;
+				RXS_SPX_CTL(port), &ctl));
+		ctl |= RXS_SPX_CTL_STOP_FAIL_EN;
 		assert_int_equal(RIO_SUCCESS,
 			DARRegWrite(&mock_dev_info,
-				RXS_RIO_SPX_CTL(port), ctl));
+				RXS_SPX_CTL(port), ctl));
 	}
 
 	ps_in.ptl.num_ports = RIO_ALL_PORTS;
@@ -1081,11 +1081,11 @@ static void rxs_rio_pc_get_status_success(void **state)
 		{
 			assert_int_equal(RIO_SUCCESS,
 				DARRegRead(&mock_dev_info,
-					RXS_RIO_SPX_CTL(port), &ctl));
+					RXS_SPX_CTL(port), &ctl));
 
 			// Ensure no port width overrides are active.
-			ctl &= ~RXS_RIO_SPX_CTL_OVER_PWIDTH;
-			ctl &= ~RXS_RIO_SPX_CTL_INIT_PWIDTH;
+			ctl &= ~RXS_SPX_CTL_OVER_PWIDTH;
+			ctl &= ~RXS_SPX_CTL_INIT_PWIDTH;
 			switch (pw) {
 			case 0:
 				lane_adj = 0;
@@ -1129,7 +1129,7 @@ static void rxs_rio_pc_get_status_success(void **state)
 			}
 			assert_int_equal(RIO_SUCCESS,
 				DARRegWrite(&mock_dev_info,
-					RXS_RIO_SPX_CTL(port), ctl));
+					RXS_SPX_CTL(port), ctl));
 		}
 		ps_in.ptl.num_ports = RIO_ALL_PORTS;
 		assert_int_equal(RIO_SUCCESS,
@@ -1155,9 +1155,9 @@ static void rxs_rio_pc_get_status_success(void **state)
 		{
 			assert_int_equal(RIO_SUCCESS,
 				DARRegRead(&mock_dev_info,
-					RXS_RIO_SPX_CTL(port), &ctl));
-			ctl &= ~RXS_RIO_SPX_CTL_OVER_PWIDTH;
-			ctl &= ~RXS_RIO_SPX_CTL_INIT_PWIDTH;
+					RXS_SPX_CTL(port), &ctl));
+			ctl &= ~RXS_SPX_CTL_OVER_PWIDTH;
+			ctl &= ~RXS_SPX_CTL_INIT_PWIDTH;
 			switch (pw) {
 			case 0:
 				curr_ps.pw = rio_pc_pw_1x_l1;
@@ -1174,7 +1174,7 @@ static void rxs_rio_pc_get_status_success(void **state)
 			}
 			assert_int_equal(RIO_SUCCESS,
 				DARRegWrite(&mock_dev_info,
-					RXS_RIO_SPX_CTL(port), ctl));
+					RXS_SPX_CTL(port), ctl));
 		}
 		ps_in.ptl.num_ports = RIO_ALL_PORTS;
 		assert_int_equal(RIO_SUCCESS,

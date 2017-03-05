@@ -85,44 +85,44 @@ uint32_t rxs_rio_pc_clk_pd(DAR_DEV_INFO_t *dev_info,
 
 	*srv_pd = 0;
 
-	rc = DARRegRead(dev_info, RXS_RIO_MPM_CFGSIG0, &rck);
+	rc = DARRegRead(dev_info, RXS_MPM_CFGSIG0, &rck);
 	if (RIO_SUCCESS != rc) {
 		goto fail;
 	}
 
-	rc = DARRegRead(dev_info, RXS_RIO_PRESCALAR_SRV_CLK, &ps);
+	rc = DARRegRead(dev_info, RXS_PRESCALAR_SRV_CLK, &ps);
 	if (RIO_SUCCESS != rc) {
 		goto fail;
 	}
 
-	if ((ps & ~RXS_RIO_PRESCALAR_SRV_CLK_PRESCALAR_SRV_CLK) || (!ps)){
+	if ((ps & ~RXS_PRESCALAR_SRV_CLK_PRESCALAR_SRV_CLK) || (!ps)){
 		rc = RIO_ERR_READ_REG_RETURN_INVALID_VAL;
 		goto fail;
 	}
 
-	cck = rck & RXS_RIO_MPM_CFGSIG0_CORECLK_SELECT;
-	rck &= RXS_RIO_MPM_CFGSIG0_REFCLK_SELECT;
-	ps &= RXS_RIO_PRESCALAR_SRV_CLK_PRESCALAR_SRV_CLK;
+	cck = rck & RXS_MPM_CFGSIG0_CORECLK_SELECT;
+	rck &= RXS_MPM_CFGSIG0_REFCLK_SELECT;
+	ps &= RXS_PRESCALAR_SRV_CLK_PRESCALAR_SRV_CLK;
 
 	switch(cck) {
-	case RXS_RIO_MPM_CFGSIG0_CORECLK_SELECT_LO_LAT:
+	case RXS_MPM_CFGSIG0_CORECLK_SELECT_LO_LAT:
 		if (42 != ps) {
 			rc = RIO_ERR_READ_REG_RETURN_INVALID_VAL;
 			goto fail;
 		}
-		if (RXS_RIO_MPM_CFGSIG0_REFCLK_SELECT_156p25MHz == rck) {
+		if (RXS_MPM_CFGSIG0_REFCLK_SELECT_156p25MHz == rck) {
 			*srv_pd = 1000;
 		} else {
 			*srv_pd = 1001;
 		}
 		break;
-	case RXS_RIO_MPM_CFGSIG0_CORECLK_SELECT_RSVD:
+	case RXS_MPM_CFGSIG0_CORECLK_SELECT_RSVD:
 		rc = RIO_ERR_READ_REG_RETURN_INVALID_VAL;
 		goto fail;
 		break;
 
-	case RXS_RIO_MPM_CFGSIG0_CORECLK_SELECT_LO_PWR_12G:
-		if (RXS_RIO_MPM_CFGSIG0_REFCLK_SELECT_156p25MHz == rck) {
+	case RXS_MPM_CFGSIG0_CORECLK_SELECT_LO_PWR_12G:
+		if (RXS_MPM_CFGSIG0_REFCLK_SELECT_156p25MHz == rck) {
 			if (38 != ps) {
 				rc = RIO_ERR_READ_REG_RETURN_INVALID_VAL;
 				goto fail;
@@ -136,7 +136,7 @@ uint32_t rxs_rio_pc_clk_pd(DAR_DEV_INFO_t *dev_info,
 			*srv_pd = 992;
 		}
 		break;
-	case RXS_RIO_MPM_CFGSIG0_CORECLK_SELECT_LO_PWR_10G:
+	case RXS_MPM_CFGSIG0_CORECLK_SELECT_LO_PWR_10G:
 		if (31 != ps) {
 			rc = RIO_ERR_READ_REG_RETURN_INVALID_VAL;
 			goto fail;
@@ -192,7 +192,7 @@ uint32_t rxs_rio_pc_get_config(DAR_DEV_INFO_t *dev_info,
 	uint32_t lrto;
 	struct DAR_ptl good_ptl;
 	rio_pc_one_port_config_t *pc;
-	uint32_t nmtc_en_mask = RXS_RIO_SPX_CTL_INP_EN | RXS_RIO_SPX_CTL_OTP_EN;
+	uint32_t nmtc_en_mask = RXS_SPX_CTL_INP_EN | RXS_SPX_CTL_OTP_EN;
 
 	out_parms->num_ports = 0;
 	out_parms->imp_rc = 0;
@@ -207,7 +207,7 @@ uint32_t rxs_rio_pc_get_config(DAR_DEV_INFO_t *dev_info,
 	out_parms->num_ports = good_ptl.num_ports;
 
 	// Always get LRTO
-	rc = DARRegRead(dev_info, RXS_RIO_SP_LT_CTL, &lrto);
+	rc = DARRegRead(dev_info, RXS_SP_LT_CTL, &lrto);
 	if (RIO_SUCCESS != rc) {
 		out_parms->imp_rc = PC_SET_CONFIG(0x2);
 		goto exit;
@@ -235,7 +235,7 @@ uint32_t rxs_rio_pc_get_config(DAR_DEV_INFO_t *dev_info,
 		}
 
 		// Check that port is available, if not, bail.
-		rc = DARRegRead(dev_info, RXS_RIO_SPX_ERR_STAT(pc->pnum),
+		rc = DARRegRead(dev_info, RXS_SPX_ERR_STAT(pc->pnum),
 							&err_stat);
 		if (RIO_SUCCESS != rc) {
 			out_parms->imp_rc = PC_GET_STATUS(0x40 + pc->pnum);
@@ -243,7 +243,7 @@ uint32_t rxs_rio_pc_get_config(DAR_DEV_INFO_t *dev_info,
 		}
 
 		pc->port_available =
-			(err_stat & RXS_RIO_SPX_ERR_STAT_PORT_UNAVL) ?
+			(err_stat & RXS_SPX_ERR_STAT_PORT_UNAVL) ?
 						false : true;
 
 		if (!pc->port_available) {
@@ -251,14 +251,14 @@ uint32_t rxs_rio_pc_get_config(DAR_DEV_INFO_t *dev_info,
 		}
 
 		// Check that port is powered up, if not, bail.
-		rc = DARRegRead(dev_info, RXS_RIO_PLM_SPX_PWDN_CTL(pc->pnum),
+		rc = DARRegRead(dev_info, RXS_PLM_SPX_PWDN_CTL(pc->pnum),
 							&pwr_dn);
 		if (RIO_SUCCESS != rc) {
 			out_parms->imp_rc = PC_GET_STATUS(0x40);
 			goto exit;
 		}
 
-		pc->powered_up = (pwr_dn & RXS_RIO_PLM_SPX_PWDN_CTL_PWDN_PORT) ?
+		pc->powered_up = (pwr_dn & RXS_PLM_SPX_PWDN_CTL_PWDN_PORT) ?
 						false : true;
 
 		if (!pc->powered_up) {
@@ -266,17 +266,17 @@ uint32_t rxs_rio_pc_get_config(DAR_DEV_INFO_t *dev_info,
 		}
 
 		// Check that RapidIO transmitter is enabled...
-		rc = DARRegRead(dev_info, RXS_RIO_SPX_CTL(pc->pnum), &ctl);
+		rc = DARRegRead(dev_info, RXS_SPX_CTL(pc->pnum), &ctl);
 		if (RIO_SUCCESS != rc) {
 			out_parms->imp_rc = PC_GET_CONFIG(8);
 			goto exit;
 		}
 
-		pc->xmitter_disable = (ctl & RXS_RIO_SPX_CTL_PORT_DIS) ?
+		pc->xmitter_disable = (ctl & RXS_SPX_CTL_PORT_DIS) ?
 						true : false;
 
 		// Get port width configuration.
-		rc = DARRegRead(dev_info, RXS_RIO_SPX_CTL(pc->pnum), &ctl);
+		rc = DARRegRead(dev_info, RXS_SPX_CTL(pc->pnum), &ctl);
 		if (RIO_SUCCESS != rc) {
 			out_parms->imp_rc = PC_GET_CONFIG(0x10);
 			goto exit;
@@ -314,7 +314,7 @@ uint32_t rxs_rio_pc_get_config(DAR_DEV_INFO_t *dev_info,
 		}
 
 		// Determine configured port speed...
-		rc = DARRegRead(dev_info, RXS_RIO_SPX_CTL2(pc->pnum), &ctl2);
+		rc = DARRegRead(dev_info, RXS_SPX_CTL2(pc->pnum), &ctl2);
 		if (RIO_SUCCESS != rc) {
 			out_parms->imp_rc = PC_GET_CONFIG(0x11);
 			goto exit;
@@ -322,25 +322,25 @@ uint32_t rxs_rio_pc_get_config(DAR_DEV_INFO_t *dev_info,
 
 		determine_ls(&pc->ls, ctl2);
 		pc->fc = rio_pc_fc_rx;
-		pc->port_lockout = (ctl & RXS_RIO_SPX_CTL_PORT_LOCKOUT) ?
+		pc->port_lockout = (ctl & RXS_SPX_CTL_PORT_LOCKOUT) ?
 						true : false;
 		pc->nmtc_xfer_enable = ((ctl & nmtc_en_mask) == nmtc_en_mask) ?
 						true : false;
 
 		// Check for lane swapping & lane inversion
 		rc = DARRegRead(dev_info,
-				RXS_RIO_PLM_SPX_IMP_SPEC_CTL(pc->pnum),
+				RXS_PLM_SPX_IMP_SPEC_CTL(pc->pnum),
 				&p_ctl);
 		if (RIO_SUCCESS != rc) {
 			out_parms->imp_rc = PC_GET_CONFIG(0x20);
 			goto exit;
 		}
 
-		if (p_ctl & RXS_RIO_PLM_SPX_IMP_SPEC_CTL_SWAP_RX) {
+		if (p_ctl & RXS_PLM_SPX_IMP_SPEC_CTL_SWAP_RX) {
 			pc->rx_lswap = true;
 		}
 
-		if (p_ctl & RXS_RIO_PLM_SPX_IMP_SPEC_CTL_SWAP_TX) {
+		if (p_ctl & RXS_PLM_SPX_IMP_SPEC_CTL_SWAP_TX) {
 			pc->tx_lswap = true;
 		}
 
@@ -399,9 +399,9 @@ uint32_t rxs_rio_pc_get_status(DAR_DEV_INFO_t *dev_info,
 	struct DAR_ptl good_ptl;
 	rio_pc_one_port_status_t *ps;
 	rio_pc_ls_t ls;
-	uint32_t idle_overrides = RXS_RIO_PLM_SPX_IMP_SPEC_CTL_USE_IDLE1 |
-				RXS_RIO_PLM_SPX_IMP_SPEC_CTL_USE_IDLE2 |
-				RXS_RIO_PLM_SPX_IMP_SPEC_CTL_USE_IDLE3;
+	uint32_t idle_overrides = RXS_PLM_SPX_IMP_SPEC_CTL_USE_IDLE1 |
+				RXS_PLM_SPX_IMP_SPEC_CTL_USE_IDLE2 |
+				RXS_PLM_SPX_IMP_SPEC_CTL_USE_IDLE3;
 	bool idle_err = false;
 
 	out_parms->num_ports = 0;
@@ -429,34 +429,34 @@ uint32_t rxs_rio_pc_get_status(DAR_DEV_INFO_t *dev_info,
 		ps->first_lane = 0;
 
 		// Port is available and powered up, so let's figure out the status...
-		rc = DARRegRead(dev_info, RXS_RIO_SPX_ERR_STAT(ps->pnum),
+		rc = DARRegRead(dev_info, RXS_SPX_ERR_STAT(ps->pnum),
 				&err_stat);
 		if (RIO_SUCCESS != rc) {
 			out_parms->imp_rc = PC_GET_STATUS(0x30);
 			goto exit;
 		}
 
-		rc = DARRegRead(dev_info, RXS_RIO_SPX_CTL(ps->pnum), &ctl);
+		rc = DARRegRead(dev_info, RXS_SPX_CTL(ps->pnum), &ctl);
 		if (RIO_SUCCESS != rc) {
 			out_parms->imp_rc = PC_GET_STATUS(0x40);
 			goto exit;
 		}
 
-		ps->port_ok = (err_stat & RXS_RIO_SPX_ERR_STAT_PORT_OK) ?
+		ps->port_ok = (err_stat & RXS_SPX_ERR_STAT_PORT_OK) ?
 						true : false;
 		ps->input_stopped =
-			(err_stat & RXS_RIO_SPX_ERR_STAT_INPUT_ERR_STOP) ?
+			(err_stat & RXS_SPX_ERR_STAT_INPUT_ERR_STOP) ?
 						true : false;
 		ps->output_stopped =
-			(err_stat & RXS_RIO_SPX_ERR_STAT_OUTPUT_ERR_STOP) ?
+			(err_stat & RXS_SPX_ERR_STAT_OUTPUT_ERR_STOP) ?
 						true : false;
 
 		// Port Error is true if a PORT_ERR is present, OR
 		// if a OUTPUT_FAIL is present when STOP_FAIL_EN is set.
 		ps->port_error =
-			((err_stat & RXS_RIO_SPX_ERR_STAT_PORT_ERR) ||
-			((ctl & RXS_RIO_SPX_CTL_STOP_FAIL_EN) &&
-				(err_stat & RXS_RIO_SPX_ERR_STAT_OUTPUT_FAIL)));
+			((err_stat & RXS_SPX_ERR_STAT_PORT_ERR) ||
+			((ctl & RXS_SPX_CTL_STOP_FAIL_EN) &&
+				(err_stat & RXS_SPX_ERR_STAT_OUTPUT_FAIL)));
 
 		// Idle sequence and port width status are only defined when
 		// PORT_OK is asserted...
@@ -464,14 +464,14 @@ uint32_t rxs_rio_pc_get_status(DAR_DEV_INFO_t *dev_info,
 			continue;
 		}
 
-		rc = DARRegRead(dev_info, RXS_RIO_SPX_CTL2(ps->pnum), &ctl2);
+		rc = DARRegRead(dev_info, RXS_SPX_CTL2(ps->pnum), &ctl2);
 		if (RIO_SUCCESS != rc) {
 			out_parms->imp_rc = PC_GET_STATUS(0x50);
 			goto exit;
 		}
 
 		rc = DARRegRead(dev_info,
-				RXS_RIO_PLM_SPX_IMP_SPEC_CTL(ps->pnum),
+				RXS_PLM_SPX_IMP_SPEC_CTL(ps->pnum),
 				&plm_ctl);
 		if (RIO_SUCCESS != rc) {
 			out_parms->imp_rc = PC_GET_STATUS(0x60);
@@ -485,21 +485,21 @@ uint32_t rxs_rio_pc_get_status(DAR_DEV_INFO_t *dev_info,
 		determine_ls(&ls, ctl2);
 
 		// Note: programming error if more than one of
-		// RXS_RIO_PLM_SPX_IMP_SPEC_CTL_USE_IDLE1,
-		// RXS_RIO_PLM_SPX_IMP_SPEC_CTL_USE_IDLE2, and
-		// RXS_RIO_PLM_SPX_IMP_SPEC_CTL_USE_IDLE3 set set.
+		// RXS_PLM_SPX_IMP_SPEC_CTL_USE_IDLE1,
+		// RXS_PLM_SPX_IMP_SPEC_CTL_USE_IDLE2, and
+		// RXS_PLM_SPX_IMP_SPEC_CTL_USE_IDLE3 set set.
 		ps->iseq = rio_pc_is_last;
 		plm_ctl &= idle_overrides;
 		switch (plm_ctl) {
 		case 0:
 			break;
-		case RXS_RIO_PLM_SPX_IMP_SPEC_CTL_USE_IDLE1:
+		case RXS_PLM_SPX_IMP_SPEC_CTL_USE_IDLE1:
 			ps->iseq = rio_pc_is_one;
 			break;
-		case RXS_RIO_PLM_SPX_IMP_SPEC_CTL_USE_IDLE2:
+		case RXS_PLM_SPX_IMP_SPEC_CTL_USE_IDLE2:
 			ps->iseq = rio_pc_is_two;
 			break;
-		case RXS_RIO_PLM_SPX_IMP_SPEC_CTL_USE_IDLE3:
+		case RXS_PLM_SPX_IMP_SPEC_CTL_USE_IDLE3:
 			ps->iseq = rio_pc_is_three;
 			break;
 		default:
@@ -548,7 +548,7 @@ uint32_t rxs_rio_pc_get_status(DAR_DEV_INFO_t *dev_info,
 
 		ps->first_lane = RXS_FIRST_PORT_LANE(ps->pnum);
 		ps->num_lanes = RIO_SPX_CTL_PTW_MAX_LANES(ctl);
-		switch (ctl & RXS_RIO_SPX_CTL_INIT_PWIDTH) {
+		switch (ctl & RXS_SPX_CTL_INIT_PWIDTH) {
 		case RIO_SPX_CTL_PTW_INIT_1x_L0:
 			ps->pw = rio_pc_pw_1x_l0;
 			ps->num_lanes = 1;
