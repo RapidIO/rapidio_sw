@@ -828,23 +828,22 @@ static void chk_regs_los(rio_em_cfg_t *event)
 
 static void chk_regs_2many_retx(rio_em_cfg_t *event)
 {
-	uint32_t den_ctl;
-	uint32_t mask = TSI721_PLM_DENIAL_CTL_CNT_RTY |
-	TSI721_PLM_DENIAL_CTL_CNT_PNA;
-	uint32_t temp;
+	uint32_t plm_denial_ctl;
+	uint32_t mask = TSI721_PLM_DENIAL_CTL_CNT_RTY;
+	uint32_t thresh;
 
 	assert_int_equal(RIO_SUCCESS,
-			DARRegRead(&mock_dev_info, TSI721_PLM_DENIAL_CTL, &den_ctl));
-
-	temp = den_ctl & TSI721_PLM_DENIAL_CTL_DENIAL_THRESH;
+		DARRegRead(&mock_dev_info, TSI721_PLM_DENIAL_CTL,
+							&plm_denial_ctl));
+	thresh = plm_denial_ctl & TSI721_PLM_DENIAL_CTL_DENIAL_THRESH;
 
 	switch (event->em_detect) {
 	case rio_em_detect_off:
-		assert_int_equal(0, den_ctl);
+		assert_int_equal(0, plm_denial_ctl & mask);
 		break;
 	case rio_em_detect_on:
-		assert_int_equal(temp, event->em_info);
-		assert_int_equal(mask, den_ctl & mask);
+		assert_int_equal(thresh, event->em_info);
+		assert_int_equal(mask, plm_denial_ctl & mask);
 		break;
 	case rio_em_detect_0delta:
 	case rio_em_detect_last:
@@ -855,26 +854,27 @@ static void chk_regs_2many_retx(rio_em_cfg_t *event)
 
 static void chk_regs_2many_pna(rio_em_cfg_t *event)
 {
-	uint32_t sp_ctl;
-	uint32_t rate_en;
-	uint32_t err_thr;
-	uint32_t ctl_mask = TSI721_SP_CTL_DROP_EN | TSI721_SP_CTL_STOP_FAIL_EN;
+	uint32_t plm_denial_ctl;
+	uint32_t mask = TSI721_PLM_DENIAL_CTL_CNT_PNA;
+	uint32_t thresh;
 
 	assert_int_equal(RIO_SUCCESS,
-			DARRegRead(&mock_dev_info, TSI721_SP_RATE_EN, &rate_en));
-	assert_int_equal(RIO_SUCCESS,
-			DARRegRead(&mock_dev_info, TSI721_SP_ERR_THRESH, &err_thr));
-	assert_int_equal(RIO_SUCCESS,
-			DARRegRead(&mock_dev_info, TSI721_SP_CTL, &sp_ctl));
+		DARRegRead(&mock_dev_info, TSI721_PLM_DENIAL_CTL,
+							&plm_denial_ctl));
+	thresh = plm_denial_ctl & TSI721_PLM_DENIAL_CTL_DENIAL_THRESH;
 
-	if (rio_em_detect_on == event->em_detect) {
-		assert_int_equal(TSI721_SP_RATE_EN_CS_NOT_ACC_EN,
-				rate_en & TSI721_SP_RATE_EN_CS_NOT_ACC_EN);
-		assert_int_equal(event->em_info & 0xFF,
-				(err_thr & TSI721_SP_ERR_THRESH_ERR_RFT) >> 24);
-		assert_int_equal(ctl_mask, sp_ctl & ctl_mask);
-	} else {
-		assert_int_equal(0, rate_en & TSI721_SP_RATE_EN_CS_NOT_ACC_EN);
+	switch (event->em_detect) {
+	case rio_em_detect_off:
+		assert_int_equal(0, plm_denial_ctl & mask);
+		break;
+	case rio_em_detect_on:
+		assert_int_equal(thresh, event->em_info);
+		assert_int_equal(mask, plm_denial_ctl & mask);
+		break;
+	case rio_em_detect_0delta:
+	case rio_em_detect_last:
+	default:
+		assert_true(false);
 	}
 }
 
@@ -1019,7 +1019,7 @@ static void tsi721_rio_em_cfg_set_get_chk_regs(rio_em_cfg_t *event,
 	case rio_em_f_2many_pna:
 		chk_regs_2many_pna(event);
 		chk_plm_en = true;
-		plm_mask = TSI721_PLM_STATUS_OUTPUT_FAIL;
+		plm_mask = TSI721_PLM_STATUS_MAX_DENIAL;
 		break;
 	case rio_em_f_err_rate:
 		chk_regs_err_rate(event);
@@ -1082,73 +1082,59 @@ static void tsi721_rio_em_cfg_set_success_em_info_test(void **state)
 	rio_em_cfg_t get_cfg_event_info;
 
 	rio_em_cfg_t events[] = {
-			{rio_em_f_los, rio_em_detect_on, 1 * 256 * 1000}, {
-					rio_em_f_los, rio_em_detect_on, 2 * 256
-							* 1000}, {rio_em_f_los,
-					rio_em_detect_on, 3 * 256 * 1000}, {
-					rio_em_f_los, rio_em_detect_on, 4 * 256
-							* 1000}, {rio_em_f_los,
-					rio_em_detect_on, 5 * 256 * 1000}, {
-					rio_em_f_los, rio_em_detect_on, 6 * 256
-							* 1000}, {rio_em_f_los,
-					rio_em_detect_on, 7 * 256 * 1000}, {
-					rio_em_f_los, rio_em_detect_on, 9 * 256
-							* 1000}, {rio_em_f_los,
-					rio_em_detect_on, 100 * 256 * 1000}, {
-					rio_em_f_los, rio_em_detect_on, 200
-							* 256 * 1000},
-			{rio_em_f_los, rio_em_detect_on, 300 * 256 * 1000}, // 10
-			{rio_em_f_port_err, rio_em_detect_on, 0}, {
-					rio_em_f_2many_retx, rio_em_detect_on,
-					0x00ff}, {rio_em_f_2many_retx,
-					rio_em_detect_on, 0x0001}, {
-					rio_em_f_2many_retx, rio_em_detect_on,
-					0x0088},
-			{rio_em_f_2many_pna, rio_em_detect_on, 0x0001}, // 15
-			{rio_em_f_2many_pna, rio_em_detect_on, 0x00FE}, {
-					rio_em_f_2many_pna, rio_em_detect_on,
-					0x00FF}, {rio_em_f_2many_pna,
-					rio_em_detect_on, 0x009E}, {
-					rio_em_d_log, rio_em_detect_on,
+		{rio_em_f_los, rio_em_detect_on, 1 * 256 * 1000}, 
+		{rio_em_f_los, rio_em_detect_on, 2 * 256 * 1000},
+		{rio_em_f_los, rio_em_detect_on, 3 * 256 * 1000},
+		{rio_em_f_los, rio_em_detect_on, 4 * 256 * 1000},
+		{rio_em_f_los, rio_em_detect_on, 5 * 256 * 1000},
+		{rio_em_f_los, rio_em_detect_on, 6 * 256 * 1000},
+		{rio_em_f_los, rio_em_detect_on, 7 * 256 * 1000},
+		{rio_em_f_los, rio_em_detect_on, 9 * 256 * 1000},
+		{rio_em_f_los, rio_em_detect_on, 100 * 256 * 1000},
+		{rio_em_f_los, rio_em_detect_on, 200 * 256 * 1000},
+		{rio_em_f_los, rio_em_detect_on, 300 * 256 * 1000}, // 10
+		{rio_em_f_port_err, rio_em_detect_on, 0},
+		{rio_em_f_2many_retx, rio_em_detect_on, 0x00ff},
+		{rio_em_f_2many_retx, rio_em_detect_on, 0x0001},
+		{rio_em_f_2many_retx, rio_em_detect_on, 0x0088},
+		{rio_em_f_2many_pna, rio_em_detect_on, 0x0001}, // 15
+		{rio_em_f_2many_pna, rio_em_detect_on, 0x00FE},
+		{rio_em_f_2many_pna, rio_em_detect_on, 0x00FF},
+		{rio_em_f_2many_pna, rio_em_detect_on, 0x009E},
+		{rio_em_d_log, rio_em_detect_on,
 					TSI721_LOCAL_ERR_EN_ILL_TYPE_EN |
 					TSI721_LOCAL_ERR_EN_ILL_ID_EN},
-			{rio_em_i_sig_det, rio_em_detect_on, 0}, // 20
-			{rio_em_i_rst_req, rio_em_detect_on, 0},
-			{rio_em_i_init_fail, rio_em_detect_on, 0}, {
-					rio_em_f_los, rio_em_detect_off, 1 * 256
-							* 1000}, {rio_em_f_los,
-					rio_em_detect_off, 2 * 256 * 1000},
-			{rio_em_f_los, rio_em_detect_off, 3 * 256 * 1000}, // 25
-			{rio_em_f_los, rio_em_detect_off, 4 * 256 * 1000}, {
-					rio_em_f_los, rio_em_detect_off, 5 * 256
-							* 1000}, {rio_em_f_los,
-					rio_em_detect_off, 6 * 256 * 1000}, {
-					rio_em_f_los, rio_em_detect_off, 7 * 256
-							* 1000},
-			{rio_em_f_los, rio_em_detect_off, 9 * 256 * 1000}, // 30
-			{rio_em_f_los, rio_em_detect_off, 100 * 256 * 1000}, {
-					rio_em_f_los, rio_em_detect_off, 200
-							* 256 * 1000}, {
-					rio_em_f_los, rio_em_detect_off, 300
-							* 256 * 1000},
-			{rio_em_f_port_err, rio_em_detect_off, 0},
-			{rio_em_f_2many_retx, rio_em_detect_off, 0x00ff}, // 35
-			{rio_em_f_2many_retx, rio_em_detect_off, 0x0001}, {
-					rio_em_f_2many_retx, rio_em_detect_off,
-					0x0088}, {rio_em_f_2many_pna,
-					rio_em_detect_off, 0x0001}, {
-					rio_em_f_2many_pna, rio_em_detect_off,
-					0x00FE},
-			{rio_em_f_2many_pna, rio_em_detect_off, 0x00FF}, // 40
-			{rio_em_f_2many_pna, rio_em_detect_off, 0x009E}, {
-					rio_em_d_log, rio_em_detect_off, 0}, {
-					rio_em_i_sig_det, rio_em_detect_off, 0},
-			{rio_em_i_rst_req, rio_em_detect_off, 0},
-			{rio_em_a_clr_pwpnd, rio_em_detect_off, 0}, // 45
-			{rio_em_d_ttl, rio_em_detect_off, 0}, {rio_em_d_rte,
-					rio_em_detect_off, 0},
-			{rio_em_a_no_event, rio_em_detect_off, 0},
-			{rio_em_i_init_fail, rio_em_detect_off, 0}, };
+		{rio_em_i_sig_det, rio_em_detect_on, 0}, // 20
+		{rio_em_i_rst_req, rio_em_detect_on, 0},
+		{rio_em_i_init_fail, rio_em_detect_on, 0},
+		{rio_em_f_los, rio_em_detect_off, 1 * 256 * 1000},
+		{rio_em_f_los, rio_em_detect_off, 2 * 256 * 1000},
+		{rio_em_f_los, rio_em_detect_off, 3 * 256 * 1000}, // 25
+		{rio_em_f_los, rio_em_detect_off, 4 * 256 * 1000},
+		{rio_em_f_los, rio_em_detect_off, 5 * 256 * 1000},
+		{rio_em_f_los, rio_em_detect_off, 6 * 256 * 1000},
+		{rio_em_f_los, rio_em_detect_off, 7 * 256 * 1000},
+		{rio_em_f_los, rio_em_detect_off, 9 * 256 * 1000}, // 30
+		{rio_em_f_los, rio_em_detect_off, 100 * 256 * 1000},
+		{rio_em_f_los, rio_em_detect_off, 200 * 256 * 1000},
+		{ rio_em_f_los, rio_em_detect_off, 300 * 256 * 1000},
+		{rio_em_f_port_err, rio_em_detect_off, 0},
+		{rio_em_f_2many_retx, rio_em_detect_off, 0x0000}, // 35
+		{rio_em_f_2many_retx, rio_em_detect_off, 0x0000},
+		{rio_em_f_2many_retx, rio_em_detect_off, 0x0000},
+		{rio_em_f_2many_pna, rio_em_detect_off, 0x0000},
+		{rio_em_f_2many_pna, rio_em_detect_off, 0x0000},
+		{rio_em_f_2many_pna, rio_em_detect_off, 0x0000}, // 40
+		{rio_em_f_2many_pna, rio_em_detect_off, 0x0000},
+		{rio_em_d_log, rio_em_detect_off, 0},
+		{rio_em_i_sig_det, rio_em_detect_off, 0},
+		{rio_em_i_rst_req, rio_em_detect_off, 0},
+		{rio_em_a_clr_pwpnd, rio_em_detect_off, 0}, // 45
+		{rio_em_d_ttl, rio_em_detect_off, 0},
+		{rio_em_d_rte, rio_em_detect_off, 0},
+		{rio_em_a_no_event, rio_em_detect_off, 0},
+		{rio_em_i_init_fail, rio_em_detect_off, 0},
+	};
 
 	unsigned int num_events = sizeof(events) / sizeof(events[0]);
 	unsigned int i;
@@ -1157,6 +1143,7 @@ static void tsi721_rio_em_cfg_set_success_em_info_test(void **state)
 	TSI721_PLM_IMP_SPEC_CTL_PORT_SELF_RST;
 
 	for (i = 0; i < num_events; i++) {
+		printf("\nevent idx %d\n",  i);
 		if (rio_em_i_rst_req == events[i].em_event) {
 			// If we're testing disabling the Reset Request
 			// event, do the real disable since this events
@@ -1164,14 +1151,18 @@ static void tsi721_rio_em_cfg_set_success_em_info_test(void **state)
 			// functionality.
 
 			assert_int_equal(RIO_SUCCESS,
-					DARRegRead(&mock_dev_info, TSI721_PLM_IMP_SPEC_CTL, &plm_imp_spec_ctl));
+				DARRegRead(&mock_dev_info,
+					TSI721_PLM_IMP_SPEC_CTL,
+					&plm_imp_spec_ctl));
 			if (rio_em_detect_off == events[i].em_detect) {
 				plm_imp_spec_ctl |= t_mask;
 			} else {
 				plm_imp_spec_ctl &= ~t_mask;
 			}
 			assert_int_equal(RIO_SUCCESS,
-					DARRegWrite(&mock_dev_info, TSI721_PLM_IMP_SPEC_CTL, plm_imp_spec_ctl));
+				DARRegWrite(&mock_dev_info,
+					TSI721_PLM_IMP_SPEC_CTL,
+					plm_imp_spec_ctl));
 		}
 		set_chk_notfn = (tsi721_int_supported) ?
 				rio_em_notfn_both : rio_em_notfn_pw;
@@ -1255,9 +1246,11 @@ static void tsi721_rio_em_cfg_set_ignore_test(void **state)
 	rio_em_events_t get_cfg_event_req;
 	rio_em_cfg_t get_cfg_event_info;
 
-	rio_em_cfg_t events[] = {{rio_em_d_ttl, rio_em_detect_on, 0}, {
-			rio_em_d_rte, rio_em_detect_on, 0}, {rio_em_a_no_event,
-			rio_em_detect_on, 0}, };
+	rio_em_cfg_t events[] = {
+		{rio_em_d_ttl, rio_em_detect_on, 0},
+		{rio_em_d_rte, rio_em_detect_on, 0},
+		{rio_em_a_no_event, rio_em_detect_on, 0},
+	};
 
 	unsigned int num_events = sizeof(events) / sizeof(events[0]);
 	unsigned int i;
@@ -1323,17 +1316,16 @@ typedef struct err_rate_checks_t_TAG {
 
 static void tsi721_rio_em_cfg_set_err_rate_unsup_test(void **state)
 {
-	err_rate_checks_t events[] =
-			{{TSI721_SP_RATE_EN_DSCRAM_LOS_EN,
+	err_rate_checks_t events[] = {
+		{TSI721_SP_RATE_EN_DSCRAM_LOS_EN, 
 			RIO_EMHS_SPX_RATE_RB_NONE | RIO_EMHS_SPX_RATE_RR_LIM_2,
-					0x01000000, {rio_em_f_err_rate,
-							rio_em_detect_on, 0}},
-					{TSI721_SP_RATE_EN_IMP_SPEC_EN,
-					RIO_EMHS_SPX_RATE_RB_10_MS |
-					RIO_EMHS_SPX_RATE_RR_LIM_16, 0xFFAAAAAA,
-							{rio_em_f_err_rate,
-									rio_em_detect_on,
-									0}}};
+			0x01000000,
+			{rio_em_f_err_rate, rio_em_detect_on, 0}},
+		{TSI721_SP_RATE_EN_IMP_SPEC_EN,
+			RIO_EMHS_SPX_RATE_RB_10_MS | RIO_EMHS_SPX_RATE_RR_LIM_16,
+			0xFFAAAAAA,
+			{rio_em_f_err_rate, rio_em_detect_on, 0}}
+	};
 
 	unsigned int num_events = sizeof(events) / sizeof(events[0]);
 	unsigned int i;
@@ -1525,17 +1517,14 @@ static void tsi721_rio_em_cfg_set_fail_em_info_test(void **state)
 	rio_em_cfg_set_in_t set_cfg_in;
 	rio_em_cfg_set_out_t set_cfg_out;
 
-	rio_em_cfg_t events[] =
-			{{rio_em_f_los, rio_em_detect_on, 0},
-					{rio_em_f_2many_retx, rio_em_detect_on,
-							0}, {rio_em_f_2many_pna,
-							rio_em_detect_on, 0}, {
-							rio_em_f_err_rate,
-							rio_em_detect_on, 0}, {
-							rio_em_d_log,
-							rio_em_detect_on, 0}, {
-							rio_em_last,
-							rio_em_detect_on, 0}, };
+	rio_em_cfg_t events[] = {
+		{rio_em_f_los, rio_em_detect_on, 0},
+		{rio_em_f_2many_retx, rio_em_detect_on, 0},
+		{rio_em_f_2many_pna, rio_em_detect_on, 0},
+		{rio_em_f_err_rate, rio_em_detect_on, 0},
+		{rio_em_d_log, rio_em_detect_on, 0},
+		{rio_em_last, rio_em_detect_on, 0},
+	};
 	rio_em_cfg_t pass_events[2];
 
 	unsigned int num_events = sizeof(events) / sizeof(events[0]);
@@ -1588,15 +1577,24 @@ static void tsi721_rio_em_cfg_set_roundup_test(void **state)
 	rio_em_events_t get_cfg_event_req;
 	rio_em_cfg_t get_cfg_event_info;
 
-	em_info_diff_checks_t events[] = {{0x000000ff, {rio_em_f_2many_pna,
-			rio_em_detect_on, 0x0100}}, {0x000000ff, {
-			rio_em_f_2many_pna, rio_em_detect_on, 0xFFFF}}, {1 * 256
-			* 1000, {rio_em_f_los, rio_em_detect_on, 1}}, {1 * 256
-			* 1000, {rio_em_f_los, rio_em_detect_on,
-			(1 * 256 * 1000) - 1}}, {2 * 256 * 1000, {rio_em_f_los,
-			rio_em_detect_on, (1 * 256 * 1000) + 1}}, {7 * 256
-			* 1000, {rio_em_f_los, rio_em_detect_on,
-			(6 * 256 * 1000) + 1}}};
+	em_info_diff_checks_t events[] = {
+		{0x000000ff,
+			{rio_em_f_2many_retx, rio_em_detect_on, 0x0100}},
+		{0x000000ff,
+			{rio_em_f_2many_retx, rio_em_detect_on, 0xFFFF}},
+		{0x000000ff,
+			{rio_em_f_2many_pna, rio_em_detect_on, 0x0100}},
+		{0x000000ff,
+			{rio_em_f_2many_pna, rio_em_detect_on, 0xFFFF}},
+		{1 * 256 * 1000,
+			{rio_em_f_los, rio_em_detect_on, 1}},
+		{1 * 256 * 1000,
+			{rio_em_f_los, rio_em_detect_on, (1 * 256 * 1000) - 1}},
+		{2 * 256 * 1000,
+			{rio_em_f_los, rio_em_detect_on, (1 * 256 * 1000) + 1}},
+		{7 * 256 * 1000,
+			{rio_em_f_los, rio_em_detect_on, (6 * 256 * 1000) + 1}}
+	};
 
 	unsigned int num_events = sizeof(events) / sizeof(events[0]);
 	unsigned int i;
@@ -2060,21 +2058,27 @@ static void tsi721_rio_em_parse_pw_all_events_test(void **state)
 	rio_em_parse_pw_in_t in_p;
 	rio_em_parse_pw_out_t out_p;
 	rio_em_event_n_loc_t events[(int)rio_em_last];
-	parse_pw_info_t pws[] = {{{0, 0, TSI721_PW_RST_REQ, 0}, {0,
-			rio_em_i_rst_req}}, {{0, TSI721_SP_ERR_DET_PKT_CRC_ERR,
-	TSI721_PW_OUTPUT_FAIL, 0}, {0, rio_em_f_err_rate}}, {{0,
-			TSI721_SP_ERR_DET_CS_NOT_ACC,
-			TSI721_PW_OUTPUT_FAIL, 0}, {0, rio_em_f_2many_pna}}, {{
-			0, 0, TSI721_PW_PORT_ERR, 0}, {0, rio_em_f_port_err}}, {
-			{0, 0, TSI721_PW_DLT, 0}, {0, rio_em_f_los}}, {{0, 0,
-			TSI721_PW_LINK_INIT, 0}, {0, rio_em_i_sig_det}}, {{0, 0,
-			TSI721_PW_MAX_DENIAL, 0}, {0, rio_em_f_2many_retx}}, {{
-			0, 0, TSI721_PW_LOCALOG, 0}, {0, rio_em_d_log}}};
+	parse_pw_info_t pws[] = {
+		{{0, 0, TSI721_PW_RST_REQ, 0},
+			{0, rio_em_i_rst_req}},
+		{{0, TSI721_SP_ERR_DET_PKT_CRC_ERR, TSI721_PW_OUTPUT_FAIL, 0},
+			{0, rio_em_f_err_rate}},
+		{{0, 0, TSI721_PW_PORT_ERR, 0}, {0, rio_em_f_port_err}},
+		{{0, 0, TSI721_PW_DLT, 0}, {0, rio_em_f_los}},
+		{{0, 0, TSI721_PW_LINK_INIT, 0}, {0, rio_em_i_sig_det}},
+		{{0, 0, TSI721_PW_LOCALOG, 0}, {0, rio_em_d_log}},
+		{{0, 0, TSI721_PW_MAX_DENIAL, 0}, {0, rio_em_f_2many_retx}},
+		{{0, TSI721_SP_ERR_DET_CS_NOT_ACC, TSI721_PW_MAX_DENIAL, 0},
+						{0, rio_em_f_2many_pna}},
+	};
 	unsigned int num_pws = sizeof(pws) / sizeof(pws[0]);
 	unsigned int i;
 
 	// Try each event individually...
 	for (i = 0; i < num_pws; i++) {
+		if (DEBUG_PRINTF) {
+			printf("\ni %d\n", i);
+		}
 		memcpy(in_p.pw, pws[i].pw, sizeof(in_p.pw));
 		in_p.num_events = (int)rio_em_last;
 		memset(events, 0, sizeof(events));
@@ -2086,16 +2090,27 @@ static void tsi721_rio_em_parse_pw_all_events_test(void **state)
 		out_p.other_events = true;
 
 		assert_int_equal(RIO_SUCCESS,
-				tsi721_rio_em_parse_pw(&mock_dev_info, &in_p,
-						&out_p));
+			tsi721_rio_em_parse_pw(&mock_dev_info, &in_p, &out_p));
 
 		assert_int_equal(0, out_p.imp_rc);
+		if (num_pws - 1 != i) {
+			assert_int_equal(1, out_p.num_events);
+			assert_int_equal(pws[i].event.event, in_p.events[0].event);
+			assert_int_equal(pws[i].event.port_num,
+					in_p.events[0].port_num);
+			assert_false(out_p.too_many);
+			assert_false(out_p.other_events);
+			continue;
+		}
 		// Creation of a 2many_pna event also creates an
-		// err_rate event.
-		assert_int_equal(1, out_p.num_events);
-		assert_int_equal(pws[i].event.event, in_p.events[0].event);
-		assert_int_equal(pws[i].event.port_num,
+		// 2many_retx event.
+		assert_int_equal(2, out_p.num_events);
+		assert_int_equal(pws[i - 1].event.event, in_p.events[0].event);
+		assert_int_equal(pws[i - 1].event.port_num,
 				in_p.events[0].port_num);
+		assert_int_equal(pws[i].event.event, in_p.events[1].event);
+		assert_int_equal(pws[i].event.port_num,
+				in_p.events[1].port_num);
 		assert_false(out_p.too_many);
 		assert_false(out_p.other_events);
 	}
@@ -2292,29 +2307,27 @@ static void tsi721_rio_em_create_events_success_test(void **state)
 	rio_em_event_n_loc_t events[(uint8_t)rio_em_last];
 	DAR_DEV_INFO_t *dev_info = &mock_dev_info;
 
-	offset_value_event_t tests[] = {{TSI721_PLM_STATUS,
-			TSI721_PLM_EVENT_GEN_DLT, {0, rio_em_f_los}}, {
-			TSI721_PLM_STATUS, TSI721_PLM_EVENT_GEN_PORT_ERR, {0,
-					rio_em_f_port_err}}, {TSI721_SP_ERR_DET,
-			TSI721_SP_ERR_DET_CS_NOT_ACC, {0, rio_em_f_2many_pna}},
-			{TSI721_PLM_STATUS, TSI721_PLM_EVENT_GEN_OUTPUT_FAIL, {
-					0, rio_em_f_err_rate}}, {
-					TSI721_PLM_STATUS,
-					TSI721_PLM_EVENT_GEN_MAX_DENIAL, {0,
-							rio_em_f_2many_retx}}, {
-					TSI721_LOCAL_ERR_DET,
-					TSI721_LOCAL_ERR_DET_ILL_TYPE |
-					TSI721_LOCAL_ERR_DET_ILL_ID, {0,
-							rio_em_d_log}}, {
-					TSI721_PLM_STATUS,
-					TSI721_PLM_EVENT_GEN_LINK_INIT, {0,
-							rio_em_i_sig_det}}, {
-					TSI721_PLM_STATUS,
-					TSI721_PLM_EVENT_GEN_RST_REQ, {0,
-							rio_em_i_rst_req}}, {
-					TSI721_I2C_INT_STAT,
-					TSI721_I2C_INT_STAT_BL_FAIL, {0,
-							rio_em_i_init_fail}}};
+	offset_value_event_t tests[] = {
+		{TSI721_PLM_STATUS, TSI721_PLM_EVENT_GEN_DLT,
+			{0, rio_em_f_los}},
+		{TSI721_PLM_STATUS, TSI721_PLM_EVENT_GEN_PORT_ERR,
+			{0, rio_em_f_port_err}},
+		{TSI721_PLM_STATUS, TSI721_PLM_EVENT_GEN_MAX_DENIAL,
+			{0, rio_em_f_2many_pna}},
+		{TSI721_PLM_STATUS, TSI721_PLM_EVENT_GEN_OUTPUT_FAIL,
+			{0, rio_em_f_err_rate}},
+		{TSI721_PLM_STATUS, TSI721_PLM_EVENT_GEN_MAX_DENIAL,
+			{0, rio_em_f_2many_retx}},
+		{TSI721_LOCAL_ERR_DET, TSI721_LOCAL_ERR_DET_ILL_TYPE |
+					TSI721_LOCAL_ERR_DET_ILL_ID,
+			{0, rio_em_d_log}},
+		{TSI721_PLM_STATUS, TSI721_PLM_EVENT_GEN_LINK_INIT,
+			{0, rio_em_i_sig_det}},
+		{TSI721_PLM_STATUS, TSI721_PLM_EVENT_GEN_RST_REQ,
+			{0, rio_em_i_rst_req}},
+		{ TSI721_I2C_INT_STAT, TSI721_I2C_INT_STAT_BL_FAIL,
+			{0, rio_em_i_init_fail}}
+	};
 	const unsigned int test_cnt = sizeof(tests) / sizeof(tests[0]);
 	unsigned int i;
 	uint32_t chk_val;
@@ -2482,23 +2495,22 @@ static void tsi721_rio_em_get_int_stat_success_test(void **state)
 	rio_em_event_n_loc_t stat_e[(uint8_t)rio_em_last];
 	DAR_DEV_INFO_t *dev_info = &mock_dev_info;
 
-	// NOTE: A 2many_pna event also causes an err_rate event.
+	// NOTE: A 2many_pna event also causes a 2many_retx event.
 	// For this reason, "2many_pna" must be the last test, 
-	// and err_rate must occur before 2many_pna.
+	// and 2many_retx must occur before 2many_pna.
 	rio_em_cfg_t tests[] = {
-			{rio_em_f_los, rio_em_detect_on, 1 * 256 * 1000}, {
-					rio_em_f_port_err, rio_em_detect_on, 0},
-			{rio_em_f_err_rate, rio_em_detect_on, 0x100000FF}, {
-					rio_em_f_2many_retx, rio_em_detect_on,
-					0x0010}, {rio_em_d_log,
-					rio_em_detect_on,
-					TSI721_LOCAL_ERR_EN_ILL_TYPE_EN |
-					TSI721_LOCAL_ERR_EN_ILL_ID_EN}, {
-					rio_em_i_sig_det, rio_em_detect_on, 0},
-			{rio_em_i_rst_req, rio_em_detect_on, 0},
-			{rio_em_i_init_fail, rio_em_detect_on, 0}, {
-					rio_em_f_2many_pna, rio_em_detect_on,
-					0x0010}};
+		{rio_em_f_los, rio_em_detect_on, 1 * 256 * 1000},
+		{ rio_em_f_port_err, rio_em_detect_on, 0},
+		{rio_em_f_err_rate, rio_em_detect_on, 0x100000FF},
+		{rio_em_f_2many_retx, rio_em_detect_on, 0x0010},
+		{rio_em_d_log, rio_em_detect_on,
+				TSI721_LOCAL_ERR_EN_ILL_TYPE_EN |
+				TSI721_LOCAL_ERR_EN_ILL_ID_EN},
+		{rio_em_i_sig_det, rio_em_detect_on, 0},
+		{rio_em_i_rst_req, rio_em_detect_on, 0},
+		{rio_em_i_init_fail, rio_em_detect_on, 0},
+		{ rio_em_f_2many_pna, rio_em_detect_on, 0x0010}
+	};
 
 	uint32_t plm_imp_spec_ctl;
 	uint32_t t_mask = TSI721_PLM_IMP_SPEC_CTL_SELF_RST |
@@ -2626,7 +2638,7 @@ static void tsi721_rio_em_get_int_stat_success_test(void **state)
 	(void)state;
 }
 
-// Test that if one event is configured with is configured with interrupt
+// Test that if one event is configured with interrupt
 // notification and all other events are disabled, that 
 // the "other events" fields behave correctly.
 //
@@ -2644,28 +2656,20 @@ static void tsi721_rio_em_get_int_stat_other_events_test(void **state)
 	rio_em_event_n_loc_t stat_e[(uint8_t)rio_em_last];
 	DAR_DEV_INFO_t *dev_info = &mock_dev_info;
 
-	// NOTE: A 2many_pna event also causes an err_rate event.
-	// For this reason, "2many_pna" must be the last test, 
-	// and err_rate must occur before 2many_pna.
-	//
-	// Note that the rio_em_f_err_rate.em_info value excludes
-	// RIO_EM_REC_ERR_SET_CS_NOT_ACC, so the events
-	// for rio_em_f_err_rate and rio_em_f_2many_pna are exclusive of
-	// each other.
+	// NOTE: A 2many_pna event also causes an 2many_retx event.
+	// This test skips "2many_pna" events.
 	rio_em_cfg_t tests[] = {
-			{rio_em_f_los, rio_em_detect_on, 1 * 256 * 1000}, {
-					rio_em_f_port_err, rio_em_detect_on, 0},
-			{rio_em_f_err_rate, rio_em_detect_on, 0x1000000F}, {
-					rio_em_f_2many_retx, rio_em_detect_on,
-					0x0010}, {rio_em_d_log,
-					rio_em_detect_on,
+		{rio_em_f_los, rio_em_detect_on, 1 * 256 * 1000},
+		{rio_em_f_port_err, rio_em_detect_on, 0},
+		{rio_em_f_err_rate, rio_em_detect_on, 0x1000000F},
+		{ rio_em_f_2many_retx, rio_em_detect_on, 0x0010},
+		{rio_em_d_log, rio_em_detect_on,
 					TSI721_LOCAL_ERR_EN_ILL_TYPE_EN |
-					TSI721_LOCAL_ERR_EN_ILL_ID_EN}, {
-					rio_em_i_sig_det, rio_em_detect_on, 0},
-			{rio_em_i_rst_req, rio_em_detect_on, 0},
-			{rio_em_i_init_fail, rio_em_detect_on, 0}, {
-					rio_em_f_2many_pna, rio_em_detect_on,
-					0x0010}};
+					TSI721_LOCAL_ERR_EN_ILL_ID_EN},
+		{rio_em_i_sig_det, rio_em_detect_on, 0},
+		{rio_em_i_rst_req, rio_em_detect_on, 0},
+		{rio_em_i_init_fail, rio_em_detect_on, 0}
+	};
 
 	uint32_t plm_imp_spec_ctl;
 	uint32_t t_mask = TSI721_PLM_IMP_SPEC_CTL_SELF_RST |
@@ -2686,7 +2690,7 @@ static void tsi721_rio_em_get_int_stat_other_events_test(void **state)
 	}
 
 	// Use test_cnt - 1 here to avoid trying for rio_em_f_2many_pna 
-	// without also setting rio_em_f_err_rate.
+	// without also setting rio_em_f_2many_retx.
 	for (i = 0; i < test_cnt - 1; i++) {
 		for (t = 0; t < test_cnt; t++) {
 			// Must have two different events for this test.
@@ -2885,18 +2889,17 @@ static void tsi721_rio_em_get_pw_stat_success_test(void **state)
 	// For this reason, "2many_pna" must be the last test, 
 	// and err_rate must occur before 2many_pna.
 	rio_em_cfg_t tests[] = {
-			{rio_em_f_los, rio_em_detect_on, 1 * 256 * 1000}, {
-					rio_em_f_port_err, rio_em_detect_on, 0},
-			{rio_em_f_err_rate, rio_em_detect_on, 0x100000FF}, {
-					rio_em_f_2many_retx, rio_em_detect_on,
-					0x0010}, {rio_em_d_log,
-					rio_em_detect_on,
+		{rio_em_f_los, rio_em_detect_on, 1 * 256 * 1000},
+		{rio_em_f_port_err, rio_em_detect_on, 0},
+		{rio_em_f_err_rate, rio_em_detect_on, 0x100000FF},
+		{rio_em_f_2many_retx, rio_em_detect_on, 0x0010},
+		{rio_em_d_log, rio_em_detect_on,
 					TSI721_LOCAL_ERR_EN_ILL_TYPE_EN |
-					TSI721_LOCAL_ERR_EN_ILL_ID_EN}, {
-					rio_em_i_sig_det, rio_em_detect_on, 0},
-			{rio_em_i_rst_req, rio_em_detect_on, 0}, {
-					rio_em_f_2many_pna, rio_em_detect_on,
-					0x0010}};
+					TSI721_LOCAL_ERR_EN_ILL_ID_EN},
+		{rio_em_i_sig_det, rio_em_detect_on, 0},
+		{rio_em_i_rst_req, rio_em_detect_on, 0},
+		{rio_em_f_2many_pna, rio_em_detect_on, 0x0010}
+	};
 
 	uint32_t plm_imp_spec_ctl;
 	uint32_t t_mask = TSI721_PLM_IMP_SPEC_CTL_SELF_RST |
@@ -3025,7 +3028,7 @@ static void tsi721_rio_em_get_pw_stat_success_test(void **state)
 	(void)state;
 }
 
-// Test that if one event is configured with is configured with port-write
+// Test that if one event is configured with port-write
 // notification and all other events are disabled, that 
 // the "other events" fields behave correctly.
 //
@@ -3043,27 +3046,22 @@ static void tsi721_rio_em_get_pw_stat_other_events_test(void **state)
 	rio_em_event_n_loc_t stat_e[(uint8_t)rio_em_last];
 	DAR_DEV_INFO_t *dev_info = &mock_dev_info;
 
-	// NOTE: A 2many_pna event also causes an err_rate event.
+	// NOTE: A 2many_pna event also causes an 2many_retx event.
 	// For this reason, "2many_pna" must be the last test, 
-	// and err_rate must occur before 2many_pna.
+	// and 2many_retx must occur before 2many_pna.
 	//
-	// Note that the rio_em_f_err_rate.em_info value excludes
-	// RIO_EM_REC_ERR_SET_CS_NOT_ACC, so the events
-	// for rio_em_f_err_rate and rio_em_f_2many_pna are exclusive of
-	// each other.
 	rio_em_cfg_t tests[] = {
-			{rio_em_f_los, rio_em_detect_on, 1 * 256 * 1000}, {
-					rio_em_f_port_err, rio_em_detect_on, 0},
-			{rio_em_f_err_rate, rio_em_detect_on, 0x1000000F}, {
-					rio_em_f_2many_retx, rio_em_detect_on,
-					0x0010}, {rio_em_d_log,
-					rio_em_detect_on,
+		{rio_em_f_los, rio_em_detect_on, 1 * 256 * 1000},
+		{rio_em_f_port_err, rio_em_detect_on, 0},
+		{rio_em_f_err_rate, rio_em_detect_on, 0x1000000F},
+		{rio_em_d_log, rio_em_detect_on,
 					TSI721_LOCAL_ERR_EN_ILL_TYPE_EN |
-					TSI721_LOCAL_ERR_EN_ILL_ID_EN}, {
-					rio_em_i_sig_det, rio_em_detect_on, 0},
-			{rio_em_i_rst_req, rio_em_detect_on, 0}, {
-					rio_em_f_2many_pna, rio_em_detect_on,
-					0x0010}};
+					TSI721_LOCAL_ERR_EN_ILL_ID_EN},
+		{rio_em_i_sig_det, rio_em_detect_on, 0},
+		{rio_em_i_rst_req, rio_em_detect_on, 0},
+		{rio_em_f_2many_retx, rio_em_detect_on, 0x0010},
+		{ rio_em_f_2many_pna, rio_em_detect_on, 0x0010}
+	};
 
 	uint32_t plm_imp_spec_ctl;
 	uint32_t t_mask = TSI721_PLM_IMP_SPEC_CTL_SELF_RST |
@@ -3078,12 +3076,15 @@ static void tsi721_rio_em_get_pw_stat_other_events_test(void **state)
 	}
 
 	// Use test_cnt - 1 here to avoid trying for rio_em_f_2many_pna 
-	// without also setting rio_em_f_err_rate.
+	// without also setting rio_em_f_2many_retx.
 	for (i = 0; i < test_cnt - 1; i++) {
 		for (t = 0; t < test_cnt; t++) {
 			// Must have two different events for this test.
 			if (i == t) {
 				continue;
+			}
+			if (DEBUG_PRINTF) {
+				printf("\ni %d t %d\n", i, t);
 			}
 			// This test requires a clean slate at the beginning 
 			// of each attempt
@@ -3166,10 +3167,15 @@ static void tsi721_rio_em_get_pw_stat_other_events_test(void **state)
 			assert_int_equal(0, out_p.imp_rc);
 			assert_int_equal(1, out_p.num_events);
 			assert_false(out_p.too_many);
-			assert_true(out_p.other_events);
-
-			// Check that the event created was found
 			assert_int_equal(tests[i].em_event, stat_e[0].event);
+
+			// Check that the other events were found, EXCEPT
+			// when the two events are 2many_retx & 2many_pna
+			if ((rio_em_f_2many_retx == tests[i].em_event) &&
+				(rio_em_f_2many_pna == tests[t].em_event)) {
+				continue;
+			}
+			assert_true(out_p.other_events);
 		}
 	}
 
@@ -3199,25 +3205,19 @@ static void tsi721_rio_em_get_int_pw_stat_other_events_test(void **state)
 	// NOTE: A 2many_pna event also causes an err_rate event.
 	// For this reason, "2many_pna" must be the last test, 
 	// and err_rate must occur before 2many_pna.
-	//
-	// Note that the rio_em_f_err_rate.em_info value excludes
-	// RIO_EM_REC_ERR_SET_CS_NOT_ACC, so the events
-	// for rio_em_f_err_rate and rio_em_f_2many_pna are exclusive of
-	// each other.
 	rio_em_cfg_t tests[] = {
-			{rio_em_f_los, rio_em_detect_on, 1 * 256 * 1000}, {
-					rio_em_f_port_err, rio_em_detect_on, 0},
-			{rio_em_f_err_rate, rio_em_detect_on, 0x1000000F}, {
-					rio_em_f_2many_retx, rio_em_detect_on,
-					0x0010}, {rio_em_d_log,
-					rio_em_detect_on,
+		{rio_em_f_los, rio_em_detect_on, 1 * 256 * 1000},
+		{rio_em_f_port_err, rio_em_detect_on, 0},
+		{rio_em_f_err_rate, rio_em_detect_on, 0x1000000F},
+		{rio_em_d_log, rio_em_detect_on,
 					TSI721_LOCAL_ERR_EN_ILL_TYPE_EN |
-					TSI721_LOCAL_ERR_EN_ILL_ID_EN}, {
-					rio_em_i_sig_det, rio_em_detect_on, 0},
-			{rio_em_i_rst_req, rio_em_detect_on, 0},
-			{rio_em_i_init_fail, rio_em_detect_on, 0}, {
-					rio_em_f_2many_pna, rio_em_detect_on,
-					0x0010}};
+					TSI721_LOCAL_ERR_EN_ILL_ID_EN},
+		{rio_em_i_sig_det, rio_em_detect_on, 0},
+		{rio_em_i_rst_req, rio_em_detect_on, 0},
+		{rio_em_i_init_fail, rio_em_detect_on, 0},
+		{rio_em_f_2many_retx, rio_em_detect_on,0x0010},
+		{rio_em_f_2many_pna, rio_em_detect_on, 0x0010}
+	};
 
 	uint32_t plm_imp_spec_ctl;
 	uint32_t t_mask = TSI721_PLM_IMP_SPEC_CTL_SELF_RST |
@@ -3226,7 +3226,8 @@ static void tsi721_rio_em_get_int_pw_stat_other_events_test(void **state)
 	const unsigned int test_cnt = sizeof(tests) / sizeof(tests[0]);
 	unsigned int i, p;
 	Tsi721_test_state_t *l_st = (Tsi721_test_state_t *)*state;
-	rio_em_notfn_ctl_t i_notfn, p_notfn;
+	rio_em_notfn_ctl_t i_notfn = rio_em_notfn_int;
+	rio_em_notfn_ctl_t p_notfn = rio_em_notfn_pw;
 
 	// Cannot run the interrupt test if interrupts are not supported,
 	// or on real hardware.
@@ -3244,8 +3245,27 @@ static void tsi721_rio_em_get_int_pw_stat_other_events_test(void **state)
 			if (i == p) {
 				continue;
 			}
+			// init_fail events can only receive interrupt notifn..
 			if (rio_em_i_init_fail == tests[p].em_event) {
 				continue;
+			}
+			// 2many_retx and 2many_pna cause the same event,
+			// so skip ahead if they're both selected...
+			if ((rio_em_f_2many_retx == tests[i].em_event) &&
+				(rio_em_f_2many_pna == tests[p].em_event)) {
+				continue;
+			}
+			if ((rio_em_f_2many_retx == tests[p].em_event) &&
+				(rio_em_f_2many_pna == tests[i].em_event)) {
+				continue;
+			}
+			if (DEBUG_PRINTF) {
+				printf("\ni = %d p = %d event = %d %d\n", i, p,
+						tests[i].em_event,
+						tests[p].em_event);
+			}
+			if (DEBUG_PRINTF) {
+				printf("\ni %d p %d\n", i, p);
 			}
 
 			// This test requires a clean slate at the beginning 
@@ -3288,22 +3308,6 @@ static void tsi721_rio_em_get_int_pw_stat_other_events_test(void **state)
 						DARRegWrite(&mock_dev_info, TSI721_PLM_IMP_SPEC_CTL, plm_imp_spec_ctl));
 			}
 
-			// Enable the i'th and p'th event
-			// Special notification case for f_err_rate and
-			// 2many_pna: Both are port_fail events, so notification
-			// must be "both".
-			i_notfn = rio_em_notfn_int;
-			p_notfn = rio_em_notfn_pw;
-			if (((rio_em_f_err_rate == tests[i].em_event)
-					|| (rio_em_f_2many_pna
-							== tests[i].em_event))
-					&& ((rio_em_f_err_rate
-							== tests[p].em_event)
-							|| (rio_em_f_2many_pna
-									== tests[p].em_event))) {
-				i_notfn = rio_em_notfn_both;
-				p_notfn = rio_em_notfn_both;
-			}
 			// Enable event with interrupt notification
 			set_cfg_in.ptl.num_ports = 1;
 			set_cfg_in.ptl.pnums[0] = 0;
@@ -3491,25 +3495,19 @@ static void tsi721_rio_em_get_int_pw_stat_both_test(void **state)
 	// NOTE: A 2many_pna event also causes an err_rate event.
 	// For this reason, "2many_pna" must be the last test, 
 	// and err_rate must occur before 2many_pna.
-	//
-	// Note that the rio_em_f_err_rate.em_info value excludes
-	// RIO_EM_REC_ERR_SET_CS_NOT_ACC, so the events
-	// for rio_em_f_err_rate and rio_em_f_2many_pna are exclusive of
-	// each other.
 	rio_em_cfg_t tests[] = {
-			{rio_em_f_los, rio_em_detect_on, 1 * 256 * 1000}, {
-					rio_em_f_port_err, rio_em_detect_on, 0},
-			{rio_em_f_err_rate, rio_em_detect_on, 0x1000000F}, {
-					rio_em_f_2many_retx, rio_em_detect_on,
-					0x0010}, {rio_em_d_log,
-					rio_em_detect_on,
-					TSI721_LOCAL_ERR_EN_ILL_TYPE_EN |
-					TSI721_LOCAL_ERR_EN_ILL_ID_EN}, {
-					rio_em_i_sig_det, rio_em_detect_on, 0},
-			{rio_em_i_rst_req, rio_em_detect_on, 0},
-			{rio_em_i_init_fail, rio_em_detect_on, 0}, {
-					rio_em_f_2many_pna, rio_em_detect_on,
-					0x0010}};
+		{rio_em_f_los, rio_em_detect_on, 1 * 256 * 1000},
+		{rio_em_f_port_err, rio_em_detect_on, 0},
+		{rio_em_f_err_rate, rio_em_detect_on, 0x1000000F},
+		{rio_em_d_log, rio_em_detect_on,
+				TSI721_LOCAL_ERR_EN_ILL_TYPE_EN |
+				TSI721_LOCAL_ERR_EN_ILL_ID_EN},
+		{rio_em_i_sig_det, rio_em_detect_on, 0},
+		{rio_em_i_rst_req, rio_em_detect_on, 0},
+		{rio_em_i_init_fail, rio_em_detect_on, 0},
+		{rio_em_f_2many_retx, rio_em_detect_on, 0x0010},
+		{rio_em_f_2many_pna, rio_em_detect_on,0x0010}
+	};
 
 	uint32_t plm_imp_spec_ctl;
 	uint32_t t_mask = TSI721_PLM_IMP_SPEC_CTL_SELF_RST |
@@ -3530,7 +3528,7 @@ static void tsi721_rio_em_get_int_pw_stat_both_test(void **state)
 	}
 
 	// Use test_cnt - 1 here to avoid trying for rio_em_f_2many_pna 
-	// without also setting rio_em_f_err_rate.
+	// without also setting rio_em_f_2many_retx.
 	for (i = 0; i < test_cnt - 1; i++) {
 		for (p = 0; p < test_cnt; p++) {
 			// Must have two different events for this test.
@@ -3822,23 +3820,22 @@ static void tsi721_rio_em_clr_int_events_success_test(void **state)
 	rio_em_event_n_loc_t stat_e[(uint8_t)rio_em_last];
 	DAR_DEV_INFO_t *dev_info = &mock_dev_info;
 
-	// NOTE: A 2many_pna event also causes an err_rate event.
+	// NOTE: A 2many_pna event also causes an 2many_retx event.
 	// For this reason, "2many_pna" must be the last test, 
-	// and err_rate must occur before 2many_pna.
+	// and 2many_retx must occur before 2many_pna.
 	rio_em_cfg_t tests[] = {
-			{rio_em_f_los, rio_em_detect_on, 1 * 256 * 1000}, {
-					rio_em_f_port_err, rio_em_detect_on, 0},
-			{rio_em_f_err_rate, rio_em_detect_on, 0x100000FF}, {
-					rio_em_f_2many_retx, rio_em_detect_on,
-					0x0010}, {rio_em_d_log,
-					rio_em_detect_on,
+		{rio_em_f_los, rio_em_detect_on, 1 * 256 * 1000},
+		{rio_em_f_port_err, rio_em_detect_on, 0},
+		{rio_em_f_err_rate, rio_em_detect_on, 0x100000FF},
+		{rio_em_f_2many_retx, rio_em_detect_on, 0x0010},
+		{rio_em_d_log, rio_em_detect_on,
 					TSI721_LOCAL_ERR_EN_ILL_TYPE_EN |
-					TSI721_LOCAL_ERR_EN_ILL_ID_EN}, {
-					rio_em_i_sig_det, rio_em_detect_on, 0},
-			{rio_em_i_rst_req, rio_em_detect_on, 0},
-			{rio_em_i_init_fail, rio_em_detect_on, 0}, {
-					rio_em_f_2many_pna, rio_em_detect_on,
-					0x0010}};
+					TSI721_LOCAL_ERR_EN_ILL_ID_EN},
+		{rio_em_i_sig_det, rio_em_detect_on, 0},
+		{rio_em_i_rst_req, rio_em_detect_on, 0},
+		{rio_em_i_init_fail, rio_em_detect_on, 0},
+		{rio_em_f_2many_pna, rio_em_detect_on, 0x0010}
+	};
 
 	uint32_t plm_imp_spec_ctl;
 	uint32_t t_mask = TSI721_PLM_IMP_SPEC_CTL_SELF_RST |
@@ -4200,7 +4197,7 @@ static void tsi721_rio_em_clr_pw_events_success_test(void **state)
 	(void)state;
 }
 
-// Test that if one event is configured with is configured with interrupt
+// Test that if one event is configured with interrupt
 // notification and all other events are disabled, that when the port-write
 // event is cleared the "other events" fields behave correctly.
 //
@@ -4221,28 +4218,22 @@ static void tsi721_rio_em_clr_int_events_other_events_test(void **state)
 	rio_em_event_n_loc_t stat_e[(uint8_t)rio_em_last];
 	DAR_DEV_INFO_t *dev_info = &mock_dev_info;
 
-	// NOTE: A 2many_pna event also causes an err_rate event.
+	// NOTE: A 2many_pna event also causes an 2many_retx event.
 	// For this reason, "2many_pna" must be the last test, 
-	// and err_rate must occur before 2many_pna.
-	//
-	// Note that the rio_em_f_err_rate.em_info value excludes
-	// RIO_EM_REC_ERR_SET_CS_NOT_ACC, so the events
-	// for rio_em_f_err_rate and rio_em_f_2many_pna are exclusive of
-	// each other.
+	// and 2many_retx must occur before 2many_pna.
 	rio_em_cfg_t tests[] = {
-			{rio_em_f_los, rio_em_detect_on, 1 * 256 * 1000}, {
-					rio_em_f_port_err, rio_em_detect_on, 0},
-			{rio_em_f_err_rate, rio_em_detect_on, 0x1000000F}, {
-					rio_em_f_2many_retx, rio_em_detect_on,
-					0x0010}, {rio_em_d_log,
-					rio_em_detect_on,
+		{rio_em_f_los, rio_em_detect_on, 1 * 256 * 1000},
+		{rio_em_f_port_err, rio_em_detect_on, 0},
+		{rio_em_f_err_rate, rio_em_detect_on, 0x1000000F},
+		{rio_em_d_log, rio_em_detect_on,
 					TSI721_LOCAL_ERR_EN_ILL_TYPE_EN |
-					TSI721_LOCAL_ERR_EN_ILL_ID_EN}, {
-					rio_em_i_sig_det, rio_em_detect_on, 0},
-			{rio_em_i_rst_req, rio_em_detect_on, 0},
-			{rio_em_i_init_fail, rio_em_detect_on, 0}, {
-					rio_em_f_2many_pna, rio_em_detect_on,
-					0x0010}};
+					TSI721_LOCAL_ERR_EN_ILL_ID_EN},
+		{rio_em_i_sig_det, rio_em_detect_on, 0},
+		{rio_em_i_rst_req, rio_em_detect_on, 0},
+		{rio_em_i_init_fail, rio_em_detect_on, 0},
+		{rio_em_f_2many_retx, rio_em_detect_on, 0x0010},
+		{rio_em_f_2many_pna, rio_em_detect_on, 0x0010}
+	};
 
 	uint32_t plm_imp_spec_ctl;
 	uint32_t t_mask = TSI721_PLM_IMP_SPEC_CTL_SELF_RST |
@@ -4270,10 +4261,19 @@ static void tsi721_rio_em_clr_int_events_other_events_test(void **state)
 			if (i == t) {
 				continue;
 			}
-
 			// init_fail events can only cause interrupts on the
 			// Tsi721, so if they are the test event, don't bother
 			if (rio_em_i_init_fail == tests[t].em_event) {
+				continue;
+			}
+			// 2many_retx and 2many_pna cause the same event,
+			// so skip ahead if they're both selected...
+			if ((rio_em_f_2many_retx == tests[i].em_event) &&
+				(rio_em_f_2many_pna == tests[t].em_event)) {
+				continue;
+			}
+			if ((rio_em_f_2many_retx == tests[t].em_event) &&
+				(rio_em_f_2many_pna == tests[i].em_event)) {
 				continue;
 			}
 			if (DEBUG_PRINTF) {
@@ -4412,7 +4412,7 @@ static void tsi721_rio_em_clr_int_events_other_events_test(void **state)
 	(void)state;
 }
 
-// Test that if one event is configured with is configured with port-write
+// Test that if one event is configured with port-write
 // notification and all other events are disabled, that when the port-write
 // event is cleared the "other events" fields behave correctly.
 // 
@@ -4436,24 +4436,18 @@ static void tsi721_rio_em_clr_pw_events_other_events_test(void **state)
 	// NOTE: A 2many_pna event also causes an err_rate event.
 	// For this reason, "2many_pna" must be the last test, 
 	// and err_rate must occur before 2many_pna.
-	//
-	// Note that the rio_em_f_err_rate.em_info value excludes
-	// RIO_EM_REC_ERR_SET_CS_NOT_ACC, so the events
-	// for rio_em_f_err_rate and rio_em_f_2many_pna are exclusive of
-	// each other.
 	rio_em_cfg_t tests[] = {
-			{rio_em_f_los, rio_em_detect_on, 1 * 256 * 1000}, {
-					rio_em_f_port_err, rio_em_detect_on, 0},
-			{rio_em_f_err_rate, rio_em_detect_on, 0x1000000F}, {
-					rio_em_f_2many_retx, rio_em_detect_on,
-					0x0010}, {rio_em_d_log,
-					rio_em_detect_on,
+		{rio_em_f_los, rio_em_detect_on, 1 * 256 * 1000},
+		{rio_em_f_port_err, rio_em_detect_on, 0},
+		{rio_em_f_err_rate, rio_em_detect_on, 0x1000000F},
+		{rio_em_d_log, rio_em_detect_on,
 					TSI721_LOCAL_ERR_EN_ILL_TYPE_EN |
-					TSI721_LOCAL_ERR_EN_ILL_ID_EN}, {
-					rio_em_i_sig_det, rio_em_detect_on, 0},
-			{rio_em_i_rst_req, rio_em_detect_on, 0}, {
-					rio_em_f_2many_pna, rio_em_detect_on,
-					0x0010}};
+					TSI721_LOCAL_ERR_EN_ILL_ID_EN},
+		{rio_em_i_sig_det, rio_em_detect_on, 0},
+		{rio_em_i_rst_req, rio_em_detect_on, 0},
+		{rio_em_f_2many_retx, rio_em_detect_on, 0x0010},
+		{rio_em_f_2many_pna, rio_em_detect_on, 0x0010}
+	};
 
 	uint32_t plm_imp_spec_ctl;
 	uint32_t t_mask = TSI721_PLM_IMP_SPEC_CTL_SELF_RST |
@@ -4473,6 +4467,16 @@ static void tsi721_rio_em_clr_pw_events_other_events_test(void **state)
 		for (t = 0; t < test_cnt; t++) {
 			// Must have two different events for this test.
 			if (i == t) {
+				continue;
+			}
+			// 2many_retx and 2many_pna cause the same event,
+			// so skip ahead if they're both selected...
+			if ((rio_em_f_2many_retx == tests[i].em_event) &&
+				(rio_em_f_2many_pna == tests[t].em_event)) {
+				continue;
+			}
+			if ((rio_em_f_2many_retx == tests[t].em_event) &&
+				(rio_em_f_2many_pna == tests[i].em_event)) {
 				continue;
 			}
 			if (DEBUG_PRINTF) {
@@ -4643,19 +4647,18 @@ static void tsi721_rio_em_clr_int_pw_events_other_events_test(void **state)
 	// for rio_em_f_err_rate and rio_em_f_2many_pna are exclusive of
 	// each other.
 	rio_em_cfg_t tests[] = {
-			{rio_em_f_los, rio_em_detect_on, 1 * 256 * 1000}, {
-					rio_em_f_port_err, rio_em_detect_on, 0},
-			{rio_em_f_err_rate, rio_em_detect_on, 0x1000000F}, {
-					rio_em_f_2many_retx, rio_em_detect_on,
-					0x0010}, {rio_em_d_log,
-					rio_em_detect_on,
+		{rio_em_f_los, rio_em_detect_on, 1 * 256 * 1000},
+		{rio_em_f_port_err, rio_em_detect_on, 0},
+		{rio_em_f_err_rate, rio_em_detect_on, 0x1000000F},
+		{rio_em_d_log, rio_em_detect_on,
 					TSI721_LOCAL_ERR_EN_ILL_TYPE_EN |
-					TSI721_LOCAL_ERR_EN_ILL_ID_EN}, {
-					rio_em_i_sig_det, rio_em_detect_on, 0},
-			{rio_em_i_rst_req, rio_em_detect_on, 0},
-			{rio_em_i_init_fail, rio_em_detect_on, 0}, {
-					rio_em_f_2many_pna, rio_em_detect_on,
-					0x0010}};
+					TSI721_LOCAL_ERR_EN_ILL_ID_EN},
+		{rio_em_i_sig_det, rio_em_detect_on, 0},
+		{rio_em_i_rst_req, rio_em_detect_on, 0},
+		{rio_em_i_init_fail, rio_em_detect_on, 0},
+		{rio_em_f_2many_retx, rio_em_detect_on, 0x0010},
+		{rio_em_f_2many_pna, rio_em_detect_on, 0x0010}
+	};
 
 	uint32_t plm_imp_spec_ctl;
 	uint32_t t_mask = TSI721_PLM_IMP_SPEC_CTL_SELF_RST |
@@ -4682,7 +4685,18 @@ static void tsi721_rio_em_clr_int_pw_events_other_events_test(void **state)
 			if (i == p) {
 				continue;
 			}
+			// init_fail events can only use pw notification
 			if (rio_em_i_init_fail == tests[p].em_event) {
+				continue;
+			}
+			// 2many_retx & 2many_pna both create the same event,
+			// so skip this test configuration.
+			if ((rio_em_f_2many_retx == tests[i].em_event) &&
+				(rio_em_f_2many_pna == tests[p].em_event)) {
+				continue;
+			}
+			if ((rio_em_f_2many_retx == tests[p].em_event) &&
+				(rio_em_f_2many_pna == tests[i].em_event)) {
 				continue;
 			}
 			if (DEBUG_PRINTF) {
