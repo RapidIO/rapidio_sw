@@ -300,11 +300,11 @@ static void riocp_pe_handle_destroy(struct riocp_pe **handle)
  * @param pe         Originating PE
  * @param handle     Create PE
  * @param hopcount   RapidIO hopcount to new PE
- * @param destid     RapidIO destination id for new PE
+ * @param did        RapidIO destination id for new PE
  * @param port       RapidIO port
  */
 int riocp_pe_handle_create_pe(struct riocp_pe *pe, struct riocp_pe **handle, hc_t hopcount,
-	uint32_t destid, uint8_t port, ct_t *comptag_in, char *name)
+		did_t did, uint8_t port, ct_t *comptag_in, char *name)
 {
 	struct riocp_pe *h = NULL;
 	uint8_t peer_port = 0;
@@ -326,11 +326,11 @@ int riocp_pe_handle_create_pe(struct riocp_pe *pe, struct riocp_pe **handle, hc_
 	}
 
 	/* Initialize handle attributes */
-	h->version  = RIOCP_PE_HANDLE_REV;
-	h->mport    = pe->mport;
-	h->hopcount = hopcount;
-	h->destid   = destid;
-	h->comptag  = *comptag_in;
+	h->version     = RIOCP_PE_HANDLE_REV;
+	h->mport       = pe->mport;
+	h->hopcount    = hopcount;
+	h->did_reg_val = did_get_value(did);
+	h->comptag     = *comptag_in;
 
 	/* Allocate space for address used to access this PE
 		and copy port list from PE to new peer handle */
@@ -409,7 +409,7 @@ int riocp_pe_handle_create_pe(struct riocp_pe *pe, struct riocp_pe **handle, hc_
 	*handle = h;
 
 	RIOCP_DEBUG("Created new pe handle (hc: %d, dev_id: %08x, ct: 0x%08x, destid: %u (0x%08x), (addr: %s) sysfs %s\n",
-		h->hopcount, h->cap.dev_id, h->comptag, h->destid, h,
+		h->hopcount, h->cap.dev_id, h->comptag, h->did_reg_val, h,
 		riocp_pe_handle_addr_ntoa(h->address, h->hopcount),
 		&h->sysfs_name[0]);
 
@@ -431,8 +431,9 @@ err:
 int riocp_pe_handle_create_mport(uint8_t mport, bool is_host,
 		struct riocp_pe **handle, ct_t *comptag, char *name)
 {
-	int ret = 0;
 	struct riocp_pe *h = NULL;
+	did_t did;
+	int ret = 0;
 
 	RIOCP_TRACE("Creating mport %d handle\n", mport);
 
@@ -499,13 +500,14 @@ int riocp_pe_handle_create_mport(uint8_t mport, bool is_host,
 		goto err;
 	}
 
-	ret = riocp_pe_get_destid(h, &h->destid);
+	ret = riocp_pe_get_destid(h, &did);
 	if (ret) {
 		RIOCP_ERROR("Could not read destid\n");
 		ret = -EIO;
 		goto err;
 	}
 
+	h->did_reg_val = did_get_value(did);
 	h->peers = (struct riocp_pe_peer *)calloc(RIOCP_PE_PORT_COUNT(h->cap),
 						sizeof(struct riocp_pe_peer));
 	if (h->peers == NULL) {
@@ -517,7 +519,7 @@ int riocp_pe_handle_create_mport(uint8_t mport, bool is_host,
 	*handle = h;
 
 	RIOCP_TRACE("Created mport(id: %d, destid: %u (0x%08x))\n",
-		mport, h->destid, h->destid);
+		mport, h->did_reg_val, h->did_reg_val);
 
 	return ret;
 

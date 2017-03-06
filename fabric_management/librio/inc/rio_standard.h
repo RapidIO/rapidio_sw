@@ -1079,6 +1079,8 @@ typedef uint32_t RIO_SPX_ERR_STAT_T;
 			((RIO_RT_MC_MASK_SZ(sz)) * m) + \
 			((RIO_RT_MC_MASK_SZ(sz)) / 2))
 
+typedef uint32_t did_reg_t;
+
 #ifdef __cplusplus
 }
 #endif

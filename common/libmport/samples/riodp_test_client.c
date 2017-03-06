@@ -65,7 +65,7 @@ extern "C" {
 /// @cond
 struct args {
 	uint32_t mport_id;		// local mport ID
-	did_val_t remote_destid;	// RapidIO device destination ID
+	did_val_t remote_did_val;	// RapidIO device destination ID
 	uint16_t remote_channel;	// remote channel number
 	uint32_t repeat;		// number of repetitions
 };
@@ -208,7 +208,7 @@ int main(int argc, char** argv)
 		printf(TOK_ERR_MPORT_MSG_FMT);
 		exit(EXIT_FAILURE);
 	}
-	if (tok_parse_did(argv[2], &arg.remote_destid, 0)) {
+	if (tok_parse_did(argv[2], &arg.remote_did_val, 0)) {
 		printf(TOK_ERR_DID_MSG_FMT);
 		exit(EXIT_FAILURE);
 	}
@@ -232,7 +232,7 @@ int main(int argc, char** argv)
 	}
 
 	for (ep = 0; ep < number_of_eps; ep++) {
-		if (ep_list[ep] == arg.remote_destid) {
+		if (ep_list[ep] == arg.remote_did_val) {
 			ep_found = 1;
 		}
 	}
@@ -245,7 +245,7 @@ int main(int argc, char** argv)
 
 	if (!ep_found) {
 		printf("CM_CLIENT(%d) invalid remote destID %d\n",
-				(int)getpid(), arg.remote_destid);
+				(int)getpid(), arg.remote_did_val);
 		exit(1);
 	}
 
@@ -264,7 +264,7 @@ int main(int argc, char** argv)
 		exit(1);
 	}
 
-	ret = riomp_sock_connect(socket, arg.remote_destid, arg.remote_channel,
+	ret = riomp_sock_connect(socket, arg.remote_did_val, arg.remote_channel,
 				NULL);
 
 	if (ret) {

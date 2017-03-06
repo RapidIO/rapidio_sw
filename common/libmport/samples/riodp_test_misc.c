@@ -120,7 +120,7 @@ int main(int argc, char** argv)
 	char *program = argv[0];
 
 	// command line parameters
-	did_val_t tgt_destid = RIO_LAST_DEV8;
+	did_val_t tgt_did_val = RIO_LAST_DEV8;
 	uint32_t mport_id = 0;
 	hc_t tgt_hc = 0xff;
 	uint32_t tgt_remote = 0, tgt_write = 0, do_query = 0;
@@ -150,7 +150,7 @@ int main(int argc, char** argv)
 					options, NULL))) {
 		switch (c) {
 		case 'D':
-			if (tok_parse_did(optarg, &tgt_destid, 0)) {
+			if (tok_parse_did(optarg, &tgt_did_val, 0)) {
 				printf(TOK_ERR_DID_MSG_FMT);
 				return (EXIT_FAILURE);
 			}
@@ -236,18 +236,18 @@ int main(int argc, char** argv)
 			if (debug) {
 				printf(
 						"Write to dest=0x%x hc=0x%x offset=0x%x data=0x%08x\n",
-						tgt_destid, tgt_hc, offset,
+						tgt_did_val, tgt_hc, offset,
 						data);
 			}
-			rc = riomp_mgmt_rcfg_write(mport_hnd, tgt_destid,
+			rc = riomp_mgmt_rcfg_write(mport_hnd, tgt_did_val,
 					tgt_hc, offset, op_size, data);
 		} else {
 			if (debug) {
 				printf(
 						"Read from dest=0x%x hc=0x%x offset=0x%x\n",
-						tgt_destid, tgt_hc, offset);
+						tgt_did_val, tgt_hc, offset);
 			}
-			rc = riomp_mgmt_rcfg_read(mport_hnd, tgt_destid, tgt_hc,
+			rc = riomp_mgmt_rcfg_read(mport_hnd, tgt_did_val, tgt_hc,
 					offset, op_size, &data);
 			if (!rc) {
 				printf("\tdata = 0x%08x\n", data);

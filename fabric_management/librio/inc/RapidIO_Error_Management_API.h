@@ -37,7 +37,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdint.h>
 #include <stdbool.h>
 
-#include "rio_route.h"
+#include "rio_standard.h"
 #include "RapidIO_Routing_Table_API.h"
 
 #ifdef __cplusplus
@@ -60,7 +60,7 @@ typedef struct rio_em_cfg_pw_t_TAG {
 	tt_t deviceID_tt;
 
 	// Where to send the port-write
-	uint16_t port_write_destID;
+	did_reg_t port_write_destID;
 
 	// True if the sourceID can be set on this device,
 	// and should be set on this device.
@@ -68,7 +68,7 @@ typedef struct rio_em_cfg_pw_t_TAG {
 
 	// Control of the source ID of the port-write,
 	// which is a reserved field.
-	uint16_t port_write_srcID;
+	did_reg_t port_write_srcID;
 
 	// Priority of the port-write.
 	// Value is 0-3. Generally should be 3.

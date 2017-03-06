@@ -525,7 +525,6 @@ static void cfg_parse_rxs_test(void **state)
 	assert_int_equal(rio_pc_ls_2p5, dev.ep_pt.ls);
 
 	assert_int_equal(0, cfg_find_dev_by_ct(0x70000, &dev));
-	assert_int_equal(0, memcmp("RXS2448", dev.dev_type, sizeof("RXS2448")));
 	assert_int_equal(0,cfg_get_conn_dev(0x70000, 0, &dev, &conn_pt));
 
 	count++;

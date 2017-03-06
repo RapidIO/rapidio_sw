@@ -66,9 +66,9 @@ enum riomp_dma_directio_transfer_sync {
  * @brief Perform DMA data write to target transfer using user space source buffer
  *
  * @param[in] mport_handle port handle
- * @param[in] destid destination device ID
+ * @param[in] did_val destination device ID
  * @param[in] tgt_addr target memory address
- * @param[in] buf pointer to userspace source buffer
+ * @param[in] buf pointer to user space source buffer
  * @param[in] size number of bytes to transfer
  * @param[in] wr_mode DirectIO write mode
  * @param[in] sync transfer synchronization flag
@@ -76,7 +76,7 @@ enum riomp_dma_directio_transfer_sync {
  * @retval 0 on success
  * @retval -errno on error
  */
-int riomp_dma_write(riomp_mport_t mport_handle, did_val_t destid,
+int riomp_dma_write(riomp_mport_t mport_handle, did_val_t did_val,
 		uint64_t tgt_addr, void *buf, uint32_t size,
 		enum riomp_dma_directio_type wr_mode,
 		enum riomp_dma_directio_transfer_sync sync);
@@ -85,10 +85,10 @@ int riomp_dma_write(riomp_mport_t mport_handle, did_val_t destid,
  * @brief Perform DMA data write to target transfer using kernel space source buffer
  *
  * @param[in] mport_handle port handle
- * @param[in] destid destination device ID
+ * @param[in] did_val destination device ID
  * @param[in] tgt_addr target memory address
- * @param[in] handle kernelspace buffer handle
- * @param[in] offset kernelspace buffer offset
+ * @param[in] handle kernel space buffer handle
+ * @param[in] offset kernel space buffer offset
  * @param[in] size number of bytes to transfer
  * @param[in] wr_mode DirectIO write mode
  * @param[in] sync transfer synchronization flag
@@ -96,7 +96,7 @@ int riomp_dma_write(riomp_mport_t mport_handle, did_val_t destid,
  * @retval 0 on success
  * @retval -errno on error
  */
-int riomp_dma_write_d(riomp_mport_t mport_handle, did_val_t destid,
+int riomp_dma_write_d(riomp_mport_t mport_handle, did_val_t did_val,
 		uint64_t tgt_addr, uint64_t handle, uint32_t offset,
 		uint32_t size, enum riomp_dma_directio_type wr_mode,
 		enum riomp_dma_directio_transfer_sync sync);
@@ -105,16 +105,16 @@ int riomp_dma_write_d(riomp_mport_t mport_handle, did_val_t destid,
  * @brief Perform DMA data read from target transfer using user space destination buffer
  *
  * @param[in] mport_handle port handle
- * @param[in] destid destination device ID
+ * @param[in] did_val destination device ID
  * @param[in] tgt_addr target memory address
- * @param[in] buf pointer to userspace source buffer
+ * @param[in] buf pointer to user space source buffer
  * @param[in] size number of bytes to transfer
  * @param[in] sync transfer synchronization flag
  * @return status of the function call
  * @retval 0 on success
  * @retval -errno on error
  */
-int riomp_dma_read(riomp_mport_t mport_handle, did_val_t destid,
+int riomp_dma_read(riomp_mport_t mport_handle, did_val_t did_val,
 		uint64_t tgt_addr, void *buf, uint32_t size,
 		enum riomp_dma_directio_transfer_sync sync);
 
@@ -122,17 +122,17 @@ int riomp_dma_read(riomp_mport_t mport_handle, did_val_t destid,
  * @brief Perform DMA data read from target transfer using kernel space destination buffer
  *
  * @param[in] mport_handle port handle
- * @param[in] destid destination device ID
+ * @param[in] did_val destination device ID
  * @param[in] tgt_addr target memory address
- * @param[in] handle kernelspace buffer handle
- * @param[in] offset kernelspace buffer offset
+ * @param[in] handle kernel space buffer handle
+ * @param[in] offset kernel space buffer offset
  * @param[in] size number of bytes to transfer
  * @param[in] sync transfer synchronization flag
  * @return status of the function call
  * @retval 0 on success
  * @retval -errno on error
  */
-int riomp_dma_read_d(riomp_mport_t mport_handle, did_val_t destid,
+int riomp_dma_read_d(riomp_mport_t mport_handle, did_val_t did_val,
 		uint64_t tgt_addr, uint64_t handle, uint32_t offset,
 		uint32_t size, enum riomp_dma_directio_transfer_sync sync);
 
@@ -188,7 +188,7 @@ int riomp_dma_ibwin_free(riomp_mport_t mport_handle, uint64_t *handle);
  * outbound window.
  *
  * @param[in] mport_handle port handle
- * @param[in] destid destination ID of the target device
+ * @param[in] did_val destination ID of the target device
  * @param[in] rio_base RapidIO address
  * @param[in] size number of bytes
  * @param[out] handle map handle
@@ -196,7 +196,7 @@ int riomp_dma_ibwin_free(riomp_mport_t mport_handle, uint64_t *handle);
  * @retval 0 on success
  * @retval -errno on error
  */
-int riomp_dma_obwin_map(riomp_mport_t mport_handle, did_val_t destid,
+int riomp_dma_obwin_map(riomp_mport_t mport_handle, did_val_t did_val,
 		uint64_t rio_base, uint32_t size, uint64_t *handle);
 
 /**

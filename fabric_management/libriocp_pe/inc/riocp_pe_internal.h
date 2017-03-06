@@ -119,7 +119,7 @@ struct riocp_pe {
 	const char *dev_name;			/**< Name of device type */
 	char sysfs_name[FMD_MAX_NAME+1];	/**< SysFS Name of device */
 	hc_t hopcount;				/**< RapidIO hopcount */
-	uint32_t destid;			/**< RapidIO destination ID */
+	did_reg_t did_reg_val;			/**< RapidIO destination ID */
 	ct_t comptag;				/**< RapidIO component tag */
 	uint8_t *address;			/**< RapidIO address used to access this PE */
 	struct riocp_pe_capabilities cap;	/**< RapidIO Capabilities */
@@ -135,13 +135,14 @@ struct riocp_pe {
 };
 
 /* Register access */
+
 int RIOCP_WU riocp_drv_reg_rd(struct riocp_pe *pe, uint32_t offset,
 		uint32_t *val);
 int RIOCP_WU riocp_drv_reg_wr(struct riocp_pe *pe, uint32_t offset,
 		uint32_t val);
-int RIOCP_WU riocp_drv_raw_reg_rd(struct riocp_pe *pe, uint32_t did,
+int RIOCP_WU riocp_drv_raw_reg_rd(struct riocp_pe *pe, did_t did,
 		hc_t hc, uint32_t offset, uint32_t *val);
-int RIOCP_WU riocp_drv_raw_reg_wr(struct riocp_pe *pe, uint32_t did,
+int RIOCP_WU riocp_drv_raw_reg_wr(struct riocp_pe *pe, did_t did,
 		hc_t hc, uint32_t offset, uint32_t val);
 
 /* RapidIO control plane logging facility */

@@ -110,7 +110,7 @@ struct riomp_mgmt_mport_properties {
 
 /** @brief doorbell event data */
 struct riomp_mgmt_doorbell {
-	did_val_t destid; /**< RapidIO peer ID */
+	did_val_t did_val; /**< RapidIO peer ID */
 	uint16_t payload; /**< doorbell payload */
 };
 
@@ -151,7 +151,8 @@ typedef uint32_t mport_list_t;
  *      destination ID, like so: ((mport_id << 16) | destid)
  * \note Free dev_ids via riomp_mgmt_free_mport_list.
  */
-int riomp_mgmt_get_mport_list(mport_list_t **dev_ids, uint8_t *number_of_mports);
+int riomp_mgmt_get_mport_list(mport_list_t **dev_ids,
+		uint8_t *number_of_mports);
 
 /**
  * @brief free mport list
@@ -284,7 +285,7 @@ int riomp_mgmt_lcfg_write(riomp_mport_t mport_handle, uint32_t offset,
  * @brief read remote device CSR register
  *
  * @param[in] mport_handle valid mport handle
- * @param[in] destid Device destination ID
+ * @param[in] did_val Device destination ID
  * @param[in] hc hop count
  * @param[in] offset modulo four register offset
  * @param[in] size number of bytes to read (only 4 bytes supported by all devices)
@@ -293,14 +294,14 @@ int riomp_mgmt_lcfg_write(riomp_mport_t mport_handle, uint32_t offset,
  * @retval 0 on success
  * @retval -errno on error
  */
-int riomp_mgmt_rcfg_read(riomp_mport_t mport_handle, did_val_t destid,
-		hc_t hc, uint32_t offset, uint32_t size, uint32_t *data);
+int riomp_mgmt_rcfg_read(riomp_mport_t mport_handle, did_val_t did_val, hc_t hc,
+		uint32_t offset, uint32_t size, uint32_t *data);
 
 /**
  * @brief write mport local CSR register
  *
  * @param[in] mport_handle valid mport handle
- * @param[in] destid Device destination ID
+ * @param[in] did_val Device destination ID
  * @param[in] hc hop count
  * @param[in] offset modulo four register offset
  * @param[in] size number of bytes to read (only 4 bytes supported by all devices)
@@ -309,36 +310,36 @@ int riomp_mgmt_rcfg_read(riomp_mport_t mport_handle, did_val_t destid,
  * @retval 0 on success
  * @retval -errno on error
  */
-int riomp_mgmt_rcfg_write(riomp_mport_t mport_handle, did_val_t destid,
+int riomp_mgmt_rcfg_write(riomp_mport_t mport_handle, did_val_t did_val,
 		hc_t hc, uint32_t offset, uint32_t size, uint32_t data);
 
 /**
  * @brief enable a range of doorbell events
  *
  * @param[in] mport_handle valid mport handle
- * @param[in] destid Device destination ID
+ * @param[in] did_val Device destination ID
  * @param[in] start range start value
  * @param[in] end range end value
  * @return status of the function call
  * @retval 0 on success
  * @retval -errno on error
  */
-int riomp_mgmt_dbrange_enable(riomp_mport_t mport_handle,
-		did_val_t destid, uint16_t start, uint16_t end);
+int riomp_mgmt_dbrange_enable(riomp_mport_t mport_handle, did_val_t did_val,
+		uint16_t start, uint16_t end);
 
 /**
  * @brief disable a range of doorbell events
  *
  * @param[in] mport_handle valid mport handle
- * @param[in] destid Device destination ID
+ * @param[in] did_val Device destination ID
  * @param[in] start range start value
  * @param[in] end range end value
  * @return status of the function call
  * @retval 0 on success
  * @retval -errno on error
  */
-int riomp_mgmt_dbrange_disable(riomp_mport_t mport_handle,
-		did_val_t destid, uint16_t start, uint16_t end);
+int riomp_mgmt_dbrange_disable(riomp_mport_t mport_handle, did_val_t did_val,
+		uint16_t start, uint16_t end);
 
 /**
  * @brief enable a range of port write events
@@ -422,7 +423,7 @@ int riomp_mgmt_send_event(riomp_mport_t mport_handle,
  * @brief add kernel object
  *
  * @param[in] mport_handle valid mport handle
- * @param[in] destid destination ID of object
+ * @param[in] did_val destination ID of object
  * @param[in] hc hopcount
  * @param[in] ct component tag CSR value
  * @param[in] name device name
@@ -430,14 +431,14 @@ int riomp_mgmt_send_event(riomp_mport_t mport_handle,
  * @retval 0 on success
  * @retval -errno on error
  */
-int riomp_mgmt_device_add(riomp_mport_t mport_handle, did_val_t destid,
+int riomp_mgmt_device_add(riomp_mport_t mport_handle, did_val_t did_val,
 		hc_t hc, ct_t ct, const char *name);
 
 /**
  * @brief delete kernel object
  *
  * @param[in] mport_handle valid mport handle
- * @param[in] destid destination ID of object
+ * @param[in] did_val destination ID of object
  * @param[in] hc hopcount
  * @param[in] ct component tag CSR value
  * @param[in] name device name
@@ -445,7 +446,7 @@ int riomp_mgmt_device_add(riomp_mport_t mport_handle, did_val_t destid,
  * @retval 0 on success
  * @retval -errno on error
  */
-int riomp_mgmt_device_del(riomp_mport_t mport_handle, did_val_t destid,
+int riomp_mgmt_device_del(riomp_mport_t mport_handle, did_val_t did_val,
 		hc_t hc, ct_t ct, const char *name);
 
 #ifdef __cplusplus

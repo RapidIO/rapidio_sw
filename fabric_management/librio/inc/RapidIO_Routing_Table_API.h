@@ -133,7 +133,7 @@ extern char *rio_em_disc_reason_names[ (uint8_t)(rio_rt_disc_last) ];
 
 typedef struct rio_rt_mc_info_t_TAG {
 	// Destination ID of packets to be multicast
-	uint32_t mc_destID;
+	did_reg_t mc_destID;
 
 	// Size of mc_destID, either 8 or 16 bit.
 	tt_t tt;
@@ -219,7 +219,7 @@ typedef struct rio_rt_probe_in_t_TAG {
 	tt_t tt;
 
 	// Check routing for specified device ID.
-	uint16_t destID;
+	did_reg_t destID;
 
 	// A pointer to an rio_rt_state_t structure.
 	//   This structure is used to determine the route.

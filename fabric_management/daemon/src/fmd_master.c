@@ -83,13 +83,15 @@ void send_m2s_flag_update(struct fmd_peer *peer, struct fmd_dd_dev_info *dev)
 {
 	uint8_t flag;
 	did_val_t peer_did_val;
+	uint32_t peer_did_sz;
 	did_val_t dev_did_val;
 	uint32_t dev_did_sz;
 
 	sem_wait(&peer->tx_mtx);
 	peer->m2s->msg_type = htonl(FMD_P_REQ_FSET);
-	peer_did_val = did_get_value(peer->p_did);
+	did_to_value(peer->p_did, &peer_did_val, &peer_did_sz);
 	peer->m2s->dest_did_val = htonl(peer_did_val);
+	peer->m2s->dest_did_sz =htonl(peer_did_sz);
 	did_to_value(dev->did, &dev_did_val, &dev_did_sz);
 	peer->m2s->fset.did_val = htonl(dev_did_val);
 	peer->m2s->fset.did_sz = htonl(dev_did_sz);
@@ -122,6 +124,7 @@ void send_add_dev_msg(struct fmd_peer *peer, struct fmd_dd_dev_info *dev)
 {
 	uint8_t flag;
 	did_val_t peer_did_val;
+	uint32_t peer_did_sz;
 	did_val_t dev_did_val;
 	uint32_t dev_did_sz;
 
@@ -129,8 +132,9 @@ void send_add_dev_msg(struct fmd_peer *peer, struct fmd_dd_dev_info *dev)
  	flag = (dev->flag & ~FMDD_FLAG_OK_MP) | FMDD_FLAG_OK;
 
 	peer->m2s->msg_type = htonl(FMD_P_REQ_MOD);
-	peer_did_val = did_get_value(peer->p_did);
+	did_to_value(peer->p_did, &peer_did_val, &peer_did_sz);
 	peer->m2s->dest_did_val = htonl(peer_did_val);
+	peer->m2s->dest_did_sz = htonl(peer_did_sz);
 	peer->m2s->mod_rq.op = htonl(FMD_P_OP_ADD);
 	did_to_value(dev->did, &dev_did_val, &dev_did_sz);
 	peer->m2s->mod_rq.did_val = htonl(dev_did_val);
@@ -179,14 +183,16 @@ exit:
 void send_del_dev_msg(struct fmd_peer *peer, struct fmd_peer *del_peer)
 {
 	did_val_t peer_did_val;
+	uint32_t peer_did_sz;
 	did_val_t del_did_val;
 	uint32_t del_did_sz;
 
 	sem_wait(&peer->tx_mtx);
 
 	peer->m2s->msg_type = htonl(FMD_P_REQ_MOD);
-	peer_did_val = did_get_value(peer->p_did);
+	did_to_value(peer->p_did, &peer_did_val, &peer_did_sz);
 	peer->m2s->dest_did_val = htonl(peer_did_val);
+	peer->m2s->dest_did_sz = htonl(peer_did_sz);
 	peer->m2s->mod_rq.op = htonl(FMD_P_OP_DEL);
 	did_to_value(del_peer->p_did, &del_did_val, &del_did_sz);
 	peer->m2s->mod_rq.did_val = htonl(del_did_val);

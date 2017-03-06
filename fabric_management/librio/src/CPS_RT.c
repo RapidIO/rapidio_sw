@@ -347,11 +347,11 @@ static uint32_t cps_read_rte_entries(DAR_DEV_INFO_t *dev_info, uint8_t pnum,
 			*imp_rc = READ_RTE_ENTRIES(0x05);
 			goto exit;
 		}
-		rt->dom_table[destID].rte_val = (uint32_t)(rte_val);
+		rt->dom_table[destID].rte_val = rte_val;
 
 		if (RIO_RTE_LVL_G0 == rte_val) {
 			if (!found_one) {
-				first_mc_destID = (uint16_t)(destID) << 8;
+				first_mc_destID = destID << 8;
 				found_one = true;
 			}
 		} else {
@@ -393,8 +393,8 @@ static uint32_t cps_read_rte_entries(DAR_DEV_INFO_t *dev_info, uint8_t pnum,
 				&& !(rt->mc_masks[mask_idx].in_use)) {
 			rt->mc_masks[mask_idx].tt = tt_dev16;
 			rt->mc_masks[mask_idx].in_use = true;
-			rt->mc_masks[mask_idx].mc_destID = first_mc_destID
-					+ destID;
+			rt->mc_masks[mask_idx].mc_destID =
+					(did_reg_t)(first_mc_destID + destID);
 		}
 
 		if ((rte_val >= NUM_CPS_PORTS(dev_info))

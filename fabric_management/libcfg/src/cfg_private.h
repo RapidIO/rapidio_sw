@@ -138,6 +138,7 @@ struct int_cfg_sw_port {
 	struct int_cfg_rapidio rio;
 	struct int_cfg_conn *conn;
 	int conn_end; /* index of *conn for this switch */
+	// One routing table for each devID size
 	bool rt_valid[CFG_DEVID_MAX];
 	rio_rt_state_t rt[CFG_DEVID_MAX];
 };
@@ -147,8 +148,8 @@ struct int_cfg_sw {
 	riocp_pe_handle sw_h;
 	char *name;
 	char *dev_type;
+	did_val_t did_val;
 	uint32_t did_sz;
-	did_val_t destid;
 	hc_t hc;
 	ct_t ct;
 	uint32_t traversed;
@@ -176,11 +177,11 @@ struct int_cfg_parms {
 	char *dd_mtx_fn;
 	char *dd_fn;
 	int init_err;
-	int mast_idx;		/* Idx of the mport_info that is master */
+	int mast_idx;	/* Idx of the mport_info that is master */
 	uint32_t max_mport_info_idx; /* Maximum number of mports */
-	struct int_mport_info mport_info[CFG_MAX_MPORTS]; 
-	uint32_t mast_did_sz;	/* Master CFG location information */
-	did_val_t mast_destid;	/* Master CFG location information */
+	struct int_mport_info mport_info[CFG_MAX_MPORTS];
+	did_val_t mast_did_val;	/* Master CFG location information */
+	uint32_t mast_did_sz;
 	uint32_t mast_cm_port; 	/* Master CFG location information */
 	uint32_t ep_cnt;
 	struct int_cfg_ep eps[CFG_MAX_EP];

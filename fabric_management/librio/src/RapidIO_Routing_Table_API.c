@@ -141,7 +141,7 @@ void rio_rt_check_unicast_routing(DAR_DEV_INFO_t *dev_info,
 	}
 
 	if (tt_dev16 == in_parms->tt) {
-		idx = (uint8_t)((in_parms->destID & (uint16_t)(0xFF00)) >> 8);
+		idx = (uint8_t)((in_parms->destID & 0xFF00) >> 8);
 		rte = in_parms->rt->dom_table[idx].rte_val;
 	}
 

@@ -34,6 +34,7 @@
 #include <stdint.h>
 #include <stddef.h>
 
+#include "rio_standard.h"
 #include "RapidIO_Source_Config.h"
 #include "RapidIO_Device_Access_Routines_API.h"
 #include "RapidIO_Error_Management_API.h"
@@ -1120,7 +1121,7 @@ uint32_t tsi57x_rio_em_cfg_pw(DAR_DEV_INFO_t *dev_info,
 	}
 
 	// Configure destination ID for port writes.
-	regData = ((uint32_t)(in_parms->port_write_destID)) << 16;
+	regData = (uint32_t)(in_parms->port_write_destID) << 16;
 	if (tt_dev16 == in_parms->deviceID_tt) {
 		regData |= TSI578_RIO_PW_DESTID_LARGE_DESTID;
 	} else {
@@ -1143,7 +1144,7 @@ uint32_t tsi57x_rio_em_cfg_pw(DAR_DEV_INFO_t *dev_info,
 	out_parms->deviceID_tt =
 			(regData & TSI578_RIO_PW_DESTID_LARGE_DESTID) ?
 					tt_dev16 : tt_dev8;
-	out_parms->port_write_destID = (uint16_t)((regData
+	out_parms->port_write_destID = (did_reg_t)((regData
 			& ( TSI578_RIO_PW_DESTID_DESTID_LSB
 					| TSI578_RIO_PW_DESTID_DESTID_MSB))
 			>> 16);

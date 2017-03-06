@@ -62,36 +62,37 @@ int riocp_pe_maint_set_anyid_route(struct riocp_pe *pe)
 	for (i = 0; i < pe->hopcount; i++) {
 		pes[i] = ith_pe;
 
-		ret = riocp_pe_lock_set(ith_pe->mport, ANY_ID, (hc_t)i);
+		ret = riocp_pe_lock_set(ith_pe->mport, DID_ANY_DEV8_ID, i);
 		if (ret) {
-			RIOCP_TRACE("Could not set lock at hopcount %u\n",
-				i);
+			RIOCP_TRACE("Could not set lock at hopcount %u\n", i);
 			ret = -EIO;
 			goto err;
 		}
 
-		ret = riocp_drv_set_route_entry(ith_pe, RIOCP_PE_ALL_PE_PORTS, ANY_ID,
-			pe->address[i]);
+		ret = riocp_drv_set_route_entry(ith_pe, RIOCP_PE_ALL_PE_PORTS,
+				DID_ANY_DEV8_ID, pe->address[i]);
 
-		RIOCP_TRACE("switch[hop: %d] ANY_ID -> port %d programmed\n",
-			i, pe->address[i]);
-		if (((hc_t)i) + 1 < pe->hopcount)
+		RIOCP_TRACE("switch[hop: %d] DID_ANY_DEV8_ID -> port %d programmed\n",
+				i, pe->address[i]);
+		if (i + 1 < pe->hopcount) {
 			ith_pe = ith_pe->peers[pe->address[i]].peer;
+		}
 	}
 
 	pe->mport->minfo->any_id_target = pe;
 
-	RIOCP_TRACE("Programming ANY_ID route to PE 0x%08x successfull\n", pe->comptag);
+	RIOCP_TRACE("Programming ANY_ID route to PE 0x%08x successfull\n",
+			pe->comptag);
 
 	return ret;
 
 err:
-	/* Write ANY_ID route until pe */
+	/* Write DID_ANY_DEV8_ID route until pe */
 	/* FIXME: Does this loop ever exit if there is a PE with a permanent
  	*  error?
  	*/
 	for (; i >= 0; i--) {
-		if (riocp_pe_lock_clear(pes[i], ANY_ID, i)) {
+		if (riocp_pe_lock_clear(pes[i], DID_ANY_DEV8_ID, i)) {
 			RIOCP_TRACE("Could not clear lock at hopcount %u\n", i);
 			goto fail;
 		}
@@ -106,9 +107,9 @@ fail:
 int RIOCP_WU riocp_pe_maint_set_route(struct riocp_pe *pe, did_t did, pe_port_t pnum)
 {
 	int32_t i;
-	int ret = 0;
 	struct riocp_pe *ith_pe = pe->mport->peers[0].peer;
 	did_val_t did_val;
+	int ret = 0;
 
 	if (!RIOCP_PE_IS_HOST(pe)) {
 		return 0;
@@ -122,24 +123,25 @@ int RIOCP_WU riocp_pe_maint_set_route(struct riocp_pe *pe, did_t did, pe_port_t 
 	did_val = did_get_value(did);
 	for (i = 0; i < pe->hopcount; i++) {
 		ret = riocp_drv_set_route_entry(ith_pe, RIOCP_PE_ALL_PE_PORTS,
-				did_val, pe->address[i]);
+				did, pe->address[i]);
 		if (ret) {
 			goto err;
 		}
 
-		RIOCP_TRACE("switch[hop: %d] %d -> port %d programmed\n",
-			i, did_val, pe->address[i]);
+		RIOCP_TRACE("switch[hop: %d] %d -> port %d programmed\n", i,
+				did_val, pe->address[i]);
 		if (i + 1 < pe->hopcount) {
 			ith_pe = ith_pe->peers[pe->address[i]].peer;
 		}
 	}
 
-	ret = riocp_drv_set_route_entry(pe, RIOCP_PE_ALL_PE_PORTS, did_val, pnum);
+	ret = riocp_drv_set_route_entry(pe, RIOCP_PE_ALL_PE_PORTS, did, pnum);
 	if (ret) {
 		goto err;
 	}
 
-	RIOCP_TRACE("Programming did 0x%08x route to PE 0x%08x successfull\n", did_val, pe->comptag);
+	RIOCP_TRACE("Programming did 0x%08x route to PE 0x%08x successfull\n",
+			did_val, pe->comptag);
 
 	return ret;
 
@@ -173,7 +175,7 @@ int riocp_pe_maint_unset_anyid_route(struct riocp_pe *pe)
 	if (pe->mport->minfo->any_id_target == NULL)
 		return 0;
 
-	RIOCP_TRACE("Unset ANY_ID route locks to PE 0x%08x\n", pe->comptag);
+	RIOCP_TRACE("Unset DID_ANY_DEV8_ID route locks to PE 0x%08x\n", pe->comptag);
 
 	for (i = 0; i < pe->hopcount; i++) {
 		pes[i] = ith_pe;
@@ -183,14 +185,13 @@ int riocp_pe_maint_unset_anyid_route(struct riocp_pe *pe)
 
 	/* Write ANY_ID route until pe */
 	/* FIXME: Does this loop exit if there is a permanent error
-	* on a PE?
-	*/
+	 * on a PE?
+	 */
 	for (i = pe->hopcount - 1; i >= 0; i--) {
 
-		ret = riocp_pe_lock_clear(pes[i], ANY_ID, (hc_t)i);
+		ret = riocp_pe_lock_clear(pes[i], DID_ANY_DEV8_ID, (hc_t)i);
 		if (ret) {
-			RIOCP_TRACE("Could not clear lock at hopcount %u\n",
-				i);
+			RIOCP_TRACE("Could not clear lock at hopcount %u\n", i);
 			ret = -EIO;
 			goto err;
 		}
@@ -198,13 +199,14 @@ int riocp_pe_maint_unset_anyid_route(struct riocp_pe *pe)
 
 	pe->mport->minfo->any_id_target = NULL;
 
-	RIOCP_TRACE("Unset ANY_ID route to PE 0x%08x successfull\n", pe->comptag);
+	RIOCP_TRACE("Unset DID_ANY_DEV8_ID route to PE 0x%08x successfull\n",
+			pe->comptag);
 
 	return ret;
 
 err:
 	pe->mport->minfo->any_id_target = NULL;
-	RIOCP_TRACE("Error in unset ANY_ID route\n");
+	RIOCP_TRACE("Error in unset DID_ANY_DEV8_ID route\n");
 	return ret;
 }
 

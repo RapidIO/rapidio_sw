@@ -38,6 +38,7 @@
 #include <stdbool.h>
 
 #include "rio_route.h"
+#include "rio_standard.h"
 #include "RapidIO_Device_Access_Routines_API.h"
 
 #ifdef __cplusplus
@@ -400,10 +401,10 @@ typedef struct DAR_pkt_trans_hdr_t_TAG {
 	rio_TT_code tt_code;
 
 	// 8/16 bits, depending on tt_code value.
-	uint32_t destID;
+	did_reg_t destID;
 
 	// Both destID and srcID are the same size.
-	uint32_t srcID;
+	did_reg_t srcID;
 
 	// Only Valid for Maintenance packets. Max value 255
 	hc_t hopcount;
@@ -417,10 +418,10 @@ typedef struct DAR_pkt_trans_mask_t_TAG {
 	rio_TT_code tt_code;
 
 	// Mask value for DestID field.  8, 16, or 32 bits
-	uint32_t destID_m;
+	did_reg_t destID_m;
 
 	// Mask value for SrcID  field.  8, 16, or 32 bits
-	uint32_t srcID_m;
+	did_reg_t srcID_m;
 
 	// Mask value for hopcount field.  8 bits.  Only used for Maintenance packets.
 	hc_t hc_m;
@@ -494,16 +495,16 @@ typedef struct DAR_pkt_log_fc_hdr_t_TAG {
 	rio_fc_flow_id fc_flow;
 
 	// Flow control destID
-	uint32_t fc_destID;
+	did_reg_t fc_destID;
 
 	// Flow control sourceID
-	uint32_t fc_srcID;
+	did_reg_t fc_srcID;
 
 	// True if source of FC is an endpoint, false if source is a switch
 	bool fc_soc_is_ep;
 
-	rio_fc_fam_t fc_fam;
 	// Value 0-7, used to control buffer requests/releases
+	rio_fc_fam_t fc_fam;
 } DAR_pkt_log_fc_hdr_t;
 
 typedef struct DAR_pkt_log_fc_mask_t_TAG {

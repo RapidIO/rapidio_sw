@@ -195,10 +195,10 @@ bool reset_lp)
  *
  */
 int RIOCP_WU riocp_drv_set_route_entry(struct riocp_pe *pe, pe_port_t port,
-		uint32_t did, pe_rt_val rt_val)
+		did_t did, pe_rt_val rt_val)
 {
 	RIOCP_DEBUG("set_route_entry %s port 0x%x did 0x%x rt_val 0x%x\n",
-			pe->sysfs_name, port, did, rt_val);
+			pe->sysfs_name, port, did_get_value(did), rt_val);
 	return mpsw_drv_set_route_entry(pe, port, did, rt_val);
 }
 
@@ -213,7 +213,7 @@ int RIOCP_WU riocp_drv_set_route_entry(struct riocp_pe *pe, pe_port_t port,
  *
  */
 int RIOCP_WU riocp_drv_get_route_entry(struct riocp_pe *pe, pe_port_t port,
-		uint32_t did, pe_rt_val *rt_val)
+		did_t did, pe_rt_val *rt_val)
 {
 	return mpsw_drv_get_route_entry(pe, port, did, rt_val);
 }
@@ -271,7 +271,7 @@ int RIOCP_WU riocp_drv_reg_wr(struct riocp_pe *pe, uint32_t offset,
 	return -ENOSYS;
 }
 
-int RIOCP_WU riocp_drv_raw_reg_rd(struct riocp_pe *pe, uint32_t did, hc_t hc,
+int RIOCP_WU riocp_drv_raw_reg_rd(struct riocp_pe *pe, did_t did, hc_t hc,
 		uint32_t offset, uint32_t *val)
 {
 	if (RIOCP_PE_IS_HOST(pe) || RIOCP_PE_IS_MPORT(pe)) {
@@ -280,7 +280,7 @@ int RIOCP_WU riocp_drv_raw_reg_rd(struct riocp_pe *pe, uint32_t did, hc_t hc,
 	return -ENOSYS;
 }
 
-int RIOCP_WU riocp_drv_raw_reg_wr(struct riocp_pe *pe, uint32_t did, hc_t hc,
+int RIOCP_WU riocp_drv_raw_reg_wr(struct riocp_pe *pe, did_t did, hc_t hc,
 		uint32_t offset, uint32_t val)
 {
 	if (RIOCP_PE_IS_HOST(pe) || RIOCP_PE_IS_MPORT(pe)) {

@@ -69,7 +69,7 @@ extern "C" {
 #define RIODP_MAX_DEV_NAME_SZ 20
 
 static riomp_mport_t mport_hnd;
-static did_val_t tgt_destid = 0;
+static did_val_t tgt_did_val = 0;
 static hc_t tgt_hop = HC_MP;
 static ct_t comptag = 0;
 
@@ -117,7 +117,7 @@ void test_create(void)
 {
 	int ret;
 
-	ret = riomp_mgmt_device_add(mport_hnd, tgt_destid, tgt_hop, comptag,
+	ret = riomp_mgmt_device_add(mport_hnd, tgt_did_val, tgt_hop, comptag,
 			(*dev_name == '\0') ? NULL : dev_name);
 	if (ret) {
 		printf("Failed to create device object, err=%d\n", ret);
@@ -135,7 +135,7 @@ void test_delete(void)
 {
 	int ret;
 
-	ret = riomp_mgmt_device_del(mport_hnd, tgt_destid, tgt_hop, comptag,
+	ret = riomp_mgmt_device_del(mport_hnd, tgt_did_val, tgt_hop, comptag,
 			(*dev_name == '\0') ? NULL : dev_name);
 	if (ret) {
 		printf("Failed to delete device object, err=%d\n", ret);
@@ -188,7 +188,7 @@ int main(int argc, char** argv)
 			}
 			break;
 		case 'D':
-			if (tok_parse_did(optarg, &tgt_destid, 0)) {
+			if (tok_parse_did(optarg, &tgt_did_val, 0)) {
 				printf(TOK_ERR_DID_MSG_FMT);
 				exit(EXIT_FAILURE);
 			}
@@ -295,7 +295,7 @@ int main(int argc, char** argv)
 	if (do_create) {
 		printf("+++ Create RapidIO device object as specified +++\n");
 		printf("\tmport%d destID=0x%x hop_count=%d CTag=0x%x", mport_id,
-				tgt_destid, tgt_hop, comptag);
+				tgt_did_val, tgt_hop, comptag);
 		if (strlen(dev_name)) {
 			printf(" name=%s\n", dev_name);
 		} else {
@@ -307,7 +307,7 @@ int main(int argc, char** argv)
 	} else if (do_delete) {
 		printf("+++ Delete RapidIO device object as specified +++\n");
 		printf("\tmport%d destID=0x%x hop_count=%d CTag=0x%x", mport_id,
-				tgt_destid, tgt_hop, comptag);
+				tgt_did_val, tgt_hop, comptag);
 		if (strlen(dev_name)) {
 			printf(" name=%s\n", dev_name);
 		} else {

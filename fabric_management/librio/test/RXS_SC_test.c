@@ -82,8 +82,8 @@ typedef struct RXS_test_state_t_TAG {
 	char **argv;
 	bool real_hw;
 	uint32_t mport;
-	uint8_t hc;
-	uint32_t destid;
+	hc_t hc;
+	did_reg_t did_reg_val;
 	struct rapidio_mport_handle *mp_h;
 	bool mp_h_valid;
 	uint32_t conn_port;
@@ -99,7 +99,7 @@ static int grp_setup(void **state)
 	int tok_idx = 1;
 	bool got_mport = false;
 	bool got_hc = false;
-	bool got_destid = false;
+	bool got_did_reg_val = false;
 
 	while (tok_idx < st.argc) {
 		tok = st.argv[tok_idx];
@@ -131,12 +131,12 @@ static int grp_setup(void **state)
 			break;
 			break;
 		case 2:
-			if (tok_parse_did(parm, &st.destid, 0)) {
+			if (tok_parse_did(parm, &st.did_reg_val, 0)) {
 				printf("\nFailed tok_parse_did\n");
 				goto fail;
 			}
 			st.real_hw = true;
-			got_destid = true;
+			got_did_reg_val = true;
 			break;
 		default:
 			printf("\nUnknown option, options are -m -h -d.\n");
@@ -145,7 +145,7 @@ static int grp_setup(void **state)
 		}
 	}
 
-	if ((st.real_hw) && !(got_mport && got_hc && got_destid)) {
+	if ((st.real_hw) && !(got_mport && got_hc && got_did_reg_val)) {
 		printf("\nMust enter all of -m, -h and -d to run on real hw\n");
 		goto fail;
 	}
@@ -163,8 +163,10 @@ fail:
 	return -1;
 }
 
-static rio_sc_dev_ctrs_t *mock_dev_ctrs = (rio_sc_dev_ctrs_t *)malloc(sizeof(rio_sc_dev_ctrs_t));
-static rio_sc_p_ctrs_val_t *pp_ctrs = (rio_sc_p_ctrs_val_t *)malloc((RIO_MAX_PORTS) * sizeof(rio_sc_p_ctrs_val_t));
+static rio_sc_dev_ctrs_t *mock_dev_ctrs = (rio_sc_dev_ctrs_t *)malloc(
+		sizeof(rio_sc_dev_ctrs_t));
+static rio_sc_p_ctrs_val_t *pp_ctrs = (rio_sc_p_ctrs_val_t *)malloc(
+		(RIO_MAX_PORTS) * sizeof(rio_sc_p_ctrs_val_t));
 
 static int grp_teardown(void **state)
 {
@@ -203,7 +205,8 @@ static uint32_t RXSReadReg(DAR_DEV_INFO_t *dev_info,
 	if (0xFF == st.hc) {
 		rc = riomp_mgmt_lcfg_read(st.mp_h, offset, 4, readdata);
 	} else {
-		rc = riomp_mgmt_rcfg_read(st.mp_h, st.destid, st.hc, offset, 4, readdata);
+		rc = riomp_mgmt_rcfg_read(st.mp_h, st.did_reg_val, st.hc,
+				offset, 4, readdata);
 	}
 
 	return rc;
@@ -226,7 +229,8 @@ static uint32_t RXSWriteReg(DAR_DEV_INFO_t *dev_info,
 	if (0xFF == st.hc) {
 		rc = riomp_mgmt_lcfg_write(st.mp_h, offset, 4, writedata);
 	} else {
-		rc = riomp_mgmt_rcfg_write(st.mp_h, st.destid, st.hc, offset, 4, writedata);
+		rc = riomp_mgmt_rcfg_write(st.mp_h, st.did_reg_val, st.hc,
+				offset, 4, writedata);
 	}
 
 	return rc;

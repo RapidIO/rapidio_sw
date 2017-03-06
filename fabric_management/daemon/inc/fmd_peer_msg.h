@@ -44,6 +44,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rio_route.h"
 #include "rio_ecosystem.h"
 #include "rapidio_mport_sock.h"
+#include "did.h"
 
 #define FMD_P_MSG_RESP 0x80000000
 #define FMD_P_MSG_FAIL 0x40000000
@@ -120,6 +121,7 @@ struct fmd_mast_to_slv_msg {
 	uint8_t unused[RIO_SOCKET_RSVD_SIZE];
 	uint32_t msg_type;
 	did_val_t dest_did_val;
+	uint32_t dest_did_sz;
 	union {
 		fmd_m_hello_resp hello_rsp;
 		struct fmd_m_peer_mod_req mod_rq;
@@ -135,6 +137,7 @@ struct fmd_slv_to_mast_msg {
 	uint8_t unused[RIO_SOCKET_RSVD_SIZE];
 	uint32_t msg_type;
 	did_val_t src_did_val;
+	uint32_t src_did_sz;
 	union {
 		fmd_s_hello_req hello_rq;
 		struct fmd_s_peer_mod_resp mod_rsp;

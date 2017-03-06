@@ -86,8 +86,8 @@ typedef struct Tsi721_test_state_t_TAG {
 	char **argv;
 	bool real_hw;
 	uint32_t mport;
-	uint8_t hc;
-	uint32_t destid;
+	hc_t hc;
+	did_reg_t did_reg_val;
 	struct rapidio_mport_handle *mp_h;
 	bool mp_h_valid;
 } Tsi721_test_state_t;
@@ -232,8 +232,8 @@ static uint32_t Tsi721ReadReg(DAR_DEV_INFO_t *dev_info, uint32_t offset,
 	if (0xFF == st.hc) {
 		rc = riomp_mgmt_lcfg_read(st.mp_h, offset, 4, readdata);
 	} else {
-		rc = riomp_mgmt_rcfg_read(st.mp_h, st.destid, st.hc, offset, 4,
-				readdata);
+		rc = riomp_mgmt_rcfg_read(st.mp_h, st.did_reg_val, st.hc,
+				offset, 4, readdata);
 	}
 
 exit:
@@ -401,7 +401,7 @@ static uint32_t Tsi721WriteReg(DAR_DEV_INFO_t *dev_info, uint32_t offset,
 	if (0xFF == st.hc) {
 		rc = riomp_mgmt_lcfg_write(st.mp_h, offset, 4, writedata);
 	} else {
-		rc = riomp_mgmt_rcfg_write(st.mp_h, st.destid, st.hc, offset, 4,
+		rc = riomp_mgmt_rcfg_write(st.mp_h, st.did_reg_val, st.hc, offset, 4,
 				writedata);
 	}
 
@@ -467,7 +467,7 @@ static int tsi721_grp_setup(void **state)
 	char *tok, *parm;
 	int tok_idx = 1;
 	bool got_hc = false;
-	bool got_destid = false;
+	bool got_did_reg_val = false;
 
 	while (tok_idx < st.argc) {
 		tok = st.argv[tok_idx];
@@ -498,12 +498,12 @@ static int tsi721_grp_setup(void **state)
 			break;
 			break;
 		case 2:
-			if (tok_parse_did(parm, &st.destid, 0)) {
+			if (tok_parse_did(parm, &st.did_reg_val, 0)) {
 				printf("\nFailed tok_parse_did\n");
 				goto fail;
 			}
 			st.real_hw = true;
-			got_destid = true;
+			got_did_reg_val = true;
 			break;
 		default:
 			printf("\nUnknown option\n");
@@ -512,7 +512,7 @@ static int tsi721_grp_setup(void **state)
 		}
 	}
 
-	if ((got_hc || got_destid) && !(got_hc && got_destid)) {
+	if ((got_hc || got_did_reg_val) && !(got_hc && got_did_reg_val)) {
 		printf("\nMust enter both -h and -d, or none of them.\n");
 		goto fail;
 	}

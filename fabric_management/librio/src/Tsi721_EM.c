@@ -34,8 +34,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdint.h>
 #include <stddef.h>
 
+#include "rio_standard.h"
 #include "RapidIO_Source_Config.h"
-
 #include "Tsi721.h"
 #include "Tsi721_API.h"
 #include "DAR_DB_Private.h"
@@ -1120,9 +1120,9 @@ uint32_t tsi721_rio_em_cfg_pw(DAR_DEV_INFO_t *dev_info,
 		rio_em_cfg_pw_in_t *in_parms, rio_em_cfg_pw_out_t *out_parms)
 {
 	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+	uint32_t retx;
 	uint32_t regData;
 	uint32_t pw_mask;
-	uint32_t retx;
 
 	out_parms->imp_rc = RIO_SUCCESS;
 
@@ -1146,13 +1146,14 @@ uint32_t tsi721_rio_em_cfg_pw(DAR_DEV_INFO_t *dev_info,
 	if (tt_dev16 == in_parms->deviceID_tt) {
 		pw_mask |= TSI721_PW_TGT_ID_MSB_PW_ID;
 	}
-	regData = ((uint32_t)(in_parms->port_write_destID)) << 16;
+
+	regData = (uint32_t)(in_parms->port_write_destID) << 16;
 	regData &= pw_mask;
 	if (tt_dev16 == in_parms->deviceID_tt) {
 		regData |= TSI721_PW_TGT_ID_LRG_TRANS;
 	}
 
-	rc = DARRegWrite(dev_info, TSI721_PW_TGT_ID, regData);
+	rc = DARRegWrite(dev_info, TSI721_PW_TGT_ID, (uint32_t)regData);
 	if (RIO_SUCCESS != rc) {
 		out_parms->imp_rc = EM_CFG_PW(2);
 		goto exit;
@@ -1184,7 +1185,7 @@ uint32_t tsi721_rio_em_cfg_pw(DAR_DEV_INFO_t *dev_info,
 		}
 	}
 
-	rc = DARRegWrite(dev_info, TSI721_PW_CTL, regData);
+	rc = DARRegWrite(dev_info, TSI721_PW_CTL, (uint32_t)regData);
 	if (RIO_SUCCESS != rc) {
 		out_parms->imp_rc = EM_CFG_PW(3);
 		goto exit;
@@ -1214,7 +1215,7 @@ uint32_t tsi721_rio_em_cfg_pw(DAR_DEV_INFO_t *dev_info,
 	if (tt_dev16 == out_parms->deviceID_tt) {
 		pw_mask |= TSI721_PW_TGT_ID_MSB_PW_ID;
 	}
-	out_parms->port_write_destID = (uint16_t)((regData & pw_mask) >> 16);
+	out_parms->port_write_destID = (did_reg_t)((regData & pw_mask) >> 16);
 
 	// Source ID for port writes is found in the
 	// TSI721_BASE_ID.  Source ID for port-writes
@@ -1227,13 +1228,13 @@ uint32_t tsi721_rio_em_cfg_pw(DAR_DEV_INFO_t *dev_info,
 	}
 
 	out_parms->srcID_valid = true;
-	if (tt_dev8 == out_parms->deviceID_tt) {
-		out_parms->port_write_srcID = (regData & TSI721_BASE_ID_BASE_ID)
-				>> 16;
-	} else {
-		out_parms->port_write_srcID = regData
-				& TSI721_BASE_ID_LAR_BASE_ID;
-	}
+		if (tt_dev8 == out_parms->deviceID_tt) {
+			out_parms->port_write_srcID = (did_reg_t)((regData
+					& TSI721_BASE_ID_BASE_ID) >> 16);
+		} else {
+			out_parms->port_write_srcID = (did_reg_t)(regData
+					& TSI721_BASE_ID_LAR_BASE_ID);
+		}
 	// Cannot configure port-write priority or CRF.
 	out_parms->priority = 3;
 	out_parms->CRF = true;
