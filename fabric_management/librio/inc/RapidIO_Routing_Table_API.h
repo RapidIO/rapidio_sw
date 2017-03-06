@@ -301,8 +301,8 @@ typedef struct rio_rt_set_all_out_t_TAG
 	uint32_t imp_rc;
 } rio_rt_set_all_out_t;
 
-typedef rio_rt_set_all_in_t  rio_rt_set_changed_in_t  ;
-typedef rio_rt_set_all_out_t rio_rt_set_changed_out_t ;
+typedef rio_rt_set_all_in_t  rio_rt_set_changed_in_t;
+typedef rio_rt_set_all_out_t rio_rt_set_changed_out_t;
 
 typedef struct rio_rt_alloc_mc_mask_in_t_TAG
 {
@@ -352,9 +352,9 @@ typedef struct rio_rt_change_rte_in_t_TAG {
 	rio_rt_state_t *rt;
 } rio_rt_change_rte_in_t;
 
-typedef struct rio_rt_change_rte_out_t_TAG 
-{
-    uint32_t imp_rc     ; // Implementation specific failure information 
+typedef struct rio_rt_change_rte_out_t_TAG {
+	// Implementation specific failure information
+	uint32_t imp_rc;
 } rio_rt_change_rte_out_t;
 
 typedef struct rio_rt_change_mc_mask_in_t_TAG {

@@ -472,17 +472,16 @@ typedef struct rio_pc_secure_port_in_t_TAG {
 	rio_pc_rst_handling rst;
 } rio_pc_secure_port_in_t;
 
-typedef struct rio_pc_secure_port_out_t_TAG
-{
-    uint32_t      imp_rc;              /* Implementation specific return code
-                                          information.
-                                     */
-    bool        bc_mtc_pkts_allowed; /* Current configuration values for
-                                          specified port.
-                                     */
-    bool        MECS_participant; 
-    bool        MECS_acceptance;  
-    rio_pc_rst_handling rst;  
+typedef struct rio_pc_secure_port_out_t_TAG {
+	// Implementation specific return code information.
+	uint32_t imp_rc;
+
+	// Current configuration values for specified port.
+	bool bc_mtc_pkts_allowed;
+
+	bool MECS_participant;
+	bool MECS_acceptance;
+	rio_pc_rst_handling rst;
 } rio_pc_secure_port_out_t;
 
 typedef struct rio_pc_dev_reset_config_in_t_TAG {

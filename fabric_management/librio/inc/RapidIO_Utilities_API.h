@@ -371,29 +371,6 @@ typedef struct DAR_pkt_phy_hdr_t_TAG {
 	uint32_t pkt_ackID;
 } DAR_pkt_phy_hdr_t;
 
-typedef struct DAR_pkt_phy_mask_t_TAG {
-	// AckID field mask value. 6 bits.
-	uint8_t pkt_ackID_m;
-
-	// VC   field mask value. 1 bit
-	bool pkt_vc_m;
-
-	// PRIO field mask value.  2 bits.
-	uint8_t pkt_prio_m;
-
-	// CRF  field mask value. 1 bit
-	bool pkt_crf_m;
-
-	// FType field mask value. 4 bits
-	bool pkt_ftype_m;
-
-	// Intermediate CRC field mask value.  Only used for packets > 80 bytes.
-	uint16_t pkt_int_crc_m;
-
-	// Final CRC field mask value.
-	uint16_t pkt_fin_crc_m;
-} DAR_pkt_phy_mask_t;
-
 /* Transport layer header fields
  */
 typedef struct DAR_pkt_trans_hdr_t_TAG {
@@ -409,23 +386,6 @@ typedef struct DAR_pkt_trans_hdr_t_TAG {
 	// Only Valid for Maintenance packets. Max value 255
 	hc_t hopcount;
 } DAR_pkt_trans_hdr_t;
-
-typedef struct DAR_pkt_trans_mask_t_TAG {
-	// Mask value for TT     field.  2 bits.
-	uint8_t tt_m;
-
-	// TT code, determines how many bits of destID/srcID mask are used
-	rio_TT_code tt_code;
-
-	// Mask value for DestID field.  8, 16, or 32 bits
-	did_reg_t destID_m;
-
-	// Mask value for SrcID  field.  8, 16, or 32 bits
-	did_reg_t srcID_m;
-
-	// Mask value for hopcount field.  8 bits.  Only used for Maintenance packets.
-	hc_t hc_m;
-} DAR_pkt_trans_mask_t;
 
 /* Packet fields for the following logical layer packet types:
  * FTYPE 2 (NREAD & ATOMICs)
@@ -453,36 +413,6 @@ typedef struct DAR_pkt_log_rw_hdr_t_TAG {
 	rio_pkt_status status;
 } DAR_pkt_log_rw_hdr_t;
 
-// Used for FTYPE 2, 5 8, 10 and 13 (R/W and Msg)
-// NOTE: Msg responses also need log_ms header filled in.
-typedef struct DAR_pkt_log_rw_mask_t_TAG {
-	// TransType Mask Value, 4 bits.  Used for FType 2, 5, 8, 10 and 13 (R/W and Msg)
-	uint8_t ttype_m;
-
-	// Read/write size mask, 4 bits
-	uint8_t size_m;
-
-	// Read/Write pointer mask
-	bool ptr_m;
-
-	// pkt_addr_size is only valid for nr, nw, nwr, sw, mr, mw
-	// pkt_addr_size values affect which portion of addr_m[] are used.
-	rio_addr_size pkt_addr_size;
-
-	// Address Mask Value. addr_m[0] is least significant, addr_m[2] is most significant.
-	uint32_t addr_m[3];
-
-	// Least significant byte of address, used for FTYPE 2, 5, 8 to ensure
-	//    data is aligned correctly in the packet payload.
-	uint8_t addr_l;
-
-	// TransID Mask value, 8 bits.  Used for FType 2, 5, 8, and 10
-	uint8_t tid_m;
-
-	// Status Mask value, 4 bits.  Used for FType 2, 5, 8, 10 and 13 (R/W and Msg)
-	uint8_t status_m;
-} DAR_pkt_log_rw_mask_t;
-
 /* FTYPE 7 (Flow Control) Packet Fields
  */
 typedef struct DAR_pkt_log_fc_hdr_t_TAG {
@@ -506,22 +436,6 @@ typedef struct DAR_pkt_log_fc_hdr_t_TAG {
 	// Value 0-7, used to control buffer requests/releases
 	rio_fc_fam_t fc_fam;
 } DAR_pkt_log_fc_hdr_t;
-
-typedef struct DAR_pkt_log_fc_mask_t_TAG {
-	// Logical layer fields for flow control transactions (FType 7)
-
-	// XON Mask value, 4 bits
-	bool fc_xon_m;
-
-	// SRC is EP Mask value, 1 bits
-	bool fc_soc_is_ep_m;
-
-	// Status Mask value, 4 bits
-	uint8_t fc_flow_m;
-
-	// Fam    Mask value, 3 bits
-	uint8_t fc_fam_m;
-} DAR_pkt_log_fc_mask_t;
 
 /* FTYPE 9 (Data Streaming) Packet Fields
  * Note: the fields used are controlled by the dstm_xh_seg value.
@@ -571,56 +485,6 @@ typedef struct DAR_pkt_log_ds_hdr_t_TAG {
 	uint32_t dstm_xh_parm2;
 } DAR_pkt_log_ds_hdr_t;
 
-typedef struct DAR_pkt_log_ds_mask_t_TAG {
-	// Logical layer fields for Data Streaming (FType 9) Request transactions
-
-	// Mask value for S bit
-	bool dstm_s_m;
-
-	// Mask value for E bit
-	bool dstm_e_m;
-
-	// Mask value for XH bit
-	bool dstm_xh_m;
-
-	// Mask value for COS field
-	uint8_t dstm_COS_m;
-
-	// true if STRM/LEN    field should be included in the mask, false if not
-	bool dstm_strm_or_len;
-
-	// Mask value for StreamID/Length field
-	uint16_t dstm_strm_or_len_m;
-
-	// Mask value for O bit
-	bool dstm_o_m;
-
-	// Mask value for P bit
-	bool dstm_p_m;
-
-	// true if should use an extended header packet format, false if not.
-	//    If dtsm_xh_pkt is false, none of the folllowing fields need to be filled in.
-	bool dtsm_xh_pkt;
-
-	// Mask value for XH_TYPE field
-	uint8_t dstm_xh_type_m;
-
-	// Mask value for XH TM Op field
-	uint8_t dstm_xh_tm_op_m;
-
-	// Mask value for XH TWildcard field
-	uint8_t dstm_xh_wc_m;
-
-	// Mask value for XH COS mask field
-	uint8_t dstm_xh_COS_m;
-
-	// Mask value for XH COS mask field
-	uint8_t dstm_xh_parm1_m;
-
-	// Mask value for XH COS mask field
-	uint8_t dstm_xh_parm2_m;
-} DAR_pkt_log_ds_mask_t;
-
 /* FTYPE 11 (Message) Packet Fields
  */
 typedef struct DAR_pkt_log_ms_hdr_t_TAG {
@@ -642,37 +506,6 @@ typedef struct DAR_pkt_log_ms_hdr_t_TAG {
 	// Only valid for message response
 	rio_pkt_status status;
 } DAR_pkt_log_ms_hdr_t;
-
-// NOTE: Msg responses need log_ms header filled in.
-// However, FType 13 Status and TType are found in log_rw (DAR_pkt_log_rw_mask_t)
-typedef struct DAR_pkt_log_ms_mask_t_TAG {
-	// Logical Layer fields for Message Request (FType 11) transactions,
-	//  and Message responses
-
-	// Mask value for Len  field, 4 bits
-	uint8_t msg_len_m;
-
-	// Mask value for Size field, 4 bits
-	uint8_t msg_size_m;
-
-	// Determines size of Mbid.
-	//    Required for requests and responses.
-	//    If True,  MBID is 6 bits and MSGSEG is not used.
-	//    If False, MBID is 2 bits and MSGSEG is used.
-	bool msg_xmbox;
-
-	// Mask value for mailbox/xmbox  field.
-	//    Required for requests and responses.
-	uint8_t msg_mbid_m;
-
-	// Mask value for message segment field, 4 bits
-	//    Required for requests and responses.
-	uint8_t msg_seg_m;
-
-	// Mask value for letter field, 2 bits
-	//    Required for requests and responses.
-	uint8_t msg_letter_m;
-} DAR_pkt_log_ms_mask_t;
 
 /* Structure containing all packet fields for all logical layer types.
  */
@@ -715,42 +548,6 @@ typedef struct DAR_pkt_fields_t_TAG {
 	// FTYPE 11
 	DAR_pkt_log_ms_hdr_t log_ms;
 } DAR_pkt_fields_t;
-
-/* Structure containing all packet fields for all logical layer types.
- */
-typedef struct DAR_pkt_mask_t_TAG {
-	// Total size of packet in bytes. If tot_bytes = -1, the structure is
-	// not initialized.
-	uint32_t tot_bytes;
-
-	// Physical layer packet header fields
-	DAR_pkt_phy_mask_t phys;
-
-	// Transport layer packet header fields
-	DAR_pkt_trans_mask_t trans;
-
-	// Common Logical Layer Fields
-	// Packet type
-	DAR_pkt_type pkt_type;
-
-	// Amount of pkt_data[] which is valid, starting at pkt_data[0].
-	uint32_t pkt_bytes;
-
-	// Mask value for data, an array of at least 276 bytes.
-	uint8_t *pkt_data;
-
-	// FTYPE 2, 5, 6, 8, 13 TTYPE 0
-	DAR_pkt_log_rw_mask_t log_rw;
-
-	// FTYPE 7
-	DAR_pkt_log_fc_mask_t log_fc;
-
-	// FTYPE 9
-	DAR_pkt_log_ds_mask_t log_ds;
-
-	// FTYPE 11, FTYPE 13 TTYPE 1
-	DAR_pkt_log_ms_mask_t log_ms;
-} DAR_pkt_mask_t;
 
 /* Structure used to store packets as a sequence of bytes
  * Bytes are stored in transmission order.
