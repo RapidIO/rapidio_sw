@@ -118,7 +118,7 @@ static void test_setup(void)
 	DAR_proc_ptr_init(TestReadReg, TestWriteReg, TestWaitSec);
 }
 
-void assumptions_test(void **state)
+static void assumptions_test(void **state)
 {
 	assert_string_equal((char *)"PCIExp", (char *)sc_other_if_names_PCIe);
 	assert_string_equal((char *)"FABRIC", (char *)sc_other_if_names_FABRIC);
@@ -127,7 +127,7 @@ void assumptions_test(void **state)
 	(void)state; // unused
 }
 
-void test_sc_info(rio_sc_ctr_t stctr, char *name, uint32_t flags, bool *chk_a)
+static void test_sc_info(rio_sc_ctr_t stctr, char *name, uint32_t flags, bool *chk_a)
 {
 	assert_string_equal(name, SC_NAME(stctr));
 	assert_int_equal(flags, SC_FLAG(stctr));
@@ -135,7 +135,7 @@ void test_sc_info(rio_sc_ctr_t stctr, char *name, uint32_t flags, bool *chk_a)
 	chk_a[stctr] = true;
 }
 
-void test_sc_flag_info(rio_sc_ctr_flag_t sc_f, uint32_t flag, char *name, bool *chk_a)
+static void test_sc_flag_info(rio_sc_ctr_flag_t sc_f, uint32_t flag, char *name, bool *chk_a)
 {
 	assert_string_equal(name, SC_FLAG_NAME(sc_f));
 	if (sc_f < sc_f_LAST) {
@@ -212,7 +212,7 @@ void sc_info_test(void **state)
 	(void)state; // unused
 }
 
-void sc_ctr_flag_test(void **state)
+static void sc_ctr_flag_test(void **state)
 {
 	bool chk_f_a[(uint8_t)(sc_f_LAST) + 2] = {false};
 	unsigned int i;
@@ -237,7 +237,7 @@ void sc_ctr_flag_test(void **state)
 	(void)state; // unused
 }
 
-void sc_gen_flag_test(void **state)
+static void sc_gen_flag_test(void **state)
 {
 	assert_int_equal(SC_F_TX, parm_idx((char *)"TX", (char *)SC_GEN_FLAG_NAMES));
 	assert_int_equal(SC_F_RX, parm_idx((char *)"RX", (char *)SC_GEN_FLAG_NAMES));
@@ -247,7 +247,7 @@ void sc_gen_flag_test(void **state)
 	(void)state; // unused
 }
 
-void rio_sc_other_if_names_test(void **state)
+static void rio_sc_other_if_names_test(void **state)
 {
 	const char *name;
 	unsigned int i;
