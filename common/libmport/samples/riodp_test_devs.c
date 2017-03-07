@@ -272,7 +272,7 @@ int main(int argc, char** argv)
 		printf("ATTN: Port DISCOVERED flag is not set\n");
 	}
 
-	if (discovered && (RIO_LAST_DEV16 == prop.destid)) {
+	if (discovered && (RIO_LAST_DEV16 == prop.did_val)) {
 		err = riomp_mgmt_lcfg_read(mport_hnd, RIO_DEVID,
 				sizeof(uint32_t), &regval);
 		if (err) {
@@ -281,12 +281,12 @@ int main(int argc, char** argv)
 			goto out;
 		}
 
-		prop.destid = (regval >> 16) & RIO_LAST_DEV8;
-		err = riomp_mgmt_destid_set(mport_hnd, prop.destid);
+		prop.did_val = (regval >> 16) & RIO_LAST_DEV8;
+		err = riomp_mgmt_destid_set(mport_hnd, prop.did_val);
 		if (err) {
 			printf("Failed to update local destID, err=%d\n", err);
 		} else {
-			printf("Updated destID=0x%x\n", prop.destid);
+			printf("Updated destID=0x%x\n", prop.did_val);
 		}
 	}
 

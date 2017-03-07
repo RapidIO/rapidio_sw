@@ -90,7 +90,7 @@ enum riomp_mgmt_mport_flags {
 /** TODO: Check if all the listed mport properties are really needed */
 /** @brief RapidIO mport properties */
 struct riomp_mgmt_mport_properties {
-	did_val_t destid; /**< mport host device ID */
+	did_val_t did_val; /**< mport host device ID */
 	uint8_t id; /**< Physical port ID number */
 	uint8_t index; /**< Mport driver index numer */
 	uint32_t flags; /**< TODO: what is this */
@@ -168,24 +168,24 @@ int riomp_mgmt_free_mport_list(mport_list_t **dev_ids);
  * @brief read number of endpoints attached to a mport in the system
  *
  * @param[in] mport_id mport ID number
- * @param[out] destids endpoint list pointer
+ * @param[out] did_values endpoint list pointer
  * @param[inout] number_of_eps number of elements in destids, will be updated by number of found items
  * @return status of the function call
  * @retval 0 on success
  * @retval -errno on error
  */
-int riomp_mgmt_get_ep_list(uint8_t mport_id, did_val_t **destids,
+int riomp_mgmt_get_ep_list(uint8_t mport_id, did_val_t **did_values,
 		uint32_t *number_of_eps);
 
 /**
  * @brief free endpoint list
  *
- * @param[in] destids endpoint list pointer
+ * @param[in] did_values endpoint list pointer
  * @return status of the function call
  * @retval 0 on success
  * @retval -errno on error
  */
-int riomp_mgmt_free_ep_list(did_val_t **destids);
+int riomp_mgmt_free_ep_list(did_val_t **did_values);
 
 /**
  * @brief create mport handle
@@ -246,12 +246,12 @@ void riomp_mgmt_display_info(struct riomp_mgmt_mport_properties *prop);
  * @todo: This function sets only the 16 bit destination ID, further rework needed to support also 8 and 32 bit.
  *
  * @param[in] mport_handle valid mport handle
- * @param[in] destid mport destination ID
+ * @param[in] did_val mport destination ID
  * @return status of the function call
  * @retval 0 on success
  * @retval -errno on error
  */
-int riomp_mgmt_destid_set(riomp_mport_t mport_handle, did_val_t destid);
+int riomp_mgmt_destid_set(riomp_mport_t mport_handle, did_val_t did_val);
 
 /**
  * @brief read mport local CSR register

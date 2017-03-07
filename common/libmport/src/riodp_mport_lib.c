@@ -73,7 +73,6 @@ struct rapidio_mport_mailbox {
 
 struct rio_channel {
 	uint16_t id;
-	did_val_t remote_destid;
 	uint16_t remote_channel;
 	uint8_t mport_id;
 };
@@ -218,7 +217,7 @@ int riomp_mgmt_free_mport_list(mport_list_t **dev_ids)
 	return 0;
 }
 
-int riomp_mgmt_get_ep_list(uint8_t mport_id, did_val_t **destids,
+int riomp_mgmt_get_ep_list(uint8_t mport_id, did_val_t **did_values,
 		uint32_t *number_of_eps)
 {
 	int fd;
@@ -261,7 +260,7 @@ int riomp_mgmt_get_ep_list(uint8_t mport_id, did_val_t **destids,
 	}
 
 	/* Pass to callee, first entry of list is entries in list */
-	*destids = &list[2];
+	*did_values = &list[2];
 	*number_of_eps = entries;
 
 outfd:
@@ -269,18 +268,18 @@ outfd:
 	return ret;
 }
 
-int riomp_mgmt_free_ep_list(did_val_t **destids)
+int riomp_mgmt_free_ep_list(did_val_t **did_values)
 {
 	/* Get head of the list, because we did hide the list size and mport ID
 	 * parameters
 	 */
 	did_val_t *list;
 
-	if (NULL == destids) {
+	if (NULL == did_values) {
 		return -1;
 	}
 
-	list = (*destids) - 2;
+	list = (*did_values) - 2;
 	free(list);
 	return 0;
 }
@@ -655,7 +654,7 @@ int riomp_mgmt_query(riomp_mport_t mport_handle,
 		return -errno;
 	}
 
-	qresp->destid = prop.hdid;
+	qresp->did_val = prop.hdid;
 	qresp->id = prop.id;
 	qresp->index = prop.index;
 	qresp->flags = prop.flags;
@@ -1015,7 +1014,7 @@ int riomp_mgmt_send_event(riomp_mport_t mport_handle,
 /*
  * Set destination ID of local mport device
  */
-int riomp_mgmt_destid_set(riomp_mport_t mport_handle, did_val_t destid)
+int riomp_mgmt_destid_set(riomp_mport_t mport_handle, did_val_t did_val)
 {
 	struct rapidio_mport_handle *hnd = mport_handle;
 
@@ -1023,7 +1022,7 @@ int riomp_mgmt_destid_set(riomp_mport_t mport_handle, did_val_t destid)
 		return -EINVAL;
 	}
 
-	if (ioctl(hnd->fd, RIO_MPORT_MAINT_HDID_SET, &destid)) {
+	if (ioctl(hnd->fd, RIO_MPORT_MAINT_HDID_SET, &did_val)) {
 		return -errno;
 	}
 	return 0;
@@ -1317,7 +1316,6 @@ int riomp_sock_connect(riomp_sock_t socket_handle, did_val_t did_val,
 
 	do {
 		/* Configure and Send Connect IOCTL */
-		handle->ch.remote_destid = did_val;
 		handle->ch.remote_channel = channel;
 		handle->ch.mport_id = handle->mbox->mport_id;
 		cdev.remote_destid = did_val;
@@ -1402,7 +1400,7 @@ void riomp_mgmt_display_info(struct riomp_mgmt_mport_properties *attr)
 {
 	printf("\n+++ SRIO mport configuration +++\n");
 	printf("mport: hdid=%d, id=%d, idx=%d, flags=0x%x, sys_size=%s\n",
-			attr->destid, attr->id, attr->index, attr->flags,
+			attr->did_val, attr->id, attr->index, attr->flags,
 			attr->sys_size ? "large" : "small");
 
 	printf("link: speed=%s width=%s\n", speed_to_string(attr->link_speed),
