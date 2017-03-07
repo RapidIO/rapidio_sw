@@ -1251,20 +1251,16 @@ uint32_t tsi721_rio_em_cfg_pw(DAR_DEV_INFO_t *dev_info,
 		out_parms->port_write_re_tx = 0;
 		break;
 	case TSI721_PW_CTL_PW_TIMER_103us:
-		out_parms->port_write_re_tx =
-		RIO_EM_TSI721_PW_RE_TX_103us;
+		out_parms->port_write_re_tx = RIO_EM_TSI721_PW_RE_TX_103us;
 		break;
 	case TSI721_PW_CTL_PW_TIMER_205us:
-		out_parms->port_write_re_tx =
-		RIO_EM_TSI721_PW_RE_TX_205us;
+		out_parms->port_write_re_tx = RIO_EM_TSI721_PW_RE_TX_205us;
 		break;
 	case TSI721_PW_CTL_PW_TIMER_410us:
-		out_parms->port_write_re_tx =
-		RIO_EM_TSI721_PW_RE_TX_410us;
+		out_parms->port_write_re_tx = RIO_EM_TSI721_PW_RE_TX_410us;
 		break;
 	case TSI721_PW_CTL_PW_TIMER_820us:
-		out_parms->port_write_re_tx =
-		RIO_EM_TSI721_PW_RE_TX_820us;
+		out_parms->port_write_re_tx = RIO_EM_TSI721_PW_RE_TX_820us;
 		break;
 	default:
 		out_parms->port_write_re_tx = regData;
