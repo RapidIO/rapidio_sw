@@ -80,8 +80,6 @@ struct rio_channel {
 struct rapidio_mport_socket {
 	struct rapidio_mport_mailbox *mbox;
 	struct rio_channel ch;
-	uint8_t *rx_buffer;
-	uint8_t *tx_buffer;
 };
 
 int riomp_mgmt_mport_create_handle(uint32_t mport_id, int flags,
