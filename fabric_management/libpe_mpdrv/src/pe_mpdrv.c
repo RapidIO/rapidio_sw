@@ -644,7 +644,12 @@ int generic_device_init(struct riocp_pe *pe)
 	/* device not found in config file
 	 * continue with other initialization
 	 */
-	did_get(&did, pe->did_reg_val);
+	rc = did_get(&did, pe->did_reg_val);
+	if (rc) {
+		ERR("Device ID 0x%08x does not exist\n", pe->did_reg_val);
+		goto exit;
+	}
+
 	rc = mpsw_drv_raw_reg_rd(pe, did, pe->hopcount, RIO_SW_PORT_INF,
 			&port_info);
 	if (rc) {
@@ -809,7 +814,6 @@ int RIOCP_WU mpsw_drv_init_pe(struct riocp_pe *pe, struct riocp_pe *peer,
 	struct mpsw_drv_private_data *p_dat = NULL;
 	int ret = 1;
 	uint32_t temp_devid;
-	did_t did;
 
 	DBG("ENTRY\n");
 
@@ -828,8 +832,7 @@ int RIOCP_WU mpsw_drv_init_pe(struct riocp_pe *pe, struct riocp_pe *peer,
 	}
 
 	/* Select a driver for the device */
-	did_get(&did, pe->did_reg_val);
-	ret = mpsw_drv_raw_reg_rd(pe, did, pe->hopcount, RIO_DEV_IDENT,
+	ret = mpsw_drv_raw_reg_rd(pe, DID_ANY_DEV8_ID, pe->hopcount, RIO_DEV_IDENT,
 			&temp_devid);
 	if (ret) {
 		ERR("Unable to read device ID %d:%s\n", ret, strerror(ret));
@@ -1236,7 +1239,12 @@ int RIOCP_WU mpsw_enable_pe(struct riocp_pe *pe, pe_port_t port)
 	/* device not found in config file
 	 * continue with other initialization
 	 */
-	did_get(&did, pe->did_reg_val);
+	rc = did_get(&did, pe->did_reg_val);
+	if (rc) {
+		ERR("Device ID 0x%08x does not exist\n", pe->did_reg_val);
+		goto fail;
+	}
+
 	rc = mpsw_drv_raw_reg_rd(pe, did, pe->hopcount, RIO_SW_PORT_INF,
 			&port_info);
 	if (rc) {

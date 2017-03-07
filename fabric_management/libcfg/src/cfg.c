@@ -1329,10 +1329,21 @@ int cfg_parse_file(char *cfg_fn, char **dd_mtx_fn, char **dd_fn,
 
 	// update parameters
 	if (CFG_SLAVE == cfg->mast_idx) {
+		// fake out the creation of the master did
 		did_size_from_int(&did_sz, cfg->mast_did_sz);
 		*m_did = (did_t){cfg->mast_did_val, did_sz};
 	} else {
-		did_from_value(m_did, cfg->mast_did_val, cfg->mast_did_sz);
+		if (cfg_auto()) {
+			// fake out the creation of the master did
+			did_size_from_int(&did_sz, cfg->mast_did_sz);
+			*m_did = (did_t){cfg->mast_did_val, did_sz};
+		} else {
+			// ensure the master did was created
+			if (did_from_value(m_did, cfg->mast_did_val,
+					cfg->mast_did_sz)) {
+				goto fail;
+			}
+		}
 	}
 	*m_cm_port = cfg->mast_cm_port;
 	*m_mode = !(CFG_SLAVE == cfg->mast_idx);
