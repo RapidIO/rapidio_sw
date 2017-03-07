@@ -125,9 +125,7 @@ struct int_cfg_ep_port {
 
 struct int_cfg_ep {
 	int valid;
-	riocp_pe_handle ep_h;
 	char *name;
-	char *dev_type;
 	int port_cnt;
 	struct int_cfg_ep_port ports[CFG_MAX_EP_PORT];
 };
@@ -145,14 +143,12 @@ struct int_cfg_sw_port {
 
 struct int_cfg_sw {
 	int valid;
-	riocp_pe_handle sw_h;
 	char *name;
 	char *dev_type;
 	did_val_t did_val;
 	uint32_t did_sz;
 	hc_t hc;
 	ct_t ct;
-	uint32_t traversed;
 	struct int_cfg_sw_port ports[CFG_MAX_SW_PORT];
 	// One routing table for each devID size
 	bool rt_valid[CFG_DEVID_MAX]; 
