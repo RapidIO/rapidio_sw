@@ -1404,8 +1404,6 @@ int cfg_find_mport(uint32_t mport, struct cfg_mport_info *mp)
 
 		mp->num = cfg->mport_info[i].num;
 		mp->ct = cfg->mport_info[i].ct;
-		mp->mem_sz = cfg->mport_info[i].mem_sz;
-		mp->op_mode = cfg->mport_info[i].op_mode;
 		memcpy(mp->devids, cfg->mport_info[i].devids,
 			sizeof(mp->devids));
 		return 0;
@@ -1434,22 +1432,13 @@ static int fill_in_dev_from_ep(struct cfg_dev *dev, struct int_cfg_ep *ep)
 
 	memset(dev, 0, sizeof(struct cfg_dev));
 	dev->name = ep->name;
-	dev->dev_type = DEV_TYPE;
-	dev->port_cnt = ep->port_cnt;
-	dev->did_sz = CFG_DEV08;
 	dev->is_sw = 0;
 	dev->ct = ep->ports[0].ct;
-	dev->hc = ep->ports[0].devids[CFG_DEV08].hc;
-	dev->did_val = ep->ports[0].devids[CFG_DEV08].did_val;
 	dev->ep_pt.valid = 1;
-	dev->ep_pt.port = 0;
-	dev->ep_pt.max_pw = ep->ports[0].rio.max_pw;
 	dev->ep_pt.op_pw = ep->ports[0].rio.op_pw;
 	dev->ep_pt.ls = ep->ports[0].rio.ls;
-	dev->ep_pt.ct = dev->ct;
 	memcpy(dev->ep_pt.devids, ep->ports[0].devids,
 		sizeof(dev->ep_pt.devids));
-	dev->auto_config = cfg->auto_config;
 
 	return 0;
 fail:
@@ -1463,11 +1452,6 @@ static int fill_in_dev_from_sw(struct cfg_dev *dev, struct int_cfg_sw *sw)
 	memset(dev, 0, sizeof(struct cfg_dev));
 
 	dev->name = sw->name;
-	dev->dev_type = sw->dev_type;
-	dev->port_cnt = CFG_MAX_SW_PORT;
-	dev->did_sz = sw->did_sz;
-	dev->did_val = sw->did_val;
-	dev->hc = sw->hc;
 	dev->ct = sw->ct;
 	dev->is_sw = 1;
 	dev->sw_info.num_ports = CFG_MAX_SW_PORT;
@@ -1476,8 +1460,6 @@ static int fill_in_dev_from_sw(struct cfg_dev *dev, struct int_cfg_sw *sw)
 			sw->ports[i].valid;
 		dev->sw_info.sw_pt[i].port =
 			sw->ports[i].port;
-		dev->sw_info.sw_pt[i].max_pw =
-			sw->ports[i].rio.max_pw;
 		dev->sw_info.sw_pt[i].op_pw =
 			sw->ports[i].rio.op_pw;
 		dev->sw_info.sw_pt[i].ls =
