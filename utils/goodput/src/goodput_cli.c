@@ -2270,8 +2270,6 @@ int getIsolCPU(std::vector<std::string>& cpus)
 	}
 	pclose(f);
 
-	pclose(f);
-
 	return count;
 }
 
