@@ -69,8 +69,7 @@ int open_socket_to_fmd(void)
 
 		fml.addr.sun_family = AF_UNIX;
 		snprintf(fml.addr.sun_path, sizeof(fml.addr.sun_path) - 1,
-		FMD_APP_MSG_SKT_FMT, fml.portno);
-
+				FMD_APP_MSG_SKT_FMT, fml.portno);
 		fml.fd = socket(AF_UNIX, SOCK_SEQPACKET, 0);
 		if (-1 == fml.fd) {
 			CRIT(REM_SOCKET_FAIL, fml.addr.sun_path);
@@ -84,7 +83,8 @@ int open_socket_to_fmd(void)
 	}
 	return 0;
 
-	fail: return -1;
+fail:
+	return -1;
 }
 
 int get_dd_names_from_fmd(void)
@@ -132,6 +132,7 @@ int open_dd(void)
 		ERR("fmd_dd_mtx_open failed\n");
 		goto fail;
 	}
+
 	if (fmd_dd_open((char *)&fml.dd_fn, &fml.dd_fd, &fml.dd, fml.dd_mtx)) {
 		ERR("fmd_dd_mtx_open failed\n");
 		goto fail;
@@ -172,6 +173,7 @@ void shutdown_fml(fmdd_h dd_h)
 		close(fml.dd_fd);
 		fml.dd_fd = 0;
 	}
+
 	if (fml.dd_mtx_fd) {
 		close(fml.dd_mtx_fd);
 		fml.dd_mtx_fd = 0;
@@ -249,6 +251,7 @@ void notify_app_of_events(void)
 		sem_post(wt);
 		wt = (sem_t *)l_pop_head(&fml.pend_waits);
 	}
+
 	sem_post(&fml.pend_waits_mtx);
 }
 
@@ -259,9 +262,8 @@ void *mon_loop(void *parms)
 	fml.dd_mtx->dd_ev[fml.app_idx].in_use = 1;
 	fml.dd_mtx->dd_ev[fml.app_idx].proc = getpid();
 
-	if (0
-			>= fmd_dd_atomic_copy(fml.dd, fml.dd_mtx, &fml.num_devs,
-					fml.devs, FMD_MAX_DEVS)) {
+	if (0 >= fmd_dd_atomic_copy(fml.dd, fml.dd_mtx, &fml.num_devs,
+			fml.devs, FMD_MAX_DEVS)) {
 		sem_post(&fml.mon_started);
 		goto exit;
 	}
@@ -281,13 +283,13 @@ void *mon_loop(void *parms)
 		}
 		fml.dd_mtx->dd_ev[fml.app_idx].waiting = 0;
 
-		if (0
-				>= fmd_dd_atomic_copy(fml.dd, fml.dd_mtx,
-						&fml.num_devs, fml.devs,
-						FMD_MAX_DEVS))
+		if (0 >= fmd_dd_atomic_copy(fml.dd, fml.dd_mtx, &fml.num_devs,
+					fml.devs, FMD_MAX_DEVS)) {
 			goto exit;
-		if (update_devid_status())
+		}
+		if (update_devid_status()) {
 			notify_app_of_events();
+		}
 	} while (fml.num_devs && !fml.mon_must_die && fml.mon_alive);
 
 exit:
@@ -376,26 +378,27 @@ fail:
 	return FMDD_FLAG_NOK;
 }
 
-uint8_t fmdd_check_did(fmdd_h h, uint32_t did, uint8_t flag)
+uint8_t fmdd_check_did(fmdd_h h, did_val_t did_val, uint8_t flag)
 {
 	if (h != &fml) {
 		ERR("Bad FMDD handle\n");
 		goto fail;
 	}
 
-	if (did > FMD_MAX_DEVID) {
+	if (did_val > FMD_MAX_DEVID) {
 		goto fail;
 	}
 
-	return flag & fml.devid_status[did];
+	return flag & fml.devid_status[did_val];
 
 fail:
 	return FMDD_FLAG_NOK;
 }
 
-int fmdd_get_did_list(fmdd_h h, uint32_t *did_list_sz, uint32_t **did_list)
+int fmdd_get_did_list(fmdd_h h, uint32_t *did_list_sz, did_val_t **did_list)
 {
-	uint32_t i, cnt = 0, idx = 0;
+	did_val_t i;
+	uint32_t cnt = 0, idx = 0;
 	uint8_t flag = 0;
 
 	DBG("Fetching DID list\n");
@@ -407,8 +410,9 @@ int fmdd_get_did_list(fmdd_h h, uint32_t *did_list_sz, uint32_t **did_list)
 
 	for (i = 0; i < FMD_MAX_DEVID; i++) {
 		flag = fmdd_check_did(h, i, FMDD_FLAG_OK_MP);
-		if (flag && (FMDD_FLAG_OK_MP != flag))
+		if (flag && (FMDD_FLAG_OK_MP != flag)) {
 			cnt++;
+		}
 	}
 
 	*did_list_sz = cnt;
@@ -418,7 +422,7 @@ int fmdd_get_did_list(fmdd_h h, uint32_t *did_list_sz, uint32_t **did_list)
 		goto exit;
 	}
 
-	*did_list = (uint32_t *)calloc(cnt, sizeof(uint32_t));
+	*did_list = (did_val_t *)calloc(cnt, sizeof(did_val_t));
 	if (NULL == *did_list) {
 		goto fail;
 	}
@@ -438,10 +442,10 @@ fail:
 	return 1;
 }
 
-int fmdd_free_did_list(fmdd_h h, uint32_t **did_list)
+int fmdd_free_did_list(fmdd_h h, did_val_t **did_list)
 {
 	if (h != &fml) {
-		goto fail;
+		return 1;
 	}
 
 	DBG("Freeing DID list...\n");
@@ -451,14 +455,12 @@ int fmdd_free_did_list(fmdd_h h, uint32_t **did_list)
 	*did_list = NULL;
 
 	return 0;
-fail:
-	return 1;
 }
 
 int fmdd_wait_for_dd_change(fmdd_h h)
 {
 	sem_t *chg_sem = (sem_t *)calloc(1, sizeof(sem_t));
-	int rc = 0;
+	int rc;
 
 	if ((h != &fml) || fml.mon_must_die || !fml.mon_alive) {
 		ERR("Bad handle, mon not alive or mon must die\n");
@@ -483,8 +485,8 @@ int fmdd_wait_for_dd_change(fmdd_h h)
 		ERR("mon_must_die, !mon_alive or sem_wait() failed\n");
 		goto fail;
 	}
-
 	return 0;
+
 fail:
 	return 1;
 }

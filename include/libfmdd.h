@@ -148,12 +148,12 @@ uint8_t fmdd_check_ct(fmdd_h h, ct_t ct, uint8_t flag); /* OK if > 0 */
  * @brief Checks what flags are associated with a device ID
  *
  * @param[in] h fmdd_h returned by fmdd_get_handle
- * @param[in] did Device ID identifying the subject device
+ * @param[in] did_val Device ID identifying the subject device
  * @param[in] flag Flag values to check for
  * @return Flag value bitwise-anded with flag parameter
  * @retval 0 means no requested flags were present
  */
-uint8_t fmdd_check_did(fmdd_h h, uint32_t did, uint8_t flag); /* OK if > 0 */
+uint8_t fmdd_check_did(fmdd_h h, did_val_t did_val, uint8_t flag); /* OK if > 0 */
 
 /**
  * @brief Blocks until there is a change in the Device Database
@@ -171,7 +171,7 @@ int fmdd_wait_for_dd_change(fmdd_h h);
  * @param[in,out] did_list Pointer to array of device ID values
  * @return 0 for success, -1 for failure
  */
-int fmdd_get_did_list(fmdd_h h, uint32_t *did_list_sz, uint32_t **did_list);
+int fmdd_get_did_list(fmdd_h h, uint32_t *did_list_sz, did_val_t **did_list);
 
 /**
  * @brief Frees the list of device IDs allocated by fmdd_get_did_list
@@ -180,7 +180,7 @@ int fmdd_get_did_list(fmdd_h h, uint32_t *did_list_sz, uint32_t **did_list);
  * @param[in,out] did_list Updated pointer to array of device ID values
  * @return 0 for success, -1 for failure
  */
-int fmdd_free_did_list(fmdd_h h, uint32_t **did_list);
+int fmdd_free_did_list(fmdd_h h, did_val_t **did_list);
 
 /**
  * @brief If the application includes libcli, bind available fmdd commands

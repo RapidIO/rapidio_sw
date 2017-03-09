@@ -41,6 +41,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sys/sem.h>
 #include <fcntl.h>
 
+
 #include <stdint.h>
 #include <unistd.h>
 #include <dirent.h>
@@ -49,6 +50,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sys/types.h>
 #include <netinet/in.h>
 
+#include "rio_misc.h"
+#include "tok_parse.h"
 #include "fmd_dd.h"
 #include "fmd_app_msg.h"
 #include "liblog.h"
@@ -62,23 +65,29 @@ fmdd_h ddl_h_cli;
 
 extern struct cli_cmd CLIDDLCheckCT;
 
-int CLIDDLCheckCTCmd(struct cli_env *env, int argc, char **argv)
+int CLIDDLCheckCTCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 {
 	ct_t ct;
-	uint8_t flag;
+	uint16_t flag;
 	int rc;
 
-	if (0)
-		argv[0][0] = argc;
-	ct = getHex(argv[0], 0);
-	flag = getHex(argv[1], 1);
+	if (tok_parse_ct(argv[0], &ct, 0)) {
+		LOGMSG(env, "\n");
+		LOGMSG(env, TOK_ERR_CT_MSG_FMT);
+		goto exit;
+	}
 
-	LOGMSG(env, "\nChecking ct %8x flag %x\n", ct, flag);
+	if (tok_parse_ushort(argv[1], &flag, 0, 0x10, 0)) {
+		LOGMSG(env, "\n");
+		LOGMSG(env, TOK_ERR_USHORT_HEX_MSG_FMT, "flag", 0, 0x10);
+		goto exit;
+	}
 
-	rc = fmdd_check_ct(ddl_h_cli, ct, flag);
-
+	LOGMSG(env, "\nChecking ct 0x%8x flag 0x%2x\n", ct, flag);
+	rc = fmdd_check_ct(ddl_h_cli, ct, (uint8_t)flag);
 	LOGMSG(env, "Return code was      : 0x%8x\n", rc);
 
+exit:
 	return 0;
 }
 
@@ -88,7 +97,7 @@ struct cli_cmd CLIDDLCheckCT = {
 2,
 (char *)"Device Directory Library CT check.",
 (char *)"<ct> <flag>\n"
-	"Checks whether or not an entered component tag is present\n"
+	"Checks whether an entered component tag is present\n"
 	"<flag> is a bitmask with the following values: \n"
 	"0x01 - Device is OK\n"
 	"0x02 - Device is local master port\n"
@@ -100,22 +109,29 @@ ATTR_NONE
 
 extern struct cli_cmd CLIDDLCheckDID;
 
-int CLIDDLCheckDIDCmd(struct cli_env *env, int argc, char **argv)
+int CLIDDLCheckDIDCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 {
-	uint32_t did;
-	uint8_t flag;
+	did_val_t did_val;
+	uint16_t flag;
 	int rc;
 
-	if (0)
-		argv[0][0] = argc;
+	if (tok_parse_did(argv[0], &did_val, 0)) {
+		LOGMSG(env, "\n");
+		LOGMSG(env, TOK_ERR_DID_MSG_FMT);
+		goto exit;
+	}
 
-	did = getHex(argv[0], 0);
-	flag = getHex(argv[1], 0);
+	if (tok_parse_ushort(argv[1], &flag, 0, 0x10, 0)) {
+		LOGMSG(env, "\n");
+		LOGMSG(env, TOK_ERR_USHORT_HEX_MSG_FMT, "flag", 0, 0x10);
+		goto exit;
+	}
 
-	LOGMSG(env, "\nChecking Device ID : 0x%x Flag 0x%x\n", did, flag);
-	rc = fmdd_check_did(ddl_h_cli, did, flag);
-	LOGMSG(env, "Return code was    : 0x%x\n", rc);
+	LOGMSG(env, "\nChecking Device ID : 0x%8x flag 0x%2x\n", did_val, flag);
+	rc = fmdd_check_did(ddl_h_cli, did_val, (uint8_t)flag);
+	LOGMSG(env, "Return code was    : 0x%8x\n", rc);
 
+exit:
 	return 0;
 }
 
@@ -125,7 +141,7 @@ struct cli_cmd CLIDDLCheckDID = {
 2,
 (char *)"Device Directory Library Device ID check.",
 (char *)"<did> <flag>\n"
-	"Checks whether or not an entered device ID is present\n"
+	"Checks whether an entered device ID is present\n"
 	"<flag> is a bitmask with the following values: \n"
 	"0x01 - Device is OK\n"
 	"0x02 - Device is local master port\n"
@@ -137,14 +153,12 @@ ATTR_NONE
 
 extern struct cli_cmd CLIDDList;
 
-int CLIDDListCmd(struct cli_env *env, int argc, char **argv)
+int CLIDDListCmd(struct cli_env *env, int UNUSED(argc), char **UNUSED(argv))
 {
-	uint32_t did_list_sz, *did_list, i;
+	uint32_t did_list_sz;
+	uint32_t i;
+	did_val_t *did_list;
 	int rc;
-
-	if (0) {
-		argv[0][0] = argc;
-	}
 
 	rc = fmdd_get_did_list(ddl_h_cli, &did_list_sz, &did_list);
 
@@ -176,7 +190,7 @@ struct cli_cmd CLIDDList = {
 (char *)"ddlli",
 5,
 0,
-(char *)"(No parameters) Display Device Directory device ID list.\n",
+(char *)"Display Device Directory device ID list.\n",
 (char *)"<No Parameters>\n"
 	"Display Device Directory device ID list.\n",
 CLIDDListCmd,
