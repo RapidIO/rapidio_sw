@@ -38,6 +38,7 @@
 #define __STDC_FORMAT_MACROS
 #include <inttypes.h>
 
+#include "rio_route.h"
 #include "rio_ecosystem.h"
 #include "rio_standard.h"
 #include "string_util.h"
@@ -92,9 +93,9 @@ int tok_parse_ll(char *token, int64_t *value, int base);
 int tok_parse_l(char *token, int32_t *value, int base);
 int tok_parse_s(char *token, int16_t *value, int base);
 
-int tok_parse_did(char *token, uint32_t *did, int base);
-int tok_parse_ct(char *token, uint32_t *ct, int base);
-int tok_parse_hc(char *token, uint8_t *hc, int base);
+int tok_parse_did(char *token, did_val_t *did, int base);
+int tok_parse_ct(char *token, ct_t *ct, int base);
+int tok_parse_hc(char *token, hc_t *hc, int base);
 int tok_parse_mport_id(char *token, uint32_t *mport_id, int base);
 int tok_parse_log_level(char *token, uint32_t *level, int base);
 int tok_parse_socket(char *token, uint16_t *socket, int base);

@@ -122,7 +122,7 @@ int main(int argc, char** argv)
 	// command line parameters
 	did_val_t tgt_did_val = RIO_LAST_DEV8;
 	uint32_t mport_id = 0;
-	hc_t tgt_hc = 0xff;
+	hc_t tgt_hc = HC_MP;
 	uint32_t tgt_remote = 0, tgt_write = 0, do_query = 0;
 	uint32_t op_size = 4; // sizeof(uint32_t);
 	uint32_t offset = 0;

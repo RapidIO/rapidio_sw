@@ -800,7 +800,7 @@ int CLIMRegReadCmd(struct cli_env *env, int argc, char **argv)
 	uint32_t address;
 	uint32_t data, prevRead;
 	uint32_t numReads, i;
-	uint32_t did_val;
+	did_val_t did_val;
 	did_t did;
 	hc_t hc;
 	int rc;
@@ -897,7 +897,7 @@ int CLIMRegWriteCmd(struct cli_env *env, int argc, char **argv)
 {
 	int errorStat = 0;
 	uint32_t address;
-	uint32_t did_val;
+	did_val_t did_val;
 	did_t did;
 	hc_t hc;
 	uint32_t data;

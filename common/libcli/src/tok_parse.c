@@ -36,7 +36,6 @@
 #include <stdlib.h>
 #include <errno.h>
 
-#include "rio_route.h"
 #include "tok_parse.h"
 #include "liblog.h"
 
@@ -388,7 +387,7 @@ int tok_parse_s(char *token, int16_t *value, int base)
  *
  * @retval 0 on success, -1 on failure
  */
-int tok_parse_did(char *token, uint32_t *did, int base)
+int tok_parse_did(char *token, did_val_t *did, int base)
 {
 	uint64_t value;
 	int rc;
@@ -399,7 +398,7 @@ int tok_parse_did(char *token, uint32_t *did, int base)
 	}
 
 	rc = tok_parse_ulonglong(token, &value, 0, RIO_LAST_DEV8, base);
-	*did = (uint32_t)value;
+	*did = (did_val_t)value;
 	return rc;
 }
 
@@ -412,7 +411,7 @@ int tok_parse_did(char *token, uint32_t *did, int base)
  *
  * @retval 0 on success, -1 on failure
  */
-int tok_parse_ct(char *token, uint32_t *ct, int base)
+int tok_parse_ct(char *token, ct_t *ct, int base)
 {
 	uint64_t value;
 	int rc;
@@ -423,7 +422,7 @@ int tok_parse_ct(char *token, uint32_t *ct, int base)
 	}
 
 	rc = tok_parse_ulonglong(token, &value, 0, UINT32_MAX, base);
-	*ct = (uint32_t)value;
+	*ct = (ct_t)value;
 	return rc;
 }
 
@@ -436,7 +435,7 @@ int tok_parse_ct(char *token, uint32_t *ct, int base)
  *
  * @retval 0 on success, -1 on failure
  */
-int tok_parse_hc(char *token, uint8_t *hc, int base)
+int tok_parse_hc(char *token, hc_t *hc, int base)
 {
 	uint64_t value;
 	int rc;
@@ -447,7 +446,7 @@ int tok_parse_hc(char *token, uint8_t *hc, int base)
 	}
 
 	rc = tok_parse_ulonglong(token, &value, 0, HC_MP, base);
-	*hc = (uint8_t)value;
+	*hc = (hc_t)value;
 	return rc;
 }
 
