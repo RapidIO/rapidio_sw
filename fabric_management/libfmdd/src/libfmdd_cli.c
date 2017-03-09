@@ -41,8 +41,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sys/sem.h>
 #include <fcntl.h>
 
-
-// #ifdef __LINUX__
 #include <stdint.h>
 #include <unistd.h>
 #include <dirent.h>
@@ -50,15 +48,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sys/ioctl.h>
 #include <sys/types.h>
 #include <netinet/in.h>
-// #endif
 
 #include "fmd_dd.h"
 #include "fmd_app_msg.h"
 #include "liblog.h"
-// #include "dev_db.h"
-// #include "cli_cmd_db.h"
-// #include "cli_cmd_line.h"
-// #include "cli_parse.h"
 #include "libfmdd_info.h"
 
 #ifdef __cplusplus
@@ -88,7 +81,6 @@ int CLIDDLCheckCTCmd(struct cli_env *env, int argc, char **argv)
 
 	return 0;
 }
-;
 
 struct cli_cmd CLIDDLCheckCT = {
 (char *)"ddlct",
@@ -126,7 +118,6 @@ int CLIDDLCheckDIDCmd(struct cli_env *env, int argc, char **argv)
 
 	return 0;
 }
-;
 
 struct cli_cmd CLIDDLCheckDID = {
 (char *)"ddldid",
@@ -175,6 +166,7 @@ int CLIDDListCmd(struct cli_env *env, int argc, char **argv)
 	for (i = 0; i < did_list_sz; i++) {
 		LOGMSG(env, "%d %8x\n", did_list_sz, did_list[i]);
 	}
+
 exit:
 	free(did_list);
 	return 0;
@@ -201,11 +193,11 @@ void fmdd_bind_dbg_cmds(void *fmdd_h)
 {
 	struct fml_globals *t_fml = (struct fml_globals *)fmdd_h;
 
-	if  (&fml == t_fml) {
+	if (&fml == t_fml) {
 		ddl_h_cli = fmdd_h;
-		add_commands_to_cmd_db(sizeof(libfmdd_cmds)/
-					sizeof(libfmdd_cmds[0]), 
-					&libfmdd_cmds[0]);
+		add_commands_to_cmd_db(
+				sizeof(libfmdd_cmds) / sizeof(libfmdd_cmds[0]),
+				&libfmdd_cmds[0]);
 		bind_dd_cmds(fml.dd, fml.dd_mtx, fml.dd_fn, fml.dd_mtx_fn);
 	}
 }

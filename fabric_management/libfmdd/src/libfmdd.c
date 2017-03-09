@@ -1,4 +1,3 @@
-/* Implementation of Fabric Management Device Directory Library */
 /*
 ****************************************************************************
 Copyright (c) 2015, Integrated Device Technology Inc.
@@ -31,6 +30,8 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
+
+/* Implementation of Fabric Management Device Directory Library */
 
 #include <stdlib.h>
 #include <unistd.h>
@@ -68,21 +69,22 @@ int open_socket_to_fmd(void)
 
 		fml.addr.sun_family = AF_UNIX;
 		snprintf(fml.addr.sun_path, sizeof(fml.addr.sun_path) - 1,
-			FMD_APP_MSG_SKT_FMT, fml.portno);
+		FMD_APP_MSG_SKT_FMT, fml.portno);
+
 		fml.fd = socket(AF_UNIX, SOCK_SEQPACKET, 0);
 		if (-1 == fml.fd) {
 			CRIT(REM_SOCKET_FAIL, fml.addr.sun_path);
 			goto fail;
 		}
-		if (connect(fml.fd, (struct sockaddr *) &fml.addr, 
+		if (connect(fml.fd, (struct sockaddr *)&fml.addr,
 				fml.addr_sz)) {
 			CRIT(REM_SOCKET_FAIL, fml.addr.sun_path);
 			goto fail;
 		}
 	}
 	return 0;
-fail:
-	return -1;
+
+	fail: return -1;
 }
 
 int get_dd_names_from_fmd(void)
@@ -114,6 +116,7 @@ int get_dd_names_from_fmd(void)
 		goto fail;
 	}
 	return 0;
+
 fail:
 	return -1;
 }
@@ -124,7 +127,8 @@ int open_dd(void)
 	SAFE_STRNCPY(fml.dd_mtx_fn, fml.resp.hello_resp.dd_mtx_fn,
 			sizeof(fml.dd_mtx_fn));
 
-	if (fmd_dd_mtx_open((char *)&fml.dd_mtx_fn, &fml.dd_mtx_fd, &fml.dd_mtx)) {
+	if (fmd_dd_mtx_open((char *)&fml.dd_mtx_fn, &fml.dd_mtx_fd,
+			&fml.dd_mtx)) {
 		ERR("fmd_dd_mtx_open failed\n");
 		goto fail;
 	}
@@ -133,6 +137,7 @@ int open_dd(void)
 		goto fail;
 	}
 	return 0;
+
 fail:
 	return -1;
 }
@@ -157,8 +162,8 @@ void shutdown_fml(fmdd_h dd_h)
 		}
 	}
 
-	fmd_dd_cleanup( fml.dd_mtx_fn, &fml.dd_mtx_fd, &fml.dd_mtx, 
-			fml.dd_fn, &fml.dd_fd, &fml.dd, 0);
+	fmd_dd_cleanup(fml.dd_mtx_fn, &fml.dd_mtx_fd, &fml.dd_mtx, fml.dd_fn,
+			&fml.dd_fd, &fml.dd, 0);
 
 	fml.dd_mtx = NULL;
 	fml.dd = NULL;
@@ -182,63 +187,66 @@ void shutdown_fml(fmdd_h dd_h)
 
 void init_devid_status(void)
 {
-        uint32_t i;
+	uint32_t i;
 
-        for (i = 0; i < FMD_MAX_DEVS; i++)
-                fml.devid_status[i] = FMDD_FLAG_NOK;
+	for (i = 0; i < FMD_MAX_DEVS; i++) {
+		fml.devid_status[i] = FMDD_FLAG_NOK;
+	}
 }
 
 int update_devid_status(void)
 {
-        uint32_t i, j, found;
+	uint32_t i, j, found;
 	uint32_t changed = 0;
 	did_val_t did_val;
 
-        for (i = 0; i <= FMD_MAX_DEVID; i++) {
-                found = 0;
-                for (j = 0; j < fml.num_devs; j++) {
-                        did_val = did_get_value(fml.devs[j].did);
-                        if (did_val > FMD_MAX_DEVID) {
-                                ERR("Devid 0x%x, out of range, MAX is 0x%x",
-                                		did_val, FMD_MAX_DEVID);
-                                continue;
-                        }
-                        if (did_val == i) {
+	for (i = 0; i <= FMD_MAX_DEVID; i++) {
+		found = 0;
+		for (j = 0; j < fml.num_devs; j++) {
+			did_val = did_get_value(fml.devs[j].did);
+			if (did_val > FMD_MAX_DEVID) {
+				ERR("Devid 0x%x, out of range, MAX is 0x%x",
+						did_val, FMD_MAX_DEVID);
+				continue;
+			}
+			if (did_val == i) {
 				uint8_t temp_flag = FMDD_FLAG_OK;
 				temp_flag |= fml.devs[j].flag;
 
-				if (fml.devs[j].is_mast_pt) 
-                                	temp_flag |= FMDD_FLAG_OK_MP;
+				if (fml.devs[j].is_mast_pt)
+					temp_flag |= FMDD_FLAG_OK_MP;
 
 				if (fml.devid_status[i] != temp_flag) {
-                                	fml.devid_status[i] = temp_flag;
+					fml.devid_status[i] = temp_flag;
 					changed = 1;
 				}
-                                found = 1;
-                                break;
-                        }
-                }
-                if (!found) {
+				found = 1;
+				break;
+			}
+		}
+		if (!found) {
 			if (FMDD_FLAG_NOK != fml.devid_status[i]) {
-                        	fml.devid_status[i] = FMDD_FLAG_NOK;
+				fml.devid_status[i] = FMDD_FLAG_NOK;
 				changed = 1;
 			}
 		}
-        }
+	}
 	return changed;
 }
 
 void notify_app_of_events(void)
 {
-	sem_t *wt = NULL;	
+	sem_t *wt = NULL;
 
 	sem_wait(&fml.pend_waits_mtx);
+
 	wt = (sem_t *)l_pop_head(&fml.pend_waits);
 	if (wt == NULL) {
 		DBG("wt == NULL\n");
 	}
+
 	while (NULL != wt) {
-		sem_post(wt); 
+		sem_post(wt);
 		wt = (sem_t *)l_pop_head(&fml.pend_waits);
 	}
 	sem_post(&fml.pend_waits_mtx);
@@ -247,15 +255,17 @@ void notify_app_of_events(void)
 void *mon_loop(void *parms)
 {
 	int rc;
- 
+
 	fml.dd_mtx->dd_ev[fml.app_idx].in_use = 1;
 	fml.dd_mtx->dd_ev[fml.app_idx].proc = getpid();
 
-	if (0 >= fmd_dd_atomic_copy(fml.dd, fml.dd_mtx, &fml.num_devs,
+	if (0
+			>= fmd_dd_atomic_copy(fml.dd, fml.dd_mtx, &fml.num_devs,
 					fml.devs, FMD_MAX_DEVS)) {
 		sem_post(&fml.mon_started);
 		goto exit;
 	}
+
 	update_devid_status();
 	fml.mon_alive = 1;
 	sem_post(&fml.mon_started);
@@ -266,17 +276,20 @@ void *mon_loop(void *parms)
 
 		fml.dd_mtx->dd_ev[fml.app_idx].waiting = 1;
 		rc = sem_wait(&fml.dd_mtx->dd_ev[fml.app_idx].dd_event);
-		if (rc || fml.mon_must_die ) {
+		if (rc || fml.mon_must_die) {
 			goto exit;
 		}
 		fml.dd_mtx->dd_ev[fml.app_idx].waiting = 0;
 
-		if (0 >= fmd_dd_atomic_copy(fml.dd, fml.dd_mtx, &fml.num_devs,
-					fml.devs, FMD_MAX_DEVS))
+		if (0
+				>= fmd_dd_atomic_copy(fml.dd, fml.dd_mtx,
+						&fml.num_devs, fml.devs,
+						FMD_MAX_DEVS))
 			goto exit;
 		if (update_devid_status())
 			notify_app_of_events();
 	} while (fml.num_devs && !fml.mon_must_die && fml.mon_alive);
+
 exit:
 	fml.mon_alive = 0;
 	notify_app_of_events();
@@ -289,7 +302,7 @@ fmdd_h fmdd_get_handle(char *my_name, uint8_t flag)
 	DBG("ENTER with my_name = %s, flag = 0x%X\n", my_name, flag);
 	if (!fml.portno) {
 		INFO("No portno specified, using default of %d\n",
-							FMD_DFLT_APP_PORT_NUM);
+				FMD_DFLT_APP_PORT_NUM);
 		fml.portno = FMD_DFLT_APP_PORT_NUM;
 		SAFE_STRNCPY(fml.app_name, my_name, sizeof(fml.app_name));
 	} else {
@@ -317,7 +330,7 @@ fmdd_h fmdd_get_handle(char *my_name, uint8_t flag)
 		fml.mon_alive = 0;
 
 		/* Startup the connection monitoring thread */
-		if (pthread_create( &fml.mon_thr, NULL, mon_loop, NULL)) {
+		if (pthread_create(&fml.mon_thr, NULL, mon_loop, NULL)) {
 			fml.all_must_die = 1;
 			CRIT(THREAD_FAIL, errno);
 			goto fail;
@@ -326,10 +339,12 @@ fmdd_h fmdd_get_handle(char *my_name, uint8_t flag)
 		sem_post(&fml.mon_started);
 		INFO("Monitor thread started...\n");
 	}
+
 	if (fml.mon_alive) {
 		INFO("fml.mon_alive is non-zero, returning fml\n");
 		return (void *)&fml;
 	}
+
 fail:
 	shutdown_fml(NULL);
 	return NULL;
@@ -345,14 +360,18 @@ uint8_t fmdd_check_ct(fmdd_h h, ct_t ct, uint8_t flag)
 {
 	uint32_t i;
 
-	if (h != &fml)
+	if (h != &fml) {
 		goto fail;
+	}
 
 	for (i = 0; i < fml.num_devs; i++) {
 		if (fml.devs[i].ct == ct) {
-			return flag & fml.devid_status[did_get_value(fml.devs[i].did)];
+			return flag
+					& fml.devid_status[did_get_value(
+							fml.devs[i].did)];
 		}
 	}
+
 fail:
 	return FMDD_FLAG_NOK;
 }
@@ -369,6 +388,7 @@ uint8_t fmdd_check_did(fmdd_h h, uint32_t did, uint8_t flag)
 	}
 
 	return flag & fml.devid_status[did];
+
 fail:
 	return FMDD_FLAG_NOK;
 }
@@ -411,6 +431,7 @@ int fmdd_get_did_list(fmdd_h h, uint32_t *did_list_sz, uint32_t **did_list)
 			idx++;
 		}
 	}
+
 exit:
 	return 0;
 fail:
@@ -419,12 +440,14 @@ fail:
 
 int fmdd_free_did_list(fmdd_h h, uint32_t **did_list)
 {
-	if (h != &fml)
+	if (h != &fml) {
 		goto fail;
+	}
 
 	DBG("Freeing DID list...\n");
-	if (NULL != *did_list)
+	if (NULL != *did_list) {
 		free(*did_list);
+	}
 	*did_list = NULL;
 
 	return 0;
