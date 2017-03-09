@@ -277,7 +277,6 @@ static void riocp_pe_handle_destroy(struct riocp_pe **handle)
 			RIOCP_TRACE(
 			"Drv err %d destroying PE hndl %p (ct: 0x%08x)\n",
 				ret, *handle, (*handle)->comptag);
-		free((*handle)->minfo->comptag_pool);
 		free((*handle)->minfo);
 	} else {
 		RIOCP_TRACE("Destroying PE handle %p (ct: 0x%08x)\n",
