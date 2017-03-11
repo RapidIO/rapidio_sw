@@ -136,14 +136,14 @@ typedef enum rio_em_events_t_TAG {
 	//	rio_em_clr_events clears ackIDs to 0 for this event!
 	rio_em_f_2many_retx = 2,
 
-	rio_em_f_2many_pna = 3,
-	// FATAL: Too many packet-not-accepted responses.
+	// FATAL: Too many consecutive packet-not-accepted responses.
 	//	em_info: Number of PNAs which indicate link failure. This must
 	// 		be a non-zero value, maximum of 0xFFFF
 	//		NOTE: This can happen if the link partner is in
 	//		PORT_LOCKOUT,	or if the transmitter is trying to send
 	//		a corrupted packet.
 	//	rio_em_clr_events clears ackIDs to 0 for this event!
+	rio_em_f_2many_pna = 3,
 
 	// FATAL: The recoverable error rate is too high.
 	//	em_info:  See rio_em_compute_f_err_rate_info
@@ -187,11 +187,12 @@ typedef enum rio_em_events_t_TAG {
 	//	accessed through rio_pc_secure_port and rio_pc_dev_reset_config
 	rio_em_i_rst_req = 9,
 
-	rio_em_i_init_fail = 10,
-	// INFO : Loading register values from I2C has failed.
+	// INFO : Loading register values from I2C has failed, or other
+	//	automated initialization action has failed.
 	//	em_info: Not used.
 	// 	No parameters.  There is one I2C loader for a device - changing
 	// 		this on one port changes it for all ports.
+	rio_em_i_init_fail = 10,
 
 	// This is a notification that the last pending event for a port has
 	//	been found, so the port write pending indication can now be

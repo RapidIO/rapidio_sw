@@ -51,10 +51,43 @@ extern "C" {
 uint32_t rxs_rioSetEnumBound(DAR_DEV_INFO_t *dev_info, struct DAR_ptl *ptl,
 		int enum_bnd_val)
 {
-	if (NULL != dev_info || !ptl || enum_bnd_val) {
-		return RIO_SUCCESS;
+	DAR_ptl good_ptl;
+	uint32_t rc;
+	unsigned int port_idx;
+	rio_port_t port;
+	uint32_t spx_ctl, new_spx_ctl;
+
+	// Note: Parameters already checked for null
+
+	rc = DARrioGetPortList(dev_info, ptl, &good_ptl);
+	if (RIO_SUCCESS != rc) {
+		goto fail;
 	}
-	return RIO_SUCCESS;
+
+	for (port_idx = 0; port_idx < good_ptl.num_ports; port_idx++) {
+		port = good_ptl.pnums[port_idx];
+
+		rc = DARRegRead(dev_info, RXS_SPX_CTL(port), &spx_ctl);
+		if (RIO_SUCCESS != rc) {
+			goto fail;
+		}
+
+		if (enum_bnd_val) {
+			new_spx_ctl = spx_ctl | RXS_SPX_CTL_ENUM_B;
+		} else {
+			new_spx_ctl = spx_ctl & ~RXS_SPX_CTL_ENUM_B;
+		}
+
+		// Save a register write whenever possible
+		if (new_spx_ctl != spx_ctl) {
+			rc = DARRegWrite(dev_info, RXS_SPX_CTL(port), spx_ctl);
+			if (RIO_SUCCESS != rc) {
+				goto fail;
+			}
+		}
+	}
+fail:
+	return rc;
 }
 
 uint32_t rxs_rioDeviceSupported(DAR_DEV_INFO_t *dev_info)

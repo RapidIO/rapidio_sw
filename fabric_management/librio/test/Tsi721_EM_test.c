@@ -1143,7 +1143,9 @@ static void tsi721_rio_em_cfg_set_success_em_info_test(void **state)
 	TSI721_PLM_IMP_SPEC_CTL_PORT_SELF_RST;
 
 	for (i = 0; i < num_events; i++) {
-		printf("\nevent idx %d\n",  i);
+		if (DEBUG_PRINTF) {
+			printf("\nevent idx %d\n",  i);
+		}
 		if (rio_em_i_rst_req == events[i].em_event) {
 			// If we're testing disabling the Reset Request
 			// event, do the real disable since this events

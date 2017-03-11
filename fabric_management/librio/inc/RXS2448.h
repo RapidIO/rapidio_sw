@@ -641,6 +641,33 @@ extern "C" {
 /* RXS_SPX_DLT_CSR : Register Bits Masks Definitions */
 #define RXS_SPX_DLT_CSR_TIMEOUT                      ((uint32_t)0xffffff00)
 
+// RXS Implementation specific port-write field definitions
+#define RXS_PW_ZERO            ((uint32_t)0x00000100)
+#define RXS_PW_MULTIPORT       ((uint32_t)0x00000200)
+#define RXS_PW_DEV_RCS         ((uint32_t)0x00000400)
+#define RXS_PW_FAB_OR_DEL      ((uint32_t)0x00000800)
+#define RXS_PW_INIT_FAIL       ((uint32_t)0x00001000)
+#define RXS_PW_DEV_ECC         ((uint32_t)0x00002000)
+#define RXS_PW_TLM_PW          RXS_PLM_SPX_STAT_TLM_PW
+#define RXS_PW_PBM_PW          RXS_PLM_SPX_STAT_PBM_PW
+#define RXS_PW_RST_REQ         RXS_PLM_SPX_STAT_RST_REQ
+#define RXS_PW_PRST_REQ        RXS_PLM_SPX_STAT_PRST_REQ
+#define RXS_PW_EL_INTA         RXS_PLM_SPX_STAT_EL_INTA
+#define RXS_PW_EL_INTB         RXS_PLM_SPX_STAT_EL_INTB
+#define RXS_PW_II_CHG_0        RXS_PLM_SPX_STAT_II_CHG_0
+#define RXS_PW_II_CHG_1        RXS_PLM_SPX_STAT_II_CHG_1
+#define RXS_PW_II_CHG_2        RXS_PLM_SPX_STAT_II_CHG_2
+#define RXS_PW_II_CHG_3        RXS_PLM_SPX_STAT_II_CHG_3
+#define RXS_PW_PCAP            RXS_PLM_SPX_STAT_PCAP
+#define RXS_PW_DWNGD           RXS_PLM_SPX_STAT_DWNGD
+#define RXS_PW_PBM_FATAL       RXS_PLM_SPX_STAT_PBM_FATAL
+#define RXS_PW_PORT_ERR        RXS_PLM_SPX_STAT_PORT_ERR
+#define RXS_PW_LINK_INIT       RXS_PLM_SPX_STAT_LINK_INIT
+#define RXS_PW_DLT             RXS_PLM_SPX_STAT_DLT
+#define RXS_PW_OK_TO_UNINIT    RXS_PLM_SPX_STAT_OK_TO_UNINIT
+#define RXS_PW_MAX_DENIAL      RXS_PLM_SPX_STAT_MAX_DENIAL
+
+
 /* RXS_PER_LANE_BH : Register Bits Masks Definitions */
 #define RXS_PER_LANE_BH_EF_ID                        ((uint32_t)0x0000ffff)
 #define RXS_PER_LANE_BH_EF_PTR                       ((uint32_t)0xffff0000)
@@ -1808,6 +1835,10 @@ extern "C" {
 #define RXS_EM_INT_STAT_BOOT_MEM_UNCOR               ((uint32_t)0x00004000)
 #define RXS_EM_INT_STAT_BOOT_MEM_COR                 ((uint32_t)0x00008000)
 #define RXS_EM_INT_STAT_EXTERNAL                     ((uint32_t)0x00fe0000)
+#define RXS_EM_INT_STAT_EXTERNAL_I2C                 ((uint32_t)0x00800000)
+#define RXS_EM_INT_STAT_EXTERNAL_AEC                 ((uint32_t)0x00400000)
+#define RXS_EM_INT_STAT_EXTERNAL_PHY_MEM             ((uint32_t)0x00200000)
+#define RXS_EM_INT_STAT_EXTERNAL_PVT_SNSR            ((uint32_t)0x00100000)
 #define RXS_EM_INT_STAT_MECS                         ((uint32_t)0x04000000)
 #define RXS_EM_INT_STAT_RCS                          ((uint32_t)0x08000000)
 #define RXS_EM_INT_STAT_LOG                          ((uint32_t)0x10000000)
@@ -1852,6 +1883,10 @@ extern "C" {
 #define RXS_EM_PW_EN_BOOT_MEM_UNCOR                  ((uint32_t)0x00004000)
 #define RXS_EM_PW_EN_BOOT_MEM_COR                    ((uint32_t)0x00008000)
 #define RXS_EM_PW_EN_EXTERNAL                        ((uint32_t)0x00fe0000)
+#define RXS_EM_PW_STAT_EXTERNAL_I2C                  ((uint32_t)0x00800000)
+#define RXS_EM_PW_STAT_EXTERNAL_AEC                  ((uint32_t)0x00400000)
+#define RXS_EM_PW_STAT_EXTERNAL_PHY_MEM              ((uint32_t)0x00200000)
+#define RXS_EM_PW_STAT_EXTERNAL_PVT_SNSR             ((uint32_t)0x00100000)
 #define RXS_EM_PW_EN_LOG                             ((uint32_t)0x10000000)
 #define RXS_EM_PW_EN_FAB                             ((uint32_t)0x40000000)
 

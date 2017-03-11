@@ -252,19 +252,25 @@ void rio_sc_other_if_names_test(void **state)
 	const char *name;
 	unsigned int i;
 	uint32_t IDT_switches[] = {
+#ifdef CPS_DAR_WANTED
 		((uint32_t)RIO_DEVI_IDT_CPS1848 << 16) + RIO_VEND_IDT,
 		((uint32_t)RIO_DEVI_IDT_CPS1432 << 16) + RIO_VEND_IDT,
 		((uint32_t)RIO_DEVI_IDT_CPS1616 << 16) + RIO_VEND_IDT,
 		((uint32_t)RIO_DEVI_IDT_SPS1616 << 16) + RIO_VEND_IDT,
+#endif
+#ifdef RXSx_DAR_WANTED
 		((uint32_t)RIO_DEVI_IDT_RXS2448 << 16) + RIO_VEND_IDT,
 		((uint32_t)RIO_DEVI_IDT_RXS1632 << 16) + RIO_VEND_IDT
+#endif
 	};
+#ifdef TSI57X_DAR_WANTED
 	uint32_t Tun_switches[] = {
 		((uint32_t)RIO_DEVI_TSI572 << 16) + RIO_VEND_TUNDRA,
 		((uint32_t)RIO_DEVI_TSI574 << 16) + RIO_VEND_TUNDRA,
 		((uint32_t)RIO_DEVI_TSI577 << 16) + RIO_VEND_TUNDRA,
 		((uint32_t)RIO_DEVI_TSI578 << 16) + RIO_VEND_TUNDRA
 	};
+#endif
 
 	test_setup();
 
@@ -286,11 +292,13 @@ void rio_sc_other_if_names_test(void **state)
 			rio_sc_other_if_names(&mock_dev_info, &name));
 	assert_string_equal(sc_other_if_names_UNKNOWN, name);
 	
+#ifdef TSI721_DAR_WANTED
 	mock_dev_info.devID = (RIO_DEVI_IDT_TSI721 << 16) + RIO_VEND_IDT;
 	mock_dev_info.driver_family = RIO_UNITIALIZED_DEVICE;
 	assert_int_equal(RIO_SUCCESS,
 			rio_sc_other_if_names(&mock_dev_info, &name));
 	assert_string_equal(sc_other_if_names_PCIe, name);
+#endif
 	
 	for (i = 0; i < sizeof(IDT_switches)/sizeof(IDT_switches[0]); i++) {
 		mock_dev_info.devID = IDT_switches[i];
@@ -300,6 +308,7 @@ void rio_sc_other_if_names_test(void **state)
 		assert_string_equal(sc_other_if_names_FABRIC, name);
 	}
 	
+#ifdef TSI57X_DAR_WANTED
 	for (i = 0; i < sizeof(Tun_switches)/sizeof(Tun_switches[0]); i++) {
 		mock_dev_info.devID = Tun_switches[i];
 		mock_dev_info.driver_family = RIO_UNITIALIZED_DEVICE;
@@ -307,6 +316,7 @@ void rio_sc_other_if_names_test(void **state)
 			rio_sc_other_if_names(&mock_dev_info, &name));
 		assert_string_equal(sc_other_if_names_Invalid, name);
 	}
+#endif
 
 	(void)state; // unused
 }

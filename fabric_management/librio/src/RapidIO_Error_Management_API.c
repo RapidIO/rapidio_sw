@@ -274,7 +274,7 @@ uint32_t rio_em_cfg_set(DAR_DEV_INFO_t *dev_info, rio_em_cfg_set_in_t *in_parms,
 		case RIO_CPS_DEVICE:
 			return CPS_rio_em_cfg_set(dev_info, in_parms, out_parms);
 		case RIO_RXS_DEVICE:
-			return DSF_rio_em_cfg_set(dev_info, in_parms, out_parms);
+			return rxs_rio_em_cfg_set(dev_info, in_parms, out_parms);
 		case RIO_TSI721_DEVICE:
 			return tsi721_rio_em_cfg_set(dev_info, in_parms,
 					out_parms);
@@ -303,7 +303,7 @@ uint32_t rio_em_cfg_get(DAR_DEV_INFO_t *dev_info, rio_em_cfg_get_in_t *in_parms,
 		case RIO_CPS_DEVICE:
 			return CPS_rio_em_cfg_get(dev_info, in_parms, out_parms);
 		case RIO_RXS_DEVICE:
-			return DSF_rio_em_cfg_get(dev_info, in_parms, out_parms);
+			return rxs_rio_em_cfg_get(dev_info, in_parms, out_parms);
 		case RIO_TSI721_DEVICE:
 			return tsi721_rio_em_cfg_get(dev_info, in_parms,
 					out_parms);
@@ -374,7 +374,7 @@ uint32_t rio_em_parse_pw(DAR_DEV_INFO_t *dev_info,
 			return CPS_rio_em_parse_pw(dev_info, in_parms,
 					out_parms);
 		case RIO_RXS_DEVICE:
-			return DSF_rio_em_parse_pw(dev_info, in_parms,
+			return rxs_rio_em_parse_pw(dev_info, in_parms,
 					out_parms);
 		case RIO_TSI721_DEVICE:
 			return tsi721_rio_em_parse_pw(dev_info, in_parms,
@@ -407,7 +407,7 @@ uint32_t rio_em_get_int_stat(DAR_DEV_INFO_t *dev_info,
 			return CPS_rio_em_get_int_stat(dev_info, in_parms,
 					out_parms);
 		case RIO_RXS_DEVICE:
-			return DSF_rio_em_get_int_stat(dev_info, in_parms,
+			return rxs_rio_em_get_int_stat(dev_info, in_parms,
 					out_parms);
 		case RIO_TSI721_DEVICE:
 			return tsi721_rio_em_get_int_stat(dev_info, in_parms,
@@ -440,7 +440,7 @@ uint32_t rio_em_get_pw_stat(DAR_DEV_INFO_t *dev_info,
 			return CPS_rio_em_get_pw_stat(dev_info, in_parms,
 					out_parms);
 		case RIO_RXS_DEVICE:
-			return DSF_rio_em_get_pw_stat(dev_info, in_parms,
+			return rxs_rio_em_get_pw_stat(dev_info, in_parms,
 					out_parms);
 		case RIO_TSI721_DEVICE:
 			return tsi721_rio_em_get_pw_stat(dev_info, in_parms,
@@ -476,7 +476,7 @@ uint32_t rio_em_clr_events(DAR_DEV_INFO_t *dev_info,
 			return CPS_rio_em_clr_events(dev_info, in_parms,
 					out_parms);
 		case RIO_RXS_DEVICE:
-			return DSF_rio_em_clr_events(dev_info, in_parms,
+			return rxs_rio_em_clr_events(dev_info, in_parms,
 					out_parms);
 		case RIO_TSI721_DEVICE:
 			return tsi721_rio_em_clr_events(dev_info, in_parms,
@@ -509,7 +509,7 @@ uint32_t rio_em_create_events(DAR_DEV_INFO_t *dev_info,
 			return CPS_rio_em_create_events(dev_info, in_parms,
 					out_parms);
 		case RIO_RXS_DEVICE:
-			return DSF_rio_em_create_events(dev_info, in_parms,
+			return rxs_rio_em_create_events(dev_info, in_parms,
 					out_parms);
 		case RIO_TSI721_DEVICE:
 			return tsi721_rio_em_create_events(dev_info, in_parms,

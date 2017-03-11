@@ -736,6 +736,7 @@ static uint32_t rxs_check_for_discard(DAR_DEV_INFO_t *dev_info,
 	}
 
 	// Must be a multicast mask...
+	// Check each port to see if it will discard packets...
 	for (port = 0; port < NUM_RXS_PORTS(dev_info); port++) {
 		if (port == in_parms->probe_on_port) {
 			continue;
@@ -744,11 +745,25 @@ static uint32_t rxs_check_for_discard(DAR_DEV_INFO_t *dev_info,
 			continue;
 		}
 
+		out_parms->valid_route = true;
 		rc = rxs_check_port_for_discard(dev_info, out_parms,
 						port, false);
-		if (rc || !out_parms->valid_route) {
+		if (rc) {
 			break;
 		}
+		if (!out_parms->valid_route) {
+			out_parms->mcast_ports[port] = false;
+		}
+	}
+
+	// Then check to see if any ports remain set...
+	out_parms->valid_route = false;
+	for (port = 0; port < NUM_RXS_PORTS(dev_info); port++) {
+		if (!out_parms->mcast_ports[port]) {
+			continue;
+		}
+		out_parms->valid_route = true;
+		break;
 	}
 	return rc;
 }

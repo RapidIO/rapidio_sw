@@ -912,7 +912,7 @@ static void rxs_chk_and_corr_rtv_success_test_x(uint32_t imp_spec)
 		}
 	}
 }
-	
+
 static void rxs_chk_and_corr_rtv_success_test(void **state)
 {
 	uint64_t imp_spec;
@@ -1328,7 +1328,7 @@ static void rxs_change_rte_rt_test_success_val(rio_port_t port,
 	} else {
 		rte = &rt.dev_table[idx];
 	}
-	
+
 	// Verify that the entry has been changed (or not) as appropriate
 	if (RIO_RTE_DROP == new_val) {
 		assert_int_equal(rte->rte_val, RIO_RTE_DROP);
@@ -3677,6 +3677,92 @@ static void rxs_rio_rt_probe_discard_pt_fail_test(void **state)
 	(void)state;
 }
 
+static void rxs_rio_rt_probe_discard_mc_fail_test(void **state)
+{
+	rio_rt_initialize_in_t init_in;
+	rio_rt_initialize_out_t init_out;
+	rio_rt_probe_in_t pr_in;
+	rio_rt_probe_out_t pr_out;
+	rio_rt_alloc_mc_mask_in_t alloc_in;
+	rio_rt_alloc_mc_mask_out_t alloc_out;
+	rio_rt_change_mc_mask_in_t mc_chg_in;
+	rio_rt_change_mc_mask_out_t mc_chg_out;
+	rio_rt_state_t rt;
+	uint32_t mc_mask;
+	rio_port_t port;
+	rio_port_t test;
+
+	// Initialize routing table
+	init_in.set_on_port = 0;
+	init_in.default_route = RIO_RTE_DROP;
+	init_in.default_route_table_port = RIO_RTE_DROP;
+	init_in.update_hw = false;
+	init_in.rt = &rt;
+	memset(&rt, 0, sizeof(rt));
+
+	assert_int_equal(RIO_SUCCESS,
+		rxs_rio_rt_initialize(&mock_dev_info, &init_in, &init_out));
+	assert_int_equal(RIO_SUCCESS, init_out.imp_rc);
+
+	// Allocate multicast mask
+	alloc_in.rt = &rt;
+	assert_int_equal(RIO_SUCCESS,
+		rio_rt_alloc_mc_mask(&mock_dev_info, &alloc_in, &alloc_out));
+	assert_int_equal(0, alloc_out.imp_rc);
+
+	// Multicast mask has all bits set.
+	mc_mask = (1 << NUM_RXS_PORTS(&mock_dev_info)) - 1;
+
+	// Modify dev8 routing table entry 1 to
+	// use the multicast mask, and set multicast mask
+	mc_chg_in.mc_mask_rte = alloc_out.mc_mask_rte;
+	mc_chg_in.mc_info.in_use = true;
+	mc_chg_in.mc_info.tt = tt_dev8;
+	mc_chg_in.mc_info.mc_destID = 1;
+	mc_chg_in.mc_info.mc_mask = mc_mask;
+	mc_chg_in.rt = &rt;
+	assert_int_equal(RIO_SUCCESS,
+		rxs_rio_rt_change_mc_mask(&mock_dev_info,
+						&mc_chg_in, &mc_chg_out));
+	assert_int_equal(0, mc_chg_out.imp_rc);
+
+	// By default, all ports are powered down and unavailable.
+	// Set each port to perfect, and confirm that the port is available
+	// in the reported multicast mask.
+	for (port = 0; port < NUM_RXS_PORTS(&mock_dev_info); port++) {
+		// Set port to perfect
+		set_all_port_config(cfg_perfect, NO_TTL, NO_FILT, port);
+
+		// Successful probe port
+		pr_in.probe_on_port = RIO_ALL_PORTS;
+		pr_in.tt = tt_dev8;
+		pr_in.destID = 1;
+		pr_in.rt = &rt;
+		pr_out.imp_rc = RIO_SUCCESS;
+
+		assert_int_equal(RIO_SUCCESS,
+			rxs_rio_rt_probe(&mock_dev_info, &pr_in, &pr_out));
+		assert_int_equal(RIO_SUCCESS, pr_out.imp_rc);
+
+		assert_true(pr_out.valid_route);
+		assert_int_equal(pr_out.routing_table_value, alloc_out.mc_mask_rte);
+		assert_false(pr_out.filter_function_active);
+		assert_false(pr_out.trace_function_active);
+		assert_false(pr_out.time_to_live_active);
+
+		// Check that all ports up to the current one are present
+		for (test = 0; test < NUM_RXS_PORTS(&mock_dev_info); test++) {
+			if (test <= port) {
+				assert_true(pr_out.mcast_ports[test]);
+			} else {
+				assert_false(pr_out.mcast_ports[test]);
+			}
+		}
+	}
+
+	(void)state;
+}
+
 int main(int argc, char** argv)
 {
 	const struct CMUnitTest tests[] = {
@@ -3835,6 +3921,10 @@ int main(int argc, char** argv)
 					NULL),
 			cmocka_unit_test_setup_teardown(
 					rxs_rio_rt_probe_discard_pt_fail_test,
+					setup,
+					NULL),
+			cmocka_unit_test_setup_teardown(
+					rxs_rio_rt_probe_discard_mc_fail_test,
 					setup,
 					NULL),
 			cmocka_unit_test_setup_teardown(
