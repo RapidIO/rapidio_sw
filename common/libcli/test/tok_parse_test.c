@@ -3744,7 +3744,7 @@ static void tok_parse_s_nan_test(void **state)
 
 static void tok_parse_did_test(void **state)
 {
-	uint32_t value;
+	did_val_t value;
 	char buf[128];
 	int rc;
 
@@ -3772,7 +3772,7 @@ static void tok_parse_did_test(void **state)
 
 static void tok_parse_ct_test(void **state)
 {
-	uint32_t value;
+	ct_t value;
 	char buf[128];
 	int rc;
 
@@ -3800,7 +3800,7 @@ static void tok_parse_ct_test(void **state)
 
 static void tok_parse_hc_test(void **state)
 {
-	uint8_t value;
+	hc_t value;
 	char buf[128];
 	int rc;
 

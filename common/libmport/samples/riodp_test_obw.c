@@ -101,7 +101,7 @@ struct dma_async_wait_param {
 #define DEFAULT_IBWIN_SIZE (2 * 1024 * 1024)
 
 static riomp_mport_t mport_hnd;
-static did_val_t tgt_destid = 0;
+static did_val_t tgt_did_val = 0;
 static uint64_t tgt_addr;
 static uint32_t offset = 0;
 static uint16_t align = 0;
@@ -411,7 +411,7 @@ int do_obwin_test(int random, int verify, int loop_count)
 	}
 
 	/** * Request outbound window mapped to the specified target RapidIO device */
-	ret = riomp_dma_obwin_map(mport_hnd, tgt_destid, tgt_addr, tbuf_size,
+	ret = riomp_dma_obwin_map(mport_hnd, tgt_did_val, tgt_addr, tbuf_size,
 			&obw_handle);
 	if (ret) {
 		printf("riomp_dma_obwin_map failed err=%d\n", ret);
@@ -630,7 +630,7 @@ int main(int argc, char** argv)
 			}
 			break;
 		case 'D':
-			if (tok_parse_did(optarg, &tgt_destid, 0)) {
+			if (tok_parse_did(optarg, &tgt_did_val, 0)) {
 				printf(TOK_ERR_DID_MSG_FMT);
 				exit(EXIT_FAILURE);
 			}
@@ -758,7 +758,7 @@ int main(int argc, char** argv)
 	} else {
 		printf("+++ RapidIO Outbound Window Mapping Test +++\n");
 		printf("\tmport%d destID=%d rio_addr=0x%llx repeat=%d PID:%d\n",
-				mport_id, tgt_destid,
+				mport_id, tgt_did_val,
 				(unsigned long long)tgt_addr, repeat,
 				(int)getpid());
 		printf("\tbuf_size=0x%x\n", tbuf_size);

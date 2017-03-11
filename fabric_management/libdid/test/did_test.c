@@ -80,7 +80,7 @@ static void assumptions(void **state)
 			sizeof(did_ids) / sizeof(did_ids[0]));
 	assert_int_equal(0, did_ids[0]);
 	assert_int_equal(0, did_ids[100]);
-	assert_int_equal(0, did_ids[RIO_LAST_DEV16]);
+	assert_int_equal(0, did_ids[RIO_LAST_DEV16 - 1]);
 
 	(void)state; // unused
 }
@@ -450,17 +450,17 @@ static void did_get_test(void **state)
 	assert_int_equal(-EINVAL, did_get(&did, 0));
 	assert_int_equal(0, did_invalid(did));
 
-	// 255 is a valid request
+	// 255 is an invalid request
 	did.value = 0x12;
 	did.size = dev16_sz;
-	assert_int_equal(0, did_get(&did, RIO_LAST_DEV8));
-	assert_int_equal(0, did_match(did, RIO_LAST_DEV8, dev08_sz));
+	assert_int_equal(-EINVAL, did_get(&did, RIO_LAST_DEV8));
+	assert_int_equal(0, did_invalid(did));
 
-	// 0xffff is a valid request
+	// 0xffff is an invalid request
 	did.value = 0x12;
 	did.size = dev16_sz;
-	assert_int_equal(0, did_get(&did, RIO_LAST_DEV16));
-	assert_int_equal(0, did_match(did, RIO_LAST_DEV16, dev16_sz));
+	assert_int_equal(-EINVAL, did_get(&did, RIO_LAST_DEV16));
+	assert_int_equal(0, did_invalid(did));
 
 	// value out of range
 	did.value = 0x12;
@@ -575,20 +575,20 @@ static void did_from_value_test(void **state)
 	// 255 is reserved
 	did.value = 0x12;
 	did.size = dev32_sz;
-	assert_int_equal(0, did_from_value(&did, 0xff, 0));
-	assert_int_equal(0, did_match(did, 0xff, dev08_sz));
+	assert_int_equal(-EINVAL, did_from_value(&did, 0xff, 0));
+	assert_int_equal(0, did_invalid(did));
 	assert_int_equal(1, did_idx);
 
 	did.value = 0x12;
 	did.size = dev32_sz;
-	assert_int_equal(0, did_from_value(&did, 0xff, 1));
-	assert_int_equal(0, did_match(did, 0xff, dev08_sz));
+	assert_int_equal(-EINVAL, did_from_value(&did, 0xff, 1));
+	assert_int_equal(0, did_invalid(did));
 	assert_int_equal(1, did_idx);
 
 	for (idx = 2; idx < 10; idx++) {
 		did.value = 0x12;
 		did.size = dev32_sz;
-		assert_int_equal(-EPERM, did_from_value(&did, 0xff, idx));
+		assert_int_equal(-EINVAL, did_from_value(&did, 0xff, idx));
 		assert_int_equal(0, did_invalid(did));
 		assert_int_equal(1, did_idx);
 	}
@@ -602,8 +602,8 @@ static void did_from_value_test(void **state)
 
 	did.value = 0x12;
 	did.size = dev32_sz;
-	assert_int_equal(0, did_from_value(&did, 0xffff, 1));
-	assert_int_equal(0, did_match(did, 0xffff, dev16_sz));
+	assert_int_equal(-EINVAL, did_from_value(&did, 0xffff, 1));
+	assert_int_equal(0, did_invalid(did));
 	assert_int_equal(1, did_idx);
 
 	for (idx = 2; idx < 10; idx++) {

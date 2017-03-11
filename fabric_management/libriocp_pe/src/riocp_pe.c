@@ -303,9 +303,10 @@ static int riocp_pe_create_mport_handle(riocp_pe_handle *handle,
 	}
 
 	if (is_host) {
-		if (riocp_pe_lock_clear(pe, ANY_ID, 0)) {
+		if (riocp_pe_lock_clear(pe, DID_ANY_DEV8_ID, 0)) {
 			return -EAGAIN;
 		}
+
 		if (riocp_enable_pe(pe, RIOCP_PE_ANY_PORT)) {
 			return -ENOTSUP;
 		}
@@ -362,15 +363,16 @@ int RIOCP_SO_ATTR riocp_pe_create_agent_handle(riocp_pe_handle *handle,
  * @param port Port number of target PE to traverse and discover
  * @param peer Pointer to riocp_pe_handle
  */
-int RIOCP_SO_ATTR riocp_pe_discover(riocp_pe_handle pe,
-	uint8_t port,
-	riocp_pe_handle *peer, char *name)
+int RIOCP_SO_ATTR riocp_pe_discover(riocp_pe_handle pe, uint8_t port,
+		riocp_pe_handle *peer, char *name)
 {
 	struct riocp_pe *p = NULL;
 	hc_t hopcount;
 	ct_t comptag = 0;
-	uint32_t destid;
-	unsigned int i;
+	did_t did;
+	did_t tmp_did;
+	did_val_t did_val;
+	did_val_t upb;
 	pe_rt_val _port = 0;
 	int ret;
 	ct_t comptag_in = 0;
@@ -381,12 +383,16 @@ int RIOCP_SO_ATTR riocp_pe_discover(riocp_pe_handle pe,
 		RIOCP_ERROR("invalid handle\n");
 		return -EINVAL;
 	}
-	if (riocp_pe_handle_check(pe))
+
+	if (riocp_pe_handle_check(pe)) {
 		return -EINVAL;
+	}
+
 	if (port >= RIOCP_PE_PORT_COUNT(pe->cap)) {
 		RIOCP_ERROR("invalid port count\n");
 		return -EINVAL;
 	}
+
 	if (RIOCP_PE_IS_SWITCH(pe->cap)) {
 		ret = riocp_pe_is_port_active(pe, port);
 		if (ret < 0) {
@@ -399,9 +405,10 @@ int RIOCP_SO_ATTR riocp_pe_discover(riocp_pe_handle pe,
 		}
 	}
 
-	destid = ANY_ID;
-	if (RIOCP_PE_IS_MPORT(pe))
+	did = DID_ANY_DEV8_ID;
+	if (RIOCP_PE_IS_MPORT(pe)) {
 		goto found;
+	}
 
 	/* Check if the handle is already present */
 	if (pe->peers != NULL && pe->peers[port].peer != NULL) {
@@ -409,43 +416,51 @@ int RIOCP_SO_ATTR riocp_pe_discover(riocp_pe_handle pe,
 		*peer = p;
 
 		RIOCP_DEBUG("Found handle already in peers: %p\n", *peer);
-
 		return 0;
 	}
 
-	if (!RIOCP_PE_IS_SWITCH(pe->cap))
+	if (!RIOCP_PE_IS_SWITCH(pe->cap)) {
 		goto found;
+	}
 
 	/* Lock */
 	ret = riocp_pe_lock(pe, 0);
 	if (ret) {
 		RIOCP_ERROR("Unable to lock pe 0x%08x (hc %u, addr: %s)\n",
-			pe->comptag, pe->hopcount, riocp_pe_handle_addr_ntoa(pe->address, pe->hopcount));
+				pe->comptag, pe->hopcount,
+				riocp_pe_handle_addr_ntoa(pe->address,
+						pe->hopcount));
 		return -EAGAIN;
 	}
 
 	/* Search for route behind port in switch LUT */
-	for (i = 0; i < (ANY_ID - 1); i++) {
-		ret = riocp_drv_get_route_entry(pe, 0xff, i, &_port);
+	upb = did_get_value(DID_ANY_DEV8_ID) - 1;
+	for (did_val = 0; did_val < upb; did_val++) {
+		if (did_get(&tmp_did, did_val)) {
+			continue;
+		}
+
+		ret = riocp_drv_get_route_entry(pe, 0xff, tmp_did, &_port);
 		if (ret) {
-			RIOCP_ERROR("Unable to get switch route for destid %u\n", i);
+			RIOCP_ERROR(
+					"Unable to get switch route for destid %u\n",
+					did_val);
 			goto err;
 		}
 
 		if (_port != 0xff) {
 			if (port == _port) {
-				destid = i;
+				did = tmp_did;
 				goto found_unlock_pe;
 			}
 		}
 	}
 
-	RIOCP_WARN("No route on port %d of PE with comptag 0x%08x\n", port, pe->comptag);
-
+	RIOCP_WARN("No route on port %d of PE with comptag 0x%08x\n", port,
+			pe->comptag);
 	return -ENODEV;
 
 found_unlock_pe:
-
 	ret = riocp_pe_unlock(pe);
 	if (ret) {
 		RIOCP_ERROR("Unable to unlock pe 0x%08x\n", pe->comptag);
@@ -453,21 +468,25 @@ found_unlock_pe:
 	}
 
 found:
-	RIOCP_TRACE("Found peer d: %u (0x%08x) -> Port %d\n", destid, destid, _port);
+	did_val = did_get_value(did);
+	RIOCP_TRACE("Found peer d: %u (0x%08x) -> Port %d\n", did_val, did_val,
+			_port);
 
 	// initialize the hopcount
 	HC_INCR(hopcount, pe->hopcount);
 
 	/* Read comptag */
-	ret = riocp_drv_raw_reg_rd(pe->mport, destid,
-		hopcount, RIO_COMPTAG, &comptag);
+	ret = riocp_drv_raw_reg_rd(pe->mport, did, hopcount, RIO_COMPTAG,
+			&comptag);
 	if (ret) {
-		RIOCP_ERROR("Found not working route d: %u, h: %u\n", destid, hopcount);
+		RIOCP_ERROR("Found not working route d: %u, h: %u\n", did_val,
+				hopcount);
 		return -EIO;
 	}
 
-	RIOCP_DEBUG("Working route on port %u to peer(d: %u (0x%08x), hc: %u, ct 0x%08x\n",
-		port, destid, destid, hopcount, comptag);
+	RIOCP_DEBUG(
+			"Working route on port %u to peer(d: %u (0x%08x), hc: %u, ct 0x%08x\n",
+			port, did_val, did_val, hopcount, comptag);
 
 	if (COMPTAG_UNSET == comptag) {
 		RIOCP_TRACE("PE found, comptag is not set\n");
@@ -478,20 +497,25 @@ found:
 	ret = riocp_pe_handle_pe_exists(pe->mport, comptag, &p);
 	if (ret == 0) {
 		/* Create new handle */
-		ret = riocp_pe_handle_create_pe(pe, &p, hopcount, destid, port, &comptag_in, name);
+		ret = riocp_pe_handle_create_pe(pe, &p, hopcount, did, port,
+				&comptag_in, name);
 		if (ret) {
-			RIOCP_ERROR("Could not create handle on port %d of ct 0x%08x:%s\n",
-				port, pe->comptag, strerror(-ret));
+			RIOCP_ERROR(
+					"Could not create handle on port %d of ct 0x%08x:%s\n",
+					port, pe->comptag, strerror(-ret));
 			return -ENOMEM;
 		}
 		RIOCP_DEBUG("Created new agent handle %p for PE with comptag"
-				" 0x%08x, destid 0x%08x\n", p,
-				p->comptag, p->destid);
+				" 0x%08x, destid 0x%08x\n", p, p->comptag,
+				did_val);
 	} else if (ret == 1) {
-		RIOCP_DEBUG("FOUND existing peer hop %d, port %d, didvid 0x%08x, devinfo 0x%08x, comptag 0x%08x\n",
-			p->hopcount, port, p->cap.dev_id, p->cap.dev_info, p->comptag);
+		RIOCP_DEBUG(
+				"FOUND existing peer hop %d, port %d, didvid 0x%08x, devinfo 0x%08x, comptag 0x%08x\n",
+				p->hopcount, port, p->cap.dev_id,
+				p->cap.dev_info, p->comptag);
 	} else {
-		RIOCP_ERROR("Error in checking if handle exists ret = %d (%s)", ret, strerror(-ret));
+		RIOCP_ERROR("Error in checking if handle exists ret = %d (%s)",
+				ret, strerror(-ret));
 		return -EIO;
 	}
 
@@ -599,7 +623,7 @@ int RIOCP_SO_ATTR riocp_pe_probe(riocp_pe_handle pe,
 
 	*temp_p = *pe;
 	temp_p->hopcount = hopcount;
-	temp_p->destid = ANY_ID;
+	temp_p->did_reg_val = did_get_value(DID_ANY_DEV8_ID);
 	temp_p->address = NULL;
 	temp_p->mport = pe->mport;
 	temp_p->minfo = NULL;
@@ -608,13 +632,13 @@ int RIOCP_SO_ATTR riocp_pe_probe(riocp_pe_handle pe,
 	temp_p->private_data = NULL;
 
 	/* Read component tag on peer */
-	ret = riocp_drv_raw_reg_rd(temp_p, ANY_ID, hopcount,
+	ret = riocp_drv_raw_reg_rd(temp_p, DID_ANY_DEV8_ID, hopcount,
 					RIO_COMPTAG, &comptag);
 	if (ret) {
-		/* TODO try second time when failed, the ANY_ID route seems to be programmed correctly
+		/* TODO try second time when failed, the DID_ANY_DEV8_ID route seems to be programmed correctly
 			at this point but the route was not working previous read */
 		RIOCP_WARN("Trying reading again component tag on h: %u\n", hopcount);
-		ret = riocp_drv_raw_reg_rd(temp_p, ANY_ID, hopcount, 
+		ret = riocp_drv_raw_reg_rd(temp_p, DID_ANY_DEV8_ID, hopcount,
 					RIO_COMPTAG, &comptag);
 		if (ret) {
 			RIOCP_ERROR("Retry read comptag failed on h: %u\n", hopcount);
@@ -635,7 +659,7 @@ int RIOCP_SO_ATTR riocp_pe_probe(riocp_pe_handle pe,
         // see an old component tag value.
 	if (force_ct && (*comptag_in != comptag)) {
 		comptag = *comptag_in;
-		ret = riocp_drv_raw_reg_wr(temp_p, ANY_ID, hopcount,
+		ret = riocp_drv_raw_reg_wr(temp_p, DID_ANY_DEV8_ID, hopcount,
 				RIO_COMPTAG, comptag);
 		if (ret) {
 			RIOCP_ERROR("Update comptag failed on h: %u\n",
@@ -686,7 +710,7 @@ int RIOCP_SO_ATTR riocp_pe_probe(riocp_pe_handle pe,
 			goto err;
 		}
 		
-		ret = riocp_pe_lock_clear(pe->mport, ANY_ID, hopcount);
+		ret = riocp_pe_lock_clear(pe->mport, DID_ANY_DEV8_ID, hopcount);
 		if (ret) {
 			RIOCP_ERROR(
 			"Failed lock clear, new PE CT 0x%08x on port %d, %s\n",
@@ -695,8 +719,8 @@ int RIOCP_SO_ATTR riocp_pe_probe(riocp_pe_handle pe,
 		}
 
 		// Create peer handle using new component tag
-		ret = riocp_pe_handle_create_pe(pe, &p, hopcount, ANY_ID, port,
-				comptag_in, name);
+		ret = riocp_pe_handle_create_pe(pe, &p, hopcount,
+				DID_ANY_DEV8_ID, port, comptag_in, name);
 		if (ret) {
 			RIOCP_ERROR(
 			"Create peer failed for ct 0x%08x on port %d, %s\n",
@@ -717,8 +741,8 @@ int RIOCP_SO_ATTR riocp_pe_probe(riocp_pe_handle pe,
 			p->comptag);
 
 		if (RIOCP_PE_IS_SWITCH(p->cap)) {
-			ret = riocp_drv_raw_reg_rd(p, ANY_ID, hopcount,
-							RIO_SW_PORT_INF, &val);
+			ret = riocp_drv_raw_reg_rd(p, DID_ANY_DEV8_ID, hopcount,
+					RIO_SW_PORT_INF, &val);
 			if (ret) {
 				RIOCP_ERROR("Could not read switch port info CAR at hc %u\n", hopcount);
 				goto err;
@@ -746,8 +770,10 @@ err:
 	if (ret) {
 		RIOCP_ERROR("Error in unset_anyid_route for peer\n");
 	}
+
 err_out:
-	ret = riocp_pe_lock_clear(pe->mport, pe->destid, pe->hopcount);
+	did_get(&did, pe->did_reg_val);
+	ret = riocp_pe_lock_clear(pe->mport, did, pe->hopcount);
 	if (ret) {
 		RIOCP_ERROR("Could not clear lock on PE\n");
 		return -EIO;
@@ -1034,6 +1060,7 @@ int RIOCP_SO_ATTR riocp_pe_get_ports(riocp_pe_handle pe, struct riocp_pe_port po
 int RIOCP_SO_ATTR riocp_pe_lock(riocp_pe_handle pe, int flags)
 {
 	uint32_t lock;
+	did_t did;
 
 	/* Handle checks */
 	if (riocp_pe_handle_check(pe))
@@ -1046,34 +1073,43 @@ int RIOCP_SO_ATTR riocp_pe_lock(riocp_pe_handle pe, int flags)
 
 	lock = lock & RIO_HOST_LOCK_BASE_ID_MASK;
 
-	RIOCP_DEBUG("[ct: 0x%08x] current lock: 0x%08x (pe->mport->destid: 0x%08x)\n",
-		pe->comptag, lock, pe->mport->destid);
+	RIOCP_DEBUG("[ct: 0x%08x] current lock: 0x%08x (pe->mport->did_reg_val: 0x%08x)\n",
+		pe->comptag, lock, pe->mport->did_reg_val);
 
-	if (lock == pe->mport->destid)
+	if (lock == pe->mport->did_reg_val)
 		return 0;
 
 	/* Check lock flags */
+	did_get(&did, pe->did_reg_val);
 	if (flags == 0) {
-		if (lock != RIO_HOST_LOCK_BASE_ID_MASK)
+		if (lock != RIO_HOST_LOCK_BASE_ID_MASK) {
 			return -EAGAIN;
-		if (riocp_pe_lock_write(pe, pe->destid, pe->hopcount, pe->mport->destid))
+		}
+		if (riocp_pe_lock_write(pe, did, pe->hopcount,
+				pe->mport->did_reg_val)) {
 			return -EIO;
+		}
 	} else if (flags == RIOCP_PE_FLAG_FORCE) {
 		/* Force unlock old lock, the lock with our own destid, when old lock is same
-			as mask, dont unlock old lock. See TSI578 errata 0xffff may lock the PE. */
+		 as mask, dont unlock old lock. See TSI578 errata 0xffff may lock the PE. */
 		if (lock != RIO_HOST_LOCK_BASE_ID_MASK) {
-			if (riocp_pe_lock_write(pe, pe->destid, pe->hopcount, lock))
+			if (riocp_pe_lock_write(pe, did, pe->hopcount, lock)) {
 				return -EIO;
+			}
 		}
-		if (riocp_pe_lock_write(pe, pe->destid, pe->hopcount, pe->mport->destid))
+		if (riocp_pe_lock_write(pe, did, pe->hopcount,
+				pe->mport->did_reg_val)) {
 			return -EIO;
+		}
 	}
 
 	/* Verify the lock is set */
-	if (riocp_pe_lock_read(pe, pe->destid, pe->hopcount, &lock))
+	if (riocp_pe_lock_read(pe, did, pe->hopcount, &lock)) {
 		return -EIO;
-	if (lock != pe->mport->destid)
+	}
+	if (lock != pe->mport->did_reg_val) {
 		return -EAGAIN;
+	}
 
 	return 0;
 }
@@ -1090,20 +1126,24 @@ int RIOCP_SO_ATTR riocp_pe_lock(riocp_pe_handle pe, int flags)
  */
 int RIOCP_SO_ATTR riocp_pe_unlock(riocp_pe_handle pe)
 {
+	did_t did;
 	uint32_t lock;
 
-	if (riocp_pe_handle_check(pe))
+	if (riocp_pe_handle_check(pe)) {
 		return -EINVAL;
+	}
 
 	/* Read lock, to program the anyid route for host handles */
-	if (riocp_pe_maint_read(pe, RIO_HOST_LOCK, &lock))
+	if (riocp_pe_maint_read(pe, RIO_HOST_LOCK, &lock)) {
 		return -EIO;
+	}
 
 	RIOCP_DEBUG("[ct: 0x%08x] current lock: 0x%08x\n", pe->comptag, lock);
 
-	if (riocp_pe_lock_clear(pe->mport, pe->destid, pe->hopcount))
+	did_get(&did, pe->did_reg_val);
+	if (riocp_pe_lock_clear(pe->mport, did, pe->hopcount)) {
 		return -EIO;
-
+	}
 	return 0;
 }
 
@@ -1112,27 +1152,33 @@ int RIOCP_SO_ATTR riocp_pe_unlock(riocp_pe_handle pe)
  *  Device ID CSR. Note that a different register is used for 8 bit, 16 bit and
  *  32 bit IDs; the correct register is chosen based on the common transport
  *  size of the host.
- * @param pe     Target PE
- * @param destid Destination ID
+ * @param pe   Target PE
+ * @param did  Destination ID
  */
-int RIOCP_SO_ATTR riocp_pe_get_destid(riocp_pe_handle pe,
-	uint32_t *destid)
+int RIOCP_SO_ATTR riocp_pe_get_destid(riocp_pe_handle pe, did_t *did)
 {
-	uint32_t _destid;
+	uint32_t reg_val;
 
-	if (destid == NULL)
+	if (did == NULL) {
 		return -EINVAL;
-	if (riocp_pe_handle_check(pe))
+	}
+
+	if (riocp_pe_handle_check(pe)) {
 		return -EINVAL;
-	if (RIOCP_PE_IS_SWITCH(pe->cap) && !RIOCP_PE_IS_MPORT(pe))
+	}
+
+	if (RIOCP_PE_IS_SWITCH(pe->cap) && !RIOCP_PE_IS_MPORT(pe)) {
 		return -ENOSYS;
-	if (riocp_pe_maint_read(pe, RIO_DEVID, &_destid))
+	}
+
+	if (riocp_pe_maint_read(pe, RIO_DEVID, &reg_val)) {
 		return -EIO;
+	}
 
-	*destid = RIO_DID_GET_BASE_DEVICE_ID(_destid);
+	did_from_value(did, RIO_DID_GET_BASE_DEVICE_ID(reg_val), FMD_DEV08);
 
-	RIOCP_DEBUG("PE 0x%08x has destid %u (0x%08x)\n",
-		pe->comptag, *destid, *destid);
+	RIOCP_DEBUG("PE 0x%08x has destid %u (0x%08x)\n", pe->comptag,
+			did_get_value(*did), did_get_value(*did));
 
 	return 0;
 }
@@ -1143,44 +1189,48 @@ int RIOCP_SO_ATTR riocp_pe_get_destid(riocp_pe_handle pe,
  *  16 bit and 32 bit IDs; the correct register is chosen based on the common
  *  transport size of the host. Note that setting or updating the destination
  *  ID of a PE does not imply that routes toward this PE are updated.
- * @param pe     Target PE
- * @param destid Destination ID; ANY_ID is not allowed
+ * @param pe  Target PE
+ * @param did Destination ID; DID_ANY_DEV8_ID is not allowed
  * @returns
  *    - -EPERM Handle is not allowed to lock this device
- *    - -EACCESS destid ANY_ID is not allowed
+ *    - -EACCESS did DID_ANY_DEV8_ID is not allowed
  *    - -ENOSYS Handle is not of switch type
  */
-int RIOCP_SO_ATTR riocp_pe_set_destid(riocp_pe_handle pe,
-	uint32_t destid)
+int RIOCP_SO_ATTR riocp_pe_set_destid(riocp_pe_handle pe, did_t did)
 {
+	did_val_t did_val;
 	int ret;
 
 	ret = riocp_pe_handle_check(pe);
-	if (ret)
+	if (ret) {
 		return ret;
+	}
 
 	if (!RIOCP_PE_IS_HOST(pe) && !RIOCP_PE_IS_MPORT(pe)) {
 		RIOCP_ERROR("Pe is not a host\n");
 		return -EPERM;
 	}
-	if (destid == ANY_ID) {
-		RIOCP_ERROR("Cannot program ANYID destid\n");
+
+	if (did_equal(DID_ANY_DEV8_ID, did)) {
+		RIOCP_ERROR("Cannot program DID_ANY_DEV8_ID destid\n");
 		return -EACCES;
 	}
+
 	if (RIOCP_PE_IS_SWITCH(pe->cap)) {
 		RIOCP_ERROR("Cannot program destid for switch\n");
 		return -ENOSYS;
 	}
 
-	ret = riocp_pe_maint_write(pe, RIO_DEVID,
-			(destid << 16) & 0x00ff0000);
-	if (ret)
+	did_val = did_get_value(did);
+	ret = riocp_pe_maint_write(pe, RIO_DEVID, (did_val << 16) & 0x00ff0000);
+	if (ret) {
 		return ret;
+	}
 
-	pe->destid = destid;
+	pe->did_reg_val = did_val;
 
-	RIOCP_DEBUG("PE 0x%08x destid set to %u (0x%08x)\n",
-		pe->comptag, pe->destid, pe->destid);
+	RIOCP_DEBUG("PE 0x%08x destid set to %u (0x%08x)\n", pe->comptag,
+			did_val, did_val);
 
 	return 0;
 }
@@ -1217,43 +1267,48 @@ int RIOCP_SO_ATTR riocp_pe_reset_port(riocp_pe_handle pe, pe_port_t port,
  *  given switch and LUT. The number of route LUTs supported by a RapidIO
  *  switch is implementation specific; at least the global route LUT is
  *  supported. This function only works on switch PEs.
- * @param sw     Target switch
- * @param lut    Target route LUT, specify 0xff to address the global route LUT
- * @param destid Destination ID to route
- * @param port   Egress port; 0xff indicates unmapped route
+ * @param sw   Target switch
+ * @param lut  Target route LUT, specify 0xff to address the global route LUT
+ * @param did  Destination ID to route
+ * @param port Egress port; 0xff indicates unmapped route
  * @retval -EINVAL Invalid handle
  * @retval -ENOSYS Handle is not of switch type
  * @retval -EIO When the lut entry is invalid
  */
-int RIOCP_SO_ATTR riocp_sw_get_route_entry(riocp_pe_handle sw,
-	uint8_t lut,
-	uint32_t destid,
-	pe_rt_val *port)
+int RIOCP_SO_ATTR riocp_sw_get_route_entry(riocp_pe_handle sw, uint8_t lut,
+		did_t did, pe_rt_val *port)
 {
 	int ret;
-	int err = 0;
 
-	if (port == NULL)
+	if (port == NULL) {
 		return -EINVAL;
-	if (riocp_pe_handle_check(sw))
+	}
+
+	if (riocp_pe_handle_check(sw)) {
 		return -EINVAL;
-	if (!RIOCP_PE_IS_SWITCH(sw->cap))
+	}
+
+	if (!RIOCP_PE_IS_SWITCH(sw->cap)) {
 		return -ENOSYS;
+	}
 
 	/* Lock PE, because get route entry performs a write/read action */
 	ret = riocp_pe_lock(sw, 0);
-	if (ret)
+	if (ret) {
 		return -EAGAIN;
+	}
 
-	ret = riocp_drv_get_route_entry(sw, lut, destid, port);
-	if (ret)
-		err = -EIO;
+	ret = riocp_drv_get_route_entry(sw, lut, did, port);
+	if (ret) {
+		return -EIO;
+	}
 
 	ret = riocp_pe_unlock(sw);
-	if (ret)
+	if (ret){
 		return -EIO;
+	}
 
-	return err;
+	return 0;
 }
 
 /**
@@ -1261,36 +1316,36 @@ int RIOCP_SO_ATTR riocp_sw_get_route_entry(riocp_pe_handle sw,
  *  switch and LUT. The number of route LUTs supported by a RapidIO switch is
  *  implementation specific; at least the global route LUT is supported. This
  *  function only works on switch PEs.
- * @param sw     Target switch
- * @param lut    Target route LUT, specify 0xff to address the global route LUT
- * @param destid Destination ID to route
- * @param port   Egress port; 0xff indicates unmapped route
+ * @param sw   Target switch
+ * @param lut  Target route LUT, specify 0xff to address the global route LUT
+ * @param did  Destination ID to route
+ * @param port Egress port; 0xff indicates unmapped route
  */
-int RIOCP_SO_ATTR riocp_sw_set_route_entry(riocp_pe_handle sw,
-	uint8_t lut,
-	uint32_t destid,
-	pe_rt_val port)
+int RIOCP_SO_ATTR riocp_sw_set_route_entry(riocp_pe_handle sw, uint8_t lut,
+		did_t did, pe_rt_val port)
 {
-	int ret;
-
-	if (riocp_pe_handle_check(sw))
+	if (riocp_pe_handle_check(sw)) {
 		return -EINVAL;
-	if (!RIOCP_PE_IS_HOST(sw))
+	}
+
+	if (!RIOCP_PE_IS_HOST(sw)) {
 		return -EPERM;
-	if (!RIOCP_PE_IS_SWITCH(sw->cap))
+	}
+
+	if (!RIOCP_PE_IS_SWITCH(sw->cap)) {
 		return -ENOSYS;
+	}
 /*
  * FIXME: Change this to validate the correct range of devices, or better
  * yet, to use the RapidIO switch APIs...
 	if (port > RIOCP_PE_PORT_COUNT(sw->cap) && port != 0xff)
 		return -EINVAL;
 */
-	if (destid == ANY_ID)
+	if (did_equal(DID_ANY_DEV8_ID, did)) {
 		return -EACCES;
+	}
 
-	ret = riocp_drv_set_route_entry(sw, lut, destid, port);
-
-	return ret;
+	return riocp_drv_set_route_entry(sw, lut, did, port);
 }
 
 /**
@@ -1356,7 +1411,8 @@ int RIOCP_SO_ATTR riocp_pe_update_comptag(riocp_pe_handle pe, uint32_t wr_did)
 {
 	int ret;
 	ct_t ct;
-	uint32_t did;
+	did_t did;
+	did_val_t did_val;
 
 	if (riocp_pe_handle_check(pe)) {
 		return -EINVAL;
@@ -1381,14 +1437,17 @@ int RIOCP_SO_ATTR riocp_pe_update_comptag(riocp_pe_handle pe, uint32_t wr_did)
 		return -EBADF;
 	}
 
-	did =  RIOCP_PE_COMPTAG_DESTID(pe->comptag);
+	did_val =  RIOCP_PE_COMPTAG_DESTID(pe->comptag);
+	did_from_value(&did, did_val, FMD_DEV08);
+
 	if (wr_did) {
-		RIOCP_TRACE("Writing device ID to  %x\n", pe->destid);
+		RIOCP_TRACE("Writing device ID to  %x\n", pe->did_reg_val);
 		ret = riocp_pe_set_destid(pe, did);
-		if (ret) 
+		if (ret)  {
 			RIOCP_ERROR("Unable to update device ID\n");
+		}
 	}
-	pe->destid = did;
+	pe->did_reg_val = did_val;
 
 	return ret;
 }

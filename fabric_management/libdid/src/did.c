@@ -206,13 +206,13 @@ int did_create_from_data(did_t *did, did_val_t value, did_sz_t size)
 
 	switch (size) {
 	case dev08_sz:
-		if (value > RIO_LAST_DEV8 - 1) {
+		if (value > RIO_LAST_DEV8) {
 			*did = DID_INVALID_ID;
 			return -EINVAL;
 		}
 		break;
 	case dev16_sz:
-		if (value > RIO_LAST_DEV16 - 1) {
+		if (value >= RIO_LAST_DEV16) {
 			*did = DID_INVALID_ID;
 			return -EINVAL;
 		}
@@ -250,18 +250,19 @@ int did_create_from_data(did_t *did, did_val_t value, did_sz_t size)
 int did_release(did_t did)
 {
 	did_val_t value = did.value;
+
 	if ((0 == value) || (RIO_LAST_DEV8 == value)) {
 		return -EINVAL;
 	}
 
 	switch (did.size) {
 	case dev08_sz:
-		if (value > (RIO_LAST_DEV8 - 1)) {
+		if (value > RIO_LAST_DEV8) {
 			return -EINVAL;
 		}
 		break;
 	case dev16_sz:
-		if (value > (RIO_LAST_DEV16 - 1)) {
+		if (value >= RIO_LAST_DEV16) {
 			return -EINVAL;
 		}
 		break;
@@ -302,7 +303,8 @@ int did_get(did_t *did, did_val_t value)
 		return -EINVAL;
 	}
 
-	if ((0 == value) || (value > RIO_LAST_DEV16)) {
+	if ((0 == value) || (RIO_LAST_DEV8 == value)
+			|| (value >= RIO_LAST_DEV16)) {
 		*did = DID_INVALID_ID;
 		return -EINVAL;
 	}
@@ -347,7 +349,7 @@ int did_from_value(did_t *did, uint32_t value, uint32_t size)
 		return -EINVAL;
 	}
 
-	if (0 == value) {
+	if ((0 == value) || (RIO_LAST_DEV8 == value)) {
 		*did = DID_INVALID_ID;
 		return -EINVAL;
 	}
@@ -361,7 +363,7 @@ int did_from_value(did_t *did, uint32_t value, uint32_t size)
 		sz = dev08_sz;
 		break;
 	case 1:
-		if (value > RIO_LAST_DEV16) {
+		if (value >= RIO_LAST_DEV16) {
 			*did = DID_INVALID_ID;
 			return -EINVAL;
 		}
@@ -445,18 +447,20 @@ int did_to_value(did_t did, uint32_t *value, uint32_t *size)
  */
 int did_not_inuse(did_t did)
 {
-	if (0 == did.value) {
+	did_val_t value = did.value;
+
+	if ((0 == value) || (RIO_LAST_DEV8 == value)) {
 		return -EINVAL;
 	}
 
 	switch (did.size) {
 	case dev08_sz:
-		if (did.value > (RIO_LAST_DEV8 - 1)) {
+		if (value > RIO_LAST_DEV8) {
 			return -EINVAL;
 		}
 		break;
 	case dev16_sz:
-		if (did.value > (RIO_LAST_DEV16 - 1)) {
+		if (value >= RIO_LAST_DEV16) {
 			return -EINVAL;
 		}
 		break;
@@ -464,7 +468,7 @@ int did_not_inuse(did_t did)
 		// only 8 and 16 bit DIDs are supported
 		return -EPERM;
 	}
-	return (invld_sz != did_ids[did.value]);
+	return (invld_sz != did_ids[value]);
 }
 
 /**

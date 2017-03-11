@@ -380,40 +380,6 @@ typedef struct rio_sc_cfg_cps_ctrs_out_t_TAG {
 	uint32_t imp_rc;
 } rio_sc_cfg_cps_ctrs_out_t;
 
-typedef struct rio_sc_cfg_cps_trace_in_t_TAG {
-	// Port list
-	struct DAR_ptl ptl;
-
-	// Index of the CPS trace/filter counter to be configured.  Range 0-3.
-	uint8_t trace_idx;
-
-	// Mask of packet fields to be checked.
-	uint32_t pkt_mask[5];
-
-	// Packet field values to match.
-	uint32_t pkt_val[5];
-
-	// Count packets which are traced or dropped.
-	//    If false, no action occurs.
-	//    If true , all counters will be enabled on the port.
-	bool count;
-
-	// Send a copy of this packet to the trace port.
-	bool trace;
-
-	// Drop this packet.  This is independent of trace behavior.
-	bool drop;
-
-	// Device counters data type, initialized by rio_sc_init_dev_ctrs
-	//    May be set to NULL if counters are not of interest.
-	rio_sc_dev_ctrs_t *dev_ctrs;
-} rio_sc_cfg_cps_trace_in_t;
-
-typedef struct rio_sc_cfg_cps_trace_out_t_TAG {
-	// Implementation specific return code information.
-	uint32_t imp_rc;
-} rio_sc_cfg_cps_trace_out_t;
-
 typedef struct rio_sc_cfg_rxs_ctr_in_t_TAG {
 	// Port list.
 	struct DAR_ptl ptl;
@@ -439,7 +405,7 @@ typedef struct rio_sc_cfg_rxs_ctr_in_t_TAG {
 
 typedef struct rio_sc_cfg_rxs_ctr_out_t_TAG
 {
-	uint32_t      imp_rc;     // Implementation specific return code information.
+	uint32_t imp_rc; // Implementation specific return code information.
 } rio_sc_cfg_rxs_ctr_out_t;
 
 

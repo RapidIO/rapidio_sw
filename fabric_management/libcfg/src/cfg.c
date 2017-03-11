@@ -51,6 +51,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <netinet/in.h>
 
 #include "rio_route.h"
+#include "rio_standard.h"
 #include "tok_parse.h"
 #include "did.h"
 #include "ct.h"
@@ -85,7 +86,7 @@ static void init_rt(rio_rt_state_t *rt)
 		rt->dom_table[k].rte_val = RIO_RTE_DROP;
 	};
 	for (k = 0; k < RIO_MAX_MC_MASKS; k++) {
-		rt->mc_masks[k].mc_destID = 0xFF;
+		rt->mc_masks[k].mc_destID = (did_reg_t)0xFF;
 		rt->mc_masks[k].tt = tt_dev8;
 	}
 }
@@ -113,7 +114,7 @@ static int init_cfg_ptr(char *dd_mtx_fn, char *dd_fn)
 		cfg->mport_info[i].ep_pnum = -1;
 	}
 	cfg->mast_did_sz = CFG_DFLT_MAST_DEVID_SZ;
-	cfg->mast_destid = CFG_DFLT_MAST_DEVID;
+	cfg->mast_did_val = CFG_DFLT_MAST_DEVID;
 	cfg->mast_cm_port = FMD_DFLT_MAST_CM_PORT;
 
 	for (i = 0; i < CFG_MAX_EP; i++) {
@@ -264,20 +265,18 @@ static int get_devid_sz(struct int_cfg_parms *cfg, uint32_t *devID_sz)
 {
 	char *tok = NULL;
 
-	if (cfg->init_err)
+	if (cfg->init_err) {
 		goto fail;
-	if (get_next_token(cfg, &tok))
+	}
+	if (get_next_token(cfg, &tok)) {
 		goto fail;
+	}
 
-	switch (parm_idx(tok, (char *)DEVID_SZ_TOKENS)) {
-	case 0: // "dev08"
-		*devID_sz |= CFG_DEV08;
-		break;
-	case 1: // "dev16"
-		*devID_sz |= CFG_DEV16;
-		break;
-	case 2: // "dev32"
-		*devID_sz |= CFG_DEV32;
+	*devID_sz = (uint32_t)parm_idx(tok, (char *)DEVID_SZ_TOKENS);
+	switch (*devID_sz) {
+	case CFG_DEV08: // 0
+	case CFG_DEV16: // 1
+	case CFG_DEV32: // 2
 		break;
 	default:
 		parse_err(cfg, (char *)"Unknown devID size.");
@@ -515,7 +514,7 @@ fail:
 	return 1;
 }
 
-static int cfg_get_destid(struct int_cfg_parms *cfg, uint32_t *destid, uint32_t devid_sz)
+static int cfg_get_destid(struct int_cfg_parms *cfg, did_val_t *did_val, uint32_t devid_sz)
 {
 	int port = 0;
 	char *tok;
@@ -527,7 +526,7 @@ static int cfg_get_destid(struct int_cfg_parms *cfg, uint32_t *destid, uint32_t 
 	if (find_ep_and_port(cfg, tok, &ep, &port)) {
 		if (cfg->init_err)
 			goto fail;
-		if (tok_parse_did(tok, destid, 16)) {
+		if (tok_parse_did(tok, did_val, 16)) {
 			goto fail;
 		}
 		return 0;
@@ -538,7 +537,7 @@ static int cfg_get_destid(struct int_cfg_parms *cfg, uint32_t *destid, uint32_t 
 		parse_err(cfg, (char *)"Unconfigured devid selected.");
 		goto fail;
 	}
-	*destid = ep->ports[port].devids[devid_sz].destid;
+	*did_val = ep->ports[port].devids[devid_sz].did_val;
 	return 0;
 fail:
 	parse_err(cfg, (char *)"cfg_get_destid error.");
@@ -579,7 +578,7 @@ static int parse_ep_devids(struct int_cfg_parms *cfg, struct dev_id *devids)
 	for (devid_sz = 0; devid_sz < 3; devid_sz++) {
 		devids[devid_sz].valid = 0;
 		devids[devid_sz].hc = HC_MP;
-		devids[devid_sz].destid = 0;
+		devids[devid_sz].did_val = 0;
 	}
 
 	while (!done) {
@@ -593,7 +592,7 @@ static int parse_ep_devids(struct int_cfg_parms *cfg, struct dev_id *devids)
 					goto fail;
 				}
 
-				if (get_hex_int(cfg, &devids[devid_sz].destid))
+				if (get_hex_int(cfg, &devids[devid_sz].did_val))
 					goto fail;
 				if (get_dec_int(cfg, &tmp))
 					goto fail;
@@ -626,7 +625,7 @@ static int check_match (struct dev_id *mp_did, struct dev_id *ep_did,
 		goto exit;
 	if (!ep_did->valid)
 		goto exit;
-	if (mp_did->destid != ep_did->destid)
+	if (mp_did->did_val != ep_did->did_val)
 		goto exit;
 	if (mp_did->hc != ep_did->hc)
 		goto exit;
@@ -716,7 +715,7 @@ static int parse_master_info(struct int_cfg_parms *cfg)
 	if (get_devid_sz(cfg, &cfg->mast_did_sz))
 		goto fail;
 
-	if (get_hex_int(cfg, &cfg->mast_destid))
+	if (get_hex_int(cfg, &cfg->mast_did_val))
 		goto fail;
 
 	if (get_dec_int(cfg, &cfg->mast_cm_port))
@@ -930,24 +929,26 @@ fail:
 	return 1;
 }
 
-static int assign_rt_v(int rt_sz, int st_destid, int end_destid, pe_rt_val rtv,
+static int assign_rt_v(int rt_sz, did_val_t st_did_val, did_val_t end_did_val, pe_rt_val rtv,
 			rio_rt_state_t *rt, struct int_cfg_parms *cfg)
 {
-	int i;
+	did_val_t i;
 
 	switch (rt_sz) {
 	case 0: // dev08
-		if ((st_destid >= RIO_RT_GRP_SZ) ||
-				(end_destid >= RIO_RT_GRP_SZ)) {
+		if ((st_did_val >= RIO_RT_GRP_SZ)
+				|| (end_did_val >= RIO_RT_GRP_SZ)) {
 			parse_err(cfg, (char *)"DestID value too large.");
 			goto fail;
 		}
-		if (st_destid > end_destid) {
-			int temp = end_destid;
-			end_destid = st_destid;
-			st_destid = temp;
+
+		if (st_did_val > end_did_val) {
+			did_val_t temp = end_did_val;
+			end_did_val = st_did_val;
+			st_did_val = temp;
 		}
-		for (i = st_destid; i <= end_destid; i++) {
+
+		for (i = st_did_val; i <= end_did_val; i++) {
 			if (rt->dev_table[i].rte_val != rtv) {
 				rt->dev_table[i].rte_val = rtv;
 				rt->dev_table[i].changed = 1;
@@ -992,7 +993,8 @@ static int parse_switch(struct int_cfg_parms *cfg)
 {
 	uint32_t i, done = 0;
 	uint32_t rt_sz = 0;
-	uint32_t destid, destid1;
+	did_val_t st_did_val;
+	did_val_t end_did_val;
 	uint32_t rtv;
 	uint32_t tmp;
 	rio_rt_state_t *rt = NULL;
@@ -1009,12 +1011,13 @@ static int parse_switch(struct int_cfg_parms *cfg)
 		goto fail;
 	if (get_devid_sz(cfg, &cfg->sws[i].did_sz))
 		goto fail;
-	if (get_hex_int(cfg, &cfg->sws[i].destid))
+	if (get_hex_int(cfg, &cfg->sws[i].did_val))
 		goto fail;
 	if (get_dec_int(cfg, &tmp))
 		goto fail;
 	if (tmp > HC_MP)
 		goto fail;
+
 	cfg->sws[i].hc = tmp;
 	if (get_hex_int(cfg, &cfg->sws[i].ct))
 		goto fail;
@@ -1023,8 +1026,9 @@ static int parse_switch(struct int_cfg_parms *cfg)
 		switch(get_parm_idx(cfg, (char *)
 		"PORT ROUTING_TABLE DFLTPORT DESTID RANGE MCMASK END")) {
 		case 0: // PORT
-			if (parse_sw_port(cfg))
+			if (parse_sw_port(cfg)) {
 				goto fail;
+			}
 			break;
 		case 1: // ROUTING_TABLE
 			char *token;
@@ -1033,8 +1037,10 @@ static int parse_switch(struct int_cfg_parms *cfg)
 				parse_err(cfg, (char *)"Unknown devID size.");
 				goto fail;
 			}
-			if (get_next_token(cfg, &token))
+			if (get_next_token(cfg, &token)) {
 				goto fail;
+			}
+
 			switch ( parm_idx(token, (char *)"GLOBAL")) {
 			case 0: rt = &cfg->sws[i].rt[rt_sz];
 				cfg->sws[i].rt_valid[rt_sz] = true;
@@ -1046,11 +1052,13 @@ static int parse_switch(struct int_cfg_parms *cfg)
 					parse_err(cfg, (char *)"Illegal port.");
 					goto fail;
 				}
+
 				rt = &cfg->sws[i].ports[port].rt[rt_sz];
 				cfg->sws[i].ports[port].rt_valid[rt_sz] = true;
-				if (cfg->sws[i].rt_valid[rt_sz])
+				if (cfg->sws[i].rt_valid[rt_sz]) {
 					memcpy(rt, &cfg->sws[i].rt[rt_sz],
 						sizeof(rio_rt_state_t));
+				}
 				break;
 			}
 				
@@ -1068,10 +1076,12 @@ static int parse_switch(struct int_cfg_parms *cfg)
 			rt->default_route = rtv;
 			break;
 		case 3: // DESTID
-			if (cfg_get_destid(cfg, &destid, rt_sz))
+			if (cfg_get_destid(cfg, &st_did_val, rt_sz)) {
 				goto fail;
-			if (get_rt_v(cfg, &rtv))
+			}
+			if (get_rt_v(cfg, &rtv)) {
 				goto fail;
+			}
 
 			// klocwork sees rt as null, but...
 			// rt is set whenever ROUTING_TABLE option (above) is hit
@@ -1084,25 +1094,28 @@ static int parse_switch(struct int_cfg_parms *cfg)
 				parse_err(cfg, (char *)"DESTID: rt not set.");
 				goto fail;
 			}
-			if (assign_rt_v(rt_sz, destid, destid, rtv, rt, cfg)) {
+			if (assign_rt_v(rt_sz, st_did_val, st_did_val, rtv, rt, cfg)) {
 				parse_err(cfg, (char *)"Illegal destID/rtv.");
 				goto fail;
 			}
 			break;
 		case 4: // RANGE
-			if (cfg_get_destid(cfg, &destid, rt_sz))
+			if (cfg_get_destid(cfg, &st_did_val, rt_sz)) {
 				goto fail;
-			if (cfg_get_destid(cfg, &destid1, rt_sz))
+			}
+			if (cfg_get_destid(cfg, &end_did_val, rt_sz)) {
 				goto fail;
-			if (get_rt_v(cfg, &rtv))
+			}
+			if (get_rt_v(cfg, &rtv)) {
 				goto fail;
+			}
 
 			// klocwork - see DESTID comment about rt
 			if (NULL == rt) {
 				parse_err(cfg, (char *)"rt not set.");
 				goto fail;
 			}
-			if (assign_rt_v(rt_sz, destid, destid1, rtv, rt, cfg)) {
+			if (assign_rt_v(rt_sz, st_did_val, end_did_val, rtv, rt, cfg)) {
 				parse_err(cfg, (char *)"RANGE: Illegal destID/rtv.");
 				goto fail;
 			}
@@ -1114,8 +1127,9 @@ static int parse_switch(struct int_cfg_parms *cfg)
 				goto fail;
 			}
 
-			if (parse_mc_mask(cfg, rt->mc_masks))
+			if (parse_mc_mask(cfg, rt->mc_masks)) {
 				goto fail;
+			}
 			break;
 		case 6: // END
 			done = 1;
@@ -1223,8 +1237,8 @@ int cfg_parse_file(char *cfg_fn, char **dd_mtx_fn, char **dd_fn,
 	ct_nr_t nr;
 
 	did_t did;
-	did_val_t destid;
-	did_sz_t size;
+	did_val_t did_val;
+	did_sz_t did_sz;
 
 	struct int_cfg_ep ep;
 	struct int_cfg_ep_port port;
@@ -1278,13 +1292,13 @@ int cfg_parse_file(char *cfg_fn, char **dd_mtx_fn, char **dd_fn,
 
 					for (k = 0; k < CFG_DEVID_MAX; k++) {
 						// Continue for unsupported sizes
-						if (did_size_from_int(&size, k)) {
+						if (did_size_from_int(&did_sz, k)) {
 							continue;
 						}
 
-						destid = port.devids[k].destid;
-						if (destid) {
-							if (ct_create_from_data(&ct, &did, nr, destid, size)) {
+						did_val = port.devids[k].did_val;
+						if (did_val) {
+							if (ct_create_from_data(&ct, &did, nr, did_val, did_sz)) {
 								goto fail;
 							}
 						}
@@ -1301,11 +1315,13 @@ int cfg_parse_file(char *cfg_fn, char **dd_mtx_fn, char **dd_fn,
 			if (ct_get_nr(&nr, sw.ct)) {
 				goto fail;
 			}
+
 			// Continue for unsupported sizes
-			if (did_size_from_int(&size, sw.did_sz)) {
+			if (did_size_from_int(&did_sz, sw.did_sz)) {
 				continue;
 			}
-			if (ct_create_from_data(&ct, &did, nr, sw.destid, size)) {
+
+			if (ct_create_from_data(&ct, &did, nr, sw.did_val, did_sz)) {
 				goto fail;
 			}
 		}
@@ -1313,10 +1329,21 @@ int cfg_parse_file(char *cfg_fn, char **dd_mtx_fn, char **dd_fn,
 
 	// update parameters
 	if (CFG_SLAVE == cfg->mast_idx) {
-		did_size_from_int(&size, cfg->mast_did_sz);
-		*m_did = (did_t){cfg->mast_destid, size};
+		// fake out the creation of the master did
+		did_size_from_int(&did_sz, cfg->mast_did_sz);
+		*m_did = (did_t){cfg->mast_did_val, did_sz};
 	} else {
-		did_from_value(m_did, cfg->mast_destid, cfg->mast_did_sz);
+		if (cfg_auto()) {
+			// fake out the creation of the master did
+			did_size_from_int(&did_sz, cfg->mast_did_sz);
+			*m_did = (did_t){cfg->mast_did_val, did_sz};
+		} else {
+			// ensure the master did was created
+			if (did_from_value(m_did, cfg->mast_did_val,
+					cfg->mast_did_sz)) {
+				goto fail;
+			}
+		}
 	}
 	*m_cm_port = cfg->mast_cm_port;
 	*m_mode = !(CFG_SLAVE == cfg->mast_idx);
@@ -1377,8 +1404,6 @@ int cfg_find_mport(uint32_t mport, struct cfg_mport_info *mp)
 
 		mp->num = cfg->mport_info[i].num;
 		mp->ct = cfg->mport_info[i].ct;
-		mp->mem_sz = cfg->mport_info[i].mem_sz;
-		mp->op_mode = cfg->mport_info[i].op_mode;
 		memcpy(mp->devids, cfg->mport_info[i].devids,
 			sizeof(mp->devids));
 		return 0;
@@ -1407,22 +1432,13 @@ static int fill_in_dev_from_ep(struct cfg_dev *dev, struct int_cfg_ep *ep)
 
 	memset(dev, 0, sizeof(struct cfg_dev));
 	dev->name = ep->name;
-	dev->dev_type = DEV_TYPE;
-	dev->port_cnt = ep->port_cnt;
-	dev->did_sz = CFG_DEV08;
 	dev->is_sw = 0;
 	dev->ct = ep->ports[0].ct;
-	dev->hc = ep->ports[0].devids[CFG_DEV08].hc;
-	dev->destid = ep->ports[0].devids[CFG_DEV08].destid;
 	dev->ep_pt.valid = 1;
-	dev->ep_pt.port = 0;
-	dev->ep_pt.max_pw = ep->ports[0].rio.max_pw;
 	dev->ep_pt.op_pw = ep->ports[0].rio.op_pw;
 	dev->ep_pt.ls = ep->ports[0].rio.ls;
-	dev->ep_pt.ct = dev->ct;
 	memcpy(dev->ep_pt.devids, ep->ports[0].devids,
 		sizeof(dev->ep_pt.devids));
-	dev->auto_config = cfg->auto_config;
 
 	return 0;
 fail:
@@ -1436,11 +1452,6 @@ static int fill_in_dev_from_sw(struct cfg_dev *dev, struct int_cfg_sw *sw)
 	memset(dev, 0, sizeof(struct cfg_dev));
 
 	dev->name = sw->name;
-	dev->dev_type = sw->dev_type;
-	dev->port_cnt = CFG_MAX_SW_PORT;
-	dev->did_sz = sw->did_sz;
-	dev->destid = sw->destid;
-	dev->hc = sw->hc;
 	dev->ct = sw->ct;
 	dev->is_sw = 1;
 	dev->sw_info.num_ports = CFG_MAX_SW_PORT;
@@ -1449,8 +1460,6 @@ static int fill_in_dev_from_sw(struct cfg_dev *dev, struct int_cfg_sw *sw)
 			sw->ports[i].valid;
 		dev->sw_info.sw_pt[i].port =
 			sw->ports[i].port;
-		dev->sw_info.sw_pt[i].max_pw =
-			sw->ports[i].rio.max_pw;
 		dev->sw_info.sw_pt[i].op_pw =
 			sw->ports[i].rio.op_pw;
 		dev->sw_info.sw_pt[i].ls =

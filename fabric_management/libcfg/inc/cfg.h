@@ -68,24 +68,19 @@ extern "C" {
 #define CFG_MEM_SZ_DEFAULT CFG_MEM_SZ_34
 
 struct dev_id {
-	did_val_t destid;
-	hc_t hc;
 	uint32_t valid;
+	hc_t hc;
+	did_val_t did_val;
 };
 
 struct cfg_mport_info {
 	uint32_t num; /* Kernel index of this mport */
-	uint8_t mem_sz; /* Memory size to use for this network */
 	ct_t ct; /* Updated when MPORT is initialized */
-	int op_mode; /* CFG_OP_MODE_SLAVE or CFG_OP_MODE_MASTER  */
 	struct dev_id devids[CFG_DEVID_MAX]; /* Device IDs for each size */
 };
 
 struct cfg_ep_port {
 	int valid;
-	uint32_t port;
-	ct_t ct;
-	rio_pc_pw_t max_pw;
 	rio_pc_pw_t op_pw;
 	rio_pc_ls_t ls;
 	struct dev_id devids[CFG_DEVID_MAX];
@@ -94,7 +89,6 @@ struct cfg_ep_port {
 struct cfg_sw_port {
 	int valid;
 	int port;
-	rio_pc_pw_t max_pw;
 	rio_pc_pw_t op_pw;
 	rio_pc_ls_t ls;
 	rio_rt_state_t *rt[CFG_DEVID_MAX];
@@ -108,16 +102,10 @@ struct cfg_sw {
 
 struct cfg_dev {
 	const char *name; /* System name of device */
-	const char *dev_type; /* Device type */
-	int port_cnt; /* Number of ports on device */
-	uint32_t did_sz; /* CFG_DEVID_MAX if all are supported */
-	did_val_t destid; /* Device ID used to access the device */
-	hc_t hc; /* Hopcount used to access the device */
 	ct_t ct; /* Component tag value */
-	uint32_t is_sw; /* 0 - endpint, 1 - switch */
+	uint32_t is_sw; /* 0 - endpoint, 1 - switch */
 	struct cfg_ep_port ep_pt;
 	struct cfg_sw sw_info;
-	bool auto_config;
 };
 
 int cfg_parse_file(char *cfg_fn, char **dd_mtx_fn, char **dd_fn,

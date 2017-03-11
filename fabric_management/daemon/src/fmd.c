@@ -418,7 +418,7 @@ int setup_mport_master(int mport)
 	}
 
 	if ((COMPTAG_UNSET == comptag) && cfg_auto()) {
-		if (did_create_from_data(&did, mp.devids[CFG_DEV08].destid,
+		if (did_create_from_data(&did, mp.devids[CFG_DEV08].did_val,
 				dev08_sz)) {
 			CRIT("\nCannot create dev08 did 0x%d, exiting...\n");
 			return 1;
@@ -476,8 +476,9 @@ int slave_get_ct_and_name(int mport, ct_t *comptag, char *dev_name)
 		*comptag = regs.comptag;
 		memset(dev_name, 0, FMD_MAX_DEV_FN);
 		snprintf(dev_name, FMD_MAX_DEV_FN, "LOCAL_MP%d", mp_num);
-		did_from_value(&fmd->opts->mast_did, GET_DEV8_FROM_PW_TGT_HW(
-				regs.host_destid), FMD_DEV08);
+		did_from_value(&fmd->opts->mast_did,
+				GET_DEV8_FROM_PW_TGT_HW(regs.host_did_reg_val),
+				FMD_DEV08);
 		fmd->opts->mast_cm_port = regs.scratch_cm_sock;
 		return 0;
 	}
@@ -489,7 +490,7 @@ int setup_mport_slave(int mport)
 {
 	int rc, ret;
 	ct_t comptag;
-	did_val_t destid;
+	did_val_t did_val;
 	char mast_dev_fn[FMD_MAX_DEV_FN] = {0};
 	struct mpsw_drv_private_data *p_dat = NULL;
 	struct mpsw_drv_pe_acc_info *acc_p = NULL;
@@ -536,10 +537,9 @@ int setup_mport_slave(int mport)
 		if (access(mast_dev_fn, F_OK) != -1) {
 			rc = 0;
 		} else {
-			destid = did_get_value(fmd->opts->mast_did);
-			rc = riomp_mgmt_device_add(acc_p->maint, destid,
-			HC_MP, destid,
-			FMD_SLAVE_MASTER_NAME);
+			did_val = did_get_value(fmd->opts->mast_did);
+			rc = riomp_mgmt_device_add(acc_p->maint, did_val,
+					HC_MP, did_val, FMD_SLAVE_MASTER_NAME);
 		}
 		if (rc) {
 			CRIT("\nFMD Master inaccessible, wait & try again\n");
@@ -587,7 +587,7 @@ int fmd_dd_update(riocp_pe_handle mp_h, struct fmd_dd *dd,
 		goto fail;
 	}
 
-	did_from_value(&did, mp_h->destid, FMD_DEV08);
+	did_from_value(&did, mp_h->did_reg_val, FMD_DEV08);
 	add_device_to_dd(mp_h->comptag, did, mp_h->hopcount,
 			1, FMDD_FLAG_OK_MP, (char *)mp_h->sysfs_name);
 

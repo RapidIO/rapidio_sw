@@ -512,7 +512,7 @@ static void rxs_check_routing(DAR_DEV_INFO_t *dev_info,
 
 	if (tt_dev16 == in_parms->tt) {
 		idx = (uint8_t)((in_parms->destID &
-					(uint16_t)(RIO_DEVID_RTE_DEV16)) >> 8);
+				RIO_DEVID_RTE_DEV16) >> 8);
 		rte = in_parms->rt->dom_table[idx].rte_val;
 		if (rxs_chk_dom_rte_reg(dev_info, rte)) {
 			out_parms->valid_route = false;
@@ -865,10 +865,10 @@ uint32_t rxs_update_mc_msk(DAR_DEV_INFO_t *dev_info, rio_rt_state_t *rt,
 	rt->mc_masks[mc_idx].tt = did_sz;
 	switch(rt->mc_masks[mc_idx].tt) {
 	case tt_dev8:
-		rt->mc_masks[mc_idx].mc_destID = did_idx;
+		rt->mc_masks[mc_idx].mc_destID = (did_reg_t)did_idx;
 		break;
 	case tt_dev16:
-		rt->mc_masks[mc_idx].mc_destID = did_idx << 8;
+		rt->mc_masks[mc_idx].mc_destID = (did_reg_t)(did_idx << 8);
 		break;
 	default:
 		rc = RIO_ERR_INVALID_PARAMETER;

@@ -82,8 +82,8 @@ typedef struct RXS_test_state_t_TAG {
 	char **argv;
 	bool real_hw;
 	uint32_t mport;
-	uint8_t hc;
-	uint32_t destid;
+	hc_t hc;
+	did_reg_t did_reg_val;
 	struct rapidio_mport_handle *mp_h;
 	bool mp_h_valid;
 	uint32_t conn_port;
@@ -99,7 +99,7 @@ static int grp_setup(void **state)
 	int tok_idx = 1;
 	bool got_mport = false;
 	bool got_hc = false;
-	bool got_destid = false;
+	bool got_did_reg_val = false;
 
 	while (tok_idx < st.argc) {
 		tok = st.argv[tok_idx];
@@ -131,12 +131,12 @@ static int grp_setup(void **state)
 			break;
 			break;
 		case 2:
-			if (tok_parse_did(parm, &st.destid, 0)) {
+			if (tok_parse_did(parm, &st.did_reg_val, 0)) {
 				printf("\nFailed tok_parse_did\n");
 				goto fail;
 			}
 			st.real_hw = true;
-			got_destid = true;
+			got_did_reg_val = true;
 			break;
 		default:
 			printf("\nUnknown option, options are -m -h -d.\n");
@@ -145,7 +145,7 @@ static int grp_setup(void **state)
 		}
 	}
 
-	if ((st.real_hw) && !(got_mport && got_hc && got_destid)) {
+	if ((st.real_hw) && !(got_mport && got_hc && got_did_reg_val)) {
 		printf("\nMust enter all of -m, -h and -d to run on real hw\n");
 		goto fail;
 	}
@@ -230,7 +230,8 @@ static uint32_t RXSReadReg(DAR_DEV_INFO_t *dev_info,
 	if (0xFF == st.hc) {
 		rc = riomp_mgmt_lcfg_read(st.mp_h, offset, 4, readdata);
 	} else {
-		rc = riomp_mgmt_rcfg_read(st.mp_h, st.destid, st.hc, offset, 4, readdata);
+		rc = riomp_mgmt_rcfg_read(st.mp_h, st.did_reg_val, st.hc,
+				offset, 4, readdata);
 	}
 exit:
 	return rc;
@@ -385,7 +386,7 @@ static uint32_t RXSWriteReg(DAR_DEV_INFO_t *dev_info,
 	if (0xFF == st.hc) {
 		rc = riomp_mgmt_lcfg_write(st.mp_h, offset, 4, writedata);
 	} else {
-		rc = riomp_mgmt_rcfg_write(st.mp_h, st.destid, st.hc, offset, 4, writedata);
+		rc = riomp_mgmt_rcfg_write(st.mp_h, st.did_reg_val, st.hc, offset, 4, writedata);
 	}
 
 	return rc;
@@ -2974,7 +2975,7 @@ static void rxs_rio_rt_probe_success_port_test(void **state)
 	// Multicast mask for port 2, 4, 5, 9, and 12...
 	uint32_t mc_mask = 0x1234;
 	rio_port_t pt;
-	uint32_t destid;
+	did_reg_t did_reg_val;
 
 	// Set all ports to "perfect"
 	set_all_port_config(cfg_perfect, NO_TTL, NO_FILT, RIO_ALL_PORTS);
@@ -3041,11 +3042,11 @@ static void rxs_rio_rt_probe_success_port_test(void **state)
 
 	// Check routing for all destIDs of the form 0xXX, 0x00XX and 0x04XX
 
-	for (destid = 0; destid <= RIO_LAST_DEV8; destid++) {
+	for (did_reg_val = 0; did_reg_val <= RIO_LAST_DEV8; did_reg_val++) {
 		// Check destID 0xXX
 		pr_in.probe_on_port = 0;
 		pr_in.tt = tt_dev8;
-		pr_in.destID = destid;
+		pr_in.destID = did_reg_val;
 		pr_in.rt = &rt;
 		memset(&pr_out, 0, sizeof(pr_out));
 
@@ -3055,7 +3056,7 @@ static void rxs_rio_rt_probe_success_port_test(void **state)
 		assert_int_equal(RIO_SUCCESS, pr_out.imp_rc);
 		assert_true(pr_out.valid_route);
 
-		switch (destid) {
+		switch (did_reg_val) {
 		case 1:
 			assert_int_equal(pr_out.routing_table_value,
 							alloc_out.mc_mask_rte);
@@ -3081,7 +3082,7 @@ static void rxs_rio_rt_probe_success_port_test(void **state)
 		// Check destID 0x00XX matches destID 0xXX
 		pr_in.probe_on_port = 0;
 		pr_in.tt = tt_dev16;
-		pr_in.destID = destid;
+		pr_in.destID = did_reg_val;
 		pr_in.rt = &rt;
 		memset(&pr_out2, 0, sizeof(pr_out2));
 
@@ -3092,7 +3093,7 @@ static void rxs_rio_rt_probe_success_port_test(void **state)
 		// Check destID 0x04XX matches destID 0xXX
 		pr_in.probe_on_port = 0;
 		pr_in.tt = tt_dev16;
-		pr_in.destID = 0x0400 + destid;
+		pr_in.destID = 0x0400 + did_reg_val;
 		pr_in.rt = &rt;
 		memset(&pr_out2, 0, sizeof(pr_out2));
 
@@ -3103,10 +3104,10 @@ static void rxs_rio_rt_probe_success_port_test(void **state)
 
 	// Check routing for all dev16 destIDs of the form 0x02XX
 
-	for (destid = 0; destid <= RIO_LAST_DEV8; destid++) {
+	for (did_reg_val = 0; did_reg_val <= RIO_LAST_DEV8; did_reg_val++) {
 		pr_in.probe_on_port = 0;
 		pr_in.tt = tt_dev16;
-		pr_in.destID = 0x0200 + destid;
+		pr_in.destID = 0x0200 + did_reg_val;
 		pr_in.rt = &rt;
 		memset(&pr_out, 0, sizeof(pr_out));
 
@@ -3148,7 +3149,7 @@ static void rxs_rio_rt_probe_success_mc_port_test(void **state)
 	// Multicast mask for all ports
 	uint32_t mc_mask = (1 << NUM_RXS_PORTS(&mock_dev_info)) - 1;
 	rio_port_t pt, chk_pt;
-	uint32_t destid = 1;
+	did_reg_t did_reg_val = 1;
 
 	// Initialize routing table
 	init_in.set_on_port = 0;
@@ -3173,7 +3174,7 @@ static void rxs_rio_rt_probe_success_mc_port_test(void **state)
 	mc_chg_in.mc_mask_rte = alloc_out.mc_mask_rte;
 	mc_chg_in.mc_info.in_use = true;
 	mc_chg_in.mc_info.tt = tt_dev8;
-	mc_chg_in.mc_info.mc_destID = destid;
+	mc_chg_in.mc_info.mc_destID = did_reg_val;
 	mc_chg_in.mc_info.mc_mask = mc_mask;
 	mc_chg_in.rt = &rt;
 	assert_int_equal(RIO_SUCCESS,
@@ -3191,7 +3192,7 @@ static void rxs_rio_rt_probe_success_mc_port_test(void **state)
 			pr_in.probe_on_port = pt;
 		}
 		pr_in.tt = tt_dev8;
-		pr_in.destID = destid;
+		pr_in.destID = did_reg_val;
 		pr_in.rt = &rt;
 		memset(&pr_out, 0, sizeof(pr_out));
 
@@ -3227,7 +3228,7 @@ static void rxs_rio_rt_probe_discard_rt_port_test(void **state)
 	rio_rt_probe_out_t pr_out2;
 	rio_rt_state_t rt;
 
-	uint32_t destid;
+	did_reg_t did_reg_val;
 
 	// Initialize routing table
 	init_in.set_on_port = RIO_ALL_PORTS;
@@ -3261,11 +3262,11 @@ static void rxs_rio_rt_probe_discard_rt_port_test(void **state)
 
 	// Check routing for all destIDs of the form 0xXX, 0x00XX and 0xffXX
 
-	for (destid = 0; destid <= RIO_LAST_DEV8; destid++) {
+	for (did_reg_val = 0; did_reg_val <= RIO_LAST_DEV8; did_reg_val++) {
 		// Check destID 0xXX
 		pr_in.probe_on_port = 0;
 		pr_in.tt = tt_dev8;
-		pr_in.destID = destid;
+		pr_in.destID = did_reg_val;
 		pr_in.rt = &rt;
 		memset(&pr_out, 0, sizeof(pr_out));
 
@@ -3275,7 +3276,7 @@ static void rxs_rio_rt_probe_discard_rt_port_test(void **state)
 		assert_int_equal(RIO_SUCCESS, pr_out.imp_rc);
 		assert_false(pr_out.valid_route);
 
-		if (3 == destid) {
+		if (3 == did_reg_val) {
 			assert_int_equal(pr_out.routing_table_value,
 							RIO_RTE_DFLT_PORT);
 			assert_int_equal(pr_out.default_route, RIO_RTE_DROP);
@@ -3294,7 +3295,7 @@ static void rxs_rio_rt_probe_discard_rt_port_test(void **state)
 		// Check destID 0x00XX matches destID 0xXX
 		pr_in.probe_on_port = 0;
 		pr_in.tt = tt_dev16;
-		pr_in.destID = destid;
+		pr_in.destID = did_reg_val;
 		pr_in.rt = &rt;
 		memset(&pr_out2, 0, sizeof(pr_out2));
 
@@ -3304,11 +3305,11 @@ static void rxs_rio_rt_probe_discard_rt_port_test(void **state)
 
 	}
 
-	for (destid = 0; destid <= RIO_LAST_DEV8; destid++) {
+	for (did_reg_val = 0; did_reg_val <= RIO_LAST_DEV8; did_reg_val++) {
 		// Check destID 0xffXX matches destID 0xXX
 		pr_in.probe_on_port = 0;
 		pr_in.tt = tt_dev16;
-		pr_in.destID = 0xFF00 + destid;
+		pr_in.destID = 0xFF00 + did_reg_val;
 		pr_in.rt = &rt;
 		memset(&pr_out, 0, sizeof(pr_out));
 
@@ -3337,7 +3338,7 @@ static void rxs_rio_rt_probe_discard_rt_mc_test(void **state)
 
 	uint32_t mc_mask;
 	rio_port_t pt, c_pt;
-	uint32_t destid = 1;
+	did_reg_t did_reg_val = 1;
 
 	// Set all ports to "perfect"
 	set_all_port_config(cfg_perfect, NO_TTL, NO_FILT, 0);
@@ -3369,7 +3370,7 @@ static void rxs_rio_rt_probe_discard_rt_mc_test(void **state)
 		mc_chg_in.mc_mask_rte = alloc_out.mc_mask_rte;
 		mc_chg_in.mc_info.in_use = true;
 		mc_chg_in.mc_info.tt = tt_dev8;
-		mc_chg_in.mc_info.mc_destID = destid;
+		mc_chg_in.mc_info.mc_destID = did_reg_val;
 		mc_chg_in.mc_info.mc_mask = mc_mask;
 		mc_chg_in.rt = &rt;
 		assert_int_equal(RIO_SUCCESS,
@@ -3381,7 +3382,7 @@ static void rxs_rio_rt_probe_discard_rt_mc_test(void **state)
 			// Check destID 0xXX
 			pr_in.probe_on_port = c_pt;
 			pr_in.tt = tt_dev8;
-			pr_in.destID = destid;
+			pr_in.destID = did_reg_val;
 			pr_in.rt = &rt;
 			memset(&pr_out, 0, sizeof(pr_out));
 
@@ -3428,7 +3429,7 @@ static void rxs_rio_rt_probe_discard_rt_mc_test(void **state)
 		// Check destID 0xXX
 		pr_in.probe_on_port = 0;
 		pr_in.tt = tt_dev8;
-		pr_in.destID = destid;
+		pr_in.destID = did_reg_val;
 		pr_in.rt = &rt;
 		memset(&pr_out, 0, sizeof(pr_out));
 

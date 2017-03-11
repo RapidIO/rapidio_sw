@@ -109,7 +109,7 @@ static uint32_t max_size = 4096;
 #define DEFAULT_IBWIN_SIZE (2 * 1024 * 1024)
 
 static riomp_mport_t mport_hnd;
-static did_val_t tgt_destid = RIO_LAST_DEV8;
+static did_val_t tgt_did_val = RIO_LAST_DEV8;
 static uint64_t tgt_addr;
 static uint32_t offset = 0;
 static uint16_t align = 0;
@@ -575,11 +575,11 @@ int do_dma_test(int random, int kbuf_mode, int verify, int loop_count,
 
 		/** - Write data from local source buffer to remote target inbound buffer */
 		if (kbuf_mode) {
-			ret = riomp_dma_write_d(mport_hnd, tgt_destid, tgt_addr,
+			ret = riomp_dma_write_d(mport_hnd, tgt_did_val, tgt_addr,
 					src_handle, src_off, len,
 					RIO_DIRECTIO_TYPE_NWRITE_R, sync);
 		} else {
-			ret = riomp_dma_write(mport_hnd, tgt_destid, tgt_addr,
+			ret = riomp_dma_write(mport_hnd, tgt_did_val, tgt_addr,
 					(U8P)buf_src + src_off, len,
 					RIO_DIRECTIO_TYPE_NWRITE_R, sync);
 		}
@@ -620,10 +620,10 @@ int do_dma_test(int random, int kbuf_mode, int verify, int loop_count,
 
 		/** - Read back data from remote target inbound buffer into local destination buffer */
 		if (kbuf_mode) {
-			ret = riomp_dma_read_d(mport_hnd, tgt_destid, tgt_addr,
+			ret = riomp_dma_read_d(mport_hnd, tgt_did_val, tgt_addr,
 					dst_handle, dst_off, len, rd_sync);
 		} else {
-			ret = riomp_dma_read(mport_hnd, tgt_destid, tgt_addr,
+			ret = riomp_dma_read(mport_hnd, tgt_did_val, tgt_addr,
 					(U8P)buf_dst + dst_off, len, rd_sync);
 		}
 
@@ -826,7 +826,7 @@ int main(int argc, char** argv)
 			}
 			break;
 		case 'D':
-			if (tok_parse_did(optarg, &tgt_destid, 0)) {
+			if (tok_parse_did(optarg, &tgt_did_val, 0)) {
 				printf(TOK_ERR_DID_MSG_FMT);
 				exit(EXIT_FAILURE);
 			}
@@ -984,7 +984,7 @@ int main(int argc, char** argv)
 		printf("+++ RapidIO DMA Test +++\n");
 		printf(
 				"\tmport%d destID=%d rio_addr=0x%llx align=%d repeat=%d PID:%d\n",
-				mport_id, tgt_destid,
+				mport_id, tgt_did_val,
 				(unsigned long long)tgt_addr, align, repeat,
 				(int)getpid());
 		printf("\tsync=%d (%s)\n", sync,

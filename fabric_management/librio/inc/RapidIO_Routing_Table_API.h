@@ -133,7 +133,7 @@ extern char *rio_em_disc_reason_names[ (uint8_t)(rio_rt_disc_last) ];
 
 typedef struct rio_rt_mc_info_t_TAG {
 	// Destination ID of packets to be multicast
-	uint32_t mc_destID;
+	did_reg_t mc_destID;
 
 	// Size of mc_destID, either 8 or 16 bit.
 	tt_t tt;
@@ -219,7 +219,7 @@ typedef struct rio_rt_probe_in_t_TAG {
 	tt_t tt;
 
 	// Check routing for specified device ID.
-	uint16_t destID;
+	did_reg_t destID;
 
 	// A pointer to an rio_rt_state_t structure.
 	//   This structure is used to determine the route.
@@ -301,8 +301,8 @@ typedef struct rio_rt_set_all_out_t_TAG
 	uint32_t imp_rc;
 } rio_rt_set_all_out_t;
 
-typedef rio_rt_set_all_in_t  rio_rt_set_changed_in_t  ;
-typedef rio_rt_set_all_out_t rio_rt_set_changed_out_t ;
+typedef rio_rt_set_all_in_t  rio_rt_set_changed_in_t;
+typedef rio_rt_set_all_out_t rio_rt_set_changed_out_t;
 
 typedef struct rio_rt_alloc_mc_mask_in_t_TAG
 {
@@ -352,9 +352,9 @@ typedef struct rio_rt_change_rte_in_t_TAG {
 	rio_rt_state_t *rt;
 } rio_rt_change_rte_in_t;
 
-typedef struct rio_rt_change_rte_out_t_TAG 
-{
-    uint32_t imp_rc     ; // Implementation specific failure information 
+typedef struct rio_rt_change_rte_out_t_TAG {
+	// Implementation specific failure information
+	uint32_t imp_rc;
 } rio_rt_change_rte_out_t;
 
 typedef struct rio_rt_change_mc_mask_in_t_TAG {

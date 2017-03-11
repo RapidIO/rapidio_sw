@@ -122,7 +122,7 @@ struct worker {
 	sem_t run;  /* Managed by controller, post this sem to start a stopped woker */
 	enum req_type action;
 	enum req_mode action_mode;
-	did_val_t destid;
+	did_val_t did_val;
 
 	uint64_t rio_addr; /* Target RapidIO address for direct IO and DMA */
 	uint64_t byte_cnt; /* Number of bytes to access for direct IO and DMA */

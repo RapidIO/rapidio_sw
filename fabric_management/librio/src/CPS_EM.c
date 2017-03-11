@@ -35,6 +35,7 @@
 #include <stddef.h>
 #include <string.h>
 
+#include "rio_standard.h"
 #include "RapidIO_Source_Config.h"
 #include "DAR_DB_Private.h"
 #include "DSF_DB_Private.h"
@@ -1873,7 +1874,9 @@ uint32_t CPS_rio_em_cfg_pw(DAR_DEV_INFO_t *dev_info,
 		rio_em_cfg_pw_in_t *in_parms, rio_em_cfg_pw_out_t *out_parms)
 {
 	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
-	uint32_t pw_tgt_devid, pw_ctl = 0, pw_retx;
+	uint32_t pw_retx;
+	uint32_t pw_tgt_devid;
+	uint32_t pw_ctl = 0;
 
 	if (in_parms->priority > 3) {
 		out_parms->imp_rc = EM_CFG_PW(0x01);
@@ -1887,24 +1890,22 @@ uint32_t CPS_rio_em_cfg_pw(DAR_DEV_INFO_t *dev_info,
 		pw_tgt_devid = ((uint32_t)(in_parms->port_write_destID) << 16)
 				& CPS1848_PW_TARGET_DEVICEID_CSR_DESTID;
 		if (in_parms->srcID_valid) {
-			pw_ctl = ((uint32_t)(in_parms->port_write_srcID) << 16)
+			pw_ctl = ((uint32_t)(in_parms->port_write_srcID << 16))
 					& CPS1848_PW_CTL_SRCID;
 		}
 	} else {
 		pw_tgt_devid = ((uint32_t)(in_parms->port_write_destID) << 16)
-				& ( CPS1848_PW_TARGET_DEVICEID_CSR_DESTID |
-				CPS1848_PW_TARGET_DEVICEID_CSR_DESTID_MSB);
+				& (CPS1848_PW_TARGET_DEVICEID_CSR_DESTID |
+						CPS1848_PW_TARGET_DEVICEID_CSR_DESTID_MSB);
 		pw_tgt_devid |= CPS1848_PW_TARGET_DEVICEID_CSR_LARGE;
 		if (in_parms->srcID_valid) {
-			pw_ctl =
-					((uint32_t)(in_parms->port_write_srcID)
-							<< 16)
-							& ( CPS1848_PW_CTL_SRCID
-									| CPS1848_PW_CTL_SRCID_MSB);
+			pw_ctl = ((uint32_t)(in_parms->port_write_srcID) << 16)
+					& (CPS1848_PW_CTL_SRCID |
+							CPS1848_PW_CTL_SRCID_MSB);
 		}
 	}
 
-	pw_ctl |= ((uint32_t)(in_parms->priority) << 14) & CPS1848_PW_CTL_PRIO;
+	pw_ctl |= ((did_reg_t)(in_parms->priority) << 14) & CPS1848_PW_CTL_PRIO;
 	if (in_parms->CRF) {
 		pw_ctl |= CPS1848_PW_CTL_CRF;
 	}
@@ -1956,18 +1957,18 @@ uint32_t CPS_rio_em_cfg_pw(DAR_DEV_INFO_t *dev_info,
 
 	if (pw_tgt_devid & CPS1848_PW_TARGET_DEVICEID_CSR_LARGE) {
 		out_parms->deviceID_tt = tt_dev16;
-		out_parms->port_write_destID = (uint16_t)((pw_tgt_devid
-				& ( CPS1848_PW_TARGET_DEVICEID_CSR_DESTID |
+		out_parms->port_write_destID = (did_reg_t)((pw_tgt_devid
+				& (CPS1848_PW_TARGET_DEVICEID_CSR_DESTID |
 				CPS1848_PW_TARGET_DEVICEID_CSR_DESTID_MSB))
 				>> 16);
-		out_parms->port_write_srcID = (uint16_t)((pw_ctl
+		out_parms->port_write_srcID = (did_reg_t)((pw_ctl
 				& (CPS1848_PW_CTL_SRCID |
 				CPS1848_PW_CTL_SRCID_MSB)) >> 16);
 	} else {
 		out_parms->deviceID_tt = tt_dev8;
-		out_parms->port_write_destID = (uint16_t)((pw_tgt_devid
+		out_parms->port_write_destID = (did_reg_t)((pw_tgt_devid
 				& CPS1848_PW_TARGET_DEVICEID_CSR_DESTID) >> 16);
-		out_parms->port_write_srcID = (uint16_t)((pw_ctl
+		out_parms->port_write_srcID = (did_reg_t)((pw_ctl
 				& CPS1848_PW_CTL_SRCID) >> 16);
 	}
 

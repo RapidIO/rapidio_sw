@@ -1955,19 +1955,23 @@ uint32_t DAR_pkt_bytes_to_fields(DAR_pkt_bytes_t *bytes_in,
 
 	switch (fields_out->trans.tt_code) {
 	case tt_small:
-		fields_out->trans.destID = bytes_in->pkt_data[pkt_index++];
-		fields_out->trans.srcID = bytes_in->pkt_data[pkt_index++];
+		fields_out->trans.destID =
+				(did_reg_t)(bytes_in->pkt_data[pkt_index++]);
+		fields_out->trans.srcID =
+				(did_reg_t)(bytes_in->pkt_data[pkt_index++]);
 		break;
 
 	case tt_large:
 		fields_out->trans.destID =
-				((uint32_t)(bytes_in->pkt_data[pkt_index++])
-						<< 8);
-		fields_out->trans.destID += bytes_in->pkt_data[pkt_index++];
+				(did_reg_t)(bytes_in->pkt_data[pkt_index++])
+						<< 8;
+		fields_out->trans.destID +=
+				(did_reg_t)(bytes_in->pkt_data[pkt_index++]);
 		fields_out->trans.srcID =
-				((uint32_t)(bytes_in->pkt_data[pkt_index++])
-						<< 8);
-		fields_out->trans.srcID += bytes_in->pkt_data[pkt_index++];
+				(did_reg_t)(bytes_in->pkt_data[pkt_index++])
+						<< 8;
+		fields_out->trans.srcID +=
+				(did_reg_t)(bytes_in->pkt_data[pkt_index++]);
 		break;
 
 	default:

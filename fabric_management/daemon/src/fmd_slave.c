@@ -92,11 +92,13 @@ int send_slave_hello_message(void)
 
 	sem_wait(&slv->tx_mtx);
 	slv->s2m->msg_type = htonl(FMD_P_REQ_HELLO);
-	slv->s2m->src_did_val = htonl(regs.host_destid);
+	slv->s2m->src_did_val = htonl(regs.host_did_reg_val);
+	slv->s2m->src_did_sz = htonl(FMD_DEV08);
 	SAFE_STRNCPY(slv->s2m->hello_rq.peer_name, (*fmd->mp_h)->sysfs_name,
 			sizeof(slv->s2m->hello_rq.peer_name));
 	slv->s2m->hello_rq.pid = htonl(getpid());
-	slv->s2m->hello_rq.did_val = htonl((regs.my_destid & RIO_DEVID_DEV8) >> 16);
+	slv->s2m->hello_rq.did_val = htonl(
+			(regs.my_did_reg_val & RIO_DEVID_DEV8) >> 16);
 	slv->s2m->hello_rq.did_sz = htonl(FMD_DEV08);
 	slv->s2m->hello_rq.ct = htonl(regs.comptag);
 	slv->s2m->hello_rq.hc_long = htonl(HC_MP);
@@ -285,7 +287,7 @@ void slave_process_mod(void)
 	case FMD_P_OP_DEL: 
 		/* FIXME: Commented out for now as this can kill the platform.
 			rc = riomp_mgmt_device_del(slv->fd, 
-				ntohl(slv->m2s->mod_rq.did), 
+				ntohl(slv->m2s->mod_rq.did_val),
 				ntohl(slv->m2s->mod_rq.hc), 
 				ntohl(slv->m2s->mod_rq.ct));
 		if (rc) {
@@ -541,6 +543,7 @@ void update_master_flags_from_peer(void)
 
 	slv->s2m->msg_type = htonl(FMD_P_REQ_FSET);
 	slv->s2m->src_did_val = htonl(did_val);
+	slv->s2m->src_did_sz = htonl(did_sz);
 	slv->s2m->fset.did_val = htonl(did_val);
 	slv->s2m->fset.did_sz = htonl(did_sz);
 	slv->s2m->fset.ct = htonl(ct);

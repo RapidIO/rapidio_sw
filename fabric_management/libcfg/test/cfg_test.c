@@ -299,44 +299,35 @@ static void cfg_parse_master_test(void **state)
 	assert_int_equal(0, cfg_find_mport(0, &mp));
 	assert_int_equal(0, mp.num);
 	assert_int_equal(0x10005, mp.ct);
-	assert_int_equal(1, mp.op_mode);
 	assert_int_not_equal(0, cfg_find_mport(3, &mp));
 
 	assert_int_equal(0, cfg_find_dev_by_ct(0x10005, &dev));
-	assert_int_equal(rio_pc_pw_4x, dev.ep_pt.max_pw);
 	assert_int_equal(rio_pc_pw_4x, dev.ep_pt.op_pw);
 	assert_int_equal(rio_pc_ls_5p0, dev.ep_pt.ls);
 
 	assert_int_equal(0, cfg_find_dev_by_ct(0x20006, &dev));
-	assert_int_equal(rio_pc_pw_2x, dev.ep_pt.max_pw);
 	assert_int_equal(rio_pc_pw_2x, dev.ep_pt.op_pw);
 	assert_int_equal(rio_pc_ls_6p25, dev.ep_pt.ls);
 
 	assert_int_equal(0, cfg_find_dev_by_ct(0x30007, &dev));
-	assert_int_equal(rio_pc_pw_4x, dev.ep_pt.max_pw);
 	assert_int_equal(rio_pc_pw_2x, dev.ep_pt.op_pw);
 	assert_int_equal(rio_pc_ls_1p25, dev.ep_pt.ls);
 
 	assert_int_equal(0, cfg_find_dev_by_ct(0x40008, &dev));
 
 	assert_int_equal(0, cfg_find_dev_by_ct(0x70009, &dev));
-	assert_int_equal(rio_pc_pw_4x, dev.sw_info.sw_pt[0].max_pw);
 	assert_int_equal(rio_pc_pw_4x, dev.sw_info.sw_pt[0].op_pw);
 	assert_int_equal(rio_pc_ls_6p25, dev.sw_info.sw_pt[0].ls);
 
-	assert_int_equal(rio_pc_pw_2x, dev.sw_info.sw_pt[1].max_pw);
 	assert_int_equal(rio_pc_pw_2x, dev.sw_info.sw_pt[1].op_pw);
 	assert_int_equal(rio_pc_ls_5p0, dev.sw_info.sw_pt[1].ls);
 
-	assert_int_equal(rio_pc_pw_2x, dev.sw_info.sw_pt[2].max_pw);
 	assert_int_equal(rio_pc_pw_1x, dev.sw_info.sw_pt[2].op_pw);
 	assert_int_equal(rio_pc_ls_3p125, dev.sw_info.sw_pt[2].ls);
 
-	assert_int_equal(rio_pc_pw_4x, dev.sw_info.sw_pt[3].max_pw);
 	assert_int_equal(rio_pc_pw_1x, dev.sw_info.sw_pt[3].op_pw);
 	assert_int_equal(rio_pc_ls_2p5, dev.sw_info.sw_pt[3].ls);
 
-	assert_int_equal(rio_pc_pw_4x, dev.sw_info.sw_pt[4].max_pw);
 	assert_int_equal(rio_pc_pw_4x, dev.sw_info.sw_pt[4].op_pw);
 	assert_int_equal(rio_pc_ls_1p25, dev.sw_info.sw_pt[4].ls);
 
@@ -505,27 +496,22 @@ static void cfg_parse_rxs_test(void **state)
 	assert_int_equal(FMD_DFLT_MAST_CM_PORT, m_cm_port);
 
 	assert_int_equal(0, cfg_find_dev_by_ct(0x10005, &dev));
-	assert_int_equal(rio_pc_pw_4x, dev.ep_pt.max_pw);
 	assert_int_equal(rio_pc_pw_4x, dev.ep_pt.op_pw);
 	assert_int_equal(rio_pc_ls_5p0, dev.ep_pt.ls);
 
 	assert_int_equal(0, cfg_find_dev_by_ct(0x20006, &dev));
-	assert_int_equal(rio_pc_pw_2x, dev.ep_pt.max_pw);
 	assert_int_equal(rio_pc_pw_2x, dev.ep_pt.op_pw);
 	assert_int_equal(rio_pc_ls_6p25, dev.ep_pt.ls);
 
 	assert_int_equal(0, cfg_find_dev_by_ct(0x30007, &dev));
-	assert_int_equal(rio_pc_pw_4x, dev.ep_pt.max_pw);
 	assert_int_equal(rio_pc_pw_4x, dev.ep_pt.op_pw);
 	assert_int_equal(rio_pc_ls_1p25, dev.ep_pt.ls);
 
 	assert_int_equal(0, cfg_find_dev_by_ct(0x40008, &dev));
-	assert_int_equal(rio_pc_pw_4x, dev.ep_pt.max_pw);
 	assert_int_equal(rio_pc_pw_4x, dev.ep_pt.op_pw);
 	assert_int_equal(rio_pc_ls_2p5, dev.ep_pt.ls);
 
 	assert_int_equal(0, cfg_find_dev_by_ct(0x70000, &dev));
-	assert_int_equal(0, memcmp("RXS2448", dev.dev_type, sizeof("RXS2448")));
 	assert_int_equal(0,cfg_get_conn_dev(0x70000, 0, &dev, &conn_pt));
 
 	count++;

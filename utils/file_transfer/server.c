@@ -321,7 +321,7 @@ int FXStatusCmd(struct cli_env *env, int argc, char **argv)
 				rx_bufs[idx].is_an_ibwin ? "Y" : "N");
 	}
 	LOGMSG(env, "\nall_must_die status : %d\n", all_must_die);
-	LOGMSG(env, "Server destID       : %d\n", qresp.destid);
+	LOGMSG(env, "Server destID       : %d\n", qresp.did_val);
 	LOGMSG(env, "Server cm_skt       : %d\n", conn_skt_num);
 	LOGMSG(env, "Server Accept Lp OK : %d\n", conn_loop_alive);
 	LOGMSG(env, "Pending conn reqs   : %s\n",

@@ -157,7 +157,7 @@ int fmd_traverse_network_from_pe_port(riocp_pe_handle pe, rio_port_t port_num,
 					"PE 0x%x Port %d Connected: DEVICE %s CT 0x%x DID 0x%x\n",
 					curr_pe->comptag, pnum,
 					new_pe->sysfs_name, new_pe->comptag,
-					new_pe->destid);
+					new_pe->did_reg_val);
 
 			if (RIOCP_PE_IS_SWITCH(new_pe->cap)) {
 				void *pe;
@@ -267,7 +267,7 @@ int fmd_traverse_network_from_pe_port(riocp_pe_handle pe, rio_port_t port_num,
 						curr_pe->comptag, pnum,
 						new_pe->sysfs_name,
 						new_pe->comptag,
-						new_pe->destid);
+						new_pe->did_reg_val);
 				// create a new ct (and name) next loop
 				ct = COMPTAG_UNSET;
 

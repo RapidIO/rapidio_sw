@@ -101,7 +101,7 @@ static uint32_t mstore_address;
 static uint32_t mstore_numbytes;
 static uint32_t mstore_numacc;
 static uint32_t mstore_data;
-static uint32_t mstore_did;
+static did_t mstore_did;
 static hc_t mstore_hc;
 
 void aligningAddress(struct cli_env *env, uint32_t address)
@@ -800,7 +800,8 @@ int CLIMRegReadCmd(struct cli_env *env, int argc, char **argv)
 	uint32_t address;
 	uint32_t data, prevRead;
 	uint32_t numReads, i;
-	uint32_t did;
+	did_val_t did_val;
+	did_t did;
 	hc_t hc;
 	int rc;
 
@@ -825,11 +826,12 @@ int CLIMRegReadCmd(struct cli_env *env, int argc, char **argv)
 		}
 		// no break
 	case 2:
-		if (tok_parse_did(argv[1], &did, 0)) {
+		if (tok_parse_did(argv[1], &did_val, 0)) {
 			LOGMSG(env, "\n");
 			LOGMSG(env, TOK_ERR_DID_MSG_FMT);
 			goto exit;
 		}
+		did = (did_t){did_val, dev08_sz};
 		// no break
 	case 1:
 		if (tok_parse_ul(argv[0], &address, 0)) {
@@ -895,7 +897,8 @@ int CLIMRegWriteCmd(struct cli_env *env, int argc, char **argv)
 {
 	int errorStat = 0;
 	uint32_t address;
-	uint32_t did;
+	did_val_t did_val;
+	did_t did;
 	hc_t hc;
 	uint32_t data;
 	uint32_t rc;
@@ -914,11 +917,12 @@ int CLIMRegWriteCmd(struct cli_env *env, int argc, char **argv)
 		}
 		// no break
 	case 3:
-		if (tok_parse_did(argv[2], &did, 0)) {
+		if (tok_parse_did(argv[2], &did_val, 0)) {
 			LOGMSG(env, "\n");
 			LOGMSG(env, TOK_ERR_DID_MSG_FMT);
 			goto exit;
 		}
+		did = (did_t){did_val, dev08_sz};
 		// no break
 	case 2:
 		if (tok_parse_ul(argv[1], &data, 0)) {
@@ -1014,7 +1018,7 @@ void fmd_bind_dev_rw_cmds(void)
 	store_data = 0;
 
 	mstore_address = 0;
-	mstore_did = 0;
+	mstore_did = DID_INVALID_ID;
 	mstore_hc = HC_MP;
 	mstore_numbytes = 4;
 	mstore_numacc = 1;

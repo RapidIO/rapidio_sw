@@ -44,7 +44,8 @@ static int riocp_pe_test_dump_pe(riocp_pe_handle pe)
 {
 	int ret;
 	ct_t comptag = 0;
-	uint32_t destid;
+	did_t did;
+	did_val_t did_val;
 	struct riocp_pe_capabilities cap;
 
 	ret = riocp_pe_get_capabilities(pe, &cap);
@@ -58,16 +59,19 @@ static int riocp_pe_test_dump_pe(riocp_pe_handle pe)
 	}
 
 	if (!RIOCP_PE_IS_SWITCH(cap)) {
-		ret = riocp_pe_get_destid(pe, &destid);
+		ret = riocp_pe_get_destid(pe, &did);
 		if (ret) {
 			return ret;
 		}
 
-		printf("dev_id = 0x%08x, destid = %u (0x%08x), comptag 0x%08x (%s)\n",
-			cap.dev_id, destid, destid, comptag, riocp_pe_get_device_name(pe));
+		did_val = did_get_value(did);
+		printf(
+				"dev_id = 0x%08x, destid = %u (0x%08x), comptag 0x%08x (%s)\n",
+				cap.dev_id, did_val, did_val, comptag,
+				riocp_pe_get_device_name(pe));
 	} else {
-		printf("dev_id = 0x%08x, comptag 0x%08x (%s)\n",
-			cap.dev_id, comptag, riocp_pe_get_device_name(pe));
+		printf("dev_id = 0x%08x, comptag 0x%08x (%s)\n", cap.dev_id,
+				comptag, riocp_pe_get_device_name(pe));
 	}
 
 	return 0;
@@ -334,9 +338,10 @@ static int riocp_pe_test_connected()
 static int riocp_pe_test_set_destid(int argc, char **argv)
 {
 	int ret;
-	uint32_t destid;
+	did_val_t did_val;
+	did_t did;
 
-	if (tok_parse_did(argv[3], &destid, 0)) {
+	if (tok_parse_did(argv[3], &did_val, 0)) {
 		fprintf(stderr, TOK_ERR_DID_MSG_FMT);
 		return -EINVAL;
 	}
@@ -346,30 +351,37 @@ static int riocp_pe_test_set_destid(int argc, char **argv)
 		return -EINVAL;
 	}
 
-	ret = riocp_pe_set_destid(mport, destid);
+	did = (did_t){did_val, dev08_sz};
+	ret = riocp_pe_set_destid(mport, did);
 	if (ret) {
-		fprintf(stderr, "error setting destid for mport: %s\n", strerror(-ret));
+		fprintf(stderr, "error setting destid for mport: %s\n",
+				strerror(-ret));
 		return ret;
 	}
-	printf("set destid to 0x%08x\n", destid);
+	printf("set destid to 0x%08x\n", did_val);
 	return 0;
 }
 
 static int riocp_pe_test_check_destid()
 {
 	int ret;
-	uint32_t destid;
+	did_t did;
+	did_val_t did_val;
 
-	ret = riocp_pe_get_destid(mport, &destid);
+	ret = riocp_pe_get_destid(mport, &did);
 	if (ret) {
-		fprintf(stderr, "error reading local destid: %s\n", strerror(-ret));
+		fprintf(stderr, "error reading local destid: %s\n",
+				strerror(-ret));
 		return -EFAULT;
 	}
-	if (destid == 0xff) {
-		fprintf(stderr, "error: destid 0x%08x not supported \n", destid);
+
+	did_val = did_get_value(did);
+	if (did_equal(DID_ANY_DEV8_ID, did)) {
+		fprintf(stderr, "error: destid 0x%08x not supported \n",
+				did_val);
 		return -EFAULT;
 	}
-	printf("local destid: %u (0x%08x)\n", destid, destid);
+	printf("local destid: %u (0x%08x)\n", did_val, did_val);
 
 	return 0;
 }

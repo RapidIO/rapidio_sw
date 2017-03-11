@@ -79,9 +79,9 @@ uint32_t SRIO_API_ReadRegFunc(DAR_DEV_INFO_t *d_info,
 		rc = riomp_mgmt_lcfg_read(acc_p->maint, offset, sizeof(x), &x)?
 						RIO_ERR_ACCESS:RIO_SUCCESS;
 	else
-		rc = riomp_mgmt_rcfg_read(acc_p->maint, pe_h->destid,
-			pe_h->hopcount, offset, sizeof(x), &x)?
-				RIO_ERR_ACCESS:RIO_SUCCESS;
+		rc = riomp_mgmt_rcfg_read(acc_p->maint, pe_h->did_reg_val,
+				pe_h->hopcount, offset, sizeof(x), &x) ?
+				RIO_ERR_ACCESS : RIO_SUCCESS;
 	if (RIO_SUCCESS == rc) {
 		*readdata = x;
 	}
@@ -122,9 +122,9 @@ uint32_t SRIO_API_WriteRegFunc(DAR_DEV_INFO_t *d_info,
 	if (RIOCP_PE_IS_MPORT(pe_h)) {
 		rc = riomp_mgmt_lcfg_write(acc_p->maint, offset,
 				sizeof(writedata), writedata) ?
-		RIO_ERR_ACCESS : RIO_SUCCESS;
+				RIO_ERR_ACCESS : RIO_SUCCESS;
 	} else {
-		rc = riomp_mgmt_rcfg_write(acc_p->maint, pe_h->destid,
+		rc = riomp_mgmt_rcfg_write(acc_p->maint, pe_h->did_reg_val,
 				pe_h->hopcount, offset, sizeof(writedata),
 				writedata) ? RIO_ERR_ACCESS : RIO_SUCCESS;
 	}
