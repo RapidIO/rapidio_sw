@@ -2748,6 +2748,7 @@ uint32_t rxs_rio_em_create_events(DAR_DEV_INFO_t *dev_info,
 				continue;
 			}
 			rc = RIO_ERR_INVALID_PARAMETER;
+			out_parms->imp_rc = EM_CREATE_EVENTS(0x08);
 			goto fail;
 		}
 
@@ -2758,6 +2759,12 @@ uint32_t rxs_rio_em_create_events(DAR_DEV_INFO_t *dev_info,
 					RXS_SPX_ERR_DET_OK_TO_UNINIT);
 			if (RIO_SUCCESS != rc) {
 				out_parms->imp_rc = EM_CREATE_EVENTS(0x10);
+				goto fail;
+			}
+			rc = DARRegWrite(dev_info, RXS_PLM_SPX_EVENT_GEN(pt),
+					RXS_PLM_SPX_EVENT_GEN_DWNGD);
+			if (RIO_SUCCESS != rc) {
+				out_parms->imp_rc = EM_CREATE_EVENTS(0x11);
 				goto fail;
 			}
 			break;
@@ -2772,7 +2779,7 @@ uint32_t rxs_rio_em_create_events(DAR_DEV_INFO_t *dev_info,
 			break;
 
 		case rio_em_f_err_rate:
-			rc = DARRegWrite(dev_info, RXS_PLM_SPX_EVENT_GEN(pt),
+			rc = DARRegWrite(dev_info, RXS_PBM_SPX_EVENT_GEN(pt),
 					RXS_PBM_FATAL_EVENT_MASK);
 			if (RIO_SUCCESS != rc) {
 				out_parms->imp_rc = EM_CREATE_EVENTS(0x36);
@@ -2843,6 +2850,7 @@ uint32_t rxs_rio_em_create_events(DAR_DEV_INFO_t *dev_info,
 			break;
 
 		default:
+			out_parms->imp_rc = EM_CREATE_EVENTS(0x58);
 			out_parms->failure_idx = i;
 			rc = RIO_ERR_INVALID_PARAMETER;
 			goto fail;
