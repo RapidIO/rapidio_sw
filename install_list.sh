@@ -3,23 +3,27 @@
 # Files required for installation
 # Note the names of these file name (different root) are also used by make_install.sh
 #
+INSTALL_ROOT="/opt/rapidio/.install"
+SCRIPTS_PATH="$(pwd)"/install
+
 NODEDATA_FILE="nodeData.txt"
 SRC_TAR="rapidio_sw.tar"
 TMPL_FILE="config.tmpl"
 
-INSTALL_ROOT="/opt/rapidio/.install"
-SCRIPTS_PATH="$(pwd)"/install
+PGM_NAME=install_list.sh
+PGM_NUM_PARMS=5
 
 # Validate input
 #
 PRINTHELP=0
 
-if [ "$#" -lt 5 ]; then
-    echo $'\ninstall_list.sh requires 5 parameters.\n'
+if [ "$#" -lt $PGM_NUM_PARMS ]; then
+    echo $'\n$PGM_NAME requires $PGM_NUM_PARMS parameters.\n'
     PRINTHELP=1
 else
     SERVER=$1
 
+    OK=1
     ALLNODES=();
     # format of input file: <master|slave> <hostname> <rioname> <nodenumber>
     while read -r line || [[ -n "$line" ]]; do
@@ -28,7 +32,7 @@ else
         if [ "${arr[0]}" = 'master' ]; then
             if [ -n "$MASTER" ]; then
                 echo "Multiple master entries ($line) in $2, exiting ..."
-                exit
+                OK=0
             fi
             MASTER=$host
         fi
@@ -37,6 +41,10 @@ else
 
     if [ -z "$MASTER" ]; then
         echo "No master entry in $2, exiting ..."
+        OK=0
+    fi
+
+    if [ "$OK" -eq 0 ]; then
         exit
     fi
 
@@ -61,7 +69,7 @@ else
 fi
 
 if [ $PRINTHELP = 1 ] ; then
-    echo "install_list.sh <SERVER> <nData> <memsz> <sw> <group> <rel>"
+    echo "$PGM_NAME <SERVER> <nData> <memsz> <sw> <group> <rel>"
     echo "<SERVER> Name of the node providing the files required by installation"
     echo "<nData>  The file describing the target nodes of the install"
     echo "         The file has the format:"

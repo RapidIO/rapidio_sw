@@ -10,13 +10,15 @@ NODEDATA_FILE="nodeData.txt"
 SRC_TAR="rapidio_sw.tar"
 TMPL_FILE="config.tmpl"
 
+PGM_NAME=install.sh
+PGM_NUM_PARMS=8
 
 # Validate input
 #
 PRINTHELP=0
 
-if [ "$#" -lt 8 ]; then
-    echo $'\ninstall.sh requires 8 parameters.\n'
+if [ "$#" -lt $PGM_NUM_PARMS ]; then
+    echo $'\n$PGM_NAME requires $PGM_NUM_PARMS parameters.\n'
     PRINTHELP=1
 else
     SERVER=$1
@@ -37,13 +39,13 @@ else
 
     if [ ! -e "$MASTER_CONFIG_FILE" ] || [ ! -e "$MASTER_MAKE_FILE" ]
     then
-	echo Switch type \"$SW_TYPE\" configuration support files do not exist.
+        echo Switch type \"$SW_TYPE\" configuration support files do not exist.
         PRINTHELP=1
     fi
 fi
 
 if [ $PRINTHELP = 1 ] ; then
-    echo "install.sh <SERVER> <NODE1> <NODE2> <NODE3> <NODE4> <memsz> <sw> <group> <rel>"
+    echo "$PGM_NAME <SERVER> <NODE1> <NODE2> <NODE3> <NODE4> <memsz> <sw> <group> <rel>"
     echo "<SERVER> Name of the node providing the files required by installation"
     echo "<NODE1>  Name of master, enumerating node"
     echo "<NODE2>  Name of slave node connected to Switch Port 2"
