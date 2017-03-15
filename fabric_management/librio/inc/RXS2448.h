@@ -648,7 +648,7 @@ extern "C" {
 				((uint64_t)(RXS_SPX_DLT_CSR_TIMEOUT) >> 8))
 #define RXS_SPX_DLT_CSR_TIMEOUT_MAX  ((uint32_t)RXS_SPX_DLT_CSR_TIMEOUT >> 8)
 
-// RXS Implementation specific port-write field definitions
+// RXS Definitions for the "Implementation specific" field of Port-writes
 #define RXS_PW_ZERO            ((uint32_t)0x00000100)
 #define RXS_PW_MULTIPORT       ((uint32_t)0x00000200)
 #define RXS_PW_DEV_RCS         ((uint32_t)0x00000400)

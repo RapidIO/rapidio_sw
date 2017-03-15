@@ -1762,7 +1762,9 @@ uint32_t rxs_rio_em_parse_pw(DAR_DEV_INFO_t *dev_info,
 	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
 	const int IMP_SPEC_IDX = RIO_EMHS_PW_IMP_SPEC_IDX;
 	const int ERR_DET_IDX = RIO_EMHS_PW_P_ERR_DET_IDX;
-	const uint32_t other_mask = RXS_PW_MULTIPORT |
+	const uint32_t other_mask = RXS_PW_ZERO |
+				RXS_PW_MULTIPORT |
+				RXS_PW_DEV_ECC |
 				RXS_PW_II_CHG_0 |
 				RXS_PW_II_CHG_1 |
 				RXS_PW_II_CHG_2  |
@@ -1778,16 +1780,22 @@ uint32_t rxs_rio_em_parse_pw(DAR_DEV_INFO_t *dev_info,
 	out_parms->too_many = false;
 	out_parms->other_events = false;
 
-	if (!(in_parms->num_events) || (NULL == in_parms->events)
-							|| (NULL == dev_info)) {
+	if (!(in_parms->num_events) || (NULL == in_parms->events)) {
 		out_parms->imp_rc = EM_PARSE_PW(0x01);
 		goto fail;
 	}
 
 	port = in_parms->pw[IMP_SPEC_IDX] & RIO_EM_PW_IMP_SPEC_PORT_MASK;
 
+	if (port >= NUM_RXS_PORTS(dev_info)) {
+		out_parms->imp_rc = EM_PARSE_PW(0x02);
+		goto fail;
+	}
+
 	if ((in_parms->pw[ERR_DET_IDX] & RXS_SPX_ERR_DET_OK_TO_UNINIT) ||
 			(in_parms->pw[ERR_DET_IDX] & RXS_SPX_ERR_DET_DLT) ||
+			(in_parms->pw[IMP_SPEC_IDX] & RXS_PW_OK_TO_UNINIT) ||
+			(in_parms->pw[IMP_SPEC_IDX] & RXS_PW_DLT) ||
 			(in_parms->pw[IMP_SPEC_IDX] & RXS_PW_DWNGD)) {
 		SAFE_ADD_EVENT_N_LOC(rio_em_f_los, port);
 	}
@@ -1837,18 +1845,14 @@ uint32_t rxs_rio_em_parse_pw(DAR_DEV_INFO_t *dev_info,
 	}
 
 	// Link initialized
-	if (in_parms->pw[IMP_SPEC_IDX] & RXS_PW_LINK_INIT) {
+	if ((in_parms->pw[ERR_DET_IDX] & RXS_SPX_ERR_DET_LINK_INIT) ||
+			(in_parms->pw[IMP_SPEC_IDX] & RXS_PW_LINK_INIT)) {
 		SAFE_ADD_EVENT_N_LOC(rio_em_i_sig_det, port);
 	}
 
 	// Device level event...
 	if (in_parms->pw[IMP_SPEC_IDX] & RXS_PW_INIT_FAIL) {
 		SAFE_ADD_EVENT_N_LOC(rio_em_i_init_fail, RIO_ALL_PORTS);
-	}
-
-	// Clear port write pending for this port last...
-	if (out_parms->num_events) {
-		SAFE_ADD_EVENT_N_LOC(rio_em_a_clr_pwpnd, port);
 	}
 
 	if (in_parms->pw[IMP_SPEC_IDX] & other_mask) {

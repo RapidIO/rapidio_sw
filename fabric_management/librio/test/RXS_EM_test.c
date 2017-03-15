@@ -2740,7 +2740,6 @@ static void rxs_rio_em_dev_rpt_ctl_bad_parms_test(void **state)
 	(void)state;
 }
 
-/*
 // Test that a port-write with no events is parsed correctly.
 
 static void rxs_rio_em_parse_pw_no_events_test(void **state)
@@ -2779,24 +2778,82 @@ typedef struct parse_pw_info_t_TAG {
 
 static void rxs_rio_em_parse_pw_all_events_test(void **state)
 {
+	unsigned int i;
 	rio_em_parse_pw_in_t in_p;
 	rio_em_parse_pw_out_t out_p;
-	rio_em_event_n_loc_t events[(int)rio_em_last];
+	const unsigned int max_events = 50;
+	rio_em_event_n_loc_t events[max_events];
 	parse_pw_info_t pws[] = {
-		{{0, 0, RXS_PW_RST_REQ, 0},
-			{0, rio_em_i_rst_req}},
-		{{0, RXS_SP_ERR_DET_PKT_CRC_ERR, RXS_PW_OUTPUT_FAIL, 0},
-			{0, rio_em_f_err_rate}},
-		{{0, 0, RXS_PW_PORT_ERR, 0}, {0, rio_em_f_port_err}},
-		{{0, 0, RXS_PW_DLT, 0}, {0, rio_em_f_los}},
-		{{0, 0, RXS_PW_LINK_INIT, 0}, {0, rio_em_i_sig_det}},
-		{{0, 0, RXS_PW_LOCALOG, 0}, {0, rio_em_d_log}},
-		{{0, 0, RXS_PW_MAX_DENIAL, 0}, {0, rio_em_f_2many_retx}},
-		{{0, RXS_SP_ERR_DET_CS_NOT_ACC, RXS_PW_MAX_DENIAL, 0},
-						{0, rio_em_f_2many_pna}},
+		{{	0,
+			RXS_SPX_ERR_DET_DLT | RXS_SPX_ERR_DET_OK_TO_UNINIT,
+			1 | RXS_PW_OK_TO_UNINIT | RXS_PW_DLT | RXS_PW_DWNGD,
+			0},
+			{1, rio_em_f_los}},
+		{{	0,
+			0,
+			2 | RXS_PW_PORT_ERR,
+			0},
+			{2, rio_em_f_port_err}},
+		{{	0,
+			0,
+			3 | RXS_PW_MAX_DENIAL,
+			0},
+			{3, rio_em_f_2many_retx}},
+		{{	0,
+			0,
+			4 | RXS_PW_PBM_FATAL,
+			0},
+			{4, rio_em_f_err_rate}},
+		{{	0,
+			0,
+			5 | RXS_PW_PBM_PW,
+			0},
+			{5, rio_em_d_ttl}},
+		{{	0,
+			0,
+			6 | RXS_PW_TLM_PW,
+			0},
+			{6, rio_em_d_rte}},
+		{{	0,
+			0,
+			7,
+			RXS_ERR_DET_ILL_TYPE |
+			RXS_ERR_DET_UNS_RSP |
+			RXS_ERR_DET_ILL_ID},
+			{RIO_ALL_PORTS, rio_em_d_log}},
+		{{	0,
+			RXS_SPX_ERR_DET_LINK_INIT,
+			8 | RXS_PW_LINK_INIT,
+			0},
+			{8, rio_em_i_sig_det}},
+		{{	0,
+			0,
+			9 | RXS_PW_RST_REQ | RXS_PW_PRST_REQ,
+			0},
+			{9, rio_em_i_rst_req}},
+		{{	0,
+			0,
+			10 | RXS_PW_DEV_RCS,
+			0},
+			{RIO_ALL_PORTS, rio_em_i_rst_req}},
+		{{	0,
+			0,
+			23 | RXS_PW_INIT_FAIL,
+			0},
+			{RIO_ALL_PORTS, rio_em_i_init_fail}},
 	};
 	unsigned int num_pws = sizeof(pws) / sizeof(pws[0]);
-	unsigned int i;
+
+	// Checking values for "all events" test
+	unsigned int num_chk_ev = 0;
+	rio_em_event_n_loc_t chk_ev[max_events];
+	bool found_it;
+	unsigned int j;
+	const uint32_t IMP_SPEC_IDX = RIO_EMHS_PW_IMP_SPEC_IDX;
+	const uint32_t IMP_SPEC_0_PORT = ~RIO_EMHS_PW_IMP_SPEC_PORT;
+
+	// Make sure the random value chosen for event size is correct.
+	assert_in_range(num_pws + 2, 0, max_events);
 
 	// Try each event individually...
 	for (i = 0; i < num_pws; i++) {
@@ -2804,7 +2861,7 @@ static void rxs_rio_em_parse_pw_all_events_test(void **state)
 			printf("\ni %d\n", i);
 		}
 		memcpy(in_p.pw, pws[i].pw, sizeof(in_p.pw));
-		in_p.num_events = (int)rio_em_last;
+		in_p.num_events = max_events;
 		memset(events, 0, sizeof(events));
 		in_p.events = events;
 
@@ -2817,7 +2874,22 @@ static void rxs_rio_em_parse_pw_all_events_test(void **state)
 			rxs_rio_em_parse_pw(&mock_dev_info, &in_p, &out_p));
 
 		assert_int_equal(0, out_p.imp_rc);
-		if (num_pws - 1 != i) {
+		if (rio_em_f_2many_retx == pws[i].event.event) {
+			// Creation of a 2many_pna event also creates an
+			// 2many_retx event.
+			assert_int_equal(2, out_p.num_events);
+			assert_int_equal(pws[i].event.event,
+							in_p.events[0].event);
+			assert_int_equal(pws[i].event.port_num,
+						in_p.events[0].port_num);
+			assert_int_equal(rio_em_f_2many_pna,
+						in_p.events[1].event);
+			// Yes, index for events port_num should be 'i', not 1
+			assert_int_equal(pws[i].event.port_num,
+						in_p.events[1].port_num);
+			assert_false(out_p.too_many);
+			assert_false(out_p.other_events);
+		} else {
 			assert_int_equal(1, out_p.num_events);
 			assert_int_equal(pws[i].event.event, in_p.events[0].event);
 			assert_int_equal(pws[i].event.port_num,
@@ -2826,17 +2898,68 @@ static void rxs_rio_em_parse_pw_all_events_test(void **state)
 			assert_false(out_p.other_events);
 			continue;
 		}
-		// Creation of a 2many_pna event also creates an
-		// 2many_retx event.
-		assert_int_equal(2, out_p.num_events);
-		assert_int_equal(pws[i - 1].event.event, in_p.events[0].event);
-		assert_int_equal(pws[i - 1].event.port_num,
-				in_p.events[0].port_num);
-		assert_int_equal(pws[i].event.event, in_p.events[1].event);
-		assert_int_equal(pws[i].event.port_num,
-				in_p.events[1].port_num);
-		assert_false(out_p.too_many);
-		assert_false(out_p.other_events);
+	}
+
+	// Formulate port-write with all possible events...
+	memcpy(in_p.pw, pws[0].pw, sizeof(in_p.pw));
+	memcpy(&chk_ev[num_chk_ev], &pws[0].event, sizeof(chk_ev[0]));
+	num_chk_ev++;
+	for (i = 1; i < num_pws; i++) {
+		for (j = 0; j < RIO_EMHS_PW_WORDS; j++) {
+			if (IMP_SPEC_IDX == j) {
+				in_p.pw[j] |= pws[i].pw[j] & IMP_SPEC_0_PORT;
+			} else {
+				in_p.pw[j] |= pws[i].pw[j];
+			}
+		}
+		memcpy(&chk_ev[num_chk_ev], &pws[i].event, sizeof(chk_ev[i]));
+		if (pws[i].event.port_num != RIO_ALL_PORTS) {
+			chk_ev[num_chk_ev].port_num = chk_ev[0].port_num;
+		}
+		num_chk_ev++;
+		if (rio_em_f_2many_retx == pws[i].event.event) {
+			chk_ev[num_chk_ev].port_num = pws[0].event.port_num;
+			chk_ev[num_chk_ev].event = rio_em_f_2many_pna; 
+			num_chk_ev++;
+		}
+	}
+
+	// Parse Murphy's own port write
+	in_p.num_events = max_events;
+	memset(events, 0, sizeof(events));
+	in_p.events = events;
+
+	out_p.imp_rc = 0xFFFFFFFF;
+	out_p.num_events = 0xFF;
+	out_p.too_many = true;
+	out_p.other_events = true;
+
+	assert_int_equal(RIO_SUCCESS,
+		rxs_rio_em_parse_pw(&mock_dev_info, &in_p, &out_p));
+
+	assert_int_equal(0, out_p.imp_rc);
+
+	assert_int_equal(out_p.num_events, num_chk_ev);
+	assert_false(out_p.too_many);
+	assert_false(out_p.other_events);
+
+	// Check that every chk_ev event exists in the events list
+	for (i = 0; i < num_chk_ev; i++) {
+		if (DEBUG_PRINTF) {
+			printf("\ni %d event %d port %d\n",
+				i, chk_ev[i].event,chk_ev[i].port_num);
+		}
+		found_it = false;
+		for (j = 0; !found_it && (j < out_p.num_events); j++) {
+			found_it = ((chk_ev[i].port_num == events[j].port_num)
+				&& (chk_ev[i].event == events[j].event));
+			if (DEBUG_PRINTF) {
+				if (found_it) {
+					printf("\n	j %d\n", j);
+				}
+			}
+		}
+		assert_true(found_it);
 	}
 
 	(void)state;
@@ -2849,17 +2972,27 @@ static void rxs_rio_em_parse_pw_oth_events_test(void **state)
 	rio_em_parse_pw_in_t in_p;
 	rio_em_parse_pw_out_t out_p;
 	rio_em_event_n_loc_t events[(int)rio_em_last];
-	parse_pw_info_t pws[] = {{{0, 0, RXS_PLM_SPX_STATUS_OUTPUT_DEGR, 0}, {0,
-			rio_em_f_los}}, {{0, 0, RXS_PLM_SPX_STATUS_TLM_PW, 0}, {
-			0, rio_em_f_los}}, {{0, 0, RXS_PLM_SPX_STATUS_PBM_PW, 0},
-			{0, rio_em_f_los}}, {{0, RXS_SP_ERR_DET_DSCRAM_LOS,
-			0, 0}, {0, rio_em_f_los}}, {{0,
-			RXS_SP_ERR_DET_IMP_SPEC, 0, 0}, {0, rio_em_f_los}}};
+	parse_pw_info_t pws[] = {
+	{{0, 0, RXS_PW_ZERO, 0}, {0, rio_em_f_los}},
+	{{0, 0, RXS_PW_MULTIPORT, 0}, {0, rio_em_f_los}},
+	{{0, 0, RXS_PW_FAB_OR_DEL, 0}, {0, rio_em_f_los}},
+	{{0, 0, RXS_PW_DEV_ECC, 0}, {0, rio_em_f_los}},
+	{{0, 0, RXS_PW_EL_INTA, 0}, {0, rio_em_f_los}},
+	{{0, 0, RXS_PW_EL_INTB, 0}, {0, rio_em_f_los}},
+	{{0, 0, RXS_PW_II_CHG_0, 0}, {0, rio_em_f_los}},
+	{{0, 0, RXS_PW_II_CHG_1, 0}, {0, rio_em_f_los}},
+	{{0, 0, RXS_PW_II_CHG_2, 0}, {0, rio_em_f_los}},
+	{{0, 0, RXS_PW_II_CHG_3, 0}, {0, rio_em_f_los}},
+	{{0, 0, RXS_PW_PCAP, 0}, {0, rio_em_f_los}},
+	};
 	unsigned int num_pws = sizeof(pws) / sizeof(pws[0]);
 	unsigned int i;
 
 	// Should not have any events, but should have "other" events
 	for (i = 0; i < num_pws; i++) {
+		if (DEBUG_PRINTF) {
+			printf("\ni %d\n", i);
+		}
 		memcpy(in_p.pw, pws[i].pw, sizeof(in_p.pw));
 		in_p.num_events = (int)rio_em_last;
 		memset(events, 0, sizeof(events));
@@ -2894,6 +3027,7 @@ static void rxs_rio_em_parse_pw_bad_parms_test(void **state)
 	rio_em_parse_pw_out_t out_p;
 	rio_em_event_n_loc_t events[(int)rio_em_last];
 
+	// Null "events" pointer
 	memset(in_p.pw, 0, sizeof(in_p.pw));
 	in_p.num_events = (uint8_t)rio_em_last;
 	memset(events, 0, sizeof(events));
@@ -2911,6 +3045,7 @@ static void rxs_rio_em_parse_pw_bad_parms_test(void **state)
 	assert_false(out_p.too_many);
 	assert_false(out_p.other_events);
 
+	// No events allowed
 	in_p.num_events = 0;
 	in_p.events = events;
 
@@ -2926,6 +3061,7 @@ static void rxs_rio_em_parse_pw_bad_parms_test(void **state)
 	assert_false(out_p.too_many);
 	assert_false(out_p.other_events);
 
+	// Illegal port value in port write
 	in_p.num_events = (uint8_t)rio_em_last;
 	in_p.pw[RIO_EM_PW_IMP_SPEC_IDX] = RIO_EM_PW_IMP_SPEC_PORT_MASK;
 
@@ -2944,6 +3080,7 @@ static void rxs_rio_em_parse_pw_bad_parms_test(void **state)
 	(void)state;
 }
 
+/*
 typedef struct offset_value_event_t_TAG {
 	uint32_t offset;
 	uint32_t value;
@@ -6090,7 +6227,6 @@ int main(int argc, char** argv)
 			rxs_rio_em_cfg_get_bad_parms_test,
 			rxs_em_setup),
 
-/*
 	cmocka_unit_test_setup(
 			rxs_rio_em_parse_pw_no_events_test,
 			rxs_em_setup),
@@ -6103,6 +6239,7 @@ int main(int argc, char** argv)
 	cmocka_unit_test_setup(
 			rxs_rio_em_parse_pw_bad_parms_test,
 			rxs_em_setup),
+/*
 	cmocka_unit_test_setup(
 			rxs_rio_em_create_events_bad_parms_test,
 			rxs_em_setup),
