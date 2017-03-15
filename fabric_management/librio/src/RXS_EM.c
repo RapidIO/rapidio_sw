@@ -74,7 +74,8 @@ uint32_t rxs_rio_em_cfg_pw(DAR_DEV_INFO_t *dev_info,
 	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
 	uint32_t regData;
 	uint32_t pw_mask;
-	uint32_t retx;
+	uint64_t time; // Use uint64_t to avoid rounding errors for large values
+
 	rio_rt_probe_all_in_t pr_all_in;
 	rio_rt_probe_all_out_t pr_all_out;
 	rio_rt_state_t rt;
@@ -134,7 +135,9 @@ uint32_t rxs_rio_em_cfg_pw(DAR_DEV_INFO_t *dev_info,
 		// Routing value must be either a port or multicast mask.
 		if (RIO_RTV_IS_PORT(rte)) {
 			regData |= (1 << RIO_RTV_GET_PORT(rte));
+			continue;
 		}
+		// If it's not a multicast mask, something has gone sideways
 		if (!RIO_RTV_IS_MC_MSK(rte)) {
 			rc = RIO_ERR_SW_FAILURE;
 			out_parms->imp_rc = EM_CFG_PW(4);
@@ -187,15 +190,19 @@ uint32_t rxs_rio_em_cfg_pw(DAR_DEV_INFO_t *dev_info,
 	// time than the value requested.
 
 	regData = 0;
-	retx = in_parms->port_write_re_tx;
 
-	if (retx) {
-		regData = (retx + 2999) / (3 * 1000);
-		if (!regData) {
-			regData = 1;
+	if (in_parms->port_write_re_tx) {
+		time = (uint64_t)in_parms->port_write_re_tx;
+		time *= (uint64_t)PORT_WRITE_RE_TX_NSEC;
+		time +=  RXS_PW_CTL_PW_TMR_NSEC - 1;
+		time /= RXS_PW_CTL_PW_TMR_NSEC;
+		if (!time) {
+			time = 1;
 		}
-		regData = (regData << 8) & RXS_PW_CTL_PW_TMR;
-
+		if (time > RXS_PW_CTL_PW_TMR_MAX) {
+			time = RXS_PW_CTL_PW_TMR_MAX;
+		}
+		regData = (time << 8) & RXS_PW_CTL_PW_TMR;
 	}
 
 	rc = DARRegWrite(dev_info, RXS_PW_CTL, regData);
@@ -233,8 +240,13 @@ uint32_t rxs_rio_em_cfg_pw(DAR_DEV_INFO_t *dev_info,
 		goto exit;
 	}
 
-	out_parms->port_write_re_tx = (regData & RXS_PW_CTL_PW_TMR) >> 8;
-	out_parms->port_write_re_tx *= 3000;
+	time = ((uint64_t)regData & (uint64_t)RXS_PW_CTL_PW_TMR) >> 8;
+	time *= RXS_PW_CTL_PW_TMR_NSEC;
+	time /= PORT_WRITE_RE_TX_NSEC;
+	if (time > UINT32_MAX) {
+		time = UINT32_MAX;
+	}
+	out_parms->port_write_re_tx = time;
 exit:
 	return rc;
 }
@@ -252,6 +264,9 @@ typedef struct rxs_event_cfg_reg_vals_t_TAG {
 	uint32_t plm_pw_en;		// RXS_PLM_SPX_PW_EN
 	uint32_t pbm_pw_en;		// RXS_PBM_SPX_PW_EN
 	uint32_t tlm_pw_en;		// RXS_TLM_SPX_PW_EN
+	uint32_t plm_int_en;		// RXS_PLM_SPX_INT_EN
+	uint32_t pbm_int_en;		// RXS_PBM_SPX_INT_EN
+	uint32_t tlm_int_en;		// RXS_TLM_SPX_INT_EN
 	uint32_t plm_denial_ctl;	// RXS_PLM_SPX_DENIAL_CTL
 	uint32_t rate_en;		// RXS_SPX_RATE_EN
 	uint32_t dlt_ctl;		// RXS_SPX_DLT_CSR
@@ -260,9 +275,6 @@ typedef struct rxs_event_cfg_reg_vals_t_TAG {
 	uint32_t em_pw_en;		// RXS_EM_PW_EN
 	uint32_t log_err_en;		// RXS_ERR_DET
 	uint32_t ttl;			// RXS_PKT_TIME_LIVE
-	uint32_t plm_int_en;		// RXS_PLM_SPX_INT_EN
-	uint32_t pbm_int_en;		// RXS_PBM_SPX_INT_EN
-	uint32_t tlm_int_en;		// RXS_TLM_SPX_INT_EN
 	uint32_t i2c_int_enable;	// I2C_INT_STAT
 	uint32_t em_rst_int_en;		// RXS_EM_RST_INT_EN
 	uint32_t em_int_en;		// RXS_EM_INT_EN
@@ -360,12 +372,17 @@ static uint32_t rxs_event_read_port_regs(DAR_DEV_INFO_t *d_i,
 {
 	uint32_t rc;
 
+	rc = DARRegRead(d_i, RXS_SPX_CTL(port), &r->ctl);
+	if (rc) {
+		goto fail;
+	}
+
 	rc = DARRegRead(d_i, RXS_SPX_RATE_EN(port), &r->rate_en);
 	if (rc) {
 		goto fail;
 	}
 
-	rc = DARRegRead(d_i, RXS_SPX_CTL(port), &r->ctl);
+	rc = DARRegRead(d_i, RXS_SPX_DLT_CSR(port), &r->dlt_ctl);
 	if (rc) {
 		goto fail;
 	}
@@ -390,6 +407,16 @@ static uint32_t rxs_event_read_port_regs(DAR_DEV_INFO_t *d_i,
 		goto fail;
 	}
 
+	rc = DARRegRead(d_i, RXS_TLM_SPX_PW_EN(port), &r->tlm_pw_en);
+	if (rc) {
+		goto fail;
+	}
+
+	rc = DARRegRead(d_i, RXS_TLM_SPX_INT_EN(port), &r->tlm_int_en);
+	if (rc) {
+		goto fail;
+	}
+
 	rc = DARRegRead(d_i, RXS_PBM_SPX_PW_EN(port), &r->pbm_pw_en);
 	if (rc) {
 		goto fail;
@@ -409,12 +436,17 @@ static uint32_t rxs_event_write_port_regs(DAR_DEV_INFO_t *d_i,
 {
 	uint32_t rc;
 
+	rc = DARRegWrite(d_i, RXS_SPX_CTL(port), r->ctl);
+	if (rc) {
+		goto fail;
+	}
+
 	rc = DARRegWrite(d_i, RXS_SPX_RATE_EN(port), r->rate_en);
 	if (rc) {
 		goto fail;
 	}
 
-	rc = DARRegWrite(d_i, RXS_SPX_CTL(port), r->ctl);
+	rc = DARRegWrite(d_i, RXS_SPX_DLT_CSR(port), r->dlt_ctl);
 	if (rc) {
 		goto fail;
 	}
@@ -439,6 +471,16 @@ static uint32_t rxs_event_write_port_regs(DAR_DEV_INFO_t *d_i,
 		goto fail;
 	}
 
+	rc = DARRegWrite(d_i, RXS_TLM_SPX_PW_EN(port), r->tlm_pw_en);
+	if (rc) {
+		goto fail;
+	}
+
+	rc = DARRegWrite(d_i, RXS_TLM_SPX_INT_EN(port), r->tlm_int_en);
+	if (rc) {
+		goto fail;
+	}
+
 	rc = DARRegWrite(d_i, RXS_PBM_SPX_PW_EN(port), r->pbm_pw_en);
 	if (rc) {
 		goto fail;
@@ -448,7 +490,6 @@ static uint32_t rxs_event_write_port_regs(DAR_DEV_INFO_t *d_i,
 	if (rc) {
 		goto fail;
 	}
-
 fail:
 	return rc;
 }
@@ -470,6 +511,7 @@ static uint32_t rxs_event_cfg_get(
 {
 	uint32_t rc;
 	uint32_t mask;
+	uint64_t time;
 
 	event->em_detect = rio_em_detect_0delta;
 	event->em_info = 0;
@@ -477,12 +519,19 @@ static uint32_t rxs_event_cfg_get(
 	switch (event->em_event) {
 	case rio_em_f_los:
 		mask = RXS_SPX_ERR_DET_OK_TO_UNINIT | RXS_SPX_ERR_DET_DLT;
-		if (regs->rate_en & mask) {
-			event->em_detect = rio_em_detect_on;
-			event->em_info = (regs->dlt_ctl >> 8) * 600;
-		} else {
+		event->em_info = 0;
+		if (!(regs->rate_en & mask)) {
 			event->em_detect = rio_em_detect_off;
-			event->em_info = 0;
+			break;
+		}
+		event->em_detect = rio_em_detect_on;
+		if (regs->rate_en & RXS_SPX_ERR_DET_DLT) {
+			time = regs->dlt_ctl >> 8;
+			time *= RXS_SPX_DLT_CSR_TIMEOUT_NSEC;
+			if (time > UINT32_MAX) {
+				time = UINT32_MAX;
+			}
+			event->em_info = time;
 		}
 		break;
 
@@ -531,9 +580,9 @@ static uint32_t rxs_event_cfg_get(
 			event->em_detect = rio_em_detect_on;
 			event->em_info = regs->ttl;
 			event->em_info &= RXS_PKT_TIME_LIVE_PKT_TIME_LIVE;
-			event->em_info = event->em_info >> 16;
-			event->em_info /= 4;
-			event->em_info = (event->em_info + 1) * 6 * 1000;
+			event->em_info = event->em_info >> 18;
+			event->em_info++;
+			event->em_info *= RXS_PKT_TIME_LIVE_NSEC;
 		} else {
 			event->em_detect = rio_em_detect_off;
 			event->em_info = 0;
@@ -545,13 +594,13 @@ static uint32_t rxs_event_cfg_get(
 			(regs->tlm_pw_en & RXS_TLM_SPX_INT_EN_LUT_DISCARD)) {
 			event->em_detect = rio_em_detect_on;
 		} else {
-			event->em_detect = rio_em_detect_on;
+			event->em_detect = rio_em_detect_off;
 		}
 		event->em_info = 0;
 		break;
 
 	case rio_em_d_log:
-		if (event->em_info) {
+		if (regs->log_err_en & RXS_ALL_LOG_ERRS) {
 			event->em_detect = rio_em_detect_on;
 			event->em_info = regs->log_err_en & RXS_ALL_LOG_ERRS;
 		} else {
@@ -570,7 +619,7 @@ static uint32_t rxs_event_cfg_get(
 
 	case rio_em_i_rst_req:
 		if ((regs->plm_ctl & RXS_PLM_SPX_IMP_SPEC_CTL_SELF_RST)
-			|| (regs->plm_ctl
+			&& (regs->plm_ctl
 				& RXS_PLM_SPX_IMP_SPEC_CTL_PORT_SELF_RST)) {
 			event->em_detect = rio_em_detect_off;
 		} else {
@@ -664,7 +713,8 @@ uint32_t rxs_rio_em_cfg_get(DAR_DEV_INFO_t *dev_info,
 		}
 	}
 
-	rpt_ctl_in.ptl.num_ports = in_parms->port_num;
+	rpt_ctl_in.ptl.num_ports = 1;
+	rpt_ctl_in.ptl.pnums[0] = in_parms->port_num;
 	rpt_ctl_in.notfn = rio_em_notfn_0delta;
 	rc = rxs_rio_em_dev_rpt_ctl(dev_info, &rpt_ctl_in, &rpt_ctl_out);
 	if (RIO_SUCCESS != rc) {
@@ -719,53 +769,61 @@ static uint32_t rxs_plm_set_notifn(
 //               appropriate when an application can tolerate hundreds of
 //               microseconds to milliseconds of delay, rather than accept
 //               data loss.
-// Both events initiate packet discard.
+// DWNGD : If the port reinitializes and downgrades, another event is sent.
+//		This is only likely if the DLT is set to a "long" period,
+//		where "long" is milliseconds for IDLE1/2 and seconds for IDLE3.
+// All events initiate packet discard.
 static uint32_t rxs_set_event_cfg_rio_em_f_los(
-		DAR_DEV_INFO_t			*dev_info,
 		rxs_event_cfg_reg_vals_t	*regs,
 		rio_em_cfg_t			*event,
 		rio_em_notfn_ctl_t		nfn,
 		uint32_t			*imp_rc)
 {
 	uint32_t rc;
-	uint32_t clk_pd;
 	uint32_t err_mask = RXS_SPX_RATE_EN_DLT | RXS_SPX_RATE_EN_OK_TO_UNINIT;
-	uint32_t plm_mask = RXS_PLM_SPX_IMP_SPEC_CTL_OK2U_FATAL |
-				RXS_PLM_SPX_IMP_SPEC_CTL_DLT_FATAL;
-
-	rc = rxs_rio_pc_clk_pd(dev_info, &clk_pd);
-	if (RIO_SUCCESS != rc) {
-		*imp_rc = EM_CFG_SET(0x28);
-		goto fail;
-	}
+	uint32_t plm_ctl_mask = RXS_PLM_SPX_IMP_SPEC_CTL_OK2U_FATAL |
+				RXS_PLM_SPX_IMP_SPEC_CTL_DLT_FATAL |
+				RXS_PLM_SPX_IMP_SPEC_CTL_DWNGD_FATAL;
+	uint32_t plm_ntfn_mask = RXS_PLM_SPX_STAT_OK_TO_UNINIT |
+				RXS_PLM_SPX_STAT_DLT |
+				RXS_PLM_SPX_STAT_DWNGD;
+	uint64_t time;
 
 	regs->rate_en &= ~err_mask;
-	regs->plm_ctl &= ~plm_mask;
+	regs->plm_ctl &= ~plm_ctl_mask;
+	regs->dlt_ctl = 0;
 	if (rio_em_detect_on == event->em_detect) {
-		uint32_t time = (event->em_info + (256 * clk_pd) - 1)
-						/ clk_pd / 256;
 
-		regs->plm_ctl |= plm_mask;
+		time = event->em_info;
+		time += RXS_SPX_DLT_CSR_TIMEOUT_NSEC - 1;
+		time /= RXS_SPX_DLT_CSR_TIMEOUT_NSEC;
+		if (!time) {
+			time = 1;
+		}
+		if (time > RXS_SPX_DLT_CSR_TIMEOUT_MAX) {
+			time = RXS_SPX_DLT_CSR_TIMEOUT_MAX;
+		}
+
+		regs->plm_ctl |= plm_ctl_mask;
 		regs->ctl |= RXS_SPX_CTL_STOP_FAIL_EN | RXS_SPX_CTL_DROP_EN;
-		if (!event->em_info) {
-			regs->rate_en |= RXS_SPX_RATE_EN_OK_TO_UNINIT;
-			regs->plm_ctl |= RXS_PLM_SPX_IMP_SPEC_CTL_OK2U_FATAL;
-		} else {
-			regs->rate_en |= RXS_SPX_RATE_EN_DLT;
-			regs->plm_ctl |= RXS_PLM_SPX_IMP_SPEC_CTL_DLT_FATAL;
 
-			if (!time) {
-				time = 1;
-			}
+		// For non-0 time, use the DLT event
+		// For 0 time, use the OK_TO_UNINIT event
+		if (event->em_info) {
+			regs->rate_en |= RXS_SPX_RATE_EN_DLT;
+			regs->rate_en &= ~RXS_SPX_RATE_EN_OK_TO_UNINIT;
 			regs->dlt_ctl = (time << 8) & RXS_SPX_DLT_CSR_TIMEOUT;
+		} else {
+			regs->rate_en |= RXS_SPX_RATE_EN_OK_TO_UNINIT;
+			regs->rate_en &= ~RXS_SPX_RATE_EN_DLT;
+			regs->dlt_ctl = 0;
 		}
 	}
 
-	rc = rxs_plm_set_notifn(regs, plm_mask, nfn);
+	rc = rxs_plm_set_notifn(regs, plm_ntfn_mask, nfn);
 	if (RIO_SUCCESS != rc) {
 		*imp_rc = EM_CFG_SET(0x2A);
 	}
-fail:
 	return rc;
 }
 
@@ -929,17 +987,26 @@ static uint32_t rxs_set_event_cfg_rio_em_d_ttl_dev(
 		uint32_t			*imp_rc)
 {
 	uint32_t mask = RXS_PKT_TIME_LIVE_PKT_TIME_LIVE;
-	uint32_t rc = RIO_SUCCESS;
+	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+	uint64_t time;
 
 	switch (event->em_detect) {
 	case rio_em_detect_on:
-		regs->ttl &= ~mask;
-		regs->ttl |= (event->em_info << 16) & mask;
-		if (!regs->ttl) {
-			rc = RIO_ERR_INVALID_PARAMETER;
+		if (!event->em_info) {
 			*imp_rc = EM_CFG_SET(0x43);
 			goto fail;
 		}
+		time = event->em_info + RXS_PKT_TIME_LIVE_NSEC - 1;
+		time /= RXS_PKT_TIME_LIVE_NSEC;
+		time--;
+		time *= 4;
+		if (!time) {
+			time = 1;
+		}
+		if (time > RXS_PKT_TIME_LIVE_MAX) {
+			time = RXS_PKT_TIME_LIVE_MAX;
+		}
+		regs->ttl = (time << 16) & mask;
 		break;
 	case rio_em_detect_off:
 		regs->ttl &= ~mask;
@@ -947,9 +1014,10 @@ static uint32_t rxs_set_event_cfg_rio_em_d_ttl_dev(
 	case rio_em_detect_0delta:
 		break;
 	default:
-		rc = RIO_ERR_INVALID_PARAMETER;
 		*imp_rc = EM_CFG_SET(0x44);
+		goto fail;
 	}
+	rc = RIO_SUCCESS;
 fail:
 	return rc;
 }
@@ -1051,14 +1119,13 @@ static uint32_t rxs_set_event_cfg_rio_em_d_log(
 		rio_em_notfn_ctl_t		nfn,
 		uint32_t			*imp_rc)
 {
-	uint32_t rc;
+	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
 
 	switch (event->em_detect) {
 	case rio_em_detect_on:
 		regs->log_err_en &= ~RXS_ALL_LOG_ERRS;
 		regs->log_err_en |= event->em_info & RXS_ALL_LOG_ERRS;
 		if (!regs->log_err_en) {
-			rc = RIO_ERR_INVALID_PARAMETER;
 			*imp_rc = EM_CFG_SET(0x43);
 			goto fail;
 		}
@@ -1072,7 +1139,6 @@ static uint32_t rxs_set_event_cfg_rio_em_d_log(
 		rc = RIO_SUCCESS;
 		break;
 	default:
-		rc = RIO_ERR_INVALID_PARAMETER;
 		*imp_rc = EM_CFG_SET(0x44);
 	}
 fail:
@@ -1164,28 +1230,58 @@ fail:
 }
 
 static uint32_t rxs_set_event_cfg_rio_em_i_init_fail(
+		rio_em_cfg_t			*event,
 		rxs_event_cfg_reg_vals_t	*regs,
 		rio_em_notfn_ctl_t		nfn)
 {
+	uint32_t rc = RIO_SUCCESS;
+
+	switch (event->em_detect) {
+	case rio_em_detect_on:
+		regs->i2c_int_enable |= I2C_INT_ENABLE_BL_FAIL;
+		break;
+	case rio_em_detect_off:
+		regs->i2c_int_enable &= ~I2C_INT_ENABLE_BL_FAIL;
+		goto exit;
+	case rio_em_detect_0delta:
+		goto exit;
+		break;
+	default:
+		rc = RIO_ERR_INVALID_PARAMETER;
+		goto exit;
+	}
+
+	// Event is enabled, set notification
 	switch (nfn) {
 	case rio_em_notfn_none:
-		regs->i2c_int_enable &= ~I2C_INT_ENABLE_BL_FAIL;
+		regs->em_int_en &= ~RXS_EM_INT_EN_EXTERNAL_I2C;
+		regs->em_pw_en &= ~RXS_EM_PW_EN_EXTERNAL_I2C;
+		break;
+
+	case rio_em_notfn_int:
+		regs->em_int_en |= RXS_EM_INT_EN_EXTERNAL_I2C;
+		regs->em_pw_en &= ~RXS_EM_PW_EN_EXTERNAL_I2C;
+		break;
+
+	case rio_em_notfn_pw:
+		regs->em_int_en &= ~RXS_EM_INT_EN_EXTERNAL_I2C;
+		regs->em_pw_en |= RXS_EM_PW_EN_EXTERNAL_I2C;
 		break;
 
 	case rio_em_notfn_both:
-	case rio_em_notfn_int:
-		regs->i2c_int_enable |= I2C_INT_ENABLE_BL_FAIL;
+		regs->em_int_en |= RXS_EM_INT_EN_EXTERNAL_I2C;
+		regs->em_pw_en |= RXS_EM_PW_EN_EXTERNAL_I2C;
 		break;
 
 	default:
-		break;
+		rc = RIO_ERR_INVALID_PARAMETER;
 	}
 
-	return RIO_SUCCESS;
+exit:
+	return rc;
 }
 
 static uint32_t rxs_set_event_cfg(
-		DAR_DEV_INFO_t			*dev_info,
 		rxs_event_cfg_reg_vals_t	*regs,
 		rio_em_cfg_t			*event,
 		rio_em_notfn_ctl_t		nfn,
@@ -1208,8 +1304,7 @@ static uint32_t rxs_set_event_cfg(
 
 	switch (event->em_event) {
 	case rio_em_f_los:
-		rc = rxs_set_event_cfg_rio_em_f_los(
-				dev_info, regs, event, nfn, imp_rc);
+		rc = rxs_set_event_cfg_rio_em_f_los(regs, event, nfn, imp_rc);
 		if (RIO_SUCCESS != rc) {
 			goto fail;
 		}
@@ -1378,7 +1473,7 @@ uint32_t rxs_rio_em_cfg_set(DAR_DEV_INFO_t *dev_info,
 				init_fail_idx = idx;
 			}
 			if (rio_em_detect_on != e->em_detect) {
-				rc = rxs_set_event_cfg( dev_info,
+				rc = rxs_set_event_cfg(
 							&regs,
 							e,
 							in_parms->notfn,
@@ -1386,6 +1481,7 @@ uint32_t rxs_rio_em_cfg_set(DAR_DEV_INFO_t *dev_info,
 							&out_parms->imp_rc);
 				if (RIO_SUCCESS != rc) {
 					out_parms->fail_idx = idx;
+					out_parms->fail_port_num = port;
 					goto fail;
 				}
 			}
@@ -1394,14 +1490,15 @@ uint32_t rxs_rio_em_cfg_set(DAR_DEV_INFO_t *dev_info,
 		// Next, perform all event enables.
 		for (idx = 0; idx < in_parms->num_events; idx++) {
 			if (rio_em_detect_on == in_parms->events[idx].em_detect) {
-				rc = rxs_set_event_cfg(dev_info,
+				rc = rxs_set_event_cfg(
 						&regs,
 						&in_parms->events[idx],
 						in_parms->notfn,
 						port,
 						&out_parms->imp_rc);
 				if (RIO_SUCCESS != rc) {
-					out_parms->fail_idx = port << 8 | idx;
+					out_parms->fail_idx = idx;
+					out_parms->fail_port_num = port;
 					goto fail;
 				}
 			}
@@ -1429,16 +1526,18 @@ uint32_t rxs_rio_em_cfg_set(DAR_DEV_INFO_t *dev_info,
 					in_parms->notfn,
 					&out_parms->imp_rc);
 		if (RIO_SUCCESS != rc) {
-			out_parms->fail_idx = ttl_idx;
+			out_parms->fail_idx = log_idx;
 			goto fail;
 		}
 	}
 
 	if (NO_EVENT_IDX != init_fail_idx) {
-		rc = rxs_set_event_cfg_rio_em_i_init_fail(&regs,
-							in_parms->notfn);
+		rc = rxs_set_event_cfg_rio_em_i_init_fail(
+					&in_parms->events[init_fail_idx],
+					&regs,
+					in_parms->notfn);
 		if (RIO_SUCCESS != rc) {
-			out_parms->fail_idx = ttl_idx;
+			out_parms->fail_idx = init_fail_idx;
 			goto fail;
 		}
 	}
@@ -1449,7 +1548,7 @@ uint32_t rxs_rio_em_cfg_set(DAR_DEV_INFO_t *dev_info,
 		goto fail;
 	}
 
-	rpt_ctl_in.ptl.num_ports = RIO_ALL_PORTS;
+	memcpy(&rpt_ctl_in.ptl, &good_ptl, sizeof(rpt_ctl_in.ptl));
 	rpt_ctl_in.notfn = in_parms->notfn;
 	rc = rxs_rio_em_dev_rpt_ctl(dev_info, &rpt_ctl_in, &rpt_ctl_out);
 	if (RIO_SUCCESS != rc) {
@@ -1459,9 +1558,6 @@ uint32_t rxs_rio_em_cfg_set(DAR_DEV_INFO_t *dev_info,
 	out_parms->notfn = rpt_ctl_out.notfn;
 
 fail:
-	if (rc) {
-		out_parms->fail_port_num = 0;
-	}
 	return rc;
 }
 typedef struct rxs_rpt_ctl_regs_t_TAG {
@@ -1540,18 +1636,33 @@ static uint32_t rxs_rio_em_dev_rpt_ctl_port(DAR_DEV_INFO_t *dev_info,
 
 	err_stat &= KEEP_W1C_ERR_STAT_MASK;
 
-	if ((rio_em_notfn_int == notfn) || (rio_em_notfn_both == notfn)) {
-		int_en = RXS_PLM_SPX_ALL_INT_EN_IRQ_EN;
-	} else {
-		int_en = 0;
-	}
-
-	if ((rio_em_notfn_pw == notfn) || (rio_em_notfn_both == notfn)) {
-		err_stat &= ~RXS_SPX_ERR_STAT_PORT_W_DIS;
-	} else {
+	switch (notfn) {
+	case rio_em_notfn_none:
+		int_en &= ~RXS_PLM_SPX_ALL_INT_EN_IRQ_EN;
 		err_stat |= RXS_SPX_ERR_STAT_PORT_W_DIS;
-	}
+		break;
 
+	case rio_em_notfn_int:
+		int_en = RXS_PLM_SPX_ALL_INT_EN_IRQ_EN;
+		err_stat |= RXS_SPX_ERR_STAT_PORT_W_DIS;
+		break;
+
+	case rio_em_notfn_pw:
+		int_en &= ~RXS_PLM_SPX_ALL_INT_EN_IRQ_EN;
+		err_stat &= ~RXS_SPX_ERR_STAT_PORT_W_DIS;
+		break;
+
+	case rio_em_notfn_both:
+		int_en = RXS_PLM_SPX_ALL_INT_EN_IRQ_EN;
+		err_stat &= ~RXS_SPX_ERR_STAT_PORT_W_DIS;
+		break;
+	
+	default:
+		// Should never get here...
+		rc = RIO_ERR_SW_FAILURE;
+		goto fail;
+	}
+		
 	rc = DARRegWrite(dev_info, RXS_PLM_SPX_ALL_INT_EN(port), int_en);
 	if (RIO_SUCCESS != rc) {
 		goto fail;
@@ -1571,19 +1682,18 @@ uint32_t rxs_rio_em_dev_rpt_ctl(DAR_DEV_INFO_t *dev_info,
 		rio_em_dev_rpt_ctl_out_t *out_parms)
 {
 	struct DAR_ptl good_ptl;
-	uint32_t rc;
+	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
 	uint32_t port_idx;
 	rio_port_t port;
 	rxs_rpt_ctl_regs_t regs;
 
-	rc = DARrioGetPortList(dev_info, &in_parms->ptl, &good_ptl);
-	if (RIO_SUCCESS != rc) {
+	if (rio_em_notfn_last <= in_parms->notfn) {
 		out_parms->imp_rc = EM_DEV_RPT_CTL(0x1);
 		goto fail;
 	}
 
-	if (rio_em_notfn_last <= in_parms->notfn) {
-		rc = RIO_ERR_INVALID_PARAMETER;
+	rc = DARrioGetPortList(dev_info, &in_parms->ptl, &good_ptl);
+	if (RIO_SUCCESS != rc) {
 		out_parms->imp_rc = EM_DEV_RPT_CTL(0x2);
 		goto fail;
 	}

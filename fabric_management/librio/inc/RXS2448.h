@@ -73,18 +73,19 @@ extern "C" {
 #define RXS_SP_MB_HEAD                               ((uint32_t)0x00000100)
 #define RXS_SP_LT_CTL                                ((uint32_t)0x00000120)
 #define RXS_SP_GEN_CTL                               ((uint32_t)0x0000013c)
-#define RXS_SPX_LM_REQ(X)                  ((uint32_t)(0x0140 + 0x040*(X)))
-#define RXS_SPX_LM_RESP(X)                 ((uint32_t)(0x0144 + 0x040*(X)))
-#define RXS_SPX_CTL2(X)                    ((uint32_t)(0x0154 + 0x040*(X)))
-#define RXS_SPX_ERR_STAT(X)                ((uint32_t)(0x0158 + 0x040*(X)))
-#define RXS_SPX_CTL(X)                     ((uint32_t)(0x015c + 0x040*(X)))
-#define RXS_SPX_OUT_ACKID_CSR(X)           ((uint32_t)(0x0160 + 0x040*(X)))
-#define RXS_SPX_IN_ACKID_CSR(X)            ((uint32_t)(0x0164 + 0x040*(X)))
-#define RXS_SPX_POWER_MNGT_CSR(X)          ((uint32_t)(0x0168 + 0x040*(X)))
-#define RXS_SPX_LAT_OPT_CSR(X)             ((uint32_t)(0x016c + 0x040*(X)))
-#define RXS_SPX_TMR_CTL(X)                 ((uint32_t)(0x0170 + 0x040*(X)))
-#define RXS_SPX_TMR_CTL2(X)                ((uint32_t)(0x0174 + 0x040*(X)))
-#define RXS_SPX_TMR_CTL3(X)                ((uint32_t)(0x0178 + 0x040*(X)))
+#define RXS_SPX_PP_OSET				     ((uint32_t)0x40)
+#define RXS_SPX_LM_REQ(X)         ((uint32_t)(0x0140 + (RXS_SPX_PP_OSET * (X))))
+#define RXS_SPX_LM_RESP(X)        ((uint32_t)(0x0144 + (RXS_SPX_PP_OSET * (X))))
+#define RXS_SPX_CTL2(X)           ((uint32_t)(0x0154 + (RXS_SPX_PP_OSET * (X))))
+#define RXS_SPX_ERR_STAT(X)       ((uint32_t)(0x0158 + (RXS_SPX_PP_OSET * (X))))
+#define RXS_SPX_CTL(X)            ((uint32_t)(0x015c + (RXS_SPX_PP_OSET * (X))))
+#define RXS_SPX_OUT_ACKID_CSR(X)  ((uint32_t)(0x0160 + (RXS_SPX_PP_OSET * (X))))
+#define RXS_SPX_IN_ACKID_CSR(X)   ((uint32_t)(0x0164 + (RXS_SPX_PP_OSET * (X))))
+#define RXS_SPX_POWER_MNGT_CSR(X) ((uint32_t)(0x0168 + (RXS_SPX_PP_OSET * (X))))
+#define RXS_SPX_LAT_OPT_CSR(X)    ((uint32_t)(0x016c + (RXS_SPX_PP_OSET * (X))))
+#define RXS_SPX_TMR_CTL(X)        ((uint32_t)(0x0170 + (RXS_SPX_PP_OSET * (X))))
+#define RXS_SPX_TMR_CTL2(X)       ((uint32_t)(0x0174 + (RXS_SPX_PP_OSET * (X))))
+#define RXS_SPX_TMR_CTL3(X)       ((uint32_t)(0x0178 + (RXS_SPX_PP_OSET * (X))))
 #define RXS_ERR_RPT_BH                               ((uint32_t)0x00001000)
 #define RXS_ERR_MGMT_HS                              ((uint32_t)0x00001004)
 #define RXS_ERR_DET                                  ((uint32_t)0x00001008)
@@ -143,6 +144,7 @@ extern "C" {
 #define RXS_PLM_SPX_PNA_CAP(X)            ((uint32_t)(0x10168 + 0x100*(X)))
 #define RXS_PLM_SPX_ACKID_CAP(X)          ((uint32_t)(0x1016c + 0x100*(X)))
 #define RXS_PLM_SPX_SCRATCHY(X,Y)  ((uint32_t)(0x10190 + 0x100*(X) + 0x4*(Y)))
+#define RXS_PLM_SPX_MAX_SCRATCHY 15
 #define RXS_TLM_BH                                   ((uint32_t)0x00014000)
 #define RXS_TLM_SPX_CONTROL(X)            ((uint32_t)(0x14100 + 0x100*(X)))
 #define RXS_TLM_SPX_STAT(X)               ((uint32_t)(0x14110 + 0x100*(X)))
@@ -621,6 +623,8 @@ extern "C" {
 
 /* RXS_PKT_TIME_LIVE : Register Bits Masks Definitions */
 #define RXS_PKT_TIME_LIVE_PKT_TIME_LIVE              ((uint32_t)0xffff0000)
+#define RXS_PKT_TIME_LIVE_NSEC                       ((uint32_t)(6000))
+#define RXS_PKT_TIME_LIVE_MAX                        ((uint32_t)(0xFFFC))
 
 /* RXS_DEV32_PW_TGT_ID : Register Bits Masks Definitions */
 #define RXS_DEV32_PW_TGT_ID_DEV32                    ((uint32_t)0xffffffff)
@@ -640,6 +644,9 @@ extern "C" {
 
 /* RXS_SPX_DLT_CSR : Register Bits Masks Definitions */
 #define RXS_SPX_DLT_CSR_TIMEOUT                      ((uint32_t)0xffffff00)
+#define RXS_SPX_DLT_CSR_TIMEOUT_NSEC ((uint64_t)9990000000 / \
+				((uint64_t)(RXS_SPX_DLT_CSR_TIMEOUT) >> 8))
+#define RXS_SPX_DLT_CSR_TIMEOUT_MAX  ((uint32_t)RXS_SPX_DLT_CSR_TIMEOUT >> 8)
 
 // RXS Implementation specific port-write field definitions
 #define RXS_PW_ZERO            ((uint32_t)0x00000100)
@@ -1853,6 +1860,10 @@ extern "C" {
 #define RXS_EM_INT_EN_BOOT_MEM_UNCOR                 ((uint32_t)0x00004000)
 #define RXS_EM_INT_EN_BOOT_MEM_COR                   ((uint32_t)0x00008000)
 #define RXS_EM_INT_EN_EXTERNAL                       ((uint32_t)0x00fe0000)
+#define RXS_EM_INT_EN_EXTERNAL_I2C                   ((uint32_t)0x00800000)
+#define RXS_EM_INT_EN_EXTERNAL_AEC                   ((uint32_t)0x00400000)
+#define RXS_EM_INT_EN_EXTERNAL_PHY_MEM               ((uint32_t)0x00200000)
+#define RXS_EM_INT_EN_EXTERNAL_PVT_SNSR              ((uint32_t)0x00100000)
 #define RXS_EM_INT_EN_MECS                           ((uint32_t)0x04000000)
 #define RXS_EM_INT_EN_LOG                            ((uint32_t)0x10000000)
 #define RXS_EM_INT_EN_FAB                            ((uint32_t)0x40000000)
@@ -1870,6 +1881,10 @@ extern "C" {
 #define RXS_EM_PW_STAT_BOOT_MEM_UNCOR                ((uint32_t)0x00004000)
 #define RXS_EM_PW_STAT_BOOT_MEM_COR                  ((uint32_t)0x00008000)
 #define RXS_EM_PW_STAT_EXTERNAL                      ((uint32_t)0x00fe0000)
+#define RXS_EM_PW_STAT_EXTERNAL_I2C                  ((uint32_t)0x00800000)
+#define RXS_EM_PW_STAT_EXTERNAL_AEC                  ((uint32_t)0x00400000)
+#define RXS_EM_PW_STAT_EXTERNAL_PHY_MEM              ((uint32_t)0x00200000)
+#define RXS_EM_PW_STAT_EXTERNAL_PVT_SNSR             ((uint32_t)0x00100000)
 #define RXS_EM_PW_STAT_RCS                           ((uint32_t)0x08000000)
 #define RXS_EM_PW_STAT_LOG                           ((uint32_t)0x10000000)
 #define RXS_EM_PW_STAT_PORT                          ((uint32_t)0x20000000)
@@ -1883,10 +1898,10 @@ extern "C" {
 #define RXS_EM_PW_EN_BOOT_MEM_UNCOR                  ((uint32_t)0x00004000)
 #define RXS_EM_PW_EN_BOOT_MEM_COR                    ((uint32_t)0x00008000)
 #define RXS_EM_PW_EN_EXTERNAL                        ((uint32_t)0x00fe0000)
-#define RXS_EM_PW_STAT_EXTERNAL_I2C                  ((uint32_t)0x00800000)
-#define RXS_EM_PW_STAT_EXTERNAL_AEC                  ((uint32_t)0x00400000)
-#define RXS_EM_PW_STAT_EXTERNAL_PHY_MEM              ((uint32_t)0x00200000)
-#define RXS_EM_PW_STAT_EXTERNAL_PVT_SNSR             ((uint32_t)0x00100000)
+#define RXS_EM_PW_EN_EXTERNAL_I2C                    ((uint32_t)0x00800000)
+#define RXS_EM_PW_EN_EXTERNAL_AEC                    ((uint32_t)0x00400000)
+#define RXS_EM_PW_EN_EXTERNAL_PHY_MEM                ((uint32_t)0x00200000)
+#define RXS_EM_PW_EN_EXTERNAL_PVT_SNSR               ((uint32_t)0x00100000)
 #define RXS_EM_PW_EN_LOG                             ((uint32_t)0x10000000)
 #define RXS_EM_PW_EN_FAB                             ((uint32_t)0x40000000)
 
@@ -1945,6 +1960,8 @@ extern "C" {
 
 /* RXS_PW_CTL : Register Bits Masks Definitions */
 #define RXS_PW_CTL_PW_TMR                            ((uint32_t)0xffffff00)
+#define RXS_PW_CTL_PW_TMR_NSEC          ((uint32_t)(4990000000 / 0xFFFFFF))
+#define RXS_PW_CTL_PW_TMR_MAX            ((uint32_t)RXS_PW_CTL_PW_TMR >> 8)
 
 /* RXS_PW_ROUTE : Register Bits Masks Definitions */
 #define RXS_PW_ROUTE_PORT                            ((uint32_t)0x0000ffff)

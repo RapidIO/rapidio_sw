@@ -156,6 +156,15 @@ static void macros_test(void **state)
 			RXS_PLM_SPX_POL_CTL_RX2_POL |
 			RXS_PLM_SPX_POL_CTL_RX3_POL);
 
+	assert_int_equal(6000, RXS_PKT_TIME_LIVE_NSEC);
+	assert_int_equal(0xFFFC, RXS_PKT_TIME_LIVE_MAX);
+
+	assert_int_equal(0x253, RXS_SPX_DLT_CSR_TIMEOUT_NSEC);
+	assert_int_equal(0xFFFFFF, RXS_SPX_DLT_CSR_TIMEOUT_MAX);
+
+	assert_int_equal(297, RXS_PW_CTL_PW_TMR_NSEC);
+	assert_int_equal(0xFFFFFF, RXS_PW_CTL_PW_TMR_MAX);
+	
 	(void)state; // unused
 }
 
