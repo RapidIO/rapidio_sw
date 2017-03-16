@@ -3,12 +3,15 @@
 # Files required for installation
 # Note the names of these file name (different root) are also used by make_install.sh
 #
-INSTALL_ROOT="/opt/rapidio/.install"
-SCRIPTS_PATH="$(pwd)"/install
+REMOTE_ROOT="/opt/rapidio/.install"
+LOCAL_SOURCE_ROOT="$(pwd)"
+SCRIPTS_PATH=$LOCAL_SOURCE_ROOT/install
 
 NODEDATA_FILE="nodeData.txt"
 SRC_TAR="rapidio_sw.tar"
 TMPL_FILE="config.tmpl"
+
+USER=root
 
 PGM_NAME=install_list.sh
 PGM_NUM_PARMS=5
@@ -64,7 +67,7 @@ else
 
     if [ ! -e "$MASTER_CONFIG_FILE" ] || [ ! -e "$MASTER_MAKE_FILE" ]
     then
-        echo Switch type \"$SW_TYPE\" configuration support files do not exist.
+        echo $'\nSwitch type \"$SW_TYPE\" configuration support files do not exist.\n'
         PRINTHELP=1
     fi
 fi
@@ -125,7 +128,7 @@ do
 done
 
 if [ $OK -eq 0 ]; then
-    echo "\nCould not connect to all nodes, exiting...
+    echo "\nCould not connect to all nodes, exiting..."
     exit
 fi
 
@@ -133,52 +136,54 @@ fi
 echo "Creating install files for $SERVER..."
 # First create the files that would be available on the server
 #
-ROOT="/tmp/$$"
-rm -rf $ROOT;mkdir -p $ROOT
+TMP_DIR="/tmp/$$"
+rm -rf $TMP_DIR;mkdir -p $TMP_DIR
 
 # Copy nodeData.txt
 #
-cp $2 $ROOT/$NODEDATA_FILE
+cp $2 $TMP_DIR/$NODEDATA_FILE
 
 # Create the source.tar
 #
+pushd $LOCAL_SOURCE_ROOT &> /dev/null
 make clean &>/dev/null
-tar -cf $ROOT/$SRC_TAR * .git* &>/dev/null
+tar -cf $TMP_DIR/$SRC_TAR * .git* &>/dev/null
+popd &> /dev/null
 
 # Copy the template file
 #
-cp $MASTER_CONFIG_FILE $ROOT/$TMPL_FILE
+cp $MASTER_CONFIG_FILE $TMP_DIR/$TMPL_FILE
 
 # Transfer the files to the server
 #
 echo "Transferring install files to $SERVER..."
 SERVER_ROOT="/opt/rapidio/.server"
-ssh root@"$SERVER" "rm -rf $SERVER_ROOT;mkdir -p $SERVER_ROOT"
-scp $ROOT/* root@"$SERVER":$SERVER_ROOT/. > /dev/null
-ssh root@"$SERVER" "chown -R root.$GRP $SERVER_ROOT"
-rm -rf $ROOT
+ssh $USER@"$SERVER" "rm -rf $SERVER_ROOT;mkdir -p $SERVER_ROOT"
+scp $TMP_DIR/* $USER@"$SERVER":$SERVER_ROOT/. > /dev/null
+ssh $USER@"$SERVER" "chown -R root.$GRP $SERVER_ROOT"
+rm -rf $TMP_DIR
 
 # Transfer the make_install.sh script to a known location on the target machines
 #
 for host in "${ALLNODES[@]}"; do
     [ "$host" = 'none' ] && continue;
     echo "Transferring install script to $host..."
-    ssh root@"$host" "rm -rf $INSTALL_ROOT;mkdir -p $INSTALL_ROOT/script"
-    scp $SCRIPTS_PATH/make_install_common.sh root@"$host":$INSTALL_ROOT/script/make_install_common.sh > /dev/null
+    ssh $USER@"$host" "rm -rf $REMOTE_ROOT;mkdir -p $REMOTE_ROOT/script"
+    scp $SCRIPTS_PATH/make_install_common.sh $USER@"$host":$REMOTE_ROOT/script/make_install_common.sh > /dev/null
     if [ "$host" = "$MASTER" ]; then
-        scp $MASTER_MAKE_FILE root@"$host":$INSTALL_ROOT/script/make_install.sh > /dev/null
+        scp $MASTER_MAKE_FILE $USER@"$host":$REMOTE_ROOT/script/make_install.sh > /dev/null
     else
-        scp $SCRIPTS_PATH/make_install-slave.sh root@"$host":$INSTALL_ROOT/script/make_install.sh > /dev/null
+        scp $SCRIPTS_PATH/make_install-slave.sh $USER@"$host":$REMOTE_ROOT/script/make_install.sh > /dev/null
     fi
-    ssh root@"$host" "chown -R root.$GRP $INSTALL_ROOT;chmod 755 $INSTALL_ROOT/script/make_install.sh"
+    ssh $USER@"$host" "chown -R root.$GRP $REMOTE_ROOT;chmod 755 $REMOTE_ROOT/script/make_install.sh"
 done
 
 
 # Call out to make_install.sh
 echo "Beginning installation..."
-for host in  "${ALLNODES[@]}"; do
+for host in "${ALLNODES[@]}"; do
     [ "$host" = 'none' ] && continue;
-    ssh root@"$host" "$INSTALL_ROOT/script/make_install.sh $SERVER $SERVER_ROOT $MEMSZ $GRP"
+    ssh $USER@"$host" "$REMOTE_ROOT/script/make_install.sh $SERVER $SERVER_ROOT $MEMSZ $GRP"
 done
 
 echo "Installation complete."
