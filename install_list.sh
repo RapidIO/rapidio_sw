@@ -31,7 +31,7 @@ else
         host="${arr[1]}"
         if [ "${arr[0]}" = 'master' ]; then
             if [ -n "$MASTER" ]; then
-                echo "Multiple master entries ($line) in $2, exiting ..."
+                echo "Multiple master entries ($line) in $2"
                 OK=0
             fi
             MASTER=$host
@@ -40,11 +40,12 @@ else
     done < "$2"
 
     if [ -z "$MASTER" ]; then
-        echo "No master entry in $2, exiting ..."
+        echo "No master entry in $2"
         OK=0
     fi
 
-    if [ "$OK" -eq 0 ]; then
+    if [ $OK -eq 0 ]; then
+        echo "Errors in nodeData file $2, exiting..."
         exit
     fi
 
@@ -101,10 +102,11 @@ fi
 #
 echo "Prepare for installation..."
 echo "Checking connectivity..."
+OK=1
 ping -c 1 $SERVER > /dev/null
 if [ $? -ne 0 ]; then
-    echo "    $SERVER not accessible, exiting..."
-    exit
+    echo "    $SERVER not accessible"
+    OK=0
 else
     echo "    $SERVER accessible."
 fi
@@ -115,12 +117,17 @@ do
     [ "$host" = "$SERVER" ] && continue;
     ping -c 1 $host > /dev/null
     if [ $? -ne 0 ]; then
-        echo "    $host not accessible, exiting..."
-        exit
+        echo "    $host not accessible"
+        OK=0
     else
         echo "    $host accessible."
     fi
 done
+
+if [ $OK -eq 0 ]; then
+    echo "\nCould not connect to all nodes, exiting...
+    exit
+fi
 
 
 echo "Creating install files for $SERVER..."

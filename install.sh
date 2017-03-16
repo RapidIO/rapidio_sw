@@ -72,10 +72,11 @@ fi
 #
 echo "Prepare for installation..."
 echo "Checking connectivity..."
+OK=1
 ping -c 1 $SERVER > /dev/null
 if [ $? -ne 0 ]; then
-    echo "    $SERVER not accessible, exiting..."
-    exit
+    echo "    $SERVER not accessible"
+    OK=0
 else
     echo "    $SERVER accessible."
 fi
@@ -86,12 +87,17 @@ do
     [ "$host" = "$SERVER" ] && continue;
     ping -c 1 $host > /dev/null
     if [ $? -ne 0 ]; then
-        echo "    $host not accessible, exiting..."
-        exit
+        echo "    $host not accessible"
+        OK=0
     else
         echo "    $host accessible."
     fi
 done
+
+if [ $OK -eq 0 ]; then
+    echo "\nCould not connect to all nodes, exiting...
+    exit
+fi
 
 
 echo "Creating install files for $SERVER..."
