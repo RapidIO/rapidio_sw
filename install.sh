@@ -11,7 +11,7 @@ NODEDATA_FILE="nodeData.txt"
 SRC_TAR="rapidio_sw.tar"
 TMPL_FILE="config.tmpl"
 
-USER=root
+MY_USERID=root
 
 PGM_NAME=install.sh
 PGM_NUM_PARMS=8
@@ -139,9 +139,9 @@ cp $MASTER_CONFIG_FILE $TMP_DIR/$TMPL_FILE
 #
 echo "Transferring install files to $SERVER..."
 SERVER_ROOT="/opt/rapidio/.server"
-ssh $USER@"$SERVER" "rm -rf $SERVER_ROOT;mkdir -p $SERVER_ROOT"
-scp $TMP_DIR/* $USER@"$SERVER":$SERVER_ROOT/. > /dev/null
-ssh $USER@"$SERVER" "chown -R root.$GRP $SERVER_ROOT"
+ssh $MY_USERID@"$SERVER" "rm -rf $SERVER_ROOT;mkdir -p $SERVER_ROOT"
+scp $TMP_DIR/* $MY_USERID@"$SERVER":$SERVER_ROOT/. > /dev/null
+ssh $MY_USERID@"$SERVER" "chown -R root.$GRP $SERVER_ROOT"
 rm -rf $TMP_DIR
 
 # Transfer the make_install.sh script to a known location on the target machines
@@ -149,14 +149,14 @@ rm -rf $TMP_DIR
 for host in "${ALLNODES[@]}"; do
     [ "$host" = 'none' ] && continue;
     echo "Transferring install script to $host..."
-    ssh $USER@"$host" "rm -rf $REMOTE_ROOT;mkdir -p $REMOTE_ROOT/script"
-    scp $SCRIPTS_PATH/make_install_common.sh $USER@"$host":$REMOTE_ROOT/script/make_install_common.sh > /dev/null
+    ssh $MY_USERID@"$host" "rm -rf $REMOTE_ROOT;mkdir -p $REMOTE_ROOT/script"
+    scp $SCRIPTS_PATH/make_install_common.sh $MY_USERID@"$host":$REMOTE_ROOT/script/make_install_common.sh > /dev/null
     if [ "$host" = "$MASTER" ]; then
-        scp $MASTER_MAKE_FILE $USER@"$host":$REMOTE_ROOT/script/make_install.sh > /dev/null
+        scp $MASTER_MAKE_FILE $MY_USERID@"$host":$REMOTE_ROOT/script/make_install.sh > /dev/null
     else
-        scp $SCRIPTS_PATH/make_install-slave.sh $USER@"$host":$REMOTE_ROOT/script/make_install.sh > /dev/null
+        scp $SCRIPTS_PATH/make_install-slave.sh $MY_USERID@"$host":$REMOTE_ROOT/script/make_install.sh > /dev/null
     fi
-    ssh $USER@"$host" "chown -R root.$GRP $REMOTE_ROOT;chmod 755 $REMOTE_ROOT/script/make_install.sh"
+    ssh $MY_USERID@"$host" "chown -R root.$GRP $REMOTE_ROOT;chmod 755 $REMOTE_ROOT/script/make_install.sh"
 done
 
 
@@ -164,7 +164,7 @@ done
 echo "Beginning installation..."
 for host in "${ALLNODES[@]}"; do
     [ "$host" = 'none' ] && continue;
-    ssh $USER@"$host" "$REMOTE_ROOT/script/make_install.sh $SERVER $SERVER_ROOT $MEMSZ $GRP"
+    ssh $MY_USERID@"$host" "$REMOTE_ROOT/script/make_install.sh $SERVER $SERVER_ROOT $MEMSZ $GRP"
 done
 
 echo "Installation complete."
