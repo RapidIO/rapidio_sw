@@ -503,12 +503,10 @@ static uint32_t cps_set_config_init_parms_check_conflict(DAR_DEV_INFO_t *dev_inf
 		if (sorted->pc[pnum].pnum == pnum) {
 			if (sorted->pc[pnum].port_available) {
 				if ((sorted->pc[pnum].pw >= rio_pc_pw_last)
-						|| (sorted->pc[pnum].ls
-								>= rio_pc_ls_last)
-						|| (sorted->pc[pnum].tx_lswap)
-						|| (sorted->pc[pnum].iseq
-								== rio_pc_is_three)
-						|| (sorted->pc[pnum].rx_lswap)) {
+				|| (sorted->pc[pnum].ls >= rio_pc_ls_last)
+				|| (rio_lswap_none != sorted->pc[pnum].tx_lswap)
+				|| (rio_lswap_none != sorted->pc[pnum].rx_lswap)
+				|| (sorted->pc[pnum].iseq == rio_pc_is_three)) {
 					*fail_pt = PC_SET_CONFIG(0x12);
 					goto exit;
 				}
@@ -2284,8 +2282,8 @@ uint32_t CPS_rio_pc_get_config(DAR_DEV_INFO_t *dev_info,
 		out_parms->pc[port_idx].xmitter_disable = false;
 		out_parms->pc[port_idx].port_lockout = false;
 		out_parms->pc[port_idx].nmtc_xfer_enable = false;
-		out_parms->pc[port_idx].rx_lswap = false; // Not supported by CPS
-		out_parms->pc[port_idx].tx_lswap = false; // Not supported by CPS
+		out_parms->pc[port_idx].rx_lswap = rio_lswap_none; // Not supported by CPS
+		out_parms->pc[port_idx].tx_lswap = rio_lswap_none; // Not supported by CPS
 
 		for (lane_num = 0; lane_num < CPS_MAX_PORT_LANES; lane_num++) {
 			out_parms->pc[port_idx].tx_linvert[lane_num] = false;

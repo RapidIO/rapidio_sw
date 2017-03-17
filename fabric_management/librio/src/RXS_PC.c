@@ -62,13 +62,57 @@ spx_ctl2_ls_check_info_t rxs_ls_check[] = {
 	{ RIO_SPX_CTL2_GB_6p25_EN , RIO_SPX_CTL2_GB_6p25 , rio_pc_ls_6p25 },
 	{ RIO_SPX_CTL2_GB_10p3_EN , RIO_SPX_CTL2_GB_10p3 , rio_pc_ls_10p3 },
 	{ RIO_SPX_CTL2_GB_12p5_EN , RIO_SPX_CTL2_GB_12p5 , rio_pc_ls_12p5 },
-	{ 0x00000000              , 0x00000000           , rio_pc_ls_last },
+	{ 0x00000000		, 0x00000000		, rio_pc_ls_last },
 };
+
+uint32_t reg_lswap(rio_lane_swap_t swap)
+{
+	uint32_t reg_val = 0;
+
+	switch(swap) {
+	default:
+	case rio_lswap_none:
+		reg_val = (RXS_PLM_SPX_IMP_SPEC_CTL_SWAP_RX_NONE >> 16);
+		break;
+	case rio_lswap_ABCD_BADC:
+		reg_val = (RXS_PLM_SPX_IMP_SPEC_CTL_SWAP_RX_1032 >> 16);
+		break;
+	case rio_lswap_ABCD_DCBA:
+		reg_val = (RXS_PLM_SPX_IMP_SPEC_CTL_SWAP_RX_3210 >> 16);
+		break;
+	case rio_lswap_ABCD_CDAB:
+		reg_val = (RXS_PLM_SPX_IMP_SPEC_CTL_SWAP_RX_2301 >> 16);
+		break;
+	}
+	return reg_val;
+}
+
+static rio_lane_swap_t lswap(uint32_t reg_val)
+{
+	rio_lane_swap_t swap_val = rio_lswap_none;
+
+	switch(reg_val) {
+	default:
+	case  (RXS_PLM_SPX_IMP_SPEC_CTL_SWAP_RX_NONE >> 16):
+		swap_val = rio_lswap_none;
+		break;
+	case  (RXS_PLM_SPX_IMP_SPEC_CTL_SWAP_RX_1032 >> 16):
+		swap_val = rio_lswap_ABCD_BADC;
+		break;
+	case  (RXS_PLM_SPX_IMP_SPEC_CTL_SWAP_RX_3210 >> 16):
+		swap_val = rio_lswap_ABCD_DCBA;
+		break;
+	case  (RXS_PLM_SPX_IMP_SPEC_CTL_SWAP_RX_2301 >> 16):
+		swap_val = rio_lswap_ABCD_CDAB;
+		break;
+	}
+	return swap_val;
+}
 
 // Returns the base clock period (SRV_CLK) for many timers.
 // Usually around 1000 (1 usec), but can vary by +/- 0.5%
-// 
-// Inputs: 
+//
+// Inputs:
 // dev_info - device to query
 //
 // Updates:
@@ -193,6 +237,7 @@ uint32_t rxs_rio_pc_get_config(DAR_DEV_INFO_t *dev_info,
 	struct DAR_ptl good_ptl;
 	rio_pc_one_port_config_t *pc;
 	uint32_t nmtc_en_mask = RXS_SPX_CTL_INP_EN | RXS_SPX_CTL_OTP_EN;
+	uint32_t temp;
 
 	out_parms->num_ports = 0;
 	out_parms->imp_rc = 0;
@@ -227,8 +272,8 @@ uint32_t rxs_rio_pc_get_config(DAR_DEV_INFO_t *dev_info,
 		pc->xmitter_disable = false;
 		pc->port_lockout = false;
 		pc->nmtc_xfer_enable = false;
-		pc->rx_lswap = false;
-		pc->tx_lswap = false;
+		pc->rx_lswap = rio_lswap_none;
+		pc->tx_lswap = rio_lswap_none;
 		for (lane_num = 0; lane_num < RIO_MAX_PORT_LANES; lane_num++) {
 			pc->tx_linvert[lane_num] = false;
 			pc->rx_linvert[lane_num] = false;
@@ -336,13 +381,10 @@ uint32_t rxs_rio_pc_get_config(DAR_DEV_INFO_t *dev_info,
 			goto exit;
 		}
 
-		if (p_ctl & RXS_PLM_SPX_IMP_SPEC_CTL_SWAP_RX) {
-			pc->rx_lswap = true;
-		}
-
-		if (p_ctl & RXS_PLM_SPX_IMP_SPEC_CTL_SWAP_TX) {
-			pc->tx_lswap = true;
-		}
+		temp = (p_ctl & RXS_PLM_SPX_IMP_SPEC_CTL_SWAP_RX) >> 16;
+		pc->rx_lswap = lswap(temp);
+		temp = (p_ctl & RXS_PLM_SPX_IMP_SPEC_CTL_SWAP_TX) >> 18;
+		pc->tx_lswap = lswap(temp);
 
 		rc = DARRegRead(dev_info, RXS_PLM_SPX_POL_CTL(pc->pnum), &pol);
 		if (RIO_SUCCESS != rc) {

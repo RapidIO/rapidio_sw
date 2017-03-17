@@ -494,56 +494,41 @@ static uint32_t tsi57x_compute_port_config_changes(DAR_DEV_INFO_t *dev_info,
 										| RIO_SPX_CTL_PTW_OVER_NONE;
 
 						// Apply the requested RX and TX swap values
-						if (in_parms_sorted[pnum].tx_lswap) {
-							chg->dloopCtl[mac] |=
-									TSI578_SMACX_DLOOP_CLK_SEL_SWAP_TX;
+						if (rio_lswap_none == in_parms_sorted[pnum].tx_lswap) {
+							chg->dloopCtl[mac] &= ~TSI578_SMACX_DLOOP_CLK_SEL_SWAP_TX;
 						} else {
-							chg->dloopCtl[mac] &=
-									~TSI578_SMACX_DLOOP_CLK_SEL_SWAP_TX;
+							chg->dloopCtl[mac] |= TSI578_SMACX_DLOOP_CLK_SEL_SWAP_TX;
 						}
 
-						if (in_parms_sorted[pnum].rx_lswap) {
-							chg->dloopCtl[mac] |=
-									TSI578_SMACX_DLOOP_CLK_SEL_SWAP_RX;
+						if (rio_lswap_none == in_parms_sorted[pnum].rx_lswap) {
+							chg->dloopCtl[mac] &= ~TSI578_SMACX_DLOOP_CLK_SEL_SWAP_RX;
 						} else {
-							chg->dloopCtl[mac] &=
-									~TSI578_SMACX_DLOOP_CLK_SEL_SWAP_RX;
+							chg->dloopCtl[mac] |= TSI578_SMACX_DLOOP_CLK_SEL_SWAP_RX;
 						}
 					} else {
 						// Lane swapping is not supported in any 1x mode.
 						chg->dloopCtl[mac] &=
-								~(TSI578_SMACX_DLOOP_CLK_SEL_SWAP_RX
-										| TSI578_SMACX_DLOOP_CLK_SEL_SWAP_TX);
+							~(TSI578_SMACX_DLOOP_CLK_SEL_SWAP_RX | TSI578_SMACX_DLOOP_CLK_SEL_SWAP_TX);
 
-						if (rio_pc_pw_1x
-								== in_parms_sorted[pnum].pw) {
+						if (rio_pc_pw_1x == in_parms_sorted[pnum].pw) {
 							// Clear any overrides in the SPx_CTL register
-							chg->spxCtl[pnum] =
-									(chg->spxCtl[pnum]
-											& ~TSI578_SPX_CTL_OVER_PWIDTH)
-											| RIO_SPX_CTL_PTW_OVER_NONE;
+							chg->spxCtl[pnum] = (chg->spxCtl[pnum] & ~TSI578_SPX_CTL_OVER_PWIDTH)
+									| RIO_SPX_CTL_PTW_OVER_NONE;
 						} else {
 							// Need to set overrides in the port width control register.
-							if (rio_pc_pw_1x_l0
-									== in_parms_sorted[pnum].pw) {
-								chg->spxCtl[pnum] =
-										(chg->spxCtl[pnum]
-												& ~TSI578_SPX_CTL_OVER_PWIDTH)
-												| RIO_SPX_CTL_PTW_OVER_1x_L0;
+							if (rio_pc_pw_1x_l0 == in_parms_sorted[pnum].pw) {
+								chg->spxCtl[pnum] = (chg->spxCtl[pnum] & ~TSI578_SPX_CTL_OVER_PWIDTH)
+										| RIO_SPX_CTL_PTW_OVER_1x_L0;
 							} else {
-								chg->spxCtl[pnum] =
-										(chg->spxCtl[pnum]
-												& ~TSI578_SPX_CTL_OVER_PWIDTH)
-												| RIO_SPX_CTL_PTW_OVER_1x_LR;
+								chg->spxCtl[pnum] = (chg->spxCtl[pnum] & ~TSI578_SPX_CTL_OVER_PWIDTH)
+										| RIO_SPX_CTL_PTW_OVER_1x_LR;
 							}
 						}
 					}
 
 					// Set link speed
-					chg->dloopCtl[mac] =
-							(chg->dloopCtl[mac]
-									& ~(TSI578_SMACX_DLOOP_CLK_SEL_CLK_SEL))
-									| (uint32_t)(in_parms_sorted[pnum].ls);
+					chg->dloopCtl[mac] = (chg->dloopCtl[mac] & ~(TSI578_SMACX_DLOOP_CLK_SEL_CLK_SEL))
+							| (uint32_t)(in_parms_sorted[pnum].ls);
 				} // Powered up
 			} // 4x port
 
@@ -798,7 +783,8 @@ static uint32_t tsi57x_set_config_init_parms_check_conflicts_all_ports(
 	if (in_parms->pc[0].pw == rio_pc_pw_1x) {
 		// Make sure that no lane swapping is attempted,
 		// and that no lane inversion is requested.
-		if (in_parms->pc[0].tx_lswap || in_parms->pc[0].rx_lswap
+		if ((rio_lswap_none != in_parms->pc[0].tx_lswap) ||
+		    (rio_lswap_none != in_parms->pc[0].rx_lswap)
 				|| in_parms->pc[0].tx_linvert[0]
 				|| in_parms->pc[0].rx_linvert[0]) {
 			out_parms->imp_rc = PC_SET_CONFIG(0x51);
@@ -991,27 +977,18 @@ static uint32_t tsi57x_set_config_init_parms_check_conflict(
 							&& in_parms_sorted->pc[pnum].port_available
 							&& (in_parms_sorted->pc[port_num].ls
 									!= in_parms_sorted->pc[pnum].ls)) {
-						rc =
-								RIO_ERR_FEATURE_NOT_SUPPORTED;
-						out_parms->imp_rc =
-								PC_SET_CONFIG(
-										0x36);
+						rc = RIO_ERR_FEATURE_NOT_SUPPORTED;
+						out_parms->imp_rc = PC_SET_CONFIG(0x36);
 						goto exit;
 					}
 					// Tsi57x family does not support lane swapping for downgraded 4x ports
-					if (((rio_pc_pw_1x
-							== in_parms_sorted->pc[port_num].pw)
-							|| (rio_pc_pw_1x_l0
-									== in_parms_sorted->pc[port_num].pw)
-							|| (rio_pc_pw_1x_l2
-									== in_parms_sorted->pc[port_num].pw))
-							&& (in_parms_sorted->pc[port_num].tx_lswap
-									|| in_parms_sorted->pc[port_num].rx_lswap)) {
-						rc =
-								RIO_ERR_FEATURE_NOT_SUPPORTED;
-						out_parms->imp_rc =
-								PC_SET_CONFIG(
-										0x37);
+					if (((rio_pc_pw_1x == in_parms_sorted->pc[port_num].pw)
+							|| (rio_pc_pw_1x_l0 == in_parms_sorted->pc[port_num].pw)
+							|| (rio_pc_pw_1x_l2 == in_parms_sorted->pc[port_num].pw))
+							&& ((rio_lswap_none != in_parms_sorted->pc[port_num].tx_lswap)
+							|| (rio_lswap_none != in_parms_sorted->pc[port_num].rx_lswap))) {
+						rc = RIO_ERR_FEATURE_NOT_SUPPORTED;
+						out_parms->imp_rc = PC_SET_CONFIG(0x37);
 						goto exit;
 					}
 				}
@@ -1158,8 +1135,8 @@ uint32_t tsi57x_rio_pc_get_config(DAR_DEV_INFO_t *dev_info,
 		out_parms->pc[port_idx].nmtc_xfer_enable = false;
 		out_parms->pc[port_idx].xmitter_disable = false;
 		out_parms->pc[port_idx].port_lockout = false;
-		out_parms->pc[port_idx].rx_lswap = false;
-		out_parms->pc[port_idx].tx_lswap = false;
+		out_parms->pc[port_idx].rx_lswap = rio_lswap_none;
+		out_parms->pc[port_idx].tx_lswap = rio_lswap_none;
 		for (lane_num = 0; lane_num < TSI578_MAX_PORT_LANES;
 				lane_num++) {
 			out_parms->pc[port_idx].tx_linvert[lane_num] = false;
@@ -1199,13 +1176,11 @@ uint32_t tsi57x_rio_pc_get_config(DAR_DEV_INFO_t *dev_info,
 			// port that could be a 4x port.
 			if (4 == sw_pmr[port_num].lane_count_4x) {
 				out_parms->pc[port_idx].rx_lswap =
-						(dloopRegVal
-								& TSI578_SMACX_DLOOP_CLK_SEL_SWAP_RX) ?
-								true : false;
+						(dloopRegVal & TSI578_SMACX_DLOOP_CLK_SEL_SWAP_RX) ?
+								rio_lswap_ABCD_DCBA : rio_lswap_none;
 				out_parms->pc[port_idx].tx_lswap =
-						(dloopRegVal
-								& TSI578_SMACX_DLOOP_CLK_SEL_SWAP_TX) ?
-								true : false;
+						(dloopRegVal & TSI578_SMACX_DLOOP_CLK_SEL_SWAP_TX) ?
+								rio_lswap_ABCD_DCBA : rio_lswap_none;
 			}
 			break;
 		case 4:
@@ -1231,13 +1206,11 @@ uint32_t tsi57x_rio_pc_get_config(DAR_DEV_INFO_t *dev_info,
 				out_parms->pc[port_idx].pw = rio_pc_pw_last;
 			}
 			out_parms->pc[port_idx].rx_lswap =
-					(dloopRegVal
-							& TSI578_SMACX_DLOOP_CLK_SEL_SWAP_RX) ?
-							true : false;
+					(dloopRegVal & TSI578_SMACX_DLOOP_CLK_SEL_SWAP_RX) ?
+							rio_lswap_ABCD_DCBA : rio_lswap_none;
 			out_parms->pc[port_idx].tx_lswap =
-					(dloopRegVal
-							& TSI578_SMACX_DLOOP_CLK_SEL_SWAP_TX) ?
-							true : false;
+					(dloopRegVal & TSI578_SMACX_DLOOP_CLK_SEL_SWAP_TX) ?
+							rio_lswap_ABCD_DCBA : rio_lswap_none;
 			break;
 		default:
 			rc = RIO_ERR_NOT_EXPECTED_RETURN_VALUE;

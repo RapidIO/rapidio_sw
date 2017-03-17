@@ -147,6 +147,13 @@ extern char *is_to_str[];
 
 #define ISEQ_TO_STR(x) (x>=rio_pc_is_last?is_to_str[rio_pc_is_last]:is_to_str[x])
 
+enum rio_lane_swap_t {
+	rio_lswap_none,
+	rio_lswap_ABCD_BADC,
+	rio_lswap_ABCD_DCBA,
+	rio_lswap_ABCD_CDAB
+};
+
 typedef struct rio_pc_one_port_config_t_TAG {
 	// Port number.  Allows port configuration information to be declared
 	// out of order, as per quadrants/port numbering.
@@ -195,7 +202,7 @@ typedef struct rio_pc_one_port_config_t_TAG {
 
 	// True if the transmit lanes are connected to a port in order of
 	// highest numbered lane to lowest numbered
-	bool tx_lswap;
+	rio_lane_swap_t tx_lswap;
 
 	// True if the tracks of a differential pair are inverted. Does not
 	// reflect lane swapping status.
@@ -203,7 +210,7 @@ typedef struct rio_pc_one_port_config_t_TAG {
 
 	// Trued if the receive lanes are connected to a port in order of
 	// highest numbered lane to lowest numbered.
-	bool rx_lswap;
+	rio_lane_swap_t rx_lswap;
 
 	// True if the tracks of a differential pair are inverted. Does not
 	// reflect lane swapping status.
@@ -284,6 +291,10 @@ typedef struct rio_pc_set_config_in_t_TAG {
 
 	rio_pc_one_port_config_t pc[RIO_MAX_PORTS];
 } rio_pc_set_config_in_t;
+
+#define RIO_LRTO_NSEC 100
+#define RIO_LOG_RTO_NSEC 100
+#define RIO_LRTO_MAX_100NS (6000000000 / RIO_LRTO_NSEC)
 
 typedef struct rio_pc_set_config_out_t_TAG {
 	// Implementation specific return code information.

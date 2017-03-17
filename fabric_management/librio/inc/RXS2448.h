@@ -446,6 +446,7 @@ extern "C" {
 
 /* RXS_SP_LT_CTL : Register Bits Masks Definitions */
 #define RXS_SP_LT_CTL_TVAL                           ((uint32_t)0xffffff00)
+#define RXS_SP_LT_CTL_MAX             ((uint32_t)(RXS_SP_LT_CTL_TVAL >> 8))
 
 /* RXS_SP_GEN_CTL : Register Bits Masks Definitions */
 #define RXS_SP_GEN_CTL_DISC                          ((uint32_t)0x20000000)
@@ -881,6 +882,15 @@ extern "C" {
 #define RXS_PLM_SPX_IMP_SPEC_CTL_USE_IDLE1           ((uint32_t)0x20000000)
 #define RXS_PLM_SPX_IMP_SPEC_CTL_USE_IDLE2           ((uint32_t)0x40000000)
 #define RXS_PLM_SPX_IMP_SPEC_CTL_USE_IDLE3           ((uint32_t)0x80000000)
+
+#define RXS_PLM_SPX_IMP_SPEC_CTL_SWAP_RX_NONE        ((uint32_t)0x00000000)
+#define RXS_PLM_SPX_IMP_SPEC_CTL_SWAP_RX_1032        ((uint32_t)0x00010000)
+#define RXS_PLM_SPX_IMP_SPEC_CTL_SWAP_RX_3210        ((uint32_t)0x00020000)
+#define RXS_PLM_SPX_IMP_SPEC_CTL_SWAP_RX_2301        ((uint32_t)0x00030000)
+#define RXS_PLM_SPX_IMP_SPEC_CTL_SWAP_TX_NONE        ((uint32_t)0x00000000)
+#define RXS_PLM_SPX_IMP_SPEC_CTL_SWAP_TX_1032        ((uint32_t)0x00040000)
+#define RXS_PLM_SPX_IMP_SPEC_CTL_SWAP_TX_3210        ((uint32_t)0x00080000)
+#define RXS_PLM_SPX_IMP_SPEC_CTL_SWAP_TX_2301        ((uint32_t)0x000C0000)
 
 /* RXS_PLM_SPX_PWDN_CTL : Register Bits Masks Definitions */
 #define RXS_PLM_SPX_PWDN_CTL_PWDN_PORT               ((uint32_t)0x00000001)

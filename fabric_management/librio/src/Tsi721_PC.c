@@ -87,6 +87,49 @@ spx_ctl2_ls_check_info_t ls_check[] = {
 	{ 0x00000000          , 0x00000000           , rio_pc_ls_last ,  0 }
 };
 
+static uint32_t reg_lswap(rio_lane_swap_t swap)
+{
+	uint32_t reg_val = 0;
+
+	switch(swap) {
+	default:
+	case rio_lswap_none:
+		reg_val = (TSI721_PLM_IMP_SPEC_CTL_SWAP_RX_NONE >> 16);
+		break;
+	case rio_lswap_ABCD_BADC:
+		reg_val = (TSI721_PLM_IMP_SPEC_CTL_SWAP_RX_1032 >> 16);
+		break;
+	case rio_lswap_ABCD_DCBA:
+		reg_val = (TSI721_PLM_IMP_SPEC_CTL_SWAP_RX_3210 >> 16);
+		break;
+	case rio_lswap_ABCD_CDAB:
+		reg_val = (TSI721_PLM_IMP_SPEC_CTL_SWAP_RX_2301 >> 16);
+		break;
+	}
+	return reg_val;
+}
+
+static rio_lane_swap_t lswap(uint32_t reg_val)
+{
+	rio_lane_swap_t swap_val = rio_lswap_none;
+
+	switch(reg_val) {
+	default:
+	case  (TSI721_PLM_IMP_SPEC_CTL_SWAP_RX_NONE >> 16):
+		swap_val = rio_lswap_none;
+		break;
+	case  (TSI721_PLM_IMP_SPEC_CTL_SWAP_RX_1032 >> 16):
+		swap_val = rio_lswap_ABCD_BADC;
+		break;
+	case  (TSI721_PLM_IMP_SPEC_CTL_SWAP_RX_3210 >> 16):
+		swap_val = rio_lswap_ABCD_DCBA;
+		break;
+	case  (TSI721_PLM_IMP_SPEC_CTL_SWAP_RX_2301 >> 16):
+		swap_val = rio_lswap_ABCD_CDAB;
+		break;
+	}
+	return swap_val;
+}
 
 // Note: in_parms contains the configuration to change to,
 //       out_parms contains the current configuration...
@@ -273,10 +316,8 @@ static uint32_t tsi721_set_config_with_resets(DAR_DEV_INFO_t *dev_info,
 	}
 
 	// Check for lane swapping & inversion
-	// FIXME!!! LANE SWAPPING AND INVERSION NOT FULLY SUPPORTED, there are more options
 	if ((out_parms->pc[0].tx_lswap != in_parms->pc[0].tx_lswap)
-			|| (out_parms->pc[0].rx_lswap
-					!= in_parms->pc[0].rx_lswap)) {
+		|| (out_parms->pc[0].rx_lswap != in_parms->pc[0].rx_lswap)) {
 		rc = DARRegRead(dev_info, TSI721_PLM_IMP_SPEC_CTL, &plmCtl);
 		if (RIO_SUCCESS != rc) {
 			out_parms->imp_rc = PC_SET_CONFIG(0x40);
@@ -284,14 +325,10 @@ static uint32_t tsi721_set_config_with_resets(DAR_DEV_INFO_t *dev_info,
 		}
 
 		plmCtl &= ~(TSI721_PLM_IMP_SPEC_CTL_SWAP_RX |
-		TSI721_PLM_IMP_SPEC_CTL_SWAP_TX);
+			TSI721_PLM_IMP_SPEC_CTL_SWAP_TX);
 
-		if (in_parms->pc[0].rx_lswap) {
-			plmCtl |= TSI721_PLM_IMP_SPEC_CTL_SWAP_RX_3210;
-		}
-		if (in_parms->pc[0].tx_lswap) {
-			plmCtl |= TSI721_PLM_IMP_SPEC_CTL_SWAP_TX_3210;
-		}
+		plmCtl |= reg_lswap(in_parms->pc[0].rx_lswap) << 16;
+		plmCtl |= reg_lswap(in_parms->pc[0].tx_lswap) << 18;
 
 		rc = DARRegWrite(dev_info, TSI721_PLM_IMP_SPEC_CTL, plmCtl);
 		if (manage_resets) {
@@ -493,8 +530,8 @@ uint32_t tsi721_rio_pc_get_config(DAR_DEV_INFO_t *dev_info,
 		out_parms->pc[port_idx].xmitter_disable = false;
 		out_parms->pc[port_idx].port_lockout = false;
 		out_parms->pc[port_idx].nmtc_xfer_enable = false;
-		out_parms->pc[port_idx].rx_lswap = false;
-		out_parms->pc[port_idx].tx_lswap = false;
+		out_parms->pc[port_idx].rx_lswap = rio_lswap_none;
+		out_parms->pc[port_idx].tx_lswap = rio_lswap_none;
 		for (lane_num = 0; lane_num < RIO_MAX_PORT_LANES; lane_num++) {
 			out_parms->pc[port_idx].tx_linvert[lane_num] = false;
 			out_parms->pc[port_idx].rx_linvert[lane_num] = false;
@@ -597,20 +634,18 @@ uint32_t tsi721_rio_pc_get_config(DAR_DEV_INFO_t *dev_info,
 								| TSI721_SP_CTL_OTP_EN));
 
 		// Check for lane swapping & inversion
-		// FIXME!!! LANE SWAPPING AND INVERSION NOT SUPPORTED
+		// FIXME!!! INVERSION NOT SUPPORTED
 		rc = DARRegRead(dev_info, TSI721_PLM_IMP_SPEC_CTL, &plmCtl);
 		if (RIO_SUCCESS != rc) {
 			out_parms->imp_rc = PC_GET_CONFIG(0x20);
 			goto exit;
 		}
 
-		if (plmCtl & TSI721_PLM_IMP_SPEC_CTL_SWAP_RX) {
-			out_parms->pc[port_idx].rx_lswap = true;
-		}
+		temp = (plmCtl & TSI721_PLM_IMP_SPEC_CTL_SWAP_RX) >> 16;
+		out_parms->pc[port_idx].rx_lswap = lswap(temp);
 
-		if (plmCtl & TSI721_PLM_IMP_SPEC_CTL_SWAP_TX) {
-			out_parms->pc[port_idx].tx_lswap = true;
-		}
+		temp = (plmCtl & TSI721_PLM_IMP_SPEC_CTL_SWAP_TX) >> 18;
+		out_parms->pc[port_idx].tx_lswap = lswap(temp);
 	}
 
 exit:

@@ -597,8 +597,8 @@ static void rxs_rio_pc_get_config_success(void **state)
 	curr_pc.xmitter_disable = false;
 	curr_pc.port_lockout = false;
 	curr_pc.nmtc_xfer_enable = false;
-	curr_pc.tx_lswap = false;
-	curr_pc.rx_lswap = false;
+	curr_pc.tx_lswap = rio_lswap_none;
+	curr_pc.rx_lswap = rio_lswap_none;
 	for (lane = 0; lane < RIO_MAX_PORT_LANES; lane++) {
 		curr_pc.tx_linvert[lane] = false;
 		curr_pc.rx_linvert[lane] = false;
@@ -757,17 +757,13 @@ static void rxs_rio_pc_get_config_success(void **state)
 	for (l_vec = 0; l_vec < 1 << RIO_MAX_PORT_LANES; l_vec++) {
 		plm_ctl &= ~RXS_PLM_SPX_IMP_SPEC_CTL_SWAP_RX;
 		plm_ctl &= ~RXS_PLM_SPX_IMP_SPEC_CTL_SWAP_TX;
-		curr_pc.tx_lswap = false;
-		curr_pc.rx_lswap = false;
+		curr_pc.tx_lswap = rio_lswap_none;
+		curr_pc.rx_lswap = rio_lswap_none;
 
-		if (l_vec & 1) {
-			plm_ctl |= RXS_PLM_SPX_IMP_SPEC_CTL_SWAP_RX;
-			curr_pc.rx_lswap = true;
-		}
-		if (l_vec & 2) {
-			plm_ctl |= RXS_PLM_SPX_IMP_SPEC_CTL_SWAP_TX;
-			curr_pc.tx_lswap = true;
-		}
+		plm_ctl |= (l_vec & 0x3) << 16;
+		curr_pc.rx_lswap = lswap(l_vec & 0x3);
+		plm_ctl |= (l_vec & 0xC) << 16;
+		curr_pc.tx_lswap =lswap((l_vec & 0xC) >> 2);
 		pol = l_vec;
 		pol |= ~(l_vec << 16) & RXS_PLM_SPX_POL_CTL_TX_ALL_POL;
 		for (lane = 0; lane < RIO_MAX_PORT_LANES; lane++) {
