@@ -500,6 +500,23 @@ fail:
 #define RXS_LOS_EVENT_MASK (RXS_PLM_SPX_STAT_DWNGD | \
 				RXS_PLM_SPX_STAT_DLT | \
 				RXS_PLM_SPX_STAT_OK_TO_UNINIT)
+#define RXS_PLM_UNMASKABLE_MASK (RXS_PLM_SPX_STAT_TLM_INT | \
+				RXS_PLM_SPX_STAT_PBM_INT | \
+				RXS_PLM_SPX_STAT_MECS | \
+				RXS_PLM_SPX_STAT_TLM_PW | \
+				RXS_PLM_SPX_STAT_PBM_PW | \
+				RXS_PLM_SPX_STAT_RST_REQ | \
+				RXS_PLM_SPX_STAT_PRST_REQ)
+
+// Events which are an aggregation/summary of per-port events.
+// They do not signify an "other" event.
+#define RXS_EM_INT_STAT_AGG_EVENTS_MASK (RXS_EM_INT_STAT_PORT | \
+				RXS_EM_INT_STAT_RCS)
+#define RXS_EM_PW_STAT_AGG_EVENTS_MASK (RXS_EM_PW_STAT_PORT | \
+				RXS_EM_PW_STAT_RCS)
+
+#define RXS_LOS_ERR_DET_EVENT_MASK (RXS_SPX_ERR_DET_DLT | \
+				RXS_SPX_ERR_DET_OK_TO_UNINIT)
 
 #define RXS_PBM_FATAL_EVENT_MASK (RXS_PBM_SPX_INT_EN_EG_DNFL_FATAL | \
 				RXS_PBM_SPX_INT_EN_EG_DOH_FATAL | \
@@ -567,8 +584,8 @@ static uint32_t rxs_event_cfg_get(
 		break;
 
 	case rio_em_f_err_rate:
-		if ((regs->pbm_int_en & RXS_PBM_FATAL_EVENT_MASK)
-			| (regs->pbm_pw_en & RXS_PBM_FATAL_EVENT_MASK)) {
+		if ((regs->plm_int_en & RXS_PLM_SPX_INT_EN_PBM_FATAL)
+			| (regs->plm_pw_en & RXS_PLM_SPX_PW_EN_PBM_FATAL)) {
 			event->em_detect = rio_em_detect_on;
 		} else {
 			event->em_detect = rio_em_detect_off;
@@ -903,12 +920,17 @@ static uint32_t rxs_set_event_cfg_rio_em_f_err_rate(
 
 	switch (event->em_detect) {
 	case rio_em_detect_on:
-		regs->pbm_int_en |= RXS_PBM_FATAL_EVENT_MASK;
-		regs->pbm_pw_en |= RXS_PBM_FATAL_EVENT_MASK;
+		rc = rxs_plm_set_notifn(regs, RXS_PLM_SPX_STAT_PBM_FATAL, nfn);
+		if (RIO_SUCCESS != rc) {
+			*imp_rc = EM_CFG_SET(0x39);
+		}
 		break;
 	case rio_em_detect_off:
-		regs->pbm_int_en &= ~RXS_PBM_FATAL_EVENT_MASK;
-		regs->pbm_pw_en &= ~RXS_PBM_FATAL_EVENT_MASK;
+		rc = rxs_plm_set_notifn(regs, RXS_PLM_SPX_STAT_PBM_FATAL,
+							rio_em_notfn_none);
+		if (RIO_SUCCESS != rc) {
+			*imp_rc = EM_CFG_SET(0x39);
+		}
 		break;
 	case rio_em_detect_0delta:
 		rc = RIO_SUCCESS;
@@ -916,10 +938,6 @@ static uint32_t rxs_set_event_cfg_rio_em_f_err_rate(
 	default:
 		rc = RIO_ERR_INVALID_PARAMETER;
 		*imp_rc = EM_CFG_SET(0x44);
-	}
-	rc = rxs_plm_set_notifn(regs, RXS_PLM_SPX_STAT_PBM_FATAL, nfn);
-	if (RIO_SUCCESS != rc) {
-		*imp_rc = EM_CFG_SET(0x39);
 	}
 	return rc;
 }
@@ -951,8 +969,9 @@ static uint32_t rxs_ttl_err_set_notifn(
 		break;
 	default:
 		rc = RIO_ERR_INVALID_PARAMETER;
-		break;
+		goto fail;
 	}
+fail:
 	return rc;
 }
 
@@ -1242,7 +1261,8 @@ static uint32_t rxs_set_event_cfg_rio_em_i_init_fail(
 		break;
 	case rio_em_detect_off:
 		regs->i2c_int_enable &= ~I2C_INT_ENABLE_BL_FAIL;
-		goto exit;
+		nfn = rio_em_notfn_none;
+		break;
 	case rio_em_detect_0delta:
 		goto exit;
 		break;
@@ -1448,8 +1468,9 @@ uint32_t rxs_rio_em_cfg_set(DAR_DEV_INFO_t *dev_info,
 	for (port_idx = 0; port_idx < good_ptl.num_ports; port_idx++) {
 		port = good_ptl.pnums[port_idx];
 		// Nothing to set if the port is unavailable or powered down.
-		if (!cfg_out.pc[0].port_available || !cfg_out.pc[0].powered_up) {
-			goto fail;
+		if (!cfg_out.pc[0].port_available || !cfg_out.pc[0].powered_up)
+		{
+			continue;
 		}
 
 		// Get registers for this particular port.
@@ -1656,13 +1677,13 @@ static uint32_t rxs_rio_em_dev_rpt_ctl_port(DAR_DEV_INFO_t *dev_info,
 		int_en = RXS_PLM_SPX_ALL_INT_EN_IRQ_EN;
 		err_stat &= ~RXS_SPX_ERR_STAT_PORT_W_DIS;
 		break;
-	
+
 	default:
 		// Should never get here...
 		rc = RIO_ERR_SW_FAILURE;
 		goto fail;
 	}
-		
+
 	rc = DARRegWrite(dev_info, RXS_PLM_SPX_ALL_INT_EN(port), int_en);
 	if (RIO_SUCCESS != rc) {
 		goto fail;
@@ -1870,6 +1891,8 @@ uint32_t rxs_rio_em_get_int_stat_port(DAR_DEV_INFO_t *dev_info,
 		rio_port_t port)
 {
 	uint32_t plm_denial_ctl;
+	uint32_t spx_err_det;
+	uint32_t spx_rate_en;
 	uint32_t plm_ints;
 	uint32_t plm_int_en;
 	uint32_t plm_int_stat;
@@ -1883,9 +1906,21 @@ uint32_t rxs_rio_em_get_int_stat_port(DAR_DEV_INFO_t *dev_info,
 	uint32_t pna_cap;
 	uint32_t rc;
 
-	rc = DARRegRead(dev_info, RXS_PLM_SPX_STAT(port), &plm_ints);
+	rc = DARRegRead(dev_info, RXS_SPX_ERR_DET(port), &spx_err_det);
 	if (RIO_SUCCESS != rc) {
 		out_parms->imp_rc = EM_GET_INT_STAT(0x10);
+		goto fail;
+	}
+
+	rc = DARRegRead(dev_info, RXS_SPX_RATE_EN(port), &spx_rate_en);
+	if (RIO_SUCCESS != rc) {
+		out_parms->imp_rc = EM_GET_INT_STAT(0x10);
+		goto fail;
+	}
+
+	rc = DARRegRead(dev_info, RXS_PLM_SPX_STAT(port), &plm_ints);
+	if (RIO_SUCCESS != rc) {
+		out_parms->imp_rc = EM_GET_INT_STAT(0x11);
 		goto fail;
 	}
 
@@ -1925,7 +1960,9 @@ uint32_t rxs_rio_em_get_int_stat_port(DAR_DEV_INFO_t *dev_info,
 		goto fail;
 	}
 
-	plm_int_stat = plm_ints & plm_int_en;
+	plm_int_stat = plm_ints & (plm_int_en | RXS_PLM_UNMASKABLE_MASK);
+	spx_err_det &= spx_rate_en;
+
 	if (plm_int_stat & RXS_LOS_EVENT_MASK) {
 		SAFE_ADD_EVENT_N_LOC(rio_em_f_los, port);
 	}
@@ -1979,62 +2016,29 @@ uint32_t rxs_rio_em_get_int_stat_port(DAR_DEV_INFO_t *dev_info,
 		SAFE_ADD_EVENT_N_LOC(rio_em_i_rst_req, port);
 	}
 
-	if (plm_ints & ~plm_int_en) {
+	if (plm_ints & ~(plm_int_en | RXS_PLM_UNMASKABLE_MASK)) {
 		out_parms->other_events = true;
 	}
 	if (tlm_ints & ~tlm_int_en) {
 		out_parms->other_events = true;
 	}
-	if (pbm_ints & ~pbm_int_en) {
+	if (pbm_ints & ~(pbm_int_en | RXS_PBM_FATAL_EVENT_MASK)) {
 		out_parms->other_events = true;
 	}
 fail:
 	return rc;
 }
 
-#define RXS_EM_INT_INIT_FAIL_MASK (RXS_EM_INT_STAT_EXTERNAL_I2C | \
-			RXS_EM_INT_STAT_EXTERNAL_PHY_MEM)
-
-uint32_t rxs_rio_em_get_int_stat(DAR_DEV_INFO_t *dev_info,
+uint32_t get_dev_int_status(DAR_DEV_INFO_t *dev_info,
 		rio_em_get_int_stat_in_t *in_parms,
 		rio_em_get_int_stat_out_t *out_parms)
 {
 	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
-	struct DAR_ptl good_ptl;
 	uint32_t em_ints;
 	uint32_t em_int_en;
 	uint32_t em_int_stat;
-	uint32_t port_idx;
 	uint32_t log_err_det;
-	rio_port_t port;
-
-	out_parms->imp_rc = RIO_SUCCESS;
-	out_parms->num_events = 0;
-	out_parms->too_many = false;
-	out_parms->other_events = false;
-
-	if (!(in_parms->num_events) || (NULL == in_parms->events)) {
-		out_parms->imp_rc = EM_GET_INT_STAT(0x01);
-		goto fail;
-	}
-
-	rc = DARrioGetPortList(dev_info, &in_parms->ptl, &good_ptl);
-	if (RIO_SUCCESS != rc) {
-		out_parms->imp_rc = EM_GET_INT_STAT(0x02);
-		goto fail;
-	}
-
-	// Get interrupt status for each requested port
-	for (port_idx = 0; port_idx < good_ptl.num_ports; port_idx++) {
-		port = good_ptl.pnums[port_idx];
-		rc = rxs_rio_em_get_int_stat_port(dev_info, in_parms, out_parms,
-									port);
-		if (RIO_SUCCESS != rc) {
-			goto fail;
-		}
-	}
-
-	em_int_stat = em_ints & em_int_en;
+	uint32_t i2c_int_stat;
 
 	rc = DARRegRead(dev_info, RXS_EM_INT_STAT, &em_ints);
 	if (RIO_SUCCESS != rc) {
@@ -2063,17 +2067,62 @@ uint32_t rxs_rio_em_get_int_stat(DAR_DEV_INFO_t *dev_info,
 		}
 	}
 
-	if (em_int_stat & RXS_EM_INT_INIT_FAIL_MASK) {
+	if (em_int_stat & RXS_EM_INT_STAT_EXTERNAL_I2C) {
 		SAFE_ADD_EVENT_N_LOC(rio_em_i_init_fail, RIO_ALL_PORTS);
 	} else {
-		if (em_ints & RXS_EM_INT_INIT_FAIL_MASK) {
+		rc = DARRegRead(dev_info, I2C_INT_STAT, &i2c_int_stat);
+		if (RIO_SUCCESS != rc) {
+			out_parms->imp_rc = EM_GET_INT_STAT(0x31);
+			goto fail;
+		}
+		if (i2c_int_stat & I2C_INT_STAT_BL_FAIL) {
 			out_parms->other_events = true;
 		}
 	}
 
-	if (em_ints & ~em_int_en) {
+	if (em_ints & ~(em_int_en | RXS_EM_INT_STAT_AGG_EVENTS_MASK)) {
 		out_parms->other_events = true;
 	}
+fail:
+	return rc;
+}
+
+uint32_t rxs_rio_em_get_int_stat(DAR_DEV_INFO_t *dev_info,
+		rio_em_get_int_stat_in_t *in_parms,
+		rio_em_get_int_stat_out_t *out_parms)
+{
+	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+	struct DAR_ptl good_ptl;
+	uint32_t port_idx;
+	rio_port_t port;
+
+	out_parms->imp_rc = RIO_SUCCESS;
+	out_parms->num_events = 0;
+	out_parms->too_many = false;
+	out_parms->other_events = false;
+
+	if (!(in_parms->num_events) || (NULL == in_parms->events)) {
+		out_parms->imp_rc = EM_GET_INT_STAT(0x01);
+		goto fail;
+	}
+
+	rc = DARrioGetPortList(dev_info, &in_parms->ptl, &good_ptl);
+	if (RIO_SUCCESS != rc) {
+		out_parms->imp_rc = EM_GET_INT_STAT(0x02);
+		goto fail;
+	}
+
+	// Get interrupt status for each requested port
+	for (port_idx = 0; port_idx < good_ptl.num_ports; port_idx++) {
+		port = good_ptl.pnums[port_idx];
+		rc = rxs_rio_em_get_int_stat_port(dev_info, in_parms, out_parms,
+									port);
+		if (RIO_SUCCESS != rc) {
+			goto fail;
+		}
+	}
+
+	rc = get_dev_int_status(dev_info, in_parms, out_parms);
 fail:
 	return rc;
 }
@@ -2084,6 +2133,8 @@ uint32_t rxs_rio_em_get_pw_stat_port(DAR_DEV_INFO_t *dev_info,
 		rio_port_t	port)
 {
 	uint32_t rc;
+	uint32_t spx_err_det;
+	uint32_t spx_rate_en;
 	uint32_t plm_pws;
 	uint32_t plm_pw_en;
 	uint32_t plm_pw_stat;
@@ -2098,6 +2149,18 @@ uint32_t rxs_rio_em_get_pw_stat_port(DAR_DEV_INFO_t *dev_info,
 	uint32_t rst_pw_en;
 	uint32_t plm_denial_ctl;
 	uint32_t pna_cap;
+
+	rc = DARRegRead(dev_info, RXS_SPX_ERR_DET(port), &spx_err_det);
+	if (RIO_SUCCESS != rc) {
+		out_parms->imp_rc = EM_GET_INT_STAT(0x10);
+		goto fail;
+	}
+
+	rc = DARRegRead(dev_info, RXS_SPX_RATE_EN(port), &spx_rate_en);
+	if (RIO_SUCCESS != rc) {
+		out_parms->imp_rc = EM_GET_INT_STAT(0x10);
+		goto fail;
+	}
 
 	rc = DARRegRead(dev_info, RXS_PLM_SPX_STAT(port), &plm_pws);
 	if (RIO_SUCCESS != rc) {
@@ -2153,13 +2216,16 @@ uint32_t rxs_rio_em_get_pw_stat_port(DAR_DEV_INFO_t *dev_info,
 		goto fail;
 	}
 
-	plm_pw_stat = plm_pws & plm_pw_en;
+	plm_pw_stat = plm_pws & (plm_pw_en| RXS_PLM_UNMASKABLE_MASK);
+	spx_err_det &= spx_rate_en;
 	if (plm_pw_stat & RXS_LOS_EVENT_MASK) {
 		SAFE_ADD_EVENT_N_LOC(rio_em_f_los, port);
 	}
+
 	if (plm_pw_stat & RXS_PLM_SPX_STAT_PORT_ERR) {
 		SAFE_ADD_EVENT_N_LOC(rio_em_f_port_err, port);
 	}
+
 	if (plm_pw_stat & RXS_PLM_SPX_STAT_MAX_DENIAL) {
 		rc = DARRegRead(dev_info, RXS_PLM_SPX_DENIAL_CTL(port),
 							&plm_denial_ctl);
@@ -2205,57 +2271,28 @@ uint32_t rxs_rio_em_get_pw_stat_port(DAR_DEV_INFO_t *dev_info,
 		SAFE_ADD_EVENT_N_LOC(rio_em_i_rst_req, port);
 	}
 
-	if (plm_pws & ~plm_pw_en) {
+	if (plm_pws & ~(plm_pw_en| RXS_PLM_UNMASKABLE_MASK)) {
 		out_parms->other_events = true;
 	}
 	if (tlm_pws & ~tlm_pw_en) {
 		out_parms->other_events = true;
 	}
-	if (pbm_pws & ~pbm_pw_en) {
+	if (pbm_pws & ~(pbm_pw_en | RXS_PBM_FATAL_EVENT_MASK)) {
 		out_parms->other_events = true;
 	}
 fail:
 	return rc;
 }
-
-uint32_t rxs_rio_em_get_pw_stat(DAR_DEV_INFO_t *dev_info,
+uint32_t get_dev_pw_status(DAR_DEV_INFO_t *dev_info,
 		rio_em_get_pw_stat_in_t *in_parms,
 		rio_em_get_pw_stat_out_t *out_parms)
 {
 	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
-	DAR_ptl good_ptl;
 	uint32_t em_pws;
 	uint32_t em_pw_en;
 	uint32_t em_pw_stat;
-	uint32_t log_err;
-	unsigned int port_idx;
-	rio_port_t port;
-
-	out_parms->imp_rc = RIO_SUCCESS;
-	out_parms->num_events = 0;
-	out_parms->too_many = false;
-	out_parms->other_events = false;
-
-	if (!(in_parms->num_events) || (NULL == in_parms->events)) {
-		out_parms->imp_rc = EM_GET_PW_STAT(0x01);
-		goto fail;
-	}
-
-	rc = DARrioGetPortList(dev_info, &in_parms->ptl, &good_ptl);
-	if (RIO_SUCCESS != rc) {
-		out_parms->imp_rc = EM_GET_PW_STAT(0x02);
-		goto fail;
-	}
-
-	// Get port-write status for each requested port
-	for (port_idx = 0; port_idx < good_ptl.num_ports; port_idx++) {
-		port = good_ptl.pnums[port_idx];
-		rc = rxs_rio_em_get_pw_stat_port(
-				dev_info, in_parms, out_parms, port);
-		if (RIO_SUCCESS != rc) {
-			goto fail;
-		}
-	}
+	uint32_t log_err_det;
+	uint32_t i2c_int_stat;
 
 	rc = DARRegRead(dev_info, RXS_EM_PW_STAT, &em_pws);
 	if (RIO_SUCCESS != rc) {
@@ -2274,12 +2311,12 @@ uint32_t rxs_rio_em_get_pw_stat(DAR_DEV_INFO_t *dev_info,
 	if (em_pw_stat & RXS_EM_PW_STAT_LOG) {
 		SAFE_ADD_EVENT_N_LOC(rio_em_d_log, RIO_ALL_PORTS);
 	} else {
-		rc = DARRegRead(dev_info, RXS_ERR_DET, &log_err);
+		rc = DARRegRead(dev_info, RXS_ERR_DET, &log_err_det);
 		if (RIO_SUCCESS != rc) {
 			out_parms->imp_rc = EM_GET_PW_STAT(0x24);
 			goto fail;
 		}
-		if (log_err) {
+		if (log_err_det) {
 			out_parms->other_events = true;
 		}
 	}
@@ -2287,18 +2324,79 @@ uint32_t rxs_rio_em_get_pw_stat(DAR_DEV_INFO_t *dev_info,
 	if (em_pw_stat & RXS_EM_PW_STAT_EXTERNAL_I2C) {
 		SAFE_ADD_EVENT_N_LOC(rio_em_i_init_fail, RIO_ALL_PORTS);
 	} else {
-		if (em_pws & RXS_EM_PW_STAT_EXTERNAL_I2C) {
+		rc = DARRegRead(dev_info, I2C_INT_STAT, &i2c_int_stat);
+		if (RIO_SUCCESS != rc) {
+			out_parms->imp_rc = EM_GET_INT_STAT(0x31);
+			goto fail;
+		}
+		if (i2c_int_stat & I2C_INT_STAT_BL_FAIL) {
 			out_parms->other_events = true;
 		}
 	}
 
-	if (RIO_ALL_PORTS != in_parms->pw_port_num) {
-		SAFE_ADD_EVENT_N_LOC(rio_em_a_clr_pwpnd,
-					in_parms->pw_port_num);
+	if (em_pw_stat & ~(em_pw_en | RXS_EM_PW_STAT_AGG_EVENTS_MASK)) {
+		out_parms->other_events = true;
+	}
+fail:
+	return rc;
+}
+
+uint32_t rxs_rio_em_get_pw_stat(DAR_DEV_INFO_t *dev_info,
+		rio_em_get_pw_stat_in_t *in_parms,
+		rio_em_get_pw_stat_out_t *out_parms)
+{
+	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+	DAR_ptl good_ptl;
+	unsigned int port_idx;
+	unsigned int pw_port_idx = RIO_ALL_PORTS;
+	rio_port_t port;
+
+	out_parms->imp_rc = RIO_SUCCESS;
+	out_parms->num_events = 0;
+	out_parms->too_many = false;
+	out_parms->other_events = false;
+
+	if (!(in_parms->num_events) || (NULL == in_parms->events)) {
+		out_parms->imp_rc = EM_GET_PW_STAT(0x01);
+		goto fail;
 	}
 
-	if (em_pw_stat & ~em_pw_en) {
-		out_parms->other_events = true;
+	rc = DARrioGetPortList(dev_info, &in_parms->ptl, &good_ptl);
+	if (RIO_SUCCESS != rc) {
+		out_parms->imp_rc = EM_GET_PW_STAT(0x02);
+		goto fail;
+	}
+
+	// Get port-write status for each requested port EXCEPT
+	// the port which the port-write was received on.
+	for (port_idx = 0; port_idx < good_ptl.num_ports; port_idx++) {
+		port = good_ptl.pnums[port_idx];
+		if (in_parms->pw_port_num == port) {
+			pw_port_idx = port_idx;
+			continue;
+		}
+		rc = rxs_rio_em_get_pw_stat_port(
+				dev_info, in_parms, out_parms, port);
+		if (RIO_SUCCESS != rc) {
+			goto fail;
+		}
+	}
+	if (pw_port_idx != RIO_ALL_PORTS) {
+		rc = rxs_rio_em_get_pw_stat_port(
+			dev_info, in_parms, out_parms, in_parms->pw_port_num);
+		if (RIO_SUCCESS != rc) {
+			goto fail;
+		}
+	}
+
+	rc = get_dev_pw_status(dev_info, in_parms, out_parms);
+
+	// Last event in the list must be a clear port-write pending,
+	// but only if the port which originated the port-write is part
+	// of the port list searched for events.
+	if (pw_port_idx != RIO_ALL_PORTS) {
+		SAFE_ADD_EVENT_N_LOC(rio_em_a_clr_pwpnd,
+					in_parms->pw_port_num);
 	}
 fail:
 	return rc;
@@ -2344,6 +2442,8 @@ static uint32_t rxs_clr_events_sort_events(
 		goto fail;
 	}
 
+	rc = RIO_ERR_INVALID_PARAMETER;
+
 	// Do any events require a soft reset to clear them?  Check!
 	// Also validate port numbers and events while we're at it.
 	for (i = 0; i < in_parms->num_events; i++) {
@@ -2356,6 +2456,9 @@ static uint32_t rxs_clr_events_sort_events(
 		case rio_em_f_2many_retx:
 		case rio_em_f_2many_pna:
 		case rio_em_f_err_rate:
+			if (NUM_RXS_PORTS(dev_info) <= event->port_num) {
+				goto fail;
+			}
 			ptl->pnums[event->port_num] = RIO_ALL_PORTS;
 			break;
 		case rio_em_d_log:
@@ -2365,10 +2468,12 @@ static uint32_t rxs_clr_events_sort_events(
 		case rio_em_d_rte:
 		case rio_em_i_sig_det:
 		case rio_em_i_rst_req:
-			if (event->port_num >= rxs_num_ports) {
-				break;
+			if (NUM_RXS_PORTS(dev_info) <= event->port_num) {
+				goto fail;
 			}
-			ptl->pnums[event->port_num] = rxs_num_ports;
+			if (ptl->pnums[event->port_num] != RIO_ALL_PORTS) {
+				ptl->pnums[event->port_num] = rxs_num_ports;
+			}
 			break;
 		case rio_em_i_init_fail:
 			*init_err_idx = i;
@@ -2377,6 +2482,9 @@ static uint32_t rxs_clr_events_sort_events(
 			if (RIO_ALL_PORTS != *pw_pt) {
 				// Multiple requests to clear port-write
 				// Pending... Illegal!
+				goto fail;
+			}
+			if (NUM_RXS_PORTS(dev_info) <= event->port_num) {
 				goto fail;
 			}
 			*pw_pt = event->port_num;
@@ -2389,6 +2497,9 @@ static uint32_t rxs_clr_events_sort_events(
 	}
 	rc = RIO_SUCCESS;
 fail:
+	if (RIO_SUCCESS == rc) {
+		out_parms->failure_idx = 0;
+	}
 	return rc;
 }
 
@@ -2426,13 +2537,13 @@ static uint32_t rxs_clr_events_soft_reset(DAR_DEV_INFO_t *dev_info,
 
 	rc = DARRegWrite(dev_info, RXS_PLM_SPX_IMP_SPEC_CTL(port), plm_ctl_rst);
 	if (RIO_SUCCESS != rc) {
-		out_parms->imp_rc = EM_CLR_EVENTS(0x20);
+		out_parms->imp_rc = EM_CLR_EVENTS(0x22);
 		goto fail;
 	}
 
 	rc = DARRegWrite(dev_info, RXS_PLM_SPX_IMP_SPEC_CTL(port), plm_ctl);
 	if (RIO_SUCCESS != rc) {
-		out_parms->imp_rc = EM_CLR_EVENTS(0x20);
+		out_parms->imp_rc = EM_CLR_EVENTS(0x24);
 		goto fail;
 	}
 
@@ -2440,7 +2551,7 @@ static uint32_t rxs_clr_events_soft_reset(DAR_DEV_INFO_t *dev_info,
 	// reset port status register.  Clear that event.
 	rc = DARRegWrite(dev_info, RXS_EM_RST_PORT_STAT, 1 << port);
 	if (RIO_SUCCESS != rc) {
-		out_parms->imp_rc = EM_CLR_EVENTS(0x59);
+		out_parms->imp_rc = EM_CLR_EVENTS(0x30);
 		goto fail;
 	}
 fail:
@@ -2478,7 +2589,7 @@ uint32_t rxs_clr_events_clr_port(DAR_DEV_INFO_t		*dev_info,
 			rc = DARRegWrite(dev_info, RXS_PBM_SPX_STAT(port),
 					RXS_PBM_SPX_STAT_EG_TTL_EXPIRED);
 			if (RIO_SUCCESS != rc) {
-				out_parms->imp_rc = EM_CLR_EVENTS(0x50);
+				out_parms->imp_rc = EM_CLR_EVENTS(0x40);
 				goto fail;
 			}
 			break;
@@ -2501,7 +2612,7 @@ uint32_t rxs_clr_events_clr_port(DAR_DEV_INFO_t		*dev_info,
 			rc = DARRegWrite(dev_info, RXS_PLM_SPX_STAT(port),
 						RXS_PLM_SPX_STAT_LINK_INIT);
 			if (RIO_SUCCESS != rc) {
-				out_parms->imp_rc = EM_CLR_EVENTS(0x50);
+				out_parms->imp_rc = EM_CLR_EVENTS(0x58);
 				goto fail;
 			}
 			break;
@@ -2510,14 +2621,13 @@ uint32_t rxs_clr_events_clr_port(DAR_DEV_INFO_t		*dev_info,
 			rc = DARRegWrite(dev_info, RXS_PLM_SPX_STAT(port),
 							RXS_RST_REQ_EVENT_MASK);
 			if (RIO_SUCCESS != rc) {
-				out_parms->imp_rc = EM_CLR_EVENTS(0x58);
+				out_parms->imp_rc = EM_CLR_EVENTS(0x60);
 				goto fail;
 			}
 
-			rc = DARRegWrite(dev_info, RXS_EM_RST_PORT_STAT,
-								1 << port);
+			rc = DARRegWrite(dev_info, RXS_EM_RST_PORT_STAT, 1 << port);
 			if (RIO_SUCCESS != rc) {
-				out_parms->imp_rc = EM_CLR_EVENTS(0x59);
+				out_parms->imp_rc = EM_CLR_EVENTS(0x68);
 				goto fail;
 			}
 			break;
@@ -2536,14 +2646,14 @@ uint32_t rxs_clr_events_clr_port(DAR_DEV_INFO_t		*dev_info,
 			rc = DARRegRead(dev_info, RXS_SPX_ERR_STAT(port),
 									&temp);
 			if (RIO_SUCCESS != rc) {
-				out_parms->imp_rc = EM_CLR_EVENTS(0x68);
+				out_parms->imp_rc = EM_CLR_EVENTS(0x70);
 				goto fail;
 			}
 			temp |= RXS_SPX_ERR_STAT_PORT_W_P;
 			rc = DARRegWrite(dev_info, RXS_SPX_ERR_STAT(port),
 									temp);
 			if (RIO_SUCCESS != rc) {
-				out_parms->imp_rc = EM_CLR_EVENTS(0x70);
+				out_parms->imp_rc = EM_CLR_EVENTS(0x78);
 				goto fail;
 			}
 			break;
@@ -2557,6 +2667,9 @@ uint32_t rxs_clr_events_clr_port(DAR_DEV_INFO_t		*dev_info,
 	}
 	rc = RIO_SUCCESS;
 fail:
+	if (RIO_SUCCESS == rc) {
+		out_parms->failure_idx = 0;
+	}
 	return rc;
 }
 
@@ -2568,13 +2681,24 @@ static uint32_t rxs_rio_em_clr_events_get_int_stat(
 	rio_em_get_int_stat_in_t in_i;
 	rio_em_get_int_stat_out_t out_i;
 	rio_em_event_n_loc_t stat_e[1];
-	uint32_t rc;
+	uint32_t rc = RIO_SUCCESS;
 
 	copy_sorted_ports(&in_i.ptl, sorted_ptl);
 	in_i.num_events = 1;
 	in_i.events = stat_e;
 
-	rc = rxs_rio_em_get_int_stat(dev_info, &in_i, &out_i);
+	// If only device level events were cleared, no port exists to query
+	// so don't do it...
+	if (in_i.ptl.num_ports) {
+		rc = rxs_rio_em_get_int_stat(dev_info, &in_i, &out_i);
+	} else {
+		out_i.imp_rc = RIO_SUCCESS;
+		out_i.num_events = 0;
+		out_i.too_many = false;
+		out_i.other_events = false;
+
+		rc = get_dev_int_status(dev_info, &in_i, &out_i);
+	}
 	if (RIO_SUCCESS != rc) {
 		out_parms->imp_rc = out_i.imp_rc;
 	} else {
@@ -2598,7 +2722,17 @@ static uint32_t rxs_rio_em_clr_events_get_pw_stat(DAR_DEV_INFO_t *dev_info,
 	in_p.num_events = 1;
 	in_p.events = stat_e;
 
-	rc = rxs_rio_em_get_pw_stat(dev_info, &in_p, &out_p);
+	if (in_p.ptl.num_ports) {
+		rc = rxs_rio_em_get_pw_stat(dev_info, &in_p, &out_p);
+	} else {
+		out_p.imp_rc = RIO_SUCCESS;
+		out_p.num_events = 0;
+		out_p.too_many = false;
+		out_p.other_events = false;
+
+		rc = get_dev_pw_status(dev_info, &in_p, &out_p);
+	}
+
 	if (RIO_SUCCESS != rc) {
 		out_parms->imp_rc = out_p.imp_rc;
 	} else {
@@ -2633,7 +2767,7 @@ uint32_t rxs_rio_em_clr_events(DAR_DEV_INFO_t	*dev_info,
 	rc = rxs_clr_events_sort_events(dev_info, in_parms, out_parms,
 			&sorted_ptl, &log_err_idx, &init_err_idx, &pw_pt);
 	if (RIO_SUCCESS != rc) {
-		out_parms->imp_rc = EM_CLR_EVENTS(0x03);
+		out_parms->imp_rc = EM_CLR_EVENTS(0x02);
 		goto fail;
 	}
 
@@ -2667,21 +2801,23 @@ uint32_t rxs_rio_em_clr_events(DAR_DEV_INFO_t	*dev_info,
 	}
 
 	// If no events are present for the port, skip it
-
-	if (RIO_ALL_PORTS == sorted_ptl.pnums[pw_pt]) {
-		rc = rxs_clr_events_soft_reset(dev_info, out_parms, pw_pt);
-	} else {
-		rc = rxs_clr_events_clr_port(dev_info, in_parms,
+	if (RIO_ALL_PORTS != pw_pt) {
+		if (RIO_ALL_PORTS == sorted_ptl.pnums[pw_pt]) {
+			rc = rxs_clr_events_soft_reset(
+						dev_info, out_parms, pw_pt);
+		} else {
+			rc = rxs_clr_events_clr_port(dev_info, in_parms,
 							out_parms, pw_pt);
-	}
-	if (RIO_SUCCESS != rc) {
-		goto fail;
+		}
+		if (RIO_SUCCESS != rc) {
+			goto fail;
+		}
 	}
 
 	if (NO_EVENT_IDX != init_err_idx) {
 		rc = DARRegWrite(dev_info, I2C_INT_STAT, I2C_INT_STAT_BL_FAIL);
 		if (RIO_SUCCESS != rc) {
-			out_parms->imp_rc = EM_CLR_EVENTS(0x60);
+			out_parms->imp_rc = EM_CLR_EVENTS(0x80);
 			goto fail;
 		}
 	}
@@ -2689,7 +2825,7 @@ uint32_t rxs_rio_em_clr_events(DAR_DEV_INFO_t	*dev_info,
 	if (NO_EVENT_IDX != log_err_idx) {
 		rc = DARRegWrite(dev_info, RXS_ERR_DET, 0);
 		if (RIO_SUCCESS != rc) {
-			out_parms->imp_rc = EM_CLR_EVENTS(0x60);
+			out_parms->imp_rc = EM_CLR_EVENTS(0x90);
 			goto fail;
 		}
 	}
@@ -2722,6 +2858,7 @@ uint32_t rxs_rio_em_create_events(DAR_DEV_INFO_t *dev_info,
 	uint32_t init_err_idx = NO_EVENT_IDX;
 	rio_port_t pt;
 	rio_em_event_n_loc_t *event;
+	uint32_t spx_err_det;
 
 	out_parms->imp_rc = RIO_SUCCESS;
 
@@ -2754,17 +2891,24 @@ uint32_t rxs_rio_em_create_events(DAR_DEV_INFO_t *dev_info,
 
 		switch (event->event) {
 		case rio_em_f_los:
-			rc = DARRegWrite(dev_info, RXS_SPX_ERR_DET(pt),
-					RXS_SPX_ERR_DET_DLT |
-					RXS_SPX_ERR_DET_OK_TO_UNINIT);
+			rc = DARRegRead(dev_info, RXS_SPX_ERR_DET(pt),
+								&spx_err_det);
 			if (RIO_SUCCESS != rc) {
 				out_parms->imp_rc = EM_CREATE_EVENTS(0x10);
+				goto fail;
+			}
+			spx_err_det |= RXS_SPX_ERR_DET_DLT |
+					RXS_SPX_ERR_DET_OK_TO_UNINIT;
+			rc = DARRegWrite(dev_info, RXS_SPX_ERR_DET(pt),
+								spx_err_det);
+			if (RIO_SUCCESS != rc) {
+				out_parms->imp_rc = EM_CREATE_EVENTS(0x11);
 				goto fail;
 			}
 			rc = DARRegWrite(dev_info, RXS_PLM_SPX_EVENT_GEN(pt),
 					RXS_PLM_SPX_EVENT_GEN_DWNGD);
 			if (RIO_SUCCESS != rc) {
-				out_parms->imp_rc = EM_CREATE_EVENTS(0x11);
+				out_parms->imp_rc = EM_CREATE_EVENTS(0x12);
 				goto fail;
 			}
 			break;
@@ -2876,6 +3020,9 @@ uint32_t rxs_rio_em_create_events(DAR_DEV_INFO_t *dev_info,
 	}
 	rc = RIO_SUCCESS;
 fail:
+	if (RIO_SUCCESS == rc) {
+		out_parms->failure_idx = 0;
+	}
 	return rc;
 }
 

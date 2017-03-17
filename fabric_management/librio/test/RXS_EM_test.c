@@ -79,6 +79,7 @@ int main(int argc, char** argv)
 #ifdef RXSx_DAR_WANTED
 
 #define DEBUG_PRINTF 0
+#define DEBUG_REGTRACE 0
 
 typedef struct RXS_test_state_t_TAG {
 	int argc;
@@ -190,27 +191,24 @@ static int grp_teardown(void **state)
 
 static uint32_t rxs_get_poreg_idx(DAR_DEV_INFO_t *dev_info, uint32_t offset)
 {
-        return DAR_get_poreg_idx(dev_info, MOCK_REG_ADDR(offset));
+	return DAR_get_poreg_idx(dev_info, MOCK_REG_ADDR(offset));
 }
 
 static uint32_t rxs_expect_poreg_idx(DAR_DEV_INFO_t *dev_info, uint32_t offset)
 {
-        uint32_t idx =  DAR_get_poreg_idx(dev_info, MOCK_REG_ADDR(offset));
+	uint32_t idx =  DAR_get_poreg_idx(dev_info, MOCK_REG_ADDR(offset));
 
 	if (DAR_POREG_BAD_IDX == idx) {
-		if (DEBUG_PRINTF) {
-			printf("\nMissing offset is 0x%x\n", offset);
-		}
-		assert_true(false);
+		assert_int_equal(offset, idx);
 	}
 	assert_int_not_equal(idx, DAR_POREG_BAD_IDX);
 	return idx;
 }
 
 static uint32_t rxs_add_poreg(DAR_DEV_INFO_t *dev_info, uint32_t offset,
-                uint32_t data)
+		uint32_t data)
 {
-        return DAR_add_poreg(dev_info, MOCK_REG_ADDR(offset), data);
+	return DAR_add_poreg(dev_info, MOCK_REG_ADDR(offset), data);
 }
 
 static uint32_t RXSReadReg(DAR_DEV_INFO_t *dev_info,
@@ -225,25 +223,17 @@ static uint32_t RXSReadReg(DAR_DEV_INFO_t *dev_info,
 
 	if (!st.real_hw) {
 		if (DAR_POREG_BAD_IDX == idx) {
-			if (DEBUG_PRINTF) {
-				printf("\nMissing offset is 0x%x\n", offset);
-			}
-			assert_true(st.real_hw);
-			idx = 0;
-			goto exit;
+			assert_int_equal(offset, idx);
+		}
+		if (DEBUG_REGTRACE) {
+			printf("\nREAD  OSET 0x%x Data 0x%x\n", offset,
+						dev_info->poregs[idx].data);
 		}
 		rc = RIO_SUCCESS;
 		*readdata = dev_info->poregs[idx].data;
 		goto exit;
 	}
 
-
-	// Should only get here when st.real_hw is true, since
-	// when real_hw is false, all registers are mocked.
-	if (!st.real_hw && DEBUG_PRINTF) {
-		printf("\nMissing offset is 0x%x\n", offset);
-	}
-	assert_true(st.real_hw);
 	assert_true(st.mp_h_valid);
 
 	if (0xFF == st.hc) {
@@ -293,7 +283,8 @@ static void update_plm_status(DAR_DEV_INFO_t *dev_info,
 
 	// Update per-port interrupt status
 	en_idx  = rxs_expect_poreg_idx(dev_info, RXS_PLM_SPX_ALL_INT_EN(port));
-	if (plm_events && dev_info->poregs[en_idx].data) {
+	if (plm_events &
+		(dev_info->poregs[en_idx].data | RXS_PLM_UNMASKABLE_MASK)) {
 		pp_stat = pp_mask;
 	}
 
@@ -427,6 +418,26 @@ static void emulate_plm_reg(DAR_DEV_INFO_t *dev_info,
 		update_plm_status(dev_info, 0xFFFFFFFF,
 				dev_info->poregs[t_idx].data, port);
 		return;
+	}
+
+	// emulate soft resetting the port, at least to the extent of
+	// clearing all interrupt status registers...
+	if ((RXS_PLM_SPX_IMP_SPEC_CTL(port) == offset) &&
+		(writedata & RXS_PLM_SPX_IMP_SPEC_CTL_SOFT_RST_PORT)) {
+
+		t_idx = rxs_expect_poreg_idx(dev_info, RXS_PBM_SPX_STAT(port));
+		dev_info->poregs[t_idx].data = 0;
+
+		t_idx = rxs_expect_poreg_idx(dev_info, RXS_TLM_SPX_STAT(port));
+		dev_info->poregs[t_idx].data = 0;
+
+		t_idx = rxs_expect_poreg_idx(dev_info, RXS_SPX_ERR_DET(port));
+		dev_info->poregs[t_idx].data = 0;
+
+		t_idx = rxs_expect_poreg_idx(dev_info, RXS_PLM_SPX_STAT(port));
+		dev_info->poregs[t_idx].data = 0;
+
+		update_plm_status(dev_info, 0xFFFFFFFF, 0, port);
 	}
 
 	// No additional behavior required, just update the data...
@@ -574,9 +585,9 @@ static void update_dev_int_pw_stat(DAR_DEV_INFO_t *dev_info,
 	} else {
 		dev_info->poregs[t_idx].data &= ~int_mask;
 	}
-	events = dev_info->poregs[t_idx].data;
 
 	// Update interrupt pin status
+	events = dev_info->poregs[t_idx].data;
 	t_idx = rxs_expect_poreg_idx(dev_info, RXS_EM_INT_EN);
 	events &= dev_info->poregs[t_idx].data;
 
@@ -593,14 +604,12 @@ static void update_dev_int_pw_stat(DAR_DEV_INFO_t *dev_info,
 static void rxs_emulate_reg_write(DAR_DEV_INFO_t *dev_info, uint32_t offset,
 		uint32_t writedata)
 {
-	uint32_t idx = rxs_get_poreg_idx(dev_info, MOCK_REG_ADDR(offset));
+	uint32_t idx = rxs_expect_poreg_idx(dev_info, MOCK_REG_ADDR(offset));
 	uint32_t t_idx;
 	uint32_t events;
 
-	if ((DAR_POREG_BAD_IDX == idx) && DEBUG_PRINTF) {
-		printf("\nMissing offset is 0x%x\n", offset);
+	if (DAR_POREG_BAD_IDX == idx) {
 		assert_int_equal(0xFFFFFFFF, offset);
-		assert_true(st.real_hw);
 		return;
 	}
 
@@ -656,8 +665,8 @@ static void rxs_emulate_reg_write(DAR_DEV_INFO_t *dev_info, uint32_t offset,
 		events &= dev_info->poregs[t_idx].data;
 
 		update_dev_int_pw_stat(dev_info,
-					RXS_EM_INT_STAT_LOG,
-					RXS_EM_PW_STAT_LOG,
+					RXS_EM_INT_STAT_EXTERNAL_I2C,
+					RXS_EM_PW_STAT_EXTERNAL_I2C,
 					events);
 		break;
 
@@ -785,6 +794,10 @@ static uint32_t RXSWriteReg(DAR_DEV_INFO_t *dev_info,
 	}
 
 	if (!st.real_hw) {
+		if (DEBUG_REGTRACE) {
+			printf("\nWRITE OSET 0x%x Data 0x%x\n",
+							offset, writedata);
+		}
 		check_write_bc(dev_info, offset, writedata);
 		return RIO_SUCCESS;
 	}
@@ -816,31 +829,31 @@ uint32_t rxs_mock_reg_oset[] = {
 	RXS_PKT_TIME_LIVE,
 	RXS_ERR_DET,
 	RXS_ERR_EN,
-        RXS_PW_TGT_ID,
-        RXS_PW_CTL,
-        RXS_PW_ROUTE,
+	RXS_PW_TGT_ID,
+	RXS_PW_CTL,
+	RXS_PW_ROUTE,
 
-        RXS_EM_RST_PW_EN,
-        RXS_EM_RST_INT_EN,
-        RXS_EM_INT_EN,
-        RXS_EM_DEV_INT_EN,
-        RXS_EM_PW_EN,
-        RXS_PW_TRAN_CTL,
-        RXS_EM_INT_STAT,
-        RXS_EM_INT_PORT_STAT,
-        RXS_EM_PW_STAT,
-        RXS_EM_PW_PORT_STAT,
-        RXS_EM_RST_PORT_STAT,
+	RXS_EM_RST_PW_EN,
+	RXS_EM_RST_INT_EN,
+	RXS_EM_INT_EN,
+	RXS_EM_DEV_INT_EN,
+	RXS_EM_PW_EN,
+	RXS_PW_TRAN_CTL,
+	RXS_EM_INT_STAT,
+	RXS_EM_INT_PORT_STAT,
+	RXS_EM_PW_STAT,
+	RXS_EM_PW_PORT_STAT,
+	RXS_EM_RST_PORT_STAT,
 
-        I2C_INT_ENABLE,
-        I2C_INT_SET,
-        I2C_INT_STAT
+	I2C_INT_ENABLE,
+	I2C_INT_SET,
+	I2C_INT_STAT
 };
 
 typedef struct rxs_mock_pp_reg_t_TAG {
-        uint32_t base;
-        uint32_t pp_oset;
-        uint32_t val;
+	uint32_t base;
+	uint32_t pp_oset;
+	uint32_t val;
 } rxs_mock_pp_reg_t;
 
 #define RXS_SPX_LM_RESP_DFLT 0
@@ -851,12 +864,12 @@ typedef struct rxs_mock_pp_reg_t_TAG {
 #define RXS_PLM_SPX_ALL_INT_EN_DFLT 0
 #define RXS_PLM_SPX_DENIAL_CTL_DFLT 0
 #define RXS_SPX_CTL2_DFLT (RXS_SPX_CTL2_GB_6p25_EN | \
-                                RXS_SPX_CTL2_GB_6p25 | \
-                                RIO_SPX_CTL2_BAUD_SEL_6P25_BR)
+				RXS_SPX_CTL2_GB_6p25 | \
+				RIO_SPX_CTL2_BAUD_SEL_6P25_BR)
 #define RXS_SPX_ERR_STAT_DFLT (RXS_SPX_ERR_STAT_PORT_UNAVL)
 #define RXS_SPX_CTL_DFLT (RXS_SPX_CTL_PORT_DIS | \
-                                RIO_SPX_CTL_PTW_INIT_4x | \
-                                RXS_SPX_CTL_PORT_WIDTH)
+				RIO_SPX_CTL_PTW_INIT_4x | \
+				RXS_SPX_CTL_PORT_WIDTH)
 #define RXS_SPX_ERR_DET_DFLT 0
 #define RXS_SPX_RATE_EN_DFLT 0
 #define RXS_SPX_DLT_DFLT 0
@@ -881,37 +894,37 @@ typedef struct rxs_mock_pp_reg_t_TAG {
 #define RXS_PBM_SPX_EVENT_GEN_DFLT 0
 
 rxs_mock_pp_reg_t rxs_mock_pp_reg[] = {
-        {RXS_SPX_LM_RESP(0), 0x40, RXS_SPX_LM_RESP_DFLT},
-        {RXS_SPX_IN_ACKID_CSR(0), 0x40, RXS_SPX_IN_ACKID_CSR_DFLT},
-        {RXS_SPX_OUT_ACKID_CSR(0), 0x40, RXS_SPX_OUT_ACKID_CSR_DFLT},
-        {RXS_SPX_CTL2(0), 0x40, RXS_SPX_CTL2_DFLT},
-        {RXS_SPX_ERR_STAT(0), 0x40, RXS_SPX_ERR_STAT_DFLT},
-        {RXS_SPX_CTL(0), 0x40, RXS_SPX_CTL_DFLT},
-        {RXS_SPX_ERR_DET(0), 0x100, RXS_SPX_ERR_DET_DFLT},
-        {RXS_SPX_RATE_EN(0), 0x40, RXS_SPX_RATE_EN_DFLT},
-        {RXS_SPX_DLT_CSR(0), 0x40, RXS_SPX_DLT_DFLT},
-        {RXS_PLM_SPX_IMP_SPEC_CTL(0), 0x100,
-                                RXS_PLM_SPX_IMP_SPEC_CTL_DFLT},
-        {RXS_PLM_SPX_STAT(0), 0x100, RXS_PLM_SPX_STAT_DFLT},
-        {RXS_PLM_SPX_PW_EN(0), 0x100, RXS_PLM_SPX_PW_EN_DFLT},
-        {RXS_PLM_SPX_INT_EN(0), 0x100, RXS_PLM_SPX_INT_EN_DFLT},
-        {RXS_PLM_SPX_ALL_INT_EN(0), 0x100, RXS_PLM_SPX_ALL_INT_EN_DFLT},
-        {RXS_PLM_SPX_PWDN_CTL(0), 0x100, RXS_PLM_SPX_PWDN_CTL_DFLT},
-        {RXS_PLM_SPX_POL_CTL(0), 0x100, RXS_PLM_SPX_POL_CTL_DFLT},
-        {RXS_PLM_SPX_PNA_CAP(0), 0x100, RXS_PLM_SPX_PNA_CAP_DFLT},
-        {RXS_PLM_SPX_DENIAL_CTL(0), 0x100, RXS_PLM_SPX_DENIAL_CTL_DFLT},
-        {RXS_PLM_SPX_EVENT_GEN(0), 0x100, RXS_PLM_SPX_EVENT_GEN_DFLT},
+	{RXS_SPX_LM_RESP(0), 0x40, RXS_SPX_LM_RESP_DFLT},
+	{RXS_SPX_IN_ACKID_CSR(0), 0x40, RXS_SPX_IN_ACKID_CSR_DFLT},
+	{RXS_SPX_OUT_ACKID_CSR(0), 0x40, RXS_SPX_OUT_ACKID_CSR_DFLT},
+	{RXS_SPX_CTL2(0), 0x40, RXS_SPX_CTL2_DFLT},
+	{RXS_SPX_ERR_STAT(0), 0x40, RXS_SPX_ERR_STAT_DFLT},
+	{RXS_SPX_CTL(0), 0x40, RXS_SPX_CTL_DFLT},
+	{RXS_SPX_ERR_DET(0), 0x40, RXS_SPX_ERR_DET_DFLT},
+	{RXS_SPX_RATE_EN(0), 0x40, RXS_SPX_RATE_EN_DFLT},
+	{RXS_SPX_DLT_CSR(0), 0x40, RXS_SPX_DLT_DFLT},
+	{RXS_PLM_SPX_IMP_SPEC_CTL(0), 0x100,
+				RXS_PLM_SPX_IMP_SPEC_CTL_DFLT},
+	{RXS_PLM_SPX_STAT(0), 0x100, RXS_PLM_SPX_STAT_DFLT},
+	{RXS_PLM_SPX_PW_EN(0), 0x100, RXS_PLM_SPX_PW_EN_DFLT},
+	{RXS_PLM_SPX_INT_EN(0), 0x100, RXS_PLM_SPX_INT_EN_DFLT},
+	{RXS_PLM_SPX_ALL_INT_EN(0), 0x100, RXS_PLM_SPX_ALL_INT_EN_DFLT},
+	{RXS_PLM_SPX_PWDN_CTL(0), 0x100, RXS_PLM_SPX_PWDN_CTL_DFLT},
+	{RXS_PLM_SPX_POL_CTL(0), 0x100, RXS_PLM_SPX_POL_CTL_DFLT},
+	{RXS_PLM_SPX_PNA_CAP(0), 0x100, RXS_PLM_SPX_PNA_CAP_DFLT},
+	{RXS_PLM_SPX_DENIAL_CTL(0), 0x100, RXS_PLM_SPX_DENIAL_CTL_DFLT},
+	{RXS_PLM_SPX_EVENT_GEN(0), 0x100, RXS_PLM_SPX_EVENT_GEN_DFLT},
 
-        {RXS_TLM_SPX_STAT(0), 0x100, RXS_TLM_SPX_STAT_DFLT},
-        {RXS_TLM_SPX_PW_EN(0), 0x100, RXS_TLM_SPX_PW_EN_DFLT},
-        {RXS_TLM_SPX_INT_EN(0), 0x100, RXS_TLM_SPX_INT_EN_DFLT},
-        {RXS_TLM_SPX_FTYPE_FILT(0), 0x100, RXS_TLM_SPX_FTYPE_FILT_DFLT},
-        {RXS_TLM_SPX_EVENT_GEN(0), 0x100, RXS_TLM_SPX_EVENT_GEN_DFLT},
+	{RXS_TLM_SPX_STAT(0), 0x100, RXS_TLM_SPX_STAT_DFLT},
+	{RXS_TLM_SPX_PW_EN(0), 0x100, RXS_TLM_SPX_PW_EN_DFLT},
+	{RXS_TLM_SPX_INT_EN(0), 0x100, RXS_TLM_SPX_INT_EN_DFLT},
+	{RXS_TLM_SPX_FTYPE_FILT(0), 0x100, RXS_TLM_SPX_FTYPE_FILT_DFLT},
+	{RXS_TLM_SPX_EVENT_GEN(0), 0x100, RXS_TLM_SPX_EVENT_GEN_DFLT},
 
-        {RXS_PBM_SPX_STAT(0), 0x100, RXS_PBM_SPX_STAT_DFLT},
-        {RXS_PBM_SPX_PW_EN(0), 0x100, RXS_PBM_SPX_PW_EN_DFLT},
-        {RXS_PBM_SPX_INT_EN(0), 0x100, RXS_PBM_SPX_INT_EN_DFLT},
-        {RXS_PBM_SPX_EVENT_GEN(0), 0x100, RXS_PBM_SPX_EVENT_GEN_DFLT},
+	{RXS_PBM_SPX_STAT(0), 0x100, RXS_PBM_SPX_STAT_DFLT},
+	{RXS_PBM_SPX_PW_EN(0), 0x100, RXS_PBM_SPX_PW_EN_DFLT},
+	{RXS_PBM_SPX_INT_EN(0), 0x100, RXS_PBM_SPX_INT_EN_DFLT},
+	{RXS_PBM_SPX_EVENT_GEN(0), 0x100, RXS_PBM_SPX_EVENT_GEN_DFLT},
 };
 
 // Count up maximum registers saved.
@@ -1095,7 +1108,7 @@ static int rxs_em_setup(void **state)
 		RXS->conn_port = sw_port_info & RIO_SW_PORT_INF_PORT;
 	}
 
-        return 0;
+	return 0;
 }
 
 // Routine to set virtual register status for
@@ -1270,8 +1283,8 @@ static void rxs_em_cfg_pw_success_test(void **state)
 	uint32_t retx_reg = COMPUTE_RXS_PW_RETX(retx);
 	uint32_t chkdata;
 	rio_port_t dflt_port = 5;
-        rio_rt_initialize_in_t init_in;
-        rio_rt_initialize_out_t init_out;
+	rio_rt_initialize_in_t init_in;
+	rio_rt_initialize_out_t init_out;
 	rio_rt_state_t rt;
 
 	// RXS routes port-writes according to port bit-vector.
@@ -1411,8 +1424,8 @@ static void rxs_rio_em_cfg_pw_retx_compute_test(void **state)
 	const int num_tests = sizeof(tests) / sizeof(tests[0]);
 	int i;
 	rio_port_t dflt_port = 5;
-        rio_rt_initialize_in_t init_in;
-        rio_rt_initialize_out_t init_out;
+	rio_rt_initialize_in_t init_in;
+	rio_rt_initialize_out_t init_out;
 	rio_rt_state_t rt;
 
 	// RXS routes port-writes according to port bit-vector.
@@ -1546,7 +1559,7 @@ static void chk_regs_los(rio_em_cfg_t *event, rio_port_t port)
 		break;
 
 	case rio_em_detect_on:
-		assert_int_equal(plm_ctl, plm_ctl_mask);
+		assert_int_equal(plm_ctl & plm_ctl_mask, plm_ctl_mask);
 		assert_int_equal(dlt_to, event->em_info);
 		if (event->em_info) {
 			assert_int_equal(ctl, RXS_SPX_RATE_EN_DLT);
@@ -1612,35 +1625,60 @@ static void chk_regs_2many_pna(rio_em_cfg_t *event, rio_port_t port)
 	}
 }
 
-static void chk_regs_err_rate(rio_em_cfg_t *event, rio_port_t port)
+static void chk_em_int_pw_regs(rio_em_cfg_t *event, rio_em_notfn_ctl_t ntfn)
 {
+	uint32_t int_mask = 0;
 	uint32_t int_en;
+	uint32_t pw_mask = 0;
 	uint32_t pw_en;
-	uint32_t p_mask = RXS_PBM_SPX_PW_EN_EG_DNFL_FATAL |
-			RXS_PBM_SPX_PW_EN_EG_DOH_FATAL |
-			RXS_PBM_SPX_PW_EN_EG_DATA_UNCOR;
-	uint32_t i_mask = RXS_PBM_SPX_INT_EN_EG_DNFL_FATAL |
-			RXS_PBM_SPX_INT_EN_EG_DOH_FATAL |
-			RXS_PBM_SPX_INT_EN_EG_DATA_UNCOR;
+
+	switch(event->em_event) {
+	case rio_em_d_log:
+			int_mask = RXS_EM_INT_EN_LOG;
+			pw_mask = RXS_EM_PW_EN_LOG;
+			break;
+	case rio_em_i_init_fail:
+			int_mask = RXS_EM_INT_EN_EXTERNAL_I2C;
+			pw_mask = RXS_EM_PW_EN_EXTERNAL_I2C;
+			break;
+	default:
+		assert_true(false);
+	}
 
 	assert_int_equal(RIO_SUCCESS,
-		DARRegRead(&mock_dev_info, RXS_PBM_SPX_PW_EN(port), &pw_en));
+			DARRegRead(&mock_dev_info, RXS_EM_INT_EN, &int_en));
 	assert_int_equal(RIO_SUCCESS,
-		DARRegRead(&mock_dev_info, RXS_PBM_SPX_INT_EN(port), &int_en));
+			DARRegRead(&mock_dev_info, RXS_EM_PW_EN, &pw_en));
 
-	int_en &= i_mask;
-	pw_en &= p_mask;
+	int_en &= int_mask;
+	pw_en &= pw_mask;
 
-	if (rio_em_detect_on == event->em_detect) {
-		assert_int_equal(p_mask, pw_en);
-		assert_int_equal(i_mask, int_en);
-	} else {
-		assert_int_equal(0, pw_en);
-		assert_int_equal(0, int_en);
+	switch (ntfn) {
+	case rio_em_notfn_none:
+		assert_false(int_en);
+		assert_false(pw_en);
+		break;
+	case rio_em_notfn_int:
+		assert_true(int_en);
+		assert_false(pw_en);
+		break;
+	case rio_em_notfn_pw:
+		assert_false(int_en);
+		assert_true(pw_en);
+		break;
+	case rio_em_notfn_both:
+		assert_true(int_en);
+		assert_true(pw_en);
+		break;
+	case rio_em_notfn_0delta:
+	case rio_em_notfn_last:
+	default:
+		assert_true(false);
+		break;
 	}
 }
 
-static void chk_regs_log(rio_em_cfg_t *event)
+static void chk_regs_log(rio_em_cfg_t *event, rio_em_notfn_ctl_t ntfn)
 {
 	uint32_t err_en;
 	uint32_t mask = RXS_ERR_EN_ILL_TYPE_EN |
@@ -1655,6 +1693,7 @@ static void chk_regs_log(rio_em_cfg_t *event)
 	} else {
 		assert_int_equal(0, err_en & mask);
 	}
+	chk_em_int_pw_regs(event, ntfn);
 }
 
 static void chk_regs_sig_det(rio_em_cfg_t *event, rio_port_t port)
@@ -1692,7 +1731,7 @@ static void chk_regs_rst_req(rio_em_cfg_t *event, rio_port_t port)
 	}
 }
 
-static void chk_regs_init_fail(rio_em_cfg_t *event)
+static void chk_regs_init_fail(rio_em_cfg_t *event, rio_em_notfn_ctl_t ntfn)
 {
 	uint32_t i2c_i_en;
 	uint32_t mask = I2C_INT_ENABLE_BL_FAIL;
@@ -1706,6 +1745,8 @@ static void chk_regs_init_fail(rio_em_cfg_t *event)
 	} else {
 		assert_int_equal(0, i2c_i_en);
 	}
+
+	chk_em_int_pw_regs(event, ntfn);
 }
 
 static void chk_regs_ttl(rio_em_cfg_t *event,
@@ -1852,7 +1893,8 @@ static void rxs_rio_em_cfg_set_get_chk_regs(rio_em_cfg_t *event,
 		plm_mask = RXS_PLM_SPX_STAT_MAX_DENIAL;
 		break;
 	case rio_em_f_err_rate:
-		chk_regs_err_rate(event, port);
+		chk_plm_en = true;
+		plm_mask = RXS_PLM_SPX_STAT_PBM_FATAL;
 		break;
 	case rio_em_d_ttl:
 		chk_regs_ttl(event, port, ntfn);
@@ -1861,7 +1903,7 @@ static void rxs_rio_em_cfg_set_get_chk_regs(rio_em_cfg_t *event,
 		chk_regs_rte(port, ntfn);
 		break;
 	case rio_em_d_log:
-		chk_regs_log(event);
+		chk_regs_log(event, ntfn);
 		break;
 	case rio_em_i_sig_det:
 		chk_regs_sig_det(event, port);
@@ -1872,7 +1914,7 @@ static void rxs_rio_em_cfg_set_get_chk_regs(rio_em_cfg_t *event,
 		chk_regs_rst_req(event, port);
 		break;
 	case rio_em_i_init_fail:
-		chk_regs_init_fail(event);
+		chk_regs_init_fail(event, ntfn);
 		break;
 	case rio_em_a_clr_pwpnd:
 		break;
@@ -1885,6 +1927,25 @@ static void rxs_rio_em_cfg_set_get_chk_regs(rio_em_cfg_t *event,
 	if (chk_plm_en) {
 		chk_plm_event_enables(ntfn, plm_mask, port);
 	}
+}
+
+void set_plm_imp_spec_ctl_rst(rio_port_t port, rio_em_detect_t det)
+{
+	uint32_t plm_imp_spec_ctl;
+	uint32_t t_mask = RXS_PLM_SPX_IMP_SPEC_CTL_SELF_RST |
+			RXS_PLM_SPX_IMP_SPEC_CTL_PORT_SELF_RST;
+
+	assert_int_equal(RIO_SUCCESS,
+		DARRegRead(&mock_dev_info, RXS_PLM_SPX_IMP_SPEC_CTL(port),
+							&plm_imp_spec_ctl));
+	if (rio_em_detect_off == det) {
+		plm_imp_spec_ctl |= t_mask;
+	} else {
+		plm_imp_spec_ctl &= ~t_mask;
+	}
+	assert_int_equal(RIO_SUCCESS,
+		DARRegWrite(&mock_dev_info, RXS_PLM_SPX_IMP_SPEC_CTL(port),
+							plm_imp_spec_ctl));
 }
 
 typedef struct port_fail_checks_t_TAG {
@@ -1941,7 +2002,7 @@ static void rxs_rio_em_cfg_set_success_em_info_test(void **state)
 		{rio_em_i_sig_det, rio_em_detect_on, 0},
 		{rio_em_i_rst_req, rio_em_detect_on, 0}, // 25
 		{rio_em_i_init_fail, rio_em_detect_on, 0},
-		{rio_em_f_los, rio_em_detect_off,              0},
+		{rio_em_f_los, rio_em_detect_off,	      0},
 		{rio_em_f_los, rio_em_detect_off, 1 * 0x253 * 1000},
 		{rio_em_f_los, rio_em_detect_off, 2 * 0x253 * 1000},
 		{rio_em_f_los, rio_em_detect_off, 3 * 0x253 * 1000}, // 30
@@ -1983,8 +2044,6 @@ static void rxs_rio_em_cfg_set_success_em_info_test(void **state)
 
 	unsigned int num_events = sizeof(events) / sizeof(events[0]);
 	unsigned int i;
-	uint32_t plm_imp_spec_ctl;
-	uint32_t t_mask = RXS_PLM_SPX_IMP_SPEC_CTL_SELF_RST;
 
 	// Power up and enable all ports...
 	set_all_port_config(cfg_perfect, false, false, RIO_ALL_PORTS);
@@ -2005,19 +2064,7 @@ static void rxs_rio_em_cfg_set_success_em_info_test(void **state)
 			// detection is actually controlled by Port Config
 			// functionality.
 
-			assert_int_equal(RIO_SUCCESS,
-				DARRegRead(&mock_dev_info,
-					RXS_PLM_SPX_IMP_SPEC_CTL(port),
-					&plm_imp_spec_ctl));
-			if (rio_em_detect_off == events[i].em_detect) {
-				plm_imp_spec_ctl |= t_mask;
-			} else {
-				plm_imp_spec_ctl &= ~t_mask;
-			}
-			assert_int_equal(RIO_SUCCESS,
-				DARRegWrite(&mock_dev_info,
-					RXS_PLM_SPX_IMP_SPEC_CTL(port),
-					plm_imp_spec_ctl));
+			set_plm_imp_spec_ctl_rst(port, events[i].em_detect);
 		}
 
 		// Set the event configuration specified
@@ -3207,6 +3254,11 @@ static void rxs_rio_em_create_events_bad_parms_test(void **state)
 }
 
 // Test that each individual event can be created.
+//
+// NOte: This does not check "top level" interrupt/port-write status,
+//       as this would assume that the event has been enabled.
+//	Event enable/top level interrupt testing is done by the
+//	em_int/pw_status tests.
 
 typedef struct addr_and_value_t_TAG {
 	uint32_t addr;
@@ -3287,6 +3339,9 @@ static void rxs_rio_em_create_events_success_test(void **state)
 	unsigned int j;
 	uint32_t chk_val;
 
+	// Power up and enable all ports...
+	set_all_port_config(cfg_perfect, false, false, RIO_ALL_PORTS);
+
 	for (i = 0; i < test_cnt; i++) {
 		if (DEBUG_PRINTF) {
 			printf("\ni %d event %d port %d\n", i,
@@ -3339,6 +3394,9 @@ static void rxs_rio_em_create_ignored_events_test(void **state)
 	const unsigned int test_cnt = sizeof(tests) / sizeof(tests[0]);
 	unsigned int i;
 
+	// Power up and enable all ports...
+	set_all_port_config(cfg_perfect, false, false, RIO_ALL_PORTS);
+
 	for (i = 0; i < test_cnt; i++) {
 		in_p.num_events = 1;
 		in_p.events = events;
@@ -3359,7 +3417,6 @@ static void rxs_rio_em_create_ignored_events_test(void **state)
 	(void)state;
 }
 
-/*
 // Test bad parameter detection.
 
 static void rxs_rio_em_get_int_stat_bad_parms_test(void **state)
@@ -3369,7 +3426,7 @@ static void rxs_rio_em_get_int_stat_bad_parms_test(void **state)
 	rio_em_event_n_loc_t events[(uint8_t)rio_em_last];
 
 	// Illegal number of ports
-	in_p.ptl.num_ports = 2;
+	in_p.ptl.num_ports = NUM_RXS_PORTS(&mock_dev_info) + 1;
 	in_p.ptl.pnums[0] = 0;
 	in_p.ptl.pnums[1] = 0;
 	in_p.num_events = (uint8_t)rio_em_last;
@@ -3390,7 +3447,7 @@ static void rxs_rio_em_get_int_stat_bad_parms_test(void **state)
 
 	// Illegal port number
 	in_p.ptl.num_ports = 1;
-	in_p.ptl.pnums[0] = 1;
+	in_p.ptl.pnums[0] = NUM_RXS_PORTS(&mock_dev_info);
 
 	out_p.imp_rc = 0;
 	out_p.num_events = 0xFF;
@@ -3443,9 +3500,30 @@ static void rxs_rio_em_get_int_stat_bad_parms_test(void **state)
 	(void)state;
 }
 
+// NOTE: A 2many_pna event also causes a 2many_retx event.
+// For this reason, "2many_pna" must be the last test,
+// and 2many_retx must occur before 2many_pna.
+// Some tests depend on 2many_pna and 2many_retx occurring one after the other.
+rio_em_cfg_t int_tests[] = {
+	{rio_em_f_los, rio_em_detect_on, 0x253 * 1000},
+	{rio_em_f_port_err, rio_em_detect_on, 0},
+	{rio_em_f_err_rate, rio_em_detect_on, 0},
+	{rio_em_d_ttl, rio_em_detect_on, 0x0000FFFF},
+	{rio_em_d_rte, rio_em_detect_on, 0},
+	{rio_em_d_log, rio_em_detect_on,
+			RXS_ERR_DET_ILL_TYPE |
+			RXS_ERR_DET_UNS_RSP |
+			RXS_ERR_DET_ILL_ID},
+	{rio_em_i_sig_det, rio_em_detect_on, 0},
+	{rio_em_i_rst_req, rio_em_detect_on, 0},
+	{rio_em_i_init_fail, rio_em_detect_on, 0},
+	{rio_em_f_2many_retx, rio_em_detect_on, 0x0010},
+	{rio_em_f_2many_pna, rio_em_detect_on, 0x0010}
+};
+
+const unsigned int int_test_cnt = sizeof(int_tests) / sizeof(int_tests[0]);
+
 // Test the interrupt status is correctly determined for all events
-//
-// This test is skipped if interrupts are not supported.
 
 static void rxs_rio_em_get_int_stat_success_test(void **state)
 {
@@ -3459,50 +3537,27 @@ static void rxs_rio_em_get_int_stat_success_test(void **state)
 	rio_em_event_n_loc_t stat_e[(uint8_t)rio_em_last];
 	DAR_DEV_INFO_t *dev_info = &mock_dev_info;
 
-	// NOTE: A 2many_pna event also causes a 2many_retx event.
-	// For this reason, "2many_pna" must be the last test,
-	// and 2many_retx must occur before 2many_pna.
-	rio_em_cfg_t tests[] = {
-		{rio_em_f_los, rio_em_detect_on, 1 * 256 * 1000},
-		{ rio_em_f_port_err, rio_em_detect_on, 0},
-		{rio_em_f_err_rate, rio_em_detect_on, 0x100000FF},
-		{rio_em_f_2many_retx, rio_em_detect_on, 0x0010},
-		{rio_em_d_log, rio_em_detect_on,
-				RXS_LOCAL_ERR_EN_ILL_TYPE_EN |
-				RXS_LOCAL_ERR_EN_ILL_ID_EN},
-		{rio_em_i_sig_det, rio_em_detect_on, 0},
-		{rio_em_i_rst_req, rio_em_detect_on, 0},
-		{rio_em_i_init_fail, rio_em_detect_on, 0},
-		{ rio_em_f_2many_pna, rio_em_detect_on, 0x0010}
-	};
-
-	uint32_t plm_imp_spec_ctl;
-	uint32_t t_mask = RXS_PLM_SPX_IMP_SPEC_CTL_SELF_RST |
-	RXS_PLM_SPX_IMP_SPEC_CTL_PORT_SELF_RST;
-
-	const unsigned int test_cnt = sizeof(tests) / sizeof(tests[0]);
 	unsigned int i, chk_i, srch_i;
+	rio_port_t port = 0;
 
-	for (i = 0; i < test_cnt; i++) {
+	// Power up and enable all ports...
+	set_all_port_config(cfg_perfect, false, false, RIO_ALL_PORTS);
+
+	for (i = 0; i < int_test_cnt; i++) {
+		if (DEBUG_PRINTF) {
+			printf("\ni %d event %d\n", i, int_tests[i].em_event);
+		}
+
 		// Enable detection of each event.
-		if (rio_em_i_rst_req == tests[i].em_event) {
-			// If we're testing disabling the Reset Request
-			// event, do the real disable since this events
-			// detection is actually controlled by Port Config
-			// functionality.
-
-			assert_int_equal(RIO_SUCCESS,
-					DARRegRead(&mock_dev_info, RXS_PLM_SPX_IMP_SPEC_CTL, &plm_imp_spec_ctl));
-			plm_imp_spec_ctl &= ~t_mask;
-			assert_int_equal(RIO_SUCCESS,
-					DARRegWrite(&mock_dev_info, RXS_PLM_SPX_IMP_SPEC_CTL, plm_imp_spec_ctl));
+		if (rio_em_i_rst_req == int_tests[i].em_event) {
+			set_plm_imp_spec_ctl_rst(port, rio_em_detect_on);
 		}
 
 		set_cfg_in.ptl.num_ports = 1;
-		set_cfg_in.ptl.pnums[0] = 0;
+		set_cfg_in.ptl.pnums[0] = port;
 		set_cfg_in.notfn = rio_em_notfn_int;
 		set_cfg_in.num_events = 1;
-		set_cfg_in.events = &tests[i];
+		set_cfg_in.events = &int_tests[i];
 
 		set_cfg_out.imp_rc = 0xFFFFFFFF;
 		set_cfg_out.fail_port_num = 0x99;
@@ -3516,12 +3571,19 @@ static void rxs_rio_em_get_int_stat_success_test(void **state)
 		assert_int_equal(RIO_ALL_PORTS, set_cfg_out.fail_port_num);
 		assert_int_equal(rio_em_last, set_cfg_out.fail_idx);
 		assert_int_equal(rio_em_notfn_int, set_cfg_out.notfn);
+		rxs_rio_em_cfg_set_get_chk_regs(
+					&int_tests[i], rio_em_notfn_int, port);
 
 		// Create the event
 		c_in.num_events = 1;
 		c_in.events = c_e;
-		c_e[0].port_num = 0;
-		c_e[0].event = tests[i].em_event;
+		if ((rio_em_d_log == int_tests[i].em_event) ||
+			(rio_em_i_init_fail == int_tests[i].em_event)) {
+			c_e[0].port_num = RIO_ALL_PORTS;
+		} else {
+			c_e[0].port_num = port;
+		}
+		c_e[0].event = int_tests[i].em_event;
 
 		c_out.imp_rc = 0xFFFFFF;
 		c_out.failure_idx = 0xff;
@@ -3535,7 +3597,7 @@ static void rxs_rio_em_get_int_stat_success_test(void **state)
 
 		// Query the event interrupt status
 		in_p.ptl.num_ports = 1;
-		in_p.ptl.pnums[0] = 0;
+		in_p.ptl.pnums[0] = port;
 		in_p.num_events = (uint8_t)rio_em_last;
 		in_p.events = stat_e;
 		memset(stat_e, 0xFF, sizeof(stat_e));
@@ -3557,7 +3619,7 @@ static void rxs_rio_em_get_int_stat_success_test(void **state)
 		for (chk_i = 0; chk_i <= i; chk_i++) {
 			bool found = false;
 			for (srch_i = 0; !found && (srch_i <= i); srch_i++) {
-				if (tests[chk_i].em_event
+				if (int_tests[chk_i].em_event
 						== stat_e[srch_i].event) {
 					found = true;
 				}
@@ -3565,18 +3627,19 @@ static void rxs_rio_em_get_int_stat_success_test(void **state)
 			if (!found && DEBUG_PRINTF) {
 				printf("i %d event_cnt %d chk_i %d event %d", i,
 						out_p.num_events, chk_i,
-						tests[chk_i].em_event);
+						int_tests[chk_i].em_event);
 			}
 			assert_true(found);
 		}
 
 		// Query the event interrupt status again, and trigger the
-		// "too many events" flag.
+		// "too many events" flag.  Must have at least 2 events to
+		// trigger "too many events".
 		if (!i) {
 			continue;
 		}
 		in_p.ptl.num_ports = 1;
-		in_p.ptl.pnums[0] = 0;
+		in_p.ptl.pnums[0] = port;
 		in_p.num_events = i;
 		in_p.events = stat_e;
 		memset(stat_e, 0xFF, sizeof(stat_e));
@@ -3600,9 +3663,7 @@ static void rxs_rio_em_get_int_stat_success_test(void **state)
 
 // Test that if one event is configured with interrupt
 // notification and all other events are disabled, that
-// the "other events" fields behave correctly.
-//
-// This test is skipped if interrupts are not supported.
+// the "other events" field behaves correctly.
 
 static void rxs_rio_em_get_int_stat_other_events_test(void **state)
 {
@@ -3615,29 +3676,9 @@ static void rxs_rio_em_get_int_stat_other_events_test(void **state)
 	rio_em_event_n_loc_t c_e[2];
 	rio_em_event_n_loc_t stat_e[(uint8_t)rio_em_last];
 	DAR_DEV_INFO_t *dev_info = &mock_dev_info;
-
-	// NOTE: A 2many_pna event also causes an 2many_retx event.
-	// This test skips "2many_pna" events.
-	rio_em_cfg_t tests[] = {
-		{rio_em_f_los, rio_em_detect_on, 1 * 256 * 1000},
-		{rio_em_f_port_err, rio_em_detect_on, 0},
-		{rio_em_f_err_rate, rio_em_detect_on, 0x1000000F},
-		{ rio_em_f_2many_retx, rio_em_detect_on, 0x0010},
-		{rio_em_d_log, rio_em_detect_on,
-					RXS_LOCAL_ERR_EN_ILL_TYPE_EN |
-					RXS_LOCAL_ERR_EN_ILL_ID_EN},
-		{rio_em_i_sig_det, rio_em_detect_on, 0},
-		{rio_em_i_rst_req, rio_em_detect_on, 0},
-		{rio_em_i_init_fail, rio_em_detect_on, 0}
-	};
-
-	uint32_t plm_imp_spec_ctl;
-	uint32_t t_mask = RXS_PLM_SPX_IMP_SPEC_CTL_SELF_RST |
-	RXS_PLM_SPX_IMP_SPEC_CTL_PORT_SELF_RST;
-
-	const unsigned int test_cnt = sizeof(tests) / sizeof(tests[0]);
 	unsigned int i, t;
-	Tsi721_test_state_t *l_st = (Tsi721_test_state_t *)*state;
+	RXS_test_state_t *l_st = (RXS_test_state_t *)*state;
+	rio_port_t port = 1;
 
 	if (l_st->real_hw) {
 		return;
@@ -3645,40 +3686,49 @@ static void rxs_rio_em_get_int_stat_other_events_test(void **state)
 
 	// Use test_cnt - 1 here to avoid trying for rio_em_f_2many_pna
 	// without also setting rio_em_f_2many_retx.
-	for (i = 0; i < test_cnt - 1; i++) {
-		for (t = 0; t < test_cnt; t++) {
+	for (i = 0; i < int_test_cnt - 1; i++) {
+		for (t = 0; t < int_test_cnt; t++) {
 			// Must have two different events for this test.
 			if (i == t) {
+				continue;
+			}
+			// Reset request interrupts cannot be masked at the
+			// port level, so skip 'em...
+			if (rio_em_i_rst_req == int_tests[t].em_event) {
+				continue;
+			}
+			// Can't tell the difference between a 2many_retx and
+			// a 2many_pna, so skip this case...
+			if ((rio_em_f_2many_retx == int_tests[i].em_event)
+			 && (rio_em_f_2many_pna == int_tests[t].em_event)) {
 				continue;
 			}
 			// This test requires a clean slate at the beginning
 			// of each attempt
 			rxs_em_setup(state);
 
-			// Enable detection of the current event.
-			if (rio_em_i_rst_req == tests[i].em_event) {
-				// If we're testing disabling the Reset Request
-				// event, do the real disable since this events
-				// detection is actually controlled by
-				// Port Config functionality.
+			// Power up and enable all ports...
+			set_all_port_config(cfg_perfect, false, false,
+								RIO_ALL_PORTS);
 
-				assert_int_equal(RIO_SUCCESS,
-						DARRegRead(&mock_dev_info, RXS_PLM_SPX_IMP_SPEC_CTL, &plm_imp_spec_ctl));
-				if (rio_em_detect_off == tests[i].em_detect) {
-					plm_imp_spec_ctl |= t_mask;
-				} else {
-					plm_imp_spec_ctl &= ~t_mask;
-				}
-				assert_int_equal(RIO_SUCCESS,
-						DARRegWrite(&mock_dev_info, RXS_PLM_SPX_IMP_SPEC_CTL, plm_imp_spec_ctl));
+			if (DEBUG_PRINTF) {
+				printf("\ni %d ev %d t %d ev %d\n",
+					i, int_tests[i].em_event,
+					t, int_tests[t].em_event);
+			}
+
+			// Enable detection of the current event.
+			if (rio_em_i_rst_req == int_tests[i].em_event) {
+				set_plm_imp_spec_ctl_rst(port,
+							int_tests[i].em_detect);
 			}
 
 			// Enable the i'th test
 			set_cfg_in.ptl.num_ports = 1;
-			set_cfg_in.ptl.pnums[0] = 0;
+			set_cfg_in.ptl.pnums[0] = port;
 			set_cfg_in.notfn = rio_em_notfn_int;
 			set_cfg_in.num_events = 1;
-			set_cfg_in.events = &tests[i];
+			set_cfg_in.events = &int_tests[i];
 
 			set_cfg_out.imp_rc = 0xFFFFFFFF;
 			set_cfg_out.fail_port_num = 0x99;
@@ -3694,14 +3744,26 @@ static void rxs_rio_em_get_int_stat_other_events_test(void **state)
 					set_cfg_out.fail_port_num);
 			assert_int_equal(rio_em_last, set_cfg_out.fail_idx);
 			assert_int_equal(rio_em_notfn_int, set_cfg_out.notfn);
+			rxs_rio_em_cfg_set_get_chk_regs(
+					&int_tests[i], rio_em_notfn_int, port);
 
 			// Create the i'th and t'th event
 			c_in.num_events = 2;
 			c_in.events = c_e;
-			c_e[0].port_num = 0;
-			c_e[0].event = tests[i].em_event;
-			c_e[1].port_num = 0;
-			c_e[1].event = tests[t].em_event;
+			c_e[0].event = int_tests[i].em_event;
+			c_e[1].event = int_tests[t].em_event;
+			if ((rio_em_d_log == int_tests[i].em_event) ||
+				(rio_em_i_init_fail == int_tests[i].em_event)) {
+				c_e[0].port_num = RIO_ALL_PORTS;
+			} else {
+				c_e[0].port_num = port;
+			}
+			if ((rio_em_d_log == int_tests[t].em_event) ||
+				(rio_em_i_init_fail == int_tests[t].em_event)) {
+				c_e[1].port_num = RIO_ALL_PORTS;
+			} else {
+				c_e[1].port_num = port;
+			}
 
 			c_out.imp_rc = 0xFFFFFF;
 			c_out.failure_idx = 0xff;
@@ -3715,7 +3777,7 @@ static void rxs_rio_em_get_int_stat_other_events_test(void **state)
 
 			// Query the event interrupt status
 			in_p.ptl.num_ports = 1;
-			in_p.ptl.pnums[0] = 0;
+			in_p.ptl.pnums[0] = port;
 			in_p.num_events = (uint8_t)rio_em_last;
 			in_p.events = stat_e;
 			memset(stat_e, 0xFF, sizeof(stat_e));
@@ -3726,8 +3788,7 @@ static void rxs_rio_em_get_int_stat_other_events_test(void **state)
 			out_p.other_events = true;
 
 			assert_int_equal(RIO_SUCCESS,
-					rxs_rio_em_get_int_stat(
-							&mock_dev_info, &in_p,
+				rxs_rio_em_get_int_stat(&mock_dev_info, &in_p,
 							&out_p));
 			assert_int_equal(0, out_p.imp_rc);
 			assert_int_equal(1, out_p.num_events);
@@ -3735,7 +3796,8 @@ static void rxs_rio_em_get_int_stat_other_events_test(void **state)
 			assert_true(out_p.other_events);
 
 			// Check that the event created was found
-			assert_int_equal(tests[i].em_event, stat_e[0].event);
+			assert_int_equal(int_tests[i].em_event,
+							stat_e[0].event);
 		}
 	}
 
@@ -3751,7 +3813,7 @@ static void rxs_rio_em_get_pw_stat_bad_parms_test(void **state)
 	rio_em_event_n_loc_t events[(uint8_t)rio_em_last];
 
 	// Illegal number of ports
-	in_p.ptl.num_ports = 2;
+	in_p.ptl.num_ports = NUM_RXS_PORTS(&mock_dev_info) + 1;
 	in_p.ptl.pnums[0] = 0;
 	in_p.ptl.pnums[1] = 0;
 	in_p.num_events = (uint8_t)rio_em_last;
@@ -3772,7 +3834,7 @@ static void rxs_rio_em_get_pw_stat_bad_parms_test(void **state)
 
 	// Illegal port number
 	in_p.ptl.num_ports = 1;
-	in_p.ptl.pnums[0] = 1;
+	in_p.ptl.pnums[0] = NUM_RXS_PORTS(&mock_dev_info);
 
 	out_p.imp_rc = 0;
 	out_p.num_events = 0xFF;
@@ -3838,55 +3900,32 @@ static void rxs_rio_em_get_pw_stat_success_test(void **state)
 	rio_em_event_n_loc_t c_e[1];
 	rio_em_event_n_loc_t stat_e[(uint8_t)rio_em_last];
 	DAR_DEV_INFO_t *dev_info = &mock_dev_info;
-
-	// NOTE: A 2many_pna event also causes an err_rate event.
-	// For this reason, "2many_pna" must be the last test,
-	// and err_rate must occur before 2many_pna.
-	rio_em_cfg_t tests[] = {
-		{rio_em_f_los, rio_em_detect_on, 1 * 256 * 1000},
-		{rio_em_f_port_err, rio_em_detect_on, 0},
-		{rio_em_f_err_rate, rio_em_detect_on, 0x100000FF},
-		{rio_em_f_2many_retx, rio_em_detect_on, 0x0010},
-		{rio_em_d_log, rio_em_detect_on,
-					RXS_LOCAL_ERR_EN_ILL_TYPE_EN |
-					RXS_LOCAL_ERR_EN_ILL_ID_EN},
-		{rio_em_i_sig_det, rio_em_detect_on, 0},
-		{rio_em_i_rst_req, rio_em_detect_on, 0},
-		{rio_em_f_2many_pna, rio_em_detect_on, 0x0010}
-	};
-
-	uint32_t plm_imp_spec_ctl;
-	uint32_t t_mask = RXS_PLM_SPX_IMP_SPEC_CTL_SELF_RST |
-	RXS_PLM_SPX_IMP_SPEC_CTL_PORT_SELF_RST;
-
-	const unsigned int test_cnt = sizeof(tests) / sizeof(tests[0]);
 	unsigned int i, chk_i, srch_i;
-	Tsi721_test_state_t *l_st = (Tsi721_test_state_t *)*state;
+	rio_port_t port = 2;
+	RXS_test_state_t *l_st = (RXS_test_state_t *)*state;
 
 	if (l_st->real_hw) {
 		return;
 	}
 
-	for (i = 0; i < test_cnt; i++) {
+	// Power up and enable all ports...
+	set_all_port_config(cfg_perfect, false, false, RIO_ALL_PORTS);
+
+	for (i = 0; i < int_test_cnt; i++) {
 		// Enable detection of each event.
-		if (rio_em_i_rst_req == tests[i].em_event) {
+		if (rio_em_i_rst_req == int_tests[i].em_event) {
 			// If we're testing disabling the Reset Request
 			// event, do the real disable since this events
 			// detection is actually controlled by Port Config
 			// functionality.
-
-			assert_int_equal(RIO_SUCCESS,
-					DARRegRead(&mock_dev_info, RXS_PLM_SPX_IMP_SPEC_CTL, &plm_imp_spec_ctl));
-			plm_imp_spec_ctl &= ~t_mask;
-			assert_int_equal(RIO_SUCCESS,
-					DARRegWrite(&mock_dev_info, RXS_PLM_SPX_IMP_SPEC_CTL, plm_imp_spec_ctl));
+			set_plm_imp_spec_ctl_rst(port, rio_em_detect_on);
 		}
 
 		set_cfg_in.ptl.num_ports = 1;
-		set_cfg_in.ptl.pnums[0] = 0;
+		set_cfg_in.ptl.pnums[0] = port;
 		set_cfg_in.notfn = rio_em_notfn_pw;
 		set_cfg_in.num_events = 1;
-		set_cfg_in.events = &tests[i];
+		set_cfg_in.events = &int_tests[i];
 
 		set_cfg_out.imp_rc = 0xFFFFFFFF;
 		set_cfg_out.fail_port_num = 0x99;
@@ -3900,12 +3939,19 @@ static void rxs_rio_em_get_pw_stat_success_test(void **state)
 		assert_int_equal(RIO_ALL_PORTS, set_cfg_out.fail_port_num);
 		assert_int_equal(rio_em_last, set_cfg_out.fail_idx);
 		assert_int_equal(rio_em_notfn_pw, set_cfg_out.notfn);
+		rxs_rio_em_cfg_set_get_chk_regs(
+					&int_tests[i], rio_em_notfn_pw, port);
 
 		// Create the event
 		c_in.num_events = 1;
 		c_in.events = c_e;
-		c_e[0].port_num = 0;
-		c_e[0].event = tests[i].em_event;
+		c_e[0].event = int_tests[i].em_event;
+		if ((rio_em_d_log == int_tests[i].em_event) ||
+			(rio_em_i_init_fail == int_tests[i].em_event)) {
+			c_e[0].port_num = RIO_ALL_PORTS;
+		} else {
+			c_e[0].port_num = port;
+		}
 
 		c_out.imp_rc = 0xFFFFFF;
 		c_out.failure_idx = 0xff;
@@ -3919,7 +3965,8 @@ static void rxs_rio_em_get_pw_stat_success_test(void **state)
 
 		// Query the event port-write status
 		in_p.ptl.num_ports = 1;
-		in_p.ptl.pnums[0] = 0;
+		in_p.ptl.pnums[0] = port;
+		in_p.pw_port_num = RIO_ALL_PORTS;
 		in_p.num_events = (uint8_t)rio_em_last;
 		in_p.events = stat_e;
 		memset(stat_e, 0xFF, sizeof(stat_e));
@@ -3941,7 +3988,7 @@ static void rxs_rio_em_get_pw_stat_success_test(void **state)
 		for (chk_i = 0; chk_i <= i; chk_i++) {
 			bool found = false;
 			for (srch_i = 0; !found && (srch_i <= i); srch_i++) {
-				if (tests[chk_i].em_event
+				if (int_tests[chk_i].em_event
 						== stat_e[srch_i].event) {
 					found = true;
 				}
@@ -3949,7 +3996,7 @@ static void rxs_rio_em_get_pw_stat_success_test(void **state)
 			if (!found && DEBUG_PRINTF) {
 				printf("i %d event_cnt %d chk_i %d event %d", i,
 						out_p.num_events, chk_i,
-						tests[chk_i].em_event);
+						int_tests[chk_i].em_event);
 			}
 			assert_true(found);
 		}
@@ -3960,7 +4007,7 @@ static void rxs_rio_em_get_pw_stat_success_test(void **state)
 			continue;
 		}
 		in_p.ptl.num_ports = 1;
-		in_p.ptl.pnums[0] = 0;
+		in_p.ptl.pnums[0] = port;
 		in_p.num_events = i;
 		in_p.events = stat_e;
 		memset(stat_e, 0xFF, sizeof(stat_e));
@@ -4000,30 +4047,10 @@ static void rxs_rio_em_get_pw_stat_other_events_test(void **state)
 	rio_em_event_n_loc_t stat_e[(uint8_t)rio_em_last];
 	DAR_DEV_INFO_t *dev_info = &mock_dev_info;
 
-	// NOTE: A 2many_pna event also causes an 2many_retx event.
-	// For this reason, "2many_pna" must be the last test,
-	// and 2many_retx must occur before 2many_pna.
-	//
-	rio_em_cfg_t tests[] = {
-		{rio_em_f_los, rio_em_detect_on, 1 * 256 * 1000},
-		{rio_em_f_port_err, rio_em_detect_on, 0},
-		{rio_em_f_err_rate, rio_em_detect_on, 0x1000000F},
-		{rio_em_d_log, rio_em_detect_on,
-					RXS_LOCAL_ERR_EN_ILL_TYPE_EN |
-					RXS_LOCAL_ERR_EN_ILL_ID_EN},
-		{rio_em_i_sig_det, rio_em_detect_on, 0},
-		{rio_em_i_rst_req, rio_em_detect_on, 0},
-		{rio_em_f_2many_retx, rio_em_detect_on, 0x0010},
-		{ rio_em_f_2many_pna, rio_em_detect_on, 0x0010}
-	};
+	rio_port_t port = 3;
 
-	uint32_t plm_imp_spec_ctl;
-	uint32_t t_mask = RXS_PLM_SPX_IMP_SPEC_CTL_SELF_RST |
-	RXS_PLM_SPX_IMP_SPEC_CTL_PORT_SELF_RST;
-
-	const unsigned int test_cnt = sizeof(tests) / sizeof(tests[0]);
 	unsigned int i, t;
-	Tsi721_test_state_t *l_st = (Tsi721_test_state_t *)*state;
+	RXS_test_state_t *l_st = (RXS_test_state_t *)*state;
 
 	if (l_st->real_hw) {
 		return;
@@ -4031,43 +4058,49 @@ static void rxs_rio_em_get_pw_stat_other_events_test(void **state)
 
 	// Use test_cnt - 1 here to avoid trying for rio_em_f_2many_pna
 	// without also setting rio_em_f_2many_retx.
-	for (i = 0; i < test_cnt - 1; i++) {
-		for (t = 0; t < test_cnt; t++) {
+	for (i = 0; i < int_test_cnt - 1; i++) {
+		for (t = 0; t < int_test_cnt; t++) {
 			// Must have two different events for this test.
 			if (i == t) {
 				continue;
 			}
-			if (DEBUG_PRINTF) {
-				printf("\ni %d t %d\n", i, t);
+			// Reset request port-writes cannot be masked at the
+			// port level, so skip 'em...
+			if (rio_em_i_rst_req == int_tests[t].em_event) {
+				continue;
 			}
+			// Can't tell the difference between a 2many_retx and
+			// a 2many_pna, so skip this case...
+			if ((rio_em_f_2many_retx == int_tests[i].em_event)
+			 && (rio_em_f_2many_pna == int_tests[t].em_event)) {
+				continue;
+			}
+			if (DEBUG_PRINTF) {
+				printf("\ni %d event %d t %d ev %d\n",
+					i, int_tests[i].em_event,
+					t, int_tests[t].em_event);
+			}
+
 			// This test requires a clean slate at the beginning
 			// of each attempt
 			rxs_em_setup(state);
 
-			// Enable detection of the current event.
-			if (rio_em_i_rst_req == tests[i].em_event) {
-				// If we're testing disabling the Reset Request
-				// event, do the real disable since this events
-				// detection is actually controlled by
-				// Port Config functionality.
+			// Power up and enable all ports...
+			set_all_port_config(cfg_perfect, false, false,
+								RIO_ALL_PORTS);
 
-				assert_int_equal(RIO_SUCCESS,
-						DARRegRead(&mock_dev_info, RXS_PLM_SPX_IMP_SPEC_CTL, &plm_imp_spec_ctl));
-				if (rio_em_detect_off == tests[i].em_detect) {
-					plm_imp_spec_ctl |= t_mask;
-				} else {
-					plm_imp_spec_ctl &= ~t_mask;
-				}
-				assert_int_equal(RIO_SUCCESS,
-						DARRegWrite(&mock_dev_info, RXS_PLM_SPX_IMP_SPEC_CTL, plm_imp_spec_ctl));
+			// Enable detection of the current event.
+			if (rio_em_i_rst_req == int_tests[i].em_event) {
+				set_plm_imp_spec_ctl_rst(port,
+							int_tests[i].em_detect);
 			}
 
 			// Enable the i'th test
 			set_cfg_in.ptl.num_ports = 1;
-			set_cfg_in.ptl.pnums[0] = 0;
+			set_cfg_in.ptl.pnums[0] = port;
 			set_cfg_in.notfn = rio_em_notfn_pw;
 			set_cfg_in.num_events = 1;
-			set_cfg_in.events = &tests[i];
+			set_cfg_in.events = &int_tests[i];
 
 			set_cfg_out.imp_rc = 0xFFFFFFFF;
 			set_cfg_out.fail_port_num = 0x99;
@@ -4087,10 +4120,20 @@ static void rxs_rio_em_get_pw_stat_other_events_test(void **state)
 			// Create the i'th and t'th event
 			c_in.num_events = 2;
 			c_in.events = c_e;
-			c_e[0].port_num = 0;
-			c_e[0].event = tests[i].em_event;
-			c_e[1].port_num = 0;
-			c_e[1].event = tests[t].em_event;
+			c_e[0].event = int_tests[i].em_event;
+			c_e[1].event = int_tests[t].em_event;
+			if ((rio_em_d_log == int_tests[i].em_event) ||
+				(rio_em_i_init_fail == int_tests[i].em_event)) {
+				c_e[0].port_num = RIO_ALL_PORTS;
+			} else {
+				c_e[0].port_num = port;
+			}
+			if ((rio_em_d_log == int_tests[t].em_event) ||
+				(rio_em_i_init_fail == int_tests[t].em_event)) {
+				c_e[1].port_num = RIO_ALL_PORTS;
+			} else {
+				c_e[1].port_num = port;
+			}
 
 			c_out.imp_rc = 0xFFFFFF;
 			c_out.failure_idx = 0xff;
@@ -4104,7 +4147,8 @@ static void rxs_rio_em_get_pw_stat_other_events_test(void **state)
 
 			// Query the event port-write status
 			in_p.ptl.num_ports = 1;
-			in_p.ptl.pnums[0] = 0;
+			in_p.ptl.pnums[0] = port;
+			in_p.pw_port_num = RIO_ALL_PORTS;
 			in_p.num_events = (uint8_t)rio_em_last;
 			in_p.events = stat_e;
 			memset(stat_e, 0xFF, sizeof(stat_e));
@@ -4121,12 +4165,11 @@ static void rxs_rio_em_get_pw_stat_other_events_test(void **state)
 			assert_int_equal(0, out_p.imp_rc);
 			assert_int_equal(1, out_p.num_events);
 			assert_false(out_p.too_many);
-			assert_int_equal(tests[i].em_event, stat_e[0].event);
-
+			assert_int_equal(int_tests[i].em_event, stat_e[0].event);
 			// Check that the other events were found, EXCEPT
 			// when the two events are 2many_retx & 2many_pna
-			if ((rio_em_f_2many_retx == tests[i].em_event) &&
-				(rio_em_f_2many_pna == tests[t].em_event)) {
+			if ((rio_em_f_2many_retx == int_tests[i].em_event) &&
+				(rio_em_f_2many_pna == int_tests[t].em_event)) {
 				continue;
 			}
 			assert_true(out_p.other_events);
@@ -4139,8 +4182,6 @@ static void rxs_rio_em_get_pw_stat_other_events_test(void **state)
 // Test that if one event is configured with interrupt notification, and another
 // is configured with port-write notification, that the "other events" fields
 // for interrupt and port-write status indicate that another event is present.
-//
-// This test is skipped if interrupts are not supported.
 
 static void rxs_rio_em_get_int_pw_stat_other_events_test(void **state)
 {
@@ -4156,112 +4197,79 @@ static void rxs_rio_em_get_int_pw_stat_other_events_test(void **state)
 	rio_em_event_n_loc_t stat_e[(uint8_t)rio_em_last];
 	DAR_DEV_INFO_t *dev_info = &mock_dev_info;
 
-	// NOTE: A 2many_pna event also causes an err_rate event.
-	// For this reason, "2many_pna" must be the last test,
-	// and err_rate must occur before 2many_pna.
-	rio_em_cfg_t tests[] = {
-		{rio_em_f_los, rio_em_detect_on, 1 * 256 * 1000},
-		{rio_em_f_port_err, rio_em_detect_on, 0},
-		{rio_em_f_err_rate, rio_em_detect_on, 0x1000000F},
-		{rio_em_d_log, rio_em_detect_on,
-					RXS_LOCAL_ERR_EN_ILL_TYPE_EN |
-					RXS_LOCAL_ERR_EN_ILL_ID_EN},
-		{rio_em_i_sig_det, rio_em_detect_on, 0},
-		{rio_em_i_rst_req, rio_em_detect_on, 0},
-		{rio_em_i_init_fail, rio_em_detect_on, 0},
-		{rio_em_f_2many_retx, rio_em_detect_on,0x0010},
-		{rio_em_f_2many_pna, rio_em_detect_on, 0x0010}
-	};
-
-	uint32_t plm_imp_spec_ctl;
-	uint32_t t_mask = RXS_PLM_SPX_IMP_SPEC_CTL_SELF_RST |
-	RXS_PLM_SPX_IMP_SPEC_CTL_PORT_SELF_RST;
-
-	const unsigned int test_cnt = sizeof(tests) / sizeof(tests[0]);
+	rio_port_t port = 4;
 	unsigned int i, p;
-	Tsi721_test_state_t *l_st = (Tsi721_test_state_t *)*state;
-	rio_em_notfn_ctl_t i_notfn = rio_em_notfn_int;
-	rio_em_notfn_ctl_t p_notfn = rio_em_notfn_pw;
+	RXS_test_state_t *l_st = (RXS_test_state_t *)*state;
+	const rio_em_notfn_ctl_t i_notfn = rio_em_notfn_int;
+	const rio_em_notfn_ctl_t p_notfn = rio_em_notfn_pw;
 
 	if (l_st->real_hw) {
 		return;
 	}
 
-	for (i = 0; i < test_cnt; i++) {
-		for (p = 0; p < test_cnt; p++) {
+	for (i = 0; i < int_test_cnt; i++) {
+		// Reset request events cannot be masked,
+		// so just skip this case.
+		if (rio_em_i_rst_req == int_tests[i].em_event) {
+			continue;
+		}
+		for (p = 0; p < int_test_cnt; p++) {
 			// Must have two different events for this test.
 			if (i == p) {
 				continue;
 			}
-			// init_fail events can only receive interrupt notifn..
-			if (rio_em_i_init_fail == tests[p].em_event) {
+			// Reset request events cannot be masked,
+			// so just skip this case.
+			if (rio_em_i_rst_req == int_tests[p].em_event) {
 				continue;
 			}
 			// 2many_retx and 2many_pna cause the same event,
 			// so skip ahead if they're both selected...
-			if ((rio_em_f_2many_retx == tests[i].em_event) &&
-				(rio_em_f_2many_pna == tests[p].em_event)) {
+			if ((rio_em_f_2many_retx == int_tests[i].em_event) &&
+				(rio_em_f_2many_pna == int_tests[p].em_event)) {
 				continue;
 			}
-			if ((rio_em_f_2many_retx == tests[p].em_event) &&
-				(rio_em_f_2many_pna == tests[i].em_event)) {
+			if ((rio_em_f_2many_retx == int_tests[p].em_event) &&
+				(rio_em_f_2many_pna == int_tests[i].em_event)) {
 				continue;
 			}
 			if (DEBUG_PRINTF) {
 				printf("\ni = %d p = %d event = %d %d\n", i, p,
-						tests[i].em_event,
-						tests[p].em_event);
+						int_tests[i].em_event,
+						int_tests[p].em_event);
 			}
 			if (DEBUG_PRINTF) {
-				printf("\ni %d p %d\n", i, p);
+				printf("\ni %d event %d p %d event %d\n",
+					i, int_tests[i].em_event,
+					p, int_tests[p].em_event);
 			}
 
 			// This test requires a clean slate at the beginning
 			// of each attempt
 			rxs_em_setup(state);
 
+			// Power up and enable all ports...
+			set_all_port_config(cfg_perfect, false, false,
+								RIO_ALL_PORTS);
+
 			// Enable detection of the current event.
-			// NOTE: Only one of tests[i].em_event and
-			// tests[p].em_event can be true at any one time.
-			if (rio_em_i_rst_req == tests[i].em_event) {
-				// If we're testing the Reset Request
-				// event, do the disable/enable since this
-				// events detection is actually controlled by
-				// Port Config functionality.
-
-				assert_int_equal(RIO_SUCCESS,
-						DARRegRead(&mock_dev_info, RXS_PLM_SPX_IMP_SPEC_CTL, &plm_imp_spec_ctl));
-				if (rio_em_detect_off == tests[i].em_detect) {
-					plm_imp_spec_ctl |= t_mask;
-				} else {
-					plm_imp_spec_ctl &= ~t_mask;
-				}
-				assert_int_equal(RIO_SUCCESS,
-						DARRegWrite(&mock_dev_info, RXS_PLM_SPX_IMP_SPEC_CTL, plm_imp_spec_ctl));
+			// NOTE: Only one of int_tests[i].em_event and
+			// int_tests[p].em_event can be true at any one time.
+			if (rio_em_i_rst_req == int_tests[i].em_event) {
+				set_plm_imp_spec_ctl_rst(port,
+							int_tests[i].em_detect);
 			}
-			if (rio_em_i_rst_req == tests[p].em_event) {
-				// If we're testing the Reset Request
-				// event, do the disable/enable since this
-				// events detection is actually controlled by
-				// Port Config functionality.
-
-				assert_int_equal(RIO_SUCCESS,
-						DARRegRead(&mock_dev_info, RXS_PLM_SPX_IMP_SPEC_CTL, &plm_imp_spec_ctl));
-				if (rio_em_detect_off == tests[p].em_detect) {
-					plm_imp_spec_ctl |= t_mask;
-				} else {
-					plm_imp_spec_ctl &= ~t_mask;
-				}
-				assert_int_equal(RIO_SUCCESS,
-						DARRegWrite(&mock_dev_info, RXS_PLM_SPX_IMP_SPEC_CTL, plm_imp_spec_ctl));
+			if (rio_em_i_rst_req == int_tests[p].em_event) {
+				set_plm_imp_spec_ctl_rst(port,
+							int_tests[p].em_detect);
 			}
 
 			// Enable event with interrupt notification
 			set_cfg_in.ptl.num_ports = 1;
-			set_cfg_in.ptl.pnums[0] = 0;
+			set_cfg_in.ptl.pnums[0] = port;
 			set_cfg_in.notfn = i_notfn;
 			set_cfg_in.num_events = 1;
-			set_cfg_in.events = &tests[i];
+			set_cfg_in.events = &int_tests[i];
 
 			set_cfg_out.imp_rc = 0xFFFFFFFF;
 			set_cfg_out.fail_port_num = 0x99;
@@ -4277,13 +4285,15 @@ static void rxs_rio_em_get_int_pw_stat_other_events_test(void **state)
 					set_cfg_out.fail_port_num);
 			assert_int_equal(rio_em_last, set_cfg_out.fail_idx);
 			assert_int_equal(i_notfn, set_cfg_out.notfn);
+			rxs_rio_em_cfg_set_get_chk_regs(
+					&int_tests[i], rio_em_notfn_int, port);
 
 			// Enable event with port-write notification
 			set_cfg_in.ptl.num_ports = 1;
-			set_cfg_in.ptl.pnums[0] = 0;
+			set_cfg_in.ptl.pnums[0] = port;
 			set_cfg_in.notfn = p_notfn;
 			set_cfg_in.num_events = 1;
-			set_cfg_in.events = &tests[p];
+			set_cfg_in.events = &int_tests[p];
 
 			set_cfg_out.imp_rc = 0xFFFFFFFF;
 			set_cfg_out.fail_port_num = 0x99;
@@ -4299,14 +4309,28 @@ static void rxs_rio_em_get_int_pw_stat_other_events_test(void **state)
 					set_cfg_out.fail_port_num);
 			assert_int_equal(rio_em_last, set_cfg_out.fail_idx);
 			assert_int_equal(p_notfn, set_cfg_out.notfn);
+			rxs_rio_em_cfg_set_get_chk_regs(
+					&int_tests[p], rio_em_notfn_pw, port);
 
 			// Create the i'th and p'th events
 			c_in.num_events = 2;
 			c_in.events = c_e;
-			c_e[0].port_num = 0;
-			c_e[0].event = tests[i].em_event;
-			c_e[1].port_num = 0;
-			c_e[1].event = tests[p].em_event;
+			c_e[0].event = int_tests[i].em_event;
+			c_e[1].event = int_tests[p].em_event;
+
+			if ((rio_em_d_log == int_tests[i].em_event) ||
+				(rio_em_i_init_fail == int_tests[i].em_event)) {
+				c_e[0].port_num = RIO_ALL_PORTS;
+			} else {
+				c_e[0].port_num = port;
+			}
+
+			if ((rio_em_d_log == int_tests[p].em_event) ||
+				(rio_em_i_init_fail == int_tests[p].em_event)) {
+				c_e[1].port_num = RIO_ALL_PORTS;
+			} else {
+				c_e[1].port_num = port;
+			}
 
 			c_out.imp_rc = 0xFFFFFF;
 			c_out.failure_idx = 0xff;
@@ -4320,7 +4344,8 @@ static void rxs_rio_em_get_int_pw_stat_other_events_test(void **state)
 
 			// Query the event interrupt status
 			in_i.ptl.num_ports = 1;
-			in_i.ptl.pnums[0] = 0;
+			in_i.ptl.pnums[0] = port;
+			in_p.pw_port_num = RIO_ALL_PORTS;
 			in_i.num_events = (uint8_t)rio_em_last;
 			in_i.events = stat_e;
 			memset(stat_e, 0xFF, sizeof(stat_e));
@@ -4335,37 +4360,15 @@ static void rxs_rio_em_get_int_pw_stat_other_events_test(void **state)
 							&mock_dev_info, &in_i,
 							&out_i));
 			assert_int_equal(0, out_i.imp_rc);
-			if (rio_em_notfn_int == i_notfn) {
-				assert_int_equal(1, out_i.num_events);
-				assert_false(out_i.too_many);
-				assert_true(out_i.other_events);
-				assert_int_equal(stat_e[0].port_num, 0);
-				assert_int_equal(stat_e[0].event,
-						tests[i].em_event);
-			} else {
-				bool found;
-
-				assert_int_equal(2, out_i.num_events);
-				assert_false(out_i.too_many);
-				assert_false(out_i.other_events);
-				assert_int_equal(stat_e[0].port_num, 0);
-				assert_int_equal(stat_e[1].port_num, 0);
-
-				found =
-						((stat_e[0].event
-								== tests[p].em_event)
-								&& (stat_e[1].event
-										== tests[i].em_event))
-								|| ((stat_e[0].event
-										== tests[i].em_event)
-										&& (stat_e[1].event
-												== tests[p].em_event));
-				assert_true(found);
-			}
+			assert_int_equal(1, out_i.num_events);
+			assert_false(out_i.too_many);
+			assert_true(out_i.other_events);
+			assert_int_equal(stat_e[0].port_num, c_e[0].port_num);
+			assert_int_equal(stat_e[0].event,int_tests[i].em_event);
 
 			// Query the event port-write status
 			in_p.ptl.num_ports = 1;
-			in_p.ptl.pnums[0] = 0;
+			in_p.ptl.pnums[0] = port;
 			in_p.num_events = (uint8_t)rio_em_last;
 			in_p.events = stat_e;
 			memset(stat_e, 0xFF, sizeof(stat_e));
@@ -4380,39 +4383,11 @@ static void rxs_rio_em_get_int_pw_stat_other_events_test(void **state)
 							&mock_dev_info, &in_p,
 							&out_p));
 			assert_int_equal(0, out_p.imp_rc);
-			if (rio_em_notfn_pw == p_notfn) {
-				assert_int_equal(1, out_p.num_events);
-				assert_false(out_p.too_many);
-				// init_fail is an interrupt-only event,
-				// so it cannot trigger "other events" for
-				// a port-write
-				if (rio_em_i_init_fail == tests[i].em_event) {
-					assert_false(out_p.other_events);
-				} else {
-					assert_true(out_p.other_events);
-				}
-				assert_int_equal(stat_e[0].port_num, 0);
-				assert_int_equal(stat_e[0].event,
-						tests[p].em_event);
-			} else {
-				bool found;
-
-				assert_int_equal(2, out_p.num_events);
-				assert_false(out_p.too_many);
-				assert_false(out_p.other_events);
-				assert_int_equal(stat_e[0].port_num, 0);
-				assert_int_equal(stat_e[1].port_num, 0);
-				found =
-						((stat_e[0].event
-								== tests[p].em_event)
-								&& (stat_e[1].event
-										== tests[i].em_event))
-								|| ((stat_e[0].event
-										== tests[i].em_event)
-										&& (stat_e[1].event
-												== tests[p].em_event));
-				assert_true(found);
-			}
+			assert_int_equal(1, out_p.num_events);
+			assert_false(out_p.too_many);
+			assert_true(out_p.other_events);
+			assert_int_equal(stat_e[0].port_num, c_e[1].port_num);
+			assert_int_equal(stat_e[0].event,int_tests[p].em_event);
 		}
 	}
 
@@ -4422,8 +4397,18 @@ static void rxs_rio_em_get_int_pw_stat_other_events_test(void **state)
 // Test that if two events are configured with both interrupt and
 // port-write notification, that the interrupt and port-write status is
 // correct.
-//
-// This test is skipped if interrupts are not supported.
+void find_event(rio_em_event_n_loc_t *tgt_ev, rio_em_event_n_loc_t *ev_list,
+			unsigned int max_ev_list)
+{
+	bool found = false;
+	unsigned int idx;
+
+	for (idx = 0; !found && (idx < max_ev_list); idx++) {
+		found = (tgt_ev->port_num == ev_list[idx].port_num) &&
+			(tgt_ev->event == ev_list[idx].event);
+	}
+	assert_true(found);
+}
 
 static void rxs_rio_em_get_int_pw_stat_both_test(void **state)
 {
@@ -4440,30 +4425,10 @@ static void rxs_rio_em_get_int_pw_stat_both_test(void **state)
 	DAR_DEV_INFO_t *dev_info = &mock_dev_info;
 	rio_em_cfg_t tests_in[2];
 
-	// NOTE: A 2many_pna event also causes an err_rate event.
-	// For this reason, "2many_pna" must be the last test,
-	// and err_rate must occur before 2many_pna.
-	rio_em_cfg_t tests[] = {
-		{rio_em_f_los, rio_em_detect_on, 1 * 256 * 1000},
-		{rio_em_f_port_err, rio_em_detect_on, 0},
-		{rio_em_f_err_rate, rio_em_detect_on, 0x1000000F},
-		{rio_em_d_log, rio_em_detect_on,
-				RXS_LOCAL_ERR_EN_ILL_TYPE_EN |
-				RXS_LOCAL_ERR_EN_ILL_ID_EN},
-		{rio_em_i_sig_det, rio_em_detect_on, 0},
-		{rio_em_i_rst_req, rio_em_detect_on, 0},
-		{rio_em_i_init_fail, rio_em_detect_on, 0},
-		{rio_em_f_2many_retx, rio_em_detect_on, 0x0010},
-		{rio_em_f_2many_pna, rio_em_detect_on,0x0010}
-	};
+	rio_port_t port = 5;
 
-	uint32_t plm_imp_spec_ctl;
-	uint32_t t_mask = RXS_PLM_SPX_IMP_SPEC_CTL_SELF_RST |
-	RXS_PLM_SPX_IMP_SPEC_CTL_PORT_SELF_RST;
-
-	const unsigned int test_cnt = sizeof(tests) / sizeof(tests[0]);
-	unsigned int i, p, srch_i, chk_i;
-	Tsi721_test_state_t *l_st = (Tsi721_test_state_t *)*state;
+	unsigned int i, p;
+	RXS_test_state_t *l_st = (RXS_test_state_t *)*state;
 
 	if (l_st->real_hw) {
 		return;
@@ -4471,64 +4436,44 @@ static void rxs_rio_em_get_int_pw_stat_both_test(void **state)
 
 	// Use test_cnt - 1 here to avoid trying for rio_em_f_2many_pna
 	// without also setting rio_em_f_2many_retx.
-	for (i = 0; i < test_cnt - 1; i++) {
-		for (p = 0; p < test_cnt; p++) {
+	for (i = 0; i < int_test_cnt - 1; i++) {
+		for (p = 0; p < int_test_cnt; p++) {
 			// Must have two different events for this test.
 			if (i == p) {
-				continue;
-			}
-			// Cannot cause an init_fail event to generate a
-			// port-write
-			if (rio_em_i_init_fail == tests[p].em_event) {
 				continue;
 			}
 			// This test requires a clean slate at the beginning
 			// of each attempt
 			rxs_em_setup(state);
 
+			// Power up and enable all ports...
+			set_all_port_config(cfg_perfect, false, false,
+								RIO_ALL_PORTS);
+
 			// Enable detection of the current event.
-			// NOTE: Only one of tests[i].em_event and
-			// tests[p].em_event can be true at any one time.
-			if (rio_em_i_rst_req == tests[i].em_event) {
-				// If we're testing the Reset Request
-				// event, do the disable/enable since this
-				// events detection is actually controlled by
-				// Port Config functionality.
-
-				assert_int_equal(RIO_SUCCESS,
-						DARRegRead(&mock_dev_info, RXS_PLM_SPX_IMP_SPEC_CTL, &plm_imp_spec_ctl));
-				if (rio_em_detect_off == tests[i].em_detect) {
-					plm_imp_spec_ctl |= t_mask;
-				} else {
-					plm_imp_spec_ctl &= ~t_mask;
-				}
-				assert_int_equal(RIO_SUCCESS,
-						DARRegWrite(&mock_dev_info, RXS_PLM_SPX_IMP_SPEC_CTL, plm_imp_spec_ctl));
+			// NOTE: Only one of int_tests[i].em_event and
+			// int_tests[p].em_event can be true at any one time.
+			if (rio_em_i_rst_req == int_tests[i].em_event) {
+				set_plm_imp_spec_ctl_rst(port,
+						int_tests[i].em_detect);
 			}
-			if (rio_em_i_rst_req == tests[p].em_event) {
-				// If we're testing the Reset Request
-				// event, do the disable/enable since this
-				// events detection is actually controlled by
-				// Port Config functionality.
-
-				assert_int_equal(RIO_SUCCESS,
-						DARRegRead(&mock_dev_info, RXS_PLM_SPX_IMP_SPEC_CTL, &plm_imp_spec_ctl));
-				if (rio_em_detect_off == tests[p].em_detect) {
-					plm_imp_spec_ctl |= t_mask;
-				} else {
-					plm_imp_spec_ctl &= ~t_mask;
-				}
-				assert_int_equal(RIO_SUCCESS,
-						DARRegWrite(&mock_dev_info, RXS_PLM_SPX_IMP_SPEC_CTL, plm_imp_spec_ctl));
+			if (rio_em_i_rst_req == int_tests[p].em_event) {
+				set_plm_imp_spec_ctl_rst(port,
+						int_tests[p].em_detect);
 			}
 
+			if (DEBUG_PRINTF) {
+				printf("\ni %d event %d p %d event %d\n",
+					i, int_tests[i].em_event,
+					p, int_tests[p].em_event);
+			}
 			// Configure the i'th and p'th event
 			set_cfg_in.ptl.num_ports = 1;
-			set_cfg_in.ptl.pnums[0] = 0;
+			set_cfg_in.ptl.pnums[0] = port;
 			set_cfg_in.notfn = rio_em_notfn_both;
 			set_cfg_in.num_events = 2;
-			memcpy(&tests_in[0], &tests[i], sizeof(tests_in[0]));
-			memcpy(&tests_in[1], &tests[p], sizeof(tests_in[1]));
+			memcpy(&tests_in[0], &int_tests[i], sizeof(tests_in[0]));
+			memcpy(&tests_in[1], &int_tests[p], sizeof(tests_in[1]));
 			set_cfg_in.events = tests_in;
 
 			set_cfg_out.imp_rc = 0xFFFFFFFF;
@@ -4545,14 +4490,30 @@ static void rxs_rio_em_get_int_pw_stat_both_test(void **state)
 					set_cfg_out.fail_port_num);
 			assert_int_equal(rio_em_last, set_cfg_out.fail_idx);
 			assert_int_equal(rio_em_notfn_both, set_cfg_out.notfn);
+			rxs_rio_em_cfg_set_get_chk_regs(
+					&int_tests[i], rio_em_notfn_both, port);
+			rxs_rio_em_cfg_set_get_chk_regs(
+					&int_tests[p], rio_em_notfn_both, port);
 
 			// Create the i'th and p'th events
 			c_in.num_events = 2;
 			c_in.events = c_e;
-			c_e[0].port_num = 0;
-			c_e[0].event = tests[i].em_event;
-			c_e[1].port_num = 0;
-			c_e[1].event = tests[p].em_event;
+			c_e[0].event = int_tests[i].em_event;
+			c_e[1].event = int_tests[p].em_event;
+
+			if ((rio_em_d_log == int_tests[i].em_event) ||
+				(rio_em_i_init_fail == int_tests[i].em_event)) {
+				c_e[0].port_num = RIO_ALL_PORTS;
+			} else {
+				c_e[0].port_num = port;
+			}
+
+			if ((rio_em_d_log == int_tests[p].em_event) ||
+				(rio_em_i_init_fail == int_tests[p].em_event)) {
+				c_e[1].port_num = RIO_ALL_PORTS;
+			} else {
+				c_e[1].port_num = port;
+			}
 
 			c_out.imp_rc = 0xFFFFFF;
 			c_out.failure_idx = 0xff;
@@ -4566,7 +4527,7 @@ static void rxs_rio_em_get_int_pw_stat_both_test(void **state)
 
 			// Query the event interrupt status
 			in_i.ptl.num_ports = 1;
-			in_i.ptl.pnums[0] = 0;
+			in_i.ptl.pnums[0] = port;
 			in_i.num_events = (uint8_t)rio_em_last;
 			in_i.events = stat_e;
 			memset(stat_e, 0xFF, sizeof(stat_e));
@@ -4584,38 +4545,15 @@ static void rxs_rio_em_get_int_pw_stat_both_test(void **state)
 			assert_int_equal(2, out_i.num_events);
 			assert_false(out_i.too_many);
 			assert_false(out_i.other_events);
-			assert_int_equal(stat_e[0].port_num, 0);
-			assert_int_equal(stat_e[1].port_num, 0);
 
 			// Check that events created are found...
-			for (chk_i = 0; chk_i <= i; chk_i++) {
-				bool found = false;
-				if ((chk_i != i) && (chk_i != p)) {
-					continue;
-				}
-				for (srch_i = 0;
-						!found
-								&& (srch_i
-										<= out_i.num_events);
-						srch_i++) {
-					if (tests[chk_i].em_event
-							== stat_e[srch_i].event) {
-						found = true;
-					}
-				}
-				if (!found && DEBUG_PRINTF) {
-					printf(
-							"i %d event_cnt %d chk_i %d event %d",
-							i, out_p.num_events,
-							chk_i,
-							tests[chk_i].em_event);
-				}
-				assert_true(found);
-			}
+			find_event(&c_e[0], stat_e, 2);
+			find_event(&c_e[1], stat_e, 2);
 
 			// Query the event port-write status
 			in_p.ptl.num_ports = 1;
-			in_p.ptl.pnums[0] = 0;
+			in_p.ptl.pnums[0] = port;
+			in_p.pw_port_num = RIO_ALL_PORTS;
 			in_p.num_events = (uint8_t)rio_em_last;
 			in_p.events = stat_e;
 			memset(stat_e, 0xFF, sizeof(stat_e));
@@ -4630,49 +4568,13 @@ static void rxs_rio_em_get_int_pw_stat_both_test(void **state)
 							&mock_dev_info, &in_p,
 							&out_p));
 			assert_int_equal(0, out_p.imp_rc);
-			// It is not possible to detect a port-write init_fail
-			// event so reduce the event count by 1.
-			if (rio_em_i_init_fail == tests[i].em_event) {
-				assert_int_equal(1, out_p.num_events);
-				assert_int_equal(stat_e[0].port_num, 0);
-			} else {
-				assert_int_equal(2, out_p.num_events);
-				assert_int_equal(stat_e[0].port_num, 0);
-				assert_int_equal(stat_e[1].port_num, 0);
-			}
+			assert_int_equal(2, out_p.num_events);
 			assert_false(out_p.too_many);
 			assert_false(out_p.other_events);
 
 			// Check that events created are found...
-			for (chk_i = 0; chk_i <= i; chk_i++) {
-				bool found = false;
-				if ((chk_i != i) && (chk_i != p)) {
-					continue;
-				}
-				if ((chk_i == i)
-						&& (rio_em_i_init_fail
-								== tests[i].em_event)) {
-					continue;
-				}
-				for (srch_i = 0;
-						!found
-								&& (srch_i
-										<= out_i.num_events);
-						srch_i++) {
-					if (tests[chk_i].em_event
-							== stat_e[srch_i].event) {
-						found = true;
-					}
-				}
-				if (!found && DEBUG_PRINTF) {
-					printf(
-							"i %d event_cnt %d chk_i %d event %d",
-							i, out_p.num_events,
-							chk_i,
-							tests[chk_i].em_event);
-				}
-				assert_true(found);
-			}
+			find_event(&c_e[0], stat_e, 2);
+			find_event(&c_e[1], stat_e, 2);
 		}
 	}
 
@@ -4721,11 +4623,49 @@ static void rxs_rio_em_clr_events_bad_parms_test(void **state)
 	assert_true(out_c.pw_events_remain);
 	assert_true(out_c.int_events_remain);
 
-	// Illegal port in event
+	// Illegal port in clear port-write pending event
 	in_c.num_events = 1;
 	in_c.events = events;
-	events[0].port_num = 1;
-	events[0].event = rio_em_a_no_event;
+	events[0].port_num = NUM_RXS_PORTS(&mock_dev_info);
+	events[0].event = rio_em_a_clr_pwpnd;
+
+	out_c.imp_rc = 0;
+	out_c.failure_idx = 0xFF;
+	out_c.pw_events_remain = true;
+	out_c.int_events_remain = true;
+
+	assert_int_not_equal(RIO_SUCCESS,
+			rxs_rio_em_clr_events(&mock_dev_info, &in_c,
+					&out_c));
+	assert_int_not_equal(0, out_c.imp_rc);
+	assert_int_equal(0, out_c.failure_idx);
+	assert_false(out_c.pw_events_remain);
+	assert_false(out_c.int_events_remain);
+
+	// Illegal port in clear 2many_pna event
+	in_c.num_events = 1;
+	in_c.events = events;
+	events[0].port_num = NUM_RXS_PORTS(&mock_dev_info);
+	events[0].event = rio_em_f_2many_pna;
+
+	out_c.imp_rc = 0;
+	out_c.failure_idx = 0xFF;
+	out_c.pw_events_remain = true;
+	out_c.int_events_remain = true;
+
+	assert_int_not_equal(RIO_SUCCESS,
+			rxs_rio_em_clr_events(&mock_dev_info, &in_c,
+					&out_c));
+	assert_int_not_equal(0, out_c.imp_rc);
+	assert_int_equal(0, out_c.failure_idx);
+	assert_false(out_c.pw_events_remain);
+	assert_false(out_c.int_events_remain);
+
+	// Illegal port in clear TTL event
+	in_c.num_events = 1;
+	in_c.events = events;
+	events[0].port_num = NUM_RXS_PORTS(&mock_dev_info);
+	events[0].event = rio_em_d_ttl;
 
 	out_c.imp_rc = 0;
 	out_c.failure_idx = 0xFF;
@@ -4744,8 +4684,6 @@ static void rxs_rio_em_clr_events_bad_parms_test(void **state)
 }
 
 // Verify that each interrupt event can be cleared.
-//
-// This test is skipped if interrupts are not supported.
 
 static void rxs_rio_em_clr_int_events_success_test(void **state)
 {
@@ -4762,58 +4700,32 @@ static void rxs_rio_em_clr_int_events_success_test(void **state)
 	rio_em_event_n_loc_t stat_e[(uint8_t)rio_em_last];
 	DAR_DEV_INFO_t *dev_info = &mock_dev_info;
 
-	// NOTE: A 2many_pna event also causes an 2many_retx event.
-	// For this reason, "2many_pna" must be the last test,
-	// and 2many_retx must occur before 2many_pna.
-	rio_em_cfg_t tests[] = {
-		{rio_em_f_los, rio_em_detect_on, 1 * 256 * 1000},
-		{rio_em_f_port_err, rio_em_detect_on, 0},
-		{rio_em_f_err_rate, rio_em_detect_on, 0x100000FF},
-		{rio_em_f_2many_retx, rio_em_detect_on, 0x0010},
-		{rio_em_d_log, rio_em_detect_on,
-					RXS_LOCAL_ERR_EN_ILL_TYPE_EN |
-					RXS_LOCAL_ERR_EN_ILL_ID_EN},
-		{rio_em_i_sig_det, rio_em_detect_on, 0},
-		{rio_em_i_rst_req, rio_em_detect_on, 0},
-		{rio_em_i_init_fail, rio_em_detect_on, 0},
-		{rio_em_f_2many_pna, rio_em_detect_on, 0x0010}
-	};
+	rio_port_t port = 6;
 
-	uint32_t plm_imp_spec_ctl;
-	uint32_t t_mask = RXS_PLM_SPX_IMP_SPEC_CTL_SELF_RST |
-	RXS_PLM_SPX_IMP_SPEC_CTL_PORT_SELF_RST;
-
-	const unsigned int test_cnt = sizeof(tests) / sizeof(tests[0]);
-	unsigned int i, chk_i, srch_i;
-	Tsi721_test_state_t *l_st = (Tsi721_test_state_t *)*state;
+	unsigned int i, chk_i, j;
+	RXS_test_state_t *l_st = (RXS_test_state_t *)*state;
 
 	if (l_st->real_hw) {
 		return;
 	}
 
-	for (i = 0; i < test_cnt; i++) {
-		if (DEBUG_PRINTF) {
-			printf("\ni = %d event = %d\n", i, tests[i].em_event);
-		}
-		// Enable detection of each event.
-		if (rio_em_i_rst_req == tests[i].em_event) {
-			// If we're testing disabling the Reset Request
-			// event, do the real disable since this events
-			// detection is actually controlled by Port Config
-			// functionality.
+	// Power up and enable all ports...
+	set_all_port_config(cfg_perfect, false, false, RIO_ALL_PORTS);
 
-			assert_int_equal(RIO_SUCCESS,
-					DARRegRead(&mock_dev_info, RXS_PLM_SPX_IMP_SPEC_CTL, &plm_imp_spec_ctl));
-			plm_imp_spec_ctl &= ~t_mask;
-			assert_int_equal(RIO_SUCCESS,
-					DARRegWrite(&mock_dev_info, RXS_PLM_SPX_IMP_SPEC_CTL, plm_imp_spec_ctl));
+	for (i = 0; i < int_test_cnt; i++) {
+		if (DEBUG_PRINTF) {
+			printf("\ni = %d ev = %d\n", i, int_tests[i].em_event);
+		 }
+		// Enable detection of each event.
+		if (rio_em_i_rst_req == int_tests[i].em_event) {
+			set_plm_imp_spec_ctl_rst(port, int_tests[i].em_detect);
 		}
 
 		set_cfg_in.ptl.num_ports = 1;
-		set_cfg_in.ptl.pnums[0] = 0;
+		set_cfg_in.ptl.pnums[0] = port;
 		set_cfg_in.notfn = rio_em_notfn_both;
 		set_cfg_in.num_events = 1;
-		set_cfg_in.events = &tests[i];
+		set_cfg_in.events = &int_tests[i];
 
 		set_cfg_out.imp_rc = 0xFFFFFFFF;
 		set_cfg_out.fail_port_num = 0x99;
@@ -4831,9 +4743,14 @@ static void rxs_rio_em_clr_int_events_success_test(void **state)
 		// Create all events
 		c_in.num_events = i + 1;
 		c_in.events = c_e;
-		for (srch_i = 0; srch_i <= i; srch_i++) {
-			c_e[srch_i].port_num = 0;
-			c_e[srch_i].event = tests[srch_i].em_event;
+		for (j = 0; j <= i; j++) {
+			if ((rio_em_d_log == int_tests[j].em_event) ||
+				(rio_em_i_init_fail == int_tests[j].em_event)) {
+				c_e[j].port_num = RIO_ALL_PORTS;
+			} else {
+				c_e[j].port_num = port;
+			}
+			c_e[j].event = int_tests[j].em_event;
 		}
 
 		c_out.imp_rc = 0xFFFFFF;
@@ -4848,7 +4765,7 @@ static void rxs_rio_em_clr_int_events_success_test(void **state)
 
 		// Query the event interrupt status
 		in_i.ptl.num_ports = 1;
-		in_i.ptl.pnums[0] = 0;
+		in_i.ptl.pnums[0] = port;
 		in_i.num_events = (uint8_t)rio_em_last;
 		in_i.events = stat_e;
 		memset(stat_e, 0xFF, sizeof(stat_e));
@@ -4868,19 +4785,7 @@ static void rxs_rio_em_clr_int_events_success_test(void **state)
 
 		// Check that all events created to date are all found...
 		for (chk_i = 0; chk_i <= i; chk_i++) {
-			bool found = false;
-			for (srch_i = 0; !found && (srch_i <= i); srch_i++) {
-				if (tests[chk_i].em_event
-						== stat_e[srch_i].event) {
-					found = true;
-				}
-			}
-			if (!found && DEBUG_PRINTF) {
-				printf("i %d event_cnt %d chk_i %d event %d", i,
-						out_i.num_events, chk_i,
-						tests[chk_i].em_event);
-			}
-			assert_true(found);
+			find_event(&c_e[chk_i], stat_e, i + 1);
 		}
 
 		// Clear all interrupt events...
@@ -4917,10 +4822,6 @@ static void rxs_rio_em_clr_int_events_success_test(void **state)
 				rxs_rio_em_get_int_stat(&mock_dev_info,
 						&in_i, &out_i));
 		assert_int_equal(0, out_i.imp_rc);
-		if (out_i.num_events && DEBUG_PRINTF) {
-			printf("\n%d events, first is %d\n", out_i.num_events,
-					stat_e[0].event);
-		}
 		assert_int_equal(0, out_i.num_events);
 		assert_false(out_i.too_many);
 		assert_false(out_i.other_events);
@@ -4946,79 +4847,30 @@ static void rxs_rio_em_clr_pw_events_success_test(void **state)
 	rio_em_event_n_loc_t stat_e[(uint8_t)rio_em_last];
 	DAR_DEV_INFO_t *dev_info = &mock_dev_info;
 
-	// NOTE: A 2many_pna event also causes an err_rate event.
-	// For this reason, "2many_pna" must be the last test,
-	// and err_rate must occur before 2many_pna.
-	rio_em_cfg_t tests[] = {
-			{rio_em_f_los, rio_em_detect_on, 1 * 256 * 1000}, {
-					rio_em_f_port_err, rio_em_detect_on, 0},
-			{rio_em_f_err_rate, rio_em_detect_on, 0x100000FF}, {
-					rio_em_f_2many_retx, rio_em_detect_on,
-					0x0010}, {rio_em_d_log,
-					rio_em_detect_on,
-					RXS_LOCAL_ERR_EN_ILL_TYPE_EN |
-					RXS_LOCAL_ERR_EN_ILL_ID_EN}, {
-					rio_em_i_sig_det, rio_em_detect_on, 0},
-			{rio_em_i_rst_req, rio_em_detect_on, 0}, {
-					rio_em_f_2many_pna, rio_em_detect_on,
-					0x0010}};
+	rio_port_t port = 7;
 
-	uint32_t plm_imp_spec_ctl;
-	uint32_t t_mask = RXS_PLM_SPX_IMP_SPEC_CTL_SELF_RST |
-	RXS_PLM_SPX_IMP_SPEC_CTL_PORT_SELF_RST;
+	unsigned int i, chk_i, j;
 
-	const unsigned int test_cnt = sizeof(tests) / sizeof(tests[0]);
-	unsigned int i, chk_i, srch_i;
+	// Power up and enable all ports...
+	set_all_port_config(cfg_perfect, false, false, RIO_ALL_PORTS);
 
-	// Before beginning, clear all events in hardware
-	// Fail if any events remain.
+	// Grind through creating and clearing all events.
 
-	for (i = 0; i < test_cnt; i++) {
-		c_e[i].event = tests[i].em_event;
-		c_e[i].port_num = 0;
-	}
-	in_c.num_events = test_cnt;
-	in_c.events = c_e;
-
-	out_c.imp_rc = 0xFFFF;
-	out_c.failure_idx = 0xFF;
-	out_c.pw_events_remain = true;
-	out_c.int_events_remain = true;
-
-	assert_int_equal(RIO_SUCCESS,
-			rxs_rio_em_clr_events(&mock_dev_info, &in_c,
-					&out_c));
-
-	assert_int_equal(0, out_c.imp_rc);
-	assert_int_equal(0, out_c.failure_idx);
-	assert_false(out_c.pw_events_remain);
-	assert_false(out_c.int_events_remain);
-
-	// Now grind through creating and clearing all events.
-
-	for (i = 0; i < test_cnt; i++) {
+	for (i = 0; i < int_test_cnt; i++) {
 		if (DEBUG_PRINTF) {
-			printf("\ni = %d event = %d\n", i, tests[i].em_event);
+			printf("\ni = %d event = %d\n",
+						i, int_tests[i].em_event);
 		}
 		// Enable detection of each event.
-		if (rio_em_i_rst_req == tests[i].em_event) {
-			// If we're testing disabling the Reset Request
-			// event, do the real disable since this events
-			// detection is actually controlled by Port Config
-			// functionality.
-
-			assert_int_equal(RIO_SUCCESS,
-					DARRegRead(&mock_dev_info, RXS_PLM_SPX_IMP_SPEC_CTL, &plm_imp_spec_ctl));
-			plm_imp_spec_ctl &= ~t_mask;
-			assert_int_equal(RIO_SUCCESS,
-					DARRegWrite(&mock_dev_info, RXS_PLM_SPX_IMP_SPEC_CTL, plm_imp_spec_ctl));
+		if (rio_em_i_rst_req == int_tests[i].em_event) {
+			set_plm_imp_spec_ctl_rst(port, int_tests[i].em_detect);
 		}
 
 		set_cfg_in.ptl.num_ports = 1;
-		set_cfg_in.ptl.pnums[0] = 0;
+		set_cfg_in.ptl.pnums[0] = port;
 		set_cfg_in.notfn = rio_em_notfn_pw;
 		set_cfg_in.num_events = 1;
-		set_cfg_in.events = &tests[i];
+		set_cfg_in.events = &int_tests[i];
 
 		set_cfg_out.imp_rc = 0xFFFFFFFF;
 		set_cfg_out.fail_port_num = 0x99;
@@ -5036,9 +4888,14 @@ static void rxs_rio_em_clr_pw_events_success_test(void **state)
 		// Create the event
 		c_in.num_events = i + 1;
 		c_in.events = c_e;
-		for (srch_i = 0; srch_i <= i; srch_i++) {
-			c_e[srch_i].port_num = 0;
-			c_e[srch_i].event = tests[srch_i].em_event;
+		for (j = 0; j <= i; j++) {
+			if ((rio_em_d_log == int_tests[j].em_event) ||
+				(rio_em_i_init_fail == int_tests[j].em_event)) {
+				c_e[j].port_num = RIO_ALL_PORTS;
+			} else {
+				c_e[j].port_num = port;
+			}
+			c_e[j].event = int_tests[j].em_event;
 		}
 
 		c_out.imp_rc = 0xFFFFFF;
@@ -5053,9 +4910,10 @@ static void rxs_rio_em_clr_pw_events_success_test(void **state)
 
 		// Query the event port-write status
 		in_p.ptl.num_ports = 1;
-		in_p.ptl.pnums[0] = 0;
+		in_p.ptl.pnums[0] = port;
 		in_p.num_events = (uint8_t)rio_em_last;
 		in_p.events = stat_e;
+		in_p.pw_port_num = RIO_ALL_PORTS;
 		memset(stat_e, 0xFF, sizeof(stat_e));
 
 		out_p.imp_rc = 0;
@@ -5073,19 +4931,7 @@ static void rxs_rio_em_clr_pw_events_success_test(void **state)
 
 		// Check that all events created to date are all found...
 		for (chk_i = 0; chk_i <= i; chk_i++) {
-			bool found = false;
-			for (srch_i = 0; !found && (srch_i <= i); srch_i++) {
-				if (tests[chk_i].em_event
-						== stat_e[srch_i].event) {
-					found = true;
-				}
-			}
-			if (!found && DEBUG_PRINTF) {
-				printf("i %d event_cnt %d chk_i %d event %d", i,
-						out_p.num_events, chk_i,
-						tests[chk_i].em_event);
-			}
-			assert_true(found);
+			find_event(&c_e[chk_i], stat_e, i + 1);
 		}
 
 		// Clear all port-write events...
@@ -5107,7 +4953,7 @@ static void rxs_rio_em_clr_pw_events_success_test(void **state)
 
 		// Query the event port-write status, check all events are gone
 		in_p.ptl.num_ports = 1;
-		in_p.ptl.pnums[0] = 0;
+		in_p.ptl.pnums[0] = port;
 		in_p.num_events = (uint8_t)rio_em_last;
 		in_p.events = stat_e;
 		memset(stat_e, 0xFF, sizeof(stat_e));
@@ -5136,8 +4982,6 @@ static void rxs_rio_em_clr_pw_events_success_test(void **state)
 // Test that if one event is configured with interrupt
 // notification and all other events are disabled, that when the port-write
 // event is cleared the "other events" fields behave correctly.
-//
-// This test is skipped if interrupts are not supported.
 
 static void rxs_rio_em_clr_int_events_other_events_test(void **state)
 {
@@ -5154,30 +4998,11 @@ static void rxs_rio_em_clr_int_events_other_events_test(void **state)
 	rio_em_event_n_loc_t stat_e[(uint8_t)rio_em_last];
 	DAR_DEV_INFO_t *dev_info = &mock_dev_info;
 
-	// NOTE: A 2many_pna event also causes an 2many_retx event.
-	// For this reason, "2many_pna" must be the last test,
-	// and 2many_retx must occur before 2many_pna.
-	rio_em_cfg_t tests[] = {
-		{rio_em_f_los, rio_em_detect_on, 1 * 256 * 1000},
-		{rio_em_f_port_err, rio_em_detect_on, 0},
-		{rio_em_f_err_rate, rio_em_detect_on, 0x1000000F},
-		{rio_em_d_log, rio_em_detect_on,
-					RXS_LOCAL_ERR_EN_ILL_TYPE_EN |
-					RXS_LOCAL_ERR_EN_ILL_ID_EN},
-		{rio_em_i_sig_det, rio_em_detect_on, 0},
-		{rio_em_i_rst_req, rio_em_detect_on, 0},
-		{rio_em_i_init_fail, rio_em_detect_on, 0},
-		{rio_em_f_2many_retx, rio_em_detect_on, 0x0010},
-		{rio_em_f_2many_pna, rio_em_detect_on, 0x0010}
-	};
+	rio_port_t port = 8;
+	bool events_remain;
 
-	uint32_t plm_imp_spec_ctl;
-	uint32_t t_mask = RXS_PLM_SPX_IMP_SPEC_CTL_SELF_RST |
-	RXS_PLM_SPX_IMP_SPEC_CTL_PORT_SELF_RST;
-
-	const unsigned int test_cnt = sizeof(tests) / sizeof(tests[0]);
 	unsigned int i, t;
-	Tsi721_test_state_t *l_st = (Tsi721_test_state_t *)*state;
+	RXS_test_state_t *l_st = (RXS_test_state_t *)*state;
 
 	if (l_st->real_hw) {
 		return;
@@ -5185,60 +5010,57 @@ static void rxs_rio_em_clr_int_events_other_events_test(void **state)
 
 	// Use test_cnt - 1 here to avoid trying for rio_em_f_2many_pna
 	// without also setting rio_em_f_err_rate.
-	for (i = 0; i < test_cnt - 1; i++) {
-		for (t = 0; t < test_cnt; t++) {
+	for (i = 0; i < int_test_cnt - 1; i++) {
+		// Reset request events cannot be masked at the port
+		// level, so skip them for this test.
+		if (rio_em_i_rst_req == int_tests[i].em_event) {
+			continue;
+		}
+		for (t = 0; t < int_test_cnt; t++) {
 			// Must have two different events for this test.
 			if (i == t) {
 				continue;
 			}
-			// init_fail events can only cause interrupts on the
-			// Tsi721, so if they are the test event, don't bother
-			if (rio_em_i_init_fail == tests[t].em_event) {
+			// Reset request events cannot be masked at the port
+			// level, so skip them for this test.
+			if (rio_em_i_rst_req == int_tests[t].em_event) {
 				continue;
 			}
 			// 2many_retx and 2many_pna cause the same event,
 			// so skip ahead if they're both selected...
-			if ((rio_em_f_2many_retx == tests[i].em_event) &&
-				(rio_em_f_2many_pna == tests[t].em_event)) {
+			if ((rio_em_f_2many_retx == int_tests[i].em_event) &&
+				(rio_em_f_2many_pna == int_tests[t].em_event)) {
 				continue;
 			}
-			if ((rio_em_f_2many_retx == tests[t].em_event) &&
-				(rio_em_f_2many_pna == tests[i].em_event)) {
+			if ((rio_em_f_2many_retx == int_tests[t].em_event) &&
+				(rio_em_f_2many_pna == int_tests[i].em_event)) {
 				continue;
 			}
 			if (DEBUG_PRINTF) {
-				printf("\ni = %d t = %d event = %d %d\n", i, t,
-						tests[i].em_event,
-						tests[t].em_event);
+				printf("\ni = %d ev = %d t = %d ev = %d\n",
+						i, int_tests[i].em_event,
+						t, int_tests[t].em_event);
 			}
 			// This test requires a clean slate at the beginning
 			// of each attempt
 			rxs_em_setup(state);
 
-			// Enable detection of the current event.
-			if (rio_em_i_rst_req == tests[i].em_event) {
-				// If we're testing disabling the Reset Request
-				// event, do the real disable since this events
-				// detection is actually controlled by
-				// Port Config functionality.
+			// Power up and enable all ports...
+			set_all_port_config(cfg_perfect, false, false,
+								RIO_ALL_PORTS);
 
-				assert_int_equal(RIO_SUCCESS,
-						DARRegRead(&mock_dev_info, RXS_PLM_SPX_IMP_SPEC_CTL, &plm_imp_spec_ctl));
-				if (rio_em_detect_off == tests[i].em_detect) {
-					plm_imp_spec_ctl |= t_mask;
-				} else {
-					plm_imp_spec_ctl &= ~t_mask;
-				}
-				assert_int_equal(RIO_SUCCESS,
-						DARRegWrite(&mock_dev_info, RXS_PLM_SPX_IMP_SPEC_CTL, plm_imp_spec_ctl));
+			// Enable detection of the current event.
+			if (rio_em_i_rst_req == int_tests[i].em_event) {
+				set_plm_imp_spec_ctl_rst(port,
+							int_tests[i].em_detect);
 			}
 
 			// Enable the i'th test
 			set_cfg_in.ptl.num_ports = 1;
-			set_cfg_in.ptl.pnums[0] = 0;
+			set_cfg_in.ptl.pnums[0] = port;
 			set_cfg_in.notfn = rio_em_notfn_int;
 			set_cfg_in.num_events = 1;
-			set_cfg_in.events = &tests[i];
+			set_cfg_in.events = &int_tests[i];
 
 			set_cfg_out.imp_rc = 0xFFFFFFFF;
 			set_cfg_out.fail_port_num = 0x99;
@@ -5258,10 +5080,48 @@ static void rxs_rio_em_clr_int_events_other_events_test(void **state)
 			// Create the i'th and t'th event
 			c_in.num_events = 2;
 			c_in.events = c_e;
-			c_e[0].port_num = 0;
-			c_e[0].event = tests[i].em_event;
-			c_e[1].port_num = 0;
-			c_e[1].event = tests[t].em_event;
+			c_e[0].event = int_tests[i].em_event;
+			c_e[1].event = int_tests[t].em_event;
+
+			if ((rio_em_d_log == int_tests[i].em_event) ||
+				(rio_em_i_init_fail == int_tests[i].em_event)) {
+				c_e[0].port_num = RIO_ALL_PORTS;
+			} else {
+				c_e[0].port_num = port;
+			}
+			if ((rio_em_d_log == int_tests[t].em_event) ||
+				(rio_em_i_init_fail == int_tests[t].em_event)) {
+				c_e[1].port_num = RIO_ALL_PORTS;
+			} else {
+				c_e[1].port_num = port;
+			}
+
+			// The events_remain computation is a pain.
+			// If the interrupt event created is cleared by a
+			// reset, and the other event does not remain after
+			// resetting that port, then events remain should be
+			// false; the only events that remain after resetting
+			// a port are the d_log and i_init fail, both
+			// conveniently flagged by the above clause to have
+			// port_num == RIO_ALL_PORTS.
+			//
+			// Also, if the first event is d_log/i_init_fail, and
+			// the second event is NOT d_log/i_init_fail, then
+			// no events remain as the per-port events won't be
+			// queried.
+			events_remain = true;
+			if (((rio_em_f_los == c_e[0].event) ||
+				(rio_em_f_port_err == c_e[0].event) ||
+				(rio_em_f_2many_retx == c_e[0].event) ||
+				(rio_em_f_2many_pna == c_e[0].event) ||
+				(rio_em_f_err_rate == c_e[0].event)) &&
+				(RIO_ALL_PORTS != c_e[1].port_num)) {
+					events_remain = false;
+			}
+			if ((RIO_ALL_PORTS == c_e[0].port_num) &&
+					(RIO_ALL_PORTS != c_e[1].port_num)) {
+				events_remain = false;
+			}
 
 			c_out.imp_rc = 0xFFFFFF;
 			c_out.failure_idx = 0xff;
@@ -5275,7 +5135,7 @@ static void rxs_rio_em_clr_int_events_other_events_test(void **state)
 
 			// Query the event interrupt status
 			in_i.ptl.num_ports = 1;
-			in_i.ptl.pnums[0] = 0;
+			in_i.ptl.pnums[0] = port;
 			in_i.num_events = (uint8_t)rio_em_last;
 			in_i.events = stat_e;
 			memset(stat_e, 0xFF, sizeof(stat_e));
@@ -5295,9 +5155,10 @@ static void rxs_rio_em_clr_int_events_other_events_test(void **state)
 			assert_true(out_i.other_events);
 
 			// Check that the event created was found
-			assert_int_equal(tests[i].em_event, stat_e[0].event);
+			assert_int_equal(c_e[0].event, stat_e[0].event);
+			assert_int_equal(c_e[0].port_num, stat_e[0].port_num);
 
-			// Clear all interrupt events...
+			// Clear the interrupt events...
 			in_c.num_events = out_i.num_events;
 			in_c.events = in_i.events;
 
@@ -5312,13 +5173,13 @@ static void rxs_rio_em_clr_int_events_other_events_test(void **state)
 			assert_int_equal(0, out_c.imp_rc);
 			assert_int_equal(0, out_c.failure_idx);
 
-			assert_true(out_c.pw_events_remain);
-			assert_true(out_c.int_events_remain);
+			assert_int_equal(events_remain, out_c.pw_events_remain);
+			assert_int_equal(events_remain,out_c.int_events_remain);
 
 			// Query the event interrupt status, confirm that
 			// port-write events remain...
 			in_i.ptl.num_ports = 1;
-			in_i.ptl.pnums[0] = 0;
+			in_i.ptl.pnums[0] = port;
 			in_i.num_events = (uint8_t)rio_em_last;
 			in_i.events = stat_e;
 			memset(stat_e, 0xFF, sizeof(stat_e));
@@ -5335,7 +5196,20 @@ static void rxs_rio_em_clr_int_events_other_events_test(void **state)
 			assert_int_equal(0, out_i.imp_rc);
 			assert_int_equal(0, out_i.num_events);
 			assert_false(out_i.too_many);
-			assert_true(out_i.other_events);
+			// The events_remain computation is a pain.
+			// Redo the events_remain computation, eliminating
+			// the second condition from above, since this query
+			// will be done against the port number.
+			events_remain = true;
+			if (((rio_em_f_los == c_e[0].event) ||
+				(rio_em_f_port_err == c_e[0].event) ||
+				(rio_em_f_2many_retx == c_e[0].event) ||
+				(rio_em_f_2many_pna == c_e[0].event) ||
+				(rio_em_f_err_rate == c_e[0].event)) &&
+				(RIO_ALL_PORTS != c_e[1].port_num)) {
+					events_remain = false;
+			}
+			assert_int_equal(events_remain, out_i.other_events);
 		}
 	}
 
@@ -5363,29 +5237,11 @@ static void rxs_rio_em_clr_pw_events_other_events_test(void **state)
 	rio_em_event_n_loc_t stat_e[(uint8_t)rio_em_last];
 	DAR_DEV_INFO_t *dev_info = &mock_dev_info;
 
-	// NOTE: A 2many_pna event also causes an err_rate event.
-	// For this reason, "2many_pna" must be the last test,
-	// and err_rate must occur before 2many_pna.
-	rio_em_cfg_t tests[] = {
-		{rio_em_f_los, rio_em_detect_on, 1 * 256 * 1000},
-		{rio_em_f_port_err, rio_em_detect_on, 0},
-		{rio_em_f_err_rate, rio_em_detect_on, 0x1000000F},
-		{rio_em_d_log, rio_em_detect_on,
-					RXS_LOCAL_ERR_EN_ILL_TYPE_EN |
-					RXS_LOCAL_ERR_EN_ILL_ID_EN},
-		{rio_em_i_sig_det, rio_em_detect_on, 0},
-		{rio_em_i_rst_req, rio_em_detect_on, 0},
-		{rio_em_f_2many_retx, rio_em_detect_on, 0x0010},
-		{rio_em_f_2many_pna, rio_em_detect_on, 0x0010}
-	};
+	rio_port_t port = 10;
+	bool events_remain;
 
-	uint32_t plm_imp_spec_ctl;
-	uint32_t t_mask = RXS_PLM_SPX_IMP_SPEC_CTL_SELF_RST |
-	RXS_PLM_SPX_IMP_SPEC_CTL_PORT_SELF_RST;
-
-	const unsigned int test_cnt = sizeof(tests) / sizeof(tests[0]);
 	unsigned int i, t;
-	Tsi721_test_state_t *l_st = (Tsi721_test_state_t *)*state;
+	RXS_test_state_t *l_st = (RXS_test_state_t *)*state;
 
 	if (l_st->real_hw) {
 		return;
@@ -5393,55 +5249,51 @@ static void rxs_rio_em_clr_pw_events_other_events_test(void **state)
 
 	// Use test_cnt - 1 here to avoid trying for rio_em_f_2many_pna
 	// without also setting rio_em_f_err_rate.
-	for (i = 0; i < test_cnt - 1; i++) {
-		for (t = 0; t < test_cnt; t++) {
+	for (i = 0; i < int_test_cnt - 1; i++) {
+		// Reset requests can't be masked at the port level, so
+		// they can't be used for the first event of this test.
+		if (rio_em_i_rst_req == int_tests[i].em_event) {
+			continue;
+		}
+		for (t = 0; t < int_test_cnt; t++) {
 			// Must have two different events for this test.
 			if (i == t) {
 				continue;
 			}
 			// 2many_retx and 2many_pna cause the same event,
 			// so skip ahead if they're both selected...
-			if ((rio_em_f_2many_retx == tests[i].em_event) &&
-				(rio_em_f_2many_pna == tests[t].em_event)) {
+			if ((rio_em_f_2many_retx == int_tests[i].em_event) &&
+				(rio_em_f_2many_pna == int_tests[t].em_event)) {
 				continue;
 			}
-			if ((rio_em_f_2many_retx == tests[t].em_event) &&
-				(rio_em_f_2many_pna == tests[i].em_event)) {
+			if ((rio_em_f_2many_retx == int_tests[t].em_event) &&
+				(rio_em_f_2many_pna == int_tests[i].em_event)) {
+				continue;
+			}
+			// Reset requests can't be masked at the port level, so
+			// they can't be used for the first event of this test.
+			if (rio_em_i_rst_req == int_tests[t].em_event) {
 				continue;
 			}
 			if (DEBUG_PRINTF) {
-				printf("\ni = %d t = %d event = %d %d\n", i, t,
-						tests[i].em_event,
-						tests[t].em_event);
+				printf("\ni = %d ev = %d t = %d ev %d\n",
+						i, int_tests[i].em_event,
+						t, int_tests[t].em_event);
 			}
 			// This test requires a clean slate at the beginning
 			// of each attempt
 			rxs_em_setup(state);
 
-			// Enable detection of the current event.
-			if (rio_em_i_rst_req == tests[i].em_event) {
-				// If we're testing disabling the Reset Request
-				// event, do the real disable since this events
-				// detection is actually controlled by
-				// Port Config functionality.
-
-				assert_int_equal(RIO_SUCCESS,
-						DARRegRead(&mock_dev_info, RXS_PLM_SPX_IMP_SPEC_CTL, &plm_imp_spec_ctl));
-				if (rio_em_detect_off == tests[i].em_detect) {
-					plm_imp_spec_ctl |= t_mask;
-				} else {
-					plm_imp_spec_ctl &= ~t_mask;
-				}
-				assert_int_equal(RIO_SUCCESS,
-						DARRegWrite(&mock_dev_info, RXS_PLM_SPX_IMP_SPEC_CTL, plm_imp_spec_ctl));
-			}
+			// Power up and enable all ports...
+			set_all_port_config(cfg_perfect, false, false,
+								RIO_ALL_PORTS);
 
 			// Enable the i'th test
 			set_cfg_in.ptl.num_ports = 1;
-			set_cfg_in.ptl.pnums[0] = 0;
+			set_cfg_in.ptl.pnums[0] = port;
 			set_cfg_in.notfn = rio_em_notfn_pw;
 			set_cfg_in.num_events = 1;
-			set_cfg_in.events = &tests[i];
+			set_cfg_in.events = &int_tests[i];
 
 			set_cfg_out.imp_rc = 0xFFFFFFFF;
 			set_cfg_out.fail_port_num = 0x99;
@@ -5461,10 +5313,46 @@ static void rxs_rio_em_clr_pw_events_other_events_test(void **state)
 			// Create the i'th and t'th event
 			c_in.num_events = 2;
 			c_in.events = c_e;
-			c_e[0].port_num = 0;
-			c_e[0].event = tests[i].em_event;
-			c_e[1].port_num = 0;
-			c_e[1].event = tests[t].em_event;
+			c_e[0].event = int_tests[i].em_event;
+			c_e[1].event = int_tests[t].em_event;
+			if ((rio_em_d_log == int_tests[i].em_event) ||
+				(rio_em_i_init_fail == int_tests[i].em_event)) {
+				c_e[0].port_num = RIO_ALL_PORTS;
+			} else {
+				c_e[0].port_num = port;
+			}
+			if ((rio_em_d_log == int_tests[t].em_event) ||
+				(rio_em_i_init_fail == int_tests[t].em_event)) {
+				c_e[1].port_num = RIO_ALL_PORTS;
+			} else {
+				c_e[1].port_num = port;
+			}
+			// The events_remain computation is a pain.
+			// If the interrupt event created is cleared by a
+			// reset, and the other event does not remain after
+			// resetting that port, then events remain should be
+			// false; the only events that remain after resetting
+			// a port are the d_log and i_init fail, both
+			// conveniently flagged by the above clause to have
+			// port_num == RIO_ALL_PORTS.
+			//
+			// Also, if the first event is d_log/i_init_fail, and
+			// the second event is NOT d_log/i_init_fail, then
+			// no events remain as the per-port events won't be
+			// queried.
+			events_remain = true;
+			if (((rio_em_f_los == c_e[0].event) ||
+				(rio_em_f_port_err == c_e[0].event) ||
+				(rio_em_f_2many_retx == c_e[0].event) ||
+				(rio_em_f_2many_pna == c_e[0].event) ||
+				(rio_em_f_err_rate == c_e[0].event)) &&
+				(RIO_ALL_PORTS != c_e[1].port_num)) {
+					events_remain = false;
+			}
+			if ((RIO_ALL_PORTS == c_e[0].port_num) &&
+					(RIO_ALL_PORTS != c_e[1].port_num)) {
+				events_remain = false;
+			}
 
 			c_out.imp_rc = 0xFFFFFF;
 			c_out.failure_idx = 0xff;
@@ -5478,7 +5366,8 @@ static void rxs_rio_em_clr_pw_events_other_events_test(void **state)
 
 			// Query the event port-write status
 			in_p.ptl.num_ports = 1;
-			in_p.ptl.pnums[0] = 0;
+			in_p.ptl.pnums[0] = port;
+			in_p.pw_port_num = RIO_ALL_PORTS;
 			in_p.num_events = (uint8_t)rio_em_last;
 			in_p.events = stat_e;
 			memset(stat_e, 0xFF, sizeof(stat_e));
@@ -5498,7 +5387,8 @@ static void rxs_rio_em_clr_pw_events_other_events_test(void **state)
 			assert_true(out_p.other_events);
 
 			// Check that the event created was found
-			assert_int_equal(tests[i].em_event, stat_e[0].event);
+			assert_int_equal(int_tests[i].em_event,
+							stat_e[0].event);
 
 			// Clear all port-write events...
 			in_c.num_events = out_p.num_events;
@@ -5514,12 +5404,13 @@ static void rxs_rio_em_clr_pw_events_other_events_test(void **state)
 							&in_c, &out_c));
 			assert_int_equal(0, out_c.imp_rc);
 			assert_int_equal(0, out_c.failure_idx);
-			assert_true(out_c.pw_events_remain);
-			assert_true(out_c.int_events_remain);
+			assert_int_equal(events_remain, out_c.pw_events_remain);
+			assert_int_equal(events_remain,out_c.int_events_remain);
 
 			// Query the event port-write status
 			in_p.ptl.num_ports = 1;
-			in_p.ptl.pnums[0] = 0;
+			in_p.ptl.pnums[0] = port;
+			in_p.pw_port_num = RIO_ALL_PORTS;
 			in_p.num_events = (uint8_t)rio_em_last;
 			in_p.events = stat_e;
 			memset(stat_e, 0xFF, sizeof(stat_e));
@@ -5528,6 +5419,19 @@ static void rxs_rio_em_clr_pw_events_other_events_test(void **state)
 			out_p.num_events = 0xFF;
 			out_p.too_many = true;
 			out_p.other_events = true;
+			// The events_remain computation is a pain.
+			// Redo the events_remain computation, eliminating
+			// the second condition from above, since this query
+			// will be done against the port number.
+			events_remain = true;
+			if (((rio_em_f_los == c_e[0].event) ||
+				(rio_em_f_port_err == c_e[0].event) ||
+				(rio_em_f_2many_retx == c_e[0].event) ||
+				(rio_em_f_2many_pna == c_e[0].event) ||
+				(rio_em_f_err_rate == c_e[0].event)) &&
+				(RIO_ALL_PORTS != c_e[1].port_num)) {
+					events_remain = false;
+			}
 
 			assert_int_equal(RIO_SUCCESS,
 					rxs_rio_em_get_pw_stat(
@@ -5536,7 +5440,7 @@ static void rxs_rio_em_clr_pw_events_other_events_test(void **state)
 			assert_int_equal(0, out_p.imp_rc);
 			assert_int_equal(0, out_p.num_events);
 			assert_false(out_p.too_many);
-			assert_true(out_p.other_events);
+			assert_int_equal(events_remain, out_p.other_events);
 		}
 	}
 
@@ -5547,8 +5451,6 @@ static void rxs_rio_em_clr_pw_events_other_events_test(void **state)
 // notification and another is configured with interrupt notification,
 // that when the events are created and cleared the
 // "other events" fields behave correctly.
-//
-// This test is skipped if interrupts are not supported.
 
 static void rxs_rio_em_clr_int_pw_events_other_events_test(void **state)
 {
@@ -5568,105 +5470,55 @@ static void rxs_rio_em_clr_int_pw_events_other_events_test(void **state)
 	rio_em_event_n_loc_t stat_p[(uint8_t)rio_em_last];
 	DAR_DEV_INFO_t *dev_info = &mock_dev_info;
 
-	// NOTE: A 2many_pna event also causes an err_rate event.
-	// For this reason, "2many_pna" must be the last test,
-	// and err_rate must occur before 2many_pna.
-	//
-	// Note that the rio_em_f_err_rate.em_info value excludes
-	// RIO_EM_REC_ERR_SET_CS_NOT_ACC, so the events
-	// for rio_em_f_err_rate and rio_em_f_2many_pna are exclusive of
-	// each other.
-	rio_em_cfg_t tests[] = {
-		{rio_em_f_los, rio_em_detect_on, 1 * 256 * 1000},
-		{rio_em_f_port_err, rio_em_detect_on, 0},
-		{rio_em_f_err_rate, rio_em_detect_on, 0x1000000F},
-		{rio_em_d_log, rio_em_detect_on,
-					RXS_LOCAL_ERR_EN_ILL_TYPE_EN |
-					RXS_LOCAL_ERR_EN_ILL_ID_EN},
-		{rio_em_i_sig_det, rio_em_detect_on, 0},
-		{rio_em_i_rst_req, rio_em_detect_on, 0},
-		{rio_em_i_init_fail, rio_em_detect_on, 0},
-		{rio_em_f_2many_retx, rio_em_detect_on, 0x0010},
-		{rio_em_f_2many_pna, rio_em_detect_on, 0x0010}
-	};
+	rio_port_t port = 11;
+	bool events_remain;
 
-	uint32_t plm_imp_spec_ctl;
-	uint32_t t_mask = RXS_PLM_SPX_IMP_SPEC_CTL_SELF_RST |
-	RXS_PLM_SPX_IMP_SPEC_CTL_PORT_SELF_RST;
-
-	const unsigned int test_cnt = sizeof(tests) / sizeof(tests[0]);
 	unsigned int i, p;
-	Tsi721_test_state_t *l_st = (Tsi721_test_state_t *)*state;
+	RXS_test_state_t *l_st = (RXS_test_state_t *)*state;
 	rio_em_notfn_ctl_t i_notfn, p_notfn;
 
 	if (l_st->real_hw) {
 		return;
 	}
 
-	for (i = 0; i < test_cnt; i++) {
-		for (p = 0; p < test_cnt; p++) {
+	for (i = 0; i < int_test_cnt; i++) {
+		// Reset requests can't be masked at the port level, so
+		// they can't be used for the first event of this test.
+		if (rio_em_i_rst_req == int_tests[i].em_event) {
+			continue;
+		}
+		for (p = 0; p < int_test_cnt; p++) {
 			// Must have two different events for this test.
 			if (i == p) {
 				continue;
 			}
-			// init_fail events can only use pw notification
-			if (rio_em_i_init_fail == tests[p].em_event) {
+			// Reset requests can't be masked at the port level, so
+			// they can't be used for the first event of this test.
+			if (rio_em_i_rst_req == int_tests[p].em_event) {
 				continue;
 			}
 			// 2many_retx & 2many_pna both create the same event,
 			// so skip this test configuration.
-			if ((rio_em_f_2many_retx == tests[i].em_event) &&
-				(rio_em_f_2many_pna == tests[p].em_event)) {
+			if ((rio_em_f_2many_retx == int_tests[i].em_event) &&
+				(rio_em_f_2many_pna == int_tests[p].em_event)) {
 				continue;
 			}
-			if ((rio_em_f_2many_retx == tests[p].em_event) &&
-				(rio_em_f_2many_pna == tests[i].em_event)) {
+			if ((rio_em_f_2many_retx == int_tests[p].em_event) &&
+				(rio_em_f_2many_pna == int_tests[i].em_event)) {
 				continue;
 			}
 			if (DEBUG_PRINTF) {
-				printf("\ni = %d p = %d event = %d %d\n", i, p,
-						tests[i].em_event,
-						tests[p].em_event);
+				printf("\ni = %d ev = %d p = %d ev = %d\n",
+						i, int_tests[i].em_event,
+						p, int_tests[p].em_event);
 			}
 			// This test requires a clean slate at the beginning
 			// of each attempt
 			rxs_em_setup(state);
 
-			// Enable detection of the current event.
-			// NOTE: Only one of tests[i].em_event and
-			// tests[p].em_event can be true at any one time.
-			if (rio_em_i_rst_req == tests[i].em_event) {
-				// If we're testing the Reset Request
-				// event, do the disable/enable since this
-				// events detection is actually controlled by
-				// Port Config functionality.
-
-				assert_int_equal(RIO_SUCCESS,
-						DARRegRead(&mock_dev_info, RXS_PLM_SPX_IMP_SPEC_CTL, &plm_imp_spec_ctl));
-				if (rio_em_detect_off == tests[i].em_detect) {
-					plm_imp_spec_ctl |= t_mask;
-				} else {
-					plm_imp_spec_ctl &= ~t_mask;
-				}
-				assert_int_equal(RIO_SUCCESS,
-						DARRegWrite(&mock_dev_info, RXS_PLM_SPX_IMP_SPEC_CTL, plm_imp_spec_ctl));
-			}
-			if (rio_em_i_rst_req == tests[p].em_event) {
-				// If we're testing the Reset Request
-				// event, do the disable/enable since this
-				// events detection is actually controlled by
-				// Port Config functionality.
-
-				assert_int_equal(RIO_SUCCESS,
-						DARRegRead(&mock_dev_info, RXS_PLM_SPX_IMP_SPEC_CTL, &plm_imp_spec_ctl));
-				if (rio_em_detect_off == tests[p].em_detect) {
-					plm_imp_spec_ctl |= t_mask;
-				} else {
-					plm_imp_spec_ctl &= ~t_mask;
-				}
-				assert_int_equal(RIO_SUCCESS,
-						DARRegWrite(&mock_dev_info, RXS_PLM_SPX_IMP_SPEC_CTL, plm_imp_spec_ctl));
-			}
+			// Power up and enable all ports...
+			set_all_port_config(cfg_perfect, false, false,
+								RIO_ALL_PORTS);
 
 			// Enable the i'th and p'th event
 			// Special notification case for f_err_rate and
@@ -5674,22 +5526,13 @@ static void rxs_rio_em_clr_int_pw_events_other_events_test(void **state)
 			// must be "both".
 			i_notfn = rio_em_notfn_int;
 			p_notfn = rio_em_notfn_pw;
-			if (((rio_em_f_err_rate == tests[i].em_event)
-					|| (rio_em_f_2many_pna
-							== tests[i].em_event))
-					&& ((rio_em_f_err_rate
-							== tests[p].em_event)
-							|| (rio_em_f_2many_pna
-									== tests[p].em_event))) {
-				i_notfn = rio_em_notfn_both;
-				p_notfn = rio_em_notfn_both;
-			}
+
 			// Enable event with interrupt notification
 			set_cfg_in.ptl.num_ports = 1;
-			set_cfg_in.ptl.pnums[0] = 0;
+			set_cfg_in.ptl.pnums[0] = port;
 			set_cfg_in.notfn = i_notfn;
 			set_cfg_in.num_events = 1;
-			set_cfg_in.events = &tests[i];
+			set_cfg_in.events = &int_tests[i];
 
 			set_cfg_out.imp_rc = 0xFFFFFFFF;
 			set_cfg_out.fail_port_num = 0x99;
@@ -5708,10 +5551,10 @@ static void rxs_rio_em_clr_int_pw_events_other_events_test(void **state)
 
 			// Enable event with port-write notification
 			set_cfg_in.ptl.num_ports = 1;
-			set_cfg_in.ptl.pnums[0] = 0;
+			set_cfg_in.ptl.pnums[0] = port;
 			set_cfg_in.notfn = p_notfn;
 			set_cfg_in.num_events = 1;
-			set_cfg_in.events = &tests[p];
+			set_cfg_in.events = &int_tests[p];
 
 			set_cfg_out.imp_rc = 0xFFFFFFFF;
 			set_cfg_out.fail_port_num = 0x99;
@@ -5731,10 +5574,47 @@ static void rxs_rio_em_clr_int_pw_events_other_events_test(void **state)
 			// Create the i'th and p'th events
 			c_in.num_events = 2;
 			c_in.events = c_e;
-			c_e[0].port_num = 0;
-			c_e[0].event = tests[i].em_event;
-			c_e[1].port_num = 0;
-			c_e[1].event = tests[p].em_event;
+			c_e[0].event = int_tests[i].em_event;
+			c_e[1].event = int_tests[p].em_event;
+			if ((rio_em_d_log == int_tests[i].em_event) ||
+				(rio_em_i_init_fail == int_tests[i].em_event)) {
+				c_e[0].port_num = RIO_ALL_PORTS;
+			} else {
+				c_e[0].port_num = port;
+			}
+			if ((rio_em_d_log == int_tests[p].em_event) ||
+				(rio_em_i_init_fail == int_tests[p].em_event)) {
+				c_e[1].port_num = RIO_ALL_PORTS;
+			} else {
+				c_e[1].port_num = port;
+			}
+
+			// The events_remain computation is a pain.
+			// If the interrupt event created is cleared by a
+			// reset, and the other event does not remain after
+			// resetting that port, then events remain should be
+			// false; the only events that remain after resetting
+			// a port are the d_log and i_init fail, both
+			// conveniently flagged by the above clause to have
+			// port_num == RIO_ALL_PORTS.
+			//
+			// Also, if the first event is d_log/i_init_fail, and
+			// the second event is NOT d_log/i_init_fail, then
+			// no events remain as the per-port events won't be
+			// queried.
+			events_remain = true;
+			if (((rio_em_f_los == c_e[0].event) ||
+				(rio_em_f_port_err == c_e[0].event) ||
+				(rio_em_f_2many_retx == c_e[0].event) ||
+				(rio_em_f_2many_pna == c_e[0].event) ||
+				(rio_em_f_err_rate == c_e[0].event)) &&
+				(RIO_ALL_PORTS != c_e[1].port_num)) {
+					events_remain = false;
+			}
+			if ((RIO_ALL_PORTS == c_e[0].port_num) &&
+					(RIO_ALL_PORTS != c_e[1].port_num)) {
+				events_remain = false;
+			}
 
 			c_out.imp_rc = 0xFFFFFF;
 			c_out.failure_idx = 0xff;
@@ -5748,7 +5628,7 @@ static void rxs_rio_em_clr_int_pw_events_other_events_test(void **state)
 
 			// Query the event interrupt status
 			in_i.ptl.num_ports = 1;
-			in_i.ptl.pnums[0] = 0;
+			in_i.ptl.pnums[0] = port;
 			in_i.num_events = (uint8_t)rio_em_last;
 			in_i.events = stat_i;
 			memset(stat_i, 0xFF, sizeof(stat_i));
@@ -5763,37 +5643,17 @@ static void rxs_rio_em_clr_int_pw_events_other_events_test(void **state)
 							&mock_dev_info, &in_i,
 							&out_i));
 			assert_int_equal(0, out_i.imp_rc);
-			if (rio_em_notfn_int == i_notfn) {
-				assert_int_equal(1, out_i.num_events);
-				assert_false(out_i.too_many);
-				assert_true(out_i.other_events);
-				assert_int_equal(stat_i[0].port_num, 0);
-				assert_int_equal(stat_i[0].event,
-						tests[i].em_event);
-			} else {
-				bool found;
-
-				assert_int_equal(2, out_i.num_events);
-				assert_false(out_i.too_many);
-				assert_false(out_i.other_events);
-				assert_int_equal(stat_i[0].port_num, 0);
-				assert_int_equal(stat_i[1].port_num, 0);
-
-				found =
-						((stat_i[0].event
-								== tests[p].em_event)
-								&& (stat_i[1].event
-										== tests[i].em_event))
-								|| ((stat_i[0].event
-										== tests[i].em_event)
-										&& (stat_i[1].event
-												== tests[p].em_event));
-				assert_true(found);
-			}
+			assert_int_equal(1, out_i.num_events);
+			assert_false(out_i.too_many);
+			assert_true(out_i.other_events);
+			assert_int_equal(stat_i[0].port_num, c_e[0].port_num);
+			assert_int_equal(stat_i[0].event,
+						int_tests[i].em_event);
 
 			// Query the event port-write status
 			in_p.ptl.num_ports = 1;
-			in_p.ptl.pnums[0] = 0;
+			in_p.ptl.pnums[0] = port;
+			in_p.pw_port_num = RIO_ALL_PORTS;
 			in_p.num_events = (uint8_t)rio_em_last;
 			in_p.events = stat_p;
 			memset(stat_p, 0xFF, sizeof(stat_p));
@@ -5808,39 +5668,11 @@ static void rxs_rio_em_clr_int_pw_events_other_events_test(void **state)
 							&mock_dev_info, &in_p,
 							&out_p));
 			assert_int_equal(0, out_p.imp_rc);
-			if (rio_em_notfn_pw == p_notfn) {
-				assert_int_equal(1, out_p.num_events);
-				assert_false(out_p.too_many);
-				// init_fail is an interrupt-only event,
-				// so it cannot trigger "other events" for
-				// a port-write
-				if (rio_em_i_init_fail == tests[i].em_event) {
-					assert_false(out_p.other_events);
-				} else {
-					assert_true(out_p.other_events);
-				}
-				assert_int_equal(stat_p[0].port_num, 0);
-				assert_int_equal(stat_p[0].event,
-						tests[p].em_event);
-			} else {
-				bool found;
-
-				assert_int_equal(2, out_p.num_events);
-				assert_false(out_p.too_many);
-				assert_false(out_p.other_events);
-				assert_int_equal(stat_p[0].port_num, 0);
-				assert_int_equal(stat_p[1].port_num, 0);
-				found =
-						((stat_p[0].event
-								== tests[p].em_event)
-								&& (stat_p[1].event
-										== tests[i].em_event))
-								|| ((stat_p[0].event
-										== tests[i].em_event)
-										&& (stat_p[1].event
-												== tests[p].em_event));
-				assert_true(found);
-			}
+			assert_int_equal(1, out_p.num_events);
+			assert_false(out_p.too_many);
+			assert_true(out_p.other_events);
+			assert_int_equal(stat_p[0].port_num, c_e[1].port_num);
+			assert_int_equal(stat_p[0].event,int_tests[p].em_event);
 
 			// Clear all interrupt events...
 			in_c.num_events = out_i.num_events;
@@ -5856,16 +5688,9 @@ static void rxs_rio_em_clr_int_pw_events_other_events_test(void **state)
 							&in_c, &out_c));
 			assert_int_equal(0, out_c.imp_rc);
 			assert_int_equal(0, out_c.failure_idx);
-			// if notfn_pw != p_notfn, notfn_both == p_notfn
-			// which implies that the events are 2many_pna
-			// and err_rate, which are generally cleared together.
-			if (rio_em_notfn_pw == p_notfn) {
-				assert_true(out_c.pw_events_remain);
-				assert_true(out_c.int_events_remain);
-			} else {
-				assert_false(out_c.pw_events_remain);
-				assert_false(out_c.int_events_remain);
-			}
+
+			assert_int_equal(events_remain, out_c.pw_events_remain);
+			assert_int_equal(events_remain,out_c.int_events_remain);
 
 			// Clear all port-write events...
 			in_c.num_events = out_p.num_events;
@@ -5887,7 +5712,7 @@ static void rxs_rio_em_clr_int_pw_events_other_events_test(void **state)
 			// Query the event interrupt status, confirm they're
 			// gone.
 			in_i.ptl.num_ports = 1;
-			in_i.ptl.pnums[0] = 0;
+			in_i.ptl.pnums[0] = port;
 			in_i.num_events = (uint8_t)rio_em_last;
 			in_i.events = stat_i;
 			memset(stat_i, 0xFF, sizeof(stat_i));
@@ -5908,7 +5733,7 @@ static void rxs_rio_em_clr_int_pw_events_other_events_test(void **state)
 
 			// Query port-write events, confirm they're gone
 			in_p.ptl.num_ports = 1;
-			in_p.ptl.pnums[0] = 0;
+			in_p.ptl.pnums[0] = port;
 			in_p.num_events = (uint8_t)rio_em_last;
 			in_p.events = stat_p;
 			memset(stat_p, 0xFF, sizeof(stat_p));
@@ -5935,8 +5760,6 @@ static void rxs_rio_em_clr_int_pw_events_other_events_test(void **state)
 // Test that when two events are configured with both port-write
 // and interrupt notification, that when the events are created and
 // cleared the "other events" fields behave correctly.
-//
-// This test is skipped if interrupts are not supported.
 
 static void rxs_rio_em_clr_int_pw_events_both_test(void **state)
 {
@@ -5957,36 +5780,10 @@ static void rxs_rio_em_clr_int_pw_events_both_test(void **state)
 	DAR_DEV_INFO_t *dev_info = &mock_dev_info;
 	rio_em_cfg_t tests_in[2];
 
-	// NOTE: A 2many_pna event also causes an err_rate event.
-	// For this reason, "2many_pna" must be the last test,
-	// and err_rate must occur before 2many_pna.
-	//
-	// Note that the rio_em_f_err_rate.em_info value excludes
-	// RIO_EM_REC_ERR_SET_CS_NOT_ACC, so the events
-	// for rio_em_f_err_rate and rio_em_f_2many_pna are exclusive of
-	// each other.
-	rio_em_cfg_t tests[] = {
-			{rio_em_f_los, rio_em_detect_on, 1 * 256 * 1000}, {
-					rio_em_f_port_err, rio_em_detect_on, 0},
-			{rio_em_f_err_rate, rio_em_detect_on, 0x1000000F}, {
-					rio_em_f_2many_retx, rio_em_detect_on,
-					0x0010}, {rio_em_d_log,
-					rio_em_detect_on,
-					RXS_LOCAL_ERR_EN_ILL_TYPE_EN |
-					RXS_LOCAL_ERR_EN_ILL_ID_EN}, {
-					rio_em_i_sig_det, rio_em_detect_on, 0},
-			{rio_em_i_rst_req, rio_em_detect_on, 0},
-			{rio_em_i_init_fail, rio_em_detect_on, 0}, {
-					rio_em_f_2many_pna, rio_em_detect_on,
-					0x0010}};
+	rio_port_t port = 15;
 
-	uint32_t plm_imp_spec_ctl;
-	uint32_t t_mask = RXS_PLM_SPX_IMP_SPEC_CTL_SELF_RST |
-	RXS_PLM_SPX_IMP_SPEC_CTL_PORT_SELF_RST;
-
-	const unsigned int test_cnt = sizeof(tests) / sizeof(tests[0]);
-	unsigned int i, p, srch_i, chk_i;
-	Tsi721_test_state_t *l_st = (Tsi721_test_state_t *)*state;
+	unsigned int i, p;
+	RXS_test_state_t *l_st = (RXS_test_state_t *)*state;
 
 	if (l_st->real_hw) {
 		return;
@@ -5994,69 +5791,45 @@ static void rxs_rio_em_clr_int_pw_events_both_test(void **state)
 
 	// Use test_cnt - 1 here to avoid trying for rio_em_f_2many_pna
 	// without also setting rio_em_f_err_rate.
-	for (i = 0; i < test_cnt - 1; i++) {
-		for (p = 0; p < test_cnt; p++) {
+	for (i = 0; i < int_test_cnt - 1; i++) {
+		for (p = 0; p < int_test_cnt; p++) {
 			// Must have two different events for this test.
 			if (i == p) {
 				continue;
 			}
-			// Cannot cause an init_fail event to generate a
-			// port-write
-			if (rio_em_i_init_fail == tests[p].em_event) {
-				continue;
-			}
 			if (DEBUG_PRINTF) {
-				printf("\ni = %d p = %d event = %d %d\n", i, p,
-						tests[i].em_event,
-						tests[p].em_event);
+				printf("\ni = %d ev %d p = %d ev = %d\n",
+						i, int_tests[i].em_event,
+						p, int_tests[p].em_event);
 			}
 			// This test requires a clean slate at the beginning
 			// of each attempt
 			rxs_em_setup(state);
 
+			// Power up and enable all ports...
+			set_all_port_config(cfg_perfect, false, false,
+								RIO_ALL_PORTS);
+
 			// Enable detection of the current event.
-			// NOTE: Only one of tests[i].em_event and
-			// tests[p].em_event can be true at any one time.
-			if (rio_em_i_rst_req == tests[i].em_event) {
-				// If we're testing the Reset Request
-				// event, do the disable/enable since this
-				// events detection is actually controlled by
-				// Port Config functionality.
-
-				assert_int_equal(RIO_SUCCESS,
-						DARRegRead(&mock_dev_info, RXS_PLM_SPX_IMP_SPEC_CTL, &plm_imp_spec_ctl));
-				if (rio_em_detect_off == tests[i].em_detect) {
-					plm_imp_spec_ctl |= t_mask;
-				} else {
-					plm_imp_spec_ctl &= ~t_mask;
-				}
-				assert_int_equal(RIO_SUCCESS,
-						DARRegWrite(&mock_dev_info, RXS_PLM_SPX_IMP_SPEC_CTL, plm_imp_spec_ctl));
+			// NOTE: Only one of int_tests[i].em_event and
+			// int_tests[p].em_event can be true at any one time.
+			if (rio_em_i_rst_req == int_tests[i].em_event) {
+				set_plm_imp_spec_ctl_rst(port,
+							int_tests[i].em_detect);
 			}
-			if (rio_em_i_rst_req == tests[p].em_event) {
-				// If we're testing the Reset Request
-				// event, do the disable/enable since this
-				// events detection is actually controlled by
-				// Port Config functionality.
 
-				assert_int_equal(RIO_SUCCESS,
-						DARRegRead(&mock_dev_info, RXS_PLM_SPX_IMP_SPEC_CTL, &plm_imp_spec_ctl));
-				if (rio_em_detect_off == tests[p].em_detect) {
-					plm_imp_spec_ctl |= t_mask;
-				} else {
-					plm_imp_spec_ctl &= ~t_mask;
-				}
-				assert_int_equal(RIO_SUCCESS,
-						DARRegWrite(&mock_dev_info, RXS_PLM_SPX_IMP_SPEC_CTL, plm_imp_spec_ctl));
+			if (rio_em_i_rst_req == int_tests[p].em_event) {
+				set_plm_imp_spec_ctl_rst(port,
+							int_tests[p].em_detect);
 			}
 
 			// Configure the i'th and p'th event
 			set_cfg_in.ptl.num_ports = 1;
-			set_cfg_in.ptl.pnums[0] = 0;
+			set_cfg_in.ptl.pnums[0] = port;
 			set_cfg_in.notfn = rio_em_notfn_both;
 			set_cfg_in.num_events = 2;
-			memcpy(&tests_in[0], &tests[i], sizeof(tests_in[0]));
-			memcpy(&tests_in[1], &tests[p], sizeof(tests_in[1]));
+			memcpy(&tests_in[0], &int_tests[i], sizeof(tests_in[0]));
+			memcpy(&tests_in[1], &int_tests[p], sizeof(tests_in[1]));
 			set_cfg_in.events = tests_in;
 
 			set_cfg_out.imp_rc = 0xFFFFFFFF;
@@ -6077,10 +5850,20 @@ static void rxs_rio_em_clr_int_pw_events_both_test(void **state)
 			// Create the i'th and p'th events
 			c_in.num_events = 2;
 			c_in.events = c_e;
-			c_e[0].port_num = 0;
-			c_e[0].event = tests[i].em_event;
-			c_e[1].port_num = 0;
-			c_e[1].event = tests[p].em_event;
+			c_e[0].event = int_tests[i].em_event;
+			c_e[1].event = int_tests[p].em_event;
+			if ((rio_em_d_log == int_tests[i].em_event) ||
+				(rio_em_i_init_fail == int_tests[i].em_event)) {
+				c_e[0].port_num = RIO_ALL_PORTS;
+			} else {
+				c_e[0].port_num = port;
+			}
+			if ((rio_em_d_log == int_tests[p].em_event) ||
+				(rio_em_i_init_fail == int_tests[p].em_event)) {
+				c_e[1].port_num = RIO_ALL_PORTS;
+			} else {
+				c_e[1].port_num = port;
+			}
 
 			c_out.imp_rc = 0xFFFFFF;
 			c_out.failure_idx = 0xff;
@@ -6094,7 +5877,7 @@ static void rxs_rio_em_clr_int_pw_events_both_test(void **state)
 
 			// Query the event interrupt status
 			in_i.ptl.num_ports = 1;
-			in_i.ptl.pnums[0] = 0;
+			in_i.ptl.pnums[0] = port;
 			in_i.num_events = (uint8_t)rio_em_last;
 			in_i.events = stat_i;
 			memset(stat_i, 0xFF, sizeof(stat_i));
@@ -6112,38 +5895,14 @@ static void rxs_rio_em_clr_int_pw_events_both_test(void **state)
 			assert_int_equal(2, out_i.num_events);
 			assert_false(out_i.too_many);
 			assert_false(out_i.other_events);
-			assert_int_equal(stat_i[0].port_num, 0);
-			assert_int_equal(stat_i[1].port_num, 0);
 
 			// Check that events created are found...
-			for (chk_i = 0; chk_i <= i; chk_i++) {
-				bool found = false;
-				if ((chk_i != i) && (chk_i != p)) {
-					continue;
-				}
-				for (srch_i = 0;
-						!found
-								&& (srch_i
-										<= out_i.num_events);
-						srch_i++) {
-					if (tests[chk_i].em_event
-							== stat_i[srch_i].event) {
-						found = true;
-					}
-				}
-				if (!found && DEBUG_PRINTF) {
-					printf(
-							"i %d event_cnt %d chk_i %d event %d",
-							i, out_p.num_events,
-							chk_i,
-							tests[chk_i].em_event);
-				}
-				assert_true(found);
-			}
+			find_event(&c_e[0], stat_i, 2);
+			find_event(&c_e[1], stat_i, 2);
 
 			// Query the event port-write status
 			in_p.ptl.num_ports = 1;
-			in_p.ptl.pnums[0] = 0;
+			in_p.ptl.pnums[0] = port;
 			in_p.num_events = (uint8_t)rio_em_last;
 			in_p.events = stat_p;
 			memset(stat_p, 0xFF, sizeof(stat_p));
@@ -6158,72 +5917,13 @@ static void rxs_rio_em_clr_int_pw_events_both_test(void **state)
 							&mock_dev_info, &in_p,
 							&out_p));
 			assert_int_equal(0, out_p.imp_rc);
-			// It is not possible to detect a pw init_fail event
-			// so reduce the event count by 1.
-			if (rio_em_i_init_fail == tests[i].em_event) {
-				assert_int_equal(1, out_p.num_events);
-				assert_int_equal(stat_p[0].port_num, 0);
-			} else {
-				assert_int_equal(2, out_p.num_events);
-				assert_int_equal(stat_p[0].port_num, 0);
-				assert_int_equal(stat_p[1].port_num, 0);
-			}
+			assert_int_equal(2, out_p.num_events);
 			assert_false(out_p.too_many);
 			assert_false(out_p.other_events);
 
 			// Check that events created are found...
-			for (chk_i = 0; chk_i <= i; chk_i++) {
-				bool found = false;
-				if ((chk_i != i) && (chk_i != p)) {
-					continue;
-				}
-				if ((chk_i == i)
-						&& (rio_em_i_init_fail
-								== tests[i].em_event)) {
-					continue;
-				}
-				for (srch_i = 0;
-						!found
-								&& (srch_i
-										<= out_i.num_events);
-						srch_i++) {
-					if (tests[chk_i].em_event
-							== stat_p[srch_i].event) {
-						found = true;
-					}
-				}
-				if (!found && DEBUG_PRINTF) {
-					printf(
-							"i %d event_cnt %d chk_i %d event %d",
-							i, out_p.num_events,
-							chk_i,
-							tests[chk_i].em_event);
-				}
-				assert_true(found);
-			}
-
-			// init_fail is an interrupt only event, clear it
-			// first...
-			if (rio_em_i_init_fail == tests[i].em_event) {
-				in_c.num_events = 1;
-				in_c.events = c_e;
-				c_e[0].port_num = 0;
-				c_e[0].event = rio_em_i_init_fail;
-
-				out_c.imp_rc = 0xFFFF;
-				out_c.failure_idx = 0xFF;
-				out_c.pw_events_remain = true;
-				out_c.int_events_remain = true;
-
-				assert_int_equal(RIO_SUCCESS,
-						rxs_rio_em_clr_events(
-								&mock_dev_info,
-								&in_c, &out_c));
-				assert_int_equal(0, out_c.imp_rc);
-				assert_int_equal(0, out_c.failure_idx);
-				assert_true(out_c.pw_events_remain);
-				assert_true(out_c.int_events_remain);
-			}
+			find_event(&c_e[0], stat_p, 2);
+			find_event(&c_e[1], stat_p, 2);
 
 			// Clear all port-write events...
 			in_c.num_events = out_p.num_events;
@@ -6245,7 +5945,7 @@ static void rxs_rio_em_clr_int_pw_events_both_test(void **state)
 			// Query the event interrupt status, confirm they're
 			// gone.
 			in_i.ptl.num_ports = 1;
-			in_i.ptl.pnums[0] = 0;
+			in_i.ptl.pnums[0] = port;
 			in_i.num_events = (uint8_t)rio_em_last;
 			in_i.events = stat_i;
 			memset(stat_i, 0xFF, sizeof(stat_i));
@@ -6266,7 +5966,8 @@ static void rxs_rio_em_clr_int_pw_events_both_test(void **state)
 
 			// Query port-write events, confirm they're gone
 			in_p.ptl.num_ports = 1;
-			in_p.ptl.pnums[0] = 0;
+			in_p.ptl.pnums[0] = port;
+			in_p.pw_port_num = RIO_ALL_PORTS;
 			in_p.num_events = (uint8_t)rio_em_last;
 			in_p.events = stat_p;
 			memset(stat_p, 0xFF, sizeof(stat_p));
@@ -6289,7 +5990,7 @@ static void rxs_rio_em_clr_int_pw_events_both_test(void **state)
 
 	(void)state;
 }
-*/
+
 int main(int argc, char** argv)
 {
 	memset(&st, 0, sizeof(st));
@@ -6357,7 +6058,6 @@ int main(int argc, char** argv)
 	cmocka_unit_test_setup(
 			rxs_rio_em_create_ignored_events_test,
 			rxs_em_setup),
-/*
 	cmocka_unit_test_setup(
 			rxs_rio_em_get_int_stat_bad_parms_test,
 			rxs_em_setup),
@@ -6383,9 +6083,6 @@ int main(int argc, char** argv)
 			rxs_rio_em_get_int_pw_stat_both_test,
 			rxs_em_setup),
 	cmocka_unit_test_setup(
-			rxs_rio_em_clr_events_bad_parms_test,
-			rxs_em_setup),
-	cmocka_unit_test_setup(
 			rxs_rio_em_clr_int_events_success_test,
 			rxs_em_setup),
 	cmocka_unit_test_setup(
@@ -6401,9 +6098,11 @@ int main(int argc, char** argv)
 			rxs_rio_em_clr_int_pw_events_other_events_test,
 			rxs_em_setup),
 	cmocka_unit_test_setup(
+			rxs_rio_em_clr_events_bad_parms_test,
+			rxs_em_setup),
+	cmocka_unit_test_setup(
 			rxs_rio_em_clr_int_pw_events_both_test,
 			rxs_em_setup),
-*/
 	};
 
 	return cmocka_run_group_tests(tests, grp_setup, grp_teardown);
