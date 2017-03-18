@@ -933,6 +933,16 @@ extern "C" {
 #define RXS_PLM_SPX_STAT_OK_TO_UNINIT                ((uint32_t)0x40000000)
 #define RXS_PLM_SPX_STAT_MAX_DENIAL                  ((uint32_t)0x80000000)
 
+// These events are steered to port-write and/or interrupt notification
+// by means other that the PLM port-write and interrupt enables.
+#define RXS_PLM_SPX_UNMASKABLE_MASK (RXS_PLM_SPX_STAT_TLM_INT | \
+				RXS_PLM_SPX_STAT_PBM_INT | \
+				RXS_PLM_SPX_STAT_MECS | \
+				RXS_PLM_SPX_STAT_TLM_PW | \
+				RXS_PLM_SPX_STAT_PBM_PW | \
+				RXS_PLM_SPX_STAT_RST_REQ | \
+				RXS_PLM_SPX_STAT_PRST_REQ)
+
 /* RXS_PLM_SPX_INT_EN : Register Bits Masks Definitions */
 #define RXS_PLM_SPX_INT_EN_BERM_0                    ((uint32_t)0x00000001)
 #define RXS_PLM_SPX_INT_EN_BERM_1                    ((uint32_t)0x00000002)

@@ -500,13 +500,6 @@ fail:
 #define RXS_LOS_EVENT_MASK (RXS_PLM_SPX_STAT_DWNGD | \
 				RXS_PLM_SPX_STAT_DLT | \
 				RXS_PLM_SPX_STAT_OK_TO_UNINIT)
-#define RXS_PLM_UNMASKABLE_MASK (RXS_PLM_SPX_STAT_TLM_INT | \
-				RXS_PLM_SPX_STAT_PBM_INT | \
-				RXS_PLM_SPX_STAT_MECS | \
-				RXS_PLM_SPX_STAT_TLM_PW | \
-				RXS_PLM_SPX_STAT_PBM_PW | \
-				RXS_PLM_SPX_STAT_RST_REQ | \
-				RXS_PLM_SPX_STAT_PRST_REQ)
 
 // Events which are an aggregation/summary of per-port events.
 // They do not signify an "other" event.
@@ -1960,7 +1953,7 @@ uint32_t rxs_rio_em_get_int_stat_port(DAR_DEV_INFO_t *dev_info,
 		goto fail;
 	}
 
-	plm_int_stat = plm_ints & (plm_int_en | RXS_PLM_UNMASKABLE_MASK);
+	plm_int_stat = plm_ints & (plm_int_en | RXS_PLM_SPX_UNMASKABLE_MASK);
 	spx_err_det &= spx_rate_en;
 
 	if (plm_int_stat & RXS_LOS_EVENT_MASK) {
@@ -2016,7 +2009,7 @@ uint32_t rxs_rio_em_get_int_stat_port(DAR_DEV_INFO_t *dev_info,
 		SAFE_ADD_EVENT_N_LOC(rio_em_i_rst_req, port);
 	}
 
-	if (plm_ints & ~(plm_int_en | RXS_PLM_UNMASKABLE_MASK)) {
+	if (plm_ints & ~(plm_int_en | RXS_PLM_SPX_UNMASKABLE_MASK)) {
 		out_parms->other_events = true;
 	}
 	if (tlm_ints & ~tlm_int_en) {
@@ -2216,7 +2209,7 @@ uint32_t rxs_rio_em_get_pw_stat_port(DAR_DEV_INFO_t *dev_info,
 		goto fail;
 	}
 
-	plm_pw_stat = plm_pws & (plm_pw_en| RXS_PLM_UNMASKABLE_MASK);
+	plm_pw_stat = plm_pws & (plm_pw_en| RXS_PLM_SPX_UNMASKABLE_MASK);
 	spx_err_det &= spx_rate_en;
 	if (plm_pw_stat & RXS_LOS_EVENT_MASK) {
 		SAFE_ADD_EVENT_N_LOC(rio_em_f_los, port);
@@ -2271,7 +2264,7 @@ uint32_t rxs_rio_em_get_pw_stat_port(DAR_DEV_INFO_t *dev_info,
 		SAFE_ADD_EVENT_N_LOC(rio_em_i_rst_req, port);
 	}
 
-	if (plm_pws & ~(plm_pw_en| RXS_PLM_UNMASKABLE_MASK)) {
+	if (plm_pws & ~(plm_pw_en| RXS_PLM_SPX_UNMASKABLE_MASK)) {
 		out_parms->other_events = true;
 	}
 	if (tlm_pws & ~tlm_pw_en) {

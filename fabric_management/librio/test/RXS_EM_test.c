@@ -284,7 +284,7 @@ static void update_plm_status(DAR_DEV_INFO_t *dev_info,
 	// Update per-port interrupt status
 	en_idx  = rxs_expect_poreg_idx(dev_info, RXS_PLM_SPX_ALL_INT_EN(port));
 	if (plm_events &
-		(dev_info->poregs[en_idx].data | RXS_PLM_UNMASKABLE_MASK)) {
+		(dev_info->poregs[en_idx].data | RXS_PLM_SPX_UNMASKABLE_MASK)) {
 		pp_stat = pp_mask;
 	}
 
@@ -1093,7 +1093,7 @@ static void init_mock_rxs_reg(void **state)
 // The setup function which should be called before any unit tests that
 // need to be executed.
 
-static int rxs_em_setup(void **state)
+static int setup(void **state)
 {
 	uint32_t sw_port_info;
 	uint32_t rc;
@@ -3705,7 +3705,7 @@ static void rxs_rio_em_get_int_stat_other_events_test(void **state)
 			}
 			// This test requires a clean slate at the beginning
 			// of each attempt
-			rxs_em_setup(state);
+			setup(state);
 
 			// Power up and enable all ports...
 			set_all_port_config(cfg_perfect, false, false,
@@ -4083,7 +4083,7 @@ static void rxs_rio_em_get_pw_stat_other_events_test(void **state)
 
 			// This test requires a clean slate at the beginning
 			// of each attempt
-			rxs_em_setup(state);
+			setup(state);
 
 			// Power up and enable all ports...
 			set_all_port_config(cfg_perfect, false, false,
@@ -4246,7 +4246,7 @@ static void rxs_rio_em_get_int_pw_stat_other_events_test(void **state)
 
 			// This test requires a clean slate at the beginning
 			// of each attempt
-			rxs_em_setup(state);
+			setup(state);
 
 			// Power up and enable all ports...
 			set_all_port_config(cfg_perfect, false, false,
@@ -4444,7 +4444,7 @@ static void rxs_rio_em_get_int_pw_stat_both_test(void **state)
 			}
 			// This test requires a clean slate at the beginning
 			// of each attempt
-			rxs_em_setup(state);
+			setup(state);
 
 			// Power up and enable all ports...
 			set_all_port_config(cfg_perfect, false, false,
@@ -5043,7 +5043,7 @@ static void rxs_rio_em_clr_int_events_other_events_test(void **state)
 			}
 			// This test requires a clean slate at the beginning
 			// of each attempt
-			rxs_em_setup(state);
+			setup(state);
 
 			// Power up and enable all ports...
 			set_all_port_config(cfg_perfect, false, false,
@@ -5282,7 +5282,7 @@ static void rxs_rio_em_clr_pw_events_other_events_test(void **state)
 			}
 			// This test requires a clean slate at the beginning
 			// of each attempt
-			rxs_em_setup(state);
+			setup(state);
 
 			// Power up and enable all ports...
 			set_all_port_config(cfg_perfect, false, false,
@@ -5514,7 +5514,7 @@ static void rxs_rio_em_clr_int_pw_events_other_events_test(void **state)
 			}
 			// This test requires a clean slate at the beginning
 			// of each attempt
-			rxs_em_setup(state);
+			setup(state);
 
 			// Power up and enable all ports...
 			set_all_port_config(cfg_perfect, false, false,
@@ -5804,7 +5804,7 @@ static void rxs_rio_em_clr_int_pw_events_both_test(void **state)
 			}
 			// This test requires a clean slate at the beginning
 			// of each attempt
-			rxs_em_setup(state);
+			setup(state);
 
 			// Power up and enable all ports...
 			set_all_port_config(cfg_perfect, false, false,
@@ -6000,109 +6000,109 @@ int main(int argc, char** argv)
 	const struct CMUnitTest tests[] = {
 	cmocka_unit_test_setup(
 			rxs_rio_em_dev_rpt_ctl_success_test,
-			rxs_em_setup),
+			setup),
 	cmocka_unit_test_setup(
 			rxs_rio_em_dev_rpt_ctl_oddport_test,
-			rxs_em_setup),
+			setup),
 	cmocka_unit_test_setup(
 			rxs_rio_em_dev_rpt_ctl_bad_parms_test,
-			rxs_em_setup),
+			setup),
 
 	cmocka_unit_test_setup(
 			rxs_em_cfg_pw_success_test,
-			rxs_em_setup),
+			setup),
 	cmocka_unit_test_setup(
 			rxs_em_cfg_pw_bad_parms_test,
-			rxs_em_setup),
+			setup),
 	cmocka_unit_test_setup(
 			rxs_rio_em_cfg_pw_retx_compute_test,
-			rxs_em_setup),
+			setup),
 
 	cmocka_unit_test_setup(
 			rxs_rio_em_cfg_set_success_em_info_test,
-			rxs_em_setup),
+			setup),
 	cmocka_unit_test_setup(
 			rxs_rio_em_cfg_set_roundup_test,
-			rxs_em_setup),
+			setup),
 	cmocka_unit_test_setup(
 			rxs_rio_em_cfg_set_ignore_test,
-			rxs_em_setup),
+			setup),
 	cmocka_unit_test_setup(
 			rxs_rio_em_cfg_set_fail_em_info_test,
-			rxs_em_setup),
+			setup),
 	cmocka_unit_test_setup(
 			rxs_rio_em_cfg_set_bad_parms_test,
-			rxs_em_setup),
+			setup),
 	cmocka_unit_test_setup(
 			rxs_rio_em_cfg_get_bad_parms_test,
-			rxs_em_setup),
+			setup),
 
 	cmocka_unit_test_setup(
 			rxs_rio_em_parse_pw_no_events_test,
-			rxs_em_setup),
+			setup),
 	cmocka_unit_test_setup(
 			rxs_rio_em_parse_pw_all_events_test,
-			rxs_em_setup),
+			setup),
 	cmocka_unit_test_setup(
 			rxs_rio_em_parse_pw_oth_events_test,
-			rxs_em_setup),
+			setup),
 	cmocka_unit_test_setup(
 			rxs_rio_em_parse_pw_bad_parms_test,
-			rxs_em_setup),
+			setup),
 	cmocka_unit_test_setup(
 			rxs_rio_em_create_events_bad_parms_test,
-			rxs_em_setup),
+			setup),
 	cmocka_unit_test_setup(
 			rxs_rio_em_create_events_success_test,
-			rxs_em_setup),
+			setup),
 	cmocka_unit_test_setup(
 			rxs_rio_em_create_ignored_events_test,
-			rxs_em_setup),
+			setup),
 	cmocka_unit_test_setup(
 			rxs_rio_em_get_int_stat_bad_parms_test,
-			rxs_em_setup),
+			setup),
 	cmocka_unit_test_setup(
 			rxs_rio_em_get_int_stat_success_test,
-			rxs_em_setup),
+			setup),
 	cmocka_unit_test_setup(
 			rxs_rio_em_get_int_stat_other_events_test,
-			rxs_em_setup),
+			setup),
 	cmocka_unit_test_setup(
 			rxs_rio_em_get_pw_stat_bad_parms_test,
-			rxs_em_setup),
+			setup),
 	cmocka_unit_test_setup(
 			rxs_rio_em_get_pw_stat_success_test,
-			rxs_em_setup),
+			setup),
 	cmocka_unit_test_setup(
 			rxs_rio_em_get_pw_stat_other_events_test,
-			rxs_em_setup),
+			setup),
 	cmocka_unit_test_setup(
 			rxs_rio_em_get_int_pw_stat_other_events_test,
-			rxs_em_setup),
+			setup),
 	cmocka_unit_test_setup(
 			rxs_rio_em_get_int_pw_stat_both_test,
-			rxs_em_setup),
+			setup),
 	cmocka_unit_test_setup(
 			rxs_rio_em_clr_int_events_success_test,
-			rxs_em_setup),
+			setup),
 	cmocka_unit_test_setup(
 			rxs_rio_em_clr_pw_events_success_test,
-			rxs_em_setup),
+			setup),
 	cmocka_unit_test_setup(
 			rxs_rio_em_clr_int_events_other_events_test,
-			rxs_em_setup),
+			setup),
 	cmocka_unit_test_setup(
 			rxs_rio_em_clr_pw_events_other_events_test,
-			rxs_em_setup),
+			setup),
 	cmocka_unit_test_setup(
 			rxs_rio_em_clr_int_pw_events_other_events_test,
-			rxs_em_setup),
+			setup),
 	cmocka_unit_test_setup(
 			rxs_rio_em_clr_events_bad_parms_test,
-			rxs_em_setup),
+			setup),
 	cmocka_unit_test_setup(
 			rxs_rio_em_clr_int_pw_events_both_test,
-			rxs_em_setup),
+			setup),
 	};
 
 	return cmocka_run_group_tests(tests, grp_setup, grp_teardown);
