@@ -922,7 +922,8 @@ static void init_mock_rxs_reg(void **state)
 				RXS_MPM_CFGSIG0_REFCLK_SELECT_156p25MHz;
 		}
 		assert_int_equal(RIO_SUCCESS,
-		rxs_add_poreg(&mock_dev_info, rxs_mock_reg_oset[i], dflt));
+			rxs_add_poreg(&mock_dev_info,
+					rxs_mock_reg_oset[i], dflt));
 	}
 
 	// Initialize RXS per port regs
@@ -1069,7 +1070,7 @@ void set_all_port_config(config_hw_t cfg,
 	uint32_t pbm_gen = 0;
 	uint32_t pbm_stat = 0;
 
-	uint32_t ttl_reg = (ttl) ? 0xFFFFFFFF : 0;
+	uint32_t ttl_reg = (ttl) ? RXS_PKT_TIME_LIVE_PKT_TIME_LIVE : 0;
 	uint32_t filt = (filter) ? 0xFFFFFFFF : 0;
 	rio_port_t st_port = port, end_port = port;
 

@@ -1,5 +1,5 @@
 /*
- ************************************************************************ 
+ ************************************************************************
 Copyright (c) 2016, Integrated Device Technology Inc.
 Copyright (c) 2016, RapidIO Trade Association
 All rights reserved.
@@ -283,10 +283,6 @@ static void rxs_rio_pc_get_config_success(void **state)
 				RXS_PLM_SPX_PWDN_CTL(port), pwdn));
 	}
 	// Also update LRTO value
-	lrto = 0x30;
-	assert_int_equal(RIO_SUCCESS,
-		DARRegWrite(&mock_dev_info, RXS_SP_LT_CTL, lrto << 8));
-
 	pc_in.ptl.num_ports = RIO_ALL_PORTS;
 	assert_int_equal(RIO_SUCCESS,
 			rxs_rio_pc_get_config(&mock_dev_info, &pc_in, &pc_out));
@@ -444,6 +440,41 @@ static void rxs_rio_pc_get_config_success(void **state)
 	(void)state;
 }
 
+static void rxs_rio_pc_get_config_bad_parms(void **state)
+{
+	rio_pc_get_config_in_t pc_in;
+	rio_pc_get_config_out_t pc_out;
+
+	// Bad number of ports...
+	pc_in.ptl.num_ports = NUM_RXS_PORTS(&mock_dev_info) + 1;
+	pc_out.imp_rc = RIO_SUCCESS;
+	pc_out.lrto = 0xFFFF;
+	pc_out.log_rto = 0xFFFF;
+	pc_out.num_ports = NUM_RXS_PORTS(&mock_dev_info) + 1;
+
+	assert_int_not_equal(RIO_SUCCESS,
+			rxs_rio_pc_get_config(&mock_dev_info, &pc_in, &pc_out));
+	assert_int_not_equal(RIO_SUCCESS, pc_out.imp_rc);
+	assert_int_equal(0, pc_out.lrto);
+	assert_int_equal(0, pc_out.log_rto);
+	assert_int_equal(0, pc_out.num_ports);
+
+	// Bad port number
+	pc_in.ptl.num_ports = 1;
+	pc_in.ptl.pnums[0] = NUM_RXS_PORTS(&mock_dev_info);
+	pc_out.imp_rc = RIO_SUCCESS;
+	pc_out.lrto = 0xFFFF;
+	pc_out.log_rto = 0xFFFF;
+	pc_out.num_ports = NUM_RXS_PORTS(&mock_dev_info) + 1;
+
+	assert_int_not_equal(RIO_SUCCESS,
+			rxs_rio_pc_get_config(&mock_dev_info, &pc_in, &pc_out));
+	assert_int_not_equal(RIO_SUCCESS, pc_out.imp_rc);
+	assert_int_equal(0, pc_out.lrto);
+	assert_int_equal(0, pc_out.log_rto);
+	assert_int_equal(0, pc_out.num_ports);
+	(void)state;
+}
 
 static void adjust_ps_for_port(rio_pc_one_port_status_t *curr_ps,
 				rio_port_t port)
@@ -837,6 +868,34 @@ static void rxs_rio_pc_get_status_success(void **state)
 	(void)state;
 }
 
+static void rxs_rio_pc_get_status_bad_parms(void **state)
+{
+	rio_pc_get_status_in_t ps_in;
+	rio_pc_get_status_out_t ps_out;
+
+	// Bad number of ports...
+	ps_in.ptl.num_ports = NUM_RXS_PORTS(&mock_dev_info) + 1;
+	ps_out.imp_rc = RIO_SUCCESS;
+	ps_out.num_ports = NUM_RXS_PORTS(&mock_dev_info) + 1;
+
+	assert_int_not_equal(RIO_SUCCESS,
+			rxs_rio_pc_get_status(&mock_dev_info, &ps_in, &ps_out));
+	assert_int_not_equal(RIO_SUCCESS, ps_out.imp_rc);
+	assert_int_equal(0, ps_out.num_ports);
+
+	// Bad port number
+	ps_in.ptl.num_ports = 1;
+	ps_in.ptl.pnums[0] = NUM_RXS_PORTS(&mock_dev_info);
+	ps_out.imp_rc = RIO_SUCCESS;
+	ps_out.num_ports = NUM_RXS_PORTS(&mock_dev_info) + 1;
+
+	assert_int_not_equal(RIO_SUCCESS,
+			rxs_rio_pc_get_status(&mock_dev_info, &ps_in, &ps_out));
+	assert_int_not_equal(RIO_SUCCESS, ps_out.imp_rc);
+	assert_int_equal(0, ps_out.num_ports);
+	(void)state;
+}
+
 int main(int argc, char** argv)
 {
 	const struct CMUnitTest tests[] = {
@@ -844,8 +903,10 @@ int main(int argc, char** argv)
 			cmocka_unit_test_setup(rxs_rio_pc_clk_pd_success_test, setup),
 			cmocka_unit_test_setup(rxs_rio_pc_clk_pd_fail_test, setup),
 			cmocka_unit_test_setup(rxs_rio_pc_get_config_success, setup),
+			cmocka_unit_test_setup(rxs_rio_pc_get_config_bad_parms, setup),
 			cmocka_unit_test_setup(rxs_rio_pc_get_status_success, setup),
-			 };
+			cmocka_unit_test_setup(rxs_rio_pc_get_status_bad_parms, setup),
+			};
 
 	memset(&st, 0, sizeof(st));
 	st.argc = argc;
