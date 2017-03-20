@@ -42,8 +42,8 @@ OBJECTS:=$(patsubst src/%.c,src/%.o,$(wildcard src/*.c))
 
 CXXFLAGS+=-D$(DEBUG_CTL) -DRDMA_LL=$(LOG_LEVEL)
 
-LDFLAGS_STATIC+=-L$(COMMONLIB)
-LDFLAGS_STATIC+=$(TST_LIBS) -lcli
+LDFLAGS_STATIC+=-L. -L$(COMMONLIB) -L$(FMDDIR)/libs_a
+LDFLAGS_STATIC+=-lfmdd -ldd -llog -ldid -llist -lcli -ltime_utils $(TST_LIBS)
 LDFLAGS_DYNAMIC+= -ldl -lrt
 
 

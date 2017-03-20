@@ -49,7 +49,6 @@ extern "C" {
 #define FMD_DFLT_CFG_FN "/etc/rapidio/fmd.conf"
 #define MEM_CFG_DFLT_FN "/etc/rapidio/rsvd_phys_mem.conf"
 #define MEM_CFG_MAX_LINE_LEN 255
-#define DEFAULT_LOG_DIR  "/var/log/rdma/"
 
 #define FMD_DFLT_DEV_DIR "/sys/bus/rapidio/devices/"
 
@@ -69,21 +68,25 @@ extern "C" {
 #define FXFR_DFLT_SVR_CM_PORT 5555
 #define CM_SOCK_DFLT_SVR_CM_PORT 5556
 
-/** \brief AF_UNIX socket definitions for FMD */
+/** \brief RapidIO temporary directory, survives reboots */
+#define RRMAP_TEMP_DIR_PATH "/var/tmp/rapidio/"
+#define DEFAULT_LOG_DIR RRMAP_TEMP_DIR_PATH
+
+/** \brief File system definitions for FMD */
 #define FMD_DFLT_APP_PORT_NUM 9797
-#define FMD_APP_MSG_SKT_FMT "/var/tmp/FMD%04d"
+#define FMD_APP_MSG_SKT_FMT RRMAP_TEMP_DIR_PATH "FMD%05d"
+
+#define FMD_MAX_LOG_FILE_NAME 100
+#define FMD_LOG_FILE_FMT "fmd_%05d_log"
+
+#define FMD_MAX_SHM_FN_LEN 100
+#define FMD_DFLT_SHM_DIR "/dev/shm"
 #define FMD_DFLT_DD_FN "/RIO_SM_DEV_DIR"
 #define FMD_DFLT_DD_MTX_FN "/RIO_SM_DEV_DIR_MUTEX"
 
-/** \brief AF_UNIX socket definitions for RDMAD */
-#define RDMA_PATH_APP_SKT  "/var/tmp/rdma"
-
-/** \brief AF_UNIX socket definitions for RSKTD */
-#define RSKT_DFLT_APP_PORT_NUM 3333
-#define RSKT_APP_MSG_SKT_FMT "/var/tmp/RSKTD%04d.%1d"
-
 #ifdef __cplusplus
 }
+
 #endif
 
 #endif /* __RRMAP_CONFIG_H__ */

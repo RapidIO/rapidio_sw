@@ -110,6 +110,12 @@ void custom_quit(struct cli_env *env)
 
 	fmd_dd_cleanup(fmd->dd_mtx_fn, &fmd->dd_mtx_fd, &fmd->dd_mtx,
 			fmd->dd_fn, &fmd->dd_fd, &fmd->dd, fmd->fmd_rw);
+	if (app_st.fd > 0) {
+		close(app_st.fd);
+		unlink(app_st.addr.sun_path);
+		remove(app_st.addr.sun_path);
+		app_st.fd = -1;
+	}
 	exit(EXIT_SUCCESS);
 }
 
@@ -178,7 +184,7 @@ void spawn_threads(struct fmd_opt_vals *cfg)
 	pass_poll_interval[1] = cfg->run_cons;
 
 	cli_init_base(custom_quit);
-	bind_dd_cmds(fmd->dd, fmd->dd_mtx, fmd->dd_fn, fmd->dd_mtx_fn);
+	bind_dd_cmds(&fmd->dd, &fmd->dd_mtx, fmd->dd_fn, fmd->dd_mtx_fn);
 	liblog_bind_cli_cmds();
 	// fmd_bind_dbg_cmds();
 	fmd_bind_mgmt_dbg_cmds();
@@ -601,19 +607,21 @@ fail:
 
 int main(int argc, char *argv[])
 {
-
+	char log_file_name[FMD_MAX_LOG_FILE_NAME];
 	signal(SIGINT, sig_handler);
 	signal(SIGHUP, sig_handler);
 	signal(SIGTERM, sig_handler);
 	signal(SIGUSR1, sig_handler);
 	signal(SIGPIPE, sig_handler);
 
-	rdma_log_init("fmd.log", 1);
-
 	opts = fmd_parse_options(argc, argv);
 	if (NULL == opts) {
 		goto fail;
 	}
+
+	snprintf(log_file_name, FMD_MAX_LOG_FILE_NAME,
+			FMD_LOG_FILE_FMT, opts->app_port_num);
+	rdma_log_init(log_file_name, 1);
 
 	g_level = opts->log_level;
 	if ((opts->init_and_quit) && (opts->print_help)) {

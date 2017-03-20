@@ -76,9 +76,9 @@ extern "C" {
  */
 #define FMDD_RDMA_FLAG 0x10
 /**
- * @brief Flag value for Future application 1
+ * @brief Flag value for RRMAP CLI connection to FMD
  */
-#define FMDD_APP1_FLAG 0x20
+#define FMDD_RRMAP_CLI_FLAG 0x20
 /**
  * @brief Flag value for Future application 2
  */
@@ -184,10 +184,10 @@ int fmdd_free_did_list(fmdd_h h, did_val_t **did_list);
 
 /**
  * @brief If the application includes libcli, bind available fmdd commands
- *
- * @param[in] fmdd_h returned by fmdd_get_handle
  */
-void fmdd_bind_dbg_cmds(void *fmdd_h);
+void fmdd_bind_dbg_cmds(void);
+
+void libfmdd_init(void);
 
 #ifdef __cplusplus
 }

@@ -66,6 +66,7 @@ struct fmd_app_hello_resp {
 	uint32_t sm_dd_mtx_idx;
 	char dd_fn[MAX_DD_FN_SZ+1];
 	char dd_mtx_fn[MAX_DD_MTX_FN_SZ+1];
+	uint32_t fmd_update_pd; // Seconds between updates to chg_idx/chg_time
 };
 
 /* Format of messages that can be sent by the library */
@@ -77,8 +78,6 @@ struct libfmd_dmn_app_msg { /* Messages sent FROM application TO FMD */
 		struct fmd_app_hello_resp hello_resp;
 	};
 };
-
-#define FMD_APP_MSG_SKT_FMT "/var/tmp/FMD%04d"
 
 #endif /* __FMD_APP_MSG_H__ */
 

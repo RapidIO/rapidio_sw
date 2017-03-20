@@ -225,9 +225,10 @@ void update_all_peer_dd_and_flags(uint32_t add_dev)
 	struct fmd_dd_dev_info devs[FMD_MAX_DEVS];
 	memset(devs, 0, sizeof(devs));
 
-	if (0 >= fmd_dd_atomic_copy(fmd->dd, fmd->dd_mtx, &num_devs, devs,
-				FMD_MAX_DEVS))
+	if (!fmd_dd_atomic_copy(fmd->dd, fmd->dd_mtx, &num_devs, devs,
+				FMD_MAX_DEVS)) {
 		return;
+	}
 
 	for (src = 0; src < num_devs; src++) {
 		src_did_val = did_get_value(devs[src].did);
