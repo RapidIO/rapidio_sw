@@ -1,0 +1,5 @@
+ master gry09 gry09 node1
+ slave gry10 gry10 node2
+ slave gry11 gry11 node3
+ slave gry12 gry12 node4
+ 
