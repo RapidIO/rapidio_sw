@@ -50,22 +50,20 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sys/types.h>
 #include <netinet/in.h>
 
+#include "rio_misc.h"
 #include "tok_parse.h"
 #include "rio_ecosystem.h"
+#include "liblog.h"
+#include "libcli.h"
+#include "cfg.h"
 #include "fmd_dd.h"
 #include "fmd_app_msg.h"
-#include "liblog.h"
-#include "cfg.h"
 #include "fmd_state.h"
 #include "fmd.h"
 #include "fmd_app.h"
 #include "fmd_app.h"
 #include "fmd_master.h"
 #include "fmd_slave.h"
-// #include "cli_cmd_line.h"
-// #include "cli_cmd_db.h"
-// #include "cli_parse.h"
-#include "libcli.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -98,14 +96,11 @@ void display_apps_dd(struct cli_env *env)
 }
 extern struct cli_cmd CLIStatus;
 
-int CLIStatusCmd(struct cli_env *env, int argc, char **argv)
+int CLIStatusCmd(struct cli_env *env, int UNUSED(argc), char **UNUSED(argv))
 {
 	int app_cnt = 0, i;
 	struct fmd_peer *peer;
 	struct l_item_t *li;
-
-	if (0)
-		argv[0][0] = argc;
 
 	LOGMSG(env, "Rlogin  Alive: %1d Skt %5d\n\n", fmd->rlogin_alive,
 		fmd->opts->cli_port_num); 
