@@ -30,7 +30,7 @@ function summarize_thruput_log {
 	/Total/{print}
 	/echo/{print}' $IN_FILE  > $TEMP_FILE1
 	
-	### Contatenate groups of 3 lines together
+	### Concatenate groups of 3 lines together
 	
 	awk '
 	BEGIN {getline; l1 = $0; getline; l2 = $0}
