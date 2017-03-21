@@ -42,7 +42,7 @@ done < "$INSTALL_ROOT/$NODEDATA_FILE"
 # Figure out node number of master node
 if [ -z $MAST_NODE ]
 then
-        echo "Master node not defined, failed install.  Aborting..."
+        echo "Master node not defined, failed install.  Exiting..."
         exit 1
 fi
 
@@ -53,7 +53,7 @@ MAST_DESTID=$(grep -e ENDPOINT < $INSTALL_ROOT/$TMPL_FILE | grep "\b${MAST_NODE}
 
 if [ -z $MAST_DESTID ]
 then
-        echo "Master destID not found, failed install.  Aborting..."
+        echo "Master destID not found, failed install.  Exiting..."
         exit 1
 fi
 

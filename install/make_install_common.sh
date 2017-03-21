@@ -81,24 +81,27 @@ EOF
 
 
 cd $SOURCE_PATH
-if [ $? -ne 0 ]
+result=$?
+if [ $result -ne 0 ]
 then
-	echo cd failed, aborting...
-	exit $?
+	echo cd failed, exiting...
+	exit $result
 fi
 
 tar -xomf $INSTALL_ROOT/$SRC_TAR > /dev/null
-if [ $? -ne 0 ]
+result=$?
+if [ $result -ne 0 ]
 then
-	echo tar failed, aborting...
-	exit $?
+	echo tar failed, exiting...
+	exit $result
 fi
 
 cp $SCRIPTS_PATH/rsvd_phys_mem.conf $RSRV_CONF
-if [ $? -ne 0 ]
+result=$?
+if [ $result -ne 0 ]
 then
-	echo Copy failed, aborting...
-	exit $?
+	echo Copy failed, exiting...
+	exit $result
 fi
 
 # Compile the source
@@ -106,10 +109,11 @@ fi
 echo "Compile sources..."
 make -s clean
 make -s all
-if [ $? -ne 0 ]
+result=$?
+if [ $result -ne 0 ]
 then
-	echo Make of installed code failed, aborting...
-	exit $?
+	echo Make of installed code failed, exiting...
+	exit $result
 fi
 
 echo "Generate documentation..."
