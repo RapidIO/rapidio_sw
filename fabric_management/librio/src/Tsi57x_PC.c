@@ -256,9 +256,9 @@ powerup_reg_offsets_t reg_offsets[]=
   { (uint32_t)TSI578_SPX_CTL_INDEP(0)       , (uint32_t)0x100, ALL_BITS },
   { (uint32_t)TSI578_SPX_SILENCE_TIMER(0)   , (uint32_t)0x100, ALL_BITS },
   { (uint32_t)TSI578_RIOX_MC_LAT_LIMIT(0)   , (uint32_t)0x100, ALL_BITS },
-  { (uint32_t)TSI578_SPX_PSC0n1_CTRL(0)     , (uint32_t)0x100, ALL_BITS },
-  { (uint32_t)TSI578_SPX_PSC2n3_CTRL(0)     , (uint32_t)0x100, ALL_BITS },
-  { (uint32_t)TSI578_SPX_PSC4n5_CTRL(0)     , (uint32_t)0x100, ALL_BITS },
+  { (uint32_t)TSI578_SPX_PSC0N1_CTRL(0)     , (uint32_t)0x100, ALL_BITS },
+  { (uint32_t)TSI578_SPX_PSC2N3_CTRL(0)     , (uint32_t)0x100, ALL_BITS },
+  { (uint32_t)TSI578_SPX_PSC4N5_CTRL(0)     , (uint32_t)0x100, ALL_BITS },
   { (uint32_t)TSI578_SPX_TX_Q_D_THRESH(0)   , (uint32_t)0x100, ALL_BITS },
   { (uint32_t)TSI578_SPX_TX_Q_STATUS(0)   , (uint32_t)0x100, (uint32_t)TSI578_SPX_TX_Q_STATUS_CONG_THRESH }, //  MASK
   { (uint32_t)TSI578_SPX_TX_Q_PERIOD(0)     , (uint32_t)0x100, ALL_BITS },
@@ -518,10 +518,10 @@ static uint32_t tsi57x_compute_port_config_changes(DAR_DEV_INFO_t *dev_info,
 							// Need to set overrides in the port width control register.
 							if (rio_pc_pw_1x_l0 == in_parms_sorted[pnum].pw) {
 								chg->spxCtl[pnum] = (chg->spxCtl[pnum] & ~TSI578_SPX_CTL_OVER_PWIDTH)
-										| RIO_SPX_CTL_PTW_OVER_1x_L0;
+										| RIO_SPX_CTL_PTW_OVER_1X_L0;
 							} else {
 								chg->spxCtl[pnum] = (chg->spxCtl[pnum] & ~TSI578_SPX_CTL_OVER_PWIDTH)
-										| RIO_SPX_CTL_PTW_OVER_1x_LR;
+										| RIO_SPX_CTL_PTW_OVER_1X_LR;
 							}
 						}
 					}
@@ -1196,10 +1196,10 @@ uint32_t tsi57x_rio_pc_get_config(DAR_DEV_INFO_t *dev_info,
 			case RIO_SPX_CTL_PTW_OVER_NONE:
 				out_parms->pc[port_idx].pw = rio_pc_pw_4x;
 				break;
-			case RIO_SPX_CTL_PTW_OVER_1x_L0:
+			case RIO_SPX_CTL_PTW_OVER_1X_L0:
 				out_parms->pc[port_idx].pw = rio_pc_pw_1x_l0;
 				break;
-			case RIO_SPX_CTL_PTW_OVER_1x_LR:
+			case RIO_SPX_CTL_PTW_OVER_1X_LR:
 				out_parms->pc[port_idx].pw = rio_pc_pw_1x_l2;
 				break;
 			default:
@@ -1627,7 +1627,7 @@ uint32_t tsi57x_rio_pc_get_status(DAR_DEV_INFO_t *dev_info,
 
 		if (out_parms->ps[port_idx].port_ok) {
 			switch (spx_ctl & TSI578_SPX_CTL_INIT_PWIDTH) {
-			case RIO_SPX_CTL_PTW_INIT_1x_L0:
+			case RIO_SPX_CTL_PTW_INIT_1X_L0:
 				if (1 == out_parms->ps[port_idx].num_lanes) {
 					out_parms->ps[port_idx].pw =
 							rio_pc_pw_1x;
@@ -1636,10 +1636,10 @@ uint32_t tsi57x_rio_pc_get_status(DAR_DEV_INFO_t *dev_info,
 							rio_pc_pw_1x_l0;
 				}
 				break;
-			case RIO_SPX_CTL_PTW_INIT_1x_LR:
+			case RIO_SPX_CTL_PTW_INIT_1X_LR:
 				out_parms->ps[port_idx].pw = rio_pc_pw_1x_l2;
 				break;
-			case RIO_SPX_CTL_PTW_INIT_4x:
+			case RIO_SPX_CTL_PTW_INIT_4X:
 				out_parms->ps[port_idx].pw = rio_pc_pw_4x;
 				break;
 			default:

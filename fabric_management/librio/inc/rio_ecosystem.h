@@ -81,7 +81,7 @@ typedef uint32_t rio_mc_mask_t; /* Biggest mask available */
 
 #define RIO_DEVI_TSI500         0x0500
 #define RIO_DEVI_TSI568         0x0568
-#define RIO_DEVI_TSI57x         0x0570
+#define RIO_DEVI_TSI57X         0x0570
 #define RIO_DEVI_TSI572         0x0572
 #define RIO_DEVI_TSI574         0x0574
 #define RIO_DEVI_TSI576         0x0578 /* Same ID as Tsi578 */
@@ -100,7 +100,7 @@ typedef uint32_t rio_mc_mask_t; /* Biggest mask available */
 
 #define RIO_DEVI_IDT_TSI721     0x80ab
 
-#define RIO_DEVI_IDT_RXSx       0x80e0
+#define RIO_DEVI_IDT_RXSX       0x80e0
 #define RIO_DEVI_IDT_RXS2448    0x80e6
 #define RIO_DEVI_IDT_RXS1632    0x80e5
 

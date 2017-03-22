@@ -44,7 +44,7 @@
 extern "C" {
 #endif
 
-#ifdef RXSx_DAR_WANTED
+#ifdef RXS_DAR_WANTED
 
 #define RXS_FIRST_PORT_LANE(p) (((p / 2) * 4) + ((p & 1) * 2))
 
@@ -55,13 +55,13 @@ typedef struct spx_ctl2_ls_check_info_t_TAG {
 } spx_ctl2_ls_check_info_t;
 
 spx_ctl2_ls_check_info_t rxs_ls_check[] = {
-	{ RIO_SPX_CTL2_GB_1p25_EN , RIO_SPX_CTL2_GB_1p25 , rio_pc_ls_1p25},
-	{ RIO_SPX_CTL2_GB_2p5_EN  , RIO_SPX_CTL2_GB_2p5  , rio_pc_ls_2p5 },
-	{ RIO_SPX_CTL2_GB_3p125_EN, RIO_SPX_CTL2_GB_3p125, rio_pc_ls_3p125},
-	{ RIO_SPX_CTL2_GB_5p0_EN  , RIO_SPX_CTL2_GB_5p0  , rio_pc_ls_5p0  },
-	{ RIO_SPX_CTL2_GB_6p25_EN , RIO_SPX_CTL2_GB_6p25 , rio_pc_ls_6p25 },
-	{ RIO_SPX_CTL2_GB_10p3_EN , RIO_SPX_CTL2_GB_10p3 , rio_pc_ls_10p3 },
-	{ RIO_SPX_CTL2_GB_12p5_EN , RIO_SPX_CTL2_GB_12p5 , rio_pc_ls_12p5 },
+	{ RIO_SPX_CTL2_GB_1P25_EN , RIO_SPX_CTL2_GB_1P25 , rio_pc_ls_1p25},
+	{ RIO_SPX_CTL2_GB_2P5_EN  , RIO_SPX_CTL2_GB_2P5  , rio_pc_ls_2p5 },
+	{ RIO_SPX_CTL2_GB_3P125_EN, RIO_SPX_CTL2_GB_3P125, rio_pc_ls_3p125},
+	{ RIO_SPX_CTL2_GB_5P0_EN  , RIO_SPX_CTL2_GB_5P0  , rio_pc_ls_5p0  },
+	{ RIO_SPX_CTL2_GB_6P25_EN , RIO_SPX_CTL2_GB_6P25 , rio_pc_ls_6p25 },
+	{ RIO_SPX_CTL2_GB_10P3_EN , RIO_SPX_CTL2_GB_10P3 , rio_pc_ls_10p3 },
+	{ RIO_SPX_CTL2_GB_12P5_EN , RIO_SPX_CTL2_GB_12P5 , rio_pc_ls_12p5 },
 	{ 0x00000000		, 0x00000000		, rio_pc_ls_last },
 };
 
@@ -110,7 +110,7 @@ uint32_t rxs_rio_pc_clk_pd(DAR_DEV_INFO_t *dev_info,
 			rc = RIO_ERR_READ_REG_RETURN_INVALID_VAL;
 			goto fail;
 		}
-		if (RXS_MPM_CFGSIG0_REFCLK_SELECT_156p25MHz == rck) {
+		if (RXS_MPM_CFGSIG0_REFCLK_SELECT_156P25MHZ == rck) {
 			*srv_pd = 1000;
 		} else {
 			*srv_pd = 1001;
@@ -122,7 +122,7 @@ uint32_t rxs_rio_pc_clk_pd(DAR_DEV_INFO_t *dev_info,
 		break;
 
 	case RXS_MPM_CFGSIG0_CORECLK_SELECT_LO_PWR_12G:
-		if (RXS_MPM_CFGSIG0_REFCLK_SELECT_156p25MHz == rck) {
+		if (RXS_MPM_CFGSIG0_REFCLK_SELECT_156P25MHZ == rck) {
 			if (38 != ps) {
 				rc = RIO_ERR_READ_REG_RETURN_INVALID_VAL;
 				goto fail;
@@ -377,7 +377,7 @@ uint32_t rxs_rio_pc_get_config(DAR_DEV_INFO_t *dev_info,
 		pc->xmitter_disable = (ctl & RXS_SPX_CTL_PORT_DIS);
 
 		switch (ctl & RIO_SPX_CTL_PTW_OVER) {
-		case RIO_SPX_CTL_PTW_OVER_4x_NO_2X:
+		case RIO_SPX_CTL_PTW_OVER_4X_NO_2X:
 		case RIO_SPX_CTL_PTW_OVER_NONE_2:
 		case RIO_SPX_CTL_PTW_OVER_NONE:
 			if (ctl & RIO_SPX_CTL_PTW_MAX_4X) {
@@ -388,10 +388,10 @@ uint32_t rxs_rio_pc_get_config(DAR_DEV_INFO_t *dev_info,
 				pc->pw = rio_pc_pw_1x_l0;
 			}
 			break;
-		case RIO_SPX_CTL_PTW_OVER_1x_L0:
+		case RIO_SPX_CTL_PTW_OVER_1X_L0:
 			pc->pw = rio_pc_pw_1x_l0;
 			break;
-		case RIO_SPX_CTL_PTW_OVER_1x_LR:
+		case RIO_SPX_CTL_PTW_OVER_1X_LR:
 			if (ctl & RIO_SPX_CTL_PTW_MAX_4X) {
 				pc->pw = rio_pc_pw_1x_l2;
 			} else if (ctl & RIO_SPX_CTL_PTW_MAX_2X) {
@@ -400,7 +400,7 @@ uint32_t rxs_rio_pc_get_config(DAR_DEV_INFO_t *dev_info,
 				pc->pw = rio_pc_pw_1x_l0;
 			}
 			break;
-		case RIO_SPX_CTL_PTW_OVER_2x_NO_4X:
+		case RIO_SPX_CTL_PTW_OVER_2X_NO_4X:
 			pc->pw = rio_pc_pw_2x;
 			break;
 		default:
@@ -624,11 +624,11 @@ uint32_t rxs_rio_pc_get_status(DAR_DEV_INFO_t *dev_info,
 		ps->first_lane = RXS_FIRST_PORT_LANE(ps->pnum);
 		ps->num_lanes = RIO_SPX_CTL_PTW_MAX_LANES(ctl);
 		switch (ctl & RXS_SPX_CTL_INIT_PWIDTH) {
-		case RIO_SPX_CTL_PTW_INIT_1x_L0:
+		case RIO_SPX_CTL_PTW_INIT_1X_L0:
 			ps->pw = rio_pc_pw_1x_l0;
 			ps->num_lanes = 1;
 			break;
-		case RIO_SPX_CTL_PTW_INIT_1x_LR:
+		case RIO_SPX_CTL_PTW_INIT_1X_LR:
 			// Using redundant lane.
 			// on 4x port, that's lane 2.
 			// On 2x port, that's lane 1.
@@ -650,7 +650,7 @@ uint32_t rxs_rio_pc_get_status(DAR_DEV_INFO_t *dev_info,
 				ps->num_lanes = 0;
 			}
 			break;
-		case RIO_SPX_CTL_PTW_INIT_2x:
+		case RIO_SPX_CTL_PTW_INIT_2X:
 			ps->pw = rio_pc_pw_2x;
 			switch (ps->num_lanes) {
 			case 4:
@@ -664,7 +664,7 @@ uint32_t rxs_rio_pc_get_status(DAR_DEV_INFO_t *dev_info,
 				ps->num_lanes = 0;
 			}
 			break;
-		case RIO_SPX_CTL_PTW_INIT_4x:
+		case RIO_SPX_CTL_PTW_INIT_4X:
 			ps->pw = rio_pc_pw_4x;
 			if (4 != ps->num_lanes) {
 				ps->pw = rio_pc_pw_last;
@@ -691,7 +691,7 @@ uint32_t rxs_rio_pc_dev_reset_config(DAR_DEV_INFO_t *dev_info,
 	return RIO_SUCCESS;
 }
 
-#endif /* RXSx_DAR_WANTED */
+#endif /* RXS_DAR_WANTED */
 
 #ifdef __cplusplus
 }

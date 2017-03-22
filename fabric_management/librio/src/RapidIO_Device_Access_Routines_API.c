@@ -256,7 +256,7 @@ rio_driver_family_t rio_get_driver_family(uint32_t devID)
 
 		case RIO_DEVI_IDT_RXS2448:
 		case RIO_DEVI_IDT_RXS1632:
-#ifdef RXSx_DAR_WANTED
+#ifdef RXS_DAR_WANTED
 			return RIO_RXS_DEVICE;
 #endif
 			break;

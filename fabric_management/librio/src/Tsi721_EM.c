@@ -1174,14 +1174,14 @@ uint32_t tsi721_rio_em_cfg_pw(DAR_DEV_INFO_t *dev_info,
 	retx = in_parms->port_write_re_tx;
 
 	if (retx) {
-		if (retx <= RIO_EM_TSI721_PW_RE_TX_103us) {
-			regData = TSI721_PW_CTL_PW_TIMER_103us;
-		} else if (retx <= RIO_EM_TSI721_PW_RE_TX_205us) {
-			regData = TSI721_PW_CTL_PW_TIMER_205us;
-		} else if (retx <= RIO_EM_TSI721_PW_RE_TX_410us) {
-			regData = TSI721_PW_CTL_PW_TIMER_410us;
+		if (retx <= RIO_EM_TSI721_PW_RE_TX_103US) {
+			regData = TSI721_PW_CTL_PW_TIMER_103US;
+		} else if (retx <= RIO_EM_TSI721_PW_RE_TX_205US) {
+			regData = TSI721_PW_CTL_PW_TIMER_205US;
+		} else if (retx <= RIO_EM_TSI721_PW_RE_TX_410US) {
+			regData = TSI721_PW_CTL_PW_TIMER_410US;
 		} else {
-			regData = TSI721_PW_CTL_PW_TIMER_820us;
+			regData = TSI721_PW_CTL_PW_TIMER_820US;
 		}
 	}
 
@@ -1250,17 +1250,17 @@ uint32_t tsi721_rio_em_cfg_pw(DAR_DEV_INFO_t *dev_info,
 	case 0:
 		out_parms->port_write_re_tx = 0;
 		break;
-	case TSI721_PW_CTL_PW_TIMER_103us:
-		out_parms->port_write_re_tx = RIO_EM_TSI721_PW_RE_TX_103us;
+	case TSI721_PW_CTL_PW_TIMER_103US:
+		out_parms->port_write_re_tx = RIO_EM_TSI721_PW_RE_TX_103US;
 		break;
-	case TSI721_PW_CTL_PW_TIMER_205us:
-		out_parms->port_write_re_tx = RIO_EM_TSI721_PW_RE_TX_205us;
+	case TSI721_PW_CTL_PW_TIMER_205US:
+		out_parms->port_write_re_tx = RIO_EM_TSI721_PW_RE_TX_205US;
 		break;
-	case TSI721_PW_CTL_PW_TIMER_410us:
-		out_parms->port_write_re_tx = RIO_EM_TSI721_PW_RE_TX_410us;
+	case TSI721_PW_CTL_PW_TIMER_410US:
+		out_parms->port_write_re_tx = RIO_EM_TSI721_PW_RE_TX_410US;
 		break;
-	case TSI721_PW_CTL_PW_TIMER_820us:
-		out_parms->port_write_re_tx = RIO_EM_TSI721_PW_RE_TX_820us;
+	case TSI721_PW_CTL_PW_TIMER_820US:
+		out_parms->port_write_re_tx = RIO_EM_TSI721_PW_RE_TX_820US;
 		break;
 	default:
 		out_parms->port_write_re_tx = regData;

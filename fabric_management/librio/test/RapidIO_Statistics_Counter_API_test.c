@@ -258,7 +258,7 @@ static void rio_sc_other_if_names_test(void **state)
 		((uint32_t)RIO_DEVI_IDT_CPS1616 << 16) + RIO_VEND_IDT,
 		((uint32_t)RIO_DEVI_IDT_SPS1616 << 16) + RIO_VEND_IDT,
 #endif
-#ifdef RXSx_DAR_WANTED
+#ifdef RXS_DAR_WANTED
 		((uint32_t)RIO_DEVI_IDT_RXS2448 << 16) + RIO_VEND_IDT,
 		((uint32_t)RIO_DEVI_IDT_RXS1632 << 16) + RIO_VEND_IDT
 #endif

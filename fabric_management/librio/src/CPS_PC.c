@@ -1123,13 +1123,13 @@ static uint32_t cps_compute_laneswap_config(DAR_DEV_INFO_t *dev_info, cps_port_i
 			case rio_pc_pw_1x:
 			case rio_pc_pw_1x_l0:
 				chgd->ports[pnum].p_ctl1 |=
-						RIO_SPX_CTL_PTW_OVER_1x_L0;
+						RIO_SPX_CTL_PTW_OVER_1X_L0;
 				break;
 
 			case rio_pc_pw_1x_l1:
 			case rio_pc_pw_1x_l2:
 				chgd->ports[pnum].p_ctl1 |=
-						RIO_SPX_CTL_PTW_OVER_1x_LR;
+						RIO_SPX_CTL_PTW_OVER_1X_LR;
 				break;
 
 			case rio_pc_pw_2x:
@@ -1150,18 +1150,18 @@ static uint32_t cps_compute_laneswap_config(DAR_DEV_INFO_t *dev_info, cps_port_i
 			case rio_pc_pw_1x:
 			case rio_pc_pw_1x_l0:
 				chgd->ports[pnum].p_ctl1 |=
-						RIO_SPX_CTL_PTW_OVER_1x_L0;
+						RIO_SPX_CTL_PTW_OVER_1X_L0;
 				break;
 
 			case rio_pc_pw_1x_l1:
 			case rio_pc_pw_1x_l2:
 				chgd->ports[pnum].p_ctl1 |=
-						RIO_SPX_CTL_PTW_OVER_1x_LR;
+						RIO_SPX_CTL_PTW_OVER_1X_LR;
 				break;
 
 			case rio_pc_pw_2x:
 				chgd->ports[pnum].p_ctl1 |=
-						RIO_SPX_CTL_PTW_OVER_2x_NO_4X;
+						RIO_SPX_CTL_PTW_OVER_2X_NO_4X;
 				break;
 
 			case rio_pc_pw_4x:
@@ -2373,18 +2373,18 @@ uint32_t CPS_rio_pc_get_config(DAR_DEV_INFO_t *dev_info,
 				switch (spx_ctl1 & RIO_SPX_CTL_PTW_OVER) {
 				case RIO_SPX_CTL_PTW_OVER_NONE:
 				case RIO_SPX_CTL_PTW_OVER_NONE_2:
-				case RIO_SPX_CTL_PTW_OVER_2x_NO_4X:
+				case RIO_SPX_CTL_PTW_OVER_2X_NO_4X:
 					out_parms->pc[port_idx].pw =
 							rio_pc_pw_2x;
 					break;
 
-					// RIO_SPX_CTL_PTW_OVER_4x_NO_2X may have no effect
-				case RIO_SPX_CTL_PTW_OVER_4x_NO_2X:
-				case RIO_SPX_CTL_PTW_OVER_1x_L0:
+					// RIO_SPX_CTL_PTW_OVER_4X_NO_2X may have no effect
+				case RIO_SPX_CTL_PTW_OVER_4X_NO_2X:
+				case RIO_SPX_CTL_PTW_OVER_1X_L0:
 					out_parms->pc[port_idx].pw =
 							rio_pc_pw_1x_l0;
 					break;
-				case RIO_SPX_CTL_PTW_OVER_1x_LR:
+				case RIO_SPX_CTL_PTW_OVER_1X_LR:
 					out_parms->pc[port_idx].pw =
 							rio_pc_pw_1x_l1;
 					break;
@@ -2398,20 +2398,20 @@ uint32_t CPS_rio_pc_get_config(DAR_DEV_INFO_t *dev_info,
 				switch (spx_ctl1 & RIO_SPX_CTL_PTW_OVER) {
 				case RIO_SPX_CTL_PTW_OVER_NONE:
 				case RIO_SPX_CTL_PTW_OVER_NONE_2:
-				case RIO_SPX_CTL_PTW_OVER_4x_NO_2X:
+				case RIO_SPX_CTL_PTW_OVER_4X_NO_2X:
 					out_parms->pc[port_idx].pw =
 							rio_pc_pw_4x;
 					break;
 
-				case RIO_SPX_CTL_PTW_OVER_2x_NO_4X:
+				case RIO_SPX_CTL_PTW_OVER_2X_NO_4X:
 					out_parms->pc[port_idx].pw =
 							rio_pc_pw_2x;
 					break;
-				case RIO_SPX_CTL_PTW_OVER_1x_L0:
+				case RIO_SPX_CTL_PTW_OVER_1X_L0:
 					out_parms->pc[port_idx].pw =
 							rio_pc_pw_1x_l0;
 					break;
-				case RIO_SPX_CTL_PTW_OVER_1x_LR:
+				case RIO_SPX_CTL_PTW_OVER_1X_LR:
 					out_parms->pc[port_idx].pw =
 							rio_pc_pw_1x_l2;
 					break;
@@ -2730,7 +2730,7 @@ uint32_t CPS_rio_pc_get_status(DAR_DEV_INFO_t *dev_info,
 
 				switch (ctl1
 						& CPS1848_PORT_X_CTL_1_CSR_INIT_PWIDTH) {
-				case RIO_SPX_CTL_PTW_INIT_1x_L0:
+				case RIO_SPX_CTL_PTW_INIT_1X_L0:
 					if (1
 							== out_parms->ps[port_idx].num_lanes) {
 						out_parms->ps[port_idx].pw =
@@ -2740,7 +2740,7 @@ uint32_t CPS_rio_pc_get_status(DAR_DEV_INFO_t *dev_info,
 								rio_pc_pw_1x_l0;
 					}
 					break;
-				case RIO_SPX_CTL_PTW_INIT_1x_LR:
+				case RIO_SPX_CTL_PTW_INIT_1X_LR:
 					if (2
 							== out_parms->ps[port_idx].num_lanes) {
 						out_parms->ps[port_idx].pw =
@@ -2750,11 +2750,11 @@ uint32_t CPS_rio_pc_get_status(DAR_DEV_INFO_t *dev_info,
 								rio_pc_pw_1x_l2;
 					}
 					break;
-				case RIO_SPX_CTL_PTW_INIT_2x:
+				case RIO_SPX_CTL_PTW_INIT_2X:
 					out_parms->ps[port_idx].pw =
 							rio_pc_pw_2x;
 					break;
-				case RIO_SPX_CTL_PTW_INIT_4x:
+				case RIO_SPX_CTL_PTW_INIT_4X:
 					out_parms->ps[port_idx].pw =
 							rio_pc_pw_4x;
 					break;

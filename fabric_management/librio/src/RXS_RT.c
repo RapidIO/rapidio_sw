@@ -48,7 +48,7 @@
 extern "C" {
 #endif
 
-#ifdef RXSx_DAR_WANTED
+#ifdef RXS_DAR_WANTED
 
 #define MC_MASK_ADDR(b,m) ((b)+(8*m))
 
@@ -1233,7 +1233,7 @@ exit:
 	return rc;
 }
 
-#endif /* RXSx_DAR_WANTED */
+#endif /* RXS_DAR_WANTED */
 
 #ifdef __cplusplus
 }

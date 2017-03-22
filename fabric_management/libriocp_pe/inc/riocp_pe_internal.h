@@ -70,10 +70,10 @@ extern "C" {
 #define RIOCP_TRACE(fmt, args...)
 #endif
 
-#define riocp_pe_llist_foreach(item, list) \
+#define RIOCP_PE_LLIST_FOREACH(item, list) \
 	for (item = list; item != NULL; item = item->next)
 
-#define riocp_pe_llist_foreach_safe(item, next, list) \
+#define RIOCP_PE_LLIST_FOREACH_SAFE(item, next, list) \
 	for (item = list, next = item->next; item->next != NULL; item = next, next = item->next)
 
 /** RapidIO control plane loglevels */

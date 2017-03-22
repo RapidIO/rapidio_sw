@@ -60,7 +60,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 extern "C" {
 #endif
 
-#ifndef RXSx_DAR_WANTED
+#ifndef RXS_DAR_WANTED
 
 static void rxs_not_supported_test(void **state)
 {
@@ -77,9 +77,9 @@ int main(int argc, char** argv)
 	return cmocka_run_group_tests(tests, NULL, NULL);
 }
 
-#endif /* RXSx_DAR_WANTED */
+#endif /* RXS_DAR_WANTED */
 
-#ifdef RXSx_DAR_WANTED
+#ifdef RXS_DAR_WANTED
 
 static void rxs_rio_pc_macros_test(void **state)
 {
@@ -101,8 +101,8 @@ typedef struct clk_pd_tests_t_TAG {
 #define LO_RSVD    RXS_MPM_CFGSIG0_CORECLK_SELECT_RSVD
 #define LO_PWR_12G RXS_MPM_CFGSIG0_CORECLK_SELECT_LO_PWR_12G
 #define LO_PWR_10G RXS_MPM_CFGSIG0_CORECLK_SELECT_LO_PWR_10G
-#define MHZ_100    RXS_MPM_CFGSIG0_REFCLK_SELECT_100MHz
-#define MHZ_156    RXS_MPM_CFGSIG0_REFCLK_SELECT_156p25MHz
+#define MHZ_100    RXS_MPM_CFGSIG0_REFCLK_SELECT_100MHZ
+#define MHZ_156    RXS_MPM_CFGSIG0_REFCLK_SELECT_156P25MHZ
 
 static clk_pd_tests_t clk_pd_pass[] = {
 	{ 42, LO_LAT | MHZ_100, 1001},
@@ -766,38 +766,38 @@ static void rxs_rio_pc_get_status_success(void **state)
 				lane_adj = 0;
 				curr_ps.pw = rio_pc_pw_2x;
 				curr_ps.num_lanes = 2;
-				ctl |= RIO_SPX_CTL_PTW_INIT_2x;
+				ctl |= RIO_SPX_CTL_PTW_INIT_2X;
 				break;
 			case 1:
 				lane_adj = 2;
 				curr_ps.pw = rio_pc_pw_1x_l2;
 				curr_ps.num_lanes = 1;
-				ctl |= RIO_SPX_CTL_PTW_INIT_1x_LR;
+				ctl |= RIO_SPX_CTL_PTW_INIT_1X_LR;
 				break;
 			case 2:
 				lane_adj = 0;
 				curr_ps.pw = rio_pc_pw_1x_l0;
 				curr_ps.num_lanes = 1;
-				ctl |= RIO_SPX_CTL_PTW_INIT_1x_L0;
+				ctl |= RIO_SPX_CTL_PTW_INIT_1X_L0;
 				break;
 			case 3:
 				lane_adj = 0;
 				curr_ps.pw = rio_pc_pw_2x;
 				curr_ps.num_lanes = 2;
-				ctl |= RIO_SPX_CTL_PTW_INIT_2x;
+				ctl |= RIO_SPX_CTL_PTW_INIT_2X;
 				ctl &= ~RIO_SPX_CTL_PTW_MAX_4X;
 				break;
 			case 4:
 				lane_adj = 1;
 				curr_ps.pw = rio_pc_pw_1x_l1;
 				curr_ps.num_lanes = 1;
-				ctl |= RIO_SPX_CTL_PTW_INIT_1x_LR;
+				ctl |= RIO_SPX_CTL_PTW_INIT_1X_LR;
 				break;
 			case 5:
 				lane_adj = 0;
 				curr_ps.pw = rio_pc_pw_1x_l0;
 				curr_ps.num_lanes = 1;
-				ctl |= RIO_SPX_CTL_PTW_INIT_1x_L0;
+				ctl |= RIO_SPX_CTL_PTW_INIT_1X_L0;
 				break;
 			default:
 				assert_false(true);
@@ -837,12 +837,12 @@ static void rxs_rio_pc_get_status_success(void **state)
 			case 0:
 				curr_ps.pw = rio_pc_pw_1x_l1;
 				curr_ps.num_lanes = 1;
-				ctl |= RIO_SPX_CTL_PTW_INIT_1x_LR;
+				ctl |= RIO_SPX_CTL_PTW_INIT_1X_LR;
 				break;
 			case 1:
 				curr_ps.pw = rio_pc_pw_1x_l0;
 				curr_ps.num_lanes = 1;
-				ctl |= RIO_SPX_CTL_PTW_INIT_1x_L0;
+				ctl |= RIO_SPX_CTL_PTW_INIT_1X_L0;
 				break;
 			default:
 				assert_false(true);
@@ -915,7 +915,7 @@ int main(int argc, char** argv)
 	return cmocka_run_group_tests(tests, grp_setup, grp_teardown);
 }
 
-#endif /* RXSx_DAR_WANTED */
+#endif /* RXS_DAR_WANTED */
 
 #ifdef __cplusplus
 }

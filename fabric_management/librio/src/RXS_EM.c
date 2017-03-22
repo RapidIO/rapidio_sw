@@ -48,7 +48,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 extern "C" {
 #endif
 
-#ifdef RXSx_DAR_WANTED
+#ifdef RXS_DAR_WANTED
 
 #define SAFE_ADD_EVENT_N_LOC(event_in, p) \
 	if (out_parms->num_events < in_parms->num_events) { \
@@ -2970,7 +2970,7 @@ fail:
 	return rc;
 }
 
-#endif /* RXSx_DAR_WANTED */
+#endif /* RXS_DAR_WANTED */
 
 #ifdef __cplusplus
 }

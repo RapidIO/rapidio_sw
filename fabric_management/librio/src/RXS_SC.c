@@ -44,7 +44,7 @@
 extern "C" {
 #endif
 
-#ifdef RXSx_DAR_WANTED
+#ifdef RXS_DAR_WANTED
 
 static uint32_t rxs_read_ctrs(DAR_DEV_INFO_t *dev_info,
 		rio_sc_read_ctrs_in_t *in_parms,
@@ -432,7 +432,7 @@ exit:
 	return rc;
 }
 
-#endif /* RXSx_DAR_WANTED */
+#endif /* RXS_DAR_WANTED */
 
 #ifdef __cplusplus
 }

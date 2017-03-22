@@ -60,7 +60,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 extern "C" {
 #endif
 
-#ifndef RXSx_DAR_WANTED
+#ifndef RXS_DAR_WANTED
 
 static void rxs_not_supported_test(void **state)
 {
@@ -77,9 +77,9 @@ int main(int argc, char** argv)
 	return cmocka_run_group_tests(tests, NULL, NULL);
 }
 
-#endif /* RXSx_DAR_WANTED */
+#endif /* RXS_DAR_WANTED */
 
-#ifdef RXSx_DAR_WANTED
+#ifdef RXS_DAR_WANTED
 
 static void rxs_init_ctrs(rio_sc_init_dev_ctrs_in_t *parms_in)
 {
@@ -935,7 +935,7 @@ int main(int argc, char** argv)
 	return cmocka_run_group_tests(tests, grp_setup, grp_teardown);
 }
 
-#endif /* RXSx_DAR_WANTED */
+#endif /* RXS_DAR_WANTED */
 
 #ifdef __cplusplus
 }

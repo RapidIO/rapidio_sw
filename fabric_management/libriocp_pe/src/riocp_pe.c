@@ -207,7 +207,7 @@ int RIOCP_SO_ATTR riocp_mport_get_pe_list(riocp_pe_handle mport, size_t *count, 
 	handle_counter = 1;
 
 	/* Count amount of handles in mport handles list */
-	riocp_pe_llist_foreach(item, &mport->minfo->handles) {
+	RIOCP_PE_LLIST_FOREACH(item, &mport->minfo->handles) {
 		p = (struct riocp_pe *)item->data;
 		if (p)
 			handle_counter++;
@@ -224,7 +224,7 @@ int RIOCP_SO_ATTR riocp_mport_get_pe_list(riocp_pe_handle mport, size_t *count, 
 
 	/* Copy mport handles list pointers to newlist */
 	n = 1;
-	riocp_pe_llist_foreach(item, &mport->minfo->handles) {
+	RIOCP_PE_LLIST_FOREACH(item, &mport->minfo->handles) {
 		if (n >= handle_counter)
 			break;
 

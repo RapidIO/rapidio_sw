@@ -83,7 +83,7 @@ uint32_t tsi57x_rioDeviceSupported(DAR_DEV_INFO_t *dev_info)
 	uint32_t rc = DAR_DB_NO_DRIVER;
 
 	if (RIO_VEND_TUNDRA == (dev_info->devID & RIO_DEV_IDENT_VEND)) {
-		if ((RIO_DEVI_TSI57x >> 4)
+		if ((RIO_DEVI_TSI57X >> 4)
 				== ((dev_info->devID & RIO_DEV_IDENT_DEVI) >> 20)) {
 			/* Now fill out the DAR_info structure... */
 			rc = DARDB_rioDeviceSupported(dev_info);

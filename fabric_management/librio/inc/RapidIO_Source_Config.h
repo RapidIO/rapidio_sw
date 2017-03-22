@@ -42,7 +42,7 @@ extern "C" {
 */
 #define TSI57X_DAR_WANTED
 #define CPS_DAR_WANTED
-#define RXSx_DAR_WANTED
+#define RXS_DAR_WANTED
 #define TSI721_DAR_WANTED
 #define TSI721_EXCLUDE_EM_INTERRUPT_SUPPORT
 

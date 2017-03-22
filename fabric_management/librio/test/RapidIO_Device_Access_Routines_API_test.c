@@ -81,7 +81,7 @@ static void rio_get_driver_family_test(void **state)
 	assert_int_equal(expected, rio_get_driver_family(0x03780038)); // SPS1848
 
 	// RXS
-#ifdef RXSx_DAR_WANTED
+#ifdef RXS_DAR_WANTED
 	expected = RIO_RXS_DEVICE;
 #else
 	expected = RIO_UNKNOWN_DEVICE;

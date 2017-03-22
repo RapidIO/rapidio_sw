@@ -104,7 +104,7 @@ static void macros(void **state)
 	assert_int_equal(GET_DEV16_FROM_HW(0x0000FFFF), 0xFFFF);
 	assert_int_equal(MAKE_HW_FROM_DEV8(0x000000FF), 0x00FF0000);
 	assert_int_equal(MAKE_HW_FROM_DEV16(0x0000FFFF), 0x0000FFFF);
-	assert_int_equal(MAKE_HW_FROM_DEV8n16(0x12, 0x00003456), 0x00123456);
+	assert_int_equal(MAKE_HW_FROM_DEV8N16(0x12, 0x00003456), 0x00123456);
 
 	assert_int_equal(RIO_RTE_VAL, 0x3FF);
 

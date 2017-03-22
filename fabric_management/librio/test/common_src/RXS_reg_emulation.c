@@ -55,7 +55,7 @@
 extern "C" {
 #endif
 
-#ifdef RXSx_DAR_WANTED
+#ifdef RXS_DAR_WANTED
 
 // Common support for register emulation.  This is a superset
 // of what is required for the individual SC, PC, RT, and EM tests.
@@ -747,12 +747,12 @@ typedef struct rxs_mock_pp_reg_t_TAG {
 #define RXS_PLM_SPX_INT_EN_DFLT 0
 #define RXS_PLM_SPX_ALL_INT_EN_DFLT 0
 #define RXS_PLM_SPX_DENIAL_CTL_DFLT 0
-#define RXS_SPX_CTL2_DFLT (RXS_SPX_CTL2_GB_6p25_EN | \
-				RXS_SPX_CTL2_GB_6p25 | \
+#define RXS_SPX_CTL2_DFLT (RXS_SPX_CTL2_GB_6P25_EN | \
+				RXS_SPX_CTL2_GB_6P25 | \
 				RIO_SPX_CTL2_BAUD_SEL_6P25_BR)
 #define RXS_SPX_ERR_STAT_DFLT (RXS_SPX_ERR_STAT_PORT_UNAVL)
 #define RXS_SPX_CTL_DFLT (RXS_SPX_CTL_PORT_DIS | \
-				RIO_SPX_CTL_PTW_INIT_4x | \
+				RIO_SPX_CTL_PTW_INIT_4X | \
 				RXS_SPX_CTL_PORT_WIDTH)
 #define RXS_SPX_ERR_DET_DFLT 0
 #define RXS_SPX_RATE_EN_DFLT 0
@@ -919,7 +919,7 @@ static void init_mock_rxs_reg(void **state)
 		}
 		if (RXS_MPM_CFGSIG0 == rxs_mock_reg_oset[i]) {
 			dflt = RXS_MPM_CFGSIG0_CORECLK_SELECT_LO_PWR_12G |
-				RXS_MPM_CFGSIG0_REFCLK_SELECT_156p25MHz;
+				RXS_MPM_CFGSIG0_REFCLK_SELECT_156P25MHZ;
 		}
 		assert_int_equal(RIO_SUCCESS,
 			rxs_add_poreg(&mock_dev_info,
@@ -934,8 +934,8 @@ static void init_mock_rxs_reg(void **state)
 			if (RXS_SPX_CTL(0) == rxs_mock_pp_reg[i].base) {
 				if (port & 1) {
 					val &= ~RIO_SPX_CTL_PTW_MAX_4X;
-					val &= ~RIO_SPX_CTL_PTW_INIT_4x;
-					val |= RIO_SPX_CTL_PTW_INIT_2x;
+					val &= ~RIO_SPX_CTL_PTW_INIT_4X;
+					val |= RIO_SPX_CTL_PTW_INIT_2X;
 				}
 			}
 			assert_int_equal(RIO_SUCCESS,
@@ -1197,7 +1197,7 @@ void set_all_port_config(config_hw_t cfg,
 	}
 }
 
-#endif /* RXSx_DAR_WANTED */
+#endif /* RXS_DAR_WANTED */
 
 #ifdef __cplusplus
 }

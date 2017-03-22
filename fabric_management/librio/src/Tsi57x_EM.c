@@ -1179,30 +1179,30 @@ uint32_t tsi57x_rio_em_cfg_pw(DAR_DEV_INFO_t *dev_info,
 
 	// Configure port-write re-transmission rate.
 	// Assumption: it is better to choose a longer retransmission time than the value requested.
-	regData = in_parms->port_write_re_tx / RIO_EM_TSI578_PW_RE_TX_167p7ms;
+	regData = in_parms->port_write_re_tx / RIO_EM_TSI578_PW_RE_TX_167P7MS;
 
 	switch (regData) {
 	case 0: // If the requested retransmission time is shorter than the
 		//    minimum, set the minimum rather than disabling
 		//    retransmission
 		if (in_parms->port_write_re_tx) {
-			regData = TSI578_RIO_PW_TIMEOUT_167p7ms;
+			regData = TSI578_RIO_PW_TIMEOUT_167P7MS;
 		} else {
 			regData = TSI578_RIO_PW_TIMEOUT_DISABLE;
 		}
 		break;
 	case 1:
-		regData = TSI578_RIO_PW_TIMEOUT_167p7ms;
+		regData = TSI578_RIO_PW_TIMEOUT_167P7MS;
 		break;
 	case 2:
-		regData = TSI578_RIO_PW_TIMEOUT_335p5ms;
+		regData = TSI578_RIO_PW_TIMEOUT_335P5MS;
 		break;
 	case 3:
 	case 4:
-		regData = TSI578_RIO_PW_TIMEOUT_671p1ms;
+		regData = TSI578_RIO_PW_TIMEOUT_671P1MS;
 		break;
 	default:
-		regData = TSI578_RIO_PW_TIMEOUT_1340ms;
+		regData = TSI578_RIO_PW_TIMEOUT_1340MS;
 		break;
 	}
 
@@ -1225,16 +1225,16 @@ uint32_t tsi57x_rio_em_cfg_pw(DAR_DEV_INFO_t *dev_info,
 		out_parms->port_write_re_tx = RIO_EM_PW_RE_TX_DISABLED;
 		break;
 	case 1:
-		out_parms->port_write_re_tx = RIO_EM_TSI578_PW_RE_TX_167p7ms;
+		out_parms->port_write_re_tx = RIO_EM_TSI578_PW_RE_TX_167P7MS;
 		break;
 	case 2:
-		out_parms->port_write_re_tx = RIO_EM_TSI578_PW_RE_TX_335p5ms;
+		out_parms->port_write_re_tx = RIO_EM_TSI578_PW_RE_TX_335P5MS;
 		break;
 	case 4:
-		out_parms->port_write_re_tx = RIO_EM_TSI578_PW_RE_TX_671p1ms;
+		out_parms->port_write_re_tx = RIO_EM_TSI578_PW_RE_TX_671P1MS;
 		break;
 	case 8:
-		out_parms->port_write_re_tx = RIO_EM_TSI578_PW_RE_TX_1340ms;
+		out_parms->port_write_re_tx = RIO_EM_TSI578_PW_RE_TX_1340MS;
 		break;
 		break;
 	default:
