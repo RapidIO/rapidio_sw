@@ -220,7 +220,7 @@ exit:
 	return rc;
 }
 
-uint32_t reg_lswap(rio_lane_swap_t swap)
+uint32_t reg_lswap(enum rio_lane_swap_t swap)
 {
 	uint32_t reg_val = 0;
 
@@ -242,9 +242,9 @@ uint32_t reg_lswap(rio_lane_swap_t swap)
 	return reg_val;
 }
 
-static rio_lane_swap_t lswap(uint32_t reg_val)
+static enum rio_lane_swap_t lswap(uint32_t reg_val)
 {
-	rio_lane_swap_t swap_val = rio_lswap_none;
+	enum rio_lane_swap_t swap_val = rio_lswap_none;
 
 	switch(reg_val) {
 	default:

@@ -87,7 +87,7 @@ spx_ctl2_ls_check_info_t ls_check[] = {
 	{ 0x00000000          , 0x00000000           , rio_pc_ls_last ,  0 }
 };
 
-static uint32_t reg_lswap(rio_lane_swap_t swap)
+static uint32_t reg_lswap(enum rio_lane_swap_t swap)
 {
 	uint32_t reg_val = 0;
 
@@ -109,9 +109,9 @@ static uint32_t reg_lswap(rio_lane_swap_t swap)
 	return reg_val;
 }
 
-static rio_lane_swap_t lswap(uint32_t reg_val)
+static enum rio_lane_swap_t lswap(uint32_t reg_val)
 {
-	rio_lane_swap_t swap_val = rio_lswap_none;
+	enum rio_lane_swap_t swap_val = rio_lswap_none;
 
 	switch(reg_val) {
 	default:
