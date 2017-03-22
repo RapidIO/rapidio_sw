@@ -202,7 +202,7 @@ typedef struct rio_pc_one_port_config_t_TAG {
 
 	// True if the transmit lanes are connected to a port in order of
 	// highest numbered lane to lowest numbered
-	rio_lane_swap_t tx_lswap;
+	enum rio_lane_swap_t tx_lswap;
 
 	// True if the tracks of a differential pair are inverted. Does not
 	// reflect lane swapping status.
@@ -210,7 +210,7 @@ typedef struct rio_pc_one_port_config_t_TAG {
 
 	// Trued if the receive lanes are connected to a port in order of
 	// highest numbered lane to lowest numbered.
-	rio_lane_swap_t rx_lswap;
+	enum rio_lane_swap_t rx_lswap;
 
 	// True if the tracks of a differential pair are inverted. Does not
 	// reflect lane swapping status.
