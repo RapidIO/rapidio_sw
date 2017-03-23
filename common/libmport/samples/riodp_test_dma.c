@@ -1316,14 +1316,20 @@ int main(int argc, char** argv)
 				mport_id, tgt_did_val,
 				(unsigned long long)tgt_addr, align, repeat,
 				(int)getpid());
-		printf("\tsync=%d (%s)\n", sync,
-				(sync == RIO_DIRECTIO_TRANSFER_SYNC) ? "SYNC" :
-				(sync == RIO_DIRECTIO_TRANSFER_FAF) ?
-						"FAF" : "ASYNC");
+
+		if (RIO_DIRECTIO_TRANSFER_SYNC == sync) {
+			printf("\tsync=%d (%s)\n", sync, "SYNC");
+		} else {
+
+			printf("\tsync=%d (%s)\n", sync,
+					(RIO_DIRECTIO_TRANSFER_FAF == sync) ?
+							"FAF" : "ASYNC");
+		}
+
 		printf("\tsrc dist: %d size: %d  dest dist: %d size: %d\n",
 				interleave.ssdist, interleave.sssize,
 				interleave.dsdist, interleave.dssize);
-		if (loc_addr != RIOMP_MAP_ANY_ADDR) {
+		if (RIOMP_MAP_ANY_ADDR != loc_addr) {
 			printf("\tloc_addr=0x%llx\n",
 					(unsigned long long)loc_addr);
 		}
