@@ -74,6 +74,10 @@ static void assumptions(void **state)
 	assert_int_equal(RIO_EFB_T_TS, 0x0F);
 	assert_int_equal(RIO_EFB_T_MISC, 0x10);
 
+	assert_int_equal(RIO_SPX_LM_REQ_CMD_RST_PT, 0x2);
+	assert_int_equal(RIO_SPX_LM_REQ_CMD_RST_DEV, 0x3);
+	assert_int_equal(RIO_SPX_LM_REQ_CMD_LR_IS, 0x4);
+
 	assert_int_equal(sizeof(RIO_SW_PORT_INF_T), sizeof(uint32_t));
 	assert_int_equal(sizeof(RIO_SRC_OPS_T), sizeof(uint32_t));
 	assert_int_equal(sizeof(RIO_DST_OPS_T), sizeof(uint32_t));

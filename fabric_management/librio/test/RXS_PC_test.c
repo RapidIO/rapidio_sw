@@ -896,16 +896,812 @@ static void rxs_rio_pc_get_status_bad_parms(void **state)
 	(void)state;
 }
 
+static void rxs_rio_pc_reset_port_bad_parms(void **state)
+{
+	rio_pc_reset_port_in_t pc_in;
+	rio_pc_reset_port_out_t pc_out;
+
+	// Bad port number...
+	pc_in.port_num = NUM_RXS_PORTS(&mock_dev_info);
+	pc_in.oob_reg_acc = true;
+	pc_in.reg_acc_port = 0;
+	pc_in.reset_lp = true;
+	pc_in.preserve_config = true;
+	pc_out.imp_rc = RIO_SUCCESS;
+
+	assert_int_not_equal(RIO_SUCCESS,
+			rxs_rio_pc_reset_port(&mock_dev_info, &pc_in, &pc_out));
+	assert_int_not_equal(RIO_SUCCESS, pc_out.imp_rc);
+
+	(void)state;
+}
+
+// Test that the register access port is never reset.
+static void rxs_rio_pc_reset_port_exclude_reg_acc(void **state)
+{
+	rio_pc_reset_port_in_t pc_in;
+	rio_pc_reset_port_out_t pc_out;
+	uint32_t chk_data;
+	uint32_t all_1 = 0xFFFFFFFF;
+	rio_port_t port, t_pt;
+
+	// Test on one port at a time.
+	for (port = 0; port < NUM_RXS_PORTS(&mock_dev_info); port++) {
+		// Power up the port so it can be reset
+		set_all_port_config(cfg_perfect, NO_TTL, NO_FILT, port);
+
+		// Set some status on the register access port
+		assert_int_equal(RIO_SUCCESS,
+			DARRegWrite(&mock_dev_info,
+						RXS_SPX_ERR_DET(port), all_1));
+		assert_int_equal(RIO_SUCCESS,
+			DARRegRead(&mock_dev_info, RXS_SPX_ERR_DET(port),
+								&chk_data));
+		assert_int_not_equal(0, chk_data);
+
+		// Clear link management response status
+		assert_int_equal(RIO_SUCCESS,
+			DARRegRead(&mock_dev_info, RXS_SPX_LM_RESP(port),
+								&chk_data));
+
+		// Try to reset the register access port
+		pc_in.port_num = port;
+		pc_in.oob_reg_acc = false;
+		pc_in.reg_acc_port = port;
+		pc_in.reset_lp = true;
+		pc_in.preserve_config = true;
+		pc_out.imp_rc = RIO_SUCCESS;
+
+		assert_int_equal(RIO_SUCCESS,
+			rxs_rio_pc_reset_port(&mock_dev_info, &pc_in, &pc_out));
+		assert_int_equal(RIO_SUCCESS, pc_out.imp_rc);
+
+		// Check that the port was not reset, by confirming that the
+		// status bits set remain set.
+		assert_int_equal(RIO_SUCCESS,
+			DARRegRead(&mock_dev_info, RXS_SPX_ERR_DET(port),
+								&chk_data));
+		assert_int_not_equal(0, chk_data);
+
+		// Check that link partner was not reset
+		assert_int_equal(RIO_SUCCESS,
+			DARRegRead(&mock_dev_info, RXS_SPX_LM_RESP(port),
+								&chk_data));
+		assert_int_equal(0, chk_data);
+	}
+
+	// All ports now have err detect bits set.  Try resetting all ports
+	// and verify that the register access port is preserved.
+
+	for (port = 0; port < NUM_RXS_PORTS(&mock_dev_info); port++) {
+		// Try to reset the register access port
+		pc_in.port_num = RIO_ALL_PORTS;
+		pc_in.oob_reg_acc = false;
+		pc_in.reg_acc_port = port;
+		pc_in.reset_lp = true;
+		pc_in.preserve_config = true;
+		pc_out.imp_rc = RIO_SUCCESS;
+
+		assert_int_equal(RIO_SUCCESS,
+			rxs_rio_pc_reset_port(&mock_dev_info, &pc_in, &pc_out));
+		assert_int_equal(RIO_SUCCESS, pc_out.imp_rc);
+
+		for (t_pt = 0; t_pt < NUM_RXS_PORTS(&mock_dev_info); t_pt++) {
+			assert_int_equal(RIO_SUCCESS,
+				DARRegRead(&mock_dev_info,
+					RXS_SPX_ERR_DET(t_pt), &chk_data));
+			if (t_pt == port) {
+				// Verify status is preserved on register
+				// access port
+				assert_int_not_equal(0, chk_data);
+
+				// Check that a reset was not sent to
+				// the link partner.
+				assert_int_equal(RIO_SUCCESS,
+					DARRegRead(&mock_dev_info,
+						RXS_SPX_LM_RESP(t_pt),
+						&chk_data));
+				assert_int_equal(0, chk_data);
+				continue;
+			}
+			// Verify status is cleared on all other ports, and that
+			// a reset was sent to the link partner,
+			// and then make the status non-zero in preparation for
+			// the next test loop.
+			assert_int_equal(0, chk_data);
+			assert_int_equal(RIO_SUCCESS,
+				DARRegRead(&mock_dev_info,
+					RXS_SPX_LM_RESP(t_pt), &chk_data));
+			assert_int_equal(RIO_SPX_LM_RESP_VLD, chk_data);
+
+			assert_int_equal(RIO_SUCCESS,
+				DARRegWrite(&mock_dev_info,
+					RXS_SPX_ERR_DET(t_pt), all_1));
+		}
+	}
+
+	// All ports still have the status bits set.
+	// Try resetting all ports and verify that if oob register access is
+	// used, that all ports are reset.
+	pc_in.port_num = RIO_ALL_PORTS;
+	pc_in.oob_reg_acc = true;
+	pc_in.reg_acc_port = 0;
+	pc_in.reset_lp = false;
+	pc_in.preserve_config = true;
+	pc_out.imp_rc = RIO_SUCCESS;
+
+	assert_int_equal(RIO_SUCCESS,
+		rxs_rio_pc_reset_port(&mock_dev_info, &pc_in, &pc_out));
+	assert_int_equal(RIO_SUCCESS, pc_out.imp_rc);
+
+	for (port = 0; port < NUM_RXS_PORTS(&mock_dev_info); port++) {
+		assert_int_equal(RIO_SUCCESS,
+			DARRegRead(&mock_dev_info,
+				RXS_SPX_ERR_DET(port), &chk_data));
+		// Verify status is cleared on all ports,
+		// and that a reset was not sent to the link partner.
+		assert_int_equal(0, chk_data);
+		assert_int_equal(RIO_SUCCESS,
+			DARRegRead(&mock_dev_info,
+					RXS_SPX_LM_RESP(port), &chk_data));
+		assert_int_equal(0, chk_data);
+	}
+
+	(void)state;
+}
+
+static void rxs_rio_pc_reset_link_partner_bad_parms(void **state)
+{
+	rio_pc_reset_link_partner_in_t pc_in;
+	rio_pc_reset_link_partner_out_t pc_out;
+
+	// Bad port number...
+	pc_in.port_num = NUM_RXS_PORTS(&mock_dev_info);
+	pc_in.resync_ackids = true;
+	pc_out.imp_rc = RIO_SUCCESS;
+
+	assert_int_not_equal(RIO_SUCCESS,
+		rxs_rio_pc_reset_link_partner(&mock_dev_info, &pc_in, &pc_out));
+	assert_int_not_equal(RIO_SUCCESS, pc_out.imp_rc);
+
+	(void)state;
+}
+
+// Test that the link partner is reset, and the local port is reset,
+// according to the input parameters.
+static void rxs_rio_pc_reset_link_partner_success(void **state)
+{
+	rio_pc_reset_link_partner_in_t pc_in;
+	rio_pc_reset_link_partner_out_t pc_out;
+	uint32_t chk_data;
+	uint32_t all_1 = 0xFFFFFFFF;
+	rio_port_t port;
+
+	// Test on one port at a time.
+	for (port = 0; port < NUM_RXS_PORTS(&mock_dev_info); port++) {
+		// Power up the port so it can be reset
+		set_all_port_config(cfg_perfect, NO_TTL, NO_FILT, port);
+
+		// Set some status on the port under test
+		assert_int_equal(RIO_SUCCESS,
+			DARRegWrite(&mock_dev_info,
+						RXS_SPX_ERR_DET(port), all_1));
+		assert_int_equal(RIO_SUCCESS,
+			DARRegRead(&mock_dev_info, RXS_SPX_ERR_DET(port),
+								&chk_data));
+		assert_int_not_equal(0, chk_data);
+
+		// Clear link management response status
+		assert_int_equal(RIO_SUCCESS,
+			DARRegRead(&mock_dev_info, RXS_SPX_LM_RESP(port),
+								&chk_data));
+		// Reset the link partner and resync_ackids
+		pc_in.port_num = port;
+		pc_in.resync_ackids = true;
+		pc_out.imp_rc = RIO_SUCCESS;
+
+		assert_int_equal(RIO_SUCCESS,
+			rxs_rio_pc_reset_link_partner(
+					&mock_dev_info, &pc_in, &pc_out));
+		assert_int_equal(RIO_SUCCESS, pc_out.imp_rc);
+
+		// Check that the port was reset,
+		// by confirming that the status bits are cleared.
+		assert_int_equal(RIO_SUCCESS,
+			DARRegRead(&mock_dev_info, RXS_SPX_ERR_DET(port),
+								&chk_data));
+		assert_int_equal(0, chk_data);
+
+		// Check that link partner was reset
+		assert_int_equal(RIO_SUCCESS,
+			DARRegRead(&mock_dev_info, RXS_SPX_LM_RESP(port),
+								&chk_data));
+		assert_int_equal(RIO_SPX_LM_RESP_VLD, chk_data);
+	}
+
+	// Try again, verifying that the local port was no reset.
+
+	for (port = 0; port < NUM_RXS_PORTS(&mock_dev_info); port++) {
+		// Set some status on the port under test
+		assert_int_equal(RIO_SUCCESS,
+			DARRegWrite(&mock_dev_info,
+						RXS_SPX_ERR_DET(port), all_1));
+		pc_in.port_num = port;
+		pc_in.resync_ackids = false;
+		pc_out.imp_rc = RIO_SUCCESS;
+
+		assert_int_equal(RIO_SUCCESS,
+			rxs_rio_pc_reset_link_partner(
+					&mock_dev_info, &pc_in, &pc_out));
+		assert_int_equal(RIO_SUCCESS, pc_out.imp_rc);
+
+		// Verify the local port was not reset.
+		assert_int_equal(RIO_SUCCESS,
+			DARRegRead(&mock_dev_info,
+					RXS_SPX_ERR_DET(port), &chk_data));
+		assert_int_not_equal(0, chk_data);
+
+		// Check that a reset was sent to the link partner.
+		assert_int_equal(RIO_SUCCESS,
+			DARRegRead(&mock_dev_info,
+					RXS_SPX_LM_RESP(port), &chk_data));
+		assert_int_equal(RIO_SPX_LM_RESP_VLD, chk_data);
+	}
+	(void)state;
+}
+
+static void rxs_rio_pc_clr_errs_bad_parms(void **state)
+{
+	rio_pc_clr_errs_in_t pc_in;
+	rio_pc_clr_errs_out_t pc_out;
+
+	// Bad port number...
+	memset(&pc_in, 0, sizeof(pc_in));
+	pc_in.port_num = NUM_RXS_PORTS(&mock_dev_info);
+	pc_out.imp_rc = RIO_SUCCESS;
+
+	assert_int_not_equal(RIO_SUCCESS,
+		rxs_rio_pc_clr_errs(&mock_dev_info, &pc_in, &pc_out));
+	assert_int_not_equal(RIO_SUCCESS, pc_out.imp_rc);
+
+	// Clear link partner errors without link partner information
+	memset(&pc_in, 0, sizeof(pc_in));
+	pc_in.port_num = 0;
+	pc_in.clr_lp_port_err = true;
+	pc_in.lp_dev_info = NULL;
+	pc_out.imp_rc = RIO_SUCCESS;
+
+	assert_int_not_equal(RIO_SUCCESS,
+		rxs_rio_pc_clr_errs(&mock_dev_info, &pc_in, &pc_out));
+	assert_int_not_equal(RIO_SUCCESS, pc_out.imp_rc);
+
+	// Clear link partner errors without link partner port hints
+	memset(&pc_in, 0, sizeof(pc_in));
+	pc_in.port_num = 0;
+	pc_in.clr_lp_port_err = true;
+	pc_in.lp_dev_info = &mock_dev_info;
+	pc_out.imp_rc = RIO_SUCCESS;
+
+	assert_int_not_equal(RIO_SUCCESS,
+		rxs_rio_pc_clr_errs(&mock_dev_info, &pc_in, &pc_out));
+	assert_int_not_equal(RIO_SUCCESS, pc_out.imp_rc);
+
+	(void)state;
+}
+
+// Test that the local port is reset, and no ackID synchronization is performed
+static void rxs_rio_pc_clr_errs_success(void **state)
+{
+	rio_pc_clr_errs_in_t pc_in;
+	rio_pc_clr_errs_out_t pc_out;
+	uint32_t chk_data;
+	uint32_t all_1 = 0xFFFFFFFF;
+	rio_port_t port;
+
+	// Test on one port at a time.
+	for (port = 0; port < NUM_RXS_PORTS(&mock_dev_info); port++) {
+		// Power up the port
+		set_all_port_config(cfg_perfect, NO_TTL, NO_FILT, port);
+
+		// Set some status on the port under test
+		assert_int_equal(RIO_SUCCESS,
+			DARRegWrite(&mock_dev_info,
+						RXS_SPX_ERR_DET(port), all_1));
+		assert_int_equal(RIO_SUCCESS,
+			DARRegRead(&mock_dev_info, RXS_SPX_ERR_DET(port),
+								&chk_data));
+		assert_int_not_equal(0, chk_data);
+
+		// Clear link management response status
+		assert_int_equal(RIO_SUCCESS,
+			DARRegRead(&mock_dev_info, RXS_SPX_LM_RESP(port),
+								&chk_data));
+		// Reset the this port, do not clear link partner errors
+		pc_in.port_num = port;
+		pc_in.clr_lp_port_err = false;
+		pc_out.imp_rc = RIO_SUCCESS;
+
+		assert_int_equal(RIO_SUCCESS,
+			rxs_rio_pc_clr_errs(
+					&mock_dev_info, &pc_in, &pc_out));
+		assert_int_equal(RIO_SUCCESS, pc_out.imp_rc);
+
+		// Check that the port was reset,
+		// by confirming that the status bits are cleared.
+		assert_int_equal(RIO_SUCCESS,
+			DARRegRead(&mock_dev_info, RXS_SPX_ERR_DET(port),
+								&chk_data));
+		assert_int_equal(0, chk_data);
+
+		// Check that link partner was not touched...
+		assert_int_equal(RIO_SUCCESS,
+			DARRegRead(&mock_dev_info, RXS_SPX_LM_RESP(port),
+								&chk_data));
+		assert_int_equal(0, chk_data);
+	}
+
+	(void)state;
+}
+
+// Test that the local port is reset, and ackID synchronization is performed
+static void rxs_rio_pc_clr_errs_resync_ackids(void **state)
+{
+	rio_pc_clr_errs_in_t pc_in;
+	rio_pc_clr_errs_out_t pc_out;
+	uint32_t chk_data;
+	uint32_t all_1 = 0xFFFFFFFF;
+	rio_port_t port;
+	uint32_t rc;
+
+	// Test on one port at a time.
+	for (port = 0; port < NUM_RXS_PORTS(&mock_dev_info); port++) {
+		if (DEBUG_PRINTF) {
+			printf("\nport = %d\n", port);
+		}
+
+		// Power up the port
+		set_all_port_config(cfg_perfect, NO_TTL, NO_FILT, port);
+
+		// Set some status on the port under test
+		assert_int_equal(RIO_SUCCESS,
+			DARRegWrite(&mock_dev_info,
+						RXS_SPX_ERR_DET(port), all_1));
+		assert_int_equal(RIO_SUCCESS,
+			DARRegRead(&mock_dev_info, RXS_SPX_ERR_DET(port),
+								&chk_data));
+		assert_int_not_equal(0, chk_data);
+
+		// Clear link management response status
+		assert_int_equal(RIO_SUCCESS,
+			DARRegRead(&mock_dev_info, RXS_SPX_LM_RESP(port),
+								&chk_data));
+		// Reset the this port, clear link partner errors
+		pc_in.port_num = port;
+		pc_in.clr_lp_port_err = true;
+		pc_in.lp_dev_info = &mock_lp_dev_info;
+		pc_in.num_lp_ports = 1;
+		pc_in.lp_port_list[0] = 0;
+		pc_out.imp_rc = RIO_SUCCESS;
+
+		rc = rxs_rio_pc_clr_errs(&mock_dev_info, &pc_in, &pc_out);
+		assert_int_equal(RIO_SUCCESS, pc_out.imp_rc);
+		assert_int_equal(RIO_SUCCESS, rc);
+
+		// Check that the port was reset,
+		// by confirming that the status bits are cleared.
+		assert_int_equal(RIO_SUCCESS,
+			DARRegRead(&mock_dev_info, RXS_SPX_ERR_DET(port),
+								&chk_data));
+		assert_int_equal(0, chk_data);
+
+		// Check that inbound and outbound ackIDs have been resynced
+		assert_int_equal(RIO_SUCCESS,
+			DARRegRead(&mock_dev_info, RXS_SPX_IN_ACKID_CSR(port),
+								&chk_data));
+		assert_int_equal(ACKID_CAP_BASE + port, chk_data);
+		assert_int_equal(RIO_SUCCESS,
+			DARRegRead(&mock_dev_info, RXS_SPX_OUT_ACKID_CSR(port),
+								&chk_data));
+		assert_int_equal(0x8003f03f, chk_data);
+	}
+
+	(void)state;
+}
+
+static void rxs_rio_pc_secure_port_bad_parms(void **state)
+{
+	rio_pc_secure_port_in_t pc_in;
+	rio_pc_secure_port_out_t pc_out;
+
+	// Bad number of ports
+	pc_in.ptl.num_ports = NUM_RXS_PORTS(&mock_dev_info) + 1;
+	pc_in.mtc_pkts_allowed = true;
+	pc_in.MECS_participant = true;
+	pc_in.MECS_acceptance = true;
+	pc_in.rst = rio_pc_rst_device;
+	pc_out.imp_rc = RIO_SUCCESS;
+
+	assert_int_not_equal(RIO_SUCCESS,
+		rxs_rio_pc_secure_port(&mock_dev_info, &pc_in, &pc_out));
+	assert_int_not_equal(RIO_SUCCESS, pc_out.imp_rc);
+
+	// Bad port number
+	pc_in.ptl.num_ports = 1;
+	pc_in.ptl.pnums[0] = NUM_RXS_PORTS(&mock_dev_info);
+	pc_in.mtc_pkts_allowed = true;
+	pc_in.MECS_participant = true;
+	pc_in.MECS_acceptance = true;
+	pc_in.rst = rio_pc_rst_device;
+	pc_out.imp_rc = RIO_SUCCESS;
+
+	assert_int_not_equal(RIO_SUCCESS,
+		rxs_rio_pc_secure_port(&mock_dev_info, &pc_in, &pc_out));
+	assert_int_not_equal(RIO_SUCCESS, pc_out.imp_rc);
+
+	// Bad device reset configuration
+	pc_in.ptl.num_ports = NUM_RXS_PORTS(&mock_dev_info);
+	pc_in.mtc_pkts_allowed = true;
+	pc_in.MECS_participant = true;
+	pc_in.MECS_acceptance = true;
+	pc_in.rst = rio_pc_rst_last;
+	pc_out.imp_rc = RIO_SUCCESS;
+
+	assert_int_not_equal(RIO_SUCCESS,
+		rxs_rio_pc_secure_port(&mock_dev_info, &pc_in, &pc_out));
+	assert_int_not_equal(RIO_SUCCESS, pc_out.imp_rc);
+
+	(void)state;
+}
+
+// Test register settings for each control value.
+static void rxs_rio_pc_secure_port_success(void **state)
+{
+	rio_pc_secure_port_in_t pc_in;
+	rio_pc_secure_port_out_t pc_out;
+	uint32_t temp;
+	rio_port_t port;
+	uint32_t plm_ctl_mask = RXS_PLM_SPX_IMP_SPEC_CTL_SELF_RST |
+				RXS_PLM_SPX_IMP_SPEC_CTL_PORT_SELF_RST;
+	uint32_t ctl_mask = RXS_SPX_CTL_MULT_CS;
+	uint32_t filt_mask = RXS_TLM_SPX_FTYPE_FILT_MTC;
+
+	// Test on one port at a time.
+	for (port = 0; port < NUM_RXS_PORTS(&mock_dev_info); port++) {
+		// Power up the port
+		set_all_port_config(cfg_perfect, NO_TTL, NO_FILT, port);
+
+		// Turn all items off
+
+		pc_in.ptl.num_ports = 1;
+		pc_in.ptl.pnums[0] = port;
+		pc_in.mtc_pkts_allowed = false;
+		pc_in.MECS_participant = false;
+		pc_in.MECS_acceptance = false;
+		pc_in.rst = rio_pc_rst_device;
+		pc_out.imp_rc = RIO_SUCCESS;
+
+		if (DEBUG_PRINTF) {
+			printf("\nrst = %d %s\n",
+				pc_in.rst, rst_to_str[pc_in.rst]);
+		}
+		assert_int_equal(RIO_SUCCESS,
+			rxs_rio_pc_secure_port(
+					&mock_dev_info, &pc_in, &pc_out));
+		assert_int_equal(RIO_SUCCESS, pc_out.imp_rc);
+
+		assert_false(pc_out.bc_mtc_pkts_allowed);
+		assert_false(pc_out.MECS_participant);
+		assert_true(pc_out.MECS_acceptance);
+		assert_int_equal(rio_pc_rst_device, pc_out.rst);
+
+		// Check register values for MECS, filter, and reset...
+
+		assert_int_equal(RIO_SUCCESS,
+			DARRegRead(&mock_dev_info, RXS_SPX_CTL(port), &temp));
+		assert_int_equal(0, temp & ctl_mask);
+
+		assert_int_equal(RIO_SUCCESS,
+			DARRegRead(&mock_dev_info, RXS_TLM_SPX_FTYPE_FILT(port),
+								 &temp));
+		assert_int_equal(filt_mask, temp & filt_mask);
+
+		assert_int_equal(RIO_SUCCESS,
+			DARRegRead(&mock_dev_info,
+				RXS_PLM_SPX_IMP_SPEC_CTL(port), &temp));
+		assert_int_equal(plm_ctl_mask, temp & plm_ctl_mask);
+
+		// Turn all items on
+
+		pc_in.ptl.num_ports = 1;
+		pc_in.ptl.pnums[0] = port;
+		pc_in.mtc_pkts_allowed = true;
+		pc_in.MECS_participant = true;
+		pc_in.MECS_acceptance = true;
+		pc_in.rst = rio_pc_rst_device;
+		pc_out.imp_rc = RIO_SUCCESS;
+
+		assert_int_equal(RIO_SUCCESS,
+			rxs_rio_pc_secure_port(
+					&mock_dev_info, &pc_in, &pc_out));
+		assert_int_equal(RIO_SUCCESS, pc_out.imp_rc);
+
+		assert_true(pc_out.bc_mtc_pkts_allowed);
+		assert_true(pc_out.MECS_participant);
+		assert_true(pc_out.MECS_acceptance);
+		assert_int_equal(rio_pc_rst_device, pc_out.rst);
+
+		// Check register values for MECS, filter, and reset...
+
+		assert_int_equal(RIO_SUCCESS,
+			DARRegRead(&mock_dev_info, RXS_SPX_CTL(port), &temp));
+		assert_int_equal(ctl_mask, temp & ctl_mask);
+
+		assert_int_equal(RIO_SUCCESS,
+			DARRegRead(&mock_dev_info,
+				RXS_TLM_SPX_FTYPE_FILT(port), &temp));
+		assert_int_equal(0, temp & filt_mask);
+
+		assert_int_equal(RIO_SUCCESS,
+			DARRegRead(&mock_dev_info,
+				RXS_PLM_SPX_IMP_SPEC_CTL(port), &temp));
+		assert_int_equal(plm_ctl_mask, temp & plm_ctl_mask);
+	}
+
+	(void)state;
+}
+
+// Test register settings for each reset control value
+static void rxs_rio_pc_secure_port_rst_cfg(void **state)
+{
+	rio_pc_secure_port_in_t pc_in;
+	rio_pc_secure_port_out_t pc_out;
+	uint32_t temp;
+	rio_port_t port;
+	uint32_t plm_ctl_mask = RXS_PLM_SPX_IMP_SPEC_CTL_SELF_RST |
+				RXS_PLM_SPX_IMP_SPEC_CTL_PORT_SELF_RST;
+	uint32_t port_mask;
+	uint32_t exp_plm_ctl = 0;
+	uint32_t exp_em_int = 0;
+	uint32_t exp_em_pw = 0;
+
+	// Test on one port at a time.
+	// Change reset configuration based on port number
+	for (port = 0; port < NUM_RXS_PORTS(&mock_dev_info); port++) {
+		// Power up the port
+		set_all_port_config(cfg_perfect, NO_TTL, NO_FILT, port);
+
+		// Test reset port configuration
+		pc_in.ptl.num_ports = 1;
+		pc_in.ptl.pnums[0] = port;
+		pc_in.mtc_pkts_allowed = false;
+		pc_in.MECS_participant = false;
+		pc_in.MECS_acceptance = false;
+		pc_in.rst = (rio_pc_rst_handling)(port % rio_pc_rst_last);
+		pc_out.imp_rc = RIO_SUCCESS;
+
+		if (DEBUG_PRINTF) {
+			printf("\nport %d rst = %d %s\n",
+				port, pc_in.rst, rst_to_str[pc_in.rst]);
+		}
+		port_mask = 1 << port;
+		switch (pc_in.rst) {
+		case rio_pc_rst_device:
+			exp_plm_ctl = plm_ctl_mask;
+			exp_em_int = 0;
+			exp_em_pw = 0;
+			break;
+
+		case rio_pc_rst_port:
+			exp_plm_ctl = RXS_PLM_SPX_IMP_SPEC_CTL_PORT_SELF_RST;
+			exp_em_int = 0;
+			exp_em_pw = 0;
+			break;
+
+		case rio_pc_rst_int:
+			exp_plm_ctl = 0;
+			exp_em_int = port_mask;
+			exp_em_pw = 0;
+			break;
+
+		case rio_pc_rst_pw:
+			exp_plm_ctl = 0;
+			exp_em_int = 0;
+			exp_em_pw = port_mask;
+			break;
+
+		case rio_pc_rst_ignore:
+			exp_plm_ctl = 0;
+			exp_em_int = 0;
+			exp_em_pw = 0;
+			break;
+
+		default:
+			assert_true(false);
+		}
+
+		assert_int_equal(RIO_SUCCESS,
+			rxs_rio_pc_secure_port(
+					&mock_dev_info, &pc_in, &pc_out));
+		assert_int_equal(RIO_SUCCESS, pc_out.imp_rc);
+
+		assert_false(pc_out.bc_mtc_pkts_allowed);
+		assert_false(pc_out.MECS_participant);
+		assert_true(pc_out.MECS_acceptance);
+		assert_int_equal(pc_in.rst, pc_out.rst);
+
+		// Check register values for reset...
+
+		assert_int_equal(RIO_SUCCESS,
+			DARRegRead(&mock_dev_info,
+				RXS_PLM_SPX_IMP_SPEC_CTL(port), &temp));
+		assert_int_equal(exp_plm_ctl, temp & plm_ctl_mask);
+		assert_int_equal(RIO_SUCCESS,
+			DARRegRead(&mock_dev_info, RXS_EM_RST_INT_EN, &temp));
+		assert_int_equal(exp_em_int, temp & port_mask);
+		assert_int_equal(RIO_SUCCESS,
+			DARRegRead(&mock_dev_info, RXS_EM_RST_PW_EN, &temp));
+		assert_int_equal(exp_em_pw, temp & port_mask);
+
+	}
+
+	(void)state;
+}
+
+static void rxs_rio_pc_dev_reset_config_bad_parms(void **state)
+{
+	rio_pc_dev_reset_config_in_t pc_in;
+	rio_pc_dev_reset_config_out_t pc_out;
+
+	// Bad device reset configuration
+	pc_in.rst = rio_pc_rst_last;
+	pc_out.imp_rc = RIO_SUCCESS;
+	pc_out.rst = rio_pc_rst_last;
+
+	assert_int_not_equal(RIO_SUCCESS,
+		rxs_rio_pc_dev_reset_config(&mock_dev_info, &pc_in, &pc_out));
+	assert_int_not_equal(RIO_SUCCESS, pc_out.imp_rc);
+
+	(void)state;
+}
+
+#define INCR_RST(x) ((rio_pc_rst_handling)((unsigned int)(x) + 1))
+// Test register settings for each reset control value
+static void rxs_rio_pc_dev_reset_config_rst_cfg(void **state)
+{
+	rio_pc_dev_reset_config_in_t pc_in;
+	rio_pc_dev_reset_config_out_t pc_out;
+	uint32_t temp;
+	rio_port_t port;
+	uint32_t plm_ctl_mask = RXS_PLM_SPX_IMP_SPEC_CTL_SELF_RST |
+				RXS_PLM_SPX_IMP_SPEC_CTL_PORT_SELF_RST;
+	uint32_t port_mask = (1 << NUM_RXS_PORTS(&mock_dev_info)) - 1;
+	uint32_t exp_plm_ctl;
+	uint32_t exp_em_int;
+	uint32_t exp_em_pw;
+	rio_pc_rst_handling rst;
+
+	// Power up all ports
+	for (port = 0; port < NUM_RXS_PORTS(&mock_dev_info); port++) {
+		set_all_port_config(cfg_perfect, NO_TTL, NO_FILT, port);
+	}
+
+	// Test each configuration
+	for (rst = rio_pc_rst_device; rst < rio_pc_rst_last; rst = INCR_RST(rst)) {
+		if (DEBUG_PRINTF) {
+			printf("\nrst = %d %s\n", rst, rst_to_str[rst]);
+		}
+		// Test reset port configuration
+		pc_in.rst = rst;
+		pc_out.imp_rc = RIO_SUCCESS;
+		pc_out.rst = rio_pc_rst_last;
+
+		switch (pc_in.rst) {
+		case rio_pc_rst_device:
+			exp_plm_ctl = plm_ctl_mask;
+			exp_em_int = 0;
+			exp_em_pw = 0;
+			break;
+
+		case rio_pc_rst_port:
+			exp_plm_ctl = RXS_PLM_SPX_IMP_SPEC_CTL_PORT_SELF_RST;
+			exp_em_int = 0;
+			exp_em_pw = 0;
+			break;
+
+		case rio_pc_rst_int:
+			exp_plm_ctl = 0;
+			exp_em_int = port_mask;
+			exp_em_pw = 0;
+			break;
+
+		case rio_pc_rst_pw:
+			exp_plm_ctl = 0;
+			exp_em_int = 0;
+			exp_em_pw = port_mask;
+			break;
+
+		case rio_pc_rst_ignore:
+			exp_plm_ctl = 0;
+			exp_em_int = 0;
+			exp_em_pw = 0;
+			break;
+
+		default:
+			assert_true(false);
+		}
+
+		assert_int_equal(RIO_SUCCESS,
+			rxs_rio_pc_dev_reset_config(
+					&mock_dev_info, &pc_in, &pc_out));
+		assert_int_equal(RIO_SUCCESS, pc_out.imp_rc);
+		assert_int_equal(pc_in.rst, pc_out.rst);
+
+		// Check register values for reset...
+
+		for (port = 0; port < NUM_RXS_PORTS(&mock_dev_info); port++) {
+			assert_int_equal(RIO_SUCCESS,
+				DARRegRead(&mock_dev_info,
+					RXS_PLM_SPX_IMP_SPEC_CTL(port), &temp));
+			assert_int_equal(exp_plm_ctl, temp & plm_ctl_mask);
+		}
+		assert_int_equal(RIO_SUCCESS,
+			DARRegRead(&mock_dev_info, RXS_EM_RST_INT_EN, &temp));
+		assert_int_equal(exp_em_int, temp);
+		assert_int_equal(RIO_SUCCESS,
+			DARRegRead(&mock_dev_info, RXS_EM_RST_PW_EN, &temp));
+		assert_int_equal(exp_em_pw, temp);
+	}
+
+	(void)state;
+}
+
 int main(int argc, char** argv)
 {
 	const struct CMUnitTest tests[] = {
 			cmocka_unit_test(rxs_rio_pc_macros_test),
-			cmocka_unit_test_setup(rxs_rio_pc_clk_pd_success_test, setup),
-			cmocka_unit_test_setup(rxs_rio_pc_clk_pd_fail_test, setup),
-			cmocka_unit_test_setup(rxs_rio_pc_get_config_success, setup),
-			cmocka_unit_test_setup(rxs_rio_pc_get_config_bad_parms, setup),
-			cmocka_unit_test_setup(rxs_rio_pc_get_status_success, setup),
-			cmocka_unit_test_setup(rxs_rio_pc_get_status_bad_parms, setup),
+			cmocka_unit_test_setup(
+				rxs_rio_pc_clk_pd_success_test, setup),
+			cmocka_unit_test_setup(
+				rxs_rio_pc_clk_pd_fail_test, setup),
+
+			cmocka_unit_test_setup(
+				rxs_rio_pc_get_config_success, setup),
+			cmocka_unit_test_setup(
+				rxs_rio_pc_get_config_bad_parms, setup),
+
+			cmocka_unit_test_setup(
+				rxs_rio_pc_get_status_success, setup),
+			cmocka_unit_test_setup(
+				rxs_rio_pc_get_status_bad_parms, setup),
+
+			cmocka_unit_test_setup(
+				rxs_rio_pc_reset_port_bad_parms, setup),
+			cmocka_unit_test_setup(
+				rxs_rio_pc_reset_port_exclude_reg_acc, setup),
+
+			cmocka_unit_test_setup(
+				rxs_rio_pc_reset_link_partner_bad_parms, setup),
+			cmocka_unit_test_setup(
+				rxs_rio_pc_reset_link_partner_success, setup),
+
+			cmocka_unit_test_setup(
+				rxs_rio_pc_clr_errs_bad_parms, setup),
+			cmocka_unit_test_setup(
+				rxs_rio_pc_clr_errs_success, setup),
+			cmocka_unit_test_setup(
+				rxs_rio_pc_clr_errs_resync_ackids, setup),
+
+			cmocka_unit_test_setup(
+				rxs_rio_pc_secure_port_bad_parms, setup),
+			cmocka_unit_test_setup(
+				rxs_rio_pc_secure_port_success, setup),
+			cmocka_unit_test_setup(
+				rxs_rio_pc_secure_port_rst_cfg, setup),
+
+			cmocka_unit_test_setup(
+				rxs_rio_pc_dev_reset_config_bad_parms, setup),
+			cmocka_unit_test_setup(
+				rxs_rio_pc_dev_reset_config_rst_cfg, setup),
 			};
 
 	memset(&st, 0, sizeof(st));

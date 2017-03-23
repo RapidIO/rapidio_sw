@@ -214,7 +214,7 @@ uint32_t rio_pc_reset_port(DAR_DEV_INFO_t *dev_info,
 			return CPS_rio_pc_reset_port(dev_info, in_parms,
 					out_parms);
 		case RIO_RXS_DEVICE:
-			return DSF_rio_pc_reset_port(dev_info, in_parms,
+			return rxs_rio_pc_reset_port(dev_info, in_parms,
 					out_parms);
 		case RIO_TSI721_DEVICE:
 			return tsi721_rio_pc_reset_port(dev_info, in_parms,
@@ -247,7 +247,7 @@ uint32_t rio_pc_reset_link_partner(DAR_DEV_INFO_t *dev_info,
 			return CPS_rio_pc_reset_link_partner(dev_info, in_parms,
 					out_parms);
 		case RIO_RXS_DEVICE:
-			return DSF_rio_pc_reset_link_partner(dev_info, in_parms,
+			return rxs_rio_pc_reset_link_partner(dev_info, in_parms,
 					out_parms);
 		case RIO_TSI721_DEVICE:
 			return tsi721_rio_pc_reset_link_partner(dev_info,
@@ -280,7 +280,7 @@ uint32_t rio_pc_clr_errs(DAR_DEV_INFO_t *dev_info,
 			return CPS_rio_pc_clr_errs(dev_info, in_parms,
 					out_parms);
 		case RIO_RXS_DEVICE:
-			return DSF_rio_pc_clr_errs(dev_info, in_parms,
+			return rxs_rio_pc_clr_errs(dev_info, in_parms,
 					out_parms);
 		case RIO_TSI721_DEVICE:
 			return tsi721_rio_pc_clr_errs(dev_info, in_parms,
@@ -313,7 +313,7 @@ uint32_t rio_pc_secure_port(DAR_DEV_INFO_t *dev_info,
 			return CPS_rio_pc_secure_port(dev_info, in_parms,
 					out_parms);
 		case RIO_RXS_DEVICE:
-			return DSF_rio_pc_secure_port(dev_info, in_parms,
+			return rxs_rio_pc_secure_port(dev_info, in_parms,
 					out_parms);
 		case RIO_TSI721_DEVICE:
 			return tsi721_rio_pc_secure_port(dev_info, in_parms,
@@ -378,7 +378,8 @@ uint32_t rio_pc_probe(DAR_DEV_INFO_t *dev_info, rio_pc_probe_in_t *in_parms,
 			return default_rio_pc_probe(dev_info, in_parms,
 					out_parms);
 		case RIO_RXS_DEVICE:
-			return DSF_rio_pc_probe(dev_info, in_parms, out_parms);
+			return default_rio_pc_probe(dev_info, in_parms,
+					out_parms);
 		case RIO_TSI721_DEVICE:
 			return default_rio_pc_probe(dev_info, in_parms,
 					out_parms);

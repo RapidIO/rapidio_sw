@@ -109,9 +109,29 @@ uint32_t rxs_rio_pc_get_status(DAR_DEV_INFO_t *dev_info,
 		rio_pc_get_status_in_t *in_parms,
 		rio_pc_get_status_out_t *out_parms);
 
+uint32_t rxs_rio_pc_reset_port(DAR_DEV_INFO_t *dev_info,
+                rio_pc_reset_port_in_t *in_parms,
+                rio_pc_reset_port_out_t *out_parms);
+
+uint32_t rxs_rio_pc_reset_link_partner(DAR_DEV_INFO_t *dev_info,
+                rio_pc_reset_link_partner_in_t *in_parms,
+                rio_pc_reset_link_partner_out_t *out_parms);
+
+uint32_t rxs_rio_pc_clr_errs(DAR_DEV_INFO_t *dev_info,
+                rio_pc_clr_errs_in_t *in_parms,
+                rio_pc_clr_errs_out_t *out_parms);
+
+uint32_t rxs_rio_pc_secure_port(DAR_DEV_INFO_t *dev_info,
+                rio_pc_secure_port_in_t *in_parms,
+                rio_pc_secure_port_out_t *out_parms);
+
 uint32_t rxs_rio_pc_dev_reset_config(DAR_DEV_INFO_t *dev_info,
-		rio_pc_dev_reset_config_in_t *in_parms,
-		rio_pc_dev_reset_config_out_t *out_parms);
+                rio_pc_dev_reset_config_in_t *in_parms,
+                rio_pc_dev_reset_config_out_t *out_parms);
+
+uint32_t rxs_rio_pc_probe(DAR_DEV_INFO_t *dev_info,
+                rio_pc_probe_in_t *in_parms,
+                rio_pc_probe_out_t *out_parms);
 
 uint32_t rxs_rio_pc_clk_pd(DAR_DEV_INFO_t *dev_info, uint32_t *srv_pd);
 

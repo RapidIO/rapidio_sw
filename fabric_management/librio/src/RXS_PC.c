@@ -38,6 +38,7 @@
 #include "RapidIO_Source_Config.h"
 #include "RapidIO_Device_Access_Routines_API.h"
 #include "RapidIO_Port_Config_API.h"
+#include "RXS_DeviceDriver.h"
 #include "RXS2448.h"
 
 #ifdef __cplusplus
@@ -474,6 +475,72 @@ fail:
 	return rc;
 }
 
+bool determine_iseq(enum rio_pc_idle_seq *iseq, rio_pc_ls_t ls, uint32_t plm_ctl)
+{
+	bool idle_err = false;
+	uint32_t idle_overrides = RXS_PLM_SPX_IMP_SPEC_CTL_USE_IDLE1 |
+				RXS_PLM_SPX_IMP_SPEC_CTL_USE_IDLE2 |
+				RXS_PLM_SPX_IMP_SPEC_CTL_USE_IDLE3;
+
+	// Note: programming error if more than one of
+	// RXS_PLM_SPX_IMP_SPEC_CTL_USE_IDLE1,
+	// RXS_PLM_SPX_IMP_SPEC_CTL_USE_IDLE2, and
+	// RXS_PLM_SPX_IMP_SPEC_CTL_USE_IDLE3 set set.
+	*iseq = rio_pc_is_last;
+	switch (plm_ctl & idle_overrides) {
+	case 0:
+		break;
+	case RXS_PLM_SPX_IMP_SPEC_CTL_USE_IDLE1:
+		*iseq = rio_pc_is_one;
+		break;
+	case RXS_PLM_SPX_IMP_SPEC_CTL_USE_IDLE2:
+		*iseq = rio_pc_is_two;
+		break;
+	case RXS_PLM_SPX_IMP_SPEC_CTL_USE_IDLE3:
+		*iseq = rio_pc_is_three;
+		break;
+	default:
+		idle_err = true;
+		goto fail;
+	}
+
+	switch (ls) {
+	case rio_pc_ls_1p25:
+	case rio_pc_ls_2p5:
+	case rio_pc_ls_3p125:
+	case rio_pc_ls_5p0:
+		if (rio_pc_is_last == *iseq) {
+			*iseq = rio_pc_is_one;
+		}
+		break;
+	case rio_pc_ls_6p25:
+		if (rio_pc_is_last == *iseq) {
+			*iseq = rio_pc_is_two;
+		}
+		break;
+	case rio_pc_ls_10p3:
+	case rio_pc_ls_12p5:
+	switch (*iseq) {
+		// Programming error to use IDLE1 or IDLE2
+		// at more than 6.25 Gbaud.
+		case rio_pc_is_one:
+		case rio_pc_is_two:
+			*iseq = rio_pc_is_last;
+			idle_err = true;
+			break;
+		case rio_pc_is_three:
+			break;
+		case rio_pc_is_last:
+			*iseq = rio_pc_is_three;
+			}
+		break;
+	default:
+		idle_err = true;
+	}
+fail:
+	return idle_err;
+}
+
 uint32_t rxs_rio_pc_get_status(DAR_DEV_INFO_t *dev_info,
 		rio_pc_get_status_in_t *in_parms,
 		rio_pc_get_status_out_t *out_parms)
@@ -484,9 +551,6 @@ uint32_t rxs_rio_pc_get_status(DAR_DEV_INFO_t *dev_info,
 	struct DAR_ptl good_ptl;
 	rio_pc_one_port_status_t *ps;
 	rio_pc_ls_t ls;
-	uint32_t idle_overrides = RXS_PLM_SPX_IMP_SPEC_CTL_USE_IDLE1 |
-				RXS_PLM_SPX_IMP_SPEC_CTL_USE_IDLE2 |
-				RXS_PLM_SPX_IMP_SPEC_CTL_USE_IDLE3;
 	bool idle_err = false;
 
 	out_parms->num_ports = 0;
@@ -513,8 +577,10 @@ uint32_t rxs_rio_pc_get_status(DAR_DEV_INFO_t *dev_info,
 		ps->num_lanes = 0;
 		ps->first_lane = 0;
 
-		// Port is available and powered up, so let's figure out the status...
-		rc = DARRegRead(dev_info, RXS_SPX_ERR_STAT(ps->pnum), &err_stat);
+		// Port is available and powered up,
+		// so let's figure out the status...
+		rc = DARRegRead(dev_info, RXS_SPX_ERR_STAT(ps->pnum),
+								&err_stat);
 		if (RIO_SUCCESS != rc) {
 			out_parms->imp_rc = PC_GET_STATUS(0x30);
 			goto exit;
@@ -527,14 +593,16 @@ uint32_t rxs_rio_pc_get_status(DAR_DEV_INFO_t *dev_info,
 		}
 
 		ps->port_ok = (err_stat & RXS_SPX_ERR_STAT_PORT_OK);
-		ps->input_stopped = (err_stat & RXS_SPX_ERR_STAT_INPUT_ERR_STOP);
-		ps->output_stopped = (err_stat & RXS_SPX_ERR_STAT_OUTPUT_ERR_STOP);
+		ps->input_stopped = (err_stat &
+					RXS_SPX_ERR_STAT_INPUT_ERR_STOP);
+		ps->output_stopped = (err_stat &
+					RXS_SPX_ERR_STAT_OUTPUT_ERR_STOP);
 
 		// Port Error is true if a PORT_ERR is present, OR
 		// if a OUTPUT_FAIL is present when STOP_FAIL_EN is set.
 		ps->port_error = ((err_stat & RXS_SPX_ERR_STAT_PORT_ERR) ||
-				((ctl & RXS_SPX_CTL_STOP_FAIL_EN) &&
-					(err_stat & RXS_SPX_ERR_STAT_OUTPUT_FAIL)));
+			((ctl & RXS_SPX_CTL_STOP_FAIL_EN) &&
+				(err_stat & RXS_SPX_ERR_STAT_OUTPUT_FAIL)));
 
 		// Idle sequence and port width status are only defined when
 		// PORT_OK is asserted...
@@ -548,74 +616,21 @@ uint32_t rxs_rio_pc_get_status(DAR_DEV_INFO_t *dev_info,
 			goto exit;
 		}
 
-		rc = DARRegRead(dev_info, RXS_PLM_SPX_IMP_SPEC_CTL(ps->pnum), &p_ctl);
-		if (RIO_SUCCESS != rc) {
-			out_parms->imp_rc = PC_GET_STATUS(0x60);
-			goto exit;
-		}
-
 		// Only support RX flow control
 		ps->fc = rio_pc_fc_rx;
 
 		// Determine lane speed...
 		determine_ls(&ls, ctl2);
 
-		// Note: programming error if more than one of
-		// RXS_PLM_SPX_IMP_SPEC_CTL_USE_IDLE1,
-		// RXS_PLM_SPX_IMP_SPEC_CTL_USE_IDLE2, and
-		// RXS_PLM_SPX_IMP_SPEC_CTL_USE_IDLE3 set set.
-		ps->iseq = rio_pc_is_last;
-		switch (p_ctl & idle_overrides) {
-		case 0:
-			break;
-		case RXS_PLM_SPX_IMP_SPEC_CTL_USE_IDLE1:
-			ps->iseq = rio_pc_is_one;
-			break;
-		case RXS_PLM_SPX_IMP_SPEC_CTL_USE_IDLE2:
-			ps->iseq = rio_pc_is_two;
-			break;
-		case RXS_PLM_SPX_IMP_SPEC_CTL_USE_IDLE3:
-			ps->iseq = rio_pc_is_three;
-			break;
-		default:
-			idle_err = true;
+		// Determine idle sequence
+		rc = DARRegRead(dev_info, RXS_PLM_SPX_IMP_SPEC_CTL(ps->pnum),
+									&p_ctl);
+		if (RIO_SUCCESS != rc) {
+			out_parms->imp_rc = PC_GET_STATUS(0x60);
+			goto exit;
 		}
 
-		if (!idle_err) {
-			switch (ls) {
-			case rio_pc_ls_1p25:
-			case rio_pc_ls_2p5:
-			case rio_pc_ls_3p125:
-			case rio_pc_ls_5p0:
-				if (rio_pc_is_last == ps->iseq) {
-					ps->iseq = rio_pc_is_one;
-				}
-				break;
-			case rio_pc_ls_6p25:
-				if (rio_pc_is_last == ps->iseq) {
-					ps->iseq = rio_pc_is_two;
-				}
-				break;
-			case rio_pc_ls_10p3:
-			case rio_pc_ls_12p5:
-				switch (ps->iseq) {
-				// Programming error to use IDLE1 or IDLE2
-				// at more than 6.25 Gbaud.
-				case rio_pc_is_one:
-				case rio_pc_is_two:
-					ps->iseq = rio_pc_is_last;
-					idle_err = true;
-					break;
-				case rio_pc_is_three:
-					break;
-				case rio_pc_is_last:
-					ps->iseq = rio_pc_is_three;
-				}
-				break;
-			default:
-				idle_err = true;
-			}
-		}
+		idle_err = determine_iseq(&ps->iseq, ls, p_ctl);
 
 		if (idle_err) {
 			continue;
@@ -681,14 +696,532 @@ exit:
 	return rc;
 }
 
+uint32_t rxs_pc_reset_port_util(DAR_DEV_INFO_t *dev_info, rio_port_t port)
+{
+	uint32_t rc;
+	uint32_t orig_p_ctl;
+	uint32_t p_ctl;
+
+	rc = DARRegRead(dev_info, RXS_PLM_SPX_IMP_SPEC_CTL(port), &orig_p_ctl);
+	if (RIO_SUCCESS != rc) {
+		goto fail;
+	}
+
+	// Do not infer a self reset, or reset the register configuration.
+	p_ctl = orig_p_ctl & ~(RXS_PLM_SPX_IMP_SPEC_CTL_INFER_SELF_RST |
+				RXS_PLM_SPX_IMP_SPEC_CTL_RESET_REG);
+
+	rc = DARRegWrite(dev_info, RXS_PLM_SPX_IMP_SPEC_CTL(port), p_ctl);
+	if (RIO_SUCCESS != rc) {
+		goto fail;
+	}
+
+	p_ctl |= RXS_PLM_SPX_IMP_SPEC_CTL_SOFT_RST_PORT;
+
+	rc = DARRegWrite(dev_info, RXS_PLM_SPX_IMP_SPEC_CTL(port), p_ctl);
+	if (RIO_SUCCESS != rc) {
+		goto fail;
+	}
+	p_ctl &= ~RXS_PLM_SPX_IMP_SPEC_CTL_SOFT_RST_PORT;
+
+	rc = DARRegWrite(dev_info, RXS_PLM_SPX_IMP_SPEC_CTL(port), p_ctl);
+fail:
+	return rc;
+}
+
+uint32_t rxs_rio_pc_reset_port(DAR_DEV_INFO_t *dev_info,
+		rio_pc_reset_port_in_t *in_parms,
+		rio_pc_reset_port_out_t *out_parms)
+{
+	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+	uint32_t idx;
+	struct DAR_ptl ptl_in;
+	struct DAR_ptl good_ptl;
+	rio_port_t port;
+
+	out_parms->imp_rc = RIO_SUCCESS;
+
+	if (RIO_ALL_PORTS == in_parms->port_num) {
+		ptl_in.num_ports = RIO_ALL_PORTS;
+	} else {
+		ptl_in.num_ports = 1;
+		ptl_in.pnums[0] = in_parms->port_num;
+	}
+
+	rc = DARrioGetPortList(dev_info, &ptl_in, &good_ptl);
+	if (RIO_SUCCESS != rc) {
+		out_parms->imp_rc = PC_RESET_PORT(1);
+		goto exit;
+	}
+
+	for (idx = 0; idx < good_ptl.num_ports; idx++) {
+		port = good_ptl.pnums[idx];
+		// Do not reset the port being used to access the device
+		if (!in_parms->oob_reg_acc && (port == in_parms->reg_acc_port))
+		{
+			continue;
+		}
+
+		if (in_parms->reset_lp) {
+			rc = DARRegWrite(dev_info, RXS_SPX_LM_REQ(port),
+						RIO_SPX_LM_REQ_CMD_RST_PT);
+			if (RIO_SUCCESS != rc) {
+				out_parms->imp_rc = PC_RESET_PORT(0x10);
+				goto exit;
+			}
+		}
+
+		rc = rxs_pc_reset_port_util(dev_info, port);
+		if (RIO_SUCCESS != rc) {
+			out_parms->imp_rc = PC_RESET_PORT(0x30);
+			goto exit;
+		}
+
+	}
+	rc = RIO_SUCCESS;
+exit:
+	return rc;
+}
+
+uint32_t rxs_rio_pc_reset_link_partner(DAR_DEV_INFO_t *dev_info,
+		rio_pc_reset_link_partner_in_t *in_parms,
+		rio_pc_reset_link_partner_out_t *out_parms)
+{
+	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+	uint32_t p_ctl, orig_p_ctl;
+	rio_port_t port;
+
+	out_parms->imp_rc = RIO_SUCCESS;
+
+	if (in_parms->port_num >= NUM_RXS_PORTS(dev_info)) {
+		out_parms->imp_rc = PC_RESET_LP(0x1);
+		goto exit;
+	};
+
+	port = in_parms->port_num;
+
+	rc = DARRegRead(dev_info, RXS_PLM_SPX_IMP_SPEC_CTL(port), &orig_p_ctl);
+	if (RIO_SUCCESS != rc) {
+		out_parms->imp_rc = PC_RESET_LP(0x10);
+		goto exit;
+	}
+
+	// Do not want to infer a self reset, or to reset the register
+	// configuration on this port if/when we reset it...
+	p_ctl = orig_p_ctl & ~(RXS_PLM_SPX_IMP_SPEC_CTL_INFER_SELF_RST |
+				RXS_PLM_SPX_IMP_SPEC_CTL_RESET_REG);
+
+	rc = DARRegWrite(dev_info, RXS_PLM_SPX_IMP_SPEC_CTL(port), p_ctl);
+	if (RIO_SUCCESS != rc) {
+		out_parms->imp_rc = PC_RESET_LP(0x20);
+		goto exit;
+	}
+
+	// Reset the link partner with a device reset...
+	rc = DARRegWrite(dev_info, RXS_SPX_LM_REQ(port),
+						RIO_SPX_LM_REQ_CMD_RST_DEV);
+	if (RIO_SUCCESS != rc) {
+		out_parms->imp_rc = PC_RESET_LP(0x30);
+		goto exit;
+	}
+
+	// More deterministic to just reset this port too...
+	if (in_parms->resync_ackids) {
+		rc = rxs_pc_reset_port_util(dev_info, port);
+		if (RIO_SUCCESS != rc) {
+			out_parms->imp_rc = PC_RESET_LP(0x40);
+			goto exit;
+		}
+	}
+
+	rc = RIO_SUCCESS;
+exit:
+	return rc;
+}
+
+uint32_t update_outb_ackid(DAR_DEV_INFO_t *dev_info,
+			rio_port_t port,
+			RIO_SPX_LM_RESP_STAT_T lresp_stat,
+			enum rio_pc_idle_seq iseq)
+{
+	uint32_t ackid, outb_ackid;
+	uint32_t rc = RIO_ERR_SW_FAILURE;
+
+	// Update outbound ackid based on link response data
+	// Write link response ackID into outbound ackID register
+	switch (iseq) {
+	case rio_pc_is_one:
+		ackid = (lresp_stat & RIO_SPX_LM_RESP_ACK_ID1) >> 5;
+		break;
+        case rio_pc_is_two:
+		ackid = (lresp_stat & RIO_SPX_LM_RESP_ACK_ID2) >> 5;
+		break;
+        case rio_pc_is_three:
+		ackid = (lresp_stat & RIO_SPX_LM_RESP_ACK_ID3) >> 5;
+		break;
+	default:
+		goto fail;
+	}
+
+	outb_ackid = (ackid & RXS_SPX_OUT_ACKID_CSR_OUTB_ACKID) |
+			((ackid << 12) & RXS_SPX_OUT_ACKID_CSR_OUTSTD_ACKID) |
+			RXS_SPX_OUT_ACKID_CSR_CLR_OUTSTD_ACKID;
+	rc = DARRegWrite(dev_info, RXS_SPX_OUT_ACKID_CSR(port), outb_ackid);
+fail:
+	return rc;
+}
+
+uint32_t resync_ackids(DAR_DEV_INFO_t *dev_info,
+		rio_pc_clr_errs_in_t *in_parms,
+		rio_pc_clr_errs_out_t *out_parms)
+{
+	uint32_t rc;
+	uint32_t err_stat, ctl2, p_ctl, plm_ack_cap;
+	uint32_t lp_sw_pt_inf;
+	RIO_SPX_LM_RESP_STAT_T lr_is_stat;
+	rio_pc_ls_t ls;
+	enum rio_pc_idle_seq iseq;
+	rio_port_t port = in_parms->port_num;
+
+	rc = DARRegRead(dev_info, RXS_SPX_ERR_STAT(port), &err_stat);
+	if (RIO_SUCCESS != rc) {
+		out_parms->imp_rc = PC_CLR_ERRS(0x50);
+		goto fail;
+	}
+
+	if (RXS_SPX_ERR_STAT_INPUT_ERR_STOP & err_stat) {
+		rio_pc_reset_port_in_t rst_in;
+		rio_pc_reset_port_out_t rst_out;
+
+		// Don't call rxs_pc_reset_port_util directly,
+		// must check that we're not attempting to reset
+		// our own local port.
+		rst_in.port_num = in_parms->port_num;
+		rst_in.oob_reg_acc = false;
+		rst_in.reg_acc_port = dev_info->swPortInfo &
+							RIO_SW_PORT_INF_PORT;
+		rst_in.reset_lp = false;
+		rst_in.preserve_config = true;
+
+		rc = rxs_rio_pc_reset_port(dev_info, &rst_in, &rst_out);
+		if (RIO_SUCCESS != rc) {
+			out_parms->imp_rc = rst_out.imp_rc;
+			goto fail;
+		}
+	}
+
+	rc = DARRegRead(dev_info, RXS_SPX_CTL2(port), &ctl2);
+	if (RIO_SUCCESS != rc) {
+		out_parms->imp_rc = PC_CLR_ERRS(0x51);
+		goto fail;
+	}
+
+	rc = DARRegRead(dev_info, RXS_PLM_SPX_IMP_SPEC_CTL(port), &p_ctl);
+	if (RIO_SUCCESS != rc) {
+		out_parms->imp_rc = PC_CLR_ERRS(0x52);
+		goto fail;
+	}
+
+	// Determine idle sequence
+	determine_ls(&ls, ctl2);
+	if (determine_iseq(&iseq, ls, p_ctl)) {
+		out_parms->imp_rc = PC_CLR_ERRS(0x53);
+		goto fail;
+	}
+
+	// Send link-request port-status control symbol
+	rc = DARrioLinkReqNResp(dev_info, port, &lr_is_stat);
+	if (RIO_SUCCESS != rc) {
+		out_parms->imp_rc = PC_CLR_ERRS(0x54);
+		goto fail;
+	}
+
+	// Fail on invalid response
+	if (!(RXS_SPX_LM_RESP_RESP_VLD & lr_is_stat)) {
+		out_parms->imp_rc = PC_CLR_ERRS(0x55);
+		goto fail;
+	}
+
+	// Update the outbound ackid value
+	rc = update_outb_ackid(dev_info, port, lr_is_stat, iseq);
+	if (RIO_SUCCESS != rc) {
+		out_parms->imp_rc = PC_CLR_ERRS(0x56);
+		goto fail;
+	}
+
+	// Read ackID capture register to clear previous results
+	rc = DARRegRead(dev_info, RXS_PLM_SPX_ACKID_CAP(port), &plm_ack_cap);
+	if (RIO_SUCCESS != rc) {
+		out_parms->imp_rc = PC_CLR_ERRS(0x57);
+		goto fail;
+	}
+
+	// Attempt to read link partner Switch Port Information CAR
+	// This is likely to fail!
+	rc = DARRegRead(in_parms->lp_dev_info, RIO_SW_PORT_INF, &lp_sw_pt_inf);
+	if (RIO_SUCCESS == rc) {
+		goto fail;
+	}
+
+	// Read ackID capture register again to get the ackID
+	rc = DARRegRead(dev_info, RXS_PLM_SPX_ACKID_CAP(port), &plm_ack_cap);
+	if (RIO_SUCCESS != rc) {
+		out_parms->imp_rc = PC_CLR_ERRS(0x58);
+		goto fail;
+	}
+
+	plm_ack_cap &= RXS_SPX_IN_ACKID_CSR_INB_ACKID;
+	// Write inbound ackID to inbound ackID register
+	rc = DARRegWrite(dev_info, RXS_SPX_IN_ACKID_CSR(port), plm_ack_cap);
+	if (RIO_SUCCESS != rc) {
+		out_parms->imp_rc = PC_CLR_ERRS(0x59);
+		goto fail;
+	}
+
+	// Attempt to read link partner Switch Port Information CAR
+	// to prove that ackIDs are in sync
+	rc = DARRegRead(in_parms->lp_dev_info, RIO_SW_PORT_INF, &lp_sw_pt_inf);
+	if (RIO_SUCCESS != rc) {
+		out_parms->imp_rc = PC_CLR_ERRS(0x5A);
+	}
+fail:
+	return rc;
+}
+
+uint32_t rxs_rio_pc_clr_errs(DAR_DEV_INFO_t *dev_info,
+		rio_pc_clr_errs_in_t *in_parms,
+		rio_pc_clr_errs_out_t *out_parms)
+{
+	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+	rio_port_t port;
+
+	out_parms->imp_rc = RIO_SUCCESS;
+
+	if (in_parms->port_num >= NUM_RXS_PORTS(dev_info)) {
+		out_parms->imp_rc = PC_CLR_ERRS(0x1);
+		goto fail;
+	}
+
+	if (in_parms->clr_lp_port_err) {
+		if  (NULL == in_parms->lp_dev_info) {
+			out_parms->imp_rc = PC_CLR_ERRS(0x2);
+			goto fail;
+		}
+		if (!in_parms->num_lp_ports) {
+			out_parms->imp_rc = PC_CLR_ERRS(0x3);
+			goto fail;
+		}
+	}
+
+	port = in_parms->port_num;
+
+	rc = rxs_pc_reset_port_util(dev_info, port);
+	if (RIO_SUCCESS != rc) {
+		out_parms->imp_rc = PC_CLR_ERRS(0x10);
+		goto fail;
+	}
+
+	// Primary goal is to resynchronize ackIDs without resetting the link
+	// partner.  RXS has capabilities which go beyond the standard to
+	// support this function.
+	if (in_parms->clr_lp_port_err) {
+		rc = resync_ackids(dev_info, in_parms, out_parms);
+	}
+fail:
+	return rc;
+}
+
+uint32_t rxs_rio_pc_set_reset_config_port(DAR_DEV_INFO_t *dev_info,
+					rio_port_t port,
+					rio_pc_rst_handling rst)
+{
+	uint32_t rc;
+	uint32_t plm_ctl;
+	uint32_t em_int_en;
+	uint32_t em_pw_en;
+
+	rc = DARRegRead(dev_info, RXS_PLM_SPX_IMP_SPEC_CTL(port), &plm_ctl);
+	if (RIO_SUCCESS != rc) {
+		goto fail;
+	}
+	rc = DARRegRead(dev_info, RXS_EM_RST_INT_EN, &em_int_en);
+	if (RIO_SUCCESS != rc) {
+		goto fail;
+	}
+	rc = DARRegRead(dev_info, RXS_EM_RST_PW_EN, &em_pw_en);
+	if (RIO_SUCCESS != rc) {
+		goto fail;
+	}
+
+	switch (rst) {
+	case rio_pc_rst_device:
+		plm_ctl |= RXS_PLM_SPX_IMP_SPEC_CTL_SELF_RST |
+			RXS_PLM_SPX_IMP_SPEC_CTL_PORT_SELF_RST;
+		em_int_en &= ~(1 << port);
+		em_pw_en &= ~(1 << port);
+		break;
+
+        case rio_pc_rst_port:
+		plm_ctl &= ~RXS_PLM_SPX_IMP_SPEC_CTL_SELF_RST;
+		plm_ctl |= RXS_PLM_SPX_IMP_SPEC_CTL_PORT_SELF_RST;
+		em_int_en &= ~(1 << port);
+		em_pw_en &= ~(1 << port);
+		break;
+
+        case rio_pc_rst_int:
+		plm_ctl &= ~(RXS_PLM_SPX_IMP_SPEC_CTL_SELF_RST |
+				RXS_PLM_SPX_IMP_SPEC_CTL_PORT_SELF_RST);
+		em_int_en |= 1 << port;
+		em_pw_en &= ~(1 << port);
+		break;
+
+        case rio_pc_rst_pw:
+		plm_ctl &= ~(RXS_PLM_SPX_IMP_SPEC_CTL_SELF_RST |
+				RXS_PLM_SPX_IMP_SPEC_CTL_PORT_SELF_RST);
+		em_int_en &= ~(1 << port);
+		em_pw_en |= 1 << port;
+		break;
+
+        case rio_pc_rst_ignore:
+		plm_ctl &= ~(RXS_PLM_SPX_IMP_SPEC_CTL_SELF_RST |
+				RXS_PLM_SPX_IMP_SPEC_CTL_PORT_SELF_RST);
+		em_int_en &= ~(1 << port);
+		em_pw_en &= ~(1 << port);
+		break;
+
+	default:
+		rc = RIO_ERR_INVALID_PARAMETER;
+		goto fail;
+	}
+
+	rc = DARRegWrite(dev_info, RXS_PLM_SPX_IMP_SPEC_CTL(port), plm_ctl);
+	if (RIO_SUCCESS != rc) {
+		goto fail;
+	}
+	rc = DARRegWrite(dev_info, RXS_EM_RST_INT_EN, em_int_en);
+	if (RIO_SUCCESS != rc) {
+		goto fail;
+	}
+	rc = DARRegWrite(dev_info, RXS_EM_RST_PW_EN, em_pw_en);
+fail:
+	return rc;
+}
+
+#define RXS_TLM_SPX_FTYPE_FILT_MTC (RXS_TLM_SPX_FTYPE_FILT_F8_OTHER | \
+					RXS_TLM_SPX_FTYPE_FILT_F8_PWR | \
+					RXS_TLM_SPX_FTYPE_FILT_F8_MWR | \
+					RXS_TLM_SPX_FTYPE_FILT_F8_MRR | \
+					RXS_TLM_SPX_FTYPE_FILT_F8_MW | \
+					RXS_TLM_SPX_FTYPE_FILT_F8_MR)
+
+uint32_t rxs_rio_pc_secure_port(DAR_DEV_INFO_t *dev_info,
+		rio_pc_secure_port_in_t *in_parms,
+		rio_pc_secure_port_out_t *out_parms)
+{
+	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+	struct DAR_ptl good_ptl;
+	unsigned int port_idx;
+	rio_port_t port;
+	uint32_t filter;
+	uint32_t spx_ctl;
+
+	out_parms->imp_rc = RIO_SUCCESS;
+
+	rc = DARrioGetPortList(dev_info, &in_parms->ptl, &good_ptl);
+	if (RIO_SUCCESS != rc) {
+		out_parms->imp_rc = PC_SECURE_PORT(0x1);
+		goto fail;
+	}
+
+	if (in_parms->rst >= rio_pc_rst_last) {
+		out_parms->imp_rc = PC_SECURE_PORT(0x2);
+		goto fail;
+	}
+
+	out_parms->bc_mtc_pkts_allowed = false;
+	out_parms->MECS_participant = false;
+	out_parms->MECS_acceptance = true;
+	out_parms->rst = rio_pc_rst_last;
+
+	for (port_idx = 0; port_idx < good_ptl.num_ports; port_idx++) {
+		port = good_ptl.pnums[port_idx];
+		rc = DARRegRead(dev_info, RXS_SPX_CTL(port), &spx_ctl);
+		if (RIO_SUCCESS != rc) {
+			out_parms->imp_rc = PC_SECURE_PORT(0x10);
+			goto fail;
+		}
+		rc = DARRegRead(dev_info, RXS_TLM_SPX_FTYPE_FILT(port), &filter);
+		if (RIO_SUCCESS != rc) {
+			out_parms->imp_rc = PC_SECURE_PORT(0x12);
+			goto fail;
+		}
+
+		if (in_parms->mtc_pkts_allowed) {
+			filter &= ~RXS_TLM_SPX_FTYPE_FILT_MTC;
+		} else {
+			filter |= RXS_TLM_SPX_FTYPE_FILT_MTC;
+		}
+
+		if (in_parms->MECS_participant) {
+			spx_ctl |= RXS_SPX_CTL_MULT_CS;
+		} else {
+			spx_ctl &= ~RXS_SPX_CTL_MULT_CS;
+		}
+
+		rc = DARRegWrite(dev_info, RXS_SPX_CTL(port), spx_ctl);
+		if (RIO_SUCCESS != rc) {
+			out_parms->imp_rc = PC_SECURE_PORT(0x20);
+			goto fail;
+		}
+		rc = DARRegWrite(dev_info, RXS_TLM_SPX_FTYPE_FILT(port), filter);
+		if (RIO_SUCCESS != rc) {
+			out_parms->imp_rc = PC_SECURE_PORT(0x22);
+			goto fail;
+		}
+
+		rc = rxs_rio_pc_set_reset_config_port(dev_info, port, in_parms->rst);
+		if (RIO_SUCCESS != rc) {
+			out_parms->imp_rc = PC_SECURE_PORT(0x32);
+			goto fail;
+		}
+	}
+
+	out_parms->bc_mtc_pkts_allowed = in_parms->mtc_pkts_allowed;
+	out_parms->MECS_participant = in_parms->MECS_participant;
+	out_parms->MECS_acceptance = true;
+	out_parms->rst = in_parms->rst;
+
+	rc = RIO_SUCCESS;
+fail:
+	return rc;
+}
+
 uint32_t rxs_rio_pc_dev_reset_config(DAR_DEV_INFO_t *dev_info,
 		rio_pc_dev_reset_config_in_t *in_parms,
 		rio_pc_dev_reset_config_out_t *out_parms)
 {
-	if (NULL != dev_info) {
-		out_parms->rst = in_parms->rst;
+	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+	rio_port_t port;
+
+	out_parms->imp_rc = RIO_SUCCESS;
+	out_parms->rst = rio_pc_rst_last;
+
+	if (in_parms->rst >= rio_pc_rst_last) {
+		out_parms->imp_rc = PC_DEV_RESET_CONFIG(0x01);
+		goto fail;
 	}
-	return RIO_SUCCESS;
+
+	for (port = 0; port < NUM_RXS_PORTS(dev_info); port++) {
+		rc = rxs_rio_pc_set_reset_config_port(dev_info, port, in_parms->rst);
+		if (RIO_SUCCESS != rc) {
+			out_parms->imp_rc = PC_SECURE_PORT(0x10 + port);
+			break;
+		}
+	};
+
+	out_parms->rst = in_parms->rst;
+fail:
+	return rc;
 }
 
 #endif /* RXSx_DAR_WANTED */

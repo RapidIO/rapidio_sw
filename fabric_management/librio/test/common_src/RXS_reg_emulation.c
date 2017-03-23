@@ -92,6 +92,96 @@ static uint32_t rxs_add_poreg(DAR_DEV_INFO_t *dev_info, uint32_t offset,
 	return DAR_add_poreg(dev_info, MOCK_REG_ADDR(offset), data);
 }
 
+static DAR_DEV_INFO_t mock_dev_info;
+static DAR_DEV_INFO_t mock_lp_dev_info;
+
+#define MOCK_LP_RXS_SW_PORT_DFLT 0x1805
+#define MOCK_LP_RXS_SW_PORT_SUCCESS 0x1804
+
+#define ACKID_CAP_BASE 0xF80
+static uint32_t emulate_lp_read(DAR_DEV_INFO_t *dev_info,
+				uint32_t offset,
+				uint32_t *readdata,
+				uint32_t idx)
+{
+	uint32_t t_idx;
+	rio_port_t port;
+	uint32_t rc = RIO_SUCCESS;
+
+	*readdata = dev_info->poregs[idx].data;
+
+	// No additional behavior required, just read the data...
+	if (RXS_SW_PORT != offset) {
+		return rc;
+	}
+
+	// Have to fake reading the link partners port info register.
+	// Must fail on first read, and pass on second.  Track this
+	// with switch port information data.
+	//
+	// Highly dependent on tests of resync_ackids()
+	if (MOCK_LP_RXS_SW_PORT_SUCCESS == *readdata) {
+		dev_info->poregs[idx].data = MOCK_LP_RXS_SW_PORT_DFLT;
+		return RIO_SUCCESS;
+	}
+
+	// Now need to update RXS_PLM_SPX_ACKID_CAP register to reflect
+	// success or failure of reads...  Don't know which port is reading
+	// this register, so we'll just update them all...
+
+	dev_info->poregs[idx].data = MOCK_LP_RXS_SW_PORT_SUCCESS;
+	for (port = 0; port < NUM_RXS_PORTS(&mock_dev_info); port++) {
+		t_idx = rxs_expect_poreg_idx(&mock_dev_info,
+					RXS_PLM_SPX_ACKID_CAP(port));
+		mock_dev_info.poregs[t_idx].data =
+			RXS_PLM_SPX_ACKID_CAP_VALID + ACKID_CAP_BASE + port;
+	}
+
+	if (MOCK_LP_RXS_SW_PORT_SUCCESS != *readdata) {
+		rc = RIO_ERR_ACCESS;
+	}
+	return rc;
+}
+
+static void emulate_spx_pp_reg_read(DAR_DEV_INFO_t *dev_info,
+				uint32_t offset,
+				uint32_t *readdata,
+				uint32_t idx)
+{
+	rio_port_t port = (offset - RXS_SPX_LM_REQ(0)) / RXS_SPX_PP_OSET;
+
+	// Clear LM_RESP_VLD bit on read, just like real hardware
+	if (RXS_SPX_LM_RESP(port) == offset) {
+		*readdata = dev_info->poregs[idx].data;
+		dev_info->poregs[idx].data &= ~RIO_SPX_LM_RESP_VLD;
+		return;
+	}
+
+	// No additional behavior required, just read the data...
+	*readdata = dev_info->poregs[idx].data;
+}
+
+static void emulate_plm_pp_reg_read(DAR_DEV_INFO_t *dev_info,
+				uint32_t offset,
+				uint32_t *readdata,
+				uint32_t idx)
+{
+	rio_port_t port = (offset - RXS_PLM_SPX_IMP_SPEC_CTL(0)) /
+			RXS_IMP_SPEC_PP_OSET;
+
+	// Clear PLM_SPX_ACKID_CAP_VALID on read, just like real hardware
+	if (RXS_PLM_SPX_ACKID_CAP(port) == offset) {
+		*readdata = dev_info->poregs[idx].data;
+		dev_info->poregs[idx].data &= ~RXS_PLM_SPX_ACKID_CAP_VALID;
+		return;
+	}
+
+	// No additional behavior required, just read the data...
+	*readdata = dev_info->poregs[idx].data;
+}
+
+#define IN_RANGE(a,b,c) (((a) <= (b)) && ((b) <= (c)))
+
 static uint32_t RXSReadReg(DAR_DEV_INFO_t *dev_info,
 			uint32_t  offset, uint32_t *readdata)
 {
@@ -110,7 +200,28 @@ static uint32_t RXSReadReg(DAR_DEV_INFO_t *dev_info,
 			printf("\nREAD  OSET 0x%x Data 0x%x\n", offset,
 						dev_info->poregs[idx].data);
 		}
+
+		// Emulating access to link partner registers...
+		if (&mock_lp_dev_info == dev_info) {
+			rc = emulate_lp_read(dev_info, offset, readdata, idx);
+			goto exit;
+		}
+
 		rc = RIO_SUCCESS;
+		if (IN_RANGE(RXS_SPX_LM_REQ(0), offset,
+				RXS_SPX_TMR_CTL3(NUM_RXS_PORTS(dev_info) - 1)))
+		{
+			emulate_spx_pp_reg_read(dev_info,
+							offset, readdata, idx);
+			goto exit;
+		}
+		if (IN_RANGE(RXS_PLM_BH, offset,
+			RXS_PLM_SPX_SCRATCHY(NUM_RXS_PORTS(dev_info) - 1,
+						RXS_PLM_SPX_MAX_SCRATCHY))) {
+			emulate_plm_pp_reg_read(
+					dev_info, offset, readdata, idx);
+			goto exit;
+		}
 		*readdata = dev_info->poregs[idx].data;
 		goto exit;
 	}
@@ -240,6 +351,42 @@ static void update_plm_status(DAR_DEV_INFO_t *dev_info,
 	}
 }
 
+static void emulate_spx_pp_reg_write(DAR_DEV_INFO_t *dev_info,
+				uint32_t offset,
+				uint32_t writedata,
+				uint32_t idx)
+{
+	rio_port_t port = (offset - RXS_SPX_LM_REQ(0)) / RXS_SPX_PP_OSET;
+	uint32_t t_idx;
+	uint32_t link_resp_stat = RIO_SPX_LM_RESP_VLD |
+				RIO_SPX_LM_RESP_STAT12_IES |
+				RIO_SPX_LM_RESP_ACK_ID3 |
+				RIO_SPX_LM_RESP_STAT3;
+
+	if (RXS_SPX_LM_REQ(port) == offset) {
+		dev_info->poregs[idx].data = 0;
+		t_idx = rxs_expect_poreg_idx(dev_info, RXS_SPX_LM_RESP(port));
+
+		switch (writedata) {
+		case RIO_SPX_LM_REQ_CMD_RST_PT:
+			dev_info->poregs[t_idx].data = RIO_SPX_LM_RESP_VLD;
+			break;
+		case RIO_SPX_LM_REQ_CMD_RST_DEV:
+			dev_info->poregs[t_idx].data = RIO_SPX_LM_RESP_VLD;
+			break;
+		case RIO_SPX_LM_REQ_CMD_LR_IS:
+			dev_info->poregs[t_idx].data = link_resp_stat;
+			break;
+		default:
+			assert_true(false);
+		}
+		return;
+	}
+
+	// No additional behavior required, just update the data...
+	dev_info->poregs[idx].data = writedata;
+}
+
 static void emulate_emhs_pp_reg(DAR_DEV_INFO_t *dev_info,
 				uint32_t offset,
 				uint32_t writedata,
@@ -274,7 +421,7 @@ static void emulate_emhs_pp_reg(DAR_DEV_INFO_t *dev_info,
 	dev_info->poregs[idx].data = writedata;
 }
 
-static void emulate_plm_reg(DAR_DEV_INFO_t *dev_info,
+static void emulate_plm_reg_write(DAR_DEV_INFO_t *dev_info,
 				uint32_t offset,
 				uint32_t writedata,
 				uint32_t idx)
@@ -480,8 +627,6 @@ static void update_dev_int_pw_stat(DAR_DEV_INFO_t *dev_info,
 	}
 }
 
-#define IN_RANGE(a,b,c) (((a) <= (b)) && ((b) <= (c)))
-
 static void rxs_emulate_reg_write(DAR_DEV_INFO_t *dev_info, uint32_t offset,
 		uint32_t writedata)
 {
@@ -491,6 +636,12 @@ static void rxs_emulate_reg_write(DAR_DEV_INFO_t *dev_info, uint32_t offset,
 
 	if (DAR_POREG_BAD_IDX == idx) {
 		assert_int_equal(0xFFFFFFFF, offset);
+		return;
+	}
+
+	if (IN_RANGE(RXS_SPX_LM_REQ(0), offset,
+			RXS_SPX_TMR_CTL3(NUM_RXS_PORTS(dev_info) - 1))) {
+		emulate_spx_pp_reg_write(dev_info, offset, writedata, idx);
 		return;
 	}
 
@@ -505,7 +656,7 @@ static void rxs_emulate_reg_write(DAR_DEV_INFO_t *dev_info, uint32_t offset,
 	if (IN_RANGE(RXS_PLM_BH, offset,
 			RXS_PLM_SPX_SCRATCHY(NUM_RXS_PORTS(dev_info) - 1,
 						RXS_PLM_SPX_MAX_SCRATCHY))) {
-		emulate_plm_reg(dev_info, offset, writedata, idx);
+		emulate_plm_reg_write(dev_info, offset, writedata, idx);
 		return;
 	}
 
@@ -701,6 +852,14 @@ static void RXSWaitSec(uint32_t delay_nsec, uint32_t delay_sec)
 	}
 }
 
+uint32_t rxs_mock_lp_reg_oset[] = {
+	RXS_SW_PORT
+};
+
+#define MOCK_DEV_LP_REG (sizeof(rxs_mock_lp_reg_oset)/ \
+			sizeof(rxs_mock_lp_reg_oset[0]))
+#define UPB_MOCK_LP_REG (MOCK_DEV_LP_REG + 1)
+
 uint32_t rxs_mock_reg_oset[] = {
 	RXS_PRESCALAR_SRV_CLK,
 	RXS_MPM_CFGSIG0,
@@ -734,15 +893,18 @@ uint32_t rxs_mock_reg_oset[] = {
 	I2C_INT_STAT
 };
 
+// Emulated per-port (pp) registers
+
 typedef struct rxs_mock_pp_reg_t_TAG {
 	uint32_t base;
 	uint32_t pp_oset;
 	uint32_t val;
 } rxs_mock_pp_reg_t;
 
+#define RXS_SPX_LM_REQ_DFLT 0
 #define RXS_SPX_LM_RESP_DFLT 0
-#define RXS_SPX_IN_ACKID_CSR_DFLT 0
-#define RXS_SPX_OUT_ACKID_CSR_DFLT 0
+#define RXS_SPX_IN_ACKID_CSR_DFLT 0xF23
+#define RXS_SPX_OUT_ACKID_CSR_DFLT 0xA24A24
 #define RXS_PLM_SPX_PW_EN_DFLT 0
 #define RXS_PLM_SPX_INT_EN_DFLT 0
 #define RXS_PLM_SPX_ALL_INT_EN_DFLT 0
@@ -763,6 +925,7 @@ typedef struct rxs_mock_pp_reg_t_TAG {
 #define RXS_PLM_SPX_POL_CTL_DFLT 0
 #define RXS_PLM_SPX_PNA_CAP_DFLT (RXS_PLM_SPX_PNA_CAP_VALID)
 #define RXS_PLM_SPX_STAT_DFLT 0
+#define RXS_PLM_SPX_ACKID_CAP_DFLT 0
 #define RXS_PLM_SPX_INT_EN_DFLT 0
 #define RXS_PLM_SPX_EVENT_GEN_DFLT 0
 
@@ -782,6 +945,7 @@ typedef struct rxs_mock_pp_reg_t_TAG {
 #define RXS_SPX_PCNTR_CNT_DFLT 0
 
 rxs_mock_pp_reg_t rxs_mock_pp_reg[] = {
+	{RXS_SPX_LM_REQ(0), 0x40, RXS_SPX_LM_REQ_DFLT},
 	{RXS_SPX_LM_RESP(0), 0x40, RXS_SPX_LM_RESP_DFLT},
 	{RXS_SPX_IN_ACKID_CSR(0), 0x40, RXS_SPX_IN_ACKID_CSR_DFLT},
 	{RXS_SPX_OUT_ACKID_CSR(0), 0x40, RXS_SPX_OUT_ACKID_CSR_DFLT},
@@ -800,6 +964,7 @@ rxs_mock_pp_reg_t rxs_mock_pp_reg[] = {
 	{RXS_PLM_SPX_PWDN_CTL(0), 0x100, RXS_PLM_SPX_PWDN_CTL_DFLT},
 	{RXS_PLM_SPX_POL_CTL(0), 0x100, RXS_PLM_SPX_POL_CTL_DFLT},
 	{RXS_PLM_SPX_PNA_CAP(0), 0x100, RXS_PLM_SPX_PNA_CAP_DFLT},
+	{RXS_PLM_SPX_ACKID_CAP(0), 0x100, RXS_PLM_SPX_ACKID_CAP_DFLT},
 	{RXS_PLM_SPX_DENIAL_CTL(0), 0x100, RXS_PLM_SPX_DENIAL_CTL_DFLT},
 	{RXS_PLM_SPX_EVENT_GEN(0), 0x100, RXS_PLM_SPX_EVENT_GEN_DFLT},
 
@@ -848,8 +1013,6 @@ rxs_mock_pp_reg_t rxs_mock_pp_reg[] = {
 			(MOCK_PP_REG * RXS2448_MAX_PORTS))
 #define UPB_MOCK_REG (TOT_MOCK_REG + 1)
 
-static DAR_DEV_INFO_t mock_dev_info;
-
 static void rxs_test_setup(void)
 {
 	uint8_t idx;
@@ -858,10 +1021,10 @@ static void rxs_test_setup(void)
 	mock_dev_info.accessInfo = 0x0;
 	strcpy(mock_dev_info.name, "RXS2448");
 	mock_dev_info.dsf_h = 0x00380000;
-	mock_dev_info.extFPtrForPort = 0;
-	mock_dev_info.extFPtrPortType = 0;
-	mock_dev_info.extFPtrForLane = 12288;
-	mock_dev_info.extFPtrForErr = 0;
+	mock_dev_info.extFPtrForPort = 0x100;
+	mock_dev_info.extFPtrPortType = 0x19;
+	mock_dev_info.extFPtrForLane = 0x3000;
+	mock_dev_info.extFPtrForErr = 0x1000;
 	mock_dev_info.extFPtrForVC = 0;
 	mock_dev_info.extFPtrForVOQ = 0;
 	mock_dev_info.devID = 0x80E60038;
@@ -869,7 +1032,7 @@ static void rxs_test_setup(void)
 	mock_dev_info.devInfo = 0;
 	mock_dev_info.assyInfo = 256;
 	mock_dev_info.features = 402658623;
-	mock_dev_info.swPortInfo = 6146;
+	mock_dev_info.swPortInfo = 0x1805;
 	mock_dev_info.swRtInfo = 255;
 	mock_dev_info.srcOps = 4;
 	mock_dev_info.dstOps = 0;
@@ -885,11 +1048,14 @@ static void rxs_test_setup(void)
 	for (idx = 0; idx < MAX_DAR_SCRPAD_IDX; idx++) {
 		mock_dev_info.scratchpad[idx] = 0;
 	}
+
+	memcpy(&mock_lp_dev_info, &mock_dev_info, sizeof(mock_lp_dev_info));
 }
 
 /* Initialize the mock register structure for all mocked registers.
  */
 
+static rio_perf_opt_reg_t mock_lp_dar_reg[UPB_MOCK_LP_REG];
 static rio_perf_opt_reg_t mock_dar_reg[UPB_MOCK_REG];
 
 static void init_mock_rxs_reg(void **state)
@@ -904,7 +1070,21 @@ static void init_mock_rxs_reg(void **state)
 		mock_dev_info.poregs_max = 0;
 		mock_dev_info.poreg_cnt = 0;
 		mock_dev_info.poregs = NULL;
+		mock_lp_dev_info.poregs_max = 0;
+		mock_lp_dev_info.poreg_cnt = 0;
+		mock_lp_dev_info.poregs = NULL;
 		return;
+	}
+
+	mock_lp_dev_info.poregs_max = 1;
+	mock_lp_dev_info.poreg_cnt = 0;
+	mock_lp_dev_info.poregs = mock_lp_dar_reg;
+
+	for (i = 0; i < MOCK_DEV_LP_REG; i++) {
+		assert_int_equal(RIO_SUCCESS,
+			rxs_add_poreg(&mock_lp_dev_info,
+				rxs_mock_lp_reg_oset[i],
+				MOCK_LP_RXS_SW_PORT_DFLT));
 	}
 
 	mock_dev_info.poregs_max = UPB_MOCK_REG;

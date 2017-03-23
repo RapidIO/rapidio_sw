@@ -436,7 +436,7 @@ typedef uint32_t pe_rt_val;
 
 /* RIO_SPX_LM_REQ : Register Bits Masks Definitions */
 #define RIO_SPX_LM_REQ_CMD           (0x00000007)
-#define RIO_SPX_LM_REQ_CMD_RST_PT    (0x00000003)
+#define RIO_SPX_LM_REQ_CMD_RST_PT    (0x00000002)
 #define RIO_SPX_LM_REQ_CMD_RST_DEV   (0x00000003)
 #define RIO_SPX_LM_REQ_CMD_LR_IS     (0x00000004)
 
