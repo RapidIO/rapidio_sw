@@ -431,16 +431,24 @@ static unsigned int dmatest_verify_buffer(uint8_t *buf, unsigned int src_off,
 {
 	unsigned int error_count = 0;
 	unsigned int counter = 0;
+	bool simpleBuffer;
 
-	/* check bytest before src_off */
+	/* check bytes before src_off */
 	error_count = dmatest_verify_buf_segment(buf, 0, src_off, counter,
 			pattern_dst, is_srcbuf);
 
 	counter += src_off;
-	if ((interleave == NULL)
-			|| (interleave->ssdist == 0 && interleave->sssize == 0
-					&& interleave->dsdist == 0
-					&& interleave->dssize == 0)) {
+
+	if (NULL == interleave) {
+		simpleBuffer = true;
+	} else {
+		simpleBuffer = ((0 == interleave->ssdist)
+				&& (0 == interleave->sssize)
+				&& (0 == interleave->dsdist)
+				&& (0 == interleave->dssize));
+	}
+
+	if (simpleBuffer) {
 		/* simple buffer verify */
 		error_count += dmatest_verify_buf_segment(buf, src_off,
 				src_off + src_len, counter,
@@ -757,6 +765,9 @@ int do_dma_test(int random, int kbuf_mode, int verify, int loop_count,
 					/ interleave->ssdist;
 		}
 
+		printf("<%d>: len=0x%x src_off=0x%x dst_off=0x%x\n", i, len,
+				src_off, dst_off);
+
 		if (clear_buf) {
 			if (debug) {
 				printf("Clearing destination buffer\n");
@@ -776,9 +787,12 @@ int do_dma_test(int random, int kbuf_mode, int verify, int loop_count,
 						sync, NULL);
 			}
 
+			if (ret < 0) {
+				printf("DMA Test: Clearing destination buffer failed err=%d\n",
+						ret);
+				goto out;
+			}
 		}
-		printf("<%d>: len=0x%x src_off=0x%x dst_off=0x%x\n", i, len,
-				src_off, dst_off);
 
 		/** - If data verification is requested, fill src and dst buffers
 		 * with predefined data */
@@ -923,6 +937,16 @@ int do_dma_test(int random, int kbuf_mode, int verify, int loop_count,
 					src_off, src_len, tbuf_size,
 					PATTERN_SRC, PATTERN_SRC, PATTERN_COPY,
 					1, NULL);
+			if (error_count) {
+				printf(
+						"\tSource buffer verification failed with %d errors\n",
+						error_count);
+				break;
+			} else {
+				if (debug) {
+					printf("\ttSource buffer verification OK!\n");
+				}
+			}
 
 			if (debug) {
 				printf("\tVerifying destination buffer...\n");
@@ -934,11 +958,13 @@ int do_dma_test(int random, int kbuf_mode, int verify, int loop_count,
 
 			if (error_count) {
 				printf(
-						"\tBuffer verification failed with %d errors\n",
+						"\tDestination buffer verification failed with %d errors\n",
 						error_count);
 				break;
 			} else {
-				printf("\tBuffer verification OK!\n");
+				if (debug) {
+					printf("\ttDestination buffer verification OK!\n");
+				}
 			}
 		} else {
 			printf("\tBuffer verification is turned off!\n");
