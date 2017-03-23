@@ -979,33 +979,48 @@ static int dmaCmd(struct cli_env *env, int argc, char **argv)
 		goto exit;
 	}
 
-	/* Optional parameters - ssdist, sssize, dsdist, dssize */
+	// Optional parameters - ssdist, sssize, dsdist, dssize
 	wkr[idx].ssdist = 0;
 	wkr[idx].sssize = 0;
 	wkr[idx].dsdist = 0;
 	wkr[idx].dssize = 0;
 	if (argc > 9) {
-		if (tok_parse_ushort(argv[n++], &wkr[idx].ssdist, 0, 0xFFFF, 0)) {
+		if (tok_parse_ushort(argv[n++], &wkr[idx].ssdist, 0, 0xFFFF,
+				0)) {
 			LOGMSG(env, "\n");
-			LOGMSG(env, TOK_ERR_USHORT_MSG_FMT, "<ssdist>", 0, 0xFFFF);
+			LOGMSG(env, TOK_ERR_USHORT_MSG_FMT, "<ssdist>", 0,
+					0xFFFF);
 			goto exit;
 		}
+
 		if (argc > 10) {
-			if (tok_parse_ushort(argv[n++], &wkr[idx].sssize, 0, 0x0FFF, 0)) {
+			if (tok_parse_ushort(argv[n++], &wkr[idx].sssize, 0,
+					0x0FFF, 0)) {
 				LOGMSG(env, "\n");
-				LOGMSG(env, TOK_ERR_USHORT_MSG_FMT, "<sssize>", 0, 0x0FFF);
+				LOGMSG(env, TOK_ERR_USHORT_MSG_FMT, "<sssize>",
+						0, 0x0FFF);
 				goto exit;
 			}
+
 			if (argc > 11) {
-				if (tok_parse_ushort(argv[n++], &wkr[idx].dsdist, 0, 0xFFFF, 0)) {
+				if (tok_parse_ushort(argv[n++],
+						&wkr[idx].dsdist, 0, 0xFFFF,
+						0)) {
 					LOGMSG(env, "\n");
-					LOGMSG(env, TOK_ERR_USHORT_MSG_FMT, "<dsdist>", 0, 0xFFFF);
+					LOGMSG(env, TOK_ERR_USHORT_MSG_FMT,
+							"<dsdist>", 0, 0xFFFF);
 					goto exit;
 				}
+
 				if (argc > 12) {
-					if (tok_parse_ushort(argv[n++], &wkr[idx].dssize, 0, 0x0FFF, 0)) {
+					if (tok_parse_ushort(argv[n++],
+							&wkr[idx].dssize, 0,
+							0x0FFF, 0)) {
 						LOGMSG(env, "\n");
-						LOGMSG(env, TOK_ERR_USHORT_MSG_FMT, "<dssize>", 0, 0x0FFF);
+						LOGMSG(env,
+								TOK_ERR_USHORT_MSG_FMT,
+								"<dssize>", 0,
+								0x0FFF);
 						goto exit;
 					}
 				}

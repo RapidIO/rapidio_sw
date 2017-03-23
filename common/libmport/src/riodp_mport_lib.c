@@ -349,7 +349,6 @@ int riomp_dma_write(riomp_mport_t mport_handle, did_val_t did_val,
 		xfer.dsdist = 0;
 		xfer.dssize = 0;
 	} else {
-
 		xfer.ssdist = interleave->ssdist;
 		xfer.sssize = interleave->sssize;
 		xfer.dsdist = interleave->dsdist;

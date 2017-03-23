@@ -198,8 +198,9 @@ static void dmatest_clear_srcs(uint8_t *buf, unsigned int buf_size)
 {
 	unsigned int i;
 
-	for (i = 0; i < buf_size; i++)
+	for (i = 0; i < buf_size; i++) {
 		buf[i] = 0;
+	}
 }
 
 static void dmatest_init_srcs(uint8_t *buf, unsigned int start,
@@ -246,12 +247,13 @@ static void dmatest_dump_mem(uint8_t *buf, unsigned int start,
 		dumpLen = 0x200;
 	}
 
-	for (i = 0; i < dumpLen; i++)
+	for (i = 0; i < dumpLen; i++) {
 		if (i % 16 == 0) {
 			printf("\n%08x: %02x ", start + i, buf[i]);
 		} else {
 			printf("%02x ", buf[i]);
 		}
+	}
 	printf("\n");
 }
 
@@ -339,9 +341,10 @@ static unsigned int dmatest_verify_buf_segment(uint8_t *buf, unsigned int start,
  *
  * \return Count of the number of verification failures found.
  */
-static unsigned int dmatest_verify_interleaved_buf_segment(uint8_t *buf, unsigned int start,
-		unsigned int end, unsigned int counter, uint8_t pattern,
-		int is_srcbuf, struct rapidio_mport_interleave *interleave)
+static unsigned int dmatest_verify_interleaved_buf_segment(uint8_t *buf,
+		unsigned int start, unsigned int end, unsigned int counter,
+		uint8_t pattern, int is_srcbuf,
+		struct rapidio_mport_interleave *interleave)
 {
 	bool debug = false;
 	unsigned int dest_count;
@@ -357,20 +360,28 @@ static unsigned int dmatest_verify_interleaved_buf_segment(uint8_t *buf, unsigne
 	src_count = counter;
 	for (dest_count = start; dest_count < end; dest_count++) {
 		actual = buf[dest_count];
+
 		if (in_dst_stride) {
 			expected = pattern | (~src_count & PATTERN_COUNT_MASK);
 		} else {
 			expected = 0;
 		}
+
 		if (actual != expected) {
-			if (error_count < MAX_ERROR_COUNT)
+			if (error_count < MAX_ERROR_COUNT) {
 				dmatest_mismatch(actual, pattern, dest_count,
-							src_count, is_srcbuf);
+						src_count, is_srcbuf);
+			}
 			error_count++;
 		}
-		if (debug)
-			printf("%02x %02x %3d %3d %3d %3d %3d %3d\n", actual, expected, dest_count, src_count,
-				in_dst_stride, in_src_stride, in_dst_count, in_src_count);
+
+		if (debug) {
+			printf("%02x %02x %3d %3d %3d %3d %3d %3d\n", actual,
+					expected, dest_count, src_count,
+					in_dst_stride, in_src_stride,
+					in_dst_count, in_src_count);
+		}
+
 		if (in_dst_stride == in_src_stride) {
 			src_count++;
 		} else if (!in_dst_stride && in_src_stride) {
@@ -379,6 +390,7 @@ static unsigned int dmatest_verify_interleaved_buf_segment(uint8_t *buf, unsigne
 			src_count += in_src_count + 1;
 			in_src_count = 0;
 		}
+
 		if (--in_src_count <= 0) {
 			if (in_src_stride) {
 				in_src_count = interleave->ssdist;
@@ -388,6 +400,7 @@ static unsigned int dmatest_verify_interleaved_buf_segment(uint8_t *buf, unsigne
 				in_src_stride = true;
 			}
 		}
+
 		if (--in_dst_count <= 0) {
 			if (in_dst_stride) {
 				in_dst_count = interleave->dsdist;
@@ -395,6 +408,7 @@ static unsigned int dmatest_verify_interleaved_buf_segment(uint8_t *buf, unsigne
 			} else {
 				in_dst_count = interleave->dssize;
 				in_dst_stride = true;
+
 				if (in_src_stride && in_src_count > 0) {
 					src_count -= in_src_count;
 					in_src_count = 0;
@@ -403,43 +417,46 @@ static unsigned int dmatest_verify_interleaved_buf_segment(uint8_t *buf, unsigne
 		}
 	}
 
-	if (error_count > MAX_ERROR_COUNT)
+	if (error_count > MAX_ERROR_COUNT) {
 		printf("%u errors suppressed\n", error_count - MAX_ERROR_COUNT);
+	}
 
 	return error_count;
 }
 
 static unsigned int dmatest_verify_buffer(uint8_t *buf, unsigned int src_off,
-		unsigned int src_len, unsigned int buf_len, uint8_t pattern_src, uint8_t pattern_dst,
-		uint8_t pattern_copy,
-		int is_srcbuf, struct rapidio_mport_interleave *interleave)
+		unsigned int src_len, unsigned int buf_len, uint8_t pattern_src,
+		uint8_t pattern_dst, uint8_t pattern_copy, int is_srcbuf,
+		struct rapidio_mport_interleave *interleave)
 {
 	unsigned int error_count = 0;
 	unsigned int counter = 0;
 
 	/* check bytest before src_off */
-	error_count = dmatest_verify_buf_segment(buf, 0, src_off,
-		counter, pattern_dst, is_srcbuf);
+	error_count = dmatest_verify_buf_segment(buf, 0, src_off, counter,
+			pattern_dst, is_srcbuf);
+
 	counter += src_off;
-	if ((interleave == NULL) ||
-			(interleave->ssdist == 0 && interleave->sssize == 0 &&
-			 interleave->dsdist == 0 && interleave->dssize == 0)) {
+	if ((interleave == NULL)
+			|| (interleave->ssdist == 0 && interleave->sssize == 0
+					&& interleave->dsdist == 0
+					&& interleave->dssize == 0)) {
 		/* simple buffer verify */
 		error_count += dmatest_verify_buf_segment(buf, src_off,
-			src_off + src_len, counter,
-			pattern_src | pattern_copy, is_srcbuf);
+				src_off + src_len, counter,
+				pattern_src | pattern_copy, is_srcbuf);
 		counter += src_len;
 	} else {
-		error_count += dmatest_verify_interleaved_buf_segment(buf, src_off,
-			src_off + src_len, counter,
-			pattern_src | pattern_copy, is_srcbuf, interleave);
+		error_count += dmatest_verify_interleaved_buf_segment(buf,
+				src_off, src_off + src_len, counter,
+				pattern_src | pattern_copy, is_srcbuf,
+				interleave);
 		counter += src_len;
 	}
 
 	/* and check remainder of buffer */
 	error_count += dmatest_verify_buf_segment(buf, src_off + src_len,
-		buf_len, counter,
-		pattern_dst, is_srcbuf);
+			buf_len, counter, pattern_dst, is_srcbuf);
 
 	return error_count;
 }
@@ -579,13 +596,15 @@ int do_ibwin_test(uint64_t rio_base, uint32_t ib_size, uint64_t loc_addr,
 			(uint32_t)(rio_base >> 32),
 			(uint32_t)(rio_base & 0xffffffff));
 
-	if (debug)
+	if (debug) {
 		printf("\t(h=0x%x_%x, loc=%p)\n", (uint32_t)(ib_handle >> 32),
 				(uint32_t)(ib_handle & 0xffffffff), ibmap);
-	printf("\t.... press Enter key to exit ....\n");
+	}
 
 	/** - Pause until a user presses Enter key */
+	printf("\t.... press Enter key to exit ....\n");
 	getchar();
+
 	/** - Verify data before exit (if requested) */
 	if (verify) {
 		dmatest_verify_buf_segment((U8P)ibmap, 0, ib_size, 0,
@@ -729,6 +748,7 @@ int do_dma_test(int random, int kbuf_mode, int verify, int loop_count,
 			src_off = offset;
 			dst_off = offset;
 		}
+
 		/* source length may be larger if source interleave is configured */
 		if ((0 == interleave->ssdist) && (0 == interleave->sssize)) {
 			src_len = len;
@@ -741,6 +761,7 @@ int do_dma_test(int random, int kbuf_mode, int verify, int loop_count,
 			if (debug) {
 				printf("Clearing destination buffer\n");
 			}
+
 			dmatest_clear_srcs((U8P)buf_src, tbuf_size);
 			if (kbuf_mode) {
 				ret = riomp_dma_write_d(mport_hnd, tgt_did_val,
@@ -981,24 +1002,23 @@ int local_parse_dist_size(char *arg, uint16_t *dist, uint16_t *size)
 	char *saveptr;
 	char *distTok;
 	char *sizeTok;
-	int rc = EXIT_SUCCESS;
 
 	sizeTok = strtok_r(arg, ",", &saveptr);
 	distTok = strtok_r(NULL, ",", &saveptr);
 	if (distTok == NULL) {
 		distTok = sizeTok;
 	}
+
 	if (tok_parse_us(distTok, dist, 0)) {
-		printf(TOK_ERR_US_HEX_MSG_FMT,
-			"source distance");
+		printf(TOK_ERR_US_HEX_MSG_FMT, "source distance");
 		return (EXIT_FAILURE);
 	}
+
 	if (tok_parse_us(sizeTok, size, 0)) {
-		printf(TOK_ERR_US_HEX_MSG_FMT,
-			"source size");
+		printf(TOK_ERR_US_HEX_MSG_FMT, "source size");
 		return (EXIT_FAILURE);
 	}
-	return rc;
+	return (EXIT_SUCCESS);
 }
 
 /**
@@ -1189,18 +1209,24 @@ int main(int argc, char** argv)
 			debug = 1;
 			break;
 		case 'n':
-			/* source interleave parameter is <ssize>,<sdist>.  We will also accept a single digit in which case both size and
-			   distance will be the same.
-                        */
-			if (local_parse_dist_size(optarg, &interleave.sssize, &interleave.ssdist) != EXIT_SUCCESS) {
+			// source interleave parameter is <ssize>,<sdist>.
+			// We will also accept a single digit in which case
+			// both size and distance will be the same.
+			if (EXIT_SUCCESS
+					!= local_parse_dist_size(optarg,
+							&interleave.sssize,
+							&interleave.ssdist)) {
 				return (EXIT_FAILURE);
 			}
 			break;
 		case 'N':
-			/* destination interleave parameter is <dsize>,<ddist>.  We will also accept a single digit in which case both size and
-			   distance will be the same.
-                        */
-			if (local_parse_dist_size(optarg, &interleave.dssize, &interleave.dsdist) != EXIT_SUCCESS) {
+			// destination interleave parameter is <dsize>,<ddist>.
+			// We will also accept a single digit in which case
+			// both size anddistance will be the same.
+			if (EXIT_SUCCESS
+					!= local_parse_dist_size(optarg,
+							&interleave.dssize,
+							&interleave.dsdist)) {
 				return (EXIT_FAILURE);
 			}
 			break;
@@ -1233,8 +1259,9 @@ int main(int argc, char** argv)
 			align = prop.dma_align;
 			max_sge = prop.dma_max_sge;
 			max_size = prop.dma_max_size;
-		} else
+		} else {
 			has_dma = 0;
+		}
 
 		if (prop.link_speed == 0) {
 			printf("SRIO link is down. Test aborted.\n");
@@ -1250,9 +1277,10 @@ int main(int argc, char** argv)
 		printf("+++ RapidIO Inbound Window Mode +++\n");
 		printf("\tmport%d ib_size=0x%x PID:%d\n", mport_id, ibwin_size,
 				(int)getpid());
-		if (loc_addr != RIOMP_MAP_ANY_ADDR)
+		if (loc_addr != RIOMP_MAP_ANY_ADDR) {
 			printf("\tloc_addr=0x%llx\n",
 					(unsigned long long)loc_addr);
+		}
 
 		do_ibwin_test(rio_base, ibwin_size, loc_addr, verify);
 	} else if (has_dma) {

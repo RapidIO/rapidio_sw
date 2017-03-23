@@ -179,7 +179,7 @@ struct worker {
 	struct timespec st_time; /* Start of the run, for throughput */
 	struct timespec end_time; /* End of the run, for throughput*/
 
-	uint64_t perf_iter_cnt; /* Number of repititions */
+	uint64_t perf_iter_cnt; /* Number of repetitions */
 	struct timespec iter_st_time; /* Start of the iteration, latency */
 	struct timespec iter_end_time; /* End of the iteration, latency */
 	struct timespec tot_iter_time; /* Total time for all iterations */
