@@ -300,7 +300,7 @@ fi
 echo ""
 echo "BEGIN TEST: make TEST=1 SRC_CFG_LIBRIO='-DCPS_DAR_WANTED' -s"
 ssh "$MY_USERID"@"$MASTER" "cd $REMOTE_SOURCE_DIR ; make TEST=1 SRC_CFG_LIBRIO='-DCPS_DAR_WANTED' -s" |& tee $LOG_DIR/16_make-compile-test-librio-cps.txt
-tmp=`grep ^make $LOG_DIR/16_make-compile-librio-cps.txt | grep Error | wc -l`
+tmp=`grep ^make $LOG_DIR/16_make-compile-test-librio-cps.txt | grep Error | wc -l`
 if [ $tmp -ne 0 ]; then
     echo "Compile (test) failed, check log file $LOG_DIR/16_make-compile-test-librio-cps.txt"
     echo "[${BASH_SOURCE[0]}:${LINENO}]"
@@ -310,7 +310,7 @@ fi
 echo ""
 echo "BEGIN TEST: make TEST=1 SRC_CFG_LIBRIO='-DCPS_DAR_WANTED' -s clean"
 ssh "$MY_USERID"@"$MASTER" "cd $REMOTE_SOURCE_DIR ; make TEST=1 SRC_CFG_LIBRIO='-DCPS_DAR_WANTED' -s clean" |& tee $LOG_DIR/17_make-clean-test-librio-cps.txt
-tmp=`grep ^make $LOG_DIR/17_make-clean-librio-cps.txt | grep Error | wc -l`
+tmp=`grep ^make $LOG_DIR/17_make-clean-test-librio-cps.txt | grep Error | wc -l`
 if [ $tmp -ne 0 ]; then
     echo "Clean (test) failed, check log file $LOG_DIR/17_make-clean-test-librio-cps.txt"
     echo "[${BASH_SOURCE[0]}:${LINENO}]"
@@ -324,7 +324,7 @@ fi
 echo ""
 echo "BEGIN TEST: make SRC_CFG_LIBRIO='-DRXS_DAR_WANTED' -s"
 # ensure make works
-ssh "$MY_USERID"@"$MASTER" "cd $REMOTE_SOURCE_DIR ; make SRC_CFG_LIBRIO='-DRXS_DAR_WANTED' -s" |& tee $LOG_DIR/32_make-compile-librio-rxs.txt
+ssh "$MY_USERID"@"$MASTER" "cd $REMOTE_SOURCE_DIR ; make SRC_CFG_LIBRIO='-DRXS_DAR_WANTED' -s" |& tee $LOG_DIR/18_make-compile-librio-rxs.txt
 tmp=`grep ^make $LOG_DIR/18_make-compile-librio-rxs.txt | grep Error | wc -l`
 if [ $tmp -ne 0 ]; then
     echo "Compile failed, check log file $LOG_DIR/18_make-compile-librio-rxs.txt"
@@ -345,9 +345,9 @@ fi
 echo ""
 echo "BEGIN TEST: make TEST=1 SRC_CFG_LIBRIO='-DRXS_DAR_WANTED' -s"
 ssh "$MY_USERID"@"$MASTER" "cd $REMOTE_SOURCE_DIR ; make TEST=1 SRC_CFG_LIBRIO='-DRXS_DAR_WANTED' -s" |& tee $LOG_DIR/20_make-compile-test-librio-rxs.txt
-tmp=`grep ^make $LOG_DIR/20_make-compile-test-librio-cps.txt | grep Error | wc -l`
+tmp=`grep ^make $LOG_DIR/20_make-compile-test-librio-rxs.txt | grep Error | wc -l`
 if [ $tmp -ne 0 ]; then
-    echo "Compile failed, check log file $LOG_DIR/20_make-compile-test-librio-cps.txt"
+    echo "Compile failed, check log file $LOG_DIR/20_make-compile-test-librio-rxs.txt"
     echo "[${BASH_SOURCE[0]}:${LINENO}]"
     OK=0
 fi
