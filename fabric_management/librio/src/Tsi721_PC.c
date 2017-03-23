@@ -109,7 +109,7 @@ static uint32_t reg_lswap(enum rio_lane_swap_t swap)
 
 static enum rio_lane_swap_t lswap(uint32_t reg_val)
 {
-	enum rio_lane_swap_t swap_val = rio_lswap_none;
+	enum rio_lane_swap_t swap_val;
 
 	switch(reg_val) {
 	default:

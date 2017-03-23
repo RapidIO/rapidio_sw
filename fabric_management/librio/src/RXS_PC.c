@@ -244,7 +244,7 @@ uint32_t reg_lswap(enum rio_lane_swap_t swap)
 
 static enum rio_lane_swap_t lswap(uint32_t reg_val)
 {
-	enum rio_lane_swap_t swap_val = rio_lswap_none;
+	enum rio_lane_swap_t swap_val;
 
 	switch(reg_val) {
 	default:
@@ -732,7 +732,7 @@ uint32_t rxs_rio_pc_reset_port(DAR_DEV_INFO_t *dev_info,
 		rio_pc_reset_port_in_t *in_parms,
 		rio_pc_reset_port_out_t *out_parms)
 {
-	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+	uint32_t rc;
 	uint32_t idx;
 	struct DAR_ptl ptl_in;
 	struct DAR_ptl good_ptl;
@@ -1117,7 +1117,7 @@ uint32_t rxs_rio_pc_secure_port(DAR_DEV_INFO_t *dev_info,
 		rio_pc_secure_port_in_t *in_parms,
 		rio_pc_secure_port_out_t *out_parms)
 {
-	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+	uint32_t rc;
 	struct DAR_ptl good_ptl;
 	unsigned int port_idx;
 	rio_port_t port;

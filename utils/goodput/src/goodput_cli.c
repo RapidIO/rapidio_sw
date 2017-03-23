@@ -319,7 +319,7 @@ static int WaitCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 	const struct timespec ten_usec = {0, 10 * 1000};
 
 	uint16_t idx, limit = 10000;
-	int state = -1;
+	int state;
 
 	if (gp_parse_worker_index(env, argv[0], &idx)) {
 		goto exit;
@@ -1579,9 +1579,14 @@ ATTR_NONE
 static int GoodputCmd(struct cli_env *env, int argc, char **UNUSED(argv))
 {
 	int i;
-	float MBps, Gbps, Msgpersec, link_occ; 
-	uint64_t byte_cnt = 0;
-	float tot_MBps = 0, tot_Gbps = 0, tot_Msgpersec = 0;
+	float MBps;
+	float Gbps;
+	float Msgpersec;
+	float link_occ;
+	uint64_t byte_cnt;
+	float tot_MBps = 0;
+	float tot_Gbps = 0;
+	float tot_Msgpersec = 0;
 	uint64_t tot_byte_cnt = 0;
 	char MBps_str[FLOAT_STR_SIZE];
 	char Gbps_str[FLOAT_STR_SIZE];
@@ -1592,9 +1597,6 @@ static int GoodputCmd(struct cli_env *env, int argc, char **UNUSED(argv))
 	for (i = 0; i < MAX_WORKERS; i++) {
 		struct timespec elapsed;
 		uint64_t nsec;
-
-		MBps = Gbps = Msgpersec = 0;
-		byte_cnt = 0;
 
 		Msgpersec = wkr[i].perf_msg_cnt;
 		byte_cnt = wkr[i].perf_byte_cnt;
@@ -1923,7 +1925,7 @@ static int FillCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 		goto exit;
 	}
 
-	if (tok_parse_ushort(argv[3], &tmp, 0, 0xff, 0)) {
+	if (tok_parse_ushort(argv[n++], &tmp, 0, 0xff, 0)) {
 		LOGMSG(env, "\n");
 		LOGMSG(env, TOK_ERR_USHORT_HEX_MSG_FMT, "<data>", 0, 0xff);
 		goto exit;
