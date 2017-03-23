@@ -130,514 +130,134 @@ scp $TMP_DIR/$SRC_TAR "$MY_USERID"@"$MASTER":$REMOTE_SOURCE_DIR/$SRC_TAR &> /dev
 ssh "$MY_USERID"@"$MASTER" "pushd $REMOTE_SOURCE_DIR; tar -xomf $SRC_TAR > /dev/null"
 rm -rf $TMP_DIR &> /dev/null
 
+LOGNAME=$LOG_DIR/001_make-clean-default.txt
 echo ""
-echo "BEGIN TEST: make -s clean"
-ssh "$MY_USERID"@"$MASTER" "cd $REMOTE_SOURCE_DIR ; make -s clean" |& tee $LOG_DIR/01_make-clean.txt
-tmp=`grep ^make $LOG_DIR//01_make-clean.txt | grep Error | wc -l`
+echo "BEGIN CMD: make -s clean" |& tee $LOGNAME
+ssh "$MY_USERID"@"$MASTER" "cd $REMOTE_SOURCE_DIR ; make -s clean" |& tee -a $LOGNAME
+tmp=`grep ^make $LOGNAME | grep Error | wc -l`
 if [ $tmp -ne 0 ]; then
-    echo "Clean failed, check log file $LOG_DIR/01_make-clean.txt"
+    echo "Clean failed, check log file $$LOGNAME"
     echo "[${BASH_SOURCE[0]}:${LINENO}]"
     exit 145
 fi
 
-OK=1
+LOGNAME=$LOG_DIR/002_make-compile-default.txt
 echo ""
-echo "BEGIN TEST: make -s"
-ssh "$MY_USERID"@"$MASTER" "cd $REMOTE_SOURCE_DIR ; make -s" |& tee $LOG_DIR/02_make-compile-default.txt
-tmp=`grep ^make $LOG_DIR/02_make-compile-default.txt | grep Error | wc -l`
+echo "BEGIN CMD: make -s" |& tee $LOGNAME
+ssh "$MY_USERID"@"$MASTER" "cd $REMOTE_SOURCE_DIR ; make -s" |& tee -a $LOGNAME
+tmp=`grep ^make $LOGNAME | grep Error | wc -l`
 if [ $tmp -ne 0 ]; then
-    echo "Compile failed, check log file $LOG_DIR/02_make-compile-default.txt"
+    echo "Compile failed, check log file $LOGNAME"
     echo "[${BASH_SOURCE[0]}:${LINENO}]"
-    OK=0
-fi
-
-echo ""
-echo "BEGIN TEST: make -s clean"
-ssh "$MY_USERID"@"$MASTER" "cd $REMOTE_SOURCE_DIR ; make -s clean" |& tee $LOG_DIR/03_make-clean-default.txt
-tmp=`grep ^make $LOG_DIR/03_make-clean-default.txt | grep Error | wc -l`
-if [ $tmp -ne 0 ]; then
-    echo "Clean failed, check log file $LOG_DIR/03_make-clean-default.txt"
-    echo "[${BASH_SOURCE[0]}:${LINENO}]"
-    OK=0
-fi
-
-if [ $OK -eq 0 ]; then
     exit 146
 fi
+ssh "$MY_USERID"@"$MASTER" "cd $REMOTE_SOURCE_DIR ; make -s clean"
 
-echo ""
-echo "BEGIN TEST: make -s TEST=1"
-ssh "$MY_USERID"@"$MASTER" "cd $REMOTE_SOURCE_DIR ; make -s TEST=1" |& tee $LOG_DIR/04_make-compile-test-default.txt
-tmp=`grep ^make $LOG_DIR/04_make-compile-test-default.txt | grep Error | wc -l`
-if [ $tmp -ne 0 ]; then
-    echo "Compile (test), check log file $LOG_DIR/04_make-compile-test-default.txt"
-    echo "[${BASH_SOURCE[0]}:${LINENO}]"
-    OK=0
-fi
+# Start LOGNUM at current value as it is incremented prior to creating any new files
+LOGNUM=02
 
-echo ""
-echo "BEGIN TEST: make -s TEST=1 clean"
-ssh "$MY_USERID"@"$MASTER" "cd $REMOTE_SOURCE_DIR ; make -s TEST=1 clean" |& tee $LOG_DIR/05_make-clean-test-default.txt
-tmp=`grep ^make $LOG_DIR/05_make-clean-test-default.txt | grep Error | wc -l`
-if [ $? -ne 0 ]; then
-    echo "Clean (test) failed, check log file $LOG_DIR/05_make-clean-test-default.txt"
-    echo "[${BASH_SOURCE[0]}:${LINENO}]"
-    OK=0
-fi
+# will compile the various permutations of these defines
+SRC_CFG_LIBRIO_DEFINES=(-DTSI57X_DAR_WANTED -DCPS_DAR_WANTED -DRXS_DAR_WANTED -DTSI721_DAR_WANTED -DTSI721_EXCLUDE_EM_INTERRUPT_SUPPORT)
+SRC_CFG_LIBRIO_NAMES=(tsi57x cps rxs tsi721 em)
 
-if [ $OK -eq 0 ]; then
-    exit 147
-fi
+n=${#SRC_CFG_LIBRIO_DEFINES[@]}
+powersize=$((1 << $n))
 
-echo ""
-echo "BEGIN TEST: make SRC_CFG_LIBRIO='' -s"
-ssh "$MY_USERID"@"$MASTER" "cd $REMOTE_SOURCE_DIR ; make SRC_CFG_LIBRIO='' -s" |& tee $LOG_DIR/06_make-compile-librio-none.txt
-tmp=`grep ^make $LOG_DIR/06_make-compile-librio-none.txt | grep Error | wc -l`
-if [ $tmp -ne 0 ]; then
-    echo "Compile failed, check log file $LOG_DIR/06_make-compile-librio-none.txt"
-    echo "[${BASH_SOURCE[0]}:${LINENO}]"
-    OK=0
-fi
+OK=1
+i=0
+while [ $i -lt $powersize ]
+do
+    subset=()
+    names=()
+    j=0
+    while [ $j -lt $n ]
+    do
+        if [ $(((1 << $j) & $i)) -gt 0 ]
+        then
+            subset+=("${SRC_CFG_LIBRIO_DEFINES[$j]}")
+            names+=("-${SRC_CFG_LIBRIO_NAMES[$j]}")
+        fi
+        j=$(($j + 1))
+    done
 
-echo ""
-echo "BEGIN TEST: make SRC_CFG_LIBRIO='' -s clean"
-ssh "$MY_USERID"@"$MASTER" "cd $REMOTE_SOURCE_DIR ; make SRC_CFG_LIBRIO='' -s clean" |& tee $LOG_DIR/07_make-clean-librio-none.txt
-tmp=`grep ^make $LOG_DIR/07_make-clean-librio-none.txt | grep Error | wc -l`
-if [ $tmp -ne 0 ]; then
-    echo "Clean failed, check log file $LOG_DIR/07_make-clean-librio-none.txt"
-    echo "[${BASH_SOURCE[0]}:${LINENO}]"
-    OK=0
-fi
+    POSTFIX=""
+    for name in "${names[@]}"
+    do
+       POSTFIX+=$name 
+    done
+    POSTFIX+=".txt"
 
-echo ""
-echo "BEGIN TEST: make TEST=1 SRC_CFG_LIBRIO='' -s"
-ssh "$MY_USERID"@"$MASTER" "cd $REMOTE_SOURCE_DIR ; make TEST=1 SRC_CFG_LIBRIO='' -s" |& tee $LOG_DIR/08_make-compile-test-librio-none.txt
-tmp=`grep ^make $LOG_DIR/08_make-compile-test-librio-none.txt | grep Error | wc -l`
-if [ $tmp -ne 0 ]; then
-    echo "Compile (test) failed, check log file $LOG_DIR/08_make-compile-test-librio-none.txt"
-    echo "[${BASH_SOURCE[0]}:${LINENO}]"
-    OK=0
-fi
+    ((LOGNUM++))
+    DISP_LOGNUM=$(printf "%03d" $LOGNUM)
+    LOGNAME=$LOG_DIR/$DISP_LOGNUM
+    LOGNAME+="_make-compile"
+    LOGNAME+=$POSTFIX
+    echo ""
+    echo "BEGIN CMD: make SRC_CFG_LIBRIO='${subset[@]}' -s" |& tee $LOGNAME
+    ssh "$MY_USERID"@"$MASTER" "cd $REMOTE_SOURCE_DIR ; make SRC_CFG_LIBRIO='${subset[@]}' -s" |& tee -a $LOGNAME
+    tmp=`grep ^make $LOGNAME | grep Error | wc -l`
+    if [ $tmp -ne 0 ]; then
+        echo "Compile failed, check log file $LOGNAME.txt"
+        echo "[${BASH_SOURCE[0]}:${LINENO}]"
+        OK=0
+    fi
 
-echo ""
-echo "BEGIN TEST: make TEST=1 SRC_CFG_LIBRIO='' -s clean"
-ssh "$MY_USERID"@"$MASTER" "cd $REMOTE_SOURCE_DIR ; make TEST=1 SRC_CFG_LIBRIO='' -s clean" |& tee $LOG_DIR/09_make-clean-test-librio-none.txt
-tmp=`grep ^make $LOG_DIR/09_make-clean-test-librio-none.txt | grep Error | wc -l`
-if [ $tmp -ne 0 ]; then
-    echo "Clean (test) failed, check log file $LOG_DIR/09_make-clean-test-librio-none.txt"
-    echo "[${BASH_SOURCE[0]}:${LINENO}]"
-    OK=0
-fi
+    ((LOGNUM++))
+    DISP_LOGNUM=$(printf "%03d" $LOGNUM)
+    LOGNAME=$LOG_DIR/$DISP_LOGNUM
+    LOGNAME+="_make-clean"
+    LOGNAME+=$POSTFIX
+    echo ""
+    echo "BEGIN CMD: make SRC_CFG_LIBRIO='${subset[@]}' -s clean" |& tee $LOGNAME
+    ssh "$MY_USERID"@"$MASTER" "cd $REMOTE_SOURCE_DIR ; make SRC_CFG_LIBRIO='${subset[@]}' -s clean" |& tee -a $LOGNAME
+    tmp=`grep ^make $LOGNAME | grep Error | wc -l`
+    if [ $tmp -ne 0 ]; then
+        echo "Clean failed, check log file $LOGNAME.txt"
+        echo "[${BASH_SOURCE[0]}:${LINENO}]"
+        OK=0
+    fi
 
-if [ $OK -eq 0 ]; then
-    exit 148
-fi
+    ((LOGNUM++))
+    DISP_LOGNUM=$(printf "%03d" $LOGNUM)
+    LOGNAME=$LOG_DIR/$DISP_LOGNUM
+    LOGNAME+="_make-compile-test"
+    LOGNAME+=$POSTFIX
+    echo ""
+    echo "BEGIN CMD: make TEST=1 SRC_CFG_LIBRIO='${subset[@]}' -s" |& tee $LOGNAME
+    ssh "$MY_USERID"@"$MASTER" "cd $REMOTE_SOURCE_DIR ; make TEST=1 SRC_CFG_LIBRIO='${subset[@]}' -s" |& tee -a $LOGNAME
+    tmp=`grep ^make $LOGNAME | grep Error | wc -l`
+    if [ $tmp -ne 0 ]; then
+        echo "Compile (test) failed, check log file $LOGNAME.txt"
+        echo "[${BASH_SOURCE[0]}:${LINENO}]"
+        OK=0
+    fi
 
-echo ""
-echo "BEGIN TEST: make SRC_CFG_LIBRIO='-DTSI57X_DAR_WANTED' -s"
-ssh "$MY_USERID"@"$MASTER" "cd $REMOTE_SOURCE_DIR ; make SRC_CFG_LIBRIO='-DTSI57X_DAR_WANTED' -s" |& tee $LOG_DIR/10_make-compile-librio-tsi57x.txt
-tmp=`grep ^make $LOG_DIR/10_make-compile-librio-tsi57x.txt | grep Error | wc -l`
-if [ $tmp -ne 0 ]; then
-    echo "Compile failed, check log file $LOG_DIR/10_make-compile-librio-tsi57x.txt"
-    echo "[${BASH_SOURCE[0]}:${LINENO}]"
-    OK=0
-fi
+    ((LOGNUM++))
+    DISP_LOGNUM=$(printf "%03d" $LOGNUM)
+    LOGNAME=$LOG_DIR/$DISP_LOGNUM
+    LOGNAME+="_make-clean-test"
+    LOGNAME+=$POSTFIX
+    echo ""
+    echo "BEGIN CMD: make TEST=1 SRC_CFG_LIBRIO='${subset[@]}' -s clean" |& tee $LOGNAME
+    ssh "$MY_USERID"@"$MASTER" "cd $REMOTE_SOURCE_DIR ; make TEST=1 SRC_CFG_LIBRIO='${subset[@]}' -s clean" |& tee -a $LOGNAME
+    tmp=`grep ^make $LOGNAME | grep Error | wc -l`
+    if [ $tmp -ne 0 ]; then
+        echo "Clean (test) failed, check log file $LOGNAME.txt"
+        echo "[${BASH_SOURCE[0]}:${LINENO}]"
+        OK=0
+    fi
 
-echo ""
-echo "BEGIN TEST: make SRC_CFG_LIBRIO='-DTSI57X_DAR_WANTED' -s clean"
-ssh "$MY_USERID"@"$MASTER" "cd $REMOTE_SOURCE_DIR ; make SRC_CFG_LIBRIO='-DTSI57X_DAR_WANTED' -s clean" |& tee $LOG_DIR/11_make-clean-librio-tsi57x.txt
-tmp=`grep ^make $LOG_DIR/11_make-clean-librio-tsi57x.txt | grep Error | wc -l`
-if [ $tmp -ne 0 ]; then
-    echo "Clean failed, check log file $LOG_DIR/11_make-clean-librio-tsi57x.txt"
-    echo "[${BASH_SOURCE[0]}:${LINENO}]"
-    OK=0
-fi
-
-echo ""
-echo "BEGIN TEST: make TEST=1 SRC_CFG_LIBRIO='-DTSI57X_DAR_WANTED' -s"
-ssh "$MY_USERID"@"$MASTER" "cd $REMOTE_SOURCE_DIR ; make TEST=1 SRC_CFG_LIBRIO='-DTSI57X_DAR_WANTED' -s" |& tee $LOG_DIR/12_make-compile-test-librio-tsi57x.txt
-tmp=`grep ^make $LOG_DIR/12_make-compile-test-librio-tsi57x.txt | grep Error | wc -l`
-if [ $tmp -ne 0 ]; then
-    echo "Compile (test) failed, check log file $LOG_DIR/12_make-compile-test-librio-tsi57x.txt"
-    echo "[${BASH_SOURCE[0]}:${LINENO}]"
-    OK=0
-fi
-
-echo ""
-echo "BEGIN TEST: make TEST=1 SRC_CFG_LIBRIO='-DTSI57X_DAR_WANTED' -s clean"
-ssh "$MY_USERID"@"$MASTER" "cd $REMOTE_SOURCE_DIR ; make TEST=1 SRC_CFG_LIBRIO='-DTSI57X_DAR_WANTED' -s clean" |& tee $LOG_DIR/13_make-clean-test-librio-tsi57x.txt
-tmp=`grep ^make $LOG_DIR/13_make-clean-test-librio-tsi57x.txt | grep Error | wc -l`
-if [ $tmp -ne 0 ]; then
-    echo "Clean (test) failed, check log file $LOG_DIR/13_make-clean-test-librio-tsi57x.txt"
-    echo "[${BASH_SOURCE[0]}:${LINENO}]"
-    OK=0
-fi
-
-if [ $OK -eq 0 ]; then
-    exit 149
-fi
-
-echo ""
-echo "BEGIN TEST: make SRC_CFG_LIBRIO='-DCPS_DAR_WANTED' -s"
-ssh "$MY_USERID"@"$MASTER" "cd $REMOTE_SOURCE_DIR ; make SRC_CFG_LIBRIO='-DCPS_DAR_WANTED' -s" |& tee $LOG_DIR/14_make-compile-librio-cps.txt
-tmp=`grep ^make $LOG_DIR/14_make-compile-librio-cps.txt | grep Error | wc -l`
-if [ $tmp -ne 0 ]; then
-    echo "Compile failed, check log file $LOG_DIR/14_make-compile-librio-cps.txt"
-    echo "[${BASH_SOURCE[0]}:${LINENO}]"
-    OK=0
-fi
-
-echo ""
-echo "BEGIN TEST: make SRC_CFG_LIBRIO='-DCPS_DAR_WANTED' -s clean"
-ssh "$MY_USERID"@"$MASTER" "cd $REMOTE_SOURCE_DIR ; make SRC_CFG_LIBRIO='-DCPS_DAR_WANTED' -s clean" |& tee $LOG_DIR/15_make-clean-librio-cps.txt
-tmp=`grep ^make $LOG_DIR/15_make-clean-librio-cps.txt | grep Error | wc -l`
-if [ $tmp -ne 0 ]; then
-    echo "Clean failed, check log file $LOG_DIR/15_make-clean-librio-cps.txt"
-    echo "[${BASH_SOURCE[0]}:${LINENO}]"
-    OK=0
-fi
-
-echo ""
-echo "BEGIN TEST: make TEST=1 SRC_CFG_LIBRIO='-DCPS_DAR_WANTED' -s"
-ssh "$MY_USERID"@"$MASTER" "cd $REMOTE_SOURCE_DIR ; make TEST=1 SRC_CFG_LIBRIO='-DCPS_DAR_WANTED' -s" |& tee $LOG_DIR/16_make-compile-test-librio-cps.txt
-tmp=`grep ^make $LOG_DIR/16_make-compile-test-librio-cps.txt | grep Error | wc -l`
-if [ $tmp -ne 0 ]; then
-    echo "Compile (test) failed, check log file $LOG_DIR/16_make-compile-test-librio-cps.txt"
-    echo "[${BASH_SOURCE[0]}:${LINENO}]"
-    OK=0
-fi
-
-echo ""
-echo "BEGIN TEST: make TEST=1 SRC_CFG_LIBRIO='-DCPS_DAR_WANTED' -s clean"
-ssh "$MY_USERID"@"$MASTER" "cd $REMOTE_SOURCE_DIR ; make TEST=1 SRC_CFG_LIBRIO='-DCPS_DAR_WANTED' -s clean" |& tee $LOG_DIR/17_make-clean-test-librio-cps.txt
-tmp=`grep ^make $LOG_DIR/17_make-clean-test-librio-cps.txt | grep Error | wc -l`
-if [ $tmp -ne 0 ]; then
-    echo "Clean (test) failed, check log file $LOG_DIR/17_make-clean-test-librio-cps.txt"
-    echo "[${BASH_SOURCE[0]}:${LINENO}]"
-    OK=0
-fi
-
-if [ $OK -eq 0 ]; then
-    exit 150
-fi
-
-echo ""
-echo "BEGIN TEST: make SRC_CFG_LIBRIO='-DRXS_DAR_WANTED' -s"
-# ensure make works
-ssh "$MY_USERID"@"$MASTER" "cd $REMOTE_SOURCE_DIR ; make SRC_CFG_LIBRIO='-DRXS_DAR_WANTED' -s" |& tee $LOG_DIR/18_make-compile-librio-rxs.txt
-tmp=`grep ^make $LOG_DIR/18_make-compile-librio-rxs.txt | grep Error | wc -l`
-if [ $tmp -ne 0 ]; then
-    echo "Compile failed, check log file $LOG_DIR/18_make-compile-librio-rxs.txt"
-    echo "[${BASH_SOURCE[0]}:${LINENO}]"
-    OK=0
-fi
-
-echo ""
-echo "BEGIN TEST: make SRC_CFG_LIBRIO='-DRXS_DAR_WANTED' -s clean"
-ssh "$MY_USERID"@"$MASTER" "cd $REMOTE_SOURCE_DIR ; make SRC_CFG_LIBRIO='-DRXS_DAR_WANTED' -s clean" |& tee $LOG_DIR/19_make-clean-librio-rxs.txt
-tmp=`grep ^make $LOG_DIR/19_make-clean-librio-rxs.txt | grep Error | wc -l`
-if [ $tmp -ne 0 ]; then
-    echo "Clean failed, check log file $LOG_DIR/19_make-clean-librio-rxs.txt"
-    echo "[${BASH_SOURCE[0]}:${LINENO}]"
-    OK=0
-fi
-
-echo ""
-echo "BEGIN TEST: make TEST=1 SRC_CFG_LIBRIO='-DRXS_DAR_WANTED' -s"
-ssh "$MY_USERID"@"$MASTER" "cd $REMOTE_SOURCE_DIR ; make TEST=1 SRC_CFG_LIBRIO='-DRXS_DAR_WANTED' -s" |& tee $LOG_DIR/20_make-compile-test-librio-rxs.txt
-tmp=`grep ^make $LOG_DIR/20_make-compile-test-librio-rxs.txt | grep Error | wc -l`
-if [ $tmp -ne 0 ]; then
-    echo "Compile failed, check log file $LOG_DIR/20_make-compile-test-librio-rxs.txt"
-    echo "[${BASH_SOURCE[0]}:${LINENO}]"
-    OK=0
-fi
-
-echo ""
-echo "BEGIN TEST: make TEST=1 SRC_CFG_LIBRIO='-DRXS_DAR_WANTED' -s clean"
-ssh "$MY_USERID"@"$MASTER" "cd $REMOTE_SOURCE_DIR ; make TEST=1 SRC_CFG_LIBRIO='-DRXS_DAR_WANTED' -s clean" |& tee $LOG_DIR/21_make-clean-test-librio-rxs.txt
-tmp=`grep ^make $LOG_DIR/21_make-clean-test-librio-rxs.txt | grep Error | wc -l`
-if [ $tmp -ne 0 ]; then
-    echo "Clean failed, check log file $LOG_DIR/21_make-clean-test-librio-rxs.txt"
-    echo "[${BASH_SOURCE[0]}:${LINENO}]"
-    OK=0
-fi
-
-if [ $OK -eq 0 ]; then
-    exit 151
-fi
-
-echo ""
-echo "BEGIN TEST: make SRC_CFG_LIBRIO='-DTSI721_DAR_WANTED' -s"
-ssh "$MY_USERID"@"$MASTER" "cd $REMOTE_SOURCE_DIR ; make SRC_CFG_LIBRIO='-DTSI721_DAR_WANTED' -s" |& tee $LOG_DIR/22_make-compile-librio-tsi721.txt
-tmp=`grep ^make $LOG_DIR/22_make-compile-librio-tsi721.txt | grep Error | wc -l`
-if [ $tmp -ne 0 ]; then
-    echo "Compile failed, check log file $LOG_DIR/22_make-compile-librio-tsi721.txt"
-    echo "[${BASH_SOURCE[0]}:${LINENO}]"
-    OK=0
-fi
-
-echo ""
-echo "BEGIN TEST: make SRC_CFG_LIBRIO='-DTSI721_DAR_WANTED' -s clean"
-ssh "$MY_USERID"@"$MASTER" "cd $REMOTE_SOURCE_DIR ; make SRC_CFG_LIBRIO='-DTSI721_DAR_WANTED' -s clean" |& tee $LOG_DIR/23_make-clean-librio-tsi721.txt
-tmp=`grep ^make $LOG_DIR/23_make-clean-librio-tsi721.txt | grep Error | wc -l`
-if [ $tmp -ne 0 ]; then
-    echo "Clean failed, check log file $LOG_DIR/23_make-clean-librio-tsi721.txt"
-    echo "[${BASH_SOURCE[0]}:${LINENO}]"
-    OK=0
-fi
-
-echo ""
-echo "BEGIN TEST: make TEST=1 SRC_CFG_LIBRIO='-DTSI721_DAR_WANTED' -s"
-ssh "$MY_USERID"@"$MASTER" "cd $REMOTE_SOURCE_DIR ; make TEST=1 SRC_CFG_LIBRIO='-DTSI721_DAR_WANTED' -s" |& tee $LOG_DIR/24_make-compile-test-librio-tsi721.txt
-tmp=`grep ^make $LOG_DIR/24_make-compile-test-librio-tsi721.txt | grep Error | wc -l`
-if [ $tmp -ne 0 ]; then
-    echo "Compile failed, check log file $LOG_DIR/24_make-compile-test-librio-tsi721.txt"
-    echo "[${BASH_SOURCE[0]}:${LINENO}]"
-    OK=0
-fi
-
-echo ""
-echo "BEGIN TEST: make TEST=1 SRC_CFG_LIBRIO='-DTSI721_DAR_WANTED' -s clean"
-ssh "$MY_USERID"@"$MASTER" "cd $REMOTE_SOURCE_DIR ; make TEST=1 SRC_CFG_LIBRIO='-DTSI721_DAR_WANTED' -s clean" |& tee $LOG_DIR/25_make-clean-test-librio-tsi721.txt
-tmp=`grep ^make $LOG_DIR/25_make-clean-test-librio-tsi721.txt | grep Error | wc -l`
-if [ $tmp -ne 0 ]; then
-    echo "Clean failed, check log file $LOG_DIR/25_make-clean-test-librio-tsi721.txt"
-    echo "[${BASH_SOURCE[0]}:${LINENO}]"
-    OK=0
-fi
-
-if [ $OK -eq 0 ]; then
-    exit 152
-fi
-
-
-echo ""
-echo "BEGIN TEST: make SRC_CFG_LIBRIO='-DTSI721_EXCLUDE_EM_INTERRUPT_SUPPORT' -s"
-ssh "$MY_USERID"@"$MASTER" "cd $REMOTE_SOURCE_DIR ; make SRC_CFG_LIBRIO='-DTSI721_EXCLUDE_EM_INTERRUPT_SUPPORT' -s" |& tee $LOG_DIR/26_make-compile-librio-tsi721-int.txt
-tmp=`grep ^make $LOG_DIR/26_make-compile-librio-tsi721-int.txt | grep Error | wc -l`
-if [ $tmp -ne 0 ]; then
-    echo "Compile failed, check log file $LOG_DIR/26_make-compile-librio-tsi721-int.txt"
-    echo "[${BASH_SOURCE[0]}:${LINENO}]"
-    OK=0
-fi
-
-echo ""
-echo "BEGIN TEST: make SRC_CFG_LIBRIO='-TSI721_EXCLUDE_EM_INTERRUPT_SUPPORT' -s clean"
-ssh "$MY_USERID"@"$MASTER" "cd $REMOTE_SOURCE_DIR ; make SRC_CFG_LIBRIO='-TSI721_EXCLUDE_EM_INTERRUPT_SUPPORT' -s clean" |& tee $LOG_DIR/27_make-clean-librio-tsi721-int.txt
-tmp=`grep ^make $LOG_DIR/27_make-clean-librio-tsi721-int.txt | grep Error | wc -l`
-if [ $tmp -ne 0 ]; then
-    echo "Clean failed, check log file $LOG_DIR/27_make-clean-librio-tsi721-int.txt"
-    echo "[${BASH_SOURCE[0]}:${LINENO}]"
-    OK=0
-fi
-
-echo ""
-echo "BEGIN TEST: make TEST=1 SRC_CFG_LIBRIO='-DTSI721_EXCLUDE_EM_INTERRUPT_SUPPORT' -s"
-ssh "$MY_USERID"@"$MASTER" "cd $REMOTE_SOURCE_DIR ; make TEST=1 SRC_CFG_LIBRIO='-DTSI721_EXCLUDE_EM_INTERRUPT_SUPPORT' -s" |& tee $LOG_DIR/28_make-compile-test-librio-tsi721-int.txt
-tmp=`grep ^make $LOG_DIR/28_make-compile-test-librio-tsi721-int.txt | grep Error | wc -l`
-if [ $tmp -ne 0 ]; then
-    echo "Compile (test) failed, check log file $LOG_DIR/28_make-compile-test-librio-tsi721-int.txt"
-    echo "[${BASH_SOURCE[0]}:${LINENO}]"
-    OK=0
-fi
-
-echo ""
-echo "BEGIN TEST: make TEST=1 SRC_CFG_LIBRIO='-TSI721_EXCLUDE_EM_INTERRUPT_SUPPORT' -s clean"
-ssh "$MY_USERID"@"$MASTER" "cd $REMOTE_SOURCE_DIR ; make TEST=1 SRC_CFG_LIBRIO='-TSI721_EXCLUDE_EM_INTERRUPT_SUPPORT' -s clean" |& tee $LOG_DIR/29_make-clean-test-librio-tsi721-int.txt
-tmp=`grep ^make $LOG_DIR/29_make-clean-test-librio-tsi721-int.txt | grep Error | wc -l`
-if [ $tmp -ne 0 ]; then
-    echo "Clean (test) failed, check log file $LOG_DIR/29_make-clean-test-librio-tsi721-int.txt"
-    echo "[${BASH_SOURCE[0]}:${LINENO}]"
-    OK=0
-fi
-
-if [ $OK -eq 0 ]; then
-    exit 153
-fi
-
-echo ""
-echo "BEGIN TEST: make SRC_CFG_LIBRIO='-DTSI57X_DAR_WANTED -DCPS_DAR_WANTED' -s"
-ssh "$MY_USERID"@"$MASTER" "cd $REMOTE_SOURCE_DIR ; make SRC_CFG_LIBRIO='-DTSI57X_DAR_WANTED -DCPS_DAR_WANTED' -s" |& tee $LOG_DIR/30_make-compile-librio-tsi57x-cps.txt
-tmp=`grep ^make $LOG_DIR/30_make-compile-librio-tsi57x-cps.txt | grep Error | wc -l`
-if [ $tmp -ne 0 ]; then
-    echo "Compile failed, check log file $LOG_DIR/30_make-compile-librio-tsi57x-cps.txt"
-    echo "[${BASH_SOURCE[0]}:${LINENO}]"
-    OK=0
-fi
-
-echo ""
-echo "BEGIN TEST: make SRC_CFG_LIBRIO='-DTSI57X_DAR_WANTED -DCPS_DAR_WANTED' -s clean"
-ssh "$MY_USERID"@"$MASTER" "cd $REMOTE_SOURCE_DIR ; make SRC_CFG_LIBRIO='-DTSI57X_DAR_WANTED -DCPS_DAR_WANTED' -s clean" |& tee $LOG_DIR/31_make-clean-librio-tsi57x-cps.txt
-tmp=`grep ^make $LOG_DIR/31_make-clean-librio-tsi57x-cps.txt | grep Error | wc -l`
-if [ $tmp -ne 0 ]; then
-    echo "Clean failed, check log file $LOG_DIR/31_make-clean-librio-tsi57x-cps.txt"
-    echo "[${BASH_SOURCE[0]}:${LINENO}]"
-    OK=0
-fi
-
-echo ""
-echo "BEGIN TEST: make TEST=1 SRC_CFG_LIBRIO='-DTSI57X_DAR_WANTED -DCPS_DAR_WANTED' -s"
-ssh "$MY_USERID"@"$MASTER" "cd $REMOTE_SOURCE_DIR ; make TEST=1 SRC_CFG_LIBRIO='-DTSI57X_DAR_WANTED -DCPS_DAR_WANTED' -s" |& tee $LOG_DIR/32_make-compile-test-librio-tsi57x-cps.txt
-tmp=`grep ^make $LOG_DIR/32_make-compile-test-librio-tsi57x-cps.txt | grep Error | wc -l`
-if [ $tmp -ne 0 ]; then
-    echo "Compile (test) failed, check log file $LOG_DIR/32_make-compile-test-librio-tsi57x-cps.txt"
-    echo "[${BASH_SOURCE[0]}:${LINENO}]"
-    OK=0
-fi
-
-echo ""
-echo "BEGIN TEST: make TEST=1 SRC_CFG_LIBRIO='-DTSI57X_DAR_WANTED -DCPS_DAR_WANTED' -s clean"
-ssh "$MY_USERID"@"$MASTER" "cd $REMOTE_SOURCE_DIR ; make TEST=1 SRC_CFG_LIBRIO='-DTSI57X_DAR_WANTED -DCPS_DAR_WANTED' -s clean" |& tee $LOG_DIR/33_make-clean-test-librio-tsi57x-cps.txt
-tmp=`grep ^make $LOG_DIR/33_make-clean-test-librio-tsi57x-cps.txt | grep Error | wc -l`
-if [ $tmp -ne 0 ]; then
-    echo "Clean (test) failed, check log file $LOG_DIR/33_make-clean-test-librio-tsi57x-cps.txt"
-    echo "[${BASH_SOURCE[0]}:${LINENO}]"
-    OK=0
-fi
-
-if [ $OK -eq 0 ]; then
-    exit 154
-fi
-
-echo ""
-echo "BEGIN TEST: make SRC_CFG_LIBRIO='-DTSI57X_DAR_WANTED -DRXS_DAR_WANTED' -s"
-ssh "$MY_USERID"@"$MASTER" "cd $REMOTE_SOURCE_DIR ; make SRC_CFG_LIBRIO='-DTSI57X_DAR_WANTED -DRXS_DAR_WANTED' -s" |& tee $LOG_DIR/34_make-compile-librio-tsi57x-rxs.txt
-tmp=`grep ^make $LOG_DIR/34_make-compile-librio-tsi57x-rxs.txt | grep Error | wc -l`
-if [ $tmp -ne 0 ]; then
-    echo "Compile failed, check log file $LOG_DIR/34_make-compile-librio-tsi57x-rxs.txt"
-    echo "[${BASH_SOURCE[0]}:${LINENO}]"
-    OK=0
-fi
-
-echo ""
-echo "BEGIN TEST: make SRC_CFG_LIBRIO='-DTSI57X_DAR_WANTED -DRXS_DAR_WANTED' -s clean"
-ssh "$MY_USERID"@"$MASTER" "cd $REMOTE_SOURCE_DIR ; make SRC_CFG_LIBRIO='-DTSI57X_DAR_WANTED -DRXS_DAR_WANTED' -s clean" |& tee $LOG_DIR/35_make-clean-librio-tsi57x-rxs.txt
-tmp=`grep ^make $LOG_DIR/35_make-clean-librio-tsi57x-rxs.txt | grep Error | wc -l`
-if [ $tmp -ne 0 ]; then
-    echo "Clean failed, check log file $LOG_DIR/35_make-clean-librio-tsi57x-rxs.txt"
-    echo "[${BASH_SOURCE[0]}:${LINENO}]"
-    OK=0
-fi
-
-echo ""
-echo "BEGIN TEST: make TEST=1 SRC_CFG_LIBRIO='-DTSI57X_DAR_WANTED -DRXS_DAR_WANTED' -s"
-ssh "$MY_USERID"@"$MASTER" "cd $REMOTE_SOURCE_DIR ; make TEST=1 SRC_CFG_LIBRIO='-DTSI57X_DAR_WANTED -DRXS_DAR_WANTED' -s" |& tee $LOG_DIR/36_make-compile-test-librio-tsi57x-rxs.txt
-tmp=`grep ^make $LOG_DIR/36_make-compile-test-librio-tsi57x-rxs.txt | grep Error | wc -l`
-if [ $tmp -ne 0 ]; then
-    echo "Compile (test) failed, check log file $LOG_DIR/36_make-compile-test-librio-tsi57x-rxs.txt"
-    echo "[${BASH_SOURCE[0]}:${LINENO}]"
-    OK=0
-fi
-
-echo ""
-echo "BEGIN TEST: make TEST=1 SRC_CFG_LIBRIO='-DTSI57X_DAR_WANTED -DRXS_DAR_WANTED' -s clean"
-ssh "$MY_USERID"@"$MASTER" "cd $REMOTE_SOURCE_DIR ; make TEST=1 SRC_CFG_LIBRIO='-DTSI57X_DAR_WANTED -DRXS_DAR_WANTED' -s clean" |& tee $LOG_DIR/37_make-clean-test-librio-tsi57x-rxs.txt
-tmp=`grep ^make $LOG_DIR/37_make-clean-test-librio-tsi57x-rxs.txt | grep Error | wc -l`
-if [ $tmp -ne 0 ]; then
-    echo "Clean (test) failed, check log file $LOG_DIR/37_make-clean-test-librio-tsi57x-rxs.txt"
-    echo "[${BASH_SOURCE[0]}:${LINENO}]"
-    OK=0
-fi
-
-if [ $OK -eq 0 ]; then
-    exit 155
-fi
-
-echo ""
-echo "BEGIN TEST: make SRC_CFG_LIBRIO='-DTSI57X_DAR_WANTED -DTSI721_DAR_WANTED' -s"
-ssh "$MY_USERID"@"$MASTER" "cd $REMOTE_SOURCE_DIR ; make SRC_CFG_LIBRIO='-DTSI57X_DAR_WANTED -DTSI721_DAR_WANTED' -s" |& tee $LOG_DIR/38_make-compile-librio-tsi57x-tsi721.txt
-tmp=`grep ^make $LOG_DIR/38_make-compile-librio-tsi57x-tsi721.txt | grep Error | wc -l`
-if [ $tmp -ne 0 ]; then
-    echo "Compile failed, check log file $LOG_DIR/38_make-compile-librio-tsi57x-tsi721.txt"
-    echo "[${BASH_SOURCE[0]}:${LINENO}]"
-    OK=0
-fi
-
-echo ""
-echo "BEGIN TEST: make SRC_CFG_LIBRIO='-DTSI57X_DAR_WANTED -DTSI721_DAR_WANTED' -s clean"
-ssh "$MY_USERID"@"$MASTER" "cd $REMOTE_SOURCE_DIR ; make SRC_CFG_LIBRIO='-DTSI57X_DAR_WANTED -DTSI721_DAR_WANTED' -s clean" |& tee $LOG_DIR/39_make-clean-librio-tsi57x-tsi721.txt
-tmp=`grep ^make $LOG_DIR/39_make-clean-librio-tsi57x-tsi721.txt | grep Error | wc -l`
-if [ $tmp -ne 0 ]; then
-    echo "Clean failed, check log file $LOG_DIR/39_make-clean-librio-tsi57x-tsi721.txt"
-    echo "[${BASH_SOURCE[0]}:${LINENO}]"
-    OK=0
-fi
-
-echo ""
-echo "BEGIN TEST: make TEST=1 SRC_CFG_LIBRIO='-DTSI57X_DAR_WANTED -DTSI721_DAR_WANTED' -s"
-ssh "$MY_USERID"@"$MASTER" "cd $REMOTE_SOURCE_DIR ; make TEST=1 SRC_CFG_LIBRIO='-DTSI57X_DAR_WANTED -DTSI721_DAR_WANTED' -s" |& tee $LOG_DIR/40_make-compile-test-librio-tsi57x-tsi721.txt
-tmp=`grep ^make $LOG_DIR/40_make-compile-test-librio-tsi57x-tsi721.txt | grep Error | wc -l`
-if [ $tmp -ne 0 ]; then
-    echo "Compile (test) failed, check log file $LOG_DIR/40_make-compile-test-librio-tsi57x-tsi721.txt"
-    echo "[${BASH_SOURCE[0]}:${LINENO}]"
-    OK=0
-fi
-
-echo ""
-echo "BEGIN TEST: make TEST=1 SRC_CFG_LIBRIO='-DTSI57X_DAR_WANTED -DTSI721_DAR_WANTED' -s clean"
-ssh "$MY_USERID"@"$MASTER" "cd $REMOTE_SOURCE_DIR ; make TEST=1 SRC_CFG_LIBRIO='-DTSI57X_DAR_WANTED -DTSI721_DAR_WANTED' -s clean" |& tee $LOG_DIR/41_make-clean-test-librio-tsi57x-tsi721.txt
-tmp=`grep ^make $LOG_DIR/41_make-clean-test-librio-tsi57x-tsi721.txt | grep Error | wc -l`
-if [ $tmp -ne 0 ]; then
-    echo "Clean (test) failed, check log file $LOG_DIR/41_make-clean-test-librio-tsi57x-tsi721.txt"
-    echo "[${BASH_SOURCE[0]}:${LINENO}]"
-    OK=0
-fi
-
-if [ $OK -eq 0 ]; then
-    exit 156
-fi
-
-echo ""
-echo "BEGIN TEST: make SRC_CFG_LIBRIO='-DTSI57X_DAR_WANTED -DTSI721_EXCLUDE_EM_INTERRUPT_SUPPORT' -s"
-ssh "$MY_USERID"@"$MASTER" "cd $REMOTE_SOURCE_DIR ; make SRC_CFG_LIBRIO='-DTSI57X_DAR_WANTED -DTSI721_EXCLUDE_EM_INTERRUPT_SUPPORT' -s" |& tee $LOG_DIR/42_make-compile-librio-tsi57x-tsi721-int.txt
-tmp=`grep ^make $LOG_DIR/42_make-compile-librio-tsi57x-tsi721-int.txt | grep Error | wc -l`
-if [ $tmp -ne 0 ]; then
-    echo "Compile failed, check log file $LOG_DIR/42_make-compile-librio-tsi57x-tsi721-int.txt"
-    echo "[${BASH_SOURCE[0]}:${LINENO}]"
-    OK=0
-fi
-
-echo ""
-echo "BEGIN TEST: make SRC_CFG_LIBRIO='-DTSI57X_DAR_WANTED -DTSI721_EXCLUDE_EM_INTERRUPT_SUPPORT' -s clean"
-ssh "$MY_USERID"@"$MASTER" "cd $REMOTE_SOURCE_DIR ; make SRC_CFG_LIBRIO='-DTSI57X_DAR_WANTED -DTSI721_EXCLUDE_EM_INTERRUPT_SUPPORT' -s clean" |& tee $LOG_DIR/43_make-clean-librio-tsi57x-tsi721-int.txt
-tmp=`grep ^make $LOG_DIR/43_make-clean-librio-tsi57x-tsi721-int.txt | grep Error | wc -l`
-if [ $tmp -ne 0 ]; then
-    echo "Clean failed, check log file $LOG_DIR/43_make-clean-librio-tsi57x-tsi721-int.txt"
-    echo "[${BASH_SOURCE[0]}:${LINENO}]"
-    OK=0
-fi
-
-echo ""
-echo "BEGIN TEST: make TEST=1 SRC_CFG_LIBRIO='-DTSI57X_DAR_WANTED -DTSI721_EXCLUDE_EM_INTERRUPT_SUPPORT' -s"
-ssh "$MY_USERID"@"$MASTER" "cd $REMOTE_SOURCE_DIR ; make TEST=1 SRC_CFG_LIBRIO='-DTSI57X_DAR_WANTED -DTSI721_EXCLUDE_EM_INTERRUPT_SUPPORT' -s" |& tee $LOG_DIR/44_make-compile-test-librio-tsi57x-tsi721-int.txt
-tmp=`grep ^make $LOG_DIR/44_make-compile-test-librio-tsi57x-tsi721-int.txt | grep Error | wc -l`
-if [ $tmp -ne 0 ]; then
-    echo "Compile (test) failed, check log file $LOG_DIR/44_make-compile-test-librio-tsi57x-tsi721-int.txt"
-    echo "[${BASH_SOURCE[0]}:${LINENO}]"
-    OK=0
-fi
-
-echo ""
-echo "BEGIN TEST: make TEST=1 SRC_CFG_LIBRIO='-DTSI57X_DAR_WANTED -DTSI721_EXCLUDE_EM_INTERRUPT_SUPPORT -s clean'"
-ssh "$MY_USERID"@"$MASTER" "cd $REMOTE_SOURCE_DIR ; make TEST=1 SRC_CFG_LIBRIO='-DTSI57X_DAR_WANTED -DTSI721_EXCLUDE_EM_INTERRUPT_SUPPORT' -s clean" |& tee $LOG_DIR/45_make-clean-test-librio-tsi57x-tsi721-int.txt
-tmp=`grep ^make $LOG_DIR/45_make-clean-test-librio-tsi57x-tsi721-int.txt | grep Error | wc -l`
-if [ $tmp -ne 0 ]; then
-    echo "Clean (test) failed, check log file $LOG_DIR/45_make-clean-test-librio-tsi57x-tsi721-int.txt"
-    echo "[${BASH_SOURCE[0]}:${LINENO}]"
-    OK=0
-fi
-
-if [ $OK -eq 0 ]; then
-    exit 157
-fi
-
-# We could keep going ...
+    if [ $OK -eq 0 ]; then
+        exit 147
+    fi
+    i=$(($i + 1))
+done
 
 ssh "$MY_USERID"@"$MASTER" "rm -rf $REMOTE_SOURCE_DIR"
 if [ $? -ne 0 ]; then
     echo "Could not delete $REMOTE_SOURCE_DIR from $MASTER"
     echo "[${BASH_SOURCE[0]}:${LINENO}]"
-    exit 159
+    exit 148
 fi
 
 echo ""
