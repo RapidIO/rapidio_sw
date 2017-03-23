@@ -82,13 +82,22 @@ else
     fi
 fi
 
+# Uses error codes 140-159
+mkdir -p $LOG_DIR/compile
+. ./compile_test.sh $BT_ARG_SERVER $BT_ARG_NDATA |& tee $LOG_DIR/compile/00_all.txt
+if [ $? -ne 0 ]; then
+    echo "Compile test failed"
+    echo "[${BASH_SOURCE[0]}:${LINENO}]"
+    exit 4
+fi
+
 # Uses error codes 20-39
 mkdir -p $LOG_DIR/install
 . ./install_test.sh $BT_ARG_SERVER $BT_ARG_NDATA $BT_ARG_MEMSZ $BT_ARG_SW $BT_ARG_GRP $BT_ARG_REL |& tee $LOG_DIR/install/00_all.txt
 if [ $? -ne 0 ]; then
     echo "Basic installation failed"
     echo "[${BASH_SOURCE[0]}:${LINENO}]"
-    exit 4
+    exit 5
 fi
 
 # Uses error codes 40-49
@@ -97,7 +106,7 @@ mkdir -p $LOG_DIR/system
 if [ $? -ne 0 ]; then
     echo "System start test failed"
     echo "[${BASH_SOURCE[0]}:${LINENO}]"
-    exit 5
+    exit 6
 fi
 
 # Uses error codes 50-79
@@ -106,7 +115,7 @@ mkdir -p $LOG_DIR/fmd
 if [ $? -ne 0 ]; then
     echo "FMD test failed"
     echo "[${BASH_SOURCE[0]}:${LINENO}]"
-    exit 6
+    exit 7
 fi
 
 # Uses error codes 80-109
@@ -115,7 +124,7 @@ mkdir -p $LOG_DIR/file_xfer
 if [ $? -ne 0 ]; then
     echo "File transfer test failed"
     echo "[${BASH_SOURCE[0]}:${LINENO}]"
-    exit 7
+    exit 8
 fi
 
 # Uses error codes 110-139
@@ -124,7 +133,7 @@ mkdir -p $LOG_DIR/goodput
 if [ $? -ne 0 ]; then
     echo "Goodput test failed"
     echo "[${BASH_SOURCE[0]}:${LINENO}]"
-    exit 8
+    exit 9
 fi
 
 echo ""

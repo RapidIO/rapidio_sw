@@ -1,6 +1,7 @@
 #!/bin/bash
 
 # Goodput test
+# Uses error codes 110-139
 
 GP_WAIT=30
 

@@ -34,7 +34,6 @@
 #include <stdint.h>
 #include <stddef.h>
 
-#include "RapidIO_Source_Config.h"
 #include "DAR_DB_Private.h"
 #include "DSF_DB_Private.h"
 

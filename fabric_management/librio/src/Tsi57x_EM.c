@@ -35,7 +35,6 @@
 #include <stddef.h>
 
 #include "rio_standard.h"
-#include "RapidIO_Source_Config.h"
 #include "RapidIO_Device_Access_Routines_API.h"
 #include "RapidIO_Error_Management_API.h"
 #include "DSF_DB_Private.h"

@@ -34,7 +34,6 @@
 #include <stdint.h>
 #include <stddef.h>
 
-#include "RapidIO_Source_Config.h"
 #include "RapidIO_Device_Access_Routines_API.h"
 #include "Tsi721_DeviceDriver.h"
 #include "Tsi721.h"

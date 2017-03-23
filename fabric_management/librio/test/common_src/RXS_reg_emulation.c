@@ -40,7 +40,6 @@
 #include <setjmp.h>
 #include "cmocka.h"
 
-#include "RapidIO_Source_Config.h"
 #include "RapidIO_Device_Access_Routines_API.h"
 #include "src/RXS_DeviceDriver.h"
 #include "rio_standard.h"

@@ -36,7 +36,6 @@
 #include <string.h>
 
 #include "rio_misc.h"
-#include "RapidIO_Source_Config.h"
 #include "RapidIO_Device_Access_Routines_API.h"
 #include "RapidIO_Error_Management_API.h"
 #include "RapidIO_Port_Config_API.h"

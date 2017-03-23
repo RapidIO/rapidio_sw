@@ -35,7 +35,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stddef.h>
 #include <stdbool.h>
 
-#include "RapidIO_Source_Config.h"
 #include "DAR_DB_Private.h"
 #include "DSF_DB_Private.h"
 

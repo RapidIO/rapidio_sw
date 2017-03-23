@@ -1,6 +1,7 @@
 #!/bin/bash
 
 # File transfer test
+# Uses error codes 80-109
 
 PGM_NAME=fxfr_test.sh
 PGM_NUM_PARMS=1

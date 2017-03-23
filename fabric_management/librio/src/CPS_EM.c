@@ -36,7 +36,6 @@
 #include <string.h>
 
 #include "rio_standard.h"
-#include "RapidIO_Source_Config.h"
 #include "DAR_DB_Private.h"
 #include "DSF_DB_Private.h"
 #include "CPS_DeviceDriver.h"
