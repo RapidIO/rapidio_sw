@@ -730,8 +730,6 @@ int do_dma_test(int random, int kbuf_mode, int verify, int loop_count,
 			dst_off = offset;
 		}
 		/* source length may be larger if source interleave is configured */
-		// INFW - BEW - wtf?
-		//if (interleave->ssdist == 0 and interleave->sssize == 0) {
 		if ((0 == interleave->ssdist) && (0 == interleave->sssize)) {
 			src_len = len;
 		} else {

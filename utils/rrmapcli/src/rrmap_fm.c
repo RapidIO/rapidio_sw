@@ -115,7 +115,7 @@ void *fm_loop(void *unused)
 				break;
 			}
 		} while (!fm_must_die && (NULL != dd_h));
-	} while(!fm_must_die); // INFW - BEW
+	} while(!fm_must_die);
 
 	fm_alive = 0;
 	pthread_exit(unused);
