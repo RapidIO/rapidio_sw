@@ -592,7 +592,7 @@ static void tsi721_em_cfg_pw_success_test(void **state)
 	in_parms.port_write_srcID = 0;
 	in_parms.priority = 1;
 	in_parms.CRF = false;
-	in_parms.port_write_re_tx = RIO_EM_TSI721_PW_RE_TX_103us;
+	in_parms.port_write_re_tx = RIO_EM_TSI721_PW_RE_TX_103US;
 	memset(&out_parms, 0, sizeof(out_parms));
 	in_parms.imp_rc = 0xFFFFFFFF;
 
@@ -606,7 +606,7 @@ static void tsi721_em_cfg_pw_success_test(void **state)
 	assert_int_equal((did_reg_t)TSI721_TEST_DEV16_ID, out_parms.port_write_srcID);
 	assert_int_equal(3, out_parms.priority);
 	assert_true(out_parms.CRF);
-	assert_int_equal(RIO_EM_TSI721_PW_RE_TX_103us,
+	assert_int_equal(RIO_EM_TSI721_PW_RE_TX_103US,
 			in_parms.port_write_re_tx);
 
 	assert_int_equal(RIO_SUCCESS,
@@ -615,7 +615,7 @@ static void tsi721_em_cfg_pw_success_test(void **state)
 
 	assert_int_equal(RIO_SUCCESS,
 			DARRegRead(&mock_dev_info, TSI721_PW_CTL, &chkdata));
-	assert_int_equal(chkdata, TSI721_PW_CTL_PW_TIMER_103us);
+	assert_int_equal(chkdata, TSI721_PW_CTL_PW_TIMER_103US);
 
 	assert_int_equal(RIO_SUCCESS,
 			DARRegRead(&mock_dev_info, TSI721_PW_ROUTE, &chkdata));
@@ -629,7 +629,7 @@ static void tsi721_em_cfg_pw_success_test(void **state)
 	in_parms.port_write_srcID = 0;
 	in_parms.priority = 1;
 	in_parms.CRF = false;
-	in_parms.port_write_re_tx = RIO_EM_TSI721_PW_RE_TX_820us;
+	in_parms.port_write_re_tx = RIO_EM_TSI721_PW_RE_TX_820US;
 	memset(&out_parms, 0, sizeof(out_parms));
 	in_parms.imp_rc = 0xFFFFFFFF;
 
@@ -643,7 +643,7 @@ static void tsi721_em_cfg_pw_success_test(void **state)
 	assert_int_equal((did_reg_t)TSI721_TEST_DEV08_ID, out_parms.port_write_srcID);
 	assert_int_equal(3, out_parms.priority);
 	assert_true(out_parms.CRF);
-	assert_int_equal(RIO_EM_TSI721_PW_RE_TX_820us,
+	assert_int_equal(RIO_EM_TSI721_PW_RE_TX_820US,
 			in_parms.port_write_re_tx);
 
 	assert_int_equal(RIO_SUCCESS,
@@ -652,7 +652,7 @@ static void tsi721_em_cfg_pw_success_test(void **state)
 
 	assert_int_equal(RIO_SUCCESS,
 			DARRegRead(&mock_dev_info, TSI721_PW_CTL, &chkdata));
-	assert_int_equal(chkdata, TSI721_PW_CTL_PW_TIMER_820us);
+	assert_int_equal(chkdata, TSI721_PW_CTL_PW_TIMER_820US);
 
 	assert_int_equal(RIO_SUCCESS,
 			DARRegRead(&mock_dev_info, TSI721_PW_ROUTE, &chkdata));
@@ -674,7 +674,7 @@ static void tsi721_em_cfg_pw_bad_parms_test(void **state)
 	in_parms.port_write_srcID = 0;
 	in_parms.priority = 1;
 	in_parms.CRF = false;
-	in_parms.port_write_re_tx = RIO_EM_TSI721_PW_RE_TX_103us;
+	in_parms.port_write_re_tx = RIO_EM_TSI721_PW_RE_TX_103US;
 	memset(&out_parms, 0, sizeof(out_parms));
 
 	in_parms.deviceID_tt = tt_dev16;
@@ -701,18 +701,18 @@ static void tsi721_rio_em_cfg_pw_retx_compute_test(void **state)
 	did_reg_t targ_id = 0x1234;
 	uint32_t chkdata;
 	const tsi721_pw_retx_info_t tests[] = {{1,
-	RIO_EM_TSI721_PW_RE_TX_103us,
-	TSI721_PW_CTL_PW_TIMER_103us}, {RIO_EM_TSI721_PW_RE_TX_103us + 1,
-	RIO_EM_TSI721_PW_RE_TX_205us,
-	TSI721_PW_CTL_PW_TIMER_205us}, {RIO_EM_TSI721_PW_RE_TX_205us + 1,
-	RIO_EM_TSI721_PW_RE_TX_410us,
-	TSI721_PW_CTL_PW_TIMER_410us}, {RIO_EM_TSI721_PW_RE_TX_410us + 1,
-	RIO_EM_TSI721_PW_RE_TX_820us,
-	TSI721_PW_CTL_PW_TIMER_820us}, {RIO_EM_TSI721_PW_RE_TX_820us + 1,
-	RIO_EM_TSI721_PW_RE_TX_820us,
-	TSI721_PW_CTL_PW_TIMER_820us}, {0x00FFFFFF,
-	RIO_EM_TSI721_PW_RE_TX_820us,
-	TSI721_PW_CTL_PW_TIMER_820us}, };
+	RIO_EM_TSI721_PW_RE_TX_103US,
+	TSI721_PW_CTL_PW_TIMER_103US}, {RIO_EM_TSI721_PW_RE_TX_103US + 1,
+	RIO_EM_TSI721_PW_RE_TX_205US,
+	TSI721_PW_CTL_PW_TIMER_205US}, {RIO_EM_TSI721_PW_RE_TX_205US + 1,
+	RIO_EM_TSI721_PW_RE_TX_410US,
+	TSI721_PW_CTL_PW_TIMER_410US}, {RIO_EM_TSI721_PW_RE_TX_410US + 1,
+	RIO_EM_TSI721_PW_RE_TX_820US,
+	TSI721_PW_CTL_PW_TIMER_820US}, {RIO_EM_TSI721_PW_RE_TX_820US + 1,
+	RIO_EM_TSI721_PW_RE_TX_820US,
+	TSI721_PW_CTL_PW_TIMER_820US}, {0x00FFFFFF,
+	RIO_EM_TSI721_PW_RE_TX_820US,
+	TSI721_PW_CTL_PW_TIMER_820US}, };
 	const int num_tests = sizeof(tests) / sizeof(tests[0]);
 	int i;
 

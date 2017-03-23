@@ -46,7 +46,7 @@
 extern "C" {
 #endif
 
-#ifdef RXSx_DAR_WANTED
+#ifdef RXS_DAR_WANTED
 
 uint32_t rxs_rioSetEnumBound(DAR_DEV_INFO_t *dev_info, struct DAR_ptl *ptl,
 		int enum_bnd_val)
@@ -118,7 +118,7 @@ uint32_t rxs_rioDeviceSupported(DAR_DEV_INFO_t *dev_info)
 	return rc;
 }
 
-#endif /* RXSx_DAR_WANTED */
+#endif /* RXS_DAR_WANTED */
 
 #ifdef __cplusplus
 }

@@ -52,7 +52,7 @@ extern "C" {
 #define MALLOC_FAIL "FMD: Cannot allocate memory"
 #define SOFTWARE_FAIL "FMD: Software failure"
 #define THREAD_FAIL "FMD: Thread creation failed %d"
-#define LOC_SOCKET_FAIL "FMD: AF_UNIX (local) socket %s failed."
+#define LOC_SOCKET_FAIL "FMD: AF_UNIX (local) socket %s failed %d."
 #define REM_SOCKET_FAIL "FMD: AF_TCP (remote) socket %d failed."
 #define CM_SOCKET_FAIL "FMD: RapidIO Socket %d failed."
 #define DEV_DB_FAIL "Device Database file %s failed. Multiple FMDs or no FMD"

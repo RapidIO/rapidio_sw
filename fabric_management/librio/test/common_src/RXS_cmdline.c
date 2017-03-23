@@ -35,7 +35,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 extern "C" {
 #endif
 
-#ifdef RXSx_DAR_WANTED
+#ifdef RXS_DAR_WANTED
 
 typedef struct RXS_test_state_t_TAG {
 	int argc;
@@ -142,7 +142,7 @@ static int grp_teardown(void **state)
 	(void)state;
 }
 
-#endif /* RXSx_DAR_WANTED */
+#endif /* RXS_DAR_WANTED */
 #ifdef __cplusplus
 }
 #endif

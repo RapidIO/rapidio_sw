@@ -42,7 +42,7 @@
 extern "C" {
 #endif
 
-#ifndef RXSx_DAR_WANTED
+#ifndef RXS_DAR_WANTED
 
 // Device Access
 //
@@ -261,7 +261,7 @@ uint32_t rxs_rio_sc_read_ctrs(DAR_DEV_INFO_t *dev_info,
 	return DSF_rio_sc_read_ctrs(dev_info, in_parms, out_parms);
 }
 
-#endif /* RXSx_DAR_WANTED */
+#endif /* RXS_DAR_WANTED */
 
 #ifdef __cplusplus
 }

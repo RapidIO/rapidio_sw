@@ -56,6 +56,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 extern "C" {
 #endif
 
+#define FLOAT_STR_SIZE 20
+
 char *req_type_str[(int)last_action+1] = {
 	(char *)"NO_ACT",
 	(char *)"DIO",
@@ -704,7 +706,7 @@ int cpu_occ_saved_idx;
 static int CPUOccDisplayCmd(struct cli_env *env, int UNUSED(argc),
 		char **UNUSED(argv))
 {
-	char pctg[24];
+	char pctg[FLOAT_STR_SIZE];
 	int cpus = getCPUCount();
 
 	if (!cpus) {
@@ -726,7 +728,7 @@ static int CPUOccDisplayCmd(struct cli_env *env, int UNUSED(argc),
 			- old_proc_kern_jifis - old_proc_user_jifis))
 			/ ((float)(new_tot_jifis - old_tot_jifis))) * 100.0
 			* cpus;
-	sprintf(pctg, "%4.2f", cpu_occ_pct);
+	snprintf(pctg, sizeof(pctg), "%4.2f", cpu_occ_pct);
 
 	LOGMSG(env, "\n-Kernel- ProcUser ProcKern CPU_Occ\n");
 	LOGMSG(env, "%8ld %8ld %8ld %7s\n", new_tot_jifis - old_tot_jifis,
@@ -1521,8 +1523,6 @@ msgRxOhCmd,
 ATTR_NONE
 };
 
-#define FLOAT_STR_SIZE 20
-
 static int GoodputCmd(struct cli_env *env, int argc, char **UNUSED(argv))
 {
 	int i;
@@ -1530,7 +1530,8 @@ static int GoodputCmd(struct cli_env *env, int argc, char **UNUSED(argv))
 	uint64_t byte_cnt = 0;
 	float tot_MBps = 0, tot_Gbps = 0, tot_Msgpersec = 0;
 	uint64_t tot_byte_cnt = 0;
-	char MBps_str[FLOAT_STR_SIZE],  Gbps_str[FLOAT_STR_SIZE];
+	char MBps_str[FLOAT_STR_SIZE];
+	char Gbps_str[FLOAT_STR_SIZE];
 	char link_occ_str[FLOAT_STR_SIZE];
 
 	LOGMSG(env, "\n W STS <<<<--Data-->>>> --MBps-- -Gbps- Messages  Link_Occ\n");
@@ -1556,9 +1557,9 @@ static int GoodputCmd(struct cli_env *env, int argc, char **UNUSED(argv))
 		memset(MBps_str, 0, FLOAT_STR_SIZE);
 		memset(Gbps_str, 0, FLOAT_STR_SIZE);
 		memset(link_occ_str, 0, FLOAT_STR_SIZE);
-		sprintf(MBps_str, "%4.3f", MBps);
-		sprintf(Gbps_str, "%2.3f", Gbps);
-		sprintf(link_occ_str, "%2.3f", link_occ);
+		snprintf(MBps_str, sizeof(MBps_str), "%4.3f", MBps);
+		snprintf(Gbps_str, sizeof(Gbps_str), "%2.3f", Gbps);
+		snprintf(link_occ_str, sizeof(link_occ_str), "%2.3f", link_occ);
 
 		LOGMSG(env, "%2d %3s %16lx %8s %6s %9.0f  %6s\n", i,
 				THREAD_STR(wkr[i].stat), byte_cnt, MBps_str,
@@ -1577,14 +1578,14 @@ static int GoodputCmd(struct cli_env *env, int argc, char **UNUSED(argv))
 			clock_gettime(CLOCK_MONOTONIC, &wkr[i].st_time);
 		}
 	}
+
+	link_occ = tot_Gbps/0.95;
 	memset(MBps_str, 0, FLOAT_STR_SIZE);
 	memset(Gbps_str, 0, FLOAT_STR_SIZE);
 	memset(link_occ_str, 0, FLOAT_STR_SIZE);
-	sprintf(MBps_str, "%4.3f", tot_MBps);
-	sprintf(Gbps_str, "%2.3f", tot_Gbps);
-	link_occ = tot_Gbps/0.95;
-
-	sprintf(link_occ_str, "%2.3f", link_occ);
+	snprintf(MBps_str, sizeof(MBps_str), "%4.3f", tot_MBps);
+	snprintf(Gbps_str, sizeof(Gbps_str), "%2.3f", tot_Gbps);
+	snprintf(link_occ_str, sizeof(link_occ_str), "%2.3f", link_occ);
 	LOGMSG(env, "Total  %16lx %8s %6s %9.0f  %6s\n", tot_byte_cnt, MBps_str,
 			Gbps_str, tot_Msgpersec, link_occ_str);
 
@@ -1632,10 +1633,10 @@ static int LatCmd(struct cli_env *env, int UNUSED(argc), char **UNUSED(argv))
 		memset(min_lat_str, 0, FLOAT_STR_SIZE);
 		memset(avg_lat_str, 0, FLOAT_STR_SIZE);
 		memset(max_lat_str, 0, FLOAT_STR_SIZE);
-		sprintf(min_lat_str, "%4.3f",
+		snprintf(min_lat_str, sizeof(min_lat_str), "%4.3f",
 			(float)(wkr[i].min_iter_time.tv_nsec/divisor)/1000.0); 
-		sprintf(avg_lat_str, "%4.3f", (float)avg_nsec/1000.0);
-		sprintf(max_lat_str, "%4.3f",
+		snprintf(avg_lat_str, sizeof(avg_lat_str), "%4.3f", (float)avg_nsec/1000.0);
+		snprintf(max_lat_str, sizeof(max_lat_str), "%4.3f",
 			(float)(wkr[i].max_iter_time.tv_nsec/divisor)/1000.0); 
 
 		LOGMSG(env, "%2d %3s %16ld %16s %16s %16s\n", i,

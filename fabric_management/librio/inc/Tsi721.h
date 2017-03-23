@@ -1517,16 +1517,16 @@ extern "C" {
 #define TSI721_SP_CTL2_RTEC                              ((uint32_t)0x00000002)
 #define TSI721_SP_CTL2_D_SCRM_DIS                        ((uint32_t)0x00000004)
 #define TSI721_SP_CTL2_INACT_EN                          ((uint32_t)0x00000008)
-#define TSI721_SP_CTL2_GB_6p25_EN                        ((uint32_t)0x00010000)
-#define TSI721_SP_CTL2_GB_6p25                           ((uint32_t)0x00020000)
-#define TSI721_SP_CTL2_GB_5p0_EN                         ((uint32_t)0x00040000)
-#define TSI721_SP_CTL2_GB_5p0                            ((uint32_t)0x00080000)
-#define TSI721_SP_CTL2_GB_3p125_EN                       ((uint32_t)0x00100000)
-#define TSI721_SP_CTL2_GB_3p125                          ((uint32_t)0x00200000)
-#define TSI721_SP_CTL2_GB_2p5_EN                         ((uint32_t)0x00400000)
-#define TSI721_SP_CTL2_GB_2p5                            ((uint32_t)0x00800000)
-#define TSI721_SP_CTL2_GB_1p25_EN                        ((uint32_t)0x01000000)
-#define TSI721_SP_CTL2_GB_1p25                           ((uint32_t)0x02000000)
+#define TSI721_SP_CTL2_GB_6P25_EN                        ((uint32_t)0x00010000)
+#define TSI721_SP_CTL2_GB_6P25                           ((uint32_t)0x00020000)
+#define TSI721_SP_CTL2_GB_5P0_EN                         ((uint32_t)0x00040000)
+#define TSI721_SP_CTL2_GB_5P0                            ((uint32_t)0x00080000)
+#define TSI721_SP_CTL2_GB_3P125_EN                       ((uint32_t)0x00100000)
+#define TSI721_SP_CTL2_GB_3P125                          ((uint32_t)0x00200000)
+#define TSI721_SP_CTL2_GB_2P5_EN                         ((uint32_t)0x00400000)
+#define TSI721_SP_CTL2_GB_2P5                            ((uint32_t)0x00800000)
+#define TSI721_SP_CTL2_GB_1P25_EN                        ((uint32_t)0x01000000)
+#define TSI721_SP_CTL2_GB_1P25                           ((uint32_t)0x02000000)
 #define TSI721_SP_CTL2_BAUD_DISC                         ((uint32_t)0x08000000)
 #define TSI721_SP_CTL2_BAUD_SEL                          ((uint32_t)0xf0000000)
 
@@ -2112,10 +2112,10 @@ extern "C" {
 /* TSI721_PW_CTL : Register Bits Masks Definitions */
 #define TSI721_PW_CTL_PWC_MODE                           ((uint32_t)0x01000000)
 #define TSI721_PW_CTL_PW_TIMER                           ((uint32_t)0xf0000000)
-#define TSI721_PW_CTL_PW_TIMER_103us                     ((uint32_t)0x10000000)
-#define TSI721_PW_CTL_PW_TIMER_205us                     ((uint32_t)0x20000000)
-#define TSI721_PW_CTL_PW_TIMER_410us                     ((uint32_t)0x40000000)
-#define TSI721_PW_CTL_PW_TIMER_820us                     ((uint32_t)0x80000000)
+#define TSI721_PW_CTL_PW_TIMER_103US                     ((uint32_t)0x10000000)
+#define TSI721_PW_CTL_PW_TIMER_205US                     ((uint32_t)0x20000000)
+#define TSI721_PW_CTL_PW_TIMER_410US                     ((uint32_t)0x40000000)
+#define TSI721_PW_CTL_PW_TIMER_820US                     ((uint32_t)0x80000000)
 
 /* TSI721_PW_ROUTE : Register Bits Masks Definitions */
 #define TSI721_PW_ROUTE_PORT                             ((uint32_t)0x00000001)
@@ -3363,36 +3363,36 @@ extern "C" {
 
 /* SerDes register offsets are from base offsets shown above */
 
-#define TSI721_SERDES_LANEX_LANEn_DIG_TX_OVRD_IN(X) ((uint32_t)(0x1000 + 0x400*(X)))
-#define TSI721_SERDES_LANEX_LANEn_DIG_RX_OVRD_IN(X) ((uint32_t)(0x100c + 0x400*(X)))
+#define TSI721_SERDES_LANEX_LANEN_DIG_TX_OVRD_IN(X) ((uint32_t)(0x1000 + 0x400*(X)))
+#define TSI721_SERDES_LANEX_LANEN_DIG_RX_OVRD_IN(X) ((uint32_t)(0x100c + 0x400*(X)))
 
 #define TSI721_SRIO_SERDES_LANEX_DIG_TX_OVRD_IN(x)  ((uint32_t)(TSI721_SRIO_SERDES_BASE + \
-		                                     TSI721_SERDES_LANEX_LANEn_DIG_TX_OVRD_IN(x)))
+		                                     TSI721_SERDES_LANEX_LANEN_DIG_TX_OVRD_IN(x)))
 #define TSI721_SRIO_SERDES_LANEX_DIG_RX_OVRD_IN(x)  ((uint32_t)(TSI721_SRIO_SERDES_BASE + \
-		                                     TSI721_SERDES_LANEX_LANEn_DIG_RX_OVRD_IN(x)))
+		                                     TSI721_SERDES_LANEX_LANEN_DIG_RX_OVRD_IN(x)))
 
 /*******************************************************/
 /* TSI721 : SerDes Register Bit Masks and Reset Values */
 /*           definitions for every register            */
 /*******************************************************/
 
-/* TSI721_SERDES_LANEX_LANEn_DIG_TX_OVRD_IN : Register Bits Masks Definitions */
+/* TSI721_SERDES_LANEX_LANEN_DIG_TX_OVRD_IN : Register Bits Masks Definitions */
 
-#define TSI721_SERDES_LANEX_LANEn_DIG_TX_OVRD_IN_HALF_RATE ((uint32_t)0x00000001)
-#define TSI721_SERDES_LANEX_LANEn_DIG_TX_OVRD_IN_LOOPBK_EN ((uint32_t)0x00000002)
-#define TSI721_SERDES_LANEX_LANEn_DIG_TX_OVRD_IN_INVERT  ((uint32_t)0x00000004)
-#define TSI721_SERDES_LANEX_LANEn_DIG_TX_OVRD_IN_DATA_EN ((uint32_t)0x00000010)
-#define TSI721_SERDES_LANEX_LANEn_DIG_TX_OVRD_IN_TX_EN   ((uint32_t)0x00000020)
-#define TSI721_SERDES_LANEX_LANEn_DIG_TX_OVRD_IN_CM_EN   ((uint32_t)0x00000040)
-#define TSI721_SERDES_LANEX_LANEn_DIG_TX_OVRD_IN_EN_L    ((uint32_t)0x00000200)
+#define TSI721_SERDES_LANEX_LANEN_DIG_TX_OVRD_IN_HALF_RATE ((uint32_t)0x00000001)
+#define TSI721_SERDES_LANEX_LANEN_DIG_TX_OVRD_IN_LOOPBK_EN ((uint32_t)0x00000002)
+#define TSI721_SERDES_LANEX_LANEN_DIG_TX_OVRD_IN_INVERT  ((uint32_t)0x00000004)
+#define TSI721_SERDES_LANEX_LANEN_DIG_TX_OVRD_IN_DATA_EN ((uint32_t)0x00000010)
+#define TSI721_SERDES_LANEX_LANEN_DIG_TX_OVRD_IN_TX_EN   ((uint32_t)0x00000020)
+#define TSI721_SERDES_LANEX_LANEN_DIG_TX_OVRD_IN_CM_EN   ((uint32_t)0x00000040)
+#define TSI721_SERDES_LANEX_LANEN_DIG_TX_OVRD_IN_EN_L    ((uint32_t)0x00000200)
 
-/* TSI721_SERDES_LANEX_LANEn_DIG_RX_OVRD_IN : Register Bits Masks Definitions */
-#define TSI721_SERDES_LANEX_LANEn_DIG_RX_OVRD_IN_INVERT  ((uint32_t)0x00000001)
-#define TSI721_SERDES_LANEX_LANEn_DIG_RX_OVRD_IN_PLL_EN  ((uint32_t)0x00000004)
-#define TSI721_SERDES_LANEX_LANEn_DIG_RX_OVRD_IN_DATA_EN ((uint32_t)0x00000008)
-#define TSI721_SERDES_LANEX_LANEn_DIG_RX_OVRD_IN_ALIGN_EN ((uint32_t)0x00000010)
-#define TSI721_SERDES_LANEX_LANEn_DIG_RX_OVRD_IN_TERM_EN ((uint32_t)0x00000040)
-#define TSI721_SERDES_LANEX_LANEn_DIG_RX_OVRD_IN_EN      ((uint32_t)0x00000400)
+/* TSI721_SERDES_LANEX_LANEN_DIG_RX_OVRD_IN : Register Bits Masks Definitions */
+#define TSI721_SERDES_LANEX_LANEN_DIG_RX_OVRD_IN_INVERT  ((uint32_t)0x00000001)
+#define TSI721_SERDES_LANEX_LANEN_DIG_RX_OVRD_IN_PLL_EN  ((uint32_t)0x00000004)
+#define TSI721_SERDES_LANEX_LANEN_DIG_RX_OVRD_IN_DATA_EN ((uint32_t)0x00000008)
+#define TSI721_SERDES_LANEX_LANEN_DIG_RX_OVRD_IN_ALIGN_EN ((uint32_t)0x00000010)
+#define TSI721_SERDES_LANEX_LANEN_DIG_RX_OVRD_IN_TERM_EN ((uint32_t)0x00000040)
+#define TSI721_SERDES_LANEX_LANEN_DIG_RX_OVRD_IN_EN      ((uint32_t)0x00000400)
 
 
 /**********************************************************/

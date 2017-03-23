@@ -46,10 +46,10 @@ extern "C" {
 
 #ifdef TSI57X_DAR_WANTED
 
-#define PRIO_MASK (TSI578_SPX_PSC0n1_CTRL_PS1_PRIO0 | \
-		TSI578_SPX_PSC0n1_CTRL_PS1_PRIO1 | \
-		TSI578_SPX_PSC0n1_CTRL_PS1_PRIO2 | \
-		TSI578_SPX_PSC0n1_CTRL_PS1_PRIO3)
+#define PRIO_MASK (TSI578_SPX_PSC0N1_CTRL_PS1_PRIO0 | \
+		TSI578_SPX_PSC0N1_CTRL_PS1_PRIO1 | \
+		TSI578_SPX_PSC0N1_CTRL_PS1_PRIO2 | \
+		TSI578_SPX_PSC0N1_CTRL_PS1_PRIO3)
 
 uint32_t rio_sc_cfg_tsi57x_ctr(DAR_DEV_INFO_t *dev_info,
 		rio_sc_cfg_tsi57x_ctr_in_t *in_parms,
@@ -115,7 +115,7 @@ uint32_t rio_sc_cfg_tsi57x_ctr(DAR_DEV_INFO_t *dev_info,
 			out_parms->imp_rc = SC_CFG_TSI57X_CTR(0x20);
 			goto exit;
 		}
-		new_ctl |= (in_parms->tx) ? TSI578_SPX_PSC0n1_CTRL_PS1_DIR : 0;
+		new_ctl |= (in_parms->tx) ? TSI578_SPX_PSC0N1_CTRL_PS1_DIR : 0;
 		switch (in_parms->ctr_type) {
 		case rio_sc_uc_req_pkts:
 			break;

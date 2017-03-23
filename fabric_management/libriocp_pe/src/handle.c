@@ -147,7 +147,7 @@ int RIOCP_SO_ATTR riocp_pe_handle_check(riocp_pe_handle handle)
 	RIOCP_TRACE("Handle not found in mport handles list\n");
 
 	/* Search handle in every mport handles list */
-	riocp_pe_llist_foreach(item, &riocp_pe_mport_handles) {
+	RIOCP_PE_LLIST_FOREACH(item, &riocp_pe_mport_handles) {
 		mport = (struct riocp_pe *)item->data;
 		if (mport && mport->minfo) {
 			RIOCP_TRACE("Search handle in mport %u\n", mport->minfo->id);
@@ -266,7 +266,7 @@ static void riocp_pe_handle_destroy(struct riocp_pe **handle)
 		int ret;
 		RIOCP_TRACE("Destroying mport handle %p (ct: 0x%08x)\n",
 			*handle, (*handle)->comptag);
-		riocp_pe_llist_foreach_safe(item, next, &(*handle)->minfo->handles) {
+		RIOCP_PE_LLIST_FOREACH_SAFE(item, next, &(*handle)->minfo->handles) {
 			p = (struct riocp_pe *)item->data;
 			if (p)
 				riocp_pe_handle_destroy(&p);
@@ -618,7 +618,7 @@ int riocp_pe_handle_mport_exists(uint8_t mport, bool is_host, struct riocp_pe **
 	struct riocp_pe_llist_item *item = NULL;
 	struct riocp_pe *p = NULL;
 
-	riocp_pe_llist_foreach(item, &riocp_pe_mport_handles) {
+	RIOCP_PE_LLIST_FOREACH(item, &riocp_pe_mport_handles) {
 		p = (struct riocp_pe *)item->data;
 		if (p) {
 			if (is_host == p->mport->minfo->is_host &&
@@ -667,7 +667,7 @@ int RIOCP_SO_ATTR riocp_pe_handle_get_list(riocp_pe_handle mport,
         handle_counter = 1;
 
         /* Count amount of handles in mport handles list */
-        riocp_pe_llist_foreach(item, &mport->minfo->handles) {
+        RIOCP_PE_LLIST_FOREACH(item, &mport->minfo->handles) {
                 p = (struct riocp_pe *)item->data;
                 if (!p)
                         continue;
@@ -685,7 +685,7 @@ int RIOCP_SO_ATTR riocp_pe_handle_get_list(riocp_pe_handle mport,
 
         /* Copy mport handles list pointers to newlist */
         _pe_list_size = 1;
-        riocp_pe_llist_foreach(item, &mport->minfo->handles) {
+        RIOCP_PE_LLIST_FOREACH(item, &mport->minfo->handles) {
                 p = (struct riocp_pe *)item->data;
                 if (!p)
                         continue;

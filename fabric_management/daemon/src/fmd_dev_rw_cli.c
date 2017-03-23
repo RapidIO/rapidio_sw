@@ -195,6 +195,8 @@ int CLIDevSelCmd(struct cli_env *env, int argc, char **argv)
 	int rc;
 	ct_t comptag = 0;
 	ct_t pe_ct;
+	uint32_t num_switches;
+	uint32_t num_endpoints;
 	const char *dev_name, *vend_name, *sysfs_name;
 
 	rc = riocp_mport_get_pe_list(mport_pe, &pes_count, &pes);
@@ -221,7 +223,19 @@ int CLIDevSelCmd(struct cli_env *env, int argc, char **argv)
 		LOGMSG(env, "\nNo PEs discovered!\n");
 		goto exit;
 	}
-	
+
+	num_switches = 0;
+	num_endpoints = 0;
+	for (i = 0; i < pes_count; i++) {
+		if (RIOCP_PE_IS_SWITCH(pes[i]->cap)) {
+			num_switches++;
+		} else {
+			num_endpoints++;
+		}
+	}
+	LOGMSG(env, "Number of switches: %d\n", num_switches);
+	LOGMSG(env, "Number of endpoints: %d\n", num_endpoints);
+
 	LOGMSG(env,
 			"\n  CompTag -->Sysfs Name<-- ----------->> Vendor <<-------------------  Device\n");
 	for (i = 0; i < pes_count; i++) {
@@ -234,6 +248,7 @@ int CLIDevSelCmd(struct cli_env *env, int argc, char **argv)
 				(pe_ct == comptag) ? "*" : " ", pe_ct,
 				sysfs_name, vend_name, dev_name);
 	}
+
 exit:
 	rc = riocp_mport_free_pe_list(&pes);
 	if (rc) {

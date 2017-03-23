@@ -75,6 +75,11 @@ struct fmd_dd {
 	struct fmd_dd_dev_info devs[FMD_MAX_DEVS];
 };
 
+struct fmd_dd_ticks {
+	uint32_t chg_idx;
+	struct timespec chg_time;
+};
+
 struct fmd_dd_events {
 	uint32_t in_use; /* 0 - Unallocated, 1 - Process number  */
 	uint32_t proc; /* 0 - Unused, 1 - Process number of intended user */
@@ -98,15 +103,18 @@ extern int fmd_dd_mtx_open(char *dd_mtx_fn, int *dd_mtx_fd,
 int fmd_dd_open(char *dd_fn, int *dd_fd, struct fmd_dd **dd,
 		struct fmd_dd_mtx *dd_mtx);
 
-extern uint32_t fmd_dd_atomic_copy(struct fmd_dd *dd,
+extern int fmd_dd_atomic_copy(struct fmd_dd *dd,
 		struct fmd_dd_mtx *dd_mtx, uint32_t *num_devs,
 		struct fmd_dd_dev_info *devs, uint32_t max_devs);
+
+extern int fmd_dd_atomic_copy_ticks(struct fmd_dd *dd,
+		struct fmd_dd_mtx *dd_mtx, struct fmd_dd_ticks *ticks);
 
 extern void fmd_dd_cleanup(char *dd_mtx_fn, int *dd_mtx_fd,
 		struct fmd_dd_mtx **dd_mtx_p, char *dd_fn, int *dd_fd,
 		struct fmd_dd **dd_p, int dd_rw);
 
-extern void bind_dd_cmds(struct fmd_dd *dd, struct fmd_dd_mtx *dd_mtx,
+extern void bind_dd_cmds(struct fmd_dd **dd, struct fmd_dd_mtx **dd_mtx,
 			char *dd_fn, char *dd_mtx_fn);
 
 #ifdef __cplusplus

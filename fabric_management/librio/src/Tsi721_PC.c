@@ -79,15 +79,15 @@ typedef struct spx_ctl2_ls_check_info_t_TAG {
 } spx_ctl2_ls_check_info_t;
 
 spx_ctl2_ls_check_info_t ls_check[] = {
-	{ RIO_SPX_CTL2_GB_1p25_EN , RIO_SPX_CTL2_GB_1p25 , rio_pc_ls_1p25 , 13 },
-	{ RIO_SPX_CTL2_GB_2p5_EN  , RIO_SPX_CTL2_GB_2p5  , rio_pc_ls_2p5  , 13 },
-	{ RIO_SPX_CTL2_GB_3p125_EN, RIO_SPX_CTL2_GB_3p125, rio_pc_ls_3p125, 16 },
-	{ RIO_SPX_CTL2_GB_5p0_EN  , RIO_SPX_CTL2_GB_5p0  , rio_pc_ls_5p0  , 25 },
-	{ RIO_SPX_CTL2_GB_6p25_EN , RIO_SPX_CTL2_GB_6p25 , rio_pc_ls_6p25 , 31 },
+	{ RIO_SPX_CTL2_GB_1P25_EN , RIO_SPX_CTL2_GB_1P25 , rio_pc_ls_1p25 , 13 },
+	{ RIO_SPX_CTL2_GB_2P5_EN  , RIO_SPX_CTL2_GB_2P5  , rio_pc_ls_2p5  , 13 },
+	{ RIO_SPX_CTL2_GB_3P125_EN, RIO_SPX_CTL2_GB_3P125, rio_pc_ls_3p125, 16 },
+	{ RIO_SPX_CTL2_GB_5P0_EN  , RIO_SPX_CTL2_GB_5P0  , rio_pc_ls_5p0  , 25 },
+	{ RIO_SPX_CTL2_GB_6P25_EN , RIO_SPX_CTL2_GB_6P25 , rio_pc_ls_6p25 , 31 },
 	{ 0x00000000          , 0x00000000           , rio_pc_ls_last ,  0 }
 };
 
-static uint32_t reg_lswap(rio_lane_swap_t swap)
+static uint32_t reg_lswap(enum rio_lane_swap_t swap)
 {
 	uint32_t reg_val = 0;
 
@@ -109,9 +109,9 @@ static uint32_t reg_lswap(rio_lane_swap_t swap)
 	return reg_val;
 }
 
-static rio_lane_swap_t lswap(uint32_t reg_val)
+static enum rio_lane_swap_t lswap(uint32_t reg_val)
 {
-	rio_lane_swap_t swap_val = rio_lswap_none;
+	enum rio_lane_swap_t swap_val = rio_lswap_none;
 
 	switch(reg_val) {
 	default:
@@ -213,17 +213,17 @@ static uint32_t tsi721_set_config_with_resets(DAR_DEV_INFO_t *dev_info,
 		spxCtl &= ~TSI721_SP_CTL_OVER_PWIDTH;
 		switch (in_parms->pc[0].pw) {
 		case rio_pc_pw_2x:
-			spxCtl |= RIO_SPX_CTL_PTW_OVER_2x_NO_4X;
+			spxCtl |= RIO_SPX_CTL_PTW_OVER_2X_NO_4X;
 			break;
 		case rio_pc_pw_4x:
 			spxCtl |= RIO_SPX_CTL_PTW_OVER_NONE;
 			break;
 		case rio_pc_pw_1x:
 		case rio_pc_pw_1x_l0:
-			spxCtl |= RIO_SPX_CTL_PTW_OVER_1x_L0;
+			spxCtl |= RIO_SPX_CTL_PTW_OVER_1X_L0;
 			break;
 		case rio_pc_pw_1x_l2:
-			spxCtl |= RIO_SPX_CTL_PTW_OVER_1x_LR;
+			spxCtl |= RIO_SPX_CTL_PTW_OVER_1X_LR;
 			break;
 		default:
 		case rio_pc_pw_1x_l1:
@@ -266,11 +266,11 @@ static uint32_t tsi721_set_config_with_resets(DAR_DEV_INFO_t *dev_info,
 			out_parms->imp_rc = PC_SET_CONFIG(0x40);
 			goto exit;
 		}
-		spxCtl2 &= ~(TSI721_SP_CTL2_GB_6p25_EN |
-		TSI721_SP_CTL2_GB_5p0_EN |
-		TSI721_SP_CTL2_GB_3p125_EN |
-		TSI721_SP_CTL2_GB_2p5_EN |
-		TSI721_SP_CTL2_GB_1p25_EN);
+		spxCtl2 &= ~(TSI721_SP_CTL2_GB_6P25_EN |
+		TSI721_SP_CTL2_GB_5P0_EN |
+		TSI721_SP_CTL2_GB_3P125_EN |
+		TSI721_SP_CTL2_GB_2P5_EN |
+		TSI721_SP_CTL2_GB_1P25_EN);
 
 		spxCtl2 |= ls_check[(int)(in_parms->pc[0].ls)].ls_en_val;
 		rc = DARRegWrite(dev_info, TSI721_SP_CTL2, spxCtl2);
@@ -573,18 +573,18 @@ uint32_t tsi721_rio_pc_get_config(DAR_DEV_INFO_t *dev_info,
 		}
 
 		switch (spxCtl & RIO_SPX_CTL_PTW_OVER) {
-		case RIO_SPX_CTL_PTW_OVER_4x_NO_2X:
+		case RIO_SPX_CTL_PTW_OVER_4X_NO_2X:
 		case RIO_SPX_CTL_PTW_OVER_NONE_2:
 		case RIO_SPX_CTL_PTW_OVER_NONE:
 			out_parms->pc[port_idx].pw = rio_pc_pw_4x;
 			break;
-		case RIO_SPX_CTL_PTW_OVER_1x_L0:
+		case RIO_SPX_CTL_PTW_OVER_1X_L0:
 			out_parms->pc[port_idx].pw = rio_pc_pw_1x_l0;
 			break;
-		case RIO_SPX_CTL_PTW_OVER_1x_LR:
+		case RIO_SPX_CTL_PTW_OVER_1X_LR:
 			out_parms->pc[port_idx].pw = rio_pc_pw_1x_l2;
 			break;
-		case RIO_SPX_CTL_PTW_OVER_2x_NO_4X:
+		case RIO_SPX_CTL_PTW_OVER_2X_NO_4X:
 			out_parms->pc[port_idx].pw = rio_pc_pw_2x;
 			break;
 		default:
@@ -850,16 +850,16 @@ uint32_t tsi721_rio_pc_get_status(DAR_DEV_INFO_t *dev_info,
 		// PORT_OK is asserted...
 		if (out_parms->ps[port_idx].port_ok) {
 			switch (spxCtl & TSI721_SP_CTL_INIT_PWIDTH) {
-			case RIO_SPX_CTL_PTW_INIT_1x_L0:
+			case RIO_SPX_CTL_PTW_INIT_1X_L0:
 				out_parms->ps[port_idx].pw = rio_pc_pw_1x_l0;
 				break;
-			case RIO_SPX_CTL_PTW_INIT_1x_LR:
+			case RIO_SPX_CTL_PTW_INIT_1X_LR:
 				out_parms->ps[port_idx].pw = rio_pc_pw_1x_l2;
 				break;
-			case RIO_SPX_CTL_PTW_INIT_2x:
+			case RIO_SPX_CTL_PTW_INIT_2X:
 				out_parms->ps[port_idx].pw = rio_pc_pw_2x;
 				break;
-			case RIO_SPX_CTL_PTW_INIT_4x:
+			case RIO_SPX_CTL_PTW_INIT_4X:
 				out_parms->ps[port_idx].pw = rio_pc_pw_4x;
 				break;
 			default:
@@ -921,11 +921,11 @@ uint32_t tsi721_rio_pc_reset_port(DAR_DEV_INFO_t *dev_info,
 			goto exit;
 		}
 
-		ctl2 = ctl2_saved ^ (TSI721_SP_CTL2_GB_6p25_EN |
-		TSI721_SP_CTL2_GB_5p0_EN |
-		TSI721_SP_CTL2_GB_3p125_EN |
-		TSI721_SP_CTL2_GB_2p5_EN |
-		TSI721_SP_CTL2_GB_1p25_EN);
+		ctl2 = ctl2_saved ^ (TSI721_SP_CTL2_GB_6P25_EN |
+		TSI721_SP_CTL2_GB_5P0_EN |
+		TSI721_SP_CTL2_GB_3P125_EN |
+		TSI721_SP_CTL2_GB_2P5_EN |
+		TSI721_SP_CTL2_GB_1P25_EN);
 
 		rc = tsi721_update_reset_policy(dev_info, rio_pc_rst_port,
 				&plmctl, &devctl, &rstint, &rstpw,

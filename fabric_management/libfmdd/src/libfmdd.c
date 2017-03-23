@@ -45,6 +45,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <netinet/in.h>
 #include <assert.h>
 
+#include "rio_misc.h"
 #include "string_util.h"
 #include "liblist.h"
 #include "libcli.h"
@@ -53,6 +54,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "liblog.h"
 #include "libfmdd_info.h"
 #include "libfmdd.h"
+#include "libtime_utils.h"
 #include "fmd_errmsg.h"
 
 #ifdef __cplusplus
@@ -64,20 +66,28 @@ struct fml_globals fml;
 int open_socket_to_fmd(void)
 {
 	if (!fml.fd) {
-		fml.addr_sz = sizeof(struct sockaddr_un);
+		fml.addr_sz = sizeof(fml.addr);
 		memset(&fml.addr, 0, fml.addr_sz);
 
 		fml.addr.sun_family = AF_UNIX;
 		snprintf(fml.addr.sun_path, sizeof(fml.addr.sun_path) - 1,
 				FMD_APP_MSG_SKT_FMT, fml.portno);
-		fml.fd = socket(AF_UNIX, SOCK_SEQPACKET, 0);
-		if (-1 == fml.fd) {
-			CRIT(REM_SOCKET_FAIL, fml.addr.sun_path);
+
+		// If the file does not exist, the FMD is not running.
+		// Do not try to connect.
+		if (-1 == access(fml.addr.sun_path, F_OK)) {
+			INFO("Could not access FMD Socket @ \"%s\", errno %d",
+				fml.addr.sun_path, errno);
 			goto fail;
 		}
+
+		fml.fd = socket(AF_UNIX, SOCK_SEQPACKET, 0);
+		if (-1 == fml.fd) {
+			goto fail;
+		}
+
 		if (connect(fml.fd, (struct sockaddr *)&fml.addr,
 				fml.addr_sz)) {
-			CRIT(REM_SOCKET_FAIL, fml.addr.sun_path);
 			goto fail;
 		}
 	}
@@ -96,7 +106,7 @@ int get_dd_names_from_fmd(void)
 			sizeof(fml.req.hello_req.app_name));
 
 	if (send(fml.fd, (void *)&(fml.req), sizeof(fml.req), MSG_EOR) < 0) {
-		CRIT(REM_SOCKET_FAIL, fml.addr.sun_path);
+		CRIT(LOC_SOCKET_FAIL, fml.addr.sun_path, errno);
 		goto fail;
 	}
 
@@ -115,6 +125,8 @@ int get_dd_names_from_fmd(void)
 		ERR("fml.ap_idx out of range!\n");
 		goto fail;
 	}
+
+	fml.fmd_update_period = ntohl(fml.resp.hello_resp.fmd_update_pd);
 	return 0;
 
 fail:
@@ -147,8 +159,6 @@ void notify_app_of_events(void);
 
 void shutdown_fml(fmdd_h dd_h)
 {
-	fml.mon_must_die = 1;
-
 	if (dd_h == &fml) {
 		DBG("Notifying app of events\n");
 		notify_app_of_events();
@@ -183,8 +193,6 @@ void shutdown_fml(fmdd_h dd_h)
 		close(fml.fd);
 		fml.fd = 0;
 	}
-	fml.portno = 0;
-	fml.init_ok = 0;
 }
 
 void init_devid_status(void)
@@ -211,12 +219,14 @@ int update_devid_status(void)
 						did_val, FMD_MAX_DEVID);
 				continue;
 			}
+
 			if (did_val == i) {
 				uint8_t temp_flag = FMDD_FLAG_OK;
 				temp_flag |= fml.devs[j].flag;
 
-				if (fml.devs[j].is_mast_pt)
+				if (fml.devs[j].is_mast_pt) {
 					temp_flag |= FMDD_FLAG_OK_MP;
+				}
 
 				if (fml.devid_status[i] != temp_flag) {
 					fml.devid_status[i] = temp_flag;
@@ -243,7 +253,7 @@ void notify_app_of_events(void)
 	sem_wait(&fml.pend_waits_mtx);
 
 	wt = (sem_t *)l_pop_head(&fml.pend_waits);
-	if (wt == NULL) {
+	if (NULL == wt) {
 		DBG("wt == NULL\n");
 	}
 
@@ -255,53 +265,148 @@ void notify_app_of_events(void)
 	sem_post(&fml.pend_waits_mtx);
 }
 
+// Very simple monitor:  If anything goes sideways on the socket connection
+// to the FMD, die!
+void *fmd_socket_mon(void *UNUSED(unused))
+{
+	char buf[1];
+
+	sem_post(&fml.fmd_mon_started);
+	recv(fml.fd, (void *)&buf, sizeof(buf), MSG_WAITALL);
+
+	close(fml.fd);
+	fml.fd = 0;
+	sem_post(&fml.dd_mtx->dd_ev[fml.app_idx].dd_event);
+	pthread_exit(NULL);
+}
+
 void *mon_loop(void *parms)
 {
+	const struct timespec delay = {3 * fml.fmd_update_period, 0}; // seconds
+	const struct timespec loop_delay = {1, 0}; // seconds
+
 	int rc;
+	struct fmd_dd_ticks new_ticks = {0, {0,0}};
+	struct fmd_dd_ticks old_ticks = {0, {0,0}};
+	bool display_msg = true;
 
-	fml.dd_mtx->dd_ev[fml.app_idx].in_use = 1;
-	fml.dd_mtx->dd_ev[fml.app_idx].proc = getpid();
-
-	if (0 >= fmd_dd_atomic_copy(fml.dd, fml.dd_mtx, &fml.num_devs,
-			fml.devs, FMD_MAX_DEVS)) {
-		sem_post(&fml.mon_started);
-		goto exit;
-	}
-
-	update_devid_status();
 	fml.mon_alive = 1;
 	sem_post(&fml.mon_started);
+
+	// Wait until the application information is set before
+	// attempting to connect to the FMD.
+	sem_wait(&fml.app_info_set);
+
 	do {
-		if (NULL == fml.dd_mtx) {
-			goto exit;
+		if (open_socket_to_fmd()) {
+			if (display_msg) {
+				CRIT(LOC_SOCKET_FAIL, fml.addr.sun_path, errno);
+				display_msg = false;
+			}
+			goto cleanup;
+		} else {
+			display_msg = true;
 		}
 
-		fml.dd_mtx->dd_ev[fml.app_idx].waiting = 1;
-		rc = sem_wait(&fml.dd_mtx->dd_ev[fml.app_idx].dd_event);
-		if (rc || fml.mon_must_die) {
-			goto exit;
+		if (get_dd_names_from_fmd()) {
+			CRIT(DEV_DB_FAIL, "");
+			goto cleanup;
 		}
-		fml.dd_mtx->dd_ev[fml.app_idx].waiting = 0;
+		if (open_dd()) {
+			CRIT(DEV_DB_FAIL, "");
+			goto cleanup;
+		}
+		fml.dd_mtx->dd_ev[fml.app_idx].in_use = 1;
+		fml.dd_mtx->dd_ev[fml.app_idx].proc = getpid();
 
-		if (0 >= fmd_dd_atomic_copy(fml.dd, fml.dd_mtx, &fml.num_devs,
-					fml.devs, FMD_MAX_DEVS)) {
-			goto exit;
+		// monitoring the FMD socket
+		sem_init(&fml.fmd_mon_started, 0, 0);
+		if (pthread_create(&fml.fmd_mon_thr, NULL, fmd_socket_mon, NULL)) {
+			goto cleanup;
 		}
-		if (update_devid_status()) {
-			notify_app_of_events();
-		}
-	} while (fml.num_devs && !fml.mon_must_die && fml.mon_alive);
+		sem_wait(&fml.fmd_mon_started);
 
-exit:
+		// While the FMD/DD is alive wait for updates
+		do {
+			fml.dd_mtx->dd_ev[fml.app_idx].waiting = 0;
+
+			if (!fmd_dd_atomic_copy(fml.dd, fml.dd_mtx,
+					&fml.num_devs, fml.devs,
+					FMD_MAX_DEVS)) {
+				break;
+			}
+
+			if (update_devid_status()) {
+				notify_app_of_events();
+			}
+			fml.dd_mtx->dd_ev[fml.app_idx].waiting = 1;
+
+			do {
+				rc = sem_timedwait(&fml.dd_mtx->dd_ev[fml.app_idx].dd_event,
+						&delay);
+			} while (rc && ((EAGAIN == errno) || (EINTR == errno)));
+
+			if (rc && (ETIME == errno)) {
+				// If there's a problem accessing the DD, bail and disconnect.
+				if (!fmd_dd_atomic_copy_ticks(fml.dd,
+						fml.dd_mtx, &new_ticks)) {
+					break;
+				}
+
+				if ((new_ticks.chg_idx == old_ticks.chg_idx)
+						|| ((new_ticks.chg_time.tv_nsec
+								== old_ticks.chg_time.tv_nsec)
+								&& (new_ticks.chg_time.tv_sec
+										== old_ticks.chg_time.tv_sec))) {
+					// Heart beat is dead, bail and disconnect
+					break;
+				}
+				old_ticks = new_ticks;
+			}
+		} while (fml.fd && !fml.mon_must_die);
+
+cleanup:
+		// Cannot access DD, cleanup
+		shutdown_fml(&fml);
+		time_sleep(&loop_delay);
+
+	} while (!fml.mon_must_die);
+
 	fml.mon_alive = 0;
 	notify_app_of_events();
 	shutdown_fml(&fml);
 	return parms;
 }
 
+void libfmdd_init(void) {
+	sem_init(&fml.app_info_set, 0, 0);
+	sem_init(&fml.pend_waits_mtx, 0, 1);
+	l_init(&fml.pend_waits);
+
+	sem_init(&fml.mon_started, 0, 0);
+	fml.all_must_die = 0;
+	fml.mon_alive = 0;
+
+	/* Startup the connection monitoring thread */
+	if (pthread_create(&fml.mon_thr, NULL, mon_loop, NULL)) {
+		fml.all_must_die = 1;
+		CRIT(THREAD_FAIL, errno);
+		return;
+	}
+
+	sem_wait(&fml.mon_started);
+	INFO("Monitor thread started...\n");
+}
+
 fmdd_h fmdd_get_handle(char *my_name, uint8_t flag)
 {
 	DBG("ENTER with my_name = %s, flag = 0x%X\n", my_name, flag);
+
+	// if an application calls fmdd_get_handle multiple times, the first
+	// time should cause initialization and the second and subsequent
+	// should return pointers to the handle that the first one is
+	// initializing.
+	fml.flag = flag;
 	if (!fml.portno) {
 		INFO("No portno specified, using default of %d\n",
 				FMD_DFLT_APP_PORT_NUM);
@@ -310,45 +415,12 @@ fmdd_h fmdd_get_handle(char *my_name, uint8_t flag)
 	} else {
 		INFO("fml.portno = %d\n", fml.portno);
 	}
+	sem_post(&fml.app_info_set);
 
-	if (!fml.mon_alive) {
-		sem_init(&fml.pend_waits_mtx, 0, 1);
-		fml.flag = flag;
-		l_init(&fml.pend_waits);
-		if (open_socket_to_fmd()) {
-			CRIT(REM_SOCKET_FAIL, fml.addr.sun_path);
-			goto fail;
-		}
-		if (get_dd_names_from_fmd()) {
-			CRIT(DEV_DB_FAIL, "");
-			goto fail;
-		}
-		if (open_dd()) {
-			CRIT(DEV_DB_FAIL, "");
-			goto fail;
-		}
-		sem_init(&fml.mon_started, 0, 0);
-		fml.all_must_die = 0;
-		fml.mon_alive = 0;
-
-		/* Startup the connection monitoring thread */
-		if (pthread_create(&fml.mon_thr, NULL, mon_loop, NULL)) {
-			fml.all_must_die = 1;
-			CRIT(THREAD_FAIL, errno);
-			goto fail;
-		}
-		sem_wait(&fml.mon_started);
-		sem_post(&fml.mon_started);
-		INFO("Monitor thread started...\n");
-	}
-
-	if (fml.mon_alive) {
-		INFO("fml.mon_alive is non-zero, returning fml\n");
+	// Only return a valid handle when connected to the FMD.
+	if (fml.fd) {
 		return (void *)&fml;
 	}
-
-fail:
-	shutdown_fml(NULL);
 	return NULL;
 }
 
@@ -368,9 +440,7 @@ uint8_t fmdd_check_ct(fmdd_h h, ct_t ct, uint8_t flag)
 
 	for (i = 0; i < fml.num_devs; i++) {
 		if (fml.devs[i].ct == ct) {
-			return flag
-					& fml.devid_status[did_get_value(
-							fml.devs[i].did)];
+			return flag & fml.devid_status[did_get_value(fml.devs[i].did)];
 		}
 	}
 
@@ -405,6 +475,11 @@ int fmdd_get_did_list(fmdd_h h, uint32_t *did_list_sz, did_val_t **did_list)
 
 	if (h != &fml) {
 		ERR("Invalid fmdd_h h(0x%X)\n", h);
+		goto fail;
+	}
+
+	if (!fml.fd) {
+		ERR("Not connected to FMD, fail\n", h);
 		goto fail;
 	}
 

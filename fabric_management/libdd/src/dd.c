@@ -83,35 +83,35 @@ void fmd_dd_incr_chg_idx(struct fmd_dd *dd, int dd_rw)
 	}
 }
 
-int fmd_dd_open_rw(char *dd_fn, int *dd_fd, struct fmd_dd **dd, 
+int fmd_dd_open_rw(char *dd_fn, int *dd_fd, struct fmd_dd **dd,
 					struct fmd_dd_mtx *dd_mtx)
 {
 	int rc, idx;
 
-        *dd_fd = shm_open(dd_fn, O_RDWR | O_CREAT | O_EXCL, 
-                        S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+	*dd_fd = shm_open(dd_fn, O_RDWR | O_CREAT | O_EXCL,
+			S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 
-        if (-1 == *dd_fd) {
-        	CRIT(DEV_DB_FAIL, dd_fn);
+	if (-1 == *dd_fd) {
+		CRIT(DEV_DB_FAIL, dd_fn);
 		goto fail;
 	}
 
-        rc = ftruncate(*dd_fd, sizeof(struct fmd_dd));
-        if (-1 == rc) {
-        	CRIT(DEV_DB_FAIL, dd_fn);
-                shm_unlink(dd_fn);
-                goto fail;
-        }
+	rc = ftruncate(*dd_fd, sizeof(struct fmd_dd));
+	if (-1 == rc) {
+		CRIT(DEV_DB_FAIL, dd_fn);
+		shm_unlink(dd_fn);
+		goto fail;
+	}
 
-        *dd = (struct fmd_dd *) mmap(NULL, sizeof(struct fmd_dd),
+	*dd = (struct fmd_dd *) mmap(NULL, sizeof(struct fmd_dd),
 		PROT_READ|PROT_WRITE, MAP_SHARED, *dd_fd, 0);
 
-        if (MAP_FAILED == *dd) {
-        	CRIT(DEV_DB_FAIL, dd_fn);
-                *dd = NULL;
-                shm_unlink(dd_fn);
-                goto fail;
-        }
+	if (MAP_FAILED == *dd) {
+		CRIT(DEV_DB_FAIL, dd_fn);
+		*dd = NULL;
+		shm_unlink(dd_fn);
+		goto fail;
+	}
 
 	(*dd)->chg_idx = 0;
 	(*dd)->md_ct = 0;
@@ -130,26 +130,26 @@ int fmd_dd_open_rw(char *dd_fn, int *dd_fd, struct fmd_dd **dd,
 
 	return 0;
 fail:
-        return -1;
+	return -1;
 }
 
-int fmd_dd_open(char *dd_fn, int *dd_fd, struct fmd_dd **dd, 
+int fmd_dd_open(char *dd_fn, int *dd_fd, struct fmd_dd **dd,
 					struct fmd_dd_mtx *dd_mtx)
 {
 	*dd_fd = shm_open(dd_fn, O_RDONLY, 0);
-        if (-1 == *dd_fd) {
-        	CRIT(DEV_DB_FAIL, dd_fn);
-                goto exit;
+	if (-1 == *dd_fd) {
+		CRIT(DEV_DB_FAIL, dd_fn);
+		goto exit;
 	}
 
-        *dd = (struct fmd_dd *)mmap(NULL, sizeof(struct fmd_dd), PROT_READ,
-                MAP_SHARED, *dd_fd, 0);
+	*dd = (struct fmd_dd *)mmap(NULL, sizeof(struct fmd_dd), PROT_READ,
+		MAP_SHARED, *dd_fd, 0);
 
-        if (MAP_FAILED == *dd) {
-        	CRIT(DEV_DB_FAIL, dd_fn);
-                *dd = NULL;
-                goto exit;
-        }
+	if (MAP_FAILED == *dd) {
+		CRIT(DEV_DB_FAIL, dd_fn);
+		*dd = NULL;
+		goto exit;
+	}
 
 	if ((NULL != *dd) && (NULL != dd_mtx)) {
 		dd_mtx->dd_ref_cnt++;
@@ -163,8 +163,9 @@ exit:
 int fmd_dd_mtx_open_priv(char *dd_mtx_fn, int *dd_mtx_fd,
 		struct fmd_dd_mtx **dd_mtx, bool open_by_fmd)
 {
-        int rc, i;
+	int rc, i;
 	bool new_mtx = false;
+	char mutex_fn[FMD_MAX_SHM_FN_LEN];
 
 	if ((NULL == dd_mtx_fn) || (NULL == dd_mtx_fd) || (NULL == dd_mtx)) {
 		errno = -EINVAL;
@@ -173,38 +174,45 @@ int fmd_dd_mtx_open_priv(char *dd_mtx_fn, int *dd_mtx_fd,
 
 	if (open_by_fmd) {
 		// FMD owns the MTX file, so it should create the file.
-        	*dd_mtx_fd = shm_open(dd_mtx_fn, O_RDWR | O_CREAT | O_EXCL, 
-                        	S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+		*dd_mtx_fd = shm_open(dd_mtx_fn, O_RDWR | O_CREAT | O_EXCL,
+				S_IRUSR | S_IWUSR | S_IXUSR |
+				S_IRGRP | S_IWGRP | S_IXGRP |
+				S_IROTH | S_IWOTH | S_IWOTH);
 		if (EEXIST == errno) {
-        		CRIT(DEV_DB_FAIL, dd_mtx_fn);
+			CRIT(DEV_DB_FAIL, dd_mtx_fn);
 			goto fail;
 		}
+		snprintf(mutex_fn, FMD_MAX_SHM_FN_LEN,
+			"%s%s", FMD_DFLT_SHM_DIR, dd_mtx_fn);
+		if (chmod(mutex_fn, S_IRWXU | S_IRWXG | S_IRWXO)) {
+			CRIT(DEV_DB_FAIL, dd_mtx_fn);
+			goto fail;
+		}
+
 		new_mtx = true;
 	} else {
-
-        	*dd_mtx_fd = shm_open(dd_mtx_fn, O_RDWR, 
-                        		S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+		*dd_mtx_fd = shm_open(dd_mtx_fn, O_RDWR, S_IRUSR | S_IWUSR);
 	}
 
-        if (-1 == *dd_mtx_fd) {
-        	CRIT(DEV_DB_FAIL, dd_mtx_fn);
-                goto fail;
+	if (-1 == *dd_mtx_fd) {
+		CRIT(DEV_DB_FAIL, dd_mtx_fn);
+		goto fail;
 	}
 
-        rc = ftruncate(*dd_mtx_fd, sizeof(struct fmd_dd_mtx));
-        if (-1 == rc) {
-        	CRIT(DEV_DB_FAIL, dd_mtx_fn);
-                goto fail;
-        }
+	rc = ftruncate(*dd_mtx_fd, sizeof(struct fmd_dd_mtx));
+	if (-1 == rc) {
+		CRIT(DEV_DB_FAIL, dd_mtx_fn);
+		goto fail;
+	}
 
-        *dd_mtx = (struct fmd_dd_mtx *)mmap(NULL, sizeof(struct fmd_dd_mtx), 
+	*dd_mtx = (struct fmd_dd_mtx *)mmap(NULL, sizeof(struct fmd_dd_mtx),
 			PROT_READ|PROT_WRITE, MAP_SHARED, *dd_mtx_fd, 0);
 
-        if (MAP_FAILED == *dd_mtx) {
-        	CRIT(DEV_DB_FAIL, dd_mtx_fn);
-                *dd_mtx = NULL;
-                goto fail;
-        }
+	if (MAP_FAILED == *dd_mtx) {
+		CRIT(DEV_DB_FAIL, dd_mtx_fn);
+		*dd_mtx = NULL;
+		goto fail;
+	}
 
 	if (new_mtx) {
 		sem_init(&(*dd_mtx)->sem, 1, 0);
@@ -236,7 +244,7 @@ int fmd_dd_init(char *dd_mtx_fn, int *dd_mtx_fd, struct fmd_dd_mtx **dd_mtx,
 {
 	int rc;
 
-       	rc = fmd_dd_mtx_open_priv(dd_mtx_fn, dd_mtx_fd, dd_mtx, true);
+	rc = fmd_dd_mtx_open_priv(dd_mtx_fn, dd_mtx_fd, dd_mtx, true);
 	if (rc) {
 		goto fail;
 	}
@@ -251,8 +259,8 @@ fail:
 }
 
 void fmd_dd_cleanup(char *dd_mtx_fn, int *dd_mtx_fd,
-                        struct fmd_dd_mtx **dd_mtx_p,
-                        char *dd_fn, int *dd_fd, struct fmd_dd **dd_p,
+			struct fmd_dd_mtx **dd_mtx_p,
+			char *dd_fn, int *dd_fd, struct fmd_dd **dd_p,
 			int dd_rw)
 {
 	struct fmd_dd_mtx *dd_mtx = (NULL == dd_mtx_p)?NULL:*dd_mtx_p;
@@ -301,23 +309,45 @@ uint32_t fmd_dd_get_chg_idx(struct fmd_dd *dd)
  * enumeration has been completed.
  */
 
-uint32_t fmd_dd_atomic_copy(struct fmd_dd *dd,
-                        struct fmd_dd_mtx *dd_mtx,
-			uint32_t *num_devs,
-			struct fmd_dd_dev_info *devs,
-			uint32_t max_devs)
+int fmd_dd_atomic_copy(struct fmd_dd *dd, struct fmd_dd_mtx *dd_mtx,
+		uint32_t *num_devs, struct fmd_dd_dev_info *devs,
+		uint32_t max_devs)
 {
 	uint32_t idx;
 
-	sem_wait(&dd_mtx->sem);
-	*num_devs = dd->num_devs;
-	if (*num_devs > max_devs)
-		*num_devs = max_devs;
-	for (idx = 0; idx < *num_devs; idx++) 
-		devs[idx] = dd->devs[idx];
-	sem_post(&dd_mtx->sem);
+	if (sem_wait(&dd_mtx->sem)) {
+		return -1;
+	}
 
+	*num_devs = dd->num_devs;
+	if (*num_devs > max_devs) {
+		*num_devs = max_devs;
+	}
+
+	for (idx = 0; idx < *num_devs; idx++) {
+		devs[idx] = dd->devs[idx];
+	}
+
+	if (sem_post(&dd_mtx->sem)) {
+		return -1;
+	}
 	return *num_devs;
+}
+
+int fmd_dd_atomic_copy_ticks(struct fmd_dd *dd, struct fmd_dd_mtx *dd_mtx,
+		struct fmd_dd_ticks *ticks)
+{
+	if (sem_wait(&dd_mtx->sem)) {
+		return -1;
+	}
+
+	ticks->chg_idx = dd->chg_idx;
+	ticks->chg_time = dd->chg_time;
+
+	if (sem_post(&dd_mtx->sem)) {
+		return -1;
+	}
+	return 0;
 }
 
 #ifdef __cplusplus

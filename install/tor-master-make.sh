@@ -6,10 +6,11 @@
 INSTALL_ROOT="/opt/rapidio/.install"
 . $INSTALL_ROOT/script/make_install_common.sh $1 $2 $3 $4
 
-if [ $? -ne 0 ]
+result=$?
+if [ $result -ne 0 ]
 then
-	echo Failed, aborting...
-	exit $?
+	echo Failed, exiting...
+	exit $result
 fi
 
 # Install scripts
@@ -22,10 +23,11 @@ SCRIPT_FILES=( rio_start.sh stop_rio.sh all_start.sh stop_all.sh check_all.sh
 for f in "${SCRIPT_FILES[@]}"
 do
     cp $SCRIPTS_PATH/$f $SOURCE_PATH/$f
-	if [ $? -ne 0 ]
+    result=$?
+	if [ $result -ne 0 ]
 	then
-		echo Copy failed, aborting...
-		exit $?
+		echo Copy failed, exiting...
+		exit $result
 	fi
 done
 
@@ -54,7 +56,7 @@ done < "$INSTALL_ROOT/$NODEDATA_FILE"
 # Figure out node number of master node
 if [ -z $MAST_NODE ]
 then
-	echo "Master node not defined, failed install.  Aborting..."
+	echo "Master node not defined, failed install.  Exiting..."
 	exit 1
 fi
 
@@ -65,7 +67,7 @@ MAST_DESTID=$(grep -e ENDPOINT < $INSTALL_ROOT/$TMPL_FILE | grep "\b${MAST_NODE}
 
 if [ -z $MAST_DESTID ]
 then
-	echo "Master destID not found, failed install.  Aborting..."
+	echo "Master destID not found, failed install.  Exiting..."
 	exit 1
 fi
 

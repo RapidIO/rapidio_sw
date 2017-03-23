@@ -40,6 +40,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "DAR_DB_Private.h"
 #include "DSF_DB_Private.h"
 #include "RapidIO_Error_Management_API.h"
+#include "RapidIO_Device_Access_Routines_API.h"
 #include "RXS_DeviceDriver.h"
 #include "string_util.h"
 
@@ -47,7 +48,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 extern "C" {
 #endif
 
-#ifdef RXSx_DAR_WANTED
+#ifdef RXS_DAR_WANTED
 
 #define SAFE_ADD_EVENT_N_LOC(event_in, p) \
 	if (out_parms->num_events < in_parms->num_events) { \
@@ -367,8 +368,7 @@ fail:
 }
 
 static uint32_t rxs_event_read_port_regs(DAR_DEV_INFO_t *d_i,
-		rxs_event_cfg_reg_vals_t *r,
-		rio_port_t		port)
+		rxs_event_cfg_reg_vals_t *r, rio_port_t port)
 {
 	uint32_t rc;
 
@@ -431,8 +431,7 @@ fail:
 }
 
 static uint32_t rxs_event_write_port_regs(DAR_DEV_INFO_t *d_i,
-		rxs_event_cfg_reg_vals_t	*r,
-		rio_port_t			port)
+		rxs_event_cfg_reg_vals_t *r, rio_port_t port)
 {
 	uint32_t rc;
 
@@ -515,9 +514,8 @@ fail:
 				RXS_PBM_SPX_INT_EN_EG_DOH_FATAL | \
 				RXS_PBM_SPX_INT_EN_EG_DATA_UNCOR)
 
-static uint32_t rxs_event_cfg_get(
-		rio_em_cfg_t			*event,
-		rxs_event_cfg_reg_vals_t	*regs)
+static uint32_t rxs_event_cfg_get(rio_em_cfg_t *event,
+		rxs_event_cfg_reg_vals_t *regs)
 {
 	uint32_t rc;
 	uint32_t mask;
@@ -737,10 +735,8 @@ fail:
 	return rc;
 }
 
-static uint32_t rxs_plm_set_notifn(
-		rxs_event_cfg_reg_vals_t	*regs,
-		uint32_t			mask,
-		rio_em_notfn_ctl_t		notfn)
+static uint32_t rxs_plm_set_notifn(rxs_event_cfg_reg_vals_t *regs,
+		uint32_t mask, rio_em_notfn_ctl_t notfn)
 {
 	uint32_t rc = RIO_SUCCESS;
 
@@ -783,11 +779,8 @@ static uint32_t rxs_plm_set_notifn(
 //		This is only likely if the DLT is set to a "long" period,
 //		where "long" is milliseconds for IDLE1/2 and seconds for IDLE3.
 // All events initiate packet discard.
-static uint32_t rxs_set_event_cfg_rio_em_f_los(
-		rxs_event_cfg_reg_vals_t	*regs,
-		rio_em_cfg_t			*event,
-		rio_em_notfn_ctl_t		nfn,
-		uint32_t			*imp_rc)
+static uint32_t rxs_set_event_cfg_rio_em_f_los(rxs_event_cfg_reg_vals_t *regs,
+		rio_em_cfg_t *event, rio_em_notfn_ctl_t nfn, uint32_t *imp_rc)
 {
 	uint32_t rc;
 	uint32_t err_mask = RXS_SPX_RATE_EN_DLT | RXS_SPX_RATE_EN_OK_TO_UNINIT;
@@ -851,10 +844,8 @@ static uint32_t rxs_set_event_cfg_rio_em_f_los(
 // the normal operating mode of most devices.
 
 static uint32_t rxs_set_event_cfg_rio_em_f_2many_retx_or_pna(
-		rxs_event_cfg_reg_vals_t	*regs,
-		rio_em_cfg_t			*event,
-		rio_em_notfn_ctl_t		nfn,
-		uint32_t			*imp_rc)
+		rxs_event_cfg_reg_vals_t *regs, rio_em_cfg_t *event,
+		rio_em_notfn_ctl_t nfn, uint32_t *imp_rc)
 {
 	uint32_t rc;
 	uint32_t cnt_mask;
@@ -904,10 +895,8 @@ fail:
 }
 
 static uint32_t rxs_set_event_cfg_rio_em_f_err_rate(
-		rxs_event_cfg_reg_vals_t	*regs,
-		rio_em_cfg_t			*event,
-		rio_em_notfn_ctl_t		nfn,
-		uint32_t			*imp_rc)
+		rxs_event_cfg_reg_vals_t *regs, rio_em_cfg_t *event,
+		rio_em_notfn_ctl_t nfn, uint32_t *imp_rc)
 {
 	uint32_t rc;
 
@@ -935,9 +924,8 @@ static uint32_t rxs_set_event_cfg_rio_em_f_err_rate(
 	return rc;
 }
 
-static uint32_t rxs_ttl_err_set_notifn(
-		rxs_event_cfg_reg_vals_t	*regs,
-		rio_em_notfn_ctl_t		notfn)
+static uint32_t rxs_ttl_err_set_notifn(rxs_event_cfg_reg_vals_t *regs,
+		rio_em_notfn_ctl_t notfn)
 {
 	uint32_t rc = RIO_SUCCESS;
 
@@ -969,10 +957,8 @@ fail:
 }
 
 static uint32_t rxs_set_event_cfg_rio_em_d_ttl_port(
-		rxs_event_cfg_reg_vals_t	*regs,
-		rio_em_cfg_t			*event,
-		rio_em_notfn_ctl_t		nfn,
-		uint32_t			*imp_rc)
+		rxs_event_cfg_reg_vals_t *regs, rio_em_cfg_t *event,
+		rio_em_notfn_ctl_t nfn, uint32_t *imp_rc)
 {
 	uint32_t rc;
 
@@ -994,9 +980,8 @@ static uint32_t rxs_set_event_cfg_rio_em_d_ttl_port(
 }
 
 static uint32_t rxs_set_event_cfg_rio_em_d_ttl_dev(
-		rxs_event_cfg_reg_vals_t	*regs,
-		rio_em_cfg_t			*event,
-		uint32_t			*imp_rc)
+		rxs_event_cfg_reg_vals_t *regs, rio_em_cfg_t *event,
+		uint32_t *imp_rc)
 {
 	uint32_t mask = RXS_PKT_TIME_LIVE_PKT_TIME_LIVE;
 	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
@@ -1034,8 +1019,7 @@ fail:
 	return rc;
 }
 
-static uint32_t rxs_rte_err_set_notifn(
-		rxs_event_cfg_reg_vals_t *regs,
+static uint32_t rxs_rte_err_set_notifn(rxs_event_cfg_reg_vals_t *regs,
 		rio_em_notfn_ctl_t notfn)
 {
 	uint32_t rc = RIO_SUCCESS;
@@ -1066,11 +1050,8 @@ static uint32_t rxs_rte_err_set_notifn(
 	return rc;
 }
 
-static uint32_t rxs_set_event_cfg_rio_em_d_rte(
-		rxs_event_cfg_reg_vals_t	*regs,
-		rio_em_cfg_t			*event,
-		rio_em_notfn_ctl_t		nfn,
-		uint32_t			*imp_rc)
+static uint32_t rxs_set_event_cfg_rio_em_d_rte(rxs_event_cfg_reg_vals_t *regs,
+		rio_em_cfg_t *event, rio_em_notfn_ctl_t nfn, uint32_t *imp_rc)
 {
 	uint32_t rc;
 
@@ -1092,7 +1073,7 @@ static uint32_t rxs_set_event_cfg_rio_em_d_rte(
 }
 
 static uint32_t rxs_log_err_set_notifn(rxs_event_cfg_reg_vals_t *regs,
-					rio_em_notfn_ctl_t notfn)
+		rio_em_notfn_ctl_t notfn)
 {
 	uint32_t rc = RIO_SUCCESS;
 
@@ -1125,11 +1106,8 @@ static uint32_t rxs_log_err_set_notifn(rxs_event_cfg_reg_vals_t *regs,
 // RXS logical layer errors are always detected, using the
 // standard error managment logical layer error information.
 
-static uint32_t rxs_set_event_cfg_rio_em_d_log(
-		rxs_event_cfg_reg_vals_t	*regs,
-		rio_em_cfg_t			*event,
-		rio_em_notfn_ctl_t		nfn,
-		uint32_t			*imp_rc)
+static uint32_t rxs_set_event_cfg_rio_em_d_log(rxs_event_cfg_reg_vals_t *regs,
+		rio_em_cfg_t *event, rio_em_notfn_ctl_t nfn, uint32_t *imp_rc)
 {
 	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
 
@@ -1158,10 +1136,8 @@ fail:
 }
 
 static uint32_t rxs_set_event_cfg_rio_em_i_sig_det(
-		rxs_event_cfg_reg_vals_t	*regs,
-		rio_em_cfg_t			*event,
-		rio_em_notfn_ctl_t		nfn,
-		uint32_t			*imp_rc)
+		rxs_event_cfg_reg_vals_t *regs, rio_em_cfg_t *event,
+		rio_em_notfn_ctl_t nfn, uint32_t *imp_rc)
 {
 	uint32_t rc;
 
@@ -1198,10 +1174,8 @@ fail:
 // for the reset event.
 
 static uint32_t rxs_set_event_cfg_rio_em_i_rst_req(
-		rxs_event_cfg_reg_vals_t	*regs,
-		rio_em_notfn_ctl_t		nfn,
-		rio_port_t			port,
-		uint32_t			*imp_rc)
+		rxs_event_cfg_reg_vals_t *regs, rio_em_notfn_ctl_t nfn,
+		rio_port_t port, uint32_t *imp_rc)
 {
 	uint32_t rc;
 	uint32_t mask = 1 << port;
@@ -1241,10 +1215,8 @@ fail:
 	return rc;
 }
 
-static uint32_t rxs_set_event_cfg_rio_em_i_init_fail(
-		rio_em_cfg_t			*event,
-		rxs_event_cfg_reg_vals_t	*regs,
-		rio_em_notfn_ctl_t		nfn)
+static uint32_t rxs_set_event_cfg_rio_em_i_init_fail(rio_em_cfg_t *event,
+		rxs_event_cfg_reg_vals_t *regs, rio_em_notfn_ctl_t nfn)
 {
 	uint32_t rc = RIO_SUCCESS;
 
@@ -1294,12 +1266,9 @@ exit:
 	return rc;
 }
 
-static uint32_t rxs_set_event_cfg(
-		rxs_event_cfg_reg_vals_t	*regs,
-		rio_em_cfg_t			*event,
-		rio_em_notfn_ctl_t		nfn,
-		rio_port_t			port,
-		uint32_t			*imp_rc)
+static uint32_t rxs_set_event_cfg(rxs_event_cfg_reg_vals_t *regs,
+		rio_em_cfg_t *event, rio_em_notfn_ctl_t nfn, rio_port_t port,
+		uint32_t *imp_rc)
 {
 	uint32_t rc;
 
@@ -1362,14 +1331,13 @@ static uint32_t rxs_set_event_cfg(
 			goto fail;
 		}
 		break;
-	case rio_em_a_clr_pwpnd:
-		// Nothing to do..
-	case rio_em_a_no_event:
-		// Nothing to do..
-		break;
 
+	// Nothing to do..
+	case rio_em_a_clr_pwpnd:
+	case rio_em_a_no_event:
+	// Nothing to do, set this as a device event once
 	case rio_em_d_log:
-		// Nothing to do, set this as a device event once
+	case rio_em_i_init_fail:
 		break;
 
 	case rio_em_i_sig_det:
@@ -1386,10 +1354,6 @@ static uint32_t rxs_set_event_cfg(
 		if (RIO_SUCCESS != rc) {
 			goto fail;
 		}
-		break;
-
-	case rio_em_i_init_fail:
-		// Nothing to do, set this as a device event once
 		break;
 
 	default:
@@ -1580,7 +1544,7 @@ typedef struct rxs_rpt_ctl_regs_t_TAG {
 } rxs_rpt_ctl_regs_t;
 
 static uint32_t rxs_rio_em_dev_rpt_ctl_reg_read(DAR_DEV_INFO_t *dev_info,
-					rxs_rpt_ctl_regs_t *regs)
+		rxs_rpt_ctl_regs_t *regs)
 {
 	uint32_t rc;
 
@@ -1594,8 +1558,9 @@ fail:
 	return rc;
 
 }
+
 static uint32_t rxs_rio_em_dev_rpt_ctl_dev(DAR_DEV_INFO_t *dev_info,
-					rio_em_notfn_ctl_t notfn)
+		rio_em_notfn_ctl_t notfn)
 {
 	uint32_t rc;
 	rxs_rpt_ctl_regs_t regs;
@@ -1631,8 +1596,7 @@ fail:
 }
 
 static uint32_t rxs_rio_em_dev_rpt_ctl_port(DAR_DEV_INFO_t *dev_info,
-					rio_em_notfn_ctl_t notfn,
-					rio_port_t port)
+		rio_em_notfn_ctl_t notfn, rio_port_t port)
 {
 	uint32_t rc;
 	uint32_t int_en;
@@ -1880,8 +1844,7 @@ fail:
 
 uint32_t rxs_rio_em_get_int_stat_port(DAR_DEV_INFO_t *dev_info,
 		rio_em_get_int_stat_in_t *in_parms,
-		rio_em_get_int_stat_out_t *out_parms,
-		rio_port_t port)
+		rio_em_get_int_stat_out_t *out_parms, rio_port_t port)
 {
 	uint32_t plm_denial_ctl;
 	uint32_t spx_err_det;
@@ -2122,8 +2085,7 @@ fail:
 
 uint32_t rxs_rio_em_get_pw_stat_port(DAR_DEV_INFO_t *dev_info,
 		rio_em_get_pw_stat_in_t *in_parms,
-		rio_em_get_pw_stat_out_t *out_parms,
-		rio_port_t	port)
+		rio_em_get_pw_stat_out_t *out_parms, rio_port_t port)
 {
 	uint32_t rc;
 	uint32_t spx_err_det;
@@ -2276,6 +2238,7 @@ uint32_t rxs_rio_em_get_pw_stat_port(DAR_DEV_INFO_t *dev_info,
 fail:
 	return rc;
 }
+
 uint32_t get_dev_pw_status(DAR_DEV_INFO_t *dev_info,
 		rio_em_get_pw_stat_in_t *in_parms,
 		rio_em_get_pw_stat_out_t *out_parms)
@@ -2339,7 +2302,7 @@ uint32_t rxs_rio_em_get_pw_stat(DAR_DEV_INFO_t *dev_info,
 		rio_em_get_pw_stat_out_t *out_parms)
 {
 	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
-	DAR_ptl good_ptl;
+	struct DAR_ptl good_ptl;
 	unsigned int port_idx;
 	unsigned int pw_port_idx = RIO_ALL_PORTS;
 	rio_port_t port;
@@ -2411,14 +2374,11 @@ fail:
 // ptl.pnum[port] = NUM_RXS_PORTS when a port has events to be cleared
 // ptl.pnum[port] = port when a port has no events to be cleared
 
-static uint32_t rxs_clr_events_sort_events(
-		DAR_DEV_INFO_t		*dev_info,
-		rio_em_clr_events_in_t	*in_parms,
-		rio_em_clr_events_out_t	*out_parms,
-		DAR_ptl			*ptl,
-		uint32_t		*log_err_idx,
-		uint32_t		*init_err_idx,
-		rio_port_t		*pw_pt)
+static uint32_t rxs_clr_events_sort_events(DAR_DEV_INFO_t *dev_info,
+		rio_em_clr_events_in_t *in_parms,
+		rio_em_clr_events_out_t *out_parms, struct DAR_ptl *ptl,
+		uint32_t *log_err_idx, uint32_t *init_err_idx,
+		rio_port_t *pw_pt)
 {
 	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
 	unsigned int i;
@@ -2429,7 +2389,7 @@ static uint32_t rxs_clr_events_sort_events(
 	*init_err_idx = NO_EVENT_IDX;
 	*pw_pt = RIO_ALL_PORTS;
 
-	rc = DARrioGetPortList(dev_info, (DAR_ptl *)&ptl_all_ports, ptl);
+	rc = DARrioGetPortList(dev_info, (struct DAR_ptl *)&ptl_all_ports, ptl);
 	if (RIO_SUCCESS != rc) {
 		out_parms->imp_rc = EM_CLR_EVENTS(0x03);
 		goto fail;
@@ -2499,7 +2459,7 @@ fail:
 // Extracts ports which were reset or otherwise active from
 // a ptl produced by rxs_clr_events_sort_events.
 
-void copy_sorted_ports(DAR_ptl *new_ptl, DAR_ptl *sorted_ptl)
+static void copy_sorted_ports(struct DAR_ptl *new_ptl, struct DAR_ptl *sorted_ptl)
 {
 	unsigned int i;
 
@@ -2514,8 +2474,7 @@ void copy_sorted_ports(DAR_ptl *new_ptl, DAR_ptl *sorted_ptl)
 }
 
 static uint32_t rxs_clr_events_soft_reset(DAR_DEV_INFO_t *dev_info,
-		rio_em_clr_events_out_t *out_parms,
-		rio_port_t		port)
+		rio_em_clr_events_out_t *out_parms, rio_port_t port)
 {
 	uint32_t rc;
 	uint32_t plm_ctl, plm_ctl_rst;
@@ -2551,10 +2510,9 @@ fail:
 	return rc;
 }
 
-uint32_t rxs_clr_events_clr_port(DAR_DEV_INFO_t		*dev_info,
-				rio_em_clr_events_in_t	*in_parms,
-				rio_em_clr_events_out_t	*out_parms,
-				rio_port_t		port)
+uint32_t rxs_clr_events_clr_port(DAR_DEV_INFO_t *dev_info,
+		rio_em_clr_events_in_t *in_parms,
+		rio_em_clr_events_out_t *out_parms, rio_port_t port)
 {
 	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
 	uint32_t i;
@@ -2666,10 +2624,8 @@ fail:
 	return rc;
 }
 
-static uint32_t rxs_rio_em_clr_events_get_int_stat(
-		DAR_DEV_INFO_t		*dev_info,
-		rio_em_clr_events_out_t *out_parms,
-		DAR_ptl			*sorted_ptl)
+static uint32_t rxs_rio_em_clr_events_get_int_stat(DAR_DEV_INFO_t *dev_info,
+		rio_em_clr_events_out_t *out_parms, struct DAR_ptl *sorted_ptl)
 {
 	rio_em_get_int_stat_in_t in_i;
 	rio_em_get_int_stat_out_t out_i;
@@ -2703,8 +2659,7 @@ static uint32_t rxs_rio_em_clr_events_get_int_stat(
 }
 
 static uint32_t rxs_rio_em_clr_events_get_pw_stat(DAR_DEV_INFO_t *dev_info,
-		rio_em_clr_events_out_t *out_parms,
-		DAR_ptl			*sorted_ptl)
+		rio_em_clr_events_out_t *out_parms, struct DAR_ptl *sorted_ptl)
 {
 	rio_em_get_pw_stat_in_t in_p;
 	rio_em_get_pw_stat_out_t out_p;
@@ -2736,12 +2691,12 @@ static uint32_t rxs_rio_em_clr_events_get_pw_stat(DAR_DEV_INFO_t *dev_info,
 	return rc;
 }
 
-uint32_t rxs_rio_em_clr_events(DAR_DEV_INFO_t	*dev_info,
-		rio_em_clr_events_in_t		*in_parms,
-		rio_em_clr_events_out_t		*out_parms)
+uint32_t rxs_rio_em_clr_events(DAR_DEV_INFO_t *dev_info,
+		rio_em_clr_events_in_t *in_parms,
+		rio_em_clr_events_out_t *out_parms)
 {
 	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
-	DAR_ptl sorted_ptl;
+	struct DAR_ptl sorted_ptl;
 	uint32_t log_err_idx;
 	uint32_t init_err_idx;
 	rio_port_t pw_pt;
@@ -2955,12 +2910,12 @@ uint32_t rxs_rio_em_create_events(DAR_DEV_INFO_t *dev_info,
 			}
 			break;
 
+		// Nothing to do.
 		case rio_em_a_clr_pwpnd:
 		case rio_em_a_no_event:
-			// Nothing to do.
-			break;
-
 		case rio_em_d_log:
+		// Create this event at the end...
+		case rio_em_i_init_fail:
 			break;
 
 		case rio_em_i_sig_det:
@@ -2980,10 +2935,6 @@ uint32_t rxs_rio_em_create_events(DAR_DEV_INFO_t *dev_info,
 				out_parms->imp_rc = EM_CREATE_EVENTS(0x50);
 				goto fail;
 			}
-			break;
-
-		// Create this event at the end...
-		case rio_em_i_init_fail:
 			break;
 
 		default:
@@ -3019,7 +2970,7 @@ fail:
 	return rc;
 }
 
-#endif /* RXSx_DAR_WANTED */
+#endif /* RXS_DAR_WANTED */
 
 #ifdef __cplusplus
 }

@@ -80,16 +80,8 @@ struct worker wkr[MAX_WORKERS];
 
 void goodput_thread_shutdown(struct cli_env *UNUSED(env))
 {
-	int i;
-
-	for (i = 0; i < MAX_WORKERS; i++) {
-		shutdown_worker_thread(&wkr[i]);
-	}
-
-	if (mp_h_valid) {
-		riomp_mgmt_mport_destroy_handle(&mp_h);
-		mp_h_valid = 0;
-	}
+	printf("\nGoodput Evaluation Application EXITING!!!!\n");
+	exit(EXIT_SUCCESS);
 }
 
 int setup_mport(int mport_num)
@@ -115,10 +107,15 @@ int setup_mport(int mport_num)
 
 void sig_handler(int signo)
 {
-	printf("\nRx Signal %x\n", signo);
-	if ((signo == SIGINT) || (signo == SIGHUP) || (signo == SIGTERM)) {
-		printf("Shutting down\n");
+	switch (signo) {
+	case SIGINT:
+	case SIGHUP:
+	case SIGTERM:
+	case SIGUSR1:
 		goodput_thread_shutdown(NULL);
+		break;
+	default:
+		break;
 	}
 }
 
@@ -185,12 +182,6 @@ int main(int argc, char *argv[])
 
 	goodput_thread_shutdown(NULL);
 
-        if (mp_h_valid) {
-                riomp_mgmt_mport_destroy_handle(&mp_h);
-		mp_h_valid = 0;
-	}
-
-	printf("\nGoodput Evaluation Application EXITING!!!!\n");
 	exit(EXIT_SUCCESS);
 }
 
