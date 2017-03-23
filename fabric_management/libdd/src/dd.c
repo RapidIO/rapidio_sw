@@ -177,7 +177,7 @@ int fmd_dd_mtx_open_priv(char *dd_mtx_fn, int *dd_mtx_fd,
 		*dd_mtx_fd = shm_open(dd_mtx_fn, O_RDWR | O_CREAT | O_EXCL,
 				S_IRUSR | S_IWUSR | S_IXUSR |
 				S_IRGRP | S_IWGRP | S_IXGRP |
-				S_IROTH | S_IWOTH | S_IWOTH);
+				S_IROTH | S_IWOTH | S_IXOTH);
 		if (EEXIST == errno) {
 			CRIT(DEV_DB_FAIL, dd_mtx_fn);
 			goto fail;
