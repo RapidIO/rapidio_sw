@@ -338,6 +338,7 @@ static unsigned int dmatest_verify_buf_segment(uint8_t *buf, unsigned int start,
  * \param[in] counter   Cumulative 'offset' of the byte being examined (for error reporting)
  * \param[in] pattern   Expected pattern
  * \param[in] is_srcbuf Flag indicating if buffer is source buffer (for error reporting)
+ * \param[in] interleave parameters
  *
  * \return Count of the number of verification failures found.
  */
@@ -657,6 +658,8 @@ static void *dma_async_wait(void *arg)
  * \param[in] loop_count Number of write-read cycles to perform
  * \param[in] sync DMA transfer synchronization mode
  * \param[in] loc_addr Physical address in reserved memory range
+ * \param[in] clear_buf Clear destination buffers when true
+ * \param[in] interleave parameters
  *
  * \return 0 if successfull or error code returned by mport API.
  *
