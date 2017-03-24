@@ -81,10 +81,12 @@ static void init_rt(rio_rt_state_t *rt)
 
 	memset(rt, 0, sizeof(rio_rt_state_t));
 	rt->default_route = RIO_RTE_DROP;
+
 	for (k = 0; k < RIO_RT_GRP_SZ; k++) {
 		rt->dev_table[k].rte_val = RIO_RTE_DROP;
 		rt->dom_table[k].rte_val = RIO_RTE_DROP;
-	};
+	}
+
 	for (k = 0; k < RIO_MAX_MC_MASKS; k++) {
 		rt->mc_masks[k].mc_destID = (did_reg_t)0xFF;
 		rt->mc_masks[k].tt = tt_dev8;
@@ -96,9 +98,9 @@ static int init_cfg_ptr(char *dd_mtx_fn, char *dd_fn)
 	int i, j;
 
 	cfg = (struct int_cfg_parms *)calloc(1, sizeof(struct int_cfg_parms));
-
-	if (cfg == NULL)
+	if (NULL == cfg) {
 		return 1;
+	}
 	
 	cfg->mast_idx = CFG_SLAVE;
 	cfg->dd_mtx_fn = dd_mtx_fn;
@@ -139,8 +141,9 @@ static int init_cfg_ptr(char *dd_mtx_fn, char *dd_fn)
 		}
 		for (j = 0; j < CFG_DEVID_MAX; j++) {
 			init_rt(&cfg->sws[i].rt[j]);
-			for (int k = 0; k < CFG_MAX_SW_PORT; k++)
+			for (int k = 0; k < CFG_MAX_SW_PORT; k++) {
 				init_rt(&cfg->sws[i].ports[k].rt[j]);
+			}
 		}
 	}
 
@@ -162,14 +165,19 @@ static void strip_crlf(char *tok)
 {
 	char *temp = NULL;
 
-	if (NULL == tok)
+	if (NULL == tok) {
 		return;
+	}
+
 	temp = strchr(tok, '\n');
-	if (NULL != temp)
+	if (NULL != temp) {
 		temp[0] = '\0';
+	}
+
 	temp = strchr(tok, '\r');
-	if(NULL != temp)
+	if(NULL != temp) {
 		temp[0] = '\0';
+	}
 }
 
 const char *delim = " 	";
@@ -251,9 +259,9 @@ static int get_next_token(struct int_cfg_parms *cfg, char **token)
 	}
 
 	*token = try_get_next_token(cfg);
-
-	if (NULL == *token)
+	if (NULL == *token) {
 		parse_err(cfg, (char *)"Unexpected end of file.");
+	}
 
 	return (NULL == *token);
 }
@@ -268,6 +276,7 @@ static int get_devid_sz(struct int_cfg_parms *cfg, uint32_t *devID_sz)
 	if (cfg->init_err) {
 		goto fail;
 	}
+
 	if (get_next_token(cfg, &tok)) {
 		goto fail;
 	}
@@ -284,6 +293,7 @@ static int get_devid_sz(struct int_cfg_parms *cfg, uint32_t *devID_sz)
 	}
 
 	return 0;
+
 fail:
 	parse_err(cfg, (char *)"Premature EOF.");
 	return 1;
@@ -293,13 +303,15 @@ static int get_dec_int(struct int_cfg_parms *cfg, uint32_t *dec_int)
 {
 	char *tok = NULL;
 
-	if (cfg->init_err || get_next_token(cfg, &tok))
+	if (cfg->init_err || get_next_token(cfg, &tok)) {
 		goto fail;
+	}
 
 	if (tok_parse_ul(tok, dec_int, 10)) {
 		goto fail;
 	}
 	return 0;
+
 fail:
 	parse_err(cfg, (char *)"get_dec_int error.");
 	return 1;
@@ -309,13 +321,15 @@ static int get_hex_int(struct int_cfg_parms *cfg, uint32_t *hex_int)
 {
 	char *tok = NULL;
 
-	if (cfg->init_err || get_next_token(cfg, &tok))
+	if (cfg->init_err || get_next_token(cfg, &tok)) {
 		goto fail;
+	}
 
 	if (tok_parse_ul(tok, hex_int, 16)) {
 		goto fail;
 	}
 	return 0;
+
 fail:
 	parse_err(cfg, (char *)"get_hex_int error.");
 	return 1;
@@ -347,12 +361,16 @@ static int get_rt_v(struct int_cfg_parms *cfg, uint32_t *rt_val)
 	char *tok = NULL;
 	pe_rt_val val = 0;
 
-	if (get_next_token(cfg, &tok))
+	if (get_next_token(cfg, &tok)) {
 		goto fail;
+	}
+
 	switch (parm_idx(tok, (char *)"MC NEXT_BYTE DEFAULT DROP")) {
 	case 0: // MC
-		if (get_dec_int(cfg, &val))
+		if (get_dec_int(cfg, &val)) {
 			goto fail;
+		}
+
 		*rt_val = (val<RIO_MAX_MC_MASKS)?
 			(val + RIO_MAX_MC_MASKS):RIO_RTE_DROP;
 		if (RIO_RTE_DROP == *rt_val) {
@@ -422,8 +440,9 @@ static int find_ep_and_port(struct int_cfg_parms *cfg, char *tok,
 	*ep = NULL;
 
 	temp = strchr(tok, '.');
-	if (NULL == temp)
+	if (NULL == temp) {
 		goto fail;
+	}
 
 	if ('.' == temp[0]) {
 		temp[0] = '\0';
@@ -434,14 +453,16 @@ static int find_ep_and_port(struct int_cfg_parms *cfg, char *tok,
 		*port = (int)tmp;
 	}
 
-	if (find_ep_name(cfg, tok, ep))
+	if (find_ep_name(cfg, tok, ep)) {
 		goto fail;
+	}
 
 	if (!(*ep)->ports[*port].valid) {
 		parse_err(cfg, (char *)"Invalid port selected.");
 		goto fail;
 	}
 	return 0;
+
 fail:
 	return 1;
 }
@@ -510,6 +531,7 @@ static int get_ep_sw_and_port(struct int_cfg_parms *cfg, struct int_cfg_conn *co
 		return 0;
 	}
 	parse_err(cfg, (char *)"Unknown device.");
+
 fail:
 	return 1;
 }
@@ -520,12 +542,14 @@ static int cfg_get_destid(struct int_cfg_parms *cfg, did_val_t *did_val, uint32_
 	char *tok;
 	struct int_cfg_ep *ep;
 
-	if (get_next_token(cfg, &tok))
+	if (get_next_token(cfg, &tok)) {
 		goto fail;
+	}
 
 	if (find_ep_and_port(cfg, tok, &ep, &port)) {
-		if (cfg->init_err)
+		if (cfg->init_err) {
 			goto fail;
+		}
 		if (tok_parse_did(tok, did_val, 16)) {
 			goto fail;
 		}
@@ -539,6 +563,7 @@ static int cfg_get_destid(struct int_cfg_parms *cfg, did_val_t *did_val, uint32_
 	}
 	*did_val = ep->ports[port].devids[devid_sz].did_val;
 	return 0;
+
 fail:
 	parse_err(cfg, (char *)"cfg_get_destid error.");
 	return 1;
@@ -565,6 +590,7 @@ static int parse_mport_mem_size(struct int_cfg_parms *cfg, uint8_t *mem_sz)
 		goto fail;
 	}
 	return 0;
+
 fail:
 	parse_err(cfg, (char *)"parse_mport_mem_size error.");
 	return 1;
@@ -592,14 +618,19 @@ static int parse_ep_devids(struct int_cfg_parms *cfg, struct dev_id *devids)
 					goto fail;
 				}
 
-				if (get_hex_int(cfg, &devids[devid_sz].did_val))
+				if (get_hex_int(cfg, &devids[devid_sz].did_val)) {
 					goto fail;
-				if (get_dec_int(cfg, &tmp))
-					goto fail;
-				if (tmp > HC_MP)
-					goto fail;
-				devids[devid_sz].hc = (hc_t)tmp;
+				}
 
+				if (get_dec_int(cfg, &tmp)) {
+					goto fail;
+				}
+
+				if (tmp > HC_MP) {
+					goto fail;
+				}
+
+				devids[devid_sz].hc = (hc_t)tmp;
 				devids[devid_sz].valid = 1;
 				break;
 			case 3: // END
@@ -609,9 +640,8 @@ static int parse_ep_devids(struct int_cfg_parms *cfg, struct dev_id *devids)
 				goto fail;
 		}
 	}
-
-
 	return 0;
+
 fail:
 	parse_err(cfg, (char *)"parse_ep_devids error.");
 	return 1;
@@ -621,18 +651,27 @@ static int check_match (struct dev_id *mp_did, struct dev_id *ep_did,
 		struct int_mport_info *mpi, struct int_cfg_parms *cfg, 
 		struct int_cfg_ep *ep, int pnum)
 {
-	if (!mp_did->valid)
+	if (!mp_did->valid) {
 		goto exit;
-	if (!ep_did->valid)
+	}
+
+	if (!ep_did->valid) {
 		goto exit;
-	if (mp_did->did_val != ep_did->did_val)
+	}
+
+	if (mp_did->did_val != ep_did->did_val) {
 		goto exit;
-	if (mp_did->hc != ep_did->hc)
+	}
+
+	if (mp_did->hc != ep_did->hc) {
 		goto exit;
+	}
+
 	if (mpi->ep != NULL) {
 		parse_err(cfg, (char *)"Duplicate MPORT definitions");
 		goto fail;
 	}
+
 	mpi->ep = ep;
 	mpi->ep_pnum = pnum;
 	mpi->ct = ep->ports[mpi->ep_pnum].ct;
@@ -654,8 +693,9 @@ static int match_ep_to_mports(struct int_cfg_parms *cfg, struct int_cfg_ep_port 
 		mp_did = cfg->mport_info[mp_i].devids;
 		for (did_sz = 0; did_sz < CFG_DEVID_MAX; did_sz++) {
 			if (check_match( &mp_did[did_sz], &ep_did[did_sz],
-					&cfg->mport_info[mp_i], cfg, ep, pt_i))
+					&cfg->mport_info[mp_i], cfg, ep, pt_i)) {
 				return -1;
+			}
 		}
 	}
 	return 0;
@@ -701,10 +741,12 @@ static int parse_mport_info(struct int_cfg_parms *cfg)
 		goto fail;
 	}
 
-	if (parse_mport_mem_size(cfg, &cfg->mport_info[idx].mem_sz))
+	if (parse_mport_mem_size(cfg, &cfg->mport_info[idx].mem_sz)) {
 		goto fail;
+	}
 
 	return parse_ep_devids(cfg, cfg->mport_info[idx].devids);
+
 fail:
 	parse_err(cfg, (char *)"parse_mport_info error.");
 	return 1;
@@ -712,16 +754,19 @@ fail:
 
 static int parse_master_info(struct int_cfg_parms *cfg)
 {
-	if (get_devid_sz(cfg, &cfg->mast_did_sz))
+	if (get_devid_sz(cfg, &cfg->mast_did_sz)) {
 		goto fail;
+	}
 
-	if (get_hex_int(cfg, &cfg->mast_did_val))
+	if (get_hex_int(cfg, &cfg->mast_did_val)) {
 		goto fail;
+	}
 
-	if (get_dec_int(cfg, &cfg->mast_cm_port))
+	if (get_dec_int(cfg, &cfg->mast_cm_port)) {
 		goto fail;
-
+	}
 	return 0;
+
 fail:
 	parse_err(cfg, (char *)"parse_master_info error.");
 	return 1;
@@ -732,8 +777,10 @@ static int parse_mc_mask(struct int_cfg_parms *cfg, rio_rt_mc_info_t *mc_info)
 	uint32_t mc_mask_idx, done = 0, pnum;
 	char *tok = NULL;
 
-	if (get_dec_int(cfg, &mc_mask_idx))
+	if (get_dec_int(cfg, &mc_mask_idx)) {
 		goto fail;
+	}
+
 	if (mc_mask_idx >= RIO_MAX_MC_MASKS) {
 		parse_err(cfg, (char *)"Illegal multicast mask index.");
 		goto fail;
@@ -744,8 +791,10 @@ static int parse_mc_mask(struct int_cfg_parms *cfg, rio_rt_mc_info_t *mc_info)
 	mc_info[mc_mask_idx].mc_mask = 0;
 
 	while (!done) {
-		if (get_next_token(cfg, &tok))
+		if (get_next_token(cfg, &tok)) {
 			goto fail;
+		}
+
 		switch (parm_idx(tok, (char *)"END")) {
 		case 0: // END
 			done = 1;
@@ -759,10 +808,12 @@ static int parse_mc_mask(struct int_cfg_parms *cfg, rio_rt_mc_info_t *mc_info)
 			break;
 		}
 	}
+
 	mc_info[mc_mask_idx].in_use = 1;
 	mc_info[mc_mask_idx].allocd = 1;
 	mc_info[mc_mask_idx].changed = 1;
 	return 0;
+
 fail:
 	parse_err(cfg, (char *)"parse_mc_mask error.");
 	return 1;
@@ -790,8 +841,8 @@ static int get_lane_speed(struct int_cfg_parms *cfg, rio_pc_ls_t *ls)
 		parse_err(cfg, (char *)"Unknown lane speed.");
 		goto fail;
 	}
-
 	return 0;
+
 fail:
 	return 1;
 }
@@ -822,6 +873,7 @@ static int get_port_width(struct int_cfg_parms *cfg, rio_pc_pw_t *pw)
 		goto fail;
 	}
 	return 0;
+
 fail:
 	return 1;
 }
@@ -834,20 +886,28 @@ static int get_idle_seq(struct int_cfg_parms *cfg, int *idle)
 		goto fail;
 	}
 	return 0;
+
 fail:
 	return 1;
 }
 
 static int parse_rapidio(struct int_cfg_parms *cfg, struct int_cfg_rapidio *rio)
 {
-	if (get_port_width(cfg, &rio->max_pw))
+	if (get_port_width(cfg, &rio->max_pw)) {
 		goto fail;
-	if (get_port_width(cfg, &rio->op_pw))
+	}
+
+	if (get_port_width(cfg, &rio->op_pw)) {
 		goto fail;
-	if (get_lane_speed(cfg, &rio->ls))
+	}
+
+	if (get_lane_speed(cfg, &rio->ls)) {
 		goto fail;
-	if (get_idle_seq(cfg, &rio->idle2))
+	}
+
+	if (get_idle_seq(cfg, &rio->idle2)) {
 		goto fail;
+	}
 
 	switch (get_parm_idx(cfg, (char *)"EM_OFF EM_ON")) {
 	case 0: // "OFF" 
@@ -860,8 +920,8 @@ static int parse_rapidio(struct int_cfg_parms *cfg, struct int_cfg_rapidio *rio)
 		parse_err(cfg, (char *)"Unknown error management config.");
 		goto fail;
 	}
-
 	return 0;
+
 fail:
 	return 1;
 }
@@ -869,16 +929,24 @@ fail:
 static int parse_ep_port(struct int_cfg_parms *cfg, struct int_cfg_ep_port *prt)
 {
 
-	if (get_dec_int(cfg, &prt->port))
+	if (get_dec_int(cfg, &prt->port)) {
 		goto fail;
-	if (get_hex_int(cfg, &prt->ct))
+	}
+
+	if (get_hex_int(cfg, &prt->ct)) {
 		goto fail;
-	if (parse_rapidio(cfg, &prt->rio))
+	}
+
+	if (parse_rapidio(cfg, &prt->rio)) {
 		goto fail;
-	if (parse_ep_devids(cfg, prt->devids))
+	}
+
+	if (parse_ep_devids(cfg, prt->devids)) {
 		goto fail;
+	}
 	prt->valid = 1;
 	return 0;
+
 fail:
 	return 1;
 }
@@ -893,8 +961,9 @@ static int parse_endpoint(struct int_cfg_parms *cfg)
 		goto fail;
 	}
 
-	if (get_string(cfg, &cfg->eps[i].name))
+	if (get_string(cfg, &cfg->eps[i].name)) {
 		goto fail;
+	}
 
 	cfg->eps[i].port_cnt = 0;
 	while (!done && (cfg->eps[i].port_cnt < CFG_MAX_EP_PORT + 1)) {
@@ -906,12 +975,16 @@ static int parse_endpoint(struct int_cfg_parms *cfg)
 				parse_err(cfg, (char *)"Too many ports!");
 				goto fail;
 			}
-			if (parse_ep_port(cfg, &cfg->eps[i].ports[pt_i]))
+
+			if (parse_ep_port(cfg, &cfg->eps[i].ports[pt_i])) {
 				goto fail;
+			}
+
 			cfg->eps[i].port_cnt++;
 			if (match_ep_to_mports(cfg, &cfg->eps[i].ports[pt_i], 
-						pt_i, &cfg->eps[i]))
+						pt_i, &cfg->eps[i])) {
 				goto fail;
+			}
 			break;
 		case 1: // "PEND"
 			done = 1;
@@ -925,6 +998,7 @@ static int parse_endpoint(struct int_cfg_parms *cfg)
 	cfg->eps[i].valid = 1;
 	cfg->ep_cnt++;
 	return 0;
+
 fail:
 	return 1;
 }
@@ -966,6 +1040,7 @@ static int assign_rt_v(int rt_sz, did_val_t st_did_val, did_val_t end_did_val, p
 		goto fail;
 	}
 	return 0;
+
 fail:
 	return 1;
 }
@@ -975,16 +1050,19 @@ static int parse_sw_port(struct int_cfg_parms *cfg)
 	uint32_t idx = cfg->sw_cnt;
 	uint32_t port;
 
-	if (get_dec_int(cfg, &port))
+	if (get_dec_int(cfg, &port)) {
 		goto fail;
+	}
 
-	if (parse_rapidio(cfg, &cfg->sws[idx].ports[port].rio))
+	if (parse_rapidio(cfg, &cfg->sws[idx].ports[port].rio)) {
 		goto fail;
+	}
 
 	cfg->sws[idx].ports[port].valid = 1;
 	cfg->sws[idx].ports[port].port  = port;
 
 	return 0;
+
 fail:
 	return 1;
 }
@@ -1019,8 +1097,9 @@ static int parse_switch(struct int_cfg_parms *cfg)
 		goto fail;
 
 	cfg->sws[i].hc = tmp;
-	if (get_hex_int(cfg, &cfg->sws[i].ct))
+	if (get_hex_int(cfg, &cfg->sws[i].ct)) {
 		goto fail;
+	}
 
 	while (!done) {
 		switch(get_parm_idx(cfg, (char *)
@@ -1032,17 +1111,20 @@ static int parse_switch(struct int_cfg_parms *cfg)
 			break;
 		case 1: // ROUTING_TABLE
 			char *token;
+
 			rt_sz = get_parm_idx(cfg, (char *)DEVID_SZ_TOKENS);
 			if (rt_sz > 2) {
 				parse_err(cfg, (char *)"Unknown devID size.");
 				goto fail;
 			}
+
 			if (get_next_token(cfg, &token)) {
 				goto fail;
 			}
 
-			switch ( parm_idx(token, (char *)"GLOBAL")) {
-			case 0: rt = &cfg->sws[i].rt[rt_sz];
+			switch (parm_idx(token, (char *)"GLOBAL")) {
+			case 0:
+				rt = &cfg->sws[i].rt[rt_sz];
 				cfg->sws[i].rt_valid[rt_sz] = true;
 				break;
 			default:
@@ -1057,15 +1139,16 @@ static int parse_switch(struct int_cfg_parms *cfg)
 				cfg->sws[i].ports[port].rt_valid[rt_sz] = true;
 				if (cfg->sws[i].rt_valid[rt_sz]) {
 					memcpy(rt, &cfg->sws[i].rt[rt_sz],
-						sizeof(rio_rt_state_t));
+							sizeof(rio_rt_state_t));
 				}
 				break;
 			}
 				
 			break;
 		case 2: // DFLTPORT
-			if (get_rt_v(cfg, &rtv))
+			if (get_rt_v(cfg, &rtv)) {
 				goto fail;
+			}
 
 			// klocwork sees rt as null, but...
 			// rt is set whenever ROUTING_TABLE option (above) is hit
@@ -1079,6 +1162,7 @@ static int parse_switch(struct int_cfg_parms *cfg)
 			if (cfg_get_destid(cfg, &st_did_val, rt_sz)) {
 				goto fail;
 			}
+
 			if (get_rt_v(cfg, &rtv)) {
 				goto fail;
 			}
@@ -1094,6 +1178,7 @@ static int parse_switch(struct int_cfg_parms *cfg)
 				parse_err(cfg, (char *)"DESTID: rt not set.");
 				goto fail;
 			}
+
 			if (assign_rt_v(rt_sz, st_did_val, st_did_val, rtv, rt, cfg)) {
 				parse_err(cfg, (char *)"Illegal destID/rtv.");
 				goto fail;
@@ -1103,9 +1188,11 @@ static int parse_switch(struct int_cfg_parms *cfg)
 			if (cfg_get_destid(cfg, &st_did_val, rt_sz)) {
 				goto fail;
 			}
+
 			if (cfg_get_destid(cfg, &end_did_val, rt_sz)) {
 				goto fail;
 			}
+
 			if (get_rt_v(cfg, &rtv)) {
 				goto fail;
 			}
@@ -1115,6 +1202,7 @@ static int parse_switch(struct int_cfg_parms *cfg)
 				parse_err(cfg, (char *)"rt not set.");
 				goto fail;
 			}
+
 			if (assign_rt_v(rt_sz, st_did_val, end_did_val, rtv, rt, cfg)) {
 				parse_err(cfg, (char *)"RANGE: Illegal destID/rtv.");
 				goto fail;
@@ -1143,6 +1231,7 @@ static int parse_switch(struct int_cfg_parms *cfg)
 	cfg->sws[i].valid = 1;
 	cfg->sw_cnt++;
 	return 0;
+
 fail:
 	return 1;
 }
@@ -1155,10 +1244,15 @@ static int parse_connect(struct int_cfg_parms *cfg)
 		parse_err(cfg, (char *)"Too many connections.");
 		goto fail;
 	}
-	if (get_ep_sw_and_port(cfg, &cfg->cons[idx], 0))
+
+	if (get_ep_sw_and_port(cfg, &cfg->cons[idx], 0)) {
 		goto fail;
-	if (get_ep_sw_and_port(cfg, &cfg->cons[idx], 1))
+	}
+
+	if (get_ep_sw_and_port(cfg, &cfg->cons[idx], 1)) {
 		goto fail;
+	}
+
 	cfg->conn_cnt++;
 	cfg->cons[idx].valid = 1;
 
@@ -1181,16 +1275,22 @@ static int fmd_parse_cfg(struct int_cfg_parms *cfg)
 			flush_comment(tok);
 			break;
 		case 1: // "DEV_DIR"
-			if (get_next_token(cfg, &tok))
+			if (get_next_token(cfg, &tok)) {
 				break;
-			if (get_v_str(&cfg->dd_fn, tok, 1))
+			}
+
+			if (get_v_str(&cfg->dd_fn, tok, 1)) {
 				parse_err(cfg, (char *)"Bad directory name.");
+			}
 			break;
 		case 2: // "DEV_DIR_MTX"
-			if (get_next_token(cfg, &tok))
+			if (get_next_token(cfg, &tok)) {
 				break;
-			if (get_v_str(&cfg->dd_mtx_fn, tok, 1))
+			}
+
+			if (get_v_str(&cfg->dd_mtx_fn, tok, 1)) {
 				parse_err(cfg, (char *)"Bad directory name.");
+			}
 			break;
 		case 3: // "MPORT"
 			parse_mport_info(cfg);
@@ -1220,6 +1320,7 @@ static int fmd_parse_cfg(struct int_cfg_parms *cfg)
 		}
 		tok = try_get_next_token(cfg);
 	}
+
 exit:
 	free(line);
 	line = NULL;
@@ -1244,8 +1345,9 @@ int cfg_parse_file(char *cfg_fn, char **dd_mtx_fn, char **dd_fn,
 	struct int_cfg_ep_port port;
 	struct int_cfg_sw sw;
 
-	if (init_cfg_ptr(*dd_mtx_fn, *dd_fn))
+	if (init_cfg_ptr(*dd_mtx_fn, *dd_fn)) {
 		goto fail;
+	}
 
 	INFO("\nCFG: Opening configuration file \"%s\"...\n", cfg_fn);
 	cfg_fd = fopen(cfg_fn, "r");
@@ -1349,6 +1451,7 @@ int cfg_parse_file(char *cfg_fn, char **dd_mtx_fn, char **dd_fn,
 	*m_mode = !(CFG_SLAVE == cfg->mast_idx);
 
 	return 0;
+
 fail:
 	return 1;
 }
@@ -1364,7 +1467,6 @@ struct int_cfg_sw *find_cfg_sw_by_ct(ct_t ct, struct int_cfg_parms *cfg)
 			break;
 		}
 	}
-
 	return ret;
 }
 
@@ -1374,11 +1476,13 @@ struct int_cfg_ep *find_cfg_ep_by_ct(ct_t ct, struct int_cfg_parms *cfg)
 	uint32_t i, p;
 
 	for (i = 0; (i < cfg->ep_cnt) && (NULL == ret); i++) {
-		if (!cfg->eps[i].valid)
+		if (!cfg->eps[i].valid) {
 			continue;
+		}
 		for (p = 0; (p < CFG_MAX_EP_PORT) && (NULL == ret); p++) {
-			if (!cfg->eps[i].ports[p].valid)
+			if (!cfg->eps[i].ports[p].valid) {
 				continue;
+			}
 			if (cfg->eps[i].ports[p].ct == ct) {
 				ret = &cfg->eps[i];
 				break;
@@ -1387,8 +1491,9 @@ struct int_cfg_ep *find_cfg_ep_by_ct(ct_t ct, struct int_cfg_parms *cfg)
 	}
 
 	for (i = 0; (i < cfg->max_mport_info_idx) && (NULL == ret); i++) {
-		if (cfg->mport_info[i].ct == ct)
+		if (cfg->mport_info[i].ct == ct) {
 			ret = cfg->mport_info[i].ep;
+		}
 	}
 
 	return ret;
@@ -1399,8 +1504,9 @@ int cfg_find_mport(uint32_t mport, struct cfg_mport_info *mp)
 	unsigned int i;
 
 	for (i = 0; i < cfg->max_mport_info_idx; i++) {
-		if (mport != cfg->mport_info[i].num)
+		if (mport != cfg->mport_info[i].num) {
 			continue;
+		}
 
 		mp->num = cfg->mport_info[i].num;
 		mp->ct = cfg->mport_info[i].ct;
@@ -1416,8 +1522,9 @@ int cfg_get_mp_mem_sz(uint32_t mport, uint8_t *mem_sz)
 	unsigned int i;
 
 	for (i = 0; i < cfg->max_mport_info_idx; i++) {
-		if (mport != cfg->mport_info[i].num)
+		if (mport != cfg->mport_info[i].num) {
 			continue;
+		}
 
 		*mem_sz = cfg->mport_info[i].mem_sz;
 		return 0;
@@ -1427,8 +1534,9 @@ int cfg_get_mp_mem_sz(uint32_t mport, uint8_t *mem_sz)
 
 static int fill_in_dev_from_ep(struct cfg_dev *dev, struct int_cfg_ep *ep)
 {
-	if (!ep->ports[0].valid)
+	if (!ep->ports[0].valid) {
 		goto fail;
+	}
 
 	memset(dev, 0, sizeof(struct cfg_dev));
 	dev->name = ep->name;
@@ -1441,6 +1549,7 @@ static int fill_in_dev_from_ep(struct cfg_dev *dev, struct int_cfg_ep *ep)
 		sizeof(dev->ep_pt.devids));
 
 	return 0;
+
 fail:
 	return 1;
 }
@@ -1455,28 +1564,29 @@ static int fill_in_dev_from_sw(struct cfg_dev *dev, struct int_cfg_sw *sw)
 	dev->ct = sw->ct;
 	dev->is_sw = 1;
 	dev->sw_info.num_ports = CFG_MAX_SW_PORT;
+
 	for (i = 0; i < CFG_MAX_SW_PORT; i++) {
-		dev->sw_info.sw_pt[i].valid =
-			sw->ports[i].valid;
-		dev->sw_info.sw_pt[i].port =
-			sw->ports[i].port;
-		dev->sw_info.sw_pt[i].op_pw =
-			sw->ports[i].rio.op_pw;
-		dev->sw_info.sw_pt[i].ls =
-			sw->ports[i].rio.ls;
+		dev->sw_info.sw_pt[i].valid = sw->ports[i].valid;
+		dev->sw_info.sw_pt[i].port = sw->ports[i].port;
+		dev->sw_info.sw_pt[i].op_pw = sw->ports[i].rio.op_pw;
+		dev->sw_info.sw_pt[i].ls = sw->ports[i].rio.ls;
+
 		for (int sz = 0; sz < CFG_DEVID_MAX; sz++) {
-			if (sw->ports[i].rt_valid[sz])
+			if (sw->ports[i].rt_valid[sz]) {
 				dev->sw_info.sw_pt[i].rt[sz] =
 					&sw->ports[i].rt[sz];
-			else
+			} else {
 				dev->sw_info.sw_pt[i].rt[sz] = NULL;
+			}
 		}
 	}
+
 	for (int sz = 0; sz < CFG_DEVID_MAX; sz++) {
-		if (sw->rt_valid[sz])
+		if (sw->rt_valid[sz]) {
 			dev->sw_info.rt[sz] = &sw->rt[sz];
-		else
+		} else {
 			dev->sw_info.rt[sz] = NULL;
+		}
 	}
 
 	return 0;
@@ -1488,12 +1598,14 @@ int cfg_find_dev_by_ct(ct_t ct, struct cfg_dev *dev)
 	struct int_cfg_sw *sw = NULL;
 
 	ep = find_cfg_ep_by_ct(ct, cfg);
-	if (NULL != ep)
+	if (NULL != ep) {
 		return fill_in_dev_from_ep(dev, ep);
+	}
 
 	sw = find_cfg_sw_by_ct(ct, cfg);
-	if (NULL != sw)
+	if (NULL != sw) {
 		return fill_in_dev_from_sw(dev, sw);
+	}
 
 	return 1;
 }
@@ -1508,8 +1620,9 @@ int cfg_get_conn_dev(ct_t ct, int pt,
 	ep = find_cfg_ep_by_ct(ct, cfg);
 
 	if (NULL != ep) {
-		if (pt)
+		if (pt) {
 			goto fail;
+		}
 		conn = ep->ports[0].conn;
 		conn_end = ep->ports[0].conn_end;
 	}
@@ -1519,36 +1632,44 @@ int cfg_get_conn_dev(ct_t ct, int pt,
 
 		sw = find_cfg_sw_by_ct(ct, cfg);
 		if (NULL != sw) {
-			if (pt >= CFG_MAX_SW_PORT)
+			if (pt >= CFG_MAX_SW_PORT) {
 				goto fail;
-			if (!sw->ports[pt].valid)
+			}
+
+			if (!sw->ports[pt].valid) {
 				goto fail;
-			if (sw->ports[pt].port != pt)
+			}
+
+			if (sw->ports[pt].port != pt) {
 				goto fail;
+			}
 			conn = sw->ports[pt].conn;
 			conn_end = sw->ports[pt].conn_end;
 		}
 	}
 
-	if (NULL == conn)
+	if (NULL == conn) {
 		goto fail;
+	}
 
-	if (!conn->valid)
+	if (!conn->valid) {
 		goto fail;
+	}
 
 	oe = OTHER_END(conn_end);
-	if ((conn_end > 1) || (oe > 1))
+	if ((conn_end > 1) || (oe > 1)) {
 		goto fail;
+	}
 
 	*conn_pt = conn->ends[oe].port_num;
-	if (conn->ends[oe].ep)
+	if (conn->ends[oe].ep) {
 		return fill_in_dev_from_ep(dev, conn->ends[oe].ep_h);
-	else
+	} else {
 		return fill_in_dev_from_sw(dev, conn->ends[oe].sw_h);
+	}
 
 fail:
 	return 1;
-	
 }
 
 bool cfg_auto(void)
