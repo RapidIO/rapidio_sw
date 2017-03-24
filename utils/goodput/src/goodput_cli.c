@@ -232,6 +232,7 @@ static int KillCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 	for (i = st_idx; i <= end_idx; i++) {
 		shutdown_worker_thread(&wkr[i]);
 	}
+
 exit:
 	return 0;
 }
@@ -298,6 +299,7 @@ static int MoveCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 	wkr[idx].wkr_thr.cpu_req = cpu;
 	wkr[idx].stop_req = 0;
 	sem_post(&wkr[idx].run);
+
 exit:
 	return 0;
 }
@@ -488,6 +490,7 @@ static int IBDeallocCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 	wkr[idx].action = free_ibwin;
 	wkr[idx].stop_req = 0;
 	sem_post(&wkr[idx].run);
+
 exit:
 	return 0;
 }
@@ -662,7 +665,7 @@ static int cpu_occ_set(uint64_t *tot_jifis, uint64_t *proc_kern_jifis,
 
 	*tot_jifis = p_user + p_nice + p_system + p_idle +
 			p_iowait + p_irq + p_softirq;
-	
+
 exit:
 	if (stat_fp != NULL) {
 		fclose(stat_fp);
@@ -837,6 +840,7 @@ static int obdio_cmd(struct cli_env *env, int UNUSED(argc), char **argv,
 
 	wkr[idx].stop_req = 0;
 	sem_post(&wkr[idx].run);
+
 exit:
 	return 0;
 }
@@ -1160,7 +1164,7 @@ struct cli_cmd dmaNum = {
 3,
 10,
 "Send a specified number of DMA reads/writes",
-"<idx> <did> <rio_addr> <bytes> <acc_sz> <wr> <kbuf> <trans> <sync> <num>\n"
+"dnum <idx> <did> <rio_addr> <bytes> <acc_sz> <wr> <kbuf> <trans> <sync> <num>\n"
 	"<idx>      is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
 	"<did>      target device ID\n"
 	"<rio_addr> RapidIO memory address to access\n"
@@ -1883,6 +1887,7 @@ static int DumpCmd(struct cli_env *env, int argc, char **argv)
 			(uint8_t *)wkr[idx].ib_ptr + base_offset + offset));
 	}
 	LOGMSG(env, "\n");
+
 exit:
 	return 0;
 }
@@ -1950,6 +1955,7 @@ static int FillCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 		*(volatile uint8_t * volatile)
 		((uint8_t *)wkr[idx].ib_ptr + base_offset + offset) = data;
 	}
+
 exit:
 	return 0;
 }
@@ -2032,7 +2038,9 @@ static int MpdevsCmd(struct cli_env *env, int UNUSED(argc), char **UNUSED(argv))
 		LOGMSG(env, "ERR: riodp_ep_free_list() ERR %d: %s\n", ret,
 				strerror(ret));
 	}
-	exit: return 0;
+
+exit:
+	return 0;
 }
 
 struct cli_cmd Mpdevs = {
@@ -2196,6 +2204,7 @@ static int UTimeCmd(struct cli_env *env, int argc, char **argv)
 	default:
 		LOGMSG(env, "FAILED: <cmd> not 's','p' or 'l'\n");
 	}
+
 exit:
 	return 0;
 }
