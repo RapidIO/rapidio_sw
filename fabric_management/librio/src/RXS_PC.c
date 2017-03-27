@@ -893,7 +893,7 @@ int32_t rxs_pc_set_cfg_compute_changes(
 		rio_pc_set_regs_t *chg,
 		uint32_t *imp_rc)
 {
-	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+	uint32_t rc;
 	rio_port_t port;
 	rio_port_t pt;
 	unsigned int ln;
@@ -1240,7 +1240,7 @@ uint32_t rxs_pc_set_cfg_halt_traffic(DAR_DEV_INFO_t *dev_info,
 {
 	uint32_t rc;
 	rio_port_t pt;
-	uint32_t attempts = 1000;
+	uint32_t attempts;
 	bool clear;
 
 	chg->regs[port].rt_en_temp = 0;
