@@ -631,8 +631,7 @@ uint32_t tsi721_rio_pc_get_config(DAR_DEV_INFO_t *dev_info,
 						== (TSI721_SP_CTL_INP_EN
 								| TSI721_SP_CTL_OTP_EN));
 
-		// Check for lane swapping & inversion
-		// FIXME!!! INVERSION NOT SUPPORTED
+		// Check for lane swapping
 		rc = DARRegRead(dev_info, TSI721_PLM_IMP_SPEC_CTL, &plmCtl);
 		if (RIO_SUCCESS != rc) {
 			out_parms->imp_rc = PC_GET_CONFIG(0x20);
@@ -1130,45 +1129,10 @@ uint32_t tsi721_rio_pc_clr_errs(DAR_DEV_INFO_t *dev_info,
 		goto exit;
 	}
 
+	// Clearing link partner port errors is not supported.
 	if (in_parms->clr_lp_port_err) {
-		// FIXME: THIS SECTION HAS NOT BEEN UPDATED, AND MAY NOT WORK...
-		/* Update the link partners ackID status register to match that of
-		 the Tsi57x.
-		 Increment the expected inbound ackID to reflect the reception of
-		 the maintenance write packet.
-		 Link partners inbound value should be our outbound value, plus 1.
-		 Link partners outbound value should be our inbound value.
-		 */
-		/*  lresp = ( ackid_stat + 1 ) & TSI721_SP_ACKID_STAT_OUTB_ACKID;
-		 ackid_stat = (ackid_stat & TSI578_SPX_ACKID_STAT_INBOUND) >> 24;
-		 ackid_stat |= (ackid_stat << 8) | (lresp << 24);
-
-		 for (port_idx = 0; port_idx < in_parms->num_lp_ports; port_idx++)
-		 {
-		 lp_port_num = in_parms->lp_port_list[port_idx];
-		 rc = DARRegWrite( in_parms->lp_dev_info, RIO_SPX_ACKID_ST(in_parms->lp_dev_info->extFPtrForPort, lp_port_num),
-		 ackid_stat );
-		 if (RIO_SUCCESS != rc)
-		 {
-		 // The write can fail because the incorrect port was selected.
-		 //    Call ourselves to clear errors on the local port, and then
-		 //    try the next link partner port.
-		 rio_pc_clr_errs_in_t  temp_in;
-		 rio_pc_clr_errs_out_t temp_out;
-		 uint32_t                temp_rc;
-
-		 memcpy(&temp_in, &in_parms, sizeof(rio_pc_clr_errs_in_t));
-		 temp_in.clr_lp_port_err = false;
-
-		 temp_rc = tsi721_rio_pc_clr_errs( dev_info, &temp_in, &temp_out );
-		 if (RIO_SUCCESS != temp_rc)
-		 {
-		 rc = temp_rc;
-		 out_parms->imp_rc = PC_CLR_ERRS(0x16);
-		 goto exit;
-		 }
-		 }
-		 } */
+		out_parms->imp_rc = PC_CLR_ERRS(0x15);
+		goto exit;
 	}
 
 	// Lastly, clear physical layer error status indications for the port.
