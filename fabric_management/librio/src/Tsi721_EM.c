@@ -589,9 +589,6 @@ static uint32_t tsi721_set_event_cfg_rio_em_f_los(
 
 	regs->plm_imp_spec_ctl &= ~TSI721_PLM_IMP_SPEC_CTL_DLT_THRESH;
 	if (rio_em_detect_on == event->em_detect) {
-		// TODO: Could have a more exact figure than 1000
-		// based on link speed/prescaler value
-		//
 		// Round up to ensure delay is at least as long as
 		// what was requested.
 		uint32_t time = (event->em_info + (256 * 1000) - 1)
