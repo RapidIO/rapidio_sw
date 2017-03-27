@@ -31,6 +31,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 
+#define __STDC_LIMIT_MACROS
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
