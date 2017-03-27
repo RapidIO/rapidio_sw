@@ -861,7 +861,12 @@ static uint32_t tsi57x_set_config_init_parms_check_conflict(
 		rio_pc_set_config_out_t *out_parms)
 {
 	uint32_t rc;
-	uint8_t port_num, pnum, port_idx, lane_num;
+	uint8_t port_num;
+	uint8_t pnum;
+	uint8_t port_idx;
+	uint8_t lane_num;
+	bool check;
+	bool check2;
 
 	// Have to read all of the lane registers to know if they have changed or not.
 
@@ -957,6 +962,7 @@ static uint32_t tsi57x_set_config_init_parms_check_conflict(
 										0x34);
 						goto exit;
 					}
+
 					// Check that if the 4x port is powered down (not on a Tsi577), then the 1x port is either
 					// not available or powered down or both.
 					if (!in_parms_sorted->pc[port_num].powered_up
@@ -971,6 +977,7 @@ static uint32_t tsi57x_set_config_init_parms_check_conflict(
 										0x35);
 						goto exit;
 					}
+
 					// Check that the lane speeds of the ports on the same quad are all the same.
 					if (in_parms_sorted->pc[port_num].port_available
 							&& in_parms_sorted->pc[pnum].port_available
@@ -980,12 +987,15 @@ static uint32_t tsi57x_set_config_init_parms_check_conflict(
 						out_parms->imp_rc = PC_SET_CONFIG(0x36);
 						goto exit;
 					}
+
 					// Tsi57x family does not support lane swapping for downgraded 4x ports
-					if (((rio_pc_pw_1x == in_parms_sorted->pc[port_num].pw)
-							|| (rio_pc_pw_1x_l0 == in_parms_sorted->pc[port_num].pw)
-							|| (rio_pc_pw_1x_l2 == in_parms_sorted->pc[port_num].pw))
-							&& ((rio_lswap_none != in_parms_sorted->pc[port_num].tx_lswap)
-							|| (rio_lswap_none != in_parms_sorted->pc[port_num].rx_lswap))) {
+					check = (rio_pc_pw_1x == in_parms_sorted->pc[port_num].pw);
+					check |= (rio_pc_pw_1x_l0 == in_parms_sorted->pc[port_num].pw);
+					check |= (rio_pc_pw_1x_l2 == in_parms_sorted->pc[port_num].pw);
+
+					check2 = (rio_lswap_none != in_parms_sorted->pc[port_num].tx_lswap);
+					check2 |= (rio_lswap_none != in_parms_sorted->pc[port_num].rx_lswap);
+					if (check && check2) {
 						rc = RIO_ERR_FEATURE_NOT_SUPPORTED;
 						out_parms->imp_rc = PC_SET_CONFIG(0x37);
 						goto exit;

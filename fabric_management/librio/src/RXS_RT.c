@@ -1138,14 +1138,19 @@ uint32_t rxs_rio_rt_change_mc_mask(DAR_DEV_INFO_t *dev_info,
 		goto exit;
 	}
 
-	// Check destination ID value against tt, and that the multicast mask
-	// does not select ports which do not exist on the RXS device.
+	// Check destination ID value against tt
 	if ((in_parms->mc_info.mc_destID > RIO_LAST_DEV16)
 			|| ((in_parms->mc_info.mc_destID > RIO_LAST_DEV8)
-					&& (tt_dev8 == in_parms->mc_info.tt))
-			|| (in_parms->mc_info.mc_mask & illegal_ports)
-			|| (in_parms->mc_info.tt > tt_dev16)) {
+					&& (tt_dev8 == in_parms->mc_info.tt))) {
 		out_parms->imp_rc = CHANGE_MC_MASK(2);
+		goto exit;
+	}
+
+	// Check that the multicast mask does not select ports which do not exist
+	// on the RXS device
+	if ((in_parms->mc_info.mc_mask & illegal_ports)
+			|| (in_parms->mc_info.tt > tt_dev16)) {
+		out_parms->imp_rc = CHANGE_MC_MASK(3);
 		goto exit;
 	}
 
@@ -1169,7 +1174,7 @@ uint32_t rxs_rio_rt_change_mc_mask(DAR_DEV_INFO_t *dev_info,
 
 	if (chg_idx >= RXS2448_MC_MASK_CNT) {
 		rc = RIO_ERR_INVALID_PARAMETER;
-		out_parms->imp_rc = CHANGE_MC_MASK(3);
+		out_parms->imp_rc = CHANGE_MC_MASK(4);
 		goto exit;
 	}
 

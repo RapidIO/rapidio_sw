@@ -46,6 +46,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <string.h>
+#include <stdbool.h>
 
 #include "RapidIO_Utilities_API.h"
 
@@ -1284,6 +1285,7 @@ uint32_t DAR_pkt_fields_to_bytes(DAR_pkt_fields_t *fields_in,
 
 	uint32_t i;
 	bool add_data = true;
+	bool check;
 	uint32_t data_align, data_repeat;
 	uint32_t wdptr, rdsize, wrsize, data_bytes, repeat_data_bytes = 1;
 	uint32_t addr_rc;
@@ -1374,10 +1376,10 @@ uint32_t DAR_pkt_fields_to_bytes(DAR_pkt_fields_t *fields_in,
 
 			DAR_util_get_rdsize_wdptr(fields_in->log_rw.addr[0],
 					fields_in->pkt_bytes, &rdsize, &wdptr);
-			if ((BAD_SIZE == rdsize)
-					|| ((trans_type > 4) && (!fields_in->pkt_bytes
-						|| (fields_in->pkt_bytes > 4)
-						|| (3 == fields_in->pkt_bytes)))) {
+			check = !fields_in->pkt_bytes
+					|| (fields_in->pkt_bytes > 4)
+					|| (3 == fields_in->pkt_bytes);
+			if ((BAD_SIZE == rdsize) || ((trans_type > 4) && check)) {
 				return DAR_UTIL_INVALID_RDSIZE;
 			} else {
 				bytes_out->pkt_data[bytes_out->num_chars++] =
@@ -1400,11 +1402,11 @@ uint32_t DAR_pkt_fields_to_bytes(DAR_pkt_fields_t *fields_in,
 			/* Add Packet Transaction Type and Size */
 
 			data_bytes = fields_in->pkt_bytes;
-
-			if (((pkt_nw_swap == fields_in->pkt_type)
-					|| (pkt_nw_cmp_swap == fields_in->pkt_type)
-					|| (pkt_nw_tst_swap == fields_in->pkt_type))
-					&& ((3 == fields_in->pkt_bytes) || (fields_in->pkt_bytes > 4))) {
+			check = (pkt_nw_swap == fields_in->pkt_type);
+			check |= (pkt_nw_cmp_swap == fields_in->pkt_type);
+			check |= (pkt_nw_tst_swap == fields_in->pkt_type);
+			if (check && ((3 == fields_in->pkt_bytes)
+					|| (fields_in->pkt_bytes > 4))) {
 				return DAR_UTIL_INVALID_RDSIZE;
 			}
 

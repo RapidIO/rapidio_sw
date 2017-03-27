@@ -33,6 +33,7 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include <stdbool.h>
 
 #include "RapidIO_Device_Access_Routines_API.h"
 #include "RapidIO_Statistics_Counter_API.h"
@@ -59,6 +60,7 @@ uint32_t rio_sc_cfg_tsi57x_ctr(DAR_DEV_INFO_t *dev_info,
 	uint8_t p_to_i[TSI578_MAX_PORTS] = {TSI578_MAX_PORTS};
 	uint8_t srch_i, srch_p, port_num;
 	bool found;
+	bool check;
 	struct DAR_ptl good_ptl;
 
 	out_parms->imp_rc = RIO_SUCCESS;
@@ -101,16 +103,12 @@ uint32_t rio_sc_cfg_tsi57x_ctr(DAR_DEV_INFO_t *dev_info,
 		new_ctl = ((uint32_t)(in_parms->prio_mask) << 12) & PRIO_MASK;
 		// It is a programming error to have an empty priority mask when counting
 		// packets or packet data...
-		if (!new_ctl
-				&& ((rio_sc_uc_req_pkts == in_parms->ctr_type)
-						|| (rio_sc_uc_pkts
-								== in_parms->ctr_type)
-						|| (rio_sc_uc_4b_data
-								== in_parms->ctr_type)
-						|| (rio_sc_mc_pkts
-								== in_parms->ctr_type)
-						|| (rio_sc_mc_4b_data
-								== in_parms->ctr_type))) {
+		check = (rio_sc_uc_req_pkts == in_parms->ctr_type);
+		check |= (rio_sc_uc_pkts == in_parms->ctr_type);
+		check |= (rio_sc_uc_4b_data == in_parms->ctr_type);
+		check |= (rio_sc_mc_pkts == in_parms->ctr_type);
+		check |= (rio_sc_mc_4b_data == in_parms->ctr_type);
+		if (!new_ctl && check) {
 			out_parms->imp_rc = SC_CFG_TSI57X_CTR(0x20);
 			goto exit;
 		}
