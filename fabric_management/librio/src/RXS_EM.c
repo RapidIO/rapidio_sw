@@ -2585,10 +2585,6 @@ uint32_t rxs_clr_events_clr_port(DAR_DEV_INFO_t *dev_info,
 
 		// Initialization failures are for a device, not a port.
 		// Report the error.
-		//
-		// TODO: When port configurations support is available, an
-		// initialization failure against a port is possible.
-		// Clean it up.
 
 		case rio_em_i_init_fail:
 			goto fail;
