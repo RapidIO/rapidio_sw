@@ -257,7 +257,6 @@ int main(int argc, char** argv)
 		printf("Using default configuration\n\n");
 	}
 
-	// TODO - Change to generic register formula, not constant 0x13c
 	err = riomp_mgmt_lcfg_read(mport_hnd, 0x13c, sizeof(uint32_t), &regval);
 	if (err) {
 		printf("Failed to read from PORT_GEN_CTL_CSR, err=%d\n", err);
