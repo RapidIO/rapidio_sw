@@ -66,6 +66,9 @@ extern "C" {
 #define RXS_ALL_LOG_ERRS (RXS_ERR_EN_ILL_TYPE_EN | \
 			RXS_ERR_EN_UNS_RSP_EN | \
 			RXS_ERR_DET_ILL_ID)
+#ifndef UINT32_MAX
+#define UINT32_MAX 0xFFFFFFFF
+#endif
 
 uint32_t rxs_rio_em_cfg_pw(DAR_DEV_INFO_t *dev_info,
 		rio_em_cfg_pw_in_t *in_parms, rio_em_cfg_pw_out_t *out_parms)
