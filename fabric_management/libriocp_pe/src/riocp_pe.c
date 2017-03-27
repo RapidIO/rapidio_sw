@@ -629,8 +629,6 @@ int RIOCP_SO_ATTR riocp_pe_probe(riocp_pe_handle pe,
 	ret = riocp_drv_raw_reg_rd(temp_p, DID_ANY_DEV8_ID, hopcount,
 					RIO_COMPTAG, &comptag);
 	if (ret) {
-		/* TODO try second time when failed, the DID_ANY_DEV8_ID route seems to be programmed correctly
-			at this point but the route was not working previous read */
 		RIOCP_WARN("Trying reading again component tag on h: %u\n", hopcount);
 		ret = riocp_drv_raw_reg_rd(temp_p, DID_ANY_DEV8_ID, hopcount,
 					RIO_COMPTAG, &comptag);
@@ -984,12 +982,6 @@ int RIOCP_SO_ATTR riocp_pe_get_ports(riocp_pe_handle pe, struct riocp_pe_port po
 	if (riocp_pe_handle_check(pe))
 		return -EINVAL;
 
-	/** @todo the local mport speed/port state/lane width is read from the first switch currently
-		the MCD driver should extend struct rio_properties with:
-			- Port state (active etc.)
-			- Lane width
-			- Port speed
-	*/
 	if (RIOCP_PE_IS_SWITCH(pe->cap)) {
 		/* Fetch speed and width of all available ports */
 		for (i = 0; i < RIOCP_PE_PORT_COUNT(pe->cap); i++) {
