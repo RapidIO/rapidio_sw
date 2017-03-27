@@ -259,7 +259,6 @@ int migrate_thread_to_cpu(struct thread_cpu *info)
 	info->cpu_run = sched_getcpu();
 	while ((info->cpu_run != info->cpu_req) && chk_cpu_lim) {
 		time_sleep(&one_usec);
-		usleep(1);
 		info->cpu_run = sched_getcpu();
 		chk_cpu_lim--;
 	}
