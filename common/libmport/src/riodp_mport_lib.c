@@ -1184,7 +1184,8 @@ int riomp_sock_send(riomp_sock_t socket_handle,
 {
 	struct rapidio_mport_socket *handle = socket_handle;
 	struct rio_cm_msg msg;
-	bool errcheck;
+	bool errCheck;
+	bool stopCheck;
 	int ret;
 
 	do {
@@ -1194,11 +1195,11 @@ int riomp_sock_send(riomp_sock_t socket_handle,
 		errno = 0;
 
 		ret = ioctl(handle->mbox->fd, RIO_CM_CHAN_SEND, &msg);
-		errcheck = (ETIME == errno) || (EINTR == errno)
-				|| (EAGAIN == errno) || (EBUSY == errno);
-	} while (ret && errcheck
-			&& ((NULL == stop_req)
-					|| ((NULL != stop_req) && !*stop_req)));
+		errCheck = ((ETIME == errno) || (EINTR == errno)
+				|| (EAGAIN == errno) || (EBUSY == errno));
+		stopCheck = ((NULL == stop_req)
+				|| ((NULL != stop_req) && !*stop_req));
+	} while (ret && errCheck && stopCheck);
 
 	if (ret) {
 		return -errno;
@@ -1212,7 +1213,8 @@ int riomp_sock_receive(riomp_sock_t socket_handle,
 {
 	struct rapidio_mport_socket *handle = socket_handle;
 	struct rio_cm_msg msg;
-	bool errcheck;
+	bool errCheck;
+	bool stopCheck;
 	int ret;
 
 	do {
@@ -1223,10 +1225,11 @@ int riomp_sock_receive(riomp_sock_t socket_handle,
 		errno = 0;
 
 		ret = ioctl(handle->mbox->fd, RIO_CM_CHAN_RECEIVE, &msg);
-		errcheck = (ETIME == errno) || (EINTR == errno) || (EAGAIN == errno);
-	} while (ret && errcheck
-			&& ((NULL == stop_req)
-					|| ((NULL != stop_req) && (!*stop_req))));
+		errCheck = ((ETIME == errno) || (EINTR == errno)
+				|| (EAGAIN == errno));
+		stopCheck = ((NULL == stop_req)
+				|| ((NULL != stop_req) && (!*stop_req)));
+	} while (ret && errCheck && stopCheck);
 
 	if (ret) {
 		return -errno;
@@ -1326,7 +1329,8 @@ int riomp_sock_accept(riomp_sock_t socket_handle, riomp_sock_t *conn,
 	struct rapidio_mport_socket *handle = socket_handle;
 	struct rapidio_mport_socket *new_handle;
 	struct rio_cm_accept param;
-	bool errcheck;
+	bool errCheck;
+	bool stopCheck;
 	int ret;
 
 	if (NULL == handle || NULL == conn) {
@@ -1339,10 +1343,11 @@ int riomp_sock_accept(riomp_sock_t socket_handle, riomp_sock_t *conn,
 		errno = 0;
 
 		ret = ioctl(handle->mbox->fd, RIO_CM_CHAN_ACCEPT, &param);
-		errcheck = (ETIME == errno) || (EINTR == errno) || (EAGAIN == errno);
-	} while (ret && errcheck
-			&& ((NULL == stop_req)
-					|| ((NULL != stop_req) && (!*stop_req))));
+		errCheck = ((ETIME == errno) || (EINTR == errno)
+				|| (EAGAIN == errno));
+		stopCheck = ((NULL == stop_req)
+				|| ((NULL != stop_req) && (!*stop_req)));
+	} while (ret && errCheck && stopCheck);
 
 	new_handle = *conn;
 	if (new_handle) {
@@ -1358,7 +1363,8 @@ int riomp_sock_connect(riomp_sock_t socket_handle, did_val_t did_val,
 	struct rapidio_mport_socket *handle = socket_handle;
 	uint16_t ch_num = 0;
 	struct rio_cm_channel cdev;
-	int errcheck;
+	bool errCheck;
+	bool stopCheck;
 	int ret;
 
 	if (handle->ch.id == 0) {
@@ -1379,10 +1385,11 @@ int riomp_sock_connect(riomp_sock_t socket_handle, did_val_t did_val,
 		errno = 0;
 
 		ret = ioctl(handle->mbox->fd, RIO_CM_CHAN_CONNECT, &cdev);
-		errcheck = (ETIME == errno) || (EINTR == errno) || (EAGAIN == errno);
-	} while (ret && errcheck
-			&& ((NULL == stop_req)
-					|| ((NULL != stop_req) && (!*stop_req))));
+		errCheck = ((ETIME == errno) || (EINTR == errno)
+				|| (EAGAIN == errno));
+		stopCheck = ((NULL == stop_req)
+				|| ((NULL != stop_req) && (!*stop_req)));
+	} while (ret && errCheck && stopCheck);
 
 	if (ret) {
 		return -errno;
