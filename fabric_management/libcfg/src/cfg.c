@@ -1128,7 +1128,6 @@ static int parse_switch(struct int_cfg_parms *cfg)
 				cfg->sws[i].rt_valid[rt_sz] = true;
 				break;
 			default:
-				// FIXME: Need to use standard macros to check this...
 				uint32_t port;
 				if (tok_parse_port_num(token, &port, 0)) {
 					parse_err(cfg, (char *)"Illegal port.");
