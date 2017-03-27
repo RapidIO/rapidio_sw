@@ -216,6 +216,8 @@ int getCPUCount()
 
 int migrate_thread_to_cpu(struct thread_cpu *info)
 {
+	const struct timespec one_usec = {0, 1 * 1000};
+
 	cpu_set_t cpuset;
 	int chk_cpu_lim = 10;
 	int rc;
@@ -256,6 +258,7 @@ int migrate_thread_to_cpu(struct thread_cpu *info)
 
 	info->cpu_run = sched_getcpu();
 	while ((info->cpu_run != info->cpu_req) && chk_cpu_lim) {
+		time_sleep(&one_usec);
 		usleep(1);
 		info->cpu_run = sched_getcpu();
 		chk_cpu_lim--;
