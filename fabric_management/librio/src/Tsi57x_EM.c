@@ -33,6 +33,7 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include <stdbool.h>
 
 #include "rio_standard.h"
 #include "RapidIO_Device_Access_Routines_API.h"
@@ -2015,18 +2016,18 @@ uint32_t tsi57x_rio_em_get_pw_stat(DAR_DEV_INFO_t *dev_info,
 	rio_pc_get_config_out_t cfg_out;
 	uint32_t log_err_det, log_err_en;
 	struct DAR_ptl good_ptl;
+	bool check;
 
 	out_parms->imp_rc = RIO_SUCCESS;
 	out_parms->num_events = 0;
 	out_parms->too_many = false;
 	out_parms->other_events = false;
 
-	if ((!in_parms->num_events)
-			|| (in_parms->num_events > EM_MAX_EVENT_LIST_SIZE)
-			|| ((in_parms->pw_port_num >= TSI57X_NUM_PORTS(dev_info))
-					&& (RIO_ALL_PORTS
-							!= in_parms->pw_port_num))
-			|| (NULL == in_parms->events)) {
+	check = (!in_parms->num_events);
+	check |= (in_parms->num_events > EM_MAX_EVENT_LIST_SIZE);
+	check |= (in_parms->pw_port_num >= TSI57X_NUM_PORTS(dev_info))
+			&& (RIO_ALL_PORTS != in_parms->pw_port_num);
+	if (check || (NULL == in_parms->events)) {
 		out_parms->imp_rc = GET_PW_STAT(1);
 		goto exit;
 	}
@@ -2271,6 +2272,7 @@ uint32_t tsi57x_rio_em_clr_events(DAR_DEV_INFO_t *dev_info,
 	int pnum;
 	int idx;
 	bool clear_port_fail = false;
+	bool check;
 	uint32_t regData;
 
 	out_parms->imp_rc = RIO_SUCCESS;
@@ -2293,19 +2295,15 @@ uint32_t tsi57x_rio_em_clr_events(DAR_DEV_INFO_t *dev_info,
 		// - RIO_ALL_PORTS cannot be used with any other events.
 		// - RIO_ALL_PORTS must be used with rio_em_d_log and rio_em_i_init_fail.
 		// - valid event values
-		if (((pnum >= TSI57X_NUM_PORTS(dev_info))
-				&& (RIO_ALL_PORTS != pnum))
-				|| ((RIO_ALL_PORTS == pnum)
-						&& !((rio_em_d_log
-								== in_parms->events[idx].event)
-								|| (rio_em_i_init_fail
-										== in_parms->events[idx].event)))
-				|| (((rio_em_d_log
-						== in_parms->events[idx].event)
-						|| (rio_em_i_init_fail
-								== in_parms->events[idx].event))
-						&& !(RIO_ALL_PORTS == pnum))
-				|| (rio_em_last <= in_parms->events[idx].event)) {
+		check = (pnum >= TSI57X_NUM_PORTS(dev_info))
+				&& (RIO_ALL_PORTS != pnum);
+		check |= (RIO_ALL_PORTS == pnum)
+				&& !((rio_em_d_log == in_parms->events[idx].event)
+						|| (rio_em_i_init_fail == in_parms->events[idx].event));
+		check  |= ((rio_em_d_log == in_parms->events[idx].event)
+				|| (rio_em_i_init_fail == in_parms->events[idx].event))
+				&& !(RIO_ALL_PORTS == pnum);
+		if (check || (rio_em_last <= in_parms->events[idx].event)) {
 			rc = RIO_ERR_INVALID_PARAMETER;
 			out_parms->imp_rc = EM_CLR_EVENTS(2);
 			goto exit;
@@ -2552,6 +2550,7 @@ uint32_t tsi57x_rio_em_create_events(DAR_DEV_INFO_t *dev_info,
 	uint8_t idx;
 	rio_pc_get_config_in_t cfg_in;
 	rio_pc_get_config_out_t cfg_out;
+	bool check;
 
 	out_parms->failure_idx = 0;
 	out_parms->imp_rc = RIO_SUCCESS;
@@ -2581,19 +2580,15 @@ uint32_t tsi57x_rio_em_create_events(DAR_DEV_INFO_t *dev_info,
 		out_parms->failure_idx = idx;
 		pnum = in_parms->events[idx].port_num;
 
-		if (((pnum >= TSI57X_NUM_PORTS(dev_info))
-				&& (RIO_ALL_PORTS != pnum))
-				|| ((RIO_ALL_PORTS == pnum)
-						&& !((rio_em_d_log
-								== in_parms->events[idx].event)
-								|| (rio_em_i_init_fail
-										== in_parms->events[idx].event)))
-				|| (((rio_em_d_log
-						== in_parms->events[idx].event)
-						|| (rio_em_i_init_fail
-								== in_parms->events[idx].event))
-						&& !(RIO_ALL_PORTS == pnum))
-				|| (rio_em_last <= in_parms->events[idx].event)) {
+		check = (pnum >= TSI57X_NUM_PORTS(dev_info))
+				&& (RIO_ALL_PORTS != pnum);
+		check |= (RIO_ALL_PORTS == pnum)
+				&& !((rio_em_d_log == in_parms->events[idx].event)
+						|| (rio_em_i_init_fail == in_parms->events[idx].event));
+		check |= ((rio_em_d_log == in_parms->events[idx].event)
+				|| (rio_em_i_init_fail == in_parms->events[idx].event))
+				&& !(RIO_ALL_PORTS == pnum);
+		if (check || (rio_em_last <= in_parms->events[idx].event)) {
 			rc = RIO_ERR_INVALID_PARAMETER;
 			out_parms->imp_rc = CREATE_EVENTS(2);
 			goto exit;

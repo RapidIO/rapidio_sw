@@ -33,6 +33,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <stdint.h>
 #include <stddef.h>
+#include <stdbool.h>
 
 #include "RXS2448.h"
 #include "DAR_DB_Private.h"
@@ -42,11 +43,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "RXS_DeviceDriver.h"
 #include "string_util.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-#ifdef RXS_DAR_WANTED
+//#ifdef __cplusplus
+//extern "C" {
+//#endif
+//
+//#ifdef RXS_DAR_WANTED
 
 #define SAFE_ADD_EVENT_N_LOC(event_in, p) \
 	if (out_parms->num_events < in_parms->num_events) { \
@@ -66,9 +67,6 @@ extern "C" {
 #define RXS_ALL_LOG_ERRS (RXS_ERR_EN_ILL_TYPE_EN | \
 			RXS_ERR_EN_UNS_RSP_EN | \
 			RXS_ERR_DET_ILL_ID)
-#ifndef UINT32_MAX
-#define UINT32_MAX 0xFFFFFFFF
-#endif
 
 uint32_t rxs_rio_em_cfg_pw(DAR_DEV_INFO_t *dev_info,
 		rio_em_cfg_pw_in_t *in_parms, rio_em_cfg_pw_out_t *out_parms)
@@ -1753,6 +1751,7 @@ uint32_t rxs_rio_em_parse_pw(DAR_DEV_INFO_t *dev_info,
 				RXS_PW_EL_INTB |
 				RXS_PW_PCAP;
 	uint32_t mask;
+	bool check;
 
 	out_parms->imp_rc = 0;
 	out_parms->num_events = 0;
@@ -1771,11 +1770,12 @@ uint32_t rxs_rio_em_parse_pw(DAR_DEV_INFO_t *dev_info,
 		goto fail;
 	}
 
-	if ((in_parms->pw[ERR_DET_IDX] & RXS_SPX_ERR_DET_OK_TO_UNINIT) ||
-			(in_parms->pw[ERR_DET_IDX] & RXS_SPX_ERR_DET_DLT) ||
-			(in_parms->pw[IMP_SPEC_IDX] & RXS_PW_OK_TO_UNINIT) ||
-			(in_parms->pw[IMP_SPEC_IDX] & RXS_PW_DLT) ||
-			(in_parms->pw[IMP_SPEC_IDX] & RXS_PW_DWNGD)) {
+	check = (in_parms->pw[ERR_DET_IDX] & RXS_SPX_ERR_DET_OK_TO_UNINIT);
+	check |= (in_parms->pw[ERR_DET_IDX] & RXS_SPX_ERR_DET_DLT);
+	check |= (in_parms->pw[IMP_SPEC_IDX] & RXS_PW_OK_TO_UNINIT);
+	check |= (in_parms->pw[IMP_SPEC_IDX] & RXS_PW_DLT);
+	check |= (in_parms->pw[IMP_SPEC_IDX] & RXS_PW_DWNGD);
+	if (check) {
 		SAFE_ADD_EVENT_N_LOC(rio_em_f_los, port);
 	}
 
@@ -2969,8 +2969,8 @@ fail:
 	return rc;
 }
 
-#endif /* RXS_DAR_WANTED */
-
-#ifdef __cplusplus
-}
-#endif
+//#endif /* RXS_DAR_WANTED */
+//
+//#ifdef __cplusplus
+//}
+//#endif

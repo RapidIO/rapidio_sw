@@ -45,6 +45,7 @@
 #include <time.h>
 
 #include <stdint.h>
+#include <stdbool.h>
 #include <unistd.h>
 #include <dirent.h>
 #include <errno.h>
@@ -460,6 +461,7 @@ int slave_get_ct_and_name(int mport, ct_t *comptag, char *dev_name)
 	struct cfg_mport_info mp;
 	struct cfg_dev cfg_dev;
 	struct mport_regs regs;
+	bool check;
 
 	if (!cfg_find_mport(mport, &mp)) {
 		mp_num = mp.num;
@@ -471,11 +473,12 @@ int slave_get_ct_and_name(int mport, ct_t *comptag, char *dev_name)
 	}
 
 	while (!riocp_get_mport_regs(mp_num, &regs)) {
-		if (!(regs.disc & RIO_SP_GEN_CTL_DISC)
-				|| !(regs.disc & RIO_SP_GEN_CTL_MAST_EN)
-				|| !(regs.p_err_stat & RIO_SPX_ERR_STAT_OK)
-				|| !(regs.p_ctl1 & RIO_SPX_CTL_INP_EN)
-				|| !(regs.p_ctl1 & RIO_SPX_CTL_OTP_EN)) {
+		check = !(regs.disc & RIO_SP_GEN_CTL_DISC);
+		check |= !(regs.disc & RIO_SP_GEN_CTL_MAST_EN);
+		check |= !(regs.p_err_stat & RIO_SPX_ERR_STAT_OK);
+		check |= !(regs.p_ctl1 & RIO_SPX_CTL_INP_EN);
+		check |= !(regs.p_ctl1 & RIO_SPX_CTL_OTP_EN);
+		if (check) {
 			time_sleep(&delay);
 			continue;
 		}

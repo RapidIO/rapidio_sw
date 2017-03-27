@@ -34,6 +34,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdint.h>
 #include <stddef.h>
 #include <string.h>
+#include <stdbool.h>
 
 #include "rio_ecosystem.h"
 #include "DAR_DB_Private.h"
@@ -463,8 +464,14 @@ static uint32_t cps_set_config_init_parms_check_conflict(DAR_DEV_INFO_t *dev_inf
 		uint32_t *fail_pt)
 {
 	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
-	uint8_t quadrant, port_idx, pnum, pll, lane;
-	bool found_flt, found_port;
+	uint8_t quadrant;
+	uint8_t port_idx;
+	uint8_t pnum;
+	uint8_t pll;
+	uint8_t lane;
+	bool found_flt;
+	bool found_port;
+	bool check;
 
 	// Invalidate all sorted entries to start with...
 	sorted->num_ports = NUM_CPS_PORTS(dev_info);
@@ -501,11 +508,12 @@ static uint32_t cps_set_config_init_parms_check_conflict(DAR_DEV_INFO_t *dev_inf
 	for (pnum = 0; pnum < NUM_CPS_PORTS(dev_info); pnum++) {
 		if (sorted->pc[pnum].pnum == pnum) {
 			if (sorted->pc[pnum].port_available) {
-				if ((sorted->pc[pnum].pw >= rio_pc_pw_last)
-				|| (sorted->pc[pnum].ls >= rio_pc_ls_last)
-				|| (rio_lswap_none != sorted->pc[pnum].tx_lswap)
-				|| (rio_lswap_none != sorted->pc[pnum].rx_lswap)
-				|| (sorted->pc[pnum].iseq == rio_pc_is_three)) {
+				check = (sorted->pc[pnum].pw >= rio_pc_pw_last);
+				check |= (sorted->pc[pnum].ls >= rio_pc_ls_last);
+				check |= (rio_lswap_none != sorted->pc[pnum].tx_lswap);
+				check |= (rio_lswap_none != sorted->pc[pnum].rx_lswap);
+				check |= (rio_pc_is_three == sorted->pc[pnum].iseq);
+				if (check) {
 					*fail_pt = PC_SET_CONFIG(0x12);
 					goto exit;
 				}
