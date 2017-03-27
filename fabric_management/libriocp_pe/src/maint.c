@@ -88,9 +88,6 @@ int riocp_pe_maint_set_anyid_route(struct riocp_pe *pe)
 
 err:
 	/* Write DID_ANY_DEV8_ID route until pe */
-	/* FIXME: Does this loop ever exit if there is a PE with a permanent
- 	*  error?
- 	*/
 	for (; i >= 0; i--) {
 		if (riocp_pe_lock_clear(pes[i], DID_ANY_DEV8_ID, i)) {
 			RIOCP_TRACE("Could not clear lock at hopcount %u\n", i);
@@ -184,9 +181,6 @@ int riocp_pe_maint_unset_anyid_route(struct riocp_pe *pe)
 	}
 
 	/* Write ANY_ID route until pe */
-	/* FIXME: Does this loop exit if there is a permanent error
-	 * on a PE?
-	 */
 	for (i = pe->hopcount - 1; i >= 0; i--) {
 
 		ret = riocp_pe_lock_clear(pes[i], DID_ANY_DEV8_ID, (hc_t)i);
@@ -226,12 +220,6 @@ int RIOCP_SO_ATTR riocp_pe_maint_read(struct riocp_pe *pe, uint32_t offset, uint
 		RIOCP_ERROR("Handle invalid\n");
 		return ret;
 	}
-/* FIXME: Need to differentiate between host and MPORT 
-	if (RIOCP_PE_IS_HOST(pe))
-		destid = ANY_ID;
-	else
-		destid = pe->destid;
-*/
 
 	if (RIOCP_PE_IS_MPORT(pe)) {
 		ret = riocp_drv_reg_rd(pe, offset, val);
@@ -283,13 +271,6 @@ int RIOCP_SO_ATTR riocp_pe_maint_write(struct riocp_pe *pe, uint32_t offset, uin
 		RIOCP_ERROR("Handle invalid\n");
 		return ret;
 	}
-
-/* FIXME: Need to differentiate between HOST and MPORT
-	if (RIOCP_PE_IS_HOST(pe))
-		destid = ANY_ID;
-	else
-		destid = pe->destid;
-*/
 
 	if (RIOCP_PE_IS_MPORT(pe)) {
 		ret = riocp_drv_reg_wr(pe, offset, val);
