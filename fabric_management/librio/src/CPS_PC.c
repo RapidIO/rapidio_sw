@@ -451,10 +451,6 @@ static uint32_t cps_get_lrto(DAR_DEV_INFO_t *dev_info, rio_pc_set_config_out_t *
 //         - Configuration register values for each port on the device
 //         - Failure point if any of the above is mucked up
 // Returns - status, RIO_SUCCESS or a failure type...
-//
-// FIXME: This routine should be enhanced to support "all ports", to allow as many 
-// ports as possible to be configured to a particular width and speed.   Refer to
-// Tsi57x implementation, set_config_init_parms_check_conflicts_all_ports.
 
 #define SPEED_GROUP(x) (((rio_pc_ls_1p25 == x) || (rio_pc_ls_2p5 == x) || (rio_pc_ls_5p0 == x))?0:((rio_pc_ls_3p125 == x) || (rio_pc_ls_6p25 == x))?1:2)
 
