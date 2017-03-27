@@ -285,17 +285,6 @@ void slave_process_mod(void)
 		break;
 				 
 	case FMD_P_OP_DEL: 
-		/* FIXME: Commented out for now as this can kill the platform.
-			rc = riomp_mgmt_device_del(slv->fd, 
-				ntohl(slv->m2s->mod_rq.did_val),
-				ntohl(slv->m2s->mod_rq.hc), 
-				ntohl(slv->m2s->mod_rq.ct));
-		if (rc) {
-			slv->s2m->mod_rsp.rc = htonl(rc);
-			break;
-		}
-		FIXME: END COMMENT
-		*/
 		did_from_value(&did, ntohl(slv->m2s->mod_rq.did_val),
 				ntohl(slv->m2s->mod_rq.did_sz));
 		rc = del_device_from_dd(ntohl(slv->m2s->mod_rq.ct), did);
