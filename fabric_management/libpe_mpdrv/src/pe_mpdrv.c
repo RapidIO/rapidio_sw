@@ -1155,20 +1155,13 @@ int RIOCP_WU mpsw_get_mport_regs(int mp_num, struct mport_regs *regs)
 		goto close;
 	}
 
-	// TODO: Hard coded address below needs to be relative to
-	// Error Management Extensions register block header.
-	//
-	// For now, works with Tsi721.
+	// For now, only works with Tsi721.
 
 	if (riomp_mgmt_lcfg_read(mp_h, TSI721_PW_TGT_ID, 4,
 			(uint32_t *)&regs->host_did_reg_val)) {
 		goto close;
 	}
 
-	// TODO: Hard coded address below needs to be relative to
-	// Per Port Software Assisted Error Recover Registers
-	// register block header.
-	//
 	// For now, works with Tsi721.
 
 	if (riomp_mgmt_lcfg_read(mp_h, TSI721_SP_GEN_CTL, 4, &regs->disc)) {
