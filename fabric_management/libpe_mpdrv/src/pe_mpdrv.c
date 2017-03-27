@@ -1230,8 +1230,11 @@ int RIOCP_WU mpsw_enable_pe(struct riocp_pe *pe, pe_port_t port)
 		goto fail;
 	}
 
-	set_pc_in.lrto = 50; /* 5 usec link timeout */
-	set_pc_in.log_rto = 500; /* 50 usec logical response timeout */
+	// 5 usec link timeout, may need to increase for FPGA
+	set_pc_in.lrto = 50;
+	// 1 msec logical response timeout
+	// Required for riosocket operation.
+	set_pc_in.log_rto = 10000;
 	set_pc_in.oob_reg_acc = false;
 	set_pc_in.num_ports = priv->st.pc.num_ports;
 	memcpy(set_pc_in.pc, priv->st.pc.pc, sizeof(set_pc_in.pc));
