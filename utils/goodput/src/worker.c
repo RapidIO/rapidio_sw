@@ -752,11 +752,10 @@ void dma_goodput(struct worker *info)
 			ts_now_mark(&info->meas_ts, 5);
 			do {
 				dma_rc = single_dma_access(info, cnt);
-				if (dma_rc < 0)
+				if (dma_rc < 0) {
 					sleep(0);
-// FIXME: when libmport is fixed to return negative return codes,
-// this statement should be fixed to check -dma_rc
-			} while  ((EBUSY == dma_rc) && 
+				}
+			} while  ((-EBUSY == dma_rc) && 
                         (RIO_DIRECTIO_TRANSFER_FAF == info->dma_sync_type));
 
 			if ((RIO_DIRECTIO_TRANSFER_ASYNC == info->dma_sync_type)
