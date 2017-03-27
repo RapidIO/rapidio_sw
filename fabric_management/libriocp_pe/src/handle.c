@@ -779,48 +779,16 @@ const char RIOCP_SO_ATTR *riocp_pe_handle_get_vendor_str(riocp_pe_handle pe)
 int RIOCP_SO_ATTR riocp_pe_handle_get_peer_list(riocp_pe_handle pe,
 	riocp_pe_handle **peer_list, size_t *peer_list_size)
 {
-	int ret = 0;
-	unsigned int i;
-	riocp_pe_handle *_peer_list = NULL;
-
-	ret = riocp_pe_handle_check(pe);
-	if (ret) {
-		RIOCP_TRACE("Invalid pe handle\n");
-		return -EINVAL;
-	}
-
-	_peer_list = (struct riocp_pe **)
-		calloc(RIOCP_PE_PORT_COUNT(pe->cap), sizeof(riocp_pe_handle));
-	if (_peer_list == NULL) {
-		RIOCP_TRACE("Could not allocate peer handle list\n");
-		return -ENOMEM;
-	}
-
-	for (i = 0; i < RIOCP_PE_PORT_COUNT(pe->cap); i++)
-		_peer_list[i] = pe->peers[i].peer;
-
-	*peer_list = _peer_list;
-	*peer_list_size = RIOCP_PE_PORT_COUNT(pe->cap);
-
-	return ret;
+	return riocp_pe_get_peer_list(pe, peer_list, peer_list_size);
 }
 
 /**
- * Free handle list aquired with riocp_pe_handle_get_list or riocp_pe_handle_get_peer_list
+ * Free handle list acquired with riocp_pe_handle_get_list or riocp_pe_handle_get_peer_list
  * @param list List to free
  */
 int RIOCP_SO_ATTR riocp_pe_handle_free_list(riocp_pe_handle **list)
 {
-	if (*list == NULL) {
-		RIOCP_TRACE("Pointer to be freed is NULL\n");
-		return -EINVAL;
-	}
-
-	free(*list);
-
-	*list = NULL;
-
-	return 0;
+	return riocp_pe_free_peer_list(list);
 }
 
 int RIOCP_WU riocp_pe_find_comptag(riocp_pe_handle mport, ct_t comptag,

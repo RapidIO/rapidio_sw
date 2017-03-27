@@ -863,17 +863,20 @@ int RIOCP_SO_ATTR riocp_pe_free_peer_list(riocp_pe_handle *pes[])
  */
 int RIOCP_SO_ATTR riocp_pe_destroy_handle(riocp_pe_handle *pe)
 {
-	if (pe == NULL)
+	if (NULL == pe) {
 		return -EINVAL;
-	if (riocp_pe_handle_check(*pe))
+	}
+	if (riocp_pe_handle_check(*pe)) {
 		return -EINVAL;
+	}
 
 	RIOCP_TRACE("Destroying handle %p\n", *pe);
 
-	if (RIOCP_PE_IS_MPORT(*pe))
+	if (RIOCP_PE_IS_MPORT(*pe)) {
 		riocp_pe_handle_mport_put(pe);
-	else
+	} else {
 		*pe = NULL;
+	}
 
 	return 0;
 }
