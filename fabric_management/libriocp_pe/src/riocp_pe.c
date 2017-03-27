@@ -963,10 +963,6 @@ static int riocp_pe_get_ports_add_peer(struct riocp_pe *pe, uint8_t port, struct
 		ports[port].peer        = peer->port;
 		ports[port].peer->pe    = peer;
 		ports[port].peer->id    = pe->peers[port].remote_port;
-/* FIXME: Need to get port status here...
-		ports[port].peer->width = ports[port].width;
-		ports[port].peer->speed = ports[port].speed;
-*/
 	} else {
 		ports[port].peer = NULL;
 	}
@@ -1335,12 +1331,7 @@ int RIOCP_SO_ATTR riocp_sw_set_route_entry(riocp_pe_handle sw, uint8_t lut,
 	if (!RIOCP_PE_IS_SWITCH(sw->cap)) {
 		return -ENOSYS;
 	}
-/*
- * FIXME: Change this to validate the correct range of devices, or better
- * yet, to use the RapidIO switch APIs...
-	if (port > RIOCP_PE_PORT_COUNT(sw->cap) && port != 0xff)
-		return -EINVAL;
-*/
+
 	if (did_equal(DID_ANY_DEV8_ID, did)) {
 		return -EACCES;
 	}
