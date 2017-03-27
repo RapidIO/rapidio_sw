@@ -223,12 +223,10 @@ static void rxs_rio_pc_get_config_success(void **state)
 	rio_pc_one_port_config_t curr_pc;
 
 	uint32_t err_stat = RXS_SPX_ERR_STAT_DFLT;
-	uint32_t ctl = RXS_SPX_CTL_DFLT;
 	uint32_t plm_ctl = RXS_PLM_SPX_IMP_SPEC_CTL_DFLT;
 	uint32_t pwdn = RXS_PLM_SPX_PWDN_CTL_DFLT;
 	uint32_t pol = RXS_PLM_SPX_POL_CTL_DFLT;
 	uint32_t lrto = 0;
-	uint32_t nmtc_en_mask = RXS_SPX_CTL_INP_EN | RXS_SPX_CTL_OTP_EN;
 
 	rio_port_t port;
 	uint32_t lane;
@@ -274,14 +272,8 @@ static void rxs_rio_pc_get_config_success(void **state)
 	pwdn |= RXS_PLM_SPX_PWDN_CTL_PWDN_PORT;
 	curr_pc.port_available = true;
 
-	for (port = 0; port < NUM_RXS_PORTS(&mock_dev_info); port++) {
-		assert_int_equal(RIO_SUCCESS,
-			DARRegWrite(&mock_dev_info,
-				RXS_SPX_ERR_STAT(port), err_stat));
-		assert_int_equal(RIO_SUCCESS,
-			DARRegWrite(&mock_dev_info,
-				RXS_PLM_SPX_PWDN_CTL(port), pwdn));
-	}
+	set_all_port_config(cfg_avl_pwdn, NO_TTL, NO_FILT, RIO_ALL_PORTS);
+
 	// Also update LRTO value
 	pc_in.ptl.num_ports = RIO_ALL_PORTS;
 	assert_int_equal(RIO_SUCCESS,
@@ -299,24 +291,17 @@ static void rxs_rio_pc_get_config_success(void **state)
 	if (DEBUG_PRINTF) {
 		printf("\nconfig 2\n");
 	}
+
 	// Power up the port, with transmitter disabled
 	// Doesn't work this way on real hardware
-	ctl |= RXS_SPX_CTL_PORT_DIS;
-	pwdn &= ~RXS_PLM_SPX_PWDN_CTL_PWDN_PORT;
 	curr_pc.powered_up = true;
 	curr_pc.xmitter_disable = true;
 	curr_pc.pw = rio_pc_pw_4x;
-	curr_pc.ls = rio_pc_ls_6p25;
+	curr_pc.ls = rio_pc_ls_5p0;
+	curr_pc.iseq = rio_pc_is_one;
 	curr_pc.fc = rio_pc_fc_rx;
 
-	for (port = 0; port < NUM_RXS_PORTS(&mock_dev_info); port++) {
-		assert_int_equal(RIO_SUCCESS,
-			DARRegWrite(&mock_dev_info,
-				RXS_SPX_CTL(port), ctl));
-		assert_int_equal(RIO_SUCCESS,
-			DARRegWrite(&mock_dev_info,
-				RXS_PLM_SPX_PWDN_CTL(port), pwdn));
-	}
+	set_all_port_config(cfg_pwup_txdis, NO_TTL, NO_FILT, RIO_ALL_PORTS);
 
 	pc_in.ptl.num_ports = RIO_ALL_PORTS;
 	assert_int_equal(RIO_SUCCESS,
@@ -328,6 +313,14 @@ static void rxs_rio_pc_get_config_success(void **state)
 
 	for (port = 0; port < pc_out.num_ports; port++) {
 		curr_pc.pnum = port;
+		if (DEBUG_PRINTF) {
+			printf("\n	Port %d\n", port);
+		}
+		if (port & 1) {
+			curr_pc.pw = rio_pc_pw_2x;
+		} else {
+			curr_pc.pw = rio_pc_pw_4x;
+		}
 		compare_pc(&pc_out.pc[port], &curr_pc);
 	}
 
@@ -336,18 +329,10 @@ static void rxs_rio_pc_get_config_success(void **state)
 	}
 	// Enable transmitter, set lockout, disable non-maintenance
 	// Doesn't work this way on real hardware
-	ctl &= ~RXS_SPX_CTL_PORT_DIS;
 	curr_pc.xmitter_disable = false;
-
-	ctl &= ~nmtc_en_mask;
-	ctl |= RXS_SPX_CTL_PORT_LOCKOUT;
 	curr_pc.port_lockout = true;
 
-	for (port = 0; port < NUM_RXS_PORTS(&mock_dev_info); port++) {
-		assert_int_equal(RIO_SUCCESS,
-			DARRegWrite(&mock_dev_info,
-				RXS_SPX_CTL(port), ctl));
-	}
+	set_all_port_config(cfg_lp_lkout, NO_TTL, NO_FILT, RIO_ALL_PORTS);
 
 	pc_in.ptl.num_ports = RIO_ALL_PORTS;
 	assert_int_equal(RIO_SUCCESS,
@@ -359,6 +344,11 @@ static void rxs_rio_pc_get_config_success(void **state)
 
 	for (port = 0; port < pc_out.num_ports; port++) {
 		curr_pc.pnum = port;
+		if (port & 1) {
+			curr_pc.pw = rio_pc_pw_2x;
+		} else {
+			curr_pc.pw = rio_pc_pw_4x;
+		}
 		compare_pc(&pc_out.pc[port], &curr_pc);
 	}
 
@@ -367,15 +357,15 @@ static void rxs_rio_pc_get_config_success(void **state)
 	}
 	// Clear lockout, enable non-maintenance
 	// Doesn't work this way on real hardware
-	ctl &= ~RXS_SPX_CTL_PORT_LOCKOUT;
-	ctl |= nmtc_en_mask;
 	curr_pc.port_lockout = false;
 	curr_pc.nmtc_xfer_enable = true;
 
 	for (port = 0; port < NUM_RXS_PORTS(&mock_dev_info); port++) {
-		assert_int_equal(RIO_SUCCESS,
-			DARRegWrite(&mock_dev_info,
-				RXS_SPX_CTL(port), ctl));
+		if (port & 1) {
+			set_all_port_config(cfg_perfect_2x, NO_TTL, NO_FILT, port);
+		} else {
+			set_all_port_config(cfg_perfect, NO_TTL, NO_FILT, port);
+		}
 	}
 
 	pc_in.ptl.num_ports = RIO_ALL_PORTS;
@@ -388,6 +378,11 @@ static void rxs_rio_pc_get_config_success(void **state)
 
 	for (port = 0; port < pc_out.num_ports; port++) {
 		curr_pc.pnum = port;
+		if (port & 1) {
+			curr_pc.pw = rio_pc_pw_2x;
+		} else {
+			curr_pc.pw = rio_pc_pw_4x;
+		}
 		compare_pc(&pc_out.pc[port], &curr_pc);
 	}
 
@@ -433,6 +428,11 @@ static void rxs_rio_pc_get_config_success(void **state)
 
 		for (port = 0; port < pc_out.num_ports; port++) {
 			curr_pc.pnum = port;
+			if (port & 1) {
+				curr_pc.pw = rio_pc_pw_2x;
+			} else {
+				curr_pc.pw = rio_pc_pw_4x;
+			}
 			compare_pc(&pc_out.pc[port], &curr_pc);
 		}
 	}
@@ -550,14 +550,7 @@ static void rxs_rio_pc_get_status_success(void **state)
 	// Must read/modify/write err_stat to preserve odd & even
 	// port initialization differences
 	for (port = 0; port < NUM_RXS_PORTS(&mock_dev_info); port++) {
-		assert_int_equal(RIO_SUCCESS,
-			DARRegRead(&mock_dev_info,
-				RXS_SPX_ERR_STAT(port), &err_stat));
-		err_stat &= ~RXS_SPX_ERR_STAT_PORT_UNAVL;
-		err_stat |= RXS_SPX_ERR_STAT_PORT_UNINIT;
-		assert_int_equal(RIO_SUCCESS,
-			DARRegWrite(&mock_dev_info,
-				RXS_SPX_ERR_STAT(port), err_stat));
+		set_all_port_config(cfg_txen_no_lp, NO_TTL, NO_FILT, port);
 	}
 
 	ps_in.ptl.num_ports = RIO_ALL_PORTS;
@@ -579,19 +572,9 @@ static void rxs_rio_pc_get_status_success(void **state)
 	curr_ps.port_ok = true;
 	curr_ps.port_error = true;
 	curr_ps.fc = rio_pc_fc_rx;
-	curr_ps.iseq = rio_pc_is_two;
+	curr_ps.iseq = rio_pc_is_one;
 
-	for (port = 0; port < NUM_RXS_PORTS(&mock_dev_info); port++) {
-		assert_int_equal(RIO_SUCCESS,
-			DARRegRead(&mock_dev_info,
-				RXS_SPX_ERR_STAT(port), &err_stat));
-		err_stat &= ~RXS_SPX_ERR_STAT_PORT_UNINIT;
-		err_stat |= RXS_SPX_ERR_STAT_PORT_OK |
-				RXS_SPX_ERR_STAT_PORT_ERR;
-		assert_int_equal(RIO_SUCCESS,
-			DARRegWrite(&mock_dev_info,
-				RXS_SPX_ERR_STAT(port), err_stat));
-	}
+	set_all_port_config(cfg_txen_lp_perr, NO_TTL, NO_FILT, RIO_ALL_PORTS);
 
 	ps_in.ptl.num_ports = RIO_ALL_PORTS;
 	assert_int_equal(RIO_SUCCESS,
@@ -760,44 +743,43 @@ static void rxs_rio_pc_get_status_success(void **state)
 
 			// Ensure no port width overrides are active.
 			ctl &= ~RXS_SPX_CTL_OVER_PWIDTH;
-			ctl &= ~RXS_SPX_CTL_INIT_PWIDTH;
 			switch (pw) {
 			case 0:
 				lane_adj = 0;
 				curr_ps.pw = rio_pc_pw_2x;
 				curr_ps.num_lanes = 2;
-				ctl |= RIO_SPX_CTL_PTW_INIT_2X;
+				ctl |= RIO_SPX_CTL_PTW_OVER_2X_NO_4X;
 				break;
 			case 1:
 				lane_adj = 2;
 				curr_ps.pw = rio_pc_pw_1x_l2;
 				curr_ps.num_lanes = 1;
-				ctl |= RIO_SPX_CTL_PTW_INIT_1X_LR;
+				ctl |= RIO_SPX_CTL_PTW_OVER_1X_LR;
 				break;
 			case 2:
 				lane_adj = 0;
 				curr_ps.pw = rio_pc_pw_1x_l0;
 				curr_ps.num_lanes = 1;
-				ctl |= RIO_SPX_CTL_PTW_INIT_1X_L0;
+				ctl |= RIO_SPX_CTL_PTW_OVER_1X_L0;
 				break;
 			case 3:
 				lane_adj = 0;
 				curr_ps.pw = rio_pc_pw_2x;
 				curr_ps.num_lanes = 2;
-				ctl |= RIO_SPX_CTL_PTW_INIT_2X;
 				ctl &= ~RIO_SPX_CTL_PTW_MAX_4X;
 				break;
 			case 4:
 				lane_adj = 1;
 				curr_ps.pw = rio_pc_pw_1x_l1;
 				curr_ps.num_lanes = 1;
-				ctl |= RIO_SPX_CTL_PTW_INIT_1X_LR;
+				ctl &= ~RIO_SPX_CTL_PTW_MAX_4X;
+				ctl |= RIO_SPX_CTL_PTW_OVER_1X_LR;
 				break;
 			case 5:
 				lane_adj = 0;
 				curr_ps.pw = rio_pc_pw_1x_l0;
 				curr_ps.num_lanes = 1;
-				ctl |= RIO_SPX_CTL_PTW_INIT_1X_L0;
+				ctl &= ~RIO_SPX_CTL_PTW_MAX_2X;
 				break;
 			default:
 				assert_false(true);
@@ -837,12 +819,16 @@ static void rxs_rio_pc_get_status_success(void **state)
 			case 0:
 				curr_ps.pw = rio_pc_pw_1x_l1;
 				curr_ps.num_lanes = 1;
-				ctl |= RIO_SPX_CTL_PTW_INIT_1X_LR;
+				ctl |= RIO_SPX_CTL_PTW_MAX_2X;
+				ctl &= ~RIO_SPX_CTL_PTW_MAX_4X;
+				ctl |= RIO_SPX_CTL_PTW_OVER_1X_LR;
 				break;
 			case 1:
 				curr_ps.pw = rio_pc_pw_1x_l0;
 				curr_ps.num_lanes = 1;
-				ctl |= RIO_SPX_CTL_PTW_INIT_1X_L0;
+				ctl |= RIO_SPX_CTL_PTW_MAX_2X;
+				ctl &= ~RIO_SPX_CTL_PTW_MAX_4X;
+				ctl |= RIO_SPX_CTL_PTW_OVER_1X_L0;
 				break;
 			default:
 				assert_false(true);
@@ -1302,7 +1288,7 @@ static void rxs_rio_pc_clr_errs_resync_ackids(void **state)
 		assert_int_equal(RIO_SUCCESS,
 			DARRegRead(&mock_dev_info, RXS_SPX_OUT_ACKID_CSR(port),
 								&chk_data));
-		assert_int_equal(0x8003f03f, chk_data);
+		assert_int_equal(0x8001f01f, chk_data);
 	}
 
 	(void)state;
@@ -1402,7 +1388,7 @@ static void rxs_rio_pc_secure_port_success(void **state)
 
 		assert_int_equal(RIO_SUCCESS,
 			DARRegRead(&mock_dev_info, RXS_TLM_SPX_FTYPE_FILT(port),
-								 &temp));
+									&temp));
 		assert_int_equal(filt_mask, temp & filt_mask);
 
 		assert_int_equal(RIO_SUCCESS,
@@ -1655,6 +1641,893 @@ static void rxs_rio_pc_dev_reset_config_rst_cfg(void **state)
 	(void)state;
 }
 
+static void rxs_rio_pc_set_config_check_parms_test(void **state)
+{
+	rio_pc_set_config_in_t pc_in;
+	rio_pc_set_config_out_t pc_out;
+	rio_pc_ls_t ls;
+
+	assert_int_not_equal(PC_SET_CONFIG(0x00), RIO_SUCCESS);
+
+	// Test out of range number of ports
+	pc_in.lrto = 0x1000;
+	pc_in.log_rto = 0x1000;
+	pc_in.oob_reg_acc = true;
+	pc_in.reg_acc_port = 0;
+	pc_in.num_ports = RIO_ALL_PORTS;
+	pc_out.imp_rc = RIO_SUCCESS;
+
+	assert_int_not_equal(RIO_SUCCESS,
+		rxs_rio_pc_set_config(&mock_dev_info, &pc_in, &pc_out));
+	assert_int_equal(PC_SET_CONFIG(0x01), pc_out.imp_rc);
+
+	// Test out of range number of ports
+	pc_in.lrto = 0x1000;
+	pc_in.log_rto = 0x1000;
+	pc_in.oob_reg_acc = true;
+	pc_in.reg_acc_port = 0;
+	pc_in.num_ports = 0;
+	pc_out.imp_rc = RIO_SUCCESS;
+
+	assert_int_not_equal(RIO_SUCCESS,
+		rxs_rio_pc_set_config(&mock_dev_info, &pc_in, &pc_out));
+	assert_int_equal(PC_SET_CONFIG(0x01), pc_out.imp_rc);
+
+	// Test out of range register access port
+	pc_in.lrto = 0x1000;
+	pc_in.log_rto = 0x1000;
+	pc_in.oob_reg_acc = false;
+	pc_in.reg_acc_port = NUM_RXS_PORTS(&mock_dev_info);
+	pc_in.num_ports = 1;
+	pc_out.imp_rc = RIO_SUCCESS;
+
+	assert_int_not_equal(RIO_SUCCESS,
+		rxs_rio_pc_set_config(&mock_dev_info, &pc_in, &pc_out));
+	assert_int_equal(PC_SET_CONFIG(0x02), pc_out.imp_rc);
+
+	// Test out of range register access port
+	pc_in.lrto = 0x1000;
+	pc_in.log_rto = 0x1000;
+	pc_in.oob_reg_acc = false;
+	pc_in.reg_acc_port = RIO_ALL_PORTS;
+	pc_in.num_ports = 1;
+	pc_out.imp_rc = RIO_SUCCESS;
+
+	assert_int_not_equal(RIO_SUCCESS,
+		rxs_rio_pc_set_config(&mock_dev_info, &pc_in, &pc_out));
+	assert_int_equal(PC_SET_CONFIG(0x02), pc_out.imp_rc);
+
+	// Test out of range config port number...
+	pc_in.reg_acc_port = 1;
+	pc_in.pc[0].pnum = NUM_RXS_PORTS(&mock_dev_info);
+	pc_out.imp_rc = RIO_SUCCESS;
+
+	assert_int_not_equal(RIO_SUCCESS,
+		rxs_rio_pc_set_config(&mock_dev_info, &pc_in, &pc_out));
+	assert_int_equal(PC_SET_CONFIG(0x03), pc_out.imp_rc);
+
+	// Test out of range port width value
+	pc_out.imp_rc = RIO_SUCCESS;
+
+	pc_in.pc[0].pnum = 4;
+        pc_in.pc[0].pw = rio_pc_pw_last;
+	pc_out.imp_rc = RIO_SUCCESS;
+
+	assert_int_not_equal(RIO_SUCCESS,
+		rxs_rio_pc_set_config(&mock_dev_info, &pc_in, &pc_out));
+	assert_int_equal(PC_SET_CONFIG(0x05), pc_out.imp_rc);
+
+	// Test illegal port width values for odd ports
+	pc_in.pc[0].pnum = 5;
+        pc_in.pc[0].pw = rio_pc_pw_4x;
+	pc_out.imp_rc = RIO_SUCCESS;
+
+	assert_int_not_equal(RIO_SUCCESS,
+		rxs_rio_pc_set_config(&mock_dev_info, &pc_in, &pc_out));
+	assert_int_equal(PC_SET_CONFIG(0x07), pc_out.imp_rc);
+
+	// Test illegal port width values for odd ports
+	pc_in.pc[0].pnum = 5;
+        pc_in.pc[0].pw = rio_pc_pw_1x_l2;
+	pc_out.imp_rc = RIO_SUCCESS;
+
+	assert_int_not_equal(RIO_SUCCESS,
+		rxs_rio_pc_set_config(&mock_dev_info, &pc_in, &pc_out));
+	assert_int_equal(PC_SET_CONFIG(0x07), pc_out.imp_rc);
+
+	// Test out of range flow control value
+	pc_in.pc[0].pnum = 4;
+        pc_in.pc[0].pw = rio_pc_pw_4x;
+        pc_in.pc[0].ls = rio_pc_ls_2p5;
+        pc_in.pc[0].fc = rio_pc_fc_last;
+	pc_out.imp_rc = RIO_SUCCESS;
+
+	assert_int_not_equal(RIO_SUCCESS,
+		rxs_rio_pc_set_config(&mock_dev_info, &pc_in, &pc_out));
+	assert_int_equal(PC_SET_CONFIG(0x09), pc_out.imp_rc);
+
+	// Test illegal flow control value
+	pc_in.pc[0].pnum = 4;
+        pc_in.pc[0].pw = rio_pc_pw_4x;
+        pc_in.pc[0].fc = rio_pc_fc_tx;
+	pc_out.imp_rc = RIO_SUCCESS;
+
+	assert_int_not_equal(RIO_SUCCESS,
+		rxs_rio_pc_set_config(&mock_dev_info, &pc_in, &pc_out));
+	assert_int_equal(PC_SET_CONFIG(0x09), pc_out.imp_rc);
+
+	// Test unsupported lane speed value
+        pc_in.pc[0].fc = rio_pc_fc_rx;
+        pc_in.pc[0].ls = rio_pc_ls_1p25;
+	pc_out.imp_rc = RIO_SUCCESS;
+
+	assert_int_not_equal(RIO_SUCCESS,
+		rxs_rio_pc_set_config(&mock_dev_info, &pc_in, &pc_out));
+	assert_int_equal(PC_SET_CONFIG(0x0B), pc_out.imp_rc);
+
+	// Test out of range lane speed value
+        pc_in.pc[0].fc = rio_pc_fc_rx;
+        pc_in.pc[0].ls = rio_pc_ls_last;
+	pc_out.imp_rc = RIO_SUCCESS;
+
+	assert_int_not_equal(RIO_SUCCESS,
+		rxs_rio_pc_set_config(&mock_dev_info, &pc_in, &pc_out));
+	assert_int_equal(PC_SET_CONFIG(0x0D), pc_out.imp_rc);
+
+	// Test out of range tx lane swap value
+        pc_in.pc[0].fc = rio_pc_fc_rx;
+        pc_in.pc[0].ls = rio_pc_ls_2p5;
+        pc_in.pc[0].tx_lswap = rio_lswap_last;
+	pc_out.imp_rc = RIO_SUCCESS;
+
+	assert_int_not_equal(RIO_SUCCESS,
+		rxs_rio_pc_set_config(&mock_dev_info, &pc_in, &pc_out));
+	assert_int_equal(PC_SET_CONFIG(0x0F), pc_out.imp_rc);
+
+	// Test out of range rx lane swap value
+        pc_in.pc[0].fc = rio_pc_fc_rx;
+        pc_in.pc[0].ls = rio_pc_ls_2p5;
+        pc_in.pc[0].tx_lswap = rio_lswap_none;
+        pc_in.pc[0].rx_lswap = rio_lswap_last;
+	pc_out.imp_rc = RIO_SUCCESS;
+
+	assert_int_not_equal(RIO_SUCCESS,
+		rxs_rio_pc_set_config(&mock_dev_info, &pc_in, &pc_out));
+	assert_int_equal(PC_SET_CONFIG(0x11), pc_out.imp_rc);
+
+	// Test illegal lane speed/idle sequence combinations
+        pc_in.pc[0].rx_lswap = rio_lswap_none;
+        pc_in.pc[0].iseq = rio_pc_is_one;
+#define INC_LS(x) (x = (rio_pc_ls_t)(int(x) + 1))
+	for (ls = rio_pc_ls_6p25; ls <= rio_pc_ls_12p5; INC_LS(ls)) {
+		pc_in.pc[0].ls = ls;
+		pc_out.imp_rc = RIO_SUCCESS;
+
+		assert_int_not_equal(RIO_SUCCESS,
+			rxs_rio_pc_set_config(&mock_dev_info,
+						&pc_in, &pc_out));
+		assert_int_equal(PC_SET_CONFIG(0x13), pc_out.imp_rc);
+	}
+
+        pc_in.pc[0].iseq = rio_pc_is_two;
+	for (ls = rio_pc_ls_10p3; ls <= rio_pc_ls_12p5; INC_LS(ls)) {
+		pc_in.pc[0].ls = ls;
+		pc_out.imp_rc = RIO_SUCCESS;
+
+		assert_int_not_equal(RIO_SUCCESS,
+			rxs_rio_pc_set_config(&mock_dev_info,
+						&pc_in, &pc_out));
+		assert_int_equal(PC_SET_CONFIG(0x15), pc_out.imp_rc);
+	}
+
+	// Test out of range idle sequence
+        pc_in.pc[0].iseq = rio_pc_is_last;
+	pc_out.imp_rc = RIO_SUCCESS;
+
+	assert_int_not_equal(RIO_SUCCESS,
+		rxs_rio_pc_set_config(&mock_dev_info, &pc_in, &pc_out));
+	assert_int_equal(PC_SET_CONFIG(0x17), pc_out.imp_rc);
+
+	(void)state;
+}
+
+static void rxs_rio_pc_set_config_check_conflicts_test(void **state)
+{
+	rio_pc_set_config_in_t pc_in;
+	rio_pc_set_config_out_t pc_out;
+
+	// Setup for illegal port configuration test...
+	// Port 0 - 2x
+	// Port 1 - 2x
+	// Port 2 - 4x
+	// port 3 - unavailable
+	set_all_port_config(cfg_perfect_2x, NO_TTL, NO_FILT, 0);
+	set_all_port_config(cfg_perfect_2x, NO_TTL, NO_FILT, 1);
+	set_all_port_config(cfg_perfect, NO_TTL, NO_FILT, 2);
+	set_all_port_config(cfg_unavl, NO_TTL, NO_FILT, 3);
+
+	// Test illegal port configurations for "check both"
+	// Port 0 config as 4x fails, cannot reconfigure PATH.
+	pc_in.lrto = 0x1000;
+	pc_in.log_rto = 0x1000;
+	pc_in.oob_reg_acc = false;
+	pc_in.reg_acc_port = 5;
+	pc_in.num_ports = 2;
+	pc_out.imp_rc = RIO_SUCCESS;
+
+	pc_in.pc[0].pnum = 0;
+        pc_in.pc[0].port_available = true;
+        pc_in.pc[0].powered_up = true;
+        pc_in.pc[0].pw = rio_pc_pw_4x;
+        pc_in.pc[0].ls = rio_pc_ls_5p0;
+        pc_in.pc[0].fc = rio_pc_fc_rx;
+        pc_in.pc[0].iseq = rio_pc_is_one;
+        pc_in.pc[0].xmitter_disable = false;
+        pc_in.pc[0].port_lockout = false;
+        pc_in.pc[0].nmtc_xfer_enable = true;
+        pc_in.pc[0].tx_lswap = rio_lswap_none;
+        pc_in.pc[0].tx_linvert[0] = false;
+        pc_in.pc[0].tx_linvert[1] = false;
+        pc_in.pc[0].tx_linvert[2] = false;
+        pc_in.pc[0].tx_linvert[3] = false;
+        pc_in.pc[0].rx_lswap = rio_lswap_none;
+        pc_in.pc[0].rx_linvert[0] = false;
+        pc_in.pc[0].rx_linvert[1] = false;
+        pc_in.pc[0].rx_linvert[2] = false;
+        pc_in.pc[0].rx_linvert[3] = false;
+
+	pc_in.pc[1].pnum = 1;
+        pc_in.pc[1].port_available = true;
+        pc_in.pc[1].powered_up = true;
+        pc_in.pc[1].pw = rio_pc_pw_2x;
+        pc_in.pc[1].ls = rio_pc_ls_5p0;
+        pc_in.pc[1].fc = rio_pc_fc_rx;
+        pc_in.pc[1].iseq = rio_pc_is_one;
+        pc_in.pc[1].xmitter_disable = false;
+        pc_in.pc[1].port_lockout = false;
+        pc_in.pc[1].nmtc_xfer_enable = true;
+        pc_in.pc[1].tx_lswap = rio_lswap_none;
+        pc_in.pc[1].tx_linvert[0] = false;
+        pc_in.pc[1].tx_linvert[1] = false;
+        pc_in.pc[1].tx_linvert[2] = false;
+        pc_in.pc[1].tx_linvert[3] = false;
+        pc_in.pc[1].rx_lswap = rio_lswap_none;
+        pc_in.pc[1].rx_linvert[0] = false;
+        pc_in.pc[1].rx_linvert[1] = false;
+        pc_in.pc[1].rx_linvert[2] = false;
+        pc_in.pc[1].rx_linvert[3] = false;
+	pc_out.imp_rc = RIO_SUCCESS;
+
+	// check_both_conf tests
+	//
+	// Check if the request is for a 4x port and 2x port
+	assert_int_not_equal(RIO_SUCCESS,
+		rxs_rio_pc_set_config(&mock_dev_info, &pc_in, &pc_out));
+	assert_int_equal(PC_SET_CONFIG(0x32), pc_out.imp_rc);
+
+	// Test illegal port configurations...
+	// Port 0 as downgraded 4x fails, cannot reconfigure PATH.
+        pc_in.pc[0].pw = rio_pc_pw_1x_l2;
+	pc_out.imp_rc = RIO_SUCCESS;
+
+	assert_int_not_equal(RIO_SUCCESS,
+		rxs_rio_pc_set_config(&mock_dev_info, &pc_in, &pc_out));
+	assert_int_equal(PC_SET_CONFIG(0x32), pc_out.imp_rc);
+
+	// Check if the current configuration supports a 4x port,
+	// cannot configure a 2x port.
+	pc_in.pc[0].pnum = 2;
+        pc_in.pc[0].pw = rio_pc_pw_2x;
+	pc_in.pc[1].pnum = 3;
+        pc_in.pc[1].pw = rio_pc_pw_2x;
+	assert_int_not_equal(RIO_SUCCESS,
+		rxs_rio_pc_set_config(&mock_dev_info, &pc_in, &pc_out));
+	assert_int_equal(PC_SET_CONFIG(0x30), pc_out.imp_rc);
+
+	// Check if want to make odd port unavailable,
+	// cannot configure a 2x port.
+	pc_in.pc[0].pnum = 0;
+	pc_in.pc[1].pnum = 1;
+	pc_in.pc[1].port_available = false;
+	assert_int_not_equal(RIO_SUCCESS,
+		rxs_rio_pc_set_config(&mock_dev_info, &pc_in, &pc_out));
+	assert_int_equal(PC_SET_CONFIG(0x34), pc_out.imp_rc);
+
+	// Lane speed conflict between port 0 & 1 - 10.3 & 2.5
+	pc_in.pc[1].port_available = true;
+        pc_in.pc[0].ls = rio_pc_ls_2p5;
+        pc_in.pc[1].ls = rio_pc_ls_10p3;
+        pc_in.pc[1].iseq = rio_pc_is_three;
+
+	pc_out.imp_rc = RIO_SUCCESS;
+
+	assert_int_not_equal(RIO_SUCCESS,
+		rxs_rio_pc_set_config(&mock_dev_info, &pc_in, &pc_out));
+	assert_int_equal(PC_SET_CONFIG(0x36), pc_out.imp_rc);
+
+	// Lane speed conflict between port 0 & 1 - 10.3 & 5.0
+        pc_in.pc[0].ls = rio_pc_ls_5p0;
+	pc_out.imp_rc = RIO_SUCCESS;
+
+	assert_int_not_equal(RIO_SUCCESS,
+		rxs_rio_pc_set_config(&mock_dev_info, &pc_in, &pc_out));
+	assert_int_equal(PC_SET_CONFIG(0x36), pc_out.imp_rc);
+
+	// Lane speed conflict between port 0 & 1 - 2.5 and 10.3
+        pc_in.pc[0].ls = rio_pc_ls_10p3;
+        pc_in.pc[0].iseq = rio_pc_is_three;
+        pc_in.pc[1].ls = rio_pc_ls_2p5;
+        pc_in.pc[1].iseq = rio_pc_is_one;
+	pc_out.imp_rc = RIO_SUCCESS;
+
+	assert_int_not_equal(RIO_SUCCESS,
+		rxs_rio_pc_set_config(&mock_dev_info, &pc_in, &pc_out));
+	assert_int_equal(PC_SET_CONFIG(0x36), pc_out.imp_rc);
+
+	// Lane speed conflict between port 0 & 1 - 5.0 and 10.3
+        pc_in.pc[0].ls = rio_pc_ls_10p3;
+        pc_in.pc[1].ls = rio_pc_ls_5p0;
+	pc_out.imp_rc = RIO_SUCCESS;
+
+	assert_int_not_equal(RIO_SUCCESS,
+		rxs_rio_pc_set_config(&mock_dev_info, &pc_in, &pc_out));
+	assert_int_equal(PC_SET_CONFIG(0x36), pc_out.imp_rc);
+
+	// check_even_conf tests
+	//
+	// If configuring an even port only, refuse if the odd port is available
+	pc_in.num_ports = 1;
+	pc_out.imp_rc = RIO_SUCCESS;
+
+	pc_in.pc[0].pnum = 0;
+        pc_in.pc[0].pw = rio_pc_pw_4x;
+
+	assert_int_not_equal(RIO_SUCCESS,
+		rxs_rio_pc_set_config(&mock_dev_info, &pc_in, &pc_out));
+	assert_int_equal(PC_SET_CONFIG(0x3C), pc_out.imp_rc);
+
+	// If configuring an even port only, refuse if the odd port is available
+	pc_in.num_ports = 1;
+	pc_out.imp_rc = RIO_SUCCESS;
+
+        pc_in.pc[0].pw = rio_pc_pw_1x_l2;
+
+	assert_int_not_equal(RIO_SUCCESS,
+		rxs_rio_pc_set_config(&mock_dev_info, &pc_in, &pc_out));
+	assert_int_equal(PC_SET_CONFIG(0x3C), pc_out.imp_rc);
+
+	// Check for lane speed conflicts.
+        pc_in.pc[0].pw = rio_pc_pw_2x;
+        pc_in.pc[0].ls = rio_pc_ls_10p3;
+
+	assert_int_not_equal(RIO_SUCCESS,
+		rxs_rio_pc_set_config(&mock_dev_info, &pc_in, &pc_out));
+	assert_int_equal(PC_SET_CONFIG(0x40), pc_out.imp_rc);
+
+	// check_odd_conf tests
+	//
+	// If configuring an odd port only, refuse if the even port is 4x or
+	// the odd port is currently unavailable.
+	pc_in.num_ports = 1;
+	pc_out.imp_rc = RIO_SUCCESS;
+
+	pc_in.pc[0].pnum = 3;
+        pc_in.pc[0].pw = rio_pc_pw_2x;
+
+	assert_int_not_equal(RIO_SUCCESS,
+		rxs_rio_pc_set_config(&mock_dev_info, &pc_in, &pc_out));
+	assert_int_equal(PC_SET_CONFIG(0x44), pc_out.imp_rc);
+
+        pc_in.pc[0].pw = rio_pc_pw_1x;
+	assert_int_not_equal(RIO_SUCCESS,
+		rxs_rio_pc_set_config(&mock_dev_info, &pc_in, &pc_out));
+	assert_int_equal(PC_SET_CONFIG(0x44), pc_out.imp_rc);
+
+	// If configuring an odd port only,
+	// refuse to make the odd port unavailable
+	pc_in.pc[0].pnum = 1;
+	pc_in.pc[0].port_available = false;
+	pc_out.imp_rc = RIO_SUCCESS;
+
+	assert_int_not_equal(RIO_SUCCESS,
+		rxs_rio_pc_set_config(&mock_dev_info, &pc_in, &pc_out));
+	assert_int_equal(PC_SET_CONFIG(0x46), pc_out.imp_rc);
+
+	// Check for lane speed conflicts.
+	pc_in.pc[0].port_available = true;
+        pc_in.pc[0].ls = rio_pc_ls_10p3;
+
+	assert_int_not_equal(RIO_SUCCESS,
+		rxs_rio_pc_set_config(&mock_dev_info, &pc_in, &pc_out));
+	assert_int_equal(PC_SET_CONFIG(0x48), pc_out.imp_rc);
+
+	(void)state;
+}
+
+static void rxs_rio_pc_set_config_success_two_2x_test(void **state)
+{
+	rio_pc_set_config_in_t pc_in;
+	rio_pc_set_config_out_t pc_out;
+	const rio_pc_pw_t twox_pws[] = {rio_pc_pw_1x_l0,
+				rio_pc_pw_1x_l1,
+				rio_pc_pw_2x};
+	const unsigned int num_pws = sizeof(twox_pws) / sizeof (twox_pws[0]);
+	unsigned int i, j;
+	uint32_t rc;
+
+	// Check all legal configurations of two 2x wide ports.
+	// Port 0 - 2x
+	// Port 1 - 2x
+	set_all_port_config(cfg_perfect_2x, NO_TTL, NO_FILT, 0);
+	set_all_port_config(cfg_perfect_2x, NO_TTL, NO_FILT, 1);
+
+	// Test all lane speeds, port 1 always uses IDLE3, port 0 uses default
+	// idle sequences.
+	pc_in.lrto = 0x1000;
+	pc_in.log_rto = 0x1000;
+	pc_in.oob_reg_acc = false;
+	pc_in.reg_acc_port = 5;
+	pc_in.num_ports = 2;
+	pc_out.imp_rc = RIO_SUCCESS;
+
+	pc_in.pc[0].pnum = 0;
+        pc_in.pc[0].port_available = true;
+        pc_in.pc[0].powered_up = true;
+        pc_in.pc[0].pw = rio_pc_pw_2x;
+        pc_in.pc[0].ls = rio_pc_ls_2p5;
+        pc_in.pc[0].fc = rio_pc_fc_rx;
+        pc_in.pc[0].iseq = rio_pc_is_one;
+        pc_in.pc[0].xmitter_disable = false;
+        pc_in.pc[0].port_lockout = false;
+        pc_in.pc[0].nmtc_xfer_enable = true;
+        pc_in.pc[0].tx_lswap = rio_lswap_none;
+        pc_in.pc[0].tx_linvert[0] = false;
+        pc_in.pc[0].tx_linvert[1] = false;
+        pc_in.pc[0].tx_linvert[2] = false;
+        pc_in.pc[0].tx_linvert[3] = false;
+        pc_in.pc[0].rx_lswap = rio_lswap_none;
+        pc_in.pc[0].rx_linvert[0] = false;
+        pc_in.pc[0].rx_linvert[1] = false;
+        pc_in.pc[0].rx_linvert[2] = false;
+        pc_in.pc[0].rx_linvert[3] = false;
+
+	pc_in.pc[1].pnum = 1;
+        pc_in.pc[1].port_available = true;
+        pc_in.pc[1].powered_up = true;
+        pc_in.pc[1].pw = rio_pc_pw_1x_l0;
+        pc_in.pc[1].ls =rio_pc_ls_2p5;
+        pc_in.pc[1].fc = rio_pc_fc_rx;
+        pc_in.pc[1].iseq = rio_pc_is_three;
+        pc_in.pc[1].xmitter_disable = false;
+        pc_in.pc[1].port_lockout = false;
+        pc_in.pc[1].nmtc_xfer_enable = true;
+        pc_in.pc[1].tx_lswap = rio_lswap_none;
+        pc_in.pc[1].tx_linvert[0] = false;
+        pc_in.pc[1].tx_linvert[1] = false;
+        pc_in.pc[1].tx_linvert[2] = false;
+        pc_in.pc[1].tx_linvert[3] = false;
+        pc_in.pc[1].rx_lswap = rio_lswap_none;
+        pc_in.pc[1].rx_linvert[0] = false;
+        pc_in.pc[1].rx_linvert[1] = false;
+        pc_in.pc[1].rx_linvert[2] = false;
+        pc_in.pc[1].rx_linvert[3] = false;
+	pc_out.imp_rc = RIO_SUCCESS;
+
+	for (i = (unsigned int)rio_pc_ls_2p5; i < rio_pc_ls_last; i++) {
+		pc_in.pc[0].ls = (rio_pc_ls_t)i;
+		pc_in.pc[1].ls = (rio_pc_ls_t)i;
+		pc_out.imp_rc = 0xFFFFFFFF;
+
+		switch((rio_pc_ls_t)i) {
+		case rio_pc_ls_2p5:
+		case rio_pc_ls_3p125:
+		case rio_pc_ls_5p0:
+			pc_in.pc[0].iseq = rio_pc_is_one;
+			break;
+		case rio_pc_ls_6p25:
+			pc_in.pc[0].iseq = rio_pc_is_two;
+			break;
+		case rio_pc_ls_10p3:
+		case rio_pc_ls_12p5:
+			pc_in.pc[0].iseq = rio_pc_is_three;
+			break;
+		case rio_pc_ls_1p25:
+		case rio_pc_ls_last:
+		default:
+			// Should never get here...
+			assert_true(false);
+		}
+		if (DEBUG_PRINTF) {
+			printf("\nport 0 ls %d %s iseq %d %s\n",
+				i, ls_to_str[i],
+				pc_in.pc[0].iseq, is_to_str[pc_in.pc[0].iseq]);
+		}
+		rc = rxs_rio_pc_set_config(&mock_dev_info, &pc_in, &pc_out);
+		assert_int_equal(RIO_SUCCESS, pc_out.imp_rc);
+		assert_int_equal(RIO_SUCCESS, rc);
+
+		compare_pc(&pc_in.pc[0], &pc_out.pc[0]);
+		compare_pc(&pc_in.pc[1], &pc_out.pc[1]);
+	}
+
+	// Check all 2x port width values
+	for (i = 0; i < num_pws; i++) {
+		pc_in.pc[0].pw = twox_pws[i];
+		for (j = 0; j < num_pws; j++) {
+			pc_in.pc[1].pw = twox_pws[j];
+
+			if (DEBUG_PRINTF) {
+				printf("\npw %d %d port 0 %d %s port 1 %d %s\n",
+					i, j,
+					pc_in.pc[0].pw,
+					pw_to_str[pc_in.pc[0].pw],
+					pc_in.pc[1].pw,
+					pw_to_str[pc_in.pc[1].pw]);
+			}
+			assert_int_equal(RIO_SUCCESS,
+				rxs_rio_pc_set_config(
+					&mock_dev_info, &pc_in, &pc_out));
+			assert_int_equal(RIO_SUCCESS, pc_out.imp_rc);
+
+			compare_pc(&pc_in.pc[0], &pc_out.pc[0]);
+			compare_pc(&pc_in.pc[1], &pc_out.pc[1]);
+		}
+	}
+
+	// Power down both ports...
+	if (DEBUG_PRINTF) {
+		printf("\nPower Down\n");
+	}
+	pc_in.pc[0].powered_up = false;
+	pc_in.pc[1].powered_up = false;
+	assert_int_equal(RIO_SUCCESS,
+		rxs_rio_pc_set_config(&mock_dev_info, &pc_in, &pc_out));
+	assert_int_equal(RIO_SUCCESS, pc_out.imp_rc);
+
+        pc_in.pc[0].pw = rio_pc_pw_last;
+        pc_in.pc[0].ls = rio_pc_ls_last;
+        pc_in.pc[0].fc = rio_pc_fc_last;
+        pc_in.pc[0].iseq = rio_pc_is_last;
+        pc_in.pc[0].xmitter_disable = false;
+        pc_in.pc[0].port_lockout = false;
+        pc_in.pc[0].nmtc_xfer_enable = false;
+
+        pc_in.pc[1].pw = rio_pc_pw_last;
+        pc_in.pc[1].ls = rio_pc_ls_last;
+        pc_in.pc[1].fc = rio_pc_fc_last;
+        pc_in.pc[1].iseq = rio_pc_is_last;
+        pc_in.pc[1].xmitter_disable = false;
+        pc_in.pc[1].port_lockout = false;
+        pc_in.pc[1].nmtc_xfer_enable = false;
+
+	compare_pc(&pc_in.pc[0], &pc_out.pc[0]);
+	compare_pc(&pc_in.pc[1], &pc_out.pc[1]);
+
+	// Power up both ports...
+	if (DEBUG_PRINTF) {
+		printf("\nPower Up\n");
+	}
+	pc_in.pc[0].powered_up = true;
+        pc_in.pc[0].pw = rio_pc_pw_2x;
+        pc_in.pc[0].ls = rio_pc_ls_2p5;
+        pc_in.pc[0].fc = rio_pc_fc_rx;
+        pc_in.pc[0].iseq = rio_pc_is_one;
+        pc_in.pc[0].xmitter_disable = false;
+        pc_in.pc[0].port_lockout = false;
+        pc_in.pc[0].nmtc_xfer_enable = true;
+
+	pc_in.pc[1].powered_up = true;
+        pc_in.pc[1].pw = rio_pc_pw_2x;
+        pc_in.pc[1].ls = rio_pc_ls_2p5;
+        pc_in.pc[1].fc = rio_pc_fc_rx;
+        pc_in.pc[1].iseq = rio_pc_is_one;
+        pc_in.pc[1].xmitter_disable = false;
+        pc_in.pc[1].port_lockout = false;
+        pc_in.pc[1].nmtc_xfer_enable = true;
+	assert_int_equal(RIO_SUCCESS,
+		rxs_rio_pc_set_config(&mock_dev_info, &pc_in, &pc_out));
+	assert_int_equal(RIO_SUCCESS, pc_out.imp_rc);
+
+	compare_pc(&pc_in.pc[0], &pc_out.pc[0]);
+	compare_pc(&pc_in.pc[1], &pc_out.pc[1]);
+
+	// Disable transmitter, lockout ports, disable nmtc_xfer on port 0
+	if (DEBUG_PRINTF) {
+		printf("\ndisable & lockout\n");
+	}
+	pc_in.pc[0].powered_up = true;
+	pc_in.pc[0].port_lockout = true;
+	pc_in.pc[0].xmitter_disable = true;
+	pc_in.pc[0].nmtc_xfer_enable = false;
+	pc_in.pc[1].powered_up = true;
+	pc_in.pc[1].port_lockout = false;
+	pc_in.pc[1].xmitter_disable = false;
+	pc_in.pc[1].nmtc_xfer_enable = true;
+
+	assert_int_equal(RIO_SUCCESS,
+		rxs_rio_pc_set_config(&mock_dev_info, &pc_in, &pc_out));
+	assert_int_equal(RIO_SUCCESS, pc_out.imp_rc);
+
+	compare_pc(&pc_in.pc[0], &pc_out.pc[0]);
+	compare_pc(&pc_in.pc[1], &pc_out.pc[1]);
+
+	// Check all lane swaps...
+	if (DEBUG_PRINTF) {
+		printf("\nlane swaps\n");
+	}
+	for (i = 0; i < (unsigned int)rio_lswap_last; i++) {
+		pc_in.pc[0].tx_lswap = (rio_lane_swap_t)i;
+		pc_in.pc[1].tx_lswap = (rio_lane_swap_t)i;
+		for (j = 0; j < (unsigned int)rio_lswap_last; j++) {
+			pc_in.pc[0].rx_lswap = (rio_lane_swap_t)j;
+			pc_in.pc[1].rx_lswap = (rio_lane_swap_t)j;
+
+			assert_int_equal(RIO_SUCCESS,
+				rxs_rio_pc_set_config(
+					&mock_dev_info, &pc_in, &pc_out));
+			assert_int_equal(RIO_SUCCESS, pc_out.imp_rc);
+
+			compare_pc(&pc_in.pc[0], &pc_out.pc[0]);
+			compare_pc(&pc_in.pc[1], &pc_out.pc[1]);
+		}
+	}
+	// Check all lane inversions...
+	if (DEBUG_PRINTF) {
+		printf("\nlane inversions\n");
+	}
+	for (i = 0; i < (1 << RIO_MAX_PORT_LANES); i++) {
+		for (j = 0; j < RIO_MAX_PORT_LANES; j++) {
+			if ((1 << j) & i) {
+				pc_in.pc[0].tx_linvert[j] = true;
+				pc_in.pc[0].rx_linvert[j] = false;
+				pc_in.pc[1].tx_linvert[j] = false;
+				pc_in.pc[1].rx_linvert[j] = true;
+			} else {
+				pc_in.pc[0].tx_linvert[j] = true;
+				pc_in.pc[0].rx_linvert[j] = false;
+				pc_in.pc[1].tx_linvert[j] = false;
+				pc_in.pc[1].rx_linvert[j] = true;
+			}
+
+			assert_int_equal(RIO_SUCCESS,
+				rxs_rio_pc_set_config(
+					&mock_dev_info, &pc_in, &pc_out));
+			assert_int_equal(RIO_SUCCESS, pc_out.imp_rc);
+
+			compare_pc(&pc_in.pc[0], &pc_out.pc[0]);
+			compare_pc(&pc_in.pc[1], &pc_out.pc[1]);
+		}
+	}
+	(void)state;
+}
+
+static void rxs_rio_pc_set_config_success_one_4x_test(void **state)
+{
+	rio_pc_set_config_in_t pc_in;
+	rio_pc_set_config_out_t pc_out;
+	unsigned int i, j;
+	uint32_t rc;
+
+	// Check all legal configurations of one 4x wide port.
+	set_all_port_config(cfg_perfect, NO_TTL, NO_FILT, 0);
+
+	// Test all lane speeds with default idle sequences.
+	pc_in.lrto = 0x1000;
+	pc_in.log_rto = 0x1000;
+	pc_in.oob_reg_acc = false;
+	pc_in.reg_acc_port = 5;
+	pc_in.num_ports = 1;
+	pc_out.imp_rc = RIO_SUCCESS;
+
+	pc_in.pc[0].pnum = 0;
+        pc_in.pc[0].port_available = true;
+        pc_in.pc[0].powered_up = true;
+        pc_in.pc[0].pw = rio_pc_pw_4x;
+        pc_in.pc[0].ls = rio_pc_ls_2p5;
+        pc_in.pc[0].fc = rio_pc_fc_rx;
+        pc_in.pc[0].iseq = rio_pc_is_one;
+        pc_in.pc[0].xmitter_disable = false;
+        pc_in.pc[0].port_lockout = false;
+        pc_in.pc[0].nmtc_xfer_enable = true;
+        pc_in.pc[0].tx_lswap = rio_lswap_none;
+        pc_in.pc[0].tx_linvert[0] = false;
+        pc_in.pc[0].tx_linvert[1] = false;
+        pc_in.pc[0].tx_linvert[2] = false;
+        pc_in.pc[0].tx_linvert[3] = false;
+        pc_in.pc[0].rx_lswap = rio_lswap_none;
+        pc_in.pc[0].rx_linvert[0] = false;
+        pc_in.pc[0].rx_linvert[1] = false;
+        pc_in.pc[0].rx_linvert[2] = false;
+        pc_in.pc[0].rx_linvert[3] = false;
+
+	pc_out.imp_rc = RIO_SUCCESS;
+
+	for (i = (unsigned int)rio_pc_ls_2p5; i < rio_pc_ls_last; i++) {
+		pc_in.pc[0].ls = (rio_pc_ls_t)i;
+		pc_in.pc[1].ls = (rio_pc_ls_t)i;
+		pc_out.imp_rc = 0xFFFFFFFF;
+
+		switch((rio_pc_ls_t)i) {
+		case rio_pc_ls_2p5:
+		case rio_pc_ls_3p125:
+		case rio_pc_ls_5p0:
+			pc_in.pc[0].iseq = rio_pc_is_one;
+			break;
+		case rio_pc_ls_6p25:
+			pc_in.pc[0].iseq = rio_pc_is_two;
+			break;
+		case rio_pc_ls_10p3:
+		case rio_pc_ls_12p5:
+			pc_in.pc[0].iseq = rio_pc_is_three;
+			break;
+		case rio_pc_ls_1p25:
+		case rio_pc_ls_last:
+		default:
+			// Should never get here...
+			assert_true(false);
+		}
+		if (DEBUG_PRINTF) {
+			printf("\nls %d %s\n", i, ls_to_str[i]);
+		}
+		rc = rxs_rio_pc_set_config(&mock_dev_info, &pc_in, &pc_out);
+		assert_int_equal(RIO_SUCCESS, pc_out.imp_rc);
+		assert_int_equal(RIO_SUCCESS, rc);
+
+		compare_pc(&pc_in.pc[0], &pc_out.pc[0]);
+	}
+
+	// Check all 4x port width values
+	for (i = (unsigned int)rio_pc_pw_2x; i < rio_pc_pw_last; i++) {
+		// Can't override to 2x redundant lane 1.
+		if (i == (unsigned int) rio_pc_pw_1x_l1) {
+			continue;
+		}
+		pc_in.pc[0].pw = (rio_pc_pw_t)i;
+
+		if (DEBUG_PRINTF) {
+			printf("\npw %d %s\n", i, pw_to_str[i]);
+		}
+		assert_int_equal(RIO_SUCCESS,
+			rxs_rio_pc_set_config(&mock_dev_info, &pc_in, &pc_out));
+		assert_int_equal(RIO_SUCCESS, pc_out.imp_rc);
+
+		compare_pc(&pc_in.pc[0], &pc_out.pc[0]);
+	}
+
+	// Power down port...
+	if (DEBUG_PRINTF) {
+		printf("\npower down\n");
+	}
+	pc_in.pc[0].powered_up = false;
+        pc_in.pc[0].pw = rio_pc_pw_4x;
+        pc_in.pc[0].ls = rio_pc_ls_12p5;
+        pc_in.pc[0].fc = rio_pc_fc_rx;
+        pc_in.pc[0].iseq = rio_pc_is_three;
+        pc_in.pc[0].xmitter_disable = false;
+        pc_in.pc[0].port_lockout = false;
+        pc_in.pc[0].nmtc_xfer_enable = false;
+        pc_in.pc[0].tx_lswap = rio_lswap_none;
+        pc_in.pc[0].tx_linvert[0] = false;
+        pc_in.pc[0].tx_linvert[1] = false;
+        pc_in.pc[0].tx_linvert[2] = false;
+        pc_in.pc[0].tx_linvert[3] = false;
+        pc_in.pc[0].rx_lswap = rio_lswap_none;
+        pc_in.pc[0].rx_linvert[0] = false;
+        pc_in.pc[0].rx_linvert[1] = false;
+        pc_in.pc[0].rx_linvert[2] = false;
+        pc_in.pc[0].rx_linvert[3] = false;
+
+	rc = rxs_rio_pc_set_config(&mock_dev_info, &pc_in, &pc_out);
+	assert_int_equal(RIO_SUCCESS, pc_out.imp_rc);
+	assert_int_equal(RIO_SUCCESS, rc);
+
+        pc_in.pc[0].pw = rio_pc_pw_last;
+        pc_in.pc[0].ls = rio_pc_ls_last;
+        pc_in.pc[0].fc = rio_pc_fc_last;
+        pc_in.pc[0].iseq = rio_pc_is_last;
+
+	compare_pc(&pc_in.pc[0], &pc_out.pc[0]);
+
+	// Power up port...
+	if (DEBUG_PRINTF) {
+		printf("\npower up\n");
+	}
+	pc_in.pc[0].powered_up = true;
+        pc_in.pc[0].pw = rio_pc_pw_4x;
+        pc_in.pc[0].ls = rio_pc_ls_12p5;
+        pc_in.pc[0].fc = rio_pc_fc_rx;
+        pc_in.pc[0].iseq = rio_pc_is_three;
+        pc_in.pc[0].xmitter_disable = false;
+        pc_in.pc[0].port_lockout = false;
+        pc_in.pc[0].nmtc_xfer_enable = true;
+        pc_in.pc[0].tx_lswap = rio_lswap_none;
+        pc_in.pc[0].tx_linvert[0] = false;
+        pc_in.pc[0].tx_linvert[1] = false;
+        pc_in.pc[0].tx_linvert[2] = false;
+        pc_in.pc[0].tx_linvert[3] = false;
+        pc_in.pc[0].rx_lswap = rio_lswap_none;
+        pc_in.pc[0].rx_linvert[0] = false;
+        pc_in.pc[0].rx_linvert[1] = false;
+        pc_in.pc[0].rx_linvert[2] = false;
+        pc_in.pc[0].rx_linvert[3] = false;
+
+	rc = rxs_rio_pc_set_config(&mock_dev_info, &pc_in, &pc_out);
+	assert_int_equal(RIO_SUCCESS, pc_out.imp_rc);
+	assert_int_equal(RIO_SUCCESS, rc);
+
+	compare_pc(&pc_in.pc[0], &pc_out.pc[0]);
+
+	// Disable transmitter, lockout ports, disable nmtc_xfer on port 0
+	if (DEBUG_PRINTF) {
+		printf("\ndisable & lockout\n");
+	}
+	pc_in.pc[0].powered_up = true;
+	pc_in.pc[0].port_lockout = true;
+	pc_in.pc[0].xmitter_disable = true;
+	pc_in.pc[0].nmtc_xfer_enable = false;
+
+	rc = rxs_rio_pc_set_config(&mock_dev_info, &pc_in, &pc_out);
+	assert_int_equal(RIO_SUCCESS, pc_out.imp_rc);
+	assert_int_equal(RIO_SUCCESS, rc);
+
+	compare_pc(&pc_in.pc[0], &pc_out.pc[0]);
+
+	// Disable transmitter, lockout ports, disable nmtc_xfer on port 0
+	if (DEBUG_PRINTF) {
+		printf("\nenable & unlock\n");
+	}
+	pc_in.pc[0].port_lockout = false;
+	pc_in.pc[0].xmitter_disable = false;
+	pc_in.pc[0].nmtc_xfer_enable = true;
+
+	rc = rxs_rio_pc_set_config(&mock_dev_info, &pc_in, &pc_out);
+	assert_int_equal(RIO_SUCCESS, pc_out.imp_rc);
+	assert_int_equal(RIO_SUCCESS, rc);
+
+	compare_pc(&pc_in.pc[0], &pc_out.pc[0]);
+
+	// Check all lane swaps...
+	if (DEBUG_PRINTF) {
+		printf("\nlane swaps\n");
+	}
+	for (i = 0; i < (unsigned int)rio_lswap_last; i++) {
+		pc_in.pc[0].tx_lswap = (rio_lane_swap_t)i;
+		for (j = 0; j < (unsigned int)rio_lswap_last; j++) {
+			pc_in.pc[0].rx_lswap = (rio_lane_swap_t)j;
+
+			rc = rxs_rio_pc_set_config(
+					&mock_dev_info, &pc_in, &pc_out);
+			assert_int_equal(RIO_SUCCESS, pc_out.imp_rc);
+			assert_int_equal(RIO_SUCCESS, rc);
+
+			compare_pc(&pc_in.pc[0], &pc_out.pc[0]);
+		}
+	}
+	// Check all lane inversions...
+	if (DEBUG_PRINTF) {
+		printf("\nlane inversions\n");
+	}
+	for (i = 0; i < (1 << RIO_MAX_PORT_LANES); i++) {
+		for (j = 0; j < RIO_MAX_PORT_LANES; j++) {
+			if ((1 << j) & i) {
+				pc_in.pc[0].tx_linvert[j] = true;
+				pc_in.pc[0].rx_linvert[j] = false;
+			} else {
+				pc_in.pc[0].tx_linvert[j] = true;
+				pc_in.pc[0].rx_linvert[j] = false;
+			}
+
+			rc = rxs_rio_pc_set_config(
+					&mock_dev_info, &pc_in, &pc_out);
+			assert_int_equal(RIO_SUCCESS, pc_out.imp_rc);
+			assert_int_equal(RIO_SUCCESS, rc);
+
+			compare_pc(&pc_in.pc[0], &pc_out.pc[0]);
+		}
+	}
+	(void)state;
+}
+
 int main(int argc, char** argv)
 {
 	const struct CMUnitTest tests[] = {
@@ -1702,6 +2575,15 @@ int main(int argc, char** argv)
 				rxs_rio_pc_dev_reset_config_bad_parms, setup),
 			cmocka_unit_test_setup(
 				rxs_rio_pc_dev_reset_config_rst_cfg, setup),
+
+			cmocka_unit_test_setup(
+				rxs_rio_pc_set_config_check_conflicts_test, setup),
+			cmocka_unit_test_setup(
+				rxs_rio_pc_set_config_check_parms_test, setup),
+			cmocka_unit_test_setup(
+				rxs_rio_pc_set_config_success_one_4x_test, setup),
+			cmocka_unit_test_setup(
+				rxs_rio_pc_set_config_success_two_2x_test, setup),
 			};
 
 	memset(&st, 0, sizeof(st));

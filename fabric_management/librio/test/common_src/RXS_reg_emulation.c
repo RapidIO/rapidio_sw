@@ -362,6 +362,7 @@ static void emulate_spx_pp_reg_write(DAR_DEV_INFO_t *dev_info,
 				RIO_SPX_LM_RESP_STAT12_IES |
 				RIO_SPX_LM_RESP_ACK_ID3 |
 				RIO_SPX_LM_RESP_STAT3;
+	unsigned int lanes;
 
 	if (RXS_SPX_LM_REQ(port) == offset) {
 		dev_info->poregs[idx].data = 0;
@@ -381,6 +382,77 @@ static void emulate_spx_pp_reg_write(DAR_DEV_INFO_t *dev_info,
 			assert_true(false);
 		}
 		return;
+	}
+
+	// Support writing to OVER_PWIDTH field...
+	if (RXS_SPX_CTL(port) == offset) {
+		lanes = RIO_SPX_CTL_PTW_MAX_LANES(writedata);
+
+		writedata &= ~RXS_SPX_CTL_INIT_PWIDTH;
+		switch(writedata & RXS_SPX_CTL_OVER_PWIDTH) {
+		case RIO_SPX_CTL_PTW_OVER_NONE:
+		case RIO_SPX_CTL_PTW_OVER_RSVD:
+		case RIO_SPX_CTL_PTW_OVER_NONE_2:
+			// No override, or train on Lane 0.
+			// port trained to maximum width
+			switch (lanes) {
+			case 1:
+				writedata |= RIO_SPX_CTL_PTW_INIT_1X_L0;
+				break;
+			case 2:
+				writedata |= RIO_SPX_CTL_PTW_INIT_2X;
+				break;
+			case 4:
+				writedata |= RIO_SPX_CTL_PTW_INIT_4X;
+				break;
+			default:
+				assert_true(false);
+			}
+			break;
+		case RIO_SPX_CTL_PTW_OVER_1X_L0:
+			writedata |= RIO_SPX_CTL_PTW_INIT_1X_L0;
+			break;
+
+		case RIO_SPX_CTL_PTW_OVER_1X_LR:
+			switch (lanes) {
+			case 1:
+				writedata |= RIO_SPX_CTL_PTW_INIT_1X_L0;
+				break;
+			case 2:
+			case 4:
+				writedata |= RIO_SPX_CTL_PTW_INIT_1X_LR;
+				break;
+			default:
+				assert_true(false);
+			}
+			break;
+		case RIO_SPX_CTL_PTW_OVER_2X_NO_4X:
+			switch (lanes) {
+			case 1:
+				writedata |= RIO_SPX_CTL_PTW_INIT_1X_L0;
+				break;
+			case 2:
+			case 4:
+				writedata |= RIO_SPX_CTL_PTW_INIT_2X;
+				break;
+			default:
+				assert_true(false);
+			}
+			break;
+		case RIO_SPX_CTL_PTW_OVER_4X_NO_2X:
+			switch (lanes) {
+			case 1:
+			case 2:
+				writedata |= RIO_SPX_CTL_PTW_INIT_1X_L0;
+				break;
+			case 4:
+				writedata |= RIO_SPX_CTL_PTW_INIT_4X;
+				break;
+			default:
+				assert_true(false);
+			}
+			break;
+		}
 	}
 
 	// No additional behavior required, just update the data...
@@ -429,6 +501,7 @@ static void emulate_plm_reg_write(DAR_DEV_INFO_t *dev_info,
 	rio_port_t port = (offset - RXS_PLM_SPX_IMP_SPEC_CTL(0))
 			/ RXS_IMP_SPEC_PP_OSET;
 	unsigned int t_idx;
+	uint32_t temp;
 
 	if (RXS_PLM_SPX_STAT(port) == offset) {
 		dev_info->poregs[idx].data &= ~writedata;
@@ -466,6 +539,83 @@ static void emulate_plm_reg_write(DAR_DEV_INFO_t *dev_info,
 		dev_info->poregs[t_idx].data = 0;
 
 		update_plm_status(dev_info, 0xFFFFFFFF, 0, port);
+	}
+
+	if (RXS_PLM_SPX_1WR(port) == offset) {
+		// One-write register controls lane speed and idle sequence.
+		// Lane speed is found in the SPX_CTL2 register.
+		t_idx = rxs_expect_poreg_idx(dev_info, RXS_SPX_CTL2(port));
+
+		temp = dev_info->poregs[t_idx].data;
+		temp &= RXS_SPX_CTL2_RTEC_EN | RXS_SPX_CTL2_RTEC |
+			RXS_SPX_CTL2_D_SCRM_DIS | RXS_SPX_CTL2_INACT_LN_EN |
+			RXS_SPX_CTL2_RETRAIN_EN;
+		switch (writedata & RXS_PLM_SPX_1WR_BAUD_EN) {
+		case RXS_PLM_SPX_1WR_BAUD_EN_2P5:
+			temp |= RXS_SPX_CTL2_GB_2P5_EN |
+				RXS_SPX_CTL2_GB_2P5 |
+				RXS_SPX_CTL2_BAUD_SEL_2_5GB;
+			break;
+
+		case RXS_PLM_SPX_1WR_BAUD_EN_3P125:
+			temp |= RXS_SPX_CTL2_GB_3P125_EN |
+				RXS_SPX_CTL2_GB_3P125 |
+				RXS_SPX_CTL2_BAUD_SEL_3_125GB;
+			break;
+
+		case RXS_PLM_SPX_1WR_BAUD_EN_5P0:
+			temp |= RXS_SPX_CTL2_GB_5P0_EN |
+				RXS_SPX_CTL2_GB_5P0 |
+				RXS_SPX_CTL2_BAUD_SEL_5_0GB;
+			break;
+
+		case RXS_PLM_SPX_1WR_BAUD_EN_6P25:
+			temp |= RXS_SPX_CTL2_GB_6P25_EN |
+				RXS_SPX_CTL2_GB_6P25 |
+				RXS_SPX_CTL2_BAUD_SEL_6_25GB;
+			break;
+
+		case RXS_PLM_SPX_1WR_BAUD_EN_10P3:
+			temp |= RXS_SPX_CTL2_GB_10P3_EN |
+				RXS_SPX_CTL2_GB_10P3 |
+				RXS_SPX_CTL2_BAUD_SEL_10_3125GB;
+			break;
+
+		case RXS_PLM_SPX_1WR_BAUD_EN_12P5:
+			temp |= RXS_SPX_CTL2_GB_12P5_EN |
+				RXS_SPX_CTL2_GB_12P5 |
+				RXS_SPX_CTL2_BAUD_SEL_12_5GB;
+			break;
+
+		default:
+			assert_true(false);
+		}
+		dev_info->poregs[t_idx].data = temp;
+
+		// Idle sequence is found in the PLM_SPX_CTL register.
+		t_idx = rxs_expect_poreg_idx(dev_info,
+						RXS_PLM_SPX_IMP_SPEC_CTL(port));
+		temp = dev_info->poregs[t_idx].data;
+		temp &= ~(RXS_PLM_SPX_IMP_SPEC_CTL_USE_IDLE1 |
+			RXS_PLM_SPX_IMP_SPEC_CTL_USE_IDLE2 |
+			RXS_PLM_SPX_IMP_SPEC_CTL_USE_IDLE3);
+		switch (writedata & RXS_PLM_SPX_1WR_IDLE_SEQ) {
+		case RXS_PLM_SPX_1WR_IDLE_SEQ_DFLT:
+			break;
+		case RXS_PLM_SPX_1WR_IDLE_SEQ_1:
+			temp |= RXS_PLM_SPX_IMP_SPEC_CTL_USE_IDLE1;
+			break;
+		case RXS_PLM_SPX_1WR_IDLE_SEQ_2:
+			temp |= RXS_PLM_SPX_IMP_SPEC_CTL_USE_IDLE2;
+			break;
+		case RXS_PLM_SPX_1WR_IDLE_SEQ_3:
+			temp |= RXS_PLM_SPX_IMP_SPEC_CTL_USE_IDLE3;
+			break;
+		default:
+			assert_true(false);
+		}
+
+		dev_info->poregs[t_idx].data = temp;
 	}
 
 	// No additional behavior required, just update the data...
@@ -909,9 +1059,9 @@ typedef struct rxs_mock_pp_reg_t_TAG {
 #define RXS_PLM_SPX_INT_EN_DFLT 0
 #define RXS_PLM_SPX_ALL_INT_EN_DFLT 0
 #define RXS_PLM_SPX_DENIAL_CTL_DFLT 0
-#define RXS_SPX_CTL2_DFLT (RXS_SPX_CTL2_GB_6P25_EN | \
-				RXS_SPX_CTL2_GB_6P25 | \
-				RIO_SPX_CTL2_BAUD_SEL_6P25_BR)
+#define RXS_SPX_CTL2_DFLT (RXS_SPX_CTL2_GB_5P0_EN | \
+				RXS_SPX_CTL2_GB_5P0 | \
+				RIO_SPX_CTL2_BAUD_SEL_5P0_BR)
 #define RXS_SPX_ERR_STAT_DFLT (RXS_SPX_ERR_STAT_PORT_UNAVL)
 #define RXS_SPX_CTL_DFLT (RXS_SPX_CTL_PORT_DIS | \
 				RIO_SPX_CTL_PTW_INIT_4X | \
@@ -922,6 +1072,8 @@ typedef struct rxs_mock_pp_reg_t_TAG {
 
 #define RXS_PLM_SPX_IMP_SPEC_CTL_DFLT (RXS_PLM_SPX_IMP_SPEC_CTL_PORT_SELF_RST)
 #define RXS_PLM_SPX_PWDN_CTL_DFLT (RXS_PLM_SPX_PWDN_CTL_PWDN_PORT)
+#define RXS_PLM_SPX_1WR_DFLT (RXS_PLM_SPX_1WR_BAUD_EN_5P0 | \
+				RXS_PLM_SPX_1WR_IDLE_SEQ_1)
 #define RXS_PLM_SPX_POL_CTL_DFLT 0
 #define RXS_PLM_SPX_PNA_CAP_DFLT (RXS_PLM_SPX_PNA_CAP_VALID)
 #define RXS_PLM_SPX_STAT_DFLT 0
@@ -934,6 +1086,8 @@ typedef struct rxs_mock_pp_reg_t_TAG {
 #define RXS_TLM_SPX_INT_EN_DFLT 0
 #define RXS_TLM_SPX_FTYPE_FILT_DFLT 0
 #define RXS_TLM_SPX_EVENT_GEN_DFLT 0
+#define RXS_TLM_SPX_ROUTE_EN_DFLT (0x00FFFFFF)
+#define RXS_TLM_SPX_MTC_ROUTE_EN_DFLT (RXS_TLM_SPX_MTC_ROUTE_EN_MTC_EN)
 
 #define RXS_PBM_SPX_STAT_DFLT 0
 #define RXS_PBM_SPX_PW_EN_DFLT 0
@@ -943,6 +1097,9 @@ typedef struct rxs_mock_pp_reg_t_TAG {
 #define RXS_SPX_PCNTR_EN_DFLT 0
 #define RXS_SPX_PCNTR_CTL_DFLT 0
 #define RXS_SPX_PCNTR_CNT_DFLT 0
+
+#define RXS_FAB_IG_MTC_VOQ_ACT_DFLT 0
+#define RXS_FAB_IG_VOQ_ACT_DFLT 0
 
 rxs_mock_pp_reg_t rxs_mock_pp_reg[] = {
 	{RXS_SPX_LM_REQ(0), 0x40, RXS_SPX_LM_REQ_DFLT},
@@ -955,8 +1112,10 @@ rxs_mock_pp_reg_t rxs_mock_pp_reg[] = {
 	{RXS_SPX_ERR_DET(0), 0x40, RXS_SPX_ERR_DET_DFLT},
 	{RXS_SPX_RATE_EN(0), 0x40, RXS_SPX_RATE_EN_DFLT},
 	{RXS_SPX_DLT_CSR(0), 0x40, RXS_SPX_DLT_DFLT},
+
 	{RXS_PLM_SPX_IMP_SPEC_CTL(0), 0x100,
 				RXS_PLM_SPX_IMP_SPEC_CTL_DFLT},
+	{RXS_PLM_SPX_1WR(0), 0x100, RXS_PLM_SPX_1WR_DFLT},
 	{RXS_PLM_SPX_STAT(0), 0x100, RXS_PLM_SPX_STAT_DFLT},
 	{RXS_PLM_SPX_PW_EN(0), 0x100, RXS_PLM_SPX_PW_EN_DFLT},
 	{RXS_PLM_SPX_INT_EN(0), 0x100, RXS_PLM_SPX_INT_EN_DFLT},
@@ -973,6 +1132,8 @@ rxs_mock_pp_reg_t rxs_mock_pp_reg[] = {
 	{RXS_TLM_SPX_INT_EN(0), 0x100, RXS_TLM_SPX_INT_EN_DFLT},
 	{RXS_TLM_SPX_FTYPE_FILT(0), 0x100, RXS_TLM_SPX_FTYPE_FILT_DFLT},
 	{RXS_TLM_SPX_EVENT_GEN(0), 0x100, RXS_TLM_SPX_EVENT_GEN_DFLT},
+	{RXS_TLM_SPX_ROUTE_EN(0), 0x100, RXS_TLM_SPX_ROUTE_EN_DFLT},
+	{RXS_TLM_SPX_MTC_ROUTE_EN(0), 0x100, RXS_TLM_SPX_MTC_ROUTE_EN_DFLT},
 
 	{RXS_PBM_SPX_STAT(0), 0x100, RXS_PBM_SPX_STAT_DFLT},
 	{RXS_PBM_SPX_PW_EN(0), 0x100, RXS_PBM_SPX_PW_EN_DFLT},
@@ -996,6 +1157,10 @@ rxs_mock_pp_reg_t rxs_mock_pp_reg[] = {
 	{RXS_SPX_PCNTR_CNT(0, 5), 0x100, RXS_SPX_PCNTR_CNT_DFLT},
 	{RXS_SPX_PCNTR_CNT(0, 6), 0x100, RXS_SPX_PCNTR_CNT_DFLT},
 	{RXS_SPX_PCNTR_CNT(0, 7), 0x100, RXS_SPX_PCNTR_CNT_DFLT},
+
+	{RXS_FAB_IG_X_MTC_VOQ_ACT(0), 0x100, RXS_FAB_IG_MTC_VOQ_ACT_DFLT},
+	{RXS_FAB_IG_X_VOQ_ACT(0), 0x100, RXS_FAB_IG_VOQ_ACT_DFLT},
+#define RXS_FAB_IG_VOQ_ACT_DFLT 0
 };
 
 // Count up maximum registers saved.
@@ -1210,6 +1375,51 @@ static int setup(void **state)
 	return 0;
 }
 
+static void update_ctl_pwidth(uint32_t *ctl)
+{
+	*ctl &= ~RXS_SPX_CTL_INIT_PWIDTH;
+
+	switch (*ctl & RXS_SPX_CTL_OVER_PWIDTH) {
+	case RIO_SPX_CTL_PTW_OVER_NONE:
+	case RIO_SPX_CTL_PTW_OVER_NONE_2:
+	case RIO_SPX_CTL_PTW_OVER_RSVD:
+		if (*ctl & RIO_SPX_CTL_PTW_MAX_4X) {
+			*ctl |= RIO_SPX_CTL_PTW_INIT_4X;
+		} else if (*ctl & RIO_SPX_CTL_PTW_MAX_2X) {
+			*ctl |= RIO_SPX_CTL_PTW_INIT_2X;
+		} else {
+			*ctl |= RIO_SPX_CTL_PTW_INIT_1X_L0;
+		}
+		break;
+	case RIO_SPX_CTL_PTW_OVER_1X_L0:
+		*ctl |= RIO_SPX_CTL_PTW_INIT_1X_L0;
+		break;
+	case RIO_SPX_CTL_PTW_OVER_1X_LR:
+		if (*ctl & RIO_SPX_CTL_PTW_MAX) {
+			*ctl |= RIO_SPX_CTL_PTW_INIT_1X_LR;
+		} else {
+			*ctl |= RIO_SPX_CTL_PTW_INIT_1X_L0;
+		}
+		break;
+	case RIO_SPX_CTL_PTW_OVER_2X_NO_4X:
+		if (*ctl & RIO_SPX_CTL_PTW_MAX_2X) {
+			*ctl |= RIO_SPX_CTL_PTW_INIT_2X;
+		} else {
+			*ctl |= RIO_SPX_CTL_PTW_INIT_1X_L0;
+		}
+		break;
+	case RIO_SPX_CTL_PTW_OVER_4X_NO_2X:
+		if (*ctl & RIO_SPX_CTL_PTW_MAX_4X) {
+			*ctl |= RIO_SPX_CTL_PTW_INIT_4X;
+		} else {
+			*ctl |= RIO_SPX_CTL_PTW_INIT_1X_L0;
+		}
+		break;
+	default:
+		assert_true(false);
+	}
+}
+
 // Routine to set virtual register status for
 // rxs_pc_get_config and rxs_pc_get_status
 
@@ -1223,7 +1433,8 @@ typedef enum config_hw_t_TAG {
 	cfg_lp_nmtc_dis,
 	cfg_lp_lpbk,
 	cfg_lp_ecc,
-	cfg_perfect
+	cfg_perfect,
+	cfg_perfect_2x
 } config_hw_t;
 
 #define NO_TTL false
@@ -1303,12 +1514,14 @@ void set_all_port_config(config_hw_t cfg,
 			err_stat = err_stat_lp_perr;
 			pwdn = 0;
 			ctl &= ~RXS_SPX_CTL_PORT_DIS;
+			update_ctl_pwidth(&ctl);
 			break;
 		case cfg_lp_lkout:
 			err_stat = err_stat_lp_ok;
 			pwdn = 0;
 			ctl &= ~RXS_SPX_CTL_PORT_DIS;
 			ctl |= RXS_SPX_CTL_PORT_LOCKOUT;
+			update_ctl_pwidth(&ctl);
 			break;
 		case cfg_lp_nmtc_dis:
 			err_stat = err_stat_lp_ok;
@@ -1317,6 +1530,7 @@ void set_all_port_config(config_hw_t cfg,
 			ctl &= ~RXS_SPX_CTL_PORT_LOCKOUT;
 			ctl &= ~(RXS_SPX_CTL_INP_EN |
 				RXS_SPX_CTL_OTP_EN);
+			update_ctl_pwidth(&ctl);
 			break;
 		case cfg_lp_lpbk:
 			err_stat = err_stat_lp_ok;
@@ -1325,6 +1539,7 @@ void set_all_port_config(config_hw_t cfg,
 			ctl &= ~RXS_SPX_CTL_PORT_LOCKOUT;
 			ctl |= RXS_SPX_CTL_INP_EN | RXS_SPX_CTL_OTP_EN;
 			plm_ctl |= lpbk_mask;
+			update_ctl_pwidth(&ctl);
 			break;
 		case cfg_lp_ecc:
 			err_stat = err_stat_lp_ok;
@@ -1332,6 +1547,7 @@ void set_all_port_config(config_hw_t cfg,
 			ctl &= ~RXS_SPX_CTL_PORT_DIS;
 			ctl &= ~RXS_SPX_CTL_PORT_LOCKOUT;
 			ctl |= RXS_SPX_CTL_INP_EN | RXS_SPX_CTL_OTP_EN;
+			update_ctl_pwidth(&ctl);
 			plm_ctl &= ~lpbk_mask;
 			pbm_gen = RXS_PBM_SPX_EVENT_GEN_EG_DATA_UNCOR;
 			break;
@@ -1341,6 +1557,21 @@ void set_all_port_config(config_hw_t cfg,
 			ctl &= ~RXS_SPX_CTL_PORT_DIS;
 			ctl &= ~RXS_SPX_CTL_PORT_LOCKOUT;
 			ctl |= RXS_SPX_CTL_INP_EN | RXS_SPX_CTL_OTP_EN;
+			update_ctl_pwidth(&ctl);
+			plm_ctl &= ~RXS_PLM_SPX_IMP_SPEC_CTL_LLB_EN;
+			pbm_stat = 0xFFFFFFFF;
+			plm_stat = 0xFFFFFFFF;
+			break;
+		case cfg_perfect_2x:
+			err_stat = err_stat_lp_ok;
+			pwdn = 0;
+			ctl &= ~RXS_SPX_CTL_PORT_DIS;
+			ctl &= ~RXS_SPX_CTL_PORT_LOCKOUT;
+			ctl |= RXS_SPX_CTL_INP_EN | RXS_SPX_CTL_OTP_EN;
+			ctl &= ~RIO_SPX_CTL_PTW_MAX_4X;
+			ctl |= RIO_SPX_CTL_PTW_MAX_2X;
+			ctl |= RIO_SPX_CTL_PTW_INIT_2X;
+			update_ctl_pwidth(&ctl);
 			plm_ctl &= ~RXS_PLM_SPX_IMP_SPEC_CTL_LLB_EN;
 			pbm_stat = 0xFFFFFFFF;
 			plm_stat = 0xFFFFFFFF;

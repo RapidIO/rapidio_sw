@@ -291,6 +291,78 @@ void determine_ls(rio_pc_ls_t *ls, uint32_t ctl2)
 	}
 }
 
+bool determine_iseq(enum rio_pc_idle_seq *iseq, rio_pc_ls_t ls, uint32_t plm_ctl)
+{
+	bool idle_err = false;
+	uint32_t idle_overrides = RXS_PLM_SPX_IMP_SPEC_CTL_USE_IDLE1 |
+				RXS_PLM_SPX_IMP_SPEC_CTL_USE_IDLE2 |
+				RXS_PLM_SPX_IMP_SPEC_CTL_USE_IDLE3;
+
+	// Note: programming error if more than one of
+	// RXS_PLM_SPX_IMP_SPEC_CTL_USE_IDLE1,
+	// RXS_PLM_SPX_IMP_SPEC_CTL_USE_IDLE2, and
+	// RXS_PLM_SPX_IMP_SPEC_CTL_USE_IDLE3 set set.
+	*iseq = rio_pc_is_last;
+	switch (plm_ctl & idle_overrides) {
+	case 0:
+		break;
+	case RXS_PLM_SPX_IMP_SPEC_CTL_USE_IDLE1:
+		*iseq = rio_pc_is_one;
+		break;
+	case RXS_PLM_SPX_IMP_SPEC_CTL_USE_IDLE2:
+		*iseq = rio_pc_is_two;
+		break;
+	case RXS_PLM_SPX_IMP_SPEC_CTL_USE_IDLE3:
+		*iseq = rio_pc_is_three;
+		break;
+	default:
+		if (plm_ctl & idle_overrides) {
+			idle_err = true;
+			goto fail;
+		}
+	}
+
+	switch (ls) {
+	case rio_pc_ls_1p25:
+	case rio_pc_ls_2p5:
+	case rio_pc_ls_3p125:
+	case rio_pc_ls_5p0:
+		if (rio_pc_is_last == *iseq) {
+			*iseq = rio_pc_is_one;
+		}
+		break;
+	case rio_pc_ls_6p25:
+		if (rio_pc_is_last == *iseq) {
+			*iseq = rio_pc_is_two;
+		}
+		if (rio_pc_is_one == *iseq) {
+			*iseq = rio_pc_is_last;
+			idle_err = true;
+		}
+		break;
+	case rio_pc_ls_10p3:
+	case rio_pc_ls_12p5:
+		switch (*iseq) {
+		// Programming error to use IDLE1 or IDLE2
+		// at more than 6.25 Gbaud.
+		case rio_pc_is_one:
+		case rio_pc_is_two:
+			*iseq = rio_pc_is_last;
+			idle_err = true;
+			break;
+		case rio_pc_is_three:
+			break;
+		case rio_pc_is_last:
+			*iseq = rio_pc_is_three;
+			}
+		break;
+	default:
+		idle_err = true;
+	}
+fail:
+	return idle_err;
+}
+
 uint32_t rxs_rio_pc_get_config(DAR_DEV_INFO_t *dev_info,
 		rio_pc_get_config_in_t *in_parms,
 		rio_pc_get_config_out_t *out_parms)
@@ -303,6 +375,7 @@ uint32_t rxs_rio_pc_get_config(DAR_DEV_INFO_t *dev_info,
 	rio_pc_one_port_config_t *pc;
 	uint32_t nmtc_en_mask = RXS_SPX_CTL_INP_EN | RXS_SPX_CTL_OTP_EN;
 	uint32_t temp;
+	bool idle_err;
 
 	out_parms->num_ports = 0;
 	out_parms->imp_rc = 0;
@@ -386,7 +459,7 @@ uint32_t rxs_rio_pc_get_config(DAR_DEV_INFO_t *dev_info,
 			} else if (ctl & RIO_SPX_CTL_PTW_MAX_2X) {
 				pc->pw = rio_pc_pw_2x;
 			} else {
-				pc->pw = rio_pc_pw_1x_l0;
+				pc->pw = rio_pc_pw_1x;
 			}
 			break;
 		case RIO_SPX_CTL_PTW_OVER_1X_L0:
@@ -398,7 +471,7 @@ uint32_t rxs_rio_pc_get_config(DAR_DEV_INFO_t *dev_info,
 			} else if (ctl & RIO_SPX_CTL_PTW_MAX_2X) {
 				pc->pw = rio_pc_pw_1x_l1;
 			} else {
-				pc->pw = rio_pc_pw_1x_l0;
+				pc->pw = rio_pc_pw_1x;
 			}
 			break;
 		case RIO_SPX_CTL_PTW_OVER_2X_NO_4X:
@@ -416,6 +489,7 @@ uint32_t rxs_rio_pc_get_config(DAR_DEV_INFO_t *dev_info,
 		}
 
 		determine_ls(&pc->ls, ctl2);
+
 		pc->fc = rio_pc_fc_rx;
 		pc->port_lockout = (ctl & RXS_SPX_CTL_PORT_LOCKOUT);
 		pc->nmtc_xfer_enable = ((ctl & nmtc_en_mask) == nmtc_en_mask);
@@ -427,6 +501,12 @@ uint32_t rxs_rio_pc_get_config(DAR_DEV_INFO_t *dev_info,
 			goto exit;
 		}
 
+		idle_err = determine_iseq(&pc->iseq, pc->ls, p_ctl);
+		if (idle_err) {
+			rc = RIO_ERR_READ_REG_RETURN_INVALID_VAL;
+			out_parms->imp_rc = PC_GET_CONFIG(0x68);
+			goto exit;
+		}
 		temp = (p_ctl & RXS_PLM_SPX_IMP_SPEC_CTL_SWAP_RX) >> 16;
 		pc->rx_lswap = lswap(temp);
 		temp = (p_ctl & RXS_PLM_SPX_IMP_SPEC_CTL_SWAP_TX) >> 18;
@@ -452,93 +532,951 @@ exit:
 	return rc;
 }
 
-uint32_t rxs_rio_pc_set_config(DAR_DEV_INFO_t *dev_info,
+// Check for parameter range errors.
+//
+// Error codes 0x01 through 0x1F
+uint32_t rxs_pc_set_cfg_check_parms(DAR_DEV_INFO_t *dev_info,
 		rio_pc_set_config_in_t *in_parms,
-		rio_pc_set_config_out_t *out_parms)
+		rio_pc_set_config_out_t *sorted,
+		uint32_t *imp_rc)
 {
-	uint32_t rc = RIO_SUCCESS;
+	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+	uint32_t idx;
+	rio_port_t port;
 
-	out_parms->imp_rc = RIO_SUCCESS;
-	out_parms->num_ports = in_parms->num_ports;
-
-	rc = rxs_set_lrto(dev_info, in_parms->lrto);
-	if (RIO_SUCCESS != rc) {
-		out_parms->imp_rc = PC_SET_CONFIG(0x10);
+	// Do not support "RIO_ALL_PORTS" or zero ports
+	if (!in_parms->num_ports ||
+			(in_parms->num_ports > NUM_RXS_PORTS(dev_info))) {
+		*imp_rc = PC_SET_CONFIG(0x01);
 		goto fail;
 	}
 
-	rc = rxs_get_lrto(dev_info, &out_parms->lrto);
-	if (RIO_SUCCESS != rc) {
-		out_parms->imp_rc = PC_SET_CONFIG(0x20);
+	if (!in_parms->oob_reg_acc) {
+		if  (in_parms->reg_acc_port >= NUM_RXS_PORTS(dev_info)) {
+			*imp_rc = PC_SET_CONFIG(0x02);
+			goto fail;
+		}
+	}
+
+	memset(sorted, 0, sizeof(*sorted));
+	for (idx = 0; idx < RIO_MAX_PORTS; idx++) {
+		sorted->pc[idx].pnum = RIO_ALL_PORTS;
+	}
+
+	for (idx = 0; idx < in_parms->num_ports; idx++) {
+		port = in_parms->pc[idx].pnum;
+
+		// Basic range checks on all fields
+		if (port >= NUM_RXS_PORTS(dev_info)) {
+			*imp_rc = PC_SET_CONFIG(0x03);
+			goto fail;
+		}
+		memcpy(&sorted->pc[port], &in_parms->pc[idx],
+							sizeof(sorted->pc[0]));
+
+		if (rio_pc_pw_last <= sorted->pc[port].pw) {
+			*imp_rc = PC_SET_CONFIG(0x05);
+			goto fail;
+		}
+		if (port & 1) {
+			if ((rio_pc_pw_4x == sorted->pc[port].pw) ||
+				(rio_pc_pw_1x_l2 == sorted->pc[port].pw)) {
+				*imp_rc = PC_SET_CONFIG(0x07);
+				goto fail;
+			}
+		}
+		if (rio_pc_fc_rx != sorted->pc[port].fc) {
+			*imp_rc = PC_SET_CONFIG(0x09);
+			goto fail;
+		}
+
+		// RXS does not support 1.25 Gbaud rate.
+		if (rio_pc_ls_1p25 == sorted->pc[port].ls) {
+			*imp_rc = PC_SET_CONFIG(0x0B);
+			goto fail;
+		}
+
+		if (rio_pc_ls_last <= sorted->pc[port].ls) {
+			*imp_rc = PC_SET_CONFIG(0x0D);
+			goto fail;
+		}
+
+		if (sorted->pc[port].tx_lswap >= rio_lswap_last) {
+			*imp_rc = PC_SET_CONFIG(0x0F);
+			goto fail;
+		}
+
+		if (sorted->pc[port].rx_lswap >= rio_lswap_last) {
+			*imp_rc = PC_SET_CONFIG(0x11);
+			goto fail;
+		}
+		// Check restrictions on idle sequence and lane speed
+		switch (sorted->pc[port].iseq) {
+		case rio_pc_is_one:
+			if (sorted->pc[port].ls > rio_pc_ls_5p0) {
+				*imp_rc = PC_SET_CONFIG(0x13);
+				goto fail;
+			}
+			break;
+		case rio_pc_is_two:
+			if (sorted->pc[port].ls > rio_pc_ls_6p25) {
+				*imp_rc = PC_SET_CONFIG(0x15);
+				goto fail;
+			}
+			break;
+		case rio_pc_is_three:
+			break;
+		default:
+			*imp_rc = PC_SET_CONFIG(0x17);
+			goto fail;
+		}
+	}
+	rc = RIO_SUCCESS;
+fail:
+	return rc;
+}
+
+bool ls_conflict(rio_pc_ls_t ls_1, rio_pc_ls_t ls_2)
+{
+	bool rc = false;
+
+	if (rio_pc_ls_10p3 == ls_1) {
+		rc = ((rio_pc_ls_2p5 == ls_2) ||(rio_pc_ls_5p0 == ls_2));
+	}
+
+	if (rio_pc_ls_10p3 == ls_2) {
+		rc = ((rio_pc_ls_2p5 == ls_1) ||(rio_pc_ls_5p0 == ls_1));
+	}
+
+	return rc;
+}
+
+// Check for port configuration width and lane speed conflicts between
+// the even port's requested configuration and the even and odd port's
+// current configuration.
+//
+// Error codes 0x3C to 0x43
+uint32_t check_even_conf(rio_pc_one_port_config_t *e_req,
+			rio_pc_one_port_config_t *o_curr,
+			uint32_t		*imp_rc)
+{
+	uint32_t rc = RIO_SUCCESS;
+
+	// Possible port width conflict:
+	// Event port wants to be 4x, or 4x redunduant on lane 2,
+	// and the current odd port is available, the change cannot
+	// be made.
+	//
+	if ((rio_pc_pw_4x == e_req->pw) || (rio_pc_pw_1x_l2 == e_req->pw)) {
+		if (o_curr->port_available) {
+			rc = RIO_ERR_INVALID_PARAMETER;
+			*imp_rc = PC_SET_CONFIG(0x3C);
+		}
+		// If the port width is 4x, then there cannot be any lane
+		// speed conflicts.
+		goto fail;
+	}
+
+	// The even port is 2x or narrower.  Check for lane speed conflicts.
+	if (ls_conflict(e_req->ls, o_curr->ls)) {
+		rc = RIO_ERR_INVALID_PARAMETER;
+		*imp_rc = PC_SET_CONFIG(0x40);
 	}
 fail:
 	return rc;
 }
 
-bool determine_iseq(enum rio_pc_idle_seq *iseq, rio_pc_ls_t ls, uint32_t plm_ctl)
+// Check for port configuration width and lane speed conflicts between
+// the odd port's requested configuration and the even port's
+// current configuration.
+//
+// Error codes 0x44 to 0x4F
+uint32_t check_odd_conf(rio_pc_one_port_config_t *o_req,
+			rio_pc_one_port_config_t *e_curr,
+			rio_pc_one_port_config_t *o_curr,
+			uint32_t		*imp_rc)
 {
-	bool idle_err = false;
-	uint32_t idle_overrides = RXS_PLM_SPX_IMP_SPEC_CTL_USE_IDLE1 |
-				RXS_PLM_SPX_IMP_SPEC_CTL_USE_IDLE2 |
-				RXS_PLM_SPX_IMP_SPEC_CTL_USE_IDLE3;
+	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
 
-	// Note: programming error if more than one of
-	// RXS_PLM_SPX_IMP_SPEC_CTL_USE_IDLE1,
-	// RXS_PLM_SPX_IMP_SPEC_CTL_USE_IDLE2, and
-	// RXS_PLM_SPX_IMP_SPEC_CTL_USE_IDLE3 set set.
-	*iseq = rio_pc_is_last;
-	switch (plm_ctl & idle_overrides) {
-	case 0:
-		break;
-	case RXS_PLM_SPX_IMP_SPEC_CTL_USE_IDLE1:
-		*iseq = rio_pc_is_one;
-		break;
-	case RXS_PLM_SPX_IMP_SPEC_CTL_USE_IDLE2:
-		*iseq = rio_pc_is_two;
-		break;
-	case RXS_PLM_SPX_IMP_SPEC_CTL_USE_IDLE3:
-		*iseq = rio_pc_is_three;
-		break;
-	default:
-		idle_err = true;
+	// Possible port width conflict:
+	// Even port is 4x, or 4x redunduant on lane 2,
+	// and the current odd port is available, the change cannot
+	// be made.
+	//
+	if ((rio_pc_pw_4x == e_curr->pw) || (rio_pc_pw_1x_l2 == e_curr->pw)) {
+		if (o_req->port_available) {
+			*imp_rc = PC_SET_CONFIG(0x44);
+			goto fail;
+		}
+	}
+
+	if (o_req->port_available != o_curr->port_available) {
+		*imp_rc = PC_SET_CONFIG(0x46);
 		goto fail;
 	}
 
-	switch (ls) {
-	case rio_pc_ls_1p25:
-	case rio_pc_ls_2p5:
-	case rio_pc_ls_3p125:
-	case rio_pc_ls_5p0:
-		if (rio_pc_is_last == *iseq) {
-			*iseq = rio_pc_is_one;
+	// Lane speed conflict may occur if even and odd ports
+	// are available.  The even port is always available.
+	if (o_req->port_available) {
+		if (ls_conflict(o_req->ls, e_curr->ls)) {
+			*imp_rc = PC_SET_CONFIG(0x48);
+			goto fail;
 		}
-		break;
-	case rio_pc_ls_6p25:
-		if (rio_pc_is_last == *iseq) {
-			*iseq = rio_pc_is_two;
+	}
+	rc = RIO_SUCCESS;
+fail:
+	return rc;
+}
+
+// Check for port configuration width and lane speed conflicts between
+// the even and odd port's requested and current configuration.
+//
+// Error codes 0x30 to 0x3B
+uint32_t check_both_conf(rio_pc_one_port_config_t *e_req,
+			rio_pc_one_port_config_t *o_req,
+			rio_pc_one_port_config_t *e_curr,
+			rio_pc_one_port_config_t *o_curr,
+			uint32_t		*imp_rc)
+{
+	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+
+	// Possible port width conflict:
+	// Even port is 4x, or 4x redunduant on lane 2,
+	// and the current or requested odd port is available,
+	// the change cannot be made.
+	if ((rio_pc_pw_4x == e_curr->pw) || (rio_pc_pw_1x_l2 == e_curr->pw)) {
+		if ((o_curr->port_available) || (o_req->port_available)) {
+			*imp_rc = PC_SET_CONFIG(0x30);
+			goto fail;
 		}
-		break;
-	case rio_pc_ls_10p3:
-	case rio_pc_ls_12p5:
-	switch (*iseq) {
-		// Programming error to use IDLE1 or IDLE2
-		// at more than 6.25 Gbaud.
-		case rio_pc_is_one:
-		case rio_pc_is_two:
-			*iseq = rio_pc_is_last;
-			idle_err = true;
-			break;
-		case rio_pc_is_three:
-			break;
-		case rio_pc_is_last:
-			*iseq = rio_pc_is_three;
+	}
+
+	if ((rio_pc_pw_4x == e_req->pw) || (rio_pc_pw_1x_l2 == e_req->pw)) {
+		if ((o_curr->port_available) || (o_req->port_available)) {
+			*imp_rc = PC_SET_CONFIG(0x32);
+			goto fail;
+		}
+	}
+
+	// Do not currently support changing path configuration register,
+	// so this is not supported.
+	if (o_req->port_available != o_curr->port_available) {
+		*imp_rc = PC_SET_CONFIG(0x34);
+		goto fail;
+	}
+
+	// No lane speed conflict if the odd port is not available
+	if (o_req->port_available) {
+		if (ls_conflict(e_req->ls, o_req->ls)) {
+			*imp_rc = PC_SET_CONFIG(0x36);
+			goto fail;
+		}
+	}
+	rc = RIO_SUCCESS;
+fail:
+	return rc;
+}
+
+#define OTH(x) (x ^ 1)
+uint32_t rxs_pc_set_cfg_check_conflicts(DAR_DEV_INFO_t *dev_info,
+		rio_pc_set_config_out_t *sorted,
+		rio_pc_set_config_out_t *current,
+		uint32_t *imp_rc)
+{
+	uint32_t rc = RIO_SUCCESS;
+	rio_port_t port;
+	rio_pc_one_port_config_t *src, *o_src;
+	rio_pc_one_port_config_t *curr, *o_curr;
+
+	// For each pair of ports, check that it is possible to configure
+	// the availability/port widths/lane speeds/swaps requested.
+	for (port = 0; port < NUM_RXS_PORTS(dev_info); port += 2) {
+		// If neither port is being configured, there's nothing to check
+		if ((RIO_ALL_PORTS == sorted->pc[port].pnum) &&
+			(RIO_ALL_PORTS == sorted->pc[OTH(port)].pnum)) {
+			continue;
+		}
+		curr = &current->pc[port];
+		o_curr = &current->pc[OTH(port)];
+
+		if (port == sorted->pc[port].pnum) {
+			src = &sorted->pc[port];
+			if (OTH(port) == sorted->pc[OTH(port)].pnum) {
+				o_src = &sorted->pc[OTH(port)];
+				// Error codes 0x30 to 0x3B
+				rc = check_both_conf(
+					src, o_src, curr, o_curr, imp_rc);
+				if (RIO_SUCCESS != rc) {
+					break;
+				}
+				continue;
 			}
-		break;
-	default:
-		idle_err = true;
+			// Error codes 0x3C to 0x43
+			rc = check_even_conf(src, o_curr, imp_rc);
+			if (RIO_SUCCESS != rc) {
+				break;
+			}
+			continue;
+		}
+		// Error codes 0x44 to 0x4F
+		o_src = &sorted->pc[OTH(port)];
+		rc = check_odd_conf(o_src, curr, o_curr, imp_rc);
+		if (RIO_SUCCESS != rc) {
+			break;
+		}
+	}
+	return rc;
+}
+
+typedef struct rio_pc_one_port_regs_t_TAG {
+	uint32_t plm_pwdn;
+	uint32_t spx_ctl;
+	uint32_t one_wr;
+	uint32_t plm_ctl;
+	uint32_t plm_pol;
+	uint32_t rt_en; // Final value of RXS TLM SPX ROUTE_EN register
+	uint32_t rt_en_temp; // Temporary value of RXS TLM SPX ROUTE_EN register
+				// Used when reconfiguring ports...
+	uint32_t mtc_rt_en; // Final value of RXS_TLM_SPX_MTC_ROUTE_EN register
+	uint32_t mtc_rt_en_temp; // Temporary value of RXS_TLM_SPX_MTC_ROUTE_EN
+				// Used when reconfiguring ports...
+} rio_pc_one_port_regs_t;
+
+typedef struct rio_pc_set_regs_t_TAG {
+	rio_pc_one_port_regs_t regs[RXS2448_MAX_PORTS];
+} rio_pc_set_regs_t;
+
+uint32_t read_port_regs(DAR_DEV_INFO_t *dev_info,
+			rio_pc_one_port_regs_t *regs,
+			rio_port_t port)
+{
+	uint32_t rc;
+
+	rc = DARRegRead(dev_info, RXS_PLM_SPX_PWDN_CTL(port), &regs->plm_pwdn);
+	if (RIO_SUCCESS != rc) {
+		goto fail;
+	}
+	rc = DARRegRead(dev_info, RXS_SPX_CTL(port), &regs->spx_ctl);
+	if (RIO_SUCCESS != rc) {
+		goto fail;
+	}
+	rc = DARRegRead(dev_info, RXS_PLM_SPX_1WR(port), &regs->one_wr);
+	if (RIO_SUCCESS != rc) {
+		goto fail;
+	}
+	rc = DARRegRead(dev_info, RXS_PLM_SPX_IMP_SPEC_CTL(port),
+								&regs->plm_ctl);
+	if (RIO_SUCCESS != rc) {
+		goto fail;
+	}
+	rc = DARRegRead(dev_info, RXS_PLM_SPX_POL_CTL(port), &regs->plm_pol);
+	if (RIO_SUCCESS != rc) {
+		goto fail;
+	}
+	rc = DARRegRead(dev_info, RXS_TLM_SPX_ROUTE_EN(port), &regs->rt_en);
+	if (RIO_SUCCESS != rc) {
+		goto fail;
+	}
+	rc = DARRegRead(dev_info, RXS_TLM_SPX_MTC_ROUTE_EN(port),
+							&regs->mtc_rt_en);
+	if (RIO_SUCCESS != rc) {
+		goto fail;
 	}
 fail:
-	return idle_err;
+	return rc;
+}
+
+// Error codes 0x50 through 0x7F
+int32_t rxs_pc_set_cfg_compute_changes(
+		DAR_DEV_INFO_t *dev_info,
+		rio_pc_set_config_out_t *sorted,
+		rio_pc_set_regs_t *curr,
+		rio_pc_set_regs_t *chg,
+		uint32_t *imp_rc)
+{
+	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+	rio_port_t port;
+	rio_port_t pt;
+	unsigned int ln;
+	rio_pc_one_port_config_t *pc;
+	rio_pc_one_port_regs_t *regs;
+	uint32_t rt_en;
+	uint32_t nmtc_mask = RIO_SPX_CTL_INP_EN | RIO_SPX_CTL_OTP_EN;
+	uint32_t swap_mask = RXS_PLM_SPX_IMP_SPEC_CTL_SWAP_RX |
+				RXS_PLM_SPX_IMP_SPEC_CTL_SWAP_TX;
+
+	// Read all registers
+	for (port = 0; port < NUM_RXS_PORTS(dev_info); port++) {
+		if (RIO_ALL_PORTS == sorted->pc[port].pnum) {
+			continue;
+		}
+
+		rc = read_port_regs(dev_info, &curr->regs[port], port);
+		if (RIO_SUCCESS != rc) {
+			*imp_rc = PC_SET_CONFIG(0x50);
+			goto fail;
+		}
+		memcpy(&chg->regs[port],
+			&curr->regs[port],
+			sizeof(chg->regs[0]));
+	}
+
+	rc = RIO_ERR_INVALID_PARAMETER;
+	for (port = 0; port < NUM_RXS_PORTS(dev_info); port++) {
+		if (RIO_ALL_PORTS == sorted->pc[port].pnum) {
+			continue;
+		}
+
+		if (!sorted->pc[port].port_available) {
+			for (pt = 0; pt < NUM_RXS_PORTS(dev_info); pt++) {
+				chg->regs[pt].rt_en &= ~(1 << port);
+			}
+			continue;
+		}
+
+		pc = &sorted->pc[port];
+		regs = &chg->regs[port];
+		if (pc->powered_up) {
+			regs->plm_pwdn &= ~RXS_PLM_SPX_PWDN_CTL_PWDN_PORT;
+		} else {
+			// If port is powered down, don't worry about other
+			// settings for the port.  Do tell other ports not to
+			// route packets to the powered down port.
+			regs->plm_pwdn |= RXS_PLM_SPX_PWDN_CTL_PWDN_PORT;
+			for (pt = 0; pt < NUM_RXS_PORTS(dev_info); pt++) {
+				chg->regs[pt].rt_en &= ~(1 << port);
+			}
+			continue;
+		}
+		// This will be powered up and available. Do two things:
+		// - Allow other powered up and availabe ports to route to this
+		//   port.
+		// - Compute the ports that this port should be able to route to
+		rt_en = 0;
+		for (pt = 0; pt < NUM_RXS_PORTS(dev_info); pt++) {
+			if (!sorted->pc[pt].port_available) {
+				continue;
+			}
+			if (!sorted->pc[pt].powered_up) {
+				continue;
+			}
+			chg->regs[pt].rt_en |= 1 << port;
+			rt_en |= 1 << pt;
+		}
+		chg->regs[port].rt_en = rt_en;
+		chg->regs[port].mtc_rt_en = RXS_TLM_SPX_MTC_ROUTE_EN_MTC_EN;
+
+		// Now compute changes for port width, lane speed, etc etc...
+		regs->spx_ctl &= ~RXS_SPX_CTL_OVER_PWIDTH;
+		switch (pc->pw) {
+        	case rio_pc_pw_1x_l0:
+		case rio_pc_pw_1x:
+			regs->spx_ctl |= RIO_SPX_CTL_PTW_OVER_1X_L0;
+			break;
+
+        	case rio_pc_pw_2x:
+			regs->spx_ctl |= RIO_SPX_CTL_PTW_OVER_2X_NO_4X;
+			break;
+
+        	case rio_pc_pw_4x:
+			regs->spx_ctl |= RIO_SPX_CTL_PTW_OVER_NONE;
+			break;
+
+        	case rio_pc_pw_1x_l1:
+        	case rio_pc_pw_1x_l2:
+			regs->spx_ctl |= RIO_SPX_CTL_PTW_OVER_1X_LR;
+			break;
+
+		default:
+			// Should not be possible to get here...
+			*imp_rc = PC_SET_CONFIG(0x52);
+			goto fail;
+		}
+
+		regs->one_wr &= ~RXS_PLM_SPX_1WR_BAUD_EN;
+		switch (pc->ls) {
+		case rio_pc_ls_1p25:
+			// Should not be possible to get here...
+			*imp_rc = PC_SET_CONFIG(0x54);
+			goto fail;
+		case rio_pc_ls_2p5:
+			regs->one_wr |= RXS_PLM_SPX_1WR_BAUD_EN_2P5;
+			break;
+		case rio_pc_ls_3p125:
+			regs->one_wr |= RXS_PLM_SPX_1WR_BAUD_EN_3P125;
+			break;
+		case rio_pc_ls_5p0:
+			regs->one_wr |= RXS_PLM_SPX_1WR_BAUD_EN_5P0;
+			break;
+		case rio_pc_ls_6p25:
+			regs->one_wr |= RXS_PLM_SPX_1WR_BAUD_EN_6P25;
+			break;
+		case rio_pc_ls_10p3:
+			regs->one_wr |= RXS_PLM_SPX_1WR_BAUD_EN_10P3;
+			break;
+		case rio_pc_ls_12p5:
+			regs->one_wr |= RXS_PLM_SPX_1WR_BAUD_EN_12P5;
+			break;
+		default:
+			// Should not be possible to get here...
+			*imp_rc = PC_SET_CONFIG(0x56);
+			goto fail;
+		}
+
+		regs->one_wr &= ~RXS_PLM_SPX_1WR_IDLE_SEQ;
+		switch (pc->iseq) {
+		case rio_pc_is_one:
+			regs->one_wr |= RXS_PLM_SPX_1WR_IDLE_SEQ_1;
+			break;
+		case rio_pc_is_two:
+			regs->one_wr |= RXS_PLM_SPX_1WR_IDLE_SEQ_2;
+			break;
+		case rio_pc_is_three:
+			regs->one_wr |= RXS_PLM_SPX_1WR_IDLE_SEQ_3;
+			break;
+		default:
+			// Should not be possible to get here...
+			*imp_rc = PC_SET_CONFIG(0x58);
+			goto fail;
+		}
+
+		if (pc->xmitter_disable) {
+			regs->spx_ctl |= RXS_SPX_CTL_PORT_DIS;
+		} else {
+			regs->spx_ctl &= ~RXS_SPX_CTL_PORT_DIS;
+		}
+		if (pc->port_lockout) {
+			regs->spx_ctl |= RXS_SPX_CTL_PORT_LOCKOUT;
+		} else {
+			regs->spx_ctl &= ~RXS_SPX_CTL_PORT_LOCKOUT;
+		}
+		if (pc->nmtc_xfer_enable) {
+			regs->spx_ctl |= nmtc_mask;
+		} else {
+			regs->spx_ctl &= ~nmtc_mask;
+		}
+		regs->plm_ctl &= ~swap_mask;
+		switch (pc->tx_lswap) {
+		case rio_lswap_none:
+			break;
+		case rio_lswap_ABCD_BADC:
+			regs->plm_ctl |= RXS_PLM_SPX_IMP_SPEC_CTL_SWAP_TX_1032;
+			break;
+		case rio_lswap_ABCD_DCBA:
+			regs->plm_ctl |= RXS_PLM_SPX_IMP_SPEC_CTL_SWAP_TX_3210;
+			break;
+		case rio_lswap_ABCD_CDAB:
+			regs->plm_ctl |= RXS_PLM_SPX_IMP_SPEC_CTL_SWAP_TX_2301;
+			break;
+		default:
+			// Should not be possible to get here...
+			*imp_rc = PC_SET_CONFIG(0x5A);
+			goto fail;
+		}
+		switch (pc->rx_lswap) {
+		case rio_lswap_none:
+			break;
+		case rio_lswap_ABCD_BADC:
+			regs->plm_ctl |= RXS_PLM_SPX_IMP_SPEC_CTL_SWAP_RX_1032;
+			break;
+		case rio_lswap_ABCD_DCBA:
+			regs->plm_ctl |= RXS_PLM_SPX_IMP_SPEC_CTL_SWAP_RX_3210;
+			break;
+		case rio_lswap_ABCD_CDAB:
+			regs->plm_ctl |= RXS_PLM_SPX_IMP_SPEC_CTL_SWAP_RX_2301;
+			break;
+		default:
+			// Should not be possible to get here...
+			*imp_rc = PC_SET_CONFIG(0x5A);
+			goto fail;
+		}
+
+		regs->plm_pol = 0;
+		for (ln = 0; ln < RIO_MAX_PORT_LANES; ln++) {
+			if (pc->tx_linvert[ln]) {
+				regs->plm_pol |=
+					RXS_PLM_SPX_POL_CTL_TX0_POL << ln;
+			}
+			if (pc->rx_linvert[ln]) {
+				regs->plm_pol |=
+					RXS_PLM_SPX_POL_CTL_RX0_POL << ln;
+			}
+		}
+	}
+
+	// Initialize working copy of routng enable registers...
+	for (port = 0; port < NUM_RXS_PORTS(dev_info); port++) {
+		chg->regs[port].rt_en_temp = chg->regs[port].rt_en;
+		chg->regs[port].mtc_rt_en_temp = chg->regs[port].mtc_rt_en;
+	}
+	rc = RIO_SUCCESS;
+fail:
+	return rc;
+}
+
+uint32_t rxs_pc_set_cfg_maintain_reg_acc(DAR_DEV_INFO_t *dev_info,
+		rio_pc_set_config_in_t *in_parms,
+		rio_pc_set_config_out_t *sorted,
+		rio_pc_set_regs_t *curr,
+		rio_pc_set_regs_t *chg)
+{
+	rio_port_t port;
+
+	for (port = 0; port < NUM_RXS_PORTS(dev_info); port++) {
+		if (RIO_ALL_PORTS == sorted->pc[port].pnum) {
+			continue;
+		}
+		if (!memcmp(&curr->regs[port], &chg->regs[port],
+						sizeof(curr->regs[0]))) {
+			sorted->pc[port].pnum = RIO_ALL_PORTS;
+		}
+	}
+
+	// For simplicity, for now, do not change either the
+	// register access port or the other port in the quad.
+	if (!in_parms->oob_reg_acc) {
+		sorted->pc[in_parms->reg_acc_port].pnum = RIO_ALL_PORTS;
+		sorted->pc[in_parms->reg_acc_port ^ 1].pnum = RIO_ALL_PORTS;
+	}
+
+	return RIO_SUCCESS;
+}
+
+bool rxs_pc_set_cfg_change_requires_reset(rio_pc_set_config_out_t *sorted,
+					rio_pc_set_regs_t *curr,
+					rio_pc_set_regs_t *chg,
+					rio_port_t port)
+{
+	bool reset = false;
+	rio_port_t st_pt, end_pt;
+	rio_port_t pt;
+	uint32_t one_wr_rst_mask = RXS_PLM_SPX_1WR_BAUD_EN;
+	uint32_t spx_ctl_rst_mask = RXS_SPX_CTL_PORT_LOCKOUT |
+				RXS_SPX_CTL_PORT_DIS;
+
+	// Changes to the ONE_WRITE register (link speed, idle sequence)
+	// require a reset.  When changing link speed, both ports may be
+	// affected.
+
+	if (RIO_ALL_PORTS == sorted->pc[port].pnum) {
+		if (RIO_ALL_PORTS == sorted->pc[OTH(port)].pnum) {
+			// Both ports are not being changed...
+			goto exit;
+		} else {
+			st_pt = OTH(port);
+			end_pt = OTH(port);
+		}
+	} else {
+		if (RIO_ALL_PORTS == sorted->pc[OTH(port)].pnum) {
+			st_pt = port;
+			end_pt = port;
+		} else {
+			st_pt = port;
+			end_pt = OTH(port);
+		}
+	}
+	if (st_pt > end_pt) {
+		st_pt = OTH(st_pt);
+		end_pt = OTH(end_pt);
+	}
+	// Check for resets due to baud rate changes
+	for (pt = st_pt; pt <= end_pt; pt++) {
+		if ((curr->regs[pt].one_wr & one_wr_rst_mask) !=
+				(chg->regs[pt].one_wr & one_wr_rst_mask)) {
+			reset = true;
+			break;
+		}
+	}
+	// Check to see if the port will be changed in a way that requires
+	// a reset.
+	if ((curr->regs[port].spx_ctl & spx_ctl_rst_mask) !=
+			(chg->regs[port].spx_ctl & spx_ctl_rst_mask)) {
+		reset = true;
+	}
+exit:
+	return reset;
+}
+
+// Error codes 0xC8 to 0xCC
+uint32_t traffic_halted(DAR_DEV_INFO_t *dev_info,
+		bool *clear,
+		rio_port_t port,
+		uint32_t *imp_rc)
+{
+	uint32_t rc = RIO_SUCCESS;
+	uint32_t voq, m_voq;
+	rio_port_t pt;
+
+	*clear = true;
+	for (pt = 0; *clear && (pt < NUM_RXS_PORTS(dev_info)); pt++) {
+		rc = DARRegRead(dev_info, RXS_FAB_IG_X_VOQ_ACT(pt), &voq);
+		if (RIO_SUCCESS != rc) {
+			*imp_rc = PC_SET_CONFIG(0xC8);
+			goto fail;
+		}
+		rc = DARRegRead(dev_info, RXS_FAB_IG_X_MTC_VOQ_ACT(pt), &m_voq);
+		if (RIO_SUCCESS != rc) {
+			*imp_rc = PC_SET_CONFIG(0xC9);
+			goto fail;
+		}
+		if (pt == port) {
+			if (voq | m_voq) {
+				*clear = false;
+			};
+			continue;
+		}
+		if ((voq & (1 << port)) || (m_voq & (1 << port))) {
+			*clear = false;
+		}
+	}
+fail:
+	return rc;
+}
+
+// Error codes 0xC0 to 0xCF
+uint32_t rxs_pc_set_cfg_halt_traffic(DAR_DEV_INFO_t *dev_info,
+		rio_pc_set_regs_t *chg,
+		rio_port_t port,
+		uint32_t *imp_rc)
+{
+	uint32_t rc;
+	rio_port_t pt;
+	uint32_t attempts = 1000;
+	bool clear;
+
+	chg->regs[port].rt_en_temp = 0;
+
+	for (pt = 0; pt < NUM_RXS_PORTS(dev_info); pt++) {
+		chg->regs[pt].rt_en_temp &= ~(1 << port);
+	}
+
+	for (pt = 0; pt < NUM_RXS_PORTS(dev_info); pt++) {
+		rc = DARRegWrite(dev_info, RXS_TLM_SPX_ROUTE_EN(pt),
+						chg->regs[pt].rt_en_temp);
+		if (RIO_SUCCESS != rc) {
+			*imp_rc = PC_SET_CONFIG(0xC0);
+			goto fail;
+		}
+	}
+	rc = DARRegWrite(dev_info, RXS_TLM_SPX_MTC_ROUTE_EN(port), 0);
+
+	// Note: This routine does not disable port-write transmission to
+	// ports being configured.  The assumption is that this is not necessary
+	// - the host does not use port-writes for OOB register access
+	// - if the host is using in-band register access, the only port which
+	//   will receive the port-write is the host's port.  The code prevents
+	// the host's port from being reconfigured...
+
+	// Now wait for traffic to drain... Check 1000 times, wait for 1 msec
+	// between each attempt.
+
+	for (attempts = 1000; attempts && !clear; attempts--) {
+		// Error codes 0xC8 to 0xCC
+		rc = traffic_halted(dev_info, &clear, port, imp_rc);
+		if (RIO_SUCCESS != rc) {
+			*imp_rc = PC_SET_CONFIG(0xCF);
+			goto fail;
+		}
+		if (clear) {
+			break;
+		}
+		DAR_WaitSec(1000000, 0);
+	}
+
+	if (!clear) {
+		rc = RIO_ERR_RETURN_NO_RESULT;
+	}
+fail:
+	return rc;
+}
+
+// Error codes 0xD0 to 0xDF
+uint32_t rxs_pc_set_cfg_write_regs( DAR_DEV_INFO_t *dev_info,
+					rio_pc_set_regs_t *chg,
+					rio_port_t port,
+					uint32_t *imp_rc)
+{
+	uint32_t rc;
+	rio_pc_one_port_regs_t *regs = &chg->regs[port];
+
+	rc = DARRegWrite(dev_info, RXS_PLM_SPX_PWDN_CTL(port), regs->plm_pwdn);
+	if (RIO_SUCCESS != rc) {
+		*imp_rc = PC_SET_CONFIG(0xD0);
+		goto fail;
+	}
+	rc = DARRegWrite(dev_info, RXS_SPX_CTL(port), regs->spx_ctl);
+	if (RIO_SUCCESS != rc) {
+		*imp_rc = PC_SET_CONFIG(0xD2);
+		goto fail;
+	}
+	rc = DARRegWrite(dev_info, RXS_PLM_SPX_IMP_SPEC_CTL(port),
+								regs->plm_ctl);
+	if (RIO_SUCCESS != rc) {
+		*imp_rc = PC_SET_CONFIG(0xD4);
+		goto fail;
+	}
+	rc = DARRegWrite(dev_info, RXS_PLM_SPX_1WR(port), regs->one_wr);
+	if (RIO_SUCCESS != rc) {
+		*imp_rc = PC_SET_CONFIG(0xD6);
+		goto fail;
+	}
+	rc = DARRegWrite(dev_info, RXS_PLM_SPX_POL_CTL(port), regs->plm_pol);
+	if (RIO_SUCCESS != rc) {
+		*imp_rc = PC_SET_CONFIG(0xD8);
+		goto fail;
+	}
+fail:
+	return rc;
+}
+
+// Error codes 0xE0 to 0xEF
+uint32_t rxs_pc_set_cfg_start_traffic(
+		DAR_DEV_INFO_t *dev_info,
+		rio_pc_set_regs_t *chg,
+		rio_port_t port,
+		uint32_t *imp_rc)
+{
+	uint32_t rc;
+	rio_pc_one_port_regs_t *regs = &chg->regs[port];
+
+	rc = DARRegWrite(dev_info, RXS_TLM_SPX_ROUTE_EN(port), regs->rt_en);
+	if (RIO_SUCCESS != rc) {
+		*imp_rc = PC_SET_CONFIG(0xE0);
+		goto fail;
+	}
+	rc = DARRegWrite(dev_info, RXS_TLM_SPX_MTC_ROUTE_EN(port),
+							regs->mtc_rt_en);
+	if (RIO_SUCCESS != rc) {
+		*imp_rc = PC_SET_CONFIG(0xE8);
+	}
+fail:
+	return rc;
+}
+
+
+// Error codes 0xC0 through 0xFF
+uint32_t rxs_pc_set_cfg_program_changes(
+		DAR_DEV_INFO_t *dev_info,
+		rio_pc_set_config_out_t *sorted,
+		rio_pc_set_regs_t *curr,
+		rio_pc_set_regs_t *chg,
+		uint32_t *imp_rc)
+{
+	uint32_t rc;
+	rio_port_t port;
+
+	for (port = 0; port < NUM_RXS_PORTS(dev_info); port += 2) {
+		if (rxs_pc_set_cfg_change_requires_reset(
+						sorted, curr, chg, port)) {
+			// Error codes 0xC0 to 0xCF
+			rc = rxs_pc_set_cfg_halt_traffic(
+					dev_info, chg, port, imp_rc);
+			if (RIO_SUCCESS != rc) {
+				goto fail;
+			}
+		}
+		if (rxs_pc_set_cfg_change_requires_reset(
+					sorted, curr, chg, OTH(port))) {
+			// Error codes 0xC0 to 0xCF
+			rc = rxs_pc_set_cfg_halt_traffic(
+					dev_info, chg, OTH(port), imp_rc);
+			if (RIO_SUCCESS != rc) {
+				goto fail;
+			}
+		}
+		// Error codes 0xD0 to 0xDF
+		if (port == sorted->pc[port].pnum) {
+			rxs_pc_set_cfg_write_regs(dev_info, chg, port, imp_rc);
+		}
+		if (OTH(port) == sorted->pc[OTH(port)].pnum) {
+			rxs_pc_set_cfg_write_regs(
+					dev_info, chg, OTH(port), imp_rc);
+		}
+	}
+	// Start traffic on the ports...
+	for (port = 0; port < NUM_RXS_PORTS(dev_info); port++) {
+		if (sorted->pc[port].port_available &&
+						sorted->pc[port].powered_up)
+		{
+			// Error codes 0xE0 to 0xEF
+			rc = rxs_pc_set_cfg_start_traffic(
+						dev_info, chg, port, imp_rc);
+		}
+	}
+fail:
+	return rc;
+}
+
+uint32_t rxs_rio_pc_set_config(
+		DAR_DEV_INFO_t *dev_info,
+		rio_pc_set_config_in_t *in_parms,
+		rio_pc_set_config_out_t *out_parms)
+{
+	uint32_t rc;
+	rio_pc_get_config_in_t curr_in;
+	rio_pc_get_config_out_t curr_out;
+	rio_pc_get_config_out_t sorted;
+	rio_pc_set_regs_t curr_regs;
+	rio_pc_set_regs_t chg_regs;
+
+	out_parms->imp_rc = RIO_SUCCESS;
+
+	// Error codes 0x01 through 0x1F
+	rc = rxs_pc_set_cfg_check_parms(dev_info,
+			in_parms, &sorted, &out_parms->imp_rc);
+	if (RIO_SUCCESS != rc) {
+		goto fail;
+	}
+
+	// Always set Link Response Time Out
+	rc = rxs_set_lrto(dev_info, in_parms->lrto);
+	if (RIO_SUCCESS != rc) {
+		out_parms->imp_rc = PC_SET_CONFIG(0x20);
+		goto fail;
+	}
+
+	// Get current configuration
+	curr_in.ptl.num_ports = RIO_ALL_PORTS;
+	rc = rxs_rio_pc_get_config(dev_info, &curr_in, &curr_out);
+	if (RIO_SUCCESS != rc) {
+		out_parms->imp_rc = curr_out.imp_rc;
+		goto fail;
+	}
+
+	// Error codes 0x30 through 0x4F
+	// Check if there are conflicts between the requested configuration
+	// and the current configuration...
+	rc = rxs_pc_set_cfg_check_conflicts(dev_info,
+				&sorted, &curr_out, &out_parms->imp_rc);
+	if (RIO_SUCCESS != rc) {
+		goto fail;
+	}
+
+	// Error codes 0x50 through 0x7F
+	rc = rxs_pc_set_cfg_compute_changes(dev_info,
+		&sorted, &curr_regs, &chg_regs, &out_parms->imp_rc);
+	if (RIO_SUCCESS != rc) {
+		goto fail;
+	}
+
+	// Error codes 0x80 through 0xBF
+	rc = rxs_pc_set_cfg_maintain_reg_acc(
+		dev_info, in_parms, &sorted, &curr_regs, &chg_regs);
+	if (RIO_SUCCESS != rc) {
+		goto fail;
+	}
+
+	// Error codes 0xC0 through 0xFF
+	rc = rxs_pc_set_cfg_program_changes(dev_info,
+			&sorted, &curr_regs, &chg_regs, &out_parms->imp_rc);
+	if (RIO_SUCCESS != rc) {
+		goto fail;
+	}
+
+	// Now get the updated configuration...
+	rc = rxs_rio_pc_get_config(dev_info, &curr_in, out_parms);
+fail:
+	return rc;
 }
 
 uint32_t rxs_rio_pc_get_status(DAR_DEV_INFO_t *dev_info,

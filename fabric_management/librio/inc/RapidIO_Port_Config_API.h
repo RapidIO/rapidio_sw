@@ -68,22 +68,22 @@ typedef enum rio_pc_pw_t_tag
 	rio_pc_pw_1x = 0,
 
 	// Two lane port
-	rio_pc_pw_2x,
+	rio_pc_pw_2x = 1,
 
 	// Four lane port
-	rio_pc_pw_4x,
+	rio_pc_pw_4x = 2,
 
 	// Force multilane port to operate on lane 0
-	rio_pc_pw_1x_l0,
+	rio_pc_pw_1x_l0 = 3,
 
 	// Force multilane port to operate on lane 1
-	rio_pc_pw_1x_l1,
+	rio_pc_pw_1x_l1 = 4,
 
 	// Force multilane port to operate on lane 2
-	rio_pc_pw_1x_l2,
+	rio_pc_pw_1x_l2 = 5,
 
 	// Last port width value
-	rio_pc_pw_last,
+	rio_pc_pw_last = rio_pc_pw_1x_l2 + 1,
 } rio_pc_pw_t;
 
 extern int         pw_to_lanes[]; // Converts rio_pc_pw_t to lane count
@@ -136,10 +136,11 @@ extern char *fc_to_str[];
 #define FC_TO_STR(x) (x>=rio_pc_fc_last?fc_to_str[rio_pc_fc_last]:fc_to_str[x])
 
 enum rio_pc_idle_seq {
-	rio_pc_is_one,
-	rio_pc_is_two,
-	rio_pc_is_three,
-	rio_pc_is_last
+	rio_pc_is_one = 0,
+	rio_pc_is_two = 1,
+	rio_pc_is_three = 2,
+	rio_pc_is_dlft = 3,
+	rio_pc_is_last = rio_pc_is_three + 1
 };
 
 // Convert idle sequenceto a string
@@ -148,10 +149,11 @@ extern char *is_to_str[];
 #define ISEQ_TO_STR(x) (x>=rio_pc_is_last?is_to_str[rio_pc_is_last]:is_to_str[x])
 
 enum rio_lane_swap_t {
-	rio_lswap_none,
-	rio_lswap_ABCD_BADC,
-	rio_lswap_ABCD_DCBA,
-	rio_lswap_ABCD_CDAB
+	rio_lswap_none = 0,
+	rio_lswap_ABCD_BADC = 1,
+	rio_lswap_ABCD_DCBA = 2,
+	rio_lswap_ABCD_CDAB = 3,
+	rio_lswap_last = rio_lswap_ABCD_CDAB + 1
 };
 
 typedef struct rio_pc_one_port_config_t_TAG {

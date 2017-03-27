@@ -903,6 +903,18 @@ extern "C" {
 #define RXS_PLM_SPX_1WR_IDLE_SEQ                     ((uint32_t)0x03000000)
 #define RXS_PLM_SPX_1WR_BAUD_EN                      ((uint32_t)0xf0000000)
 
+#define RXS_PLM_SPX_1WR_IDLE_SEQ_DFLT                ((uint32_t)0x00000000)
+#define RXS_PLM_SPX_1WR_IDLE_SEQ_1                   ((uint32_t)0x01000000)
+#define RXS_PLM_SPX_1WR_IDLE_SEQ_2                   ((uint32_t)0x02000000)
+#define RXS_PLM_SPX_1WR_IDLE_SEQ_3                   ((uint32_t)0x03000000)
+
+#define RXS_PLM_SPX_1WR_BAUD_EN_2P5                  ((uint32_t)0x20000000)
+#define RXS_PLM_SPX_1WR_BAUD_EN_3P125                ((uint32_t)0x30000000)
+#define RXS_PLM_SPX_1WR_BAUD_EN_5P0                  ((uint32_t)0x40000000)
+#define RXS_PLM_SPX_1WR_BAUD_EN_6P25                 ((uint32_t)0x50000000)
+#define RXS_PLM_SPX_1WR_BAUD_EN_10P3                 ((uint32_t)0x80000000)
+#define RXS_PLM_SPX_1WR_BAUD_EN_12P5                 ((uint32_t)0x90000000)
+
 /* RXS_PLM_SPX_MULT_ACK_CTL : Register Bits Masks Definitions */
 #define RXS_PLM_SPX_MULT_ACK_CTL_MULT_ACK_DLY        ((uint32_t)0x000000ff)
 
