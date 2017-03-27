@@ -2499,7 +2499,6 @@ uint32_t DAR_pkt_bytes_to_fields(DAR_pkt_bytes_t *bytes_in,
 		}
 	}
 
-	// TODO - check pkt_index against num_chars, return pkt_index or success
 	return rc;
 }
 
