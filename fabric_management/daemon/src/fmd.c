@@ -397,7 +397,6 @@ exit:
 
 int setup_mport_master(int mport)
 {
-	/* TODO: Change this to support other master ports etc... */
 	ct_t comptag;
 	struct cfg_mport_info mp;
 	struct cfg_dev cfg_dev;
@@ -505,9 +504,6 @@ int setup_mport_slave(int mport)
 	struct mpsw_drv_pe_acc_info *acc_p = NULL;
 	char dev_name[FMD_MAX_DEV_FN];
 
-	// TODO: Ideally, the devname used here is updated based on the
-	//       hello response.  The devname for the MPORT is only used
-	//       in the dd and libriocp_pe, it is not used by sysfs.
 	if (slave_get_ct_and_name(mport, &comptag, dev_name)) {
 		CRIT("\nComponent tag/device name fetch failed for mport %d\n",
 				mport);
