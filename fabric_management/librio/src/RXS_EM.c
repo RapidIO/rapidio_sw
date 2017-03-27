@@ -43,11 +43,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "RXS_DeviceDriver.h"
 #include "string_util.h"
 
-//#ifdef __cplusplus
-//extern "C" {
-//#endif
-//
-//#ifdef RXS_DAR_WANTED
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#ifdef RXS_DAR_WANTED
 
 #define SAFE_ADD_EVENT_N_LOC(event_in, p) \
 	if (out_parms->num_events < in_parms->num_events) { \
@@ -2969,8 +2969,8 @@ fail:
 	return rc;
 }
 
-//#endif /* RXS_DAR_WANTED */
-//
-//#ifdef __cplusplus
-//}
-//#endif
+#endif /* RXS_DAR_WANTED */
+
+#ifdef __cplusplus
+}
+#endif
