@@ -36,8 +36,8 @@
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __RIO_MPORT_CDEV_H__
-#define __RIO_MPORT_CDEV_H__
+#ifndef _RIO_MPORT_CDEV_H_
+#define _RIO_MPORT_CDEV_H_
 
 #include <linux/ioctl.h>
 #include <linux/types.h>
@@ -138,6 +138,13 @@ struct rio_dma_mem {
 	__u64 address;
 };
 
+struct rio_dma_interleave {
+	__u16 ssdist;		/* source stride distance */
+	__u16 sssize;		/* source stride size */
+	__u16 dsdist;		/* destination stride distance */
+	__u16 dssize;		/* destination stride size */
+};
+
 struct rio_event {
 	__u32 header;	/* event type RIO_DOORBELL or RIO_PORTWRITE */
 	union {
@@ -196,6 +203,10 @@ struct rio_transfer_io {
 	__u16 rioid;	/* Target destID */
 	__u16 method;	/* Data exchange method, one of rio_exchange enum */
 	__u32 completion_code;	/* Completion code for this transfer */
+	__u16 ssdist;		/* source stride distance */
+	__u16 sssize;		/* source stride size */
+	__u16 dsdist;		/* destination stride distance */
+	__u16 dssize;		/* destination stride size */
 };
 
 struct rio_transaction {
@@ -274,4 +285,4 @@ struct rio_rdev_info {
 #define RIO_DEV_DEL \
 	_IOW(RIO_MPORT_DRV_MAGIC, 24, struct rio_rdev_info)
 
-#endif /* __RIO_MPORT_CDEV_H__ */
+#endif /* _RIO_MPORT_CDEV_H_ */

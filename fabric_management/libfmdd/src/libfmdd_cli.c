@@ -231,7 +231,7 @@ ATTR_NONE
 };
 
 struct cli_cmd *libfmdd_cmds[4] = {
-	&CLIDDStatus, // INFW - BEW - added your command
+	&CLIDDStatus,
 	&CLIDDLCheckCT,
 	&CLIDDLCheckDID,
 	&CLIDDList

@@ -232,6 +232,7 @@ static int KillCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 	for (i = st_idx; i <= end_idx; i++) {
 		shutdown_worker_thread(&wkr[i]);
 	}
+
 exit:
 	return 0;
 }
@@ -298,6 +299,7 @@ static int MoveCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 	wkr[idx].wkr_thr.cpu_req = cpu;
 	wkr[idx].stop_req = 0;
 	sem_post(&wkr[idx].run);
+
 exit:
 	return 0;
 }
@@ -319,7 +321,7 @@ static int WaitCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 	const struct timespec ten_usec = {0, 10 * 1000};
 
 	uint16_t idx, limit = 10000;
-	int state = -1;
+	int state;
 
 	if (gp_parse_worker_index(env, argv[0], &idx)) {
 		goto exit;
@@ -488,6 +490,7 @@ static int IBDeallocCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 	wkr[idx].action = free_ibwin;
 	wkr[idx].stop_req = 0;
 	sem_post(&wkr[idx].run);
+
 exit:
 	return 0;
 }
@@ -662,7 +665,7 @@ static int cpu_occ_set(uint64_t *tot_jifis, uint64_t *proc_kern_jifis,
 
 	*tot_jifis = p_user + p_nice + p_system + p_idle +
 			p_iowait + p_irq + p_softirq;
-	
+
 exit:
 	if (stat_fp != NULL) {
 		fclose(stat_fp);
@@ -837,6 +840,7 @@ static int obdio_cmd(struct cli_env *env, int UNUSED(argc), char **argv,
 
 	wkr[idx].stop_req = 0;
 	sem_post(&wkr[idx].run);
+
 exit:
 	return 0;
 }
@@ -921,7 +925,7 @@ enum riomp_dma_directio_type convert_int_to_riomp_dma_directio_type(uint16_t tra
 	}
 }
 
-static int dmaCmd(struct cli_env *env, int UNUSED(argc), char **argv)
+static int dmaCmd(struct cli_env *env, int argc, char **argv)
 {
 	uint16_t idx;
 	did_val_t did_val;
@@ -979,6 +983,55 @@ static int dmaCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 		goto exit;
 	}
 
+	// Optional parameters - ssdist, sssize, dsdist, dssize
+	wkr[idx].ssdist = 0;
+	wkr[idx].sssize = 0;
+	wkr[idx].dsdist = 0;
+	wkr[idx].dssize = 0;
+	if (argc > 9) {
+		if (tok_parse_ushort(argv[n++], &wkr[idx].ssdist, 0, 0xFFFF,
+				0)) {
+			LOGMSG(env, "\n");
+			LOGMSG(env, TOK_ERR_USHORT_MSG_FMT, "<ssdist>", 0,
+					0xFFFF);
+			goto exit;
+		}
+
+		if (argc > 10) {
+			if (tok_parse_ushort(argv[n++], &wkr[idx].sssize, 0,
+					0x0FFF, 0)) {
+				LOGMSG(env, "\n");
+				LOGMSG(env, TOK_ERR_USHORT_MSG_FMT, "<sssize>",
+						0, 0x0FFF);
+				goto exit;
+			}
+
+			if (argc > 11) {
+				if (tok_parse_ushort(argv[n++],
+						&wkr[idx].dsdist, 0, 0xFFFF,
+						0)) {
+					LOGMSG(env, "\n");
+					LOGMSG(env, TOK_ERR_USHORT_MSG_FMT,
+							"<dsdist>", 0, 0xFFFF);
+					goto exit;
+				}
+
+				if (argc > 12) {
+					if (tok_parse_ushort(argv[n++],
+							&wkr[idx].dssize, 0,
+							0x0FFF, 0)) {
+						LOGMSG(env, "\n");
+						LOGMSG(env,
+								TOK_ERR_USHORT_MSG_FMT,
+								"<dssize>", 0,
+								0x0FFF);
+						goto exit;
+					}
+				}
+			}
+		}
+	}
+
 	wkr[idx].action = dma_tx;
 	wkr[idx].action_mode = kernel_action;
 	wkr[idx].did_val = did_val;
@@ -1003,7 +1056,7 @@ struct cli_cmd dma = {
 3,
 9,
 "Measure goodput of DMA reads/writes",
-"dma <idx> <did> <rio_addr> <bytes> <acc_sz> <wr> <kbuf> <trans> <sync>\n"
+"dma <idx> <did> <rio_addr> <bytes> <acc_sz> <wr> <kbuf> <trans> <sync> [<ssdist> <sssize> <dsdist> <dssize>]\n"
 	"<idx>      is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
 	"<did>      target device ID\n"
 	"<rio_addr> RapidIO memory address to access\n"
@@ -1012,7 +1065,11 @@ struct cli_cmd dma = {
 	"<wr>       0: Read, 1: Write\n"
 	"<kbuf>     0: User memory, 1: Kernel buffer\n"
 	"<trans>    0: NW, 1: SW, 2: NW_R, 3: SW_R, 4: NW_R_ALL\n"
-	"<sync>     0: SYNC, 1: ASYNC, 2: FAF\n",
+	"<sync>     0: SYNC, 1: ASYNC, 2: FAF\n"
+	"<ssdist>   source stride distance (Optional, default to 0)\n"
+	"<sssize>   source stride size (Optional, default to 0)\n"
+	"<dsdist>   destination stride distance (Optional, default to 0)\n"
+	"<dssize>   destination stride size (Optional, default to 0)\n",
 dmaCmd,
 ATTR_NONE
 };
@@ -1107,7 +1164,7 @@ struct cli_cmd dmaNum = {
 3,
 10,
 "Send a specified number of DMA reads/writes",
-"<idx> <did> <rio_addr> <bytes> <acc_sz> <wr> <kbuf> <trans> <sync> <num>\n"
+"dnum <idx> <did> <rio_addr> <bytes> <acc_sz> <wr> <kbuf> <trans> <sync> <num>\n"
 	"<idx>      is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
 	"<did>      target device ID\n"
 	"<rio_addr> RapidIO memory address to access\n"
@@ -1526,9 +1583,14 @@ ATTR_NONE
 static int GoodputCmd(struct cli_env *env, int argc, char **UNUSED(argv))
 {
 	int i;
-	float MBps, Gbps, Msgpersec, link_occ; 
-	uint64_t byte_cnt = 0;
-	float tot_MBps = 0, tot_Gbps = 0, tot_Msgpersec = 0;
+	float MBps;
+	float Gbps;
+	float Msgpersec;
+	float link_occ;
+	uint64_t byte_cnt;
+	float tot_MBps = 0;
+	float tot_Gbps = 0;
+	float tot_Msgpersec = 0;
 	uint64_t tot_byte_cnt = 0;
 	char MBps_str[FLOAT_STR_SIZE];
 	char Gbps_str[FLOAT_STR_SIZE];
@@ -1539,9 +1601,6 @@ static int GoodputCmd(struct cli_env *env, int argc, char **UNUSED(argv))
 	for (i = 0; i < MAX_WORKERS; i++) {
 		struct timespec elapsed;
 		uint64_t nsec;
-
-		MBps = Gbps = Msgpersec = 0;
-		byte_cnt = 0;
 
 		Msgpersec = wkr[i].perf_msg_cnt;
 		byte_cnt = wkr[i].perf_byte_cnt;
@@ -1828,6 +1887,7 @@ static int DumpCmd(struct cli_env *env, int argc, char **argv)
 			(uint8_t *)wkr[idx].ib_ptr + base_offset + offset));
 	}
 	LOGMSG(env, "\n");
+
 exit:
 	return 0;
 }
@@ -1870,7 +1930,7 @@ static int FillCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 		goto exit;
 	}
 
-	if (tok_parse_ushort(argv[3], &tmp, 0, 0xff, 0)) {
+	if (tok_parse_ushort(argv[n++], &tmp, 0, 0xff, 0)) {
 		LOGMSG(env, "\n");
 		LOGMSG(env, TOK_ERR_USHORT_HEX_MSG_FMT, "<data>", 0, 0xff);
 		goto exit;
@@ -1895,6 +1955,7 @@ static int FillCmd(struct cli_env *env, int UNUSED(argc), char **argv)
 		*(volatile uint8_t * volatile)
 		((uint8_t *)wkr[idx].ib_ptr + base_offset + offset) = data;
 	}
+
 exit:
 	return 0;
 }
@@ -1977,7 +2038,9 @@ static int MpdevsCmd(struct cli_env *env, int UNUSED(argc), char **UNUSED(argv))
 		LOGMSG(env, "ERR: riodp_ep_free_list() ERR %d: %s\n", ret,
 				strerror(ret));
 	}
-	exit: return 0;
+
+exit:
+	return 0;
 }
 
 struct cli_cmd Mpdevs = {
@@ -2141,6 +2204,7 @@ static int UTimeCmd(struct cli_env *env, int argc, char **argv)
 	default:
 		LOGMSG(env, "FAILED: <cmd> not 's','p' or 'l'\n");
 	}
+
 exit:
 	return 0;
 }

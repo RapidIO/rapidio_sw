@@ -34,8 +34,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdint.h>
 #include <stddef.h>
 
-#include "RapidIO_Source_Config.h"
-
 #include "RXS2448.h"
 #include "DAR_DB_Private.h"
 #include "DSF_DB_Private.h"
@@ -1917,7 +1915,6 @@ uint32_t rxs_rio_em_get_int_stat_port(DAR_DEV_INFO_t *dev_info,
 	}
 
 	plm_int_stat = plm_ints & (plm_int_en | RXS_PLM_SPX_UNMASKABLE_MASK);
-	spx_err_det &= spx_rate_en;
 
 	if (plm_int_stat & RXS_LOS_EVENT_MASK) {
 		SAFE_ADD_EVENT_N_LOC(rio_em_f_los, port);
@@ -1989,7 +1986,7 @@ uint32_t get_dev_int_status(DAR_DEV_INFO_t *dev_info,
 		rio_em_get_int_stat_in_t *in_parms,
 		rio_em_get_int_stat_out_t *out_parms)
 {
-	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+	uint32_t rc;
 	uint32_t em_ints;
 	uint32_t em_int_en;
 	uint32_t em_int_stat;
@@ -2172,7 +2169,6 @@ uint32_t rxs_rio_em_get_pw_stat_port(DAR_DEV_INFO_t *dev_info,
 	}
 
 	plm_pw_stat = plm_pws & (plm_pw_en| RXS_PLM_SPX_UNMASKABLE_MASK);
-	spx_err_det &= spx_rate_en;
 	if (plm_pw_stat & RXS_LOS_EVENT_MASK) {
 		SAFE_ADD_EVENT_N_LOC(rio_em_f_los, port);
 	}
@@ -2243,7 +2239,7 @@ uint32_t get_dev_pw_status(DAR_DEV_INFO_t *dev_info,
 		rio_em_get_pw_stat_in_t *in_parms,
 		rio_em_get_pw_stat_out_t *out_parms)
 {
-	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+	uint32_t rc;
 	uint32_t em_pws;
 	uint32_t em_pw_en;
 	uint32_t em_pw_stat;
@@ -2380,7 +2376,7 @@ static uint32_t rxs_clr_events_sort_events(DAR_DEV_INFO_t *dev_info,
 		uint32_t *log_err_idx, uint32_t *init_err_idx,
 		rio_port_t *pw_pt)
 {
-	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+	uint32_t rc;
 	unsigned int i;
 	rio_port_t rxs_num_ports = NUM_RXS_PORTS(dev_info);
 	rio_em_event_n_loc_t *event;

@@ -236,8 +236,7 @@ int main(int argc, char** argv)
 		exit(EXIT_FAILURE);
 	}
 
-	/** - Open mport device and query RapidIO link status.
-	 Exit if link is not active */
+	/** Open mport device and query RapidIO link status. Exit if link is not active */
 	err = riomp_mgmt_mport_create_handle(mport_id, 0, &mport_hnd);
 	if (err < 0) {
 		printf("DMA Test: unable to open mport%d device err=%d\n",

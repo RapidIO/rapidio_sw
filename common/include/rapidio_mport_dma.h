@@ -62,6 +62,14 @@ enum riomp_dma_directio_transfer_sync {
 	RIO_DIRECTIO_TRANSFER_FAF, /**< fire-and-forget transfer only for write transactions */
 };
 
+/** @brief RapidIO dma interleave parameters */
+struct rapidio_mport_interleave {
+	uint16_t ssdist;	/* source stride distance */
+	uint16_t sssize;	/* source size */
+	uint16_t dsdist;	/* destination stride distance */
+	uint16_t dssize;	/* destination size */
+};
+
 /**
  * @brief Perform DMA data write to target transfer using user space source buffer
  *
@@ -72,6 +80,7 @@ enum riomp_dma_directio_transfer_sync {
  * @param[in] size number of bytes to transfer
  * @param[in] wr_mode DirectIO write mode
  * @param[in] sync transfer synchronization flag
+ * @param[in] interleave parameters
  * @return status of the function call
  * @retval 0 on success
  * @retval -errno on error
@@ -79,7 +88,8 @@ enum riomp_dma_directio_transfer_sync {
 int riomp_dma_write(riomp_mport_t mport_handle, did_val_t did_val,
 		uint64_t tgt_addr, void *buf, uint32_t size,
 		enum riomp_dma_directio_type wr_mode,
-		enum riomp_dma_directio_transfer_sync sync);
+		enum riomp_dma_directio_transfer_sync sync,
+		struct rapidio_mport_interleave *interleave);
 
 /**
  * @brief Perform DMA data write to target transfer using kernel space source buffer
@@ -92,6 +102,7 @@ int riomp_dma_write(riomp_mport_t mport_handle, did_val_t did_val,
  * @param[in] size number of bytes to transfer
  * @param[in] wr_mode DirectIO write mode
  * @param[in] sync transfer synchronization flag
+ * @param[in] interleave parameters
  * @return status of the function call
  * @retval 0 on success
  * @retval -errno on error
@@ -99,7 +110,8 @@ int riomp_dma_write(riomp_mport_t mport_handle, did_val_t did_val,
 int riomp_dma_write_d(riomp_mport_t mport_handle, did_val_t did_val,
 		uint64_t tgt_addr, uint64_t handle, uint32_t offset,
 		uint32_t size, enum riomp_dma_directio_type wr_mode,
-		enum riomp_dma_directio_transfer_sync sync);
+		enum riomp_dma_directio_transfer_sync sync,
+		struct rapidio_mport_interleave *interleave);
 
 /**
  * @brief Perform DMA data read from target transfer using user space destination buffer
@@ -110,13 +122,15 @@ int riomp_dma_write_d(riomp_mport_t mport_handle, did_val_t did_val,
  * @param[in] buf pointer to user space source buffer
  * @param[in] size number of bytes to transfer
  * @param[in] sync transfer synchronization flag
+ * @param[in] interleave parameters
  * @return status of the function call
  * @retval 0 on success
  * @retval -errno on error
  */
 int riomp_dma_read(riomp_mport_t mport_handle, did_val_t did_val,
 		uint64_t tgt_addr, void *buf, uint32_t size,
-		enum riomp_dma_directio_transfer_sync sync);
+		enum riomp_dma_directio_transfer_sync sync,
+		struct rapidio_mport_interleave *interleave);
 
 /**
  * @brief Perform DMA data read from target transfer using kernel space destination buffer
@@ -128,13 +142,15 @@ int riomp_dma_read(riomp_mport_t mport_handle, did_val_t did_val,
  * @param[in] offset kernel space buffer offset
  * @param[in] size number of bytes to transfer
  * @param[in] sync transfer synchronization flag
+ * @param[in] interleave parameters
  * @return status of the function call
  * @retval 0 on success
  * @retval -errno on error
  */
 int riomp_dma_read_d(riomp_mport_t mport_handle, did_val_t did_val,
 		uint64_t tgt_addr, uint64_t handle, uint32_t offset,
-		uint32_t size, enum riomp_dma_directio_transfer_sync sync);
+		uint32_t size, enum riomp_dma_directio_transfer_sync sync,
+		struct rapidio_mport_interleave *interleave);
 
 /**
  * @brief Wait for DMA transfer completion

@@ -34,7 +34,6 @@
 #include <stdint.h>
 #include <stddef.h>
 
-#include "RapidIO_Source_Config.h"
 #include "RapidIO_Device_Access_Routines_API.h"
 #include "RXS_DeviceDriver.h"
 #include "RXS2448.h"
@@ -51,7 +50,7 @@ extern "C" {
 uint32_t rxs_rioSetEnumBound(DAR_DEV_INFO_t *dev_info, struct DAR_ptl *ptl,
 		int enum_bnd_val)
 {
-	DAR_ptl good_ptl;
+	struct DAR_ptl good_ptl;
 	uint32_t rc;
 	unsigned int port_idx;
 	rio_port_t port;

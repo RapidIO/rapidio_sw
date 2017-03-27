@@ -35,7 +35,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stddef.h>
 
 #include "rio_standard.h"
-#include "RapidIO_Source_Config.h"
 #include "Tsi721.h"
 #include "Tsi721_API.h"
 #include "DAR_DB_Private.h"

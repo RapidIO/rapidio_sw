@@ -35,7 +35,6 @@
 #include <stddef.h>
 #include <stdbool.h>
 
-#include "RapidIO_Source_Config.h"
 #include "RapidIO_Device_Access_Routines_API.h"
 #include "RapidIO_Routing_Table_API.h"
 #include "RXS_DeviceDriver.h"

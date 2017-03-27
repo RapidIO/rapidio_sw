@@ -40,8 +40,6 @@
 #include <setjmp.h>
 #include "cmocka.h"
 
-#include "RapidIO_Source_Config.h"
-
 #include "Tsi721.h"
 #include "src/Tsi721_SC.c"
 #include "src/Tsi721_EM.c"

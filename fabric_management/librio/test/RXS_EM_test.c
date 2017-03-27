@@ -40,8 +40,6 @@
 #include <setjmp.h>
 #include "cmocka.h"
 
-#include "RapidIO_Source_Config.h"
-#include "RapidIO_Device_Access_Routines_API.h"
 #include "src/RXS_DeviceDriver.h"
 #include "rio_standard.h"
 #include "rio_ecosystem.h"
@@ -1431,11 +1429,11 @@ static void rxs_rio_em_dev_rpt_ctl_chk_regs_port(rio_em_notfn_ctl_t chk_notfn,
 }
 
 static void rxs_rio_em_dev_rpt_ctl_chk_regs(rio_em_notfn_ctl_t chk_notfn,
-					DAR_ptl *ptl)
+		struct DAR_ptl *ptl)
 {
 	const uint32_t pw_mask = RXS_PW_TRAN_CTL_PW_DIS;
 	const uint32_t int_mask = RXS_EM_DEV_INT_EN_INT_EN;
-	DAR_ptl good_ptl;
+	struct DAR_ptl good_ptl;
 	unsigned int port_idx;
 	rxs_rpt_ctl_regs_t regs;
 
@@ -1541,7 +1539,7 @@ static void rxs_rio_em_dev_rpt_ctl_oddport_test(void **state)
 	rio_em_notfn_ctl_t notfn, chk_notfn;
 	rio_port_t port;
 	unsigned int port_idx;
-	DAR_ptl other_ptl;
+	struct DAR_ptl other_ptl;
 
 	// Power up and enable all ports...
 	set_all_port_config(cfg_perfect, false, false, RIO_ALL_PORTS);

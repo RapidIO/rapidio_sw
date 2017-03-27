@@ -34,7 +34,6 @@
 #include <stdint.h>
 #include <stddef.h>
 
-#include "RapidIO_Source_Config.h"
 #include "rio_standard.h"
 #include "rio_ecosystem.h"
 #include "RapidIO_Device_Access_Routines_API.h"

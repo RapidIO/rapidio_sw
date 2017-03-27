@@ -40,7 +40,6 @@
 #include <setjmp.h>
 #include "cmocka.h"
 
-#include "RapidIO_Source_Config.h"
 #include "RapidIO_Utilities_API.h"
 #include "src/RapidIO_Utilities_API.c"
 #include "rio_ecosystem.h"

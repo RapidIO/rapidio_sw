@@ -179,7 +179,7 @@ struct worker {
 	struct timespec st_time; /* Start of the run, for throughput */
 	struct timespec end_time; /* End of the run, for throughput*/
 
-	uint64_t perf_iter_cnt; /* Number of repititions */
+	uint64_t perf_iter_cnt; /* Number of repetitions */
 	struct timespec iter_st_time; /* Start of the iteration, latency */
 	struct timespec iter_end_time; /* End of the iteration, latency */
 	struct timespec tot_iter_time; /* Total time for all iterations */
@@ -191,6 +191,11 @@ struct worker {
 	struct seq_ts desc_ts;
 	struct seq_ts fifo_ts;
 	struct seq_ts meas_ts;
+
+	uint16_t ssdist;
+	uint16_t sssize;
+	uint16_t dsdist;
+	uint16_t dssize;
 };
 
 /**

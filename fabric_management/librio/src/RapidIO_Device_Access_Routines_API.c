@@ -34,7 +34,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdint.h>
 #include <stddef.h>
 
-#include "RapidIO_Source_Config.h"
 #include "Tsi57x_API.h"
 #include "Tsi721_API.h"
 #include "rio_ecosystem.h"

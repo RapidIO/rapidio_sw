@@ -58,119 +58,123 @@ extern "C" {
 #endif
 
 #ifndef RDMA_LL
-	extern unsigned RDMA_LL;
+extern unsigned RDMA_LL;
 #endif
 
-	unsigned g_level = RDMA_LL; /* Default log level from build */
-	unsigned g_disp_level = RDMA_LL_CRIT; /* Default log level from build */
+unsigned g_level = RDMA_LL; /* Default log level from build */
+unsigned g_disp_level = RDMA_LL_CRIT; /* Default log level from build */
 
-	static circ_buf<string, NUM_LOG_LINES> log_buf;
-	static unsigned circ_buf_en = 0;
-	static sem_t log_buf_sem;
+static circ_buf<string, NUM_LOG_LINES> log_buf;
+static unsigned circ_buf_en = 0;
+static sem_t log_buf_sem;
 
-	static FILE* log_file = NULL;
+static FILE* log_file = NULL;
 
-	int rdma_log_init(const char *log_filename, unsigned circ_buf_en)
-	{
-		/* Semaphore for protecting access to log_buf */
-		if (sem_init(&log_buf_sem, 0, 1) == -1) {
-			perror("rdma_log_init: sem_init()");
-			return -1;
-		}
+int rdma_log_init(const char *log_filename, unsigned circ_buf_en)
+{
+	/* Semaphore for protecting access to log_buf */
+	if (sem_init(&log_buf_sem, 0, 1) == -1) {
+		perror("rdma_log_init: sem_init()");
+		return -1;
+	}
 
-		::circ_buf_en = circ_buf_en;
+	::circ_buf_en = circ_buf_en;
 
-		if (circ_buf_en && (NULL == log_filename)) {
-			log_file = NULL;
-			return 0;
-		}
+	if (circ_buf_en && (NULL == log_filename)) {
+		log_file = NULL;
+		return 0;
+	}
 
-		/* Directory name */
-		string filename(DEFAULT_LOG_DIR);
+	/* Directory name */
+	string filename(DEFAULT_LOG_DIR);
 
-		/* Create log directory if not already present on system */
-		struct stat st;
-		if (stat(DEFAULT_LOG_DIR, &st) < 0) {
-			string create_dir(filename);
-			create_dir.insert(0, "mkdir ");
-			if (system(create_dir.c_str()) < 0) {
-				fprintf(stderr, "Failed to create '%s'\n",
-						filename.c_str());
-				return -ENOENT;
-			}
-		}
-
-		/* Open log file */
-		filename.append(log_filename);
-		log_file = fopen(filename.c_str(), "ae");
-		if (!log_file) {
-			perror("rdma_log_init: fopen()");
+	/* Create log directory if not already present on system */
+	struct stat st;
+	if (stat(DEFAULT_LOG_DIR, &st) < 0) {
+		string create_dir(filename);
+		create_dir.insert(0, "mkdir ");
+		if (system(create_dir.c_str()) < 0) {
+			fprintf(stderr, "Failed to create '%s'\n",
+					filename.c_str());
 			return -ENOENT;
 		}
+	}
 
-		return 0;
-	} /* rdma_log_init() */
+	/* Open log file */
+	filename.append(log_filename);
+	log_file = fopen(filename.c_str(), "ae");
+	if (!log_file) {
+		perror("rdma_log_init: fopen()");
+		return -ENOENT;
+	}
 
-	void rdma_log_close()
-	{
-		if (log_file) {
-			fclose(log_file);
-			log_file = NULL;
-		} else
-			puts("rdma_log_close(): log_file is NULL");
-	} /* rdma_log_close() */
+	return 0;
+} /* rdma_log_init() */
 
-	void rdma_log_dump()
-	{
-		log_buf.dump();
-	} /* rdma_log_dump() */
+void rdma_log_close()
+{
+	if (log_file) {
+		fclose(log_file);
+		log_file = NULL;
+	} else {
+		puts("rdma_log_close(): log_file is NULL");
+	}
+} /* rdma_log_close() */
 
-	int rdma_log(unsigned level, const char *level_str, const char *file,
-			int line_num, const char *func, const char *format, ...)
-	{
-		char buffer[LOG_LINE_SIZE] = {0};
-		va_list args;
-		int n, p;
-		time_t cur_time;
-		struct timeval tv;
-		char asc_time[26] = {0};
+void rdma_log_dump()
+{
+	log_buf.dump();
+} /* rdma_log_dump() */
 
-		char *oneline_fmt =
-				(char *)"%4s %s.%06ldus tid=%ld %s:%4d %s(): ";
+int rdma_log(unsigned level, const char *level_str, const char *file,
+		int line_num, const char *func, const char *format, ...)
+{
+	char buffer[LOG_LINE_SIZE] = {0};
+	va_list args;
+	int n;
+	int p;
+	time_t cur_time;
+	struct timeval tv;
+	char asc_time[26] = {0};
 
-		/* Prefix with level_str, timestamp, filename, line no., and func */
-		time(&cur_time);
-		ctime_r(&cur_time, asc_time);
-		asc_time[strlen(asc_time) - 1] = '\0';
-		gettimeofday(&tv, NULL);
-		n = snprintf(buffer, sizeof(buffer), (const char *)(oneline_fmt), level_str,
-				asc_time, tv.tv_usec, syscall(SYS_gettid), file,
-				line_num, func);
-		buffer[sizeof(buffer)-1] = '\0';
+	char *oneline_fmt = (char *)"%4s %s.%06ldus tid=%ld %s:%4d %s(): ";
 
-		/* Handle format and variable arguments */
-		va_start(args, format);
-		p = vsnprintf(buffer + n, sizeof(buffer) - n, format, args);
-		va_end(args);
+	/* Prefix with level_str, timestamp, filename, line no., and func */
+	time(&cur_time);
+	ctime_r(&cur_time, asc_time);
+	asc_time[strlen(asc_time) - 1] = '\0';
+	gettimeofday(&tv, NULL);
+	n = snprintf(buffer, sizeof(buffer), (const char *)(oneline_fmt),
+			level_str, asc_time, tv.tv_usec, syscall(SYS_gettid),
+			file, line_num, func);
+	buffer[sizeof(buffer) - 1] = '\0';
 
-		/* Push log line into circular log buffer and log file */
-		string log_line(buffer);
-		sem_wait(&log_buf_sem);
-		if (circ_buf_en)
-			log_buf.push_back(log_line);
-		if (log_file)
-			fputs(log_line.c_str(), log_file);
-		if (level <= g_disp_level) {
-			fprintf(stdout, "%s", log_line.c_str());
-			if ('\n' != buffer[n + p - 1])
-				fprintf(stdout, "\n");
-			fflush(stdout);
+	/* Handle format and variable arguments */
+	va_start(args, format);
+	p = vsnprintf(buffer + n, sizeof(buffer) - n, format, args);
+	va_end(args);
+
+	/* Push log line into circular log buffer and log file */
+	string log_line(buffer);
+	sem_wait(&log_buf_sem);
+	if (circ_buf_en) {
+		log_buf.push_back(log_line);
+	}
+	if (log_file) {
+		fputs(log_line.c_str(), log_file);
+	}
+	if (level <= g_disp_level) {
+		fprintf(stdout, "%s", log_line.c_str());
+		if ('\n' != buffer[n + p - 1]) {
+			fprintf(stdout, "\n");
 		}
-		sem_post(&log_buf_sem);
+		fflush(stdout);
+	}
+	sem_post(&log_buf_sem);
 
-		/* Return 0 if there is no error */
-		return (n < 0) ? n : 0;
-	} /* rdma_log() */
+	/* Return 0 if there is no error */
+	return (n < 0) ? n : 0;
+} /* rdma_log() */
 
 #ifdef __cplusplus
 }
