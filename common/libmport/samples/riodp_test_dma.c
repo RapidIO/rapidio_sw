@@ -833,18 +833,12 @@ int do_dma_test(int random, int kbuf_mode, int verify, int loop_count,
 		}
 
 		/** - If in ASYNC DMA transfer mode, create waiting thread for write */
-		if (sync == RIO_DIRECTIO_TRANSFER_ASYNC) {
-			if (ret >= 0) {
-				wr_wait.token = ret;
-				wr_wait.err = -1;
-				ret = pthread_create(&wr_thr, NULL,
-						dma_async_wait,
-						(void *)&wr_wait);
-				if (ret) {
-					printf(
-							"\tERR: Failed to create WR wait thread. err=%d\n",
-							ret);
-				}
+		if ((sync == RIO_DIRECTIO_TRANSFER_ASYNC) && (ret >= 0)) {
+			wr_wait.token = ret;
+			wr_wait.err = -1;
+			ret = pthread_create(&wr_thr, NULL, dma_async_wait, (void *)&wr_wait);
+			if (ret) {
+				printf("\tERR: Failed to create WR wait thread. err=%d\n", ret);
 			}
 		}
 
@@ -878,18 +872,12 @@ int do_dma_test(int random, int kbuf_mode, int verify, int loop_count,
 		}
 
 		/** - If in ASYNC DMA transfer mode, create waiting thread for reag */
-		if (sync == RIO_DIRECTIO_TRANSFER_ASYNC) {
-			if (ret >= 0) {
-				rd_wait.token = ret;
-				rd_wait.err = -1;
-				ret = pthread_create(&rd_thr, NULL,
-						dma_async_wait,
-						(void *)&rd_wait);
-				if (ret) {
-					printf(
-							"\tERR: Failed to create RD wait thread. err=%d\n",
-							ret);
-				}
+		if ((sync == RIO_DIRECTIO_TRANSFER_ASYNC) && (ret >= 0)) {
+			rd_wait.token = ret;
+			rd_wait.err = -1;
+			ret = pthread_create(&rd_thr, NULL, dma_async_wait, (void *)&rd_wait);
+			if (ret) {
+				printf("\tERR: Failed to create RD wait thread. err=%d\n", ret);
 			}
 		}
 

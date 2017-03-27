@@ -32,6 +32,7 @@
  */
 
 #include <stdint.h>
+#include <stdbool.h>
 #include <stddef.h>
 
 #include "rio_standard.h"
@@ -868,12 +869,15 @@ uint32_t tsi57x_rio_rt_change_rte(DAR_DEV_INFO_t *dev_info,
 
 	// If entry has not already been changed, see if it is being changed
 	if (in_parms->dom_entry) {
+		//@sonar:off - Collapsible "if" statements should be merged
 		if (!in_parms->rt->dom_table[in_parms->idx].changed) {
 			if (in_parms->rt->dom_table[in_parms->idx].rte_val
-					!= in_parms->rte_value)
+					!= in_parms->rte_value) {
 				in_parms->rt->dom_table[in_parms->idx].changed =
 						true;
+			}
 		}
+		//@sonar:on
 		in_parms->rt->dom_table[in_parms->idx].rte_val =
 				in_parms->rte_value;
 
@@ -894,12 +898,15 @@ uint32_t tsi57x_rio_rt_change_rte(DAR_DEV_INFO_t *dev_info,
 			}
 		}
 	} else {
+		//@sonar:off - Collapsible "if" statements should be merged
 		if (!in_parms->rt->dev_table[in_parms->idx].changed) {
 			if (in_parms->rt->dev_table[in_parms->idx].rte_val
-					!= in_parms->rte_value)
+					!= in_parms->rte_value) {
 				in_parms->rt->dev_table[in_parms->idx].changed =
 						true;
+			}
 		}
+		//@sonar:on
 		in_parms->rt->dev_table[in_parms->idx].rte_val =
 				in_parms->rte_value;
 	}
@@ -913,7 +920,8 @@ uint32_t tsi57x_rio_rt_change_mc_mask(DAR_DEV_INFO_t *dev_info,
 		rio_rt_change_mc_mask_out_t *out_parms)
 {
 	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
-	uint8_t mc_idx, chg_idx;
+	uint8_t mc_idx;
+	uint8_t chg_idx;
 	uint32_t illegal_ports = ~((1 << TSI578_MAX_PORTS) - 1);
 
 	out_parms->imp_rc = RIO_SUCCESS;
@@ -959,6 +967,7 @@ uint32_t tsi57x_rio_rt_change_mc_mask(DAR_DEV_INFO_t *dev_info,
 	}
 
 	// If entry has not already been changed, see if it is being changed
+	//@sonar:off - Collapsible "if" statements should be merged
 	if (!in_parms->rt->mc_masks[chg_idx].changed) {
 		if ((in_parms->rt->mc_masks[chg_idx].mc_destID
 				!= in_parms->mc_info.mc_destID)
@@ -971,6 +980,7 @@ uint32_t tsi57x_rio_rt_change_mc_mask(DAR_DEV_INFO_t *dev_info,
 			in_parms->rt->mc_masks[chg_idx].changed = true;
 		}
 	}
+	//@sonar:on
 
 	in_parms->rt->mc_masks[chg_idx].in_use = in_parms->mc_info.in_use;
 	in_parms->rt->mc_masks[chg_idx].mc_destID = in_parms->mc_info.mc_destID;

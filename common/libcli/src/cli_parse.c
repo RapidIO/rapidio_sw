@@ -103,12 +103,14 @@ int parm_idx(char *token, char *token_list)
 
 	len = strlen(token);
 	while (NULL != token_list) {
+		//@sonar:off - Collapsible "if" statements should be merged
 		if (!strncmp(token, token_list, len)) {
 			if ((' ' == token_list[len])
 					|| (0 == token_list[len])) {
 				break;
 			}
 		}
+		//@sonar:on
 		rc++;
 		token_list = strchr(token_list, ' ');
 		if (NULL != token_list) {

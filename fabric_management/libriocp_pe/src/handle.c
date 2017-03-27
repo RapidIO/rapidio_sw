@@ -103,17 +103,18 @@ const char * riocp_pe_handle_addr_ntoa(uint8_t *address, size_t address_len)
 	char *cur = buf;
 	char * const end = buf + sizeof(buf);
 
-	if (address == NULL || address_len == 0)
+	if ((NULL == address) || (0 == address_len)) {
 		return "";
+	}
 
 	memset(buf, 0, sizeof(buf));
 
 	for (i = 0; i < address_len; i++) {
-		if (cur < end)
+		if (cur < end) {
 			cur += snprintf(cur, end - cur, "%" PRIu8, address[i]);
-		if (i < address_len - 1) {
-			if (cur < end)
-				cur += snprintf(cur, end - cur, ",");
+		}
+		if ((i < address_len - 1) &&  (cur < end)) {
+			cur += snprintf(cur, end - cur, ",");
 		}
 	}
 
@@ -586,10 +587,11 @@ int riocp_pe_handle_pe_exists(struct riocp_pe *mport, ct_t comptag,
 	item = riocp_pe_mport_handles.next;
 	while (item != NULL) {
 		ptr = (struct riocp_pe *)item->data;
-		if (NULL != ptr) {
-			if ((ptr->comptag == comptag) &&
-			(ptr->mport->minfo->is_host == mport->minfo->is_host))
-				goto found;
+		if ((NULL != ptr)
+				&& ((ptr->comptag == comptag)
+						&& (ptr->mport->minfo->is_host
+								== mport->minfo->is_host))) {
+			goto found;
 		}
 		item = item->next;
 	}
@@ -618,15 +620,14 @@ int riocp_pe_handle_mport_exists(uint8_t mport, bool is_host, struct riocp_pe **
 	struct riocp_pe_llist_item *item = NULL;
 	struct riocp_pe *p = NULL;
 
-	RIOCP_PE_LLIST_FOREACH(item, &riocp_pe_mport_handles) {
+	RIOCP_PE_LLIST_FOREACH(item, &riocp_pe_mport_handles)
+	{
 		p = (struct riocp_pe *)item->data;
-		if (p) {
-			if (is_host == p->mport->minfo->is_host &&
-				mport == p->mport->minfo->id) {
-				riocp_pe_handle_mport_get(p->mport); /* Increment reference count */
-				*pe = p->mport;
-				return 0;
-			}
+		if (p && (is_host == p->mport->minfo->is_host
+				&& mport == p->mport->minfo->id)) {
+			riocp_pe_handle_mport_get(p->mport); /* Increment reference count */
+			*pe = p->mport;
+			return 0;
 		}
 	}
 

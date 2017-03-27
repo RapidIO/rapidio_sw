@@ -160,10 +160,8 @@ fail:
 		*status = 0;
 	}
 
-	if (NULL != env) {
-		if (env->sess_socket > 0) {
-			close(env->sess_socket);
-		}
+	if ((NULL != env) && (env->sess_socket > 0)) {
+		close(env->sess_socket);
 	}
 
 	free(env);

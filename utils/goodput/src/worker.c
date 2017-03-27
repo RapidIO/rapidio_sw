@@ -969,10 +969,12 @@ void msg_cleanup_con_skt(struct worker *info)
 
 }
 
-void msg_cleanup_acc_skt(struct worker *info) {
+void msg_cleanup_acc_skt(struct worker *info)
+{
+	int rc;
 
 	if (info->acc_skt_valid) {
-		int rc = riomp_sock_close(&info->acc_skt);
+		rc = riomp_sock_close(&info->acc_skt);
 		if (rc)
 			ERR("riomp_sock_close acc_skt rc %d:%s\n",
 					rc, strerror(errno));
@@ -982,8 +984,10 @@ void msg_cleanup_acc_skt(struct worker *info) {
 
 void msg_cleanup_mb(struct worker *info)
 {
+	int rc;
+
 	if (info->mb_valid) {
-        	int rc = riomp_sock_mbox_destroy_handle(&info->mb);
+		rc = riomp_sock_mbox_destroy_handle(&info->mb);
 		if (rc)
 			ERR("FAILED: riomp_sock_mbox_destroy_handle rc %d:%s\n",
 					rc, strerror(errno));
@@ -1020,7 +1024,7 @@ void msg_rx_goodput(struct worker *info)
 		return;
 	}
 
-        rc = riomp_sock_mbox_create_handle(mp_h_num, 0, &info->mb);
+	rc = riomp_sock_mbox_create_handle(mp_h_num, 0, &info->mb);
 	if (rc) {
 		ERR("FAILED: riomp_sock_mbox_create_handle rc %d:%s\n",
 			rc, strerror(errno));
@@ -1029,7 +1033,7 @@ void msg_rx_goodput(struct worker *info)
 
 	info->mb_valid = 1;
 
-        rc = riomp_sock_socket(info->mb, &info->acc_skt);
+	rc = riomp_sock_socket(info->mb, &info->acc_skt);
 	if (rc) {
 		ERR("FAILED: riomp_sock_socket acc_skt rc %d:%s\n",
 			rc, strerror(errno));
@@ -1038,14 +1042,14 @@ void msg_rx_goodput(struct worker *info)
 
 	info->acc_skt_valid = 1;
 
-        rc = riomp_sock_bind(info->acc_skt, info->sock_num);
+	rc = riomp_sock_bind(info->acc_skt, info->sock_num);
 	if (rc) {
 		ERR("FAILED: riomp_sock_bind rc %d:%s\n",
 			rc, strerror(errno));
 		return;
 	}
 
-        rc = riomp_sock_listen(info->acc_skt);
+	rc = riomp_sock_listen(info->acc_skt);
 	if (rc) {
 		ERR("FAILED: riomp_sock_listen rc %d:%s\n", rc, strerror(errno));
 		return;
@@ -1055,7 +1059,7 @@ void msg_rx_goodput(struct worker *info)
 		int rc;
 
 		if (!info->con_skt_valid) {
-                        rc = riomp_sock_socket(info->mb, &info->con_skt);
+			rc = riomp_sock_socket(info->mb, &info->con_skt);
 			if (rc) {
 				ERR("FAILED: riomp_sock_socket con_skt rc %d:%s\n",
 					rc, strerror(errno));
@@ -1068,13 +1072,13 @@ void msg_rx_goodput(struct worker *info)
 		if (rc)
 			break;
 
-                rc = riomp_sock_accept(info->acc_skt, &info->con_skt,
-					1000, &info->stop_req);
-                if (rc) {
-			ERR("FAILED: riomp_sock_accept rc %d:%s\n",
-				rc, strerror(errno));
-                        break;
-                }
+		rc = riomp_sock_accept(info->acc_skt, &info->con_skt, 1000,
+				&info->stop_req);
+		if (rc) {
+			ERR("FAILED: riomp_sock_accept rc %d:%s\n", rc,
+					strerror(errno));
+			break;
+		}
 
 		info->con_skt_valid = 2;
 
@@ -1091,13 +1095,14 @@ void msg_rx_goodput(struct worker *info)
 			}
 
 			info->perf_msg_cnt++;
+			//@sonar:off - Collapsible "if" statements should be merged
 			if ((message_rx_lat == info->action)
-					|| (message_rx_oh
-							== info->action)) {
+					|| (message_rx_oh == info->action)) {
 				if (send_resp_msg(info)) {
 					break;
 				}
 			}
+			//@sonar:on
 			clock_gettime(CLOCK_MONOTONIC, &info->end_time);
 		}
 		msg_cleanup_con_skt(info);
@@ -1124,7 +1129,7 @@ void msg_tx_goodput(struct worker *info)
 		return;
 	}
 
-        rc = riomp_sock_mbox_create_handle(mp_h_num, 0, &info->mb);
+	rc = riomp_sock_mbox_create_handle(mp_h_num, 0, &info->mb);
 	if (rc) {
 		ERR("FAILED: riomp_sock_mbox_create_handle rc %d:%s\n",
 			rc, strerror(errno));
@@ -1133,7 +1138,7 @@ void msg_tx_goodput(struct worker *info)
 
 	info->mb_valid = 1;
 
-        rc = riomp_sock_socket(info->mb, &info->con_skt);
+	rc = riomp_sock_socket(info->mb, &info->con_skt);
 	if (rc) {
 		ERR("FAILED: riomp_sock_socket rc %d:%s\n",
 			rc, strerror(errno));
@@ -1174,19 +1179,19 @@ void msg_tx_goodput(struct worker *info)
 			rc = 1;
 			while (rc && !info->stop_req) {
 				rc = riomp_sock_receive(info->con_skt,
-						&info->sock_rx_buf,
-						1000, &info->stop_req);
-                		if (rc) {
-                        		if ((errno == ETIME) ||
-							(errno == EINTR)) {
-                                		continue;
+						&info->sock_rx_buf, 1000,
+						&info->stop_req);
+				if (rc) {
+					if ((errno == ETIME)
+							|| (errno == EINTR)) {
+						continue;
 					}
 					ERR(
-					"FAILED: riomp_sock_receive rc %d:%s\n",
-						rc, strerror(errno));
-                        		goto exit;
-                		}
-                	}
+							"FAILED: riomp_sock_receive rc %d:%s\n",
+							rc, strerror(errno));
+					goto exit;
+				}
+			}
 			finish_iter_stats(info);
 		}
 

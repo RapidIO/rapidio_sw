@@ -2594,10 +2594,10 @@ uint32_t tsi57x_rio_em_create_events(DAR_DEV_INFO_t *dev_info,
 			goto exit;
 		}
 
-		if (RIO_ALL_PORTS != pnum) {
-			if (!(cfg_out.pc[pnum].port_available
-					&& cfg_out.pc[pnum].powered_up))
-				continue;
+		if ((RIO_ALL_PORTS != pnum)
+				&& (!(cfg_out.pc[pnum].port_available
+						&& cfg_out.pc[pnum].powered_up))) {
+			continue;
 		}
 
 		switch (in_parms->events[idx].event) {

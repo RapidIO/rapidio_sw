@@ -654,10 +654,9 @@ int main(int argc, char *argv[])
 
 	setup_mport(fmd);
 
-	if (!fmd->opts->simple_init) {
-		if (fmd_dd_update(*fmd->mp_h, fmd->dd, fmd->dd_mtx)) {
-			goto dd_cleanup;
-		}
+	if (!fmd->opts->simple_init
+			&& fmd_dd_update(*fmd->mp_h, fmd->dd, fmd->dd_mtx)) {
+		goto dd_cleanup;
 	}
 
 	if (fmd->opts->init_and_quit) {

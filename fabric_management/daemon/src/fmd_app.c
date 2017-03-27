@@ -231,10 +231,8 @@ int open_app_conn_socket(void)
 		goto fail;
 	}
 
-	if (remove(app_st.addr.sun_path)) {
-		if (ENOENT != errno) {
-			CRIT(LOC_SOCKET_FAIL, app_st.addr.sun_path, errno);
-		}
+	if (remove(app_st.addr.sun_path) && (ENOENT != errno)) {
+		CRIT(LOC_SOCKET_FAIL, app_st.addr.sun_path, errno);
 	}
 
 	if (-1 == bind(app_st.fd, (struct sockaddr *) &app_st.addr, 

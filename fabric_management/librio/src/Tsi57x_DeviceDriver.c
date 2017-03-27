@@ -81,6 +81,7 @@ uint32_t tsi57x_rioDeviceSupported(DAR_DEV_INFO_t *dev_info)
 {
 	uint32_t rc = DAR_DB_NO_DRIVER;
 
+	//@sonar:off - Collapsible "if" statements should be merged
 	if (RIO_VEND_TUNDRA == (dev_info->devID & RIO_DEV_IDENT_VEND)) {
 		if ((RIO_DEVI_TSI57X >> 4)
 				== ((dev_info->devID & RIO_DEV_IDENT_DEVI) >> 20)) {
@@ -96,6 +97,7 @@ uint32_t tsi57x_rioDeviceSupported(DAR_DEV_INFO_t *dev_info)
 			}
 		}
 	}
+	//@sonar:on
 	return rc;
 }
 

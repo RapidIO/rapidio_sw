@@ -1366,15 +1366,18 @@ int cfg_parse_file(char *cfg_fn, char **dd_mtx_fn, char **dd_fn,
 
 	cfg_fd = NULL;
 
-	if (cfg->dd_mtx_fn && strlen(cfg->dd_mtx_fn))
-		if (update_string(dd_mtx_fn, cfg->dd_mtx_fn,
-				strlen(cfg->dd_mtx_fn))) {
+	//@sonar:off - Collapsible "if" statements should be merged
+	if (cfg->dd_mtx_fn && strlen(cfg->dd_mtx_fn)) {
+		if (update_string(dd_mtx_fn, cfg->dd_mtx_fn, strlen(cfg->dd_mtx_fn))) {
 			goto fail;
 		}
-	if (cfg->dd_fn && strlen(cfg->dd_fn))
+	}
+	if (cfg->dd_fn && strlen(cfg->dd_fn)) {
 		if (update_string(dd_fn, cfg->dd_fn, strlen(cfg->dd_fn))) {
 			goto fail;
 		}
+	}
+	//@sonar:on
 
 	if (cfg->init_err) {
 		goto fail;
@@ -1398,10 +1401,8 @@ int cfg_parse_file(char *cfg_fn, char **dd_mtx_fn, char **dd_fn,
 						}
 
 						did_val = port.devids[k].did_val;
-						if (did_val) {
-							if (ct_create_from_data(&ct, &did, nr, did_val, did_sz)) {
-								goto fail;
-							}
+						if (did_val && ct_create_from_data(&ct, &did, nr, did_val, did_sz)) {
+							goto fail;
 						}
 					}
 				}

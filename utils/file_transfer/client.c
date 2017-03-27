@@ -123,11 +123,9 @@ int parse_options(int argc, char *argv[], char **src_name, char **rem_name,
 	SAFE_STRNCPY(src_fs, argv[1], sizeof(src_fs));
 	SAFE_STRNCPY(rem_fs, argv[2], sizeof(rem_fs));
 
-	if (argc > 3) {
-		if (tok_parse_did(argv[3], server_did_val, 0)) {
-			printf(TOK_ERR_DID_MSG_FMT);
-			goto print_help;
-		}
+	if ((argc > 3) && (tok_parse_did(argv[3], server_did_val, 0))) {
+		printf(TOK_ERR_DID_MSG_FMT);
+		goto print_help;
 	}
 
 	if (argc > 4) {

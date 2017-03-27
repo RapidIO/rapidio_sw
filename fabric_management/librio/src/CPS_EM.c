@@ -592,6 +592,7 @@ static uint32_t cps_set_event_en_cfg(DAR_DEV_INFO_t *dev_info, uint8_t pnum,
 		regs->err_rate_csr &= (RIO_EMHS_SPX_RATE_RB
 				| RIO_EMHS_SPX_RATE_RR);
 
+		//@sonar:off - Collapsible "if" statements should be merged
 		if (!(regs->err_rate_en_csr & ~CPSGEN2_ERR_RATE_EVENT_EXCLUSIONS)) {
 			if (rio_em_detect_on == event->em_detect) {
 				// Set the RB & RD to defaults, clear error counter.
@@ -610,6 +611,7 @@ static uint32_t cps_set_event_en_cfg(DAR_DEV_INFO_t *dev_info, uint8_t pnum,
 				}
 			}
 		}
+		//@sonar:on
 		break;
 
 	case rio_em_f_err_rate:
@@ -2777,16 +2779,15 @@ uint32_t CPS_rio_em_get_int_stat(DAR_DEV_INFO_t *dev_info,
 			}
 		}
 
-		if (!got_los) {
-			if (CPS1848_PORT_X_IMPL_SPEC_ERR_DET_LOA
-					& imp_spec_det) {
-				if (CPS1848_PORT_X_IMPL_SPEC_ERR_RATE_EN_LOA_EN
-						& err_rate_en) {
-					rio_em_add_int_event(in_parms, out_parms,
-							pnum, rio_em_f_los);
-				} else {
-					out_parms->other_events = true;
-				}
+		if (!got_los
+				&& (CPS1848_PORT_X_IMPL_SPEC_ERR_DET_LOA
+						& imp_spec_det)) {
+			if (CPS1848_PORT_X_IMPL_SPEC_ERR_RATE_EN_LOA_EN
+					& err_rate_en) {
+				rio_em_add_int_event(in_parms, out_parms, pnum,
+						rio_em_f_los);
+			} else {
+				out_parms->other_events = true;
 			}
 		}
 
@@ -3129,16 +3130,15 @@ uint32_t CPS_rio_em_get_pw_stat(DAR_DEV_INFO_t *dev_info,
 			}
 		}
 
-		if (!got_los) {
-			if (CPS1848_PORT_X_IMPL_SPEC_ERR_DET_LOA
-					& imp_spec_det) {
-				if (CPS1848_PORT_X_IMPL_SPEC_ERR_RATE_EN_LOA_EN
-						& err_rate_en) {
-					rio_em_add_pw_event(in_parms, out_parms,
-							pnum, rio_em_f_los);
-				} else {
-					out_parms->other_events = true;
-				}
+		if (!got_los
+				&& (CPS1848_PORT_X_IMPL_SPEC_ERR_DET_LOA
+						& imp_spec_det)) {
+			if (CPS1848_PORT_X_IMPL_SPEC_ERR_RATE_EN_LOA_EN
+					& err_rate_en) {
+				rio_em_add_pw_event(in_parms, out_parms, pnum,
+						rio_em_f_los);
+			} else {
+				out_parms->other_events = true;
 			}
 		}
 
@@ -3522,11 +3522,10 @@ uint32_t CPS_rio_em_create_events(DAR_DEV_INFO_t *dev_info,
 			goto exit;
 		}
 
-		if (!all_ports) {
-			if (!(cfg_out.pc[pnum].port_available
-					&& cfg_out.pc[pnum].powered_up)) {
-				continue;
-			}
+		if (!all_ports
+				&& (!(cfg_out.pc[pnum].port_available
+						&& cfg_out.pc[pnum].powered_up))) {
+			continue;
 		}
 
 		switch (in_parms->events[idx].event) {

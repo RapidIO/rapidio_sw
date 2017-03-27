@@ -1072,9 +1072,8 @@ void spawn_threads(int cons_skt, int xfer_skt, int run_cons)
 void fxfr_server_shutdown(void) {
 	int idx;
 
-	if (!all_must_die && spawned_threads) {
-		if (conn_loop_alive)
-			pthread_kill(conn_thread, SIGHUP);
+	if (!all_must_die && spawned_threads && conn_loop_alive) {
+		pthread_kill(conn_thread, SIGHUP);
 	}
 
 	all_must_die = 1;

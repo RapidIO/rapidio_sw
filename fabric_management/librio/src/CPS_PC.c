@@ -601,8 +601,9 @@ static uint32_t cps_set_config_init_parms_check_conflict(DAR_DEV_INFO_t *dev_inf
 										&& (RIO_ALL_PORTS
 												!= pi->cpr[pnum].cfg[quad_cfg].other_ports[dep_pidx]);
 								dep_pidx++) {
-							dep_pnum =
-									pi->cpr[pnum].cfg[quad_cfg].other_ports[dep_pidx];
+							dep_pnum = pi->cpr[pnum].cfg[quad_cfg].other_ports[dep_pidx];
+
+							//@sonar:off - Collapsible "if" statements should be merged
 							// If the ports are dependent upon the same PLL
 							if ((dep_pnum
 									== sorted->pc[dep_pnum].pnum)
@@ -617,6 +618,7 @@ static uint32_t cps_set_config_init_parms_check_conflict(DAR_DEV_INFO_t *dev_inf
 									}
 								}
 							}
+							//@sonar:on
 						}
 					}
 				}
@@ -734,6 +736,7 @@ static uint32_t cps_compute_quad_config(cps_port_info_t *pi,
 								!= pi->ppq->qdrt[quadrant].port_num[port_idx])
 						&& !found_flt; port_idx++) {
 			pnum = pi->ppq->qdrt[quadrant].port_num[port_idx];
+			//@sonar:off - Collapsible "if" statements should be merged
 			if (sorted->pc[pnum].pnum == pnum) {
 				found_port = true;
 				if (sorted->pc[pnum].port_available) {
@@ -743,6 +746,7 @@ static uint32_t cps_compute_quad_config(cps_port_info_t *pi,
 						found_flt = true;
 				}
 			}
+			//@sonar:on
 		}
 
 		if (!found_port) {
@@ -767,8 +771,9 @@ static uint32_t cps_compute_quad_config(cps_port_info_t *pi,
 									!= pi->ppq->qdrt[quadrant].port_num[port_idx])
 							&& !found_flt;
 					port_idx++) {
-				pnum =
-						pi->ppq->qdrt[quadrant].port_num[port_idx];
+				pnum = pi->ppq->qdrt[quadrant].port_num[port_idx];
+
+				//@sonar:off - Collapsible "if" statements should be merged
 				if (pnum == sorted->pc[pnum].pnum) {
 					rst_val |= (1 << pnum);
 					if (sorted->pc[pnum].port_available
@@ -779,6 +784,7 @@ static uint32_t cps_compute_quad_config(cps_port_info_t *pi,
 							found_flt = true;
 					}
 				}
+				//@sonar:on
 			}
 
 			if (!found_flt) {
@@ -821,6 +827,7 @@ static uint32_t cps_compute_quad_config(cps_port_info_t *pi,
 				goto exit;
 			}
 
+			//@sonar:off - Collapsible "if" statements should be merged
 			if (pi->cpr[pnum].cfg[old_qcfg].lane_count
 					&& !pi->cpr[pnum].cfg[new_qcfg].lane_count) {
 				if (RIO_ALL_PORTS == sorted->pc[pnum].pnum) {
@@ -828,6 +835,7 @@ static uint32_t cps_compute_quad_config(cps_port_info_t *pi,
 					sorted->pc[pnum].powered_up = false;
 				}
 			}
+			//@sonar:on
 
 			if (!pi->cpr[pnum].cfg[new_qcfg].lane_count) {
 				sorted->pc[pnum].pnum = RIO_ALL_PORTS;
@@ -2808,6 +2816,7 @@ uint32_t CPS_rio_pc_get_status(DAR_DEV_INFO_t *dev_info,
 							rio_pc_fc_tx;
 				}
 
+				//@sonar:off - Collapsible "if" statements should be merged
 				if (err_stat
 						& CPS1848_PORT_X_ERR_STAT_CSR_OUTPUT_FAIL) {
 					if (ctl1
@@ -2815,6 +2824,7 @@ uint32_t CPS_rio_pc_get_status(DAR_DEV_INFO_t *dev_info,
 						out_parms->ps[port_idx].port_error =
 								true;
 				}
+				//@sonar:on
 
 				rc =
 						DARRegRead(dev_info,
@@ -2854,11 +2864,10 @@ uint32_t CPS_rio_pc_reset_port(DAR_DEV_INFO_t *dev_info,
 		goto exit;
 	}
 
-	if (!in_parms->oob_reg_acc) {
-		if (in_parms->reg_acc_port >= NUM_CPS_PORTS(dev_info)) {
-			out_parms->imp_rc = PC_RESET_PORT(2);
-			goto exit;
-		}
+	if ((!in_parms->oob_reg_acc)
+			&& (in_parms->reg_acc_port >= NUM_CPS_PORTS(dev_info))) {
+		out_parms->imp_rc = PC_RESET_PORT(2);
+		goto exit;
 	}
 
 	rc = init_sw_pi(dev_info, &pi);

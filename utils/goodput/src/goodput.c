@@ -131,11 +131,9 @@ int main(int argc, char *argv[])
 	signal(SIGTERM, sig_handler);
 	signal(SIGUSR1, sig_handler);
 
-	if (argc > 1) {
-		if (tok_parse_mport_id(argv[1], &mport_num, 0)) {
-			printf(TOK_ERR_MPORT_MSG_FMT);
-			exit(EXIT_FAILURE);
-		}
+	if ((argc > 1) && (tok_parse_mport_id(argv[1], &mport_num, 0))) {
+		printf(TOK_ERR_MPORT_MSG_FMT);
+		exit(EXIT_FAILURE);
 	}
 
 	for (int n = 2; n < argc; n++) {

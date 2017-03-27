@@ -52,16 +52,17 @@ uint32_t tsi721_rioDeviceSupported(DAR_DEV_INFO_t *dev_info)
 {
 	uint32_t rc = DAR_DB_NO_DRIVER;
 
-	if (TSI721_DEVICE_VENDOR == (dev_info->devID & RIO_DEV_IDENT_VEND)) {
-		if ((RIO_DEVI_IDT_TSI721)
-				== ((dev_info->devID & RIO_DEV_IDENT_DEVI) >> 16)) {
-			// Now fill out the DAR_info structure...
-			rc = DARDB_rioDeviceSupported(dev_info);
+	if ((TSI721_DEVICE_VENDOR == (dev_info->devID & RIO_DEV_IDENT_VEND))
+			&& (RIO_DEVI_IDT_TSI721
+					== ((dev_info->devID
+							& RIO_DEV_IDENT_DEVI)
+							>> 16))) {
 
-			if (rc == RIO_SUCCESS) {
-				SAFE_STRNCPY(dev_info->name, "Tsi721",
-						sizeof(dev_info->name));
-			}
+		// Now fill out the DAR_info structure...
+		rc = DARDB_rioDeviceSupported(dev_info);
+		if (rc == RIO_SUCCESS) {
+			SAFE_STRNCPY(dev_info->name, "Tsi721",
+					sizeof(dev_info->name));
 		}
 	}
 	return rc;

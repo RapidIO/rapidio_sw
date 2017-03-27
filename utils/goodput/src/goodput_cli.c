@@ -431,21 +431,18 @@ static int IBAllocCmd(struct cli_env *env, int argc, char **argv)
 
 	/* Note: RSVD overrides rio_addr */
 	if (argc > 3) {
-		int rc;
-		rc = get_rsvd_phys_mem(argv[3], &ib_phys_addr, &ib_size);
-		if (rc) {
+		if (get_rsvd_phys_mem(argv[3], &ib_phys_addr, &ib_size)) {
 			LOGMSG(env, "\nNo reserved memory found for keyword %s",
 					argv[3]);
 			goto exit;
 		}
-	} else if (argc > 2) {
-		if (tok_parse_ulonglong(argv[2], &ib_rio_addr, 1, UINT64_MAX,
-				0)) {
-			LOGMSG(env, "\n");
-			LOGMSG(env, TOK_ERR_ULONGLONG_HEX_MSG_FMT, "<addr>",
-					(uint64_t )1, (uint64_t)UINT64_MAX);
-			goto exit;
-		}
+	} else if ((argc > 2)
+			&& (tok_parse_ulonglong(argv[2], &ib_rio_addr, 1,
+					UINT64_MAX, 0))) {
+		LOGMSG(env, "\n");
+		LOGMSG(env, TOK_ERR_ULONGLONG_HEX_MSG_FMT, "<addr>",
+				(uint64_t )1, (uint64_t)UINT64_MAX);
+		goto exit;
 	}
 
 	if ((ib_rio_addr != RIO_ANY_ADDR ) && ((ib_size - 1) & ib_rio_addr)) {
@@ -806,11 +803,10 @@ static int obdio_cmd(struct cli_env *env, int UNUSED(argc), char **argv,
 		}
 	}
 
-	if (direct_io_tx_lat == action) {
-		if (!wkr[idx].ib_valid || (NULL == wkr[idx].ib_ptr)) {
-			LOGMSG(env, "\nNo mapped inbound window present\n");
-			goto exit;
-		}
+	if ((direct_io_tx_lat == action)
+			&& (!wkr[idx].ib_valid || (NULL == wkr[idx].ib_ptr))) {
+		LOGMSG(env, "\nNo mapped inbound window present\n");
+		goto exit;
 	}
 
 	wkr[idx].action = action;
@@ -988,48 +984,37 @@ static int dmaCmd(struct cli_env *env, int argc, char **argv)
 	wkr[idx].sssize = 0;
 	wkr[idx].dsdist = 0;
 	wkr[idx].dssize = 0;
-	if (argc > 9) {
-		if (tok_parse_ushort(argv[n++], &wkr[idx].ssdist, 0, 0xFFFF,
-				0)) {
-			LOGMSG(env, "\n");
-			LOGMSG(env, TOK_ERR_USHORT_MSG_FMT, "<ssdist>", 0,
-					0xFFFF);
-			goto exit;
-		}
 
-		if (argc > 10) {
-			if (tok_parse_ushort(argv[n++], &wkr[idx].sssize, 0,
-					0x0FFF, 0)) {
-				LOGMSG(env, "\n");
-				LOGMSG(env, TOK_ERR_USHORT_MSG_FMT, "<sssize>",
-						0, 0x0FFF);
-				goto exit;
-			}
+	if ((argc > 9)
+			&& (tok_parse_ushort(argv[n++], &wkr[idx].ssdist, 0,
+					0xFFFF, 0))) {
+		LOGMSG(env, "\n");
+		LOGMSG(env, TOK_ERR_USHORT_MSG_FMT, "<ssdist>", 0, 0xFFFF);
+		goto exit;
+	}
 
-			if (argc > 11) {
-				if (tok_parse_ushort(argv[n++],
-						&wkr[idx].dsdist, 0, 0xFFFF,
-						0)) {
-					LOGMSG(env, "\n");
-					LOGMSG(env, TOK_ERR_USHORT_MSG_FMT,
-							"<dsdist>", 0, 0xFFFF);
-					goto exit;
-				}
+	if ((argc > 10)
+			&& (tok_parse_ushort(argv[n++], &wkr[idx].sssize, 0,
+					0x0FFF, 0))) {
+		LOGMSG(env, "\n");
+		LOGMSG(env, TOK_ERR_USHORT_MSG_FMT, "<sssize>", 0, 0x0FFF);
+		goto exit;
+	}
 
-				if (argc > 12) {
-					if (tok_parse_ushort(argv[n++],
-							&wkr[idx].dssize, 0,
-							0x0FFF, 0)) {
-						LOGMSG(env, "\n");
-						LOGMSG(env,
-								TOK_ERR_USHORT_MSG_FMT,
-								"<dssize>", 0,
-								0x0FFF);
-						goto exit;
-					}
-				}
-			}
-		}
+	if ((argc > 11)
+			&& (tok_parse_ushort(argv[n++], &wkr[idx].dsdist, 0,
+					0xFFFF, 0))) {
+		LOGMSG(env, "\n");
+		LOGMSG(env, TOK_ERR_USHORT_MSG_FMT, "<dsdist>", 0, 0xFFFF);
+		goto exit;
+	}
+
+	if ((argc > 12)
+			&& (tok_parse_ushort(argv[n++], &wkr[idx].dssize, 0,
+					0x0FFF, 0))) {
+		LOGMSG(env, "\n");
+		LOGMSG(env, TOK_ERR_USHORT_MSG_FMT, "<dssize>", 0, 0x0FFF);
+		goto exit;
 	}
 
 	wkr[idx].action = dma_tx;
@@ -2122,19 +2107,19 @@ static int UTimeCmd(struct cli_env *env, int argc, char **argv)
 
 	case 'p':
 	case 'P':
-		if (argc > 3) {
-			if (tok_parse_ushort(argv[3], &st_i, 0, MAX_TIMESTAMPS-1, 0)) {
-				LOGMSG(env, "\n");
-				LOGMSG(env, TOK_ERR_USHORT_MSG_FMT, "st_i", 0, MAX_TIMESTAMPS-1);
-				goto exit;
-			}
+		if ((argc > 3)&& (tok_parse_ushort(argv[3], &st_i, 0,
+						MAX_TIMESTAMPS - 1, 0))) {
+			LOGMSG(env, "\n");
+			LOGMSG(env, TOK_ERR_USHORT_MSG_FMT, "st_i", 0,
+					MAX_TIMESTAMPS-1);
+			goto exit;
 		}
-		if (argc > 4) {
-			if (tok_parse_ushort(argv[4], &end_i, 0, MAX_TIMESTAMPS-1, 0)) {
-				LOGMSG(env, "\n");
-				LOGMSG(env, TOK_ERR_USHORT_MSG_FMT, "end_i", 0, MAX_TIMESTAMPS-1);
-				goto exit;
-			}
+		if ((argc > 4)&& (tok_parse_ushort(argv[4], &end_i, 0,
+						MAX_TIMESTAMPS - 1, 0))) {
+			LOGMSG(env, "\n");
+			LOGMSG(env, TOK_ERR_USHORT_MSG_FMT, "end_i", 0,
+					MAX_TIMESTAMPS-1);
+			goto exit;
 		}
 
 		if (end_i < st_i) {

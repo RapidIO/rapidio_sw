@@ -100,11 +100,10 @@ int get_phys_mem(const char *filename, char *parm_name, uint64_t *sa,
 			break;
 		}
 
-		if (MEM_CFG_MAX_LINE_LEN - 1 == buff_bytes) {
-			if (buff[MEM_CFG_MAX_LINE_LEN - 1] != '\n') {
-				errno = EFBIG;
-				goto fail;
-			}
+		if ((MEM_CFG_MAX_LINE_LEN - 1 == buff_bytes)
+				&& (buff[MEM_CFG_MAX_LINE_LEN - 1] != '\n')) {
+			errno = EFBIG;
+			goto fail;
 		}
 
 		/* Find parm_name on the line */

@@ -266,6 +266,7 @@ void fmd_dd_cleanup(char *dd_mtx_fn, int *dd_mtx_fd,
 	struct fmd_dd_mtx *dd_mtx = (NULL == dd_mtx_p)?NULL:*dd_mtx_p;
 	struct fmd_dd *dd = (NULL == dd_p)?NULL:*dd_p;
 
+	//@sonar:off - Collapsible "if" statements should be merged
 	if ((NULL != dd) && (NULL != dd_mtx)) {
 		if (dd->chg_idx && dd_mtx->dd_ref_cnt) {
 			if (!--dd_mtx->dd_ref_cnt) {
@@ -274,6 +275,7 @@ void fmd_dd_cleanup(char *dd_mtx_fn, int *dd_mtx_fd,
 				shm_unlink(dd_fn);
 			}
 		}
+
 		if (*dd_fd) {
 			close(*dd_fd);
 			*dd_fd = 0;
@@ -289,12 +291,14 @@ void fmd_dd_cleanup(char *dd_mtx_fn, int *dd_mtx_fd,
 				shm_unlink(dd_mtx_fn);
 			}
 		}
+
 		if (*dd_mtx_fd) {
 			close(*dd_mtx_fd);
 			*dd_mtx_fd = 0;
 		}
 		*dd_mtx_p = NULL;
 	}
+	//@sonar:on
 }
 	
 uint32_t fmd_dd_get_chg_idx(struct fmd_dd *dd)

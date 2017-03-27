@@ -1670,8 +1670,8 @@ uint32_t tsi721_rio_em_parse_pw(DAR_DEV_INFO_t *dev_info,
 		SAFE_ADD_EVENT_N_LOC(rio_em_f_port_err);
 	}
 
-	// Assume a too many retries happenned.
-	// Assume a too many PNA event happenned if a PNA is present.
+	// Assume a too many retries happened.
+	// Assume a too many PNA event happened if a PNA is present.
 	if (in_parms->pw[IMP_SPEC_IDX] & TSI721_PW_MAX_DENIAL) {
 		SAFE_ADD_EVENT_N_LOC(rio_em_f_2many_retx);
 		if (in_parms->pw[ERR_DET_IDX] & TSI721_SP_ERR_DET_CS_NOT_ACC) {
@@ -1679,12 +1679,14 @@ uint32_t tsi721_rio_em_parse_pw(DAR_DEV_INFO_t *dev_info,
 		}
 	}
 
+	//@sonar:off - Collapsible "if" statements should be merged
 	if (in_parms->pw[IMP_SPEC_IDX] & TSI721_PW_OUTPUT_FAIL) {
 		if (in_parms->pw[ERR_DET_IDX] &
 					~TSI721_ERR_RATE_EVENT_EXCLUSIONS) {
 			SAFE_ADD_EVENT_N_LOC(rio_em_f_err_rate);
 		}
 	}
+	//@sonar:on
 
 	// Note: Tsi721 does not support rio_em_d_ttl or rio_em_d_rte events.
 

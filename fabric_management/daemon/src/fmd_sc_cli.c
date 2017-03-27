@@ -186,25 +186,24 @@ int CLICountDisplayCmd(struct cli_env *env, int argc, char **argv)
 			if (!stctr->last_inc && !stctr->total) {
 				continue;
 			}
-			if (chk_rx_tx) {
-				if (stctr->tx != sc_tx) {
+
+			if (chk_rx_tx && (stctr->tx != sc_tx)) {
 					continue;
-				}
 			}
-			if (chk_rio_oth) {
-				if (stctr->srio != sc_srio) {
-					continue;
-				}
+
+			if (chk_rio_oth && (stctr->srio != sc_srio)) {
+				continue;
 			}
-			if (chk_flags) {
-				if ((flags & SC_FLAG(stctr->sc)) != flags) {
-					continue;
-				}
+
+			if (chk_flags && ((flags & SC_FLAG(stctr->sc)) != flags)) {
+				continue;
 			}
+
 			if (!got_one) {
 				got_one = true;
 				LOGMSG(env, "\nPt   Counter             Last_Inc   Total\n ");
 			}
+
 			LOGMSG(env,
 				"\n%2d  %2s %8s %6s 0x%8x 0x%16llx",
 				dc->p_ctrs[val_p].pnum,

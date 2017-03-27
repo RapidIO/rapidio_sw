@@ -550,11 +550,10 @@ uint32_t rxs_pc_set_cfg_check_parms(DAR_DEV_INFO_t *dev_info,
 		goto fail;
 	}
 
-	if (!in_parms->oob_reg_acc) {
-		if  (in_parms->reg_acc_port >= NUM_RXS_PORTS(dev_info)) {
-			*imp_rc = PC_SET_CONFIG(0x02);
-			goto fail;
-		}
+	if (!in_parms->oob_reg_acc
+			&& (in_parms->reg_acc_port >= NUM_RXS_PORTS(dev_info))) {
+		*imp_rc = PC_SET_CONFIG(0x02);
+		goto fail;
 	}
 
 	memset(sorted, 0, sizeof(*sorted));
@@ -577,13 +576,15 @@ uint32_t rxs_pc_set_cfg_check_parms(DAR_DEV_INFO_t *dev_info,
 			*imp_rc = PC_SET_CONFIG(0x05);
 			goto fail;
 		}
-		if (port & 1) {
-			if ((rio_pc_pw_4x == sorted->pc[port].pw) ||
-				(rio_pc_pw_1x_l2 == sorted->pc[port].pw)) {
-				*imp_rc = PC_SET_CONFIG(0x07);
-				goto fail;
-			}
+
+		if ((port & 1)
+				&& ((rio_pc_pw_4x == sorted->pc[port].pw)
+						|| (rio_pc_pw_1x_l2
+								== sorted->pc[port].pw))) {
+			*imp_rc = PC_SET_CONFIG(0x07);
+			goto fail;
 		}
+
 		if (rio_pc_fc_rx != sorted->pc[port].fc) {
 			*imp_rc = PC_SET_CONFIG(0x09);
 			goto fail;
@@ -631,6 +632,7 @@ uint32_t rxs_pc_set_cfg_check_parms(DAR_DEV_INFO_t *dev_info,
 		}
 	}
 	rc = RIO_SUCCESS;
+
 fail:
 	return rc;
 }
@@ -681,6 +683,7 @@ uint32_t check_even_conf(rio_pc_one_port_config_t *e_req,
 		rc = RIO_ERR_INVALID_PARAMETER;
 		*imp_rc = PC_SET_CONFIG(0x40);
 	}
+
 fail:
 	return rc;
 }
@@ -697,16 +700,16 @@ uint32_t check_odd_conf(rio_pc_one_port_config_t *o_req,
 {
 	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
 
+
 	// Possible port width conflict:
 	// Even port is 4x, or 4x redunduant on lane 2,
 	// and the current odd port is available, the change cannot
 	// be made.
 	//
-	if ((rio_pc_pw_4x == e_curr->pw) || (rio_pc_pw_1x_l2 == e_curr->pw)) {
-		if (o_req->port_available) {
-			*imp_rc = PC_SET_CONFIG(0x44);
-			goto fail;
-		}
+	if (((rio_pc_pw_4x == e_curr->pw) || (rio_pc_pw_1x_l2 == e_curr->pw))
+			&& o_req->port_available) {
+		*imp_rc = PC_SET_CONFIG(0x44);
+		goto fail;
 	}
 
 	if (o_req->port_available != o_curr->port_available) {
@@ -716,13 +719,12 @@ uint32_t check_odd_conf(rio_pc_one_port_config_t *o_req,
 
 	// Lane speed conflict may occur if even and odd ports
 	// are available.  The even port is always available.
-	if (o_req->port_available) {
-		if (ls_conflict(o_req->ls, e_curr->ls)) {
-			*imp_rc = PC_SET_CONFIG(0x48);
-			goto fail;
-		}
+	if (o_req->port_available && ls_conflict(o_req->ls, e_curr->ls)) {
+		*imp_rc = PC_SET_CONFIG(0x48);
+		goto fail;
 	}
 	rc = RIO_SUCCESS;
+
 fail:
 	return rc;
 }
@@ -739,6 +741,7 @@ uint32_t check_both_conf(rio_pc_one_port_config_t *e_req,
 {
 	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
 
+	//@sonar:off - Collapsible "if" statements should be merged
 	// Possible port width conflict:
 	// Even port is 4x, or 4x redunduant on lane 2,
 	// and the current or requested odd port is available,
@@ -756,6 +759,7 @@ uint32_t check_both_conf(rio_pc_one_port_config_t *e_req,
 			goto fail;
 		}
 	}
+	//@sonar:on
 
 	// Do not currently support changing path configuration register,
 	// so this is not supported.
@@ -765,13 +769,12 @@ uint32_t check_both_conf(rio_pc_one_port_config_t *e_req,
 	}
 
 	// No lane speed conflict if the odd port is not available
-	if (o_req->port_available) {
-		if (ls_conflict(e_req->ls, o_req->ls)) {
-			*imp_rc = PC_SET_CONFIG(0x36);
-			goto fail;
-		}
+	if (o_req->port_available && ls_conflict(e_req->ls, o_req->ls)) {
+		*imp_rc = PC_SET_CONFIG(0x36);
+		goto fail;
 	}
 	rc = RIO_SUCCESS;
+
 fail:
 	return rc;
 }
@@ -810,6 +813,7 @@ uint32_t rxs_pc_set_cfg_check_conflicts(DAR_DEV_INFO_t *dev_info,
 				}
 				continue;
 			}
+
 			// Error codes 0x3C to 0x43
 			rc = check_even_conf(src, o_curr, imp_rc);
 			if (RIO_SUCCESS != rc) {
@@ -855,32 +859,39 @@ uint32_t read_port_regs(DAR_DEV_INFO_t *dev_info,
 	if (RIO_SUCCESS != rc) {
 		goto fail;
 	}
+
 	rc = DARRegRead(dev_info, RXS_SPX_CTL(port), &regs->spx_ctl);
 	if (RIO_SUCCESS != rc) {
 		goto fail;
 	}
+
 	rc = DARRegRead(dev_info, RXS_PLM_SPX_1WR(port), &regs->one_wr);
 	if (RIO_SUCCESS != rc) {
 		goto fail;
 	}
+
 	rc = DARRegRead(dev_info, RXS_PLM_SPX_IMP_SPEC_CTL(port),
 								&regs->plm_ctl);
 	if (RIO_SUCCESS != rc) {
 		goto fail;
 	}
+
 	rc = DARRegRead(dev_info, RXS_PLM_SPX_POL_CTL(port), &regs->plm_pol);
 	if (RIO_SUCCESS != rc) {
 		goto fail;
 	}
+
 	rc = DARRegRead(dev_info, RXS_TLM_SPX_ROUTE_EN(port), &regs->rt_en);
 	if (RIO_SUCCESS != rc) {
 		goto fail;
 	}
+
 	rc = DARRegRead(dev_info, RXS_TLM_SPX_MTC_ROUTE_EN(port),
 							&regs->mtc_rt_en);
 	if (RIO_SUCCESS != rc) {
 		goto fail;
 	}
+
 fail:
 	return rc;
 }
@@ -968,21 +979,21 @@ int32_t rxs_pc_set_cfg_compute_changes(
 		// Now compute changes for port width, lane speed, etc etc...
 		regs->spx_ctl &= ~RXS_SPX_CTL_OVER_PWIDTH;
 		switch (pc->pw) {
-        	case rio_pc_pw_1x_l0:
+		case rio_pc_pw_1x_l0:
 		case rio_pc_pw_1x:
 			regs->spx_ctl |= RIO_SPX_CTL_PTW_OVER_1X_L0;
 			break;
 
-        	case rio_pc_pw_2x:
+		case rio_pc_pw_2x:
 			regs->spx_ctl |= RIO_SPX_CTL_PTW_OVER_2X_NO_4X;
 			break;
 
-        	case rio_pc_pw_4x:
+		case rio_pc_pw_4x:
 			regs->spx_ctl |= RIO_SPX_CTL_PTW_OVER_NONE;
 			break;
 
-        	case rio_pc_pw_1x_l1:
-        	case rio_pc_pw_1x_l2:
+		case rio_pc_pw_1x_l1:
+		case rio_pc_pw_1x_l2:
 			regs->spx_ctl |= RIO_SPX_CTL_PTW_OVER_1X_LR;
 			break;
 
@@ -1109,6 +1120,7 @@ int32_t rxs_pc_set_cfg_compute_changes(
 		chg->regs[port].mtc_rt_en_temp = chg->regs[port].mtc_rt_en;
 	}
 	rc = RIO_SUCCESS;
+
 fail:
 	return rc;
 }
@@ -1192,6 +1204,7 @@ bool rxs_pc_set_cfg_change_requires_reset(rio_pc_set_config_out_t *sorted,
 			(chg->regs[port].spx_ctl & spx_ctl_rst_mask)) {
 		reset = true;
 	}
+
 exit:
 	return reset;
 }
@@ -1228,6 +1241,7 @@ uint32_t traffic_halted(DAR_DEV_INFO_t *dev_info,
 			*clear = false;
 		}
 	}
+
 fail:
 	return rc;
 }
@@ -1285,6 +1299,7 @@ uint32_t rxs_pc_set_cfg_halt_traffic(DAR_DEV_INFO_t *dev_info,
 	if (!clear) {
 		rc = RIO_ERR_RETURN_NO_RESULT;
 	}
+
 fail:
 	return rc;
 }
@@ -1303,27 +1318,32 @@ uint32_t rxs_pc_set_cfg_write_regs( DAR_DEV_INFO_t *dev_info,
 		*imp_rc = PC_SET_CONFIG(0xD0);
 		goto fail;
 	}
+
 	rc = DARRegWrite(dev_info, RXS_SPX_CTL(port), regs->spx_ctl);
 	if (RIO_SUCCESS != rc) {
 		*imp_rc = PC_SET_CONFIG(0xD2);
 		goto fail;
 	}
+
 	rc = DARRegWrite(dev_info, RXS_PLM_SPX_IMP_SPEC_CTL(port),
 								regs->plm_ctl);
 	if (RIO_SUCCESS != rc) {
 		*imp_rc = PC_SET_CONFIG(0xD4);
 		goto fail;
 	}
+
 	rc = DARRegWrite(dev_info, RXS_PLM_SPX_1WR(port), regs->one_wr);
 	if (RIO_SUCCESS != rc) {
 		*imp_rc = PC_SET_CONFIG(0xD6);
 		goto fail;
 	}
+
 	rc = DARRegWrite(dev_info, RXS_PLM_SPX_POL_CTL(port), regs->plm_pol);
 	if (RIO_SUCCESS != rc) {
 		*imp_rc = PC_SET_CONFIG(0xD8);
 		goto fail;
 	}
+
 fail:
 	return rc;
 }
@@ -1348,6 +1368,7 @@ uint32_t rxs_pc_set_cfg_start_traffic(
 	if (RIO_SUCCESS != rc) {
 		*imp_rc = PC_SET_CONFIG(0xE8);
 	}
+
 fail:
 	return rc;
 }
@@ -1402,6 +1423,7 @@ uint32_t rxs_pc_set_cfg_program_changes(
 						dev_info, chg, port, imp_rc);
 		}
 	}
+
 fail:
 	return rc;
 }
@@ -1474,6 +1496,7 @@ uint32_t rxs_rio_pc_set_config(
 
 	// Now get the updated configuration...
 	rc = rxs_rio_pc_get_config(dev_info, &curr_in, out_parms);
+
 fail:
 	return rc;
 }
@@ -1662,6 +1685,7 @@ uint32_t rxs_pc_reset_port_util(DAR_DEV_INFO_t *dev_info, rio_port_t port)
 	p_ctl &= ~RXS_PLM_SPX_IMP_SPEC_CTL_SOFT_RST_PORT;
 
 	rc = DARRegWrite(dev_info, RXS_PLM_SPX_IMP_SPEC_CTL(port), p_ctl);
+
 fail:
 	return rc;
 }
@@ -1716,6 +1740,7 @@ uint32_t rxs_rio_pc_reset_port(DAR_DEV_INFO_t *dev_info,
 
 	}
 	rc = RIO_SUCCESS;
+
 exit:
 	return rc;
 }
@@ -1790,10 +1815,10 @@ uint32_t update_outb_ackid(DAR_DEV_INFO_t *dev_info,
 	case rio_pc_is_one:
 		ackid = (lresp_stat & RIO_SPX_LM_RESP_ACK_ID1) >> 5;
 		break;
-        case rio_pc_is_two:
+	case rio_pc_is_two:
 		ackid = (lresp_stat & RIO_SPX_LM_RESP_ACK_ID2) >> 5;
 		break;
-        case rio_pc_is_three:
+	case rio_pc_is_three:
 		ackid = (lresp_stat & RIO_SPX_LM_RESP_ACK_ID3) >> 5;
 		break;
 	default:
@@ -1804,6 +1829,7 @@ uint32_t update_outb_ackid(DAR_DEV_INFO_t *dev_info,
 			((ackid << 12) & RXS_SPX_OUT_ACKID_CSR_OUTSTD_ACKID) |
 			RXS_SPX_OUT_ACKID_CSR_CLR_OUTSTD_ACKID;
 	rc = DARRegWrite(dev_info, RXS_SPX_OUT_ACKID_CSR(port), outb_ackid);
+
 fail:
 	return rc;
 }
@@ -1921,6 +1947,7 @@ uint32_t resync_ackids(DAR_DEV_INFO_t *dev_info,
 	if (RIO_SUCCESS != rc) {
 		out_parms->imp_rc = PC_CLR_ERRS(0x5A);
 	}
+
 fail:
 	return rc;
 }
@@ -1964,6 +1991,7 @@ uint32_t rxs_rio_pc_clr_errs(DAR_DEV_INFO_t *dev_info,
 	if (in_parms->clr_lp_port_err) {
 		rc = resync_ackids(dev_info, in_parms, out_parms);
 	}
+
 fail:
 	return rc;
 }
@@ -1998,28 +2026,28 @@ uint32_t rxs_rio_pc_set_reset_config_port(DAR_DEV_INFO_t *dev_info,
 		em_pw_en &= ~(1 << port);
 		break;
 
-        case rio_pc_rst_port:
+	case rio_pc_rst_port:
 		plm_ctl &= ~RXS_PLM_SPX_IMP_SPEC_CTL_SELF_RST;
 		plm_ctl |= RXS_PLM_SPX_IMP_SPEC_CTL_PORT_SELF_RST;
 		em_int_en &= ~(1 << port);
 		em_pw_en &= ~(1 << port);
 		break;
 
-        case rio_pc_rst_int:
+	case rio_pc_rst_int:
 		plm_ctl &= ~(RXS_PLM_SPX_IMP_SPEC_CTL_SELF_RST |
 				RXS_PLM_SPX_IMP_SPEC_CTL_PORT_SELF_RST);
 		em_int_en |= 1 << port;
 		em_pw_en &= ~(1 << port);
 		break;
 
-        case rio_pc_rst_pw:
+	case rio_pc_rst_pw:
 		plm_ctl &= ~(RXS_PLM_SPX_IMP_SPEC_CTL_SELF_RST |
 				RXS_PLM_SPX_IMP_SPEC_CTL_PORT_SELF_RST);
 		em_int_en &= ~(1 << port);
 		em_pw_en |= 1 << port;
 		break;
 
-        case rio_pc_rst_ignore:
+	case rio_pc_rst_ignore:
 		plm_ctl &= ~(RXS_PLM_SPX_IMP_SPEC_CTL_SELF_RST |
 				RXS_PLM_SPX_IMP_SPEC_CTL_PORT_SELF_RST);
 		em_int_en &= ~(1 << port);
@@ -2035,11 +2063,13 @@ uint32_t rxs_rio_pc_set_reset_config_port(DAR_DEV_INFO_t *dev_info,
 	if (RIO_SUCCESS != rc) {
 		goto fail;
 	}
+
 	rc = DARRegWrite(dev_info, RXS_EM_RST_INT_EN, em_int_en);
 	if (RIO_SUCCESS != rc) {
 		goto fail;
 	}
 	rc = DARRegWrite(dev_info, RXS_EM_RST_PW_EN, em_pw_en);
+
 fail:
 	return rc;
 }
@@ -2129,6 +2159,7 @@ uint32_t rxs_rio_pc_secure_port(DAR_DEV_INFO_t *dev_info,
 	out_parms->rst = in_parms->rst;
 
 	rc = RIO_SUCCESS;
+
 fail:
 	return rc;
 }
@@ -2154,9 +2185,10 @@ uint32_t rxs_rio_pc_dev_reset_config(DAR_DEV_INFO_t *dev_info,
 			out_parms->imp_rc = PC_SECURE_PORT(0x10 + port);
 			break;
 		}
-	};
+	}
 
 	out_parms->rst = in_parms->rst;
+
 fail:
 	return rc;
 }

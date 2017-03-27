@@ -448,11 +448,9 @@ int RIOCP_SO_ATTR riocp_pe_discover(riocp_pe_handle pe, uint8_t port,
 			goto err;
 		}
 
-		if (_port != 0xff) {
-			if (port == _port) {
-				did = tmp_did;
-				goto found_unlock_pe;
-			}
+		if ((0xff != _port) && (port == _port)) {
+			did = tmp_did;
+			goto found_unlock_pe;
 		}
 	}
 
@@ -598,16 +596,12 @@ int RIOCP_SO_ATTR riocp_pe_probe(riocp_pe_handle pe,
 	RIOCP_TRACE("Probe on PE 0x%08x (hopcount %u, port %u)\n",
 		pe->comptag, hopcount, port);
 
-	if (pe->peers != NULL) {
-		if (NULL != pe->peers[port].peer) {
-			RIOCP_TRACE(
-				"Probe PE 0x%08x (hopcount %u, port %u)"
-				" Peer Exists! Comptag 0x%08x\n",
-				pe->comptag, hopcount, port,
-				pe->peers[port].peer->comptag);
-			*peer = NULL;
-			return 0;
-		}
+	if ((NULL != pe->peers) && (NULL != pe->peers[port].peer)) {
+		RIOCP_TRACE("Probe PE 0x%08x (hopcount %u, port %u)"
+				" Peer Exists! Comptag 0x%08x\n", pe->comptag,
+				hopcount, port, pe->peers[port].peer->comptag);
+		*peer = NULL;
+		return 0;
 	}
 
 	/* Prepare probe (setup route, test if port is active on PE) */
@@ -653,10 +647,10 @@ int RIOCP_SO_ATTR riocp_pe_probe(riocp_pe_handle pe,
 		riocp_pe_handle_addr_ntoa(temp_p->address, temp_p->hopcount),
 		port, comptag);
 
-        // If the device is accessible, and the component tag value has been
-        // dictated in a configuration file, set the component tag value.
-        // This ensures that future checks of the device do not accidentally
-        // see an old component tag value.
+	// If the device is accessible, and the component tag value has been
+	// dictated in a configuration file, set the component tag value.
+	// This ensures that future checks of the device do not accidentally
+	// see an old component tag value.
 	if (force_ct && (*comptag_in != comptag)) {
 		comptag = *comptag_in;
 		ret = riocp_drv_raw_reg_wr(temp_p, DID_ANY_DEV8_ID, hopcount,
@@ -670,8 +664,8 @@ int RIOCP_SO_ATTR riocp_pe_probe(riocp_pe_handle pe,
 	}
 	free(temp_p);
 
-        // Comptag contains the current component tag value of the device.
-        // Check if the component tag already exists in the device database.
+	// Comptag contains the current component tag value of the device.
+	// Check if the component tag already exists in the device database.
 	find_ret = riocp_pe_find_comptag(pe->mport, comptag, &p);
 	if (find_ret < 0) {
 		RIOCP_ERROR(
@@ -679,26 +673,24 @@ int RIOCP_SO_ATTR riocp_pe_probe(riocp_pe_handle pe,
 			-errno, strerror(-errno));
 		goto err;
 	}
-	if (!find_ret) {
-		// The component tag exists in the device database.  However,
-		// this could be a stale component tag value on a different
-		// device than what is in the database.
-		// Check that the device we've found is in fact the
-		// device in the database.  If it is not, then it's actually
-		// a new device.
 
-		if (!RIOCP_PE_IS_MPORT(p)) {
-			verif_ret = riocp_pe_probe_verify_found(pe, port, p);
-			if (verif_ret < 0) {
-				goto err;
-			}
+	// The component tag exists in the device database.  However,
+	// this could be a stale component tag value on a different
+	// device than what is in the database.
+	// Check that the device we've found is in fact the
+	// device in the database.  If it is not, then it's actually
+	// a new device.
+	if ((!find_ret) && (!RIOCP_PE_IS_MPORT(p))) {
+		verif_ret = riocp_pe_probe_verify_found(pe, port, p);
+		if (verif_ret < 0) {
+			goto err;
 		}
 	}
 
 	if (find_ret || (!find_ret && !verif_ret)) {
-                // The device is not known to libriocp_pe.
-                // Create a new handle with the requested component tag value.
-                // Note that this updates the component tag of the device
+		// The device is not known to libriocp_pe.
+		// Create a new handle with the requested component tag value.
+		// Note that this updates the component tag of the device
 		RIOCP_DEBUG("Peer not found on mport %u with comptag 0x%08x\n",
 			pe->mport->minfo->id, comptag);
 		ct_get_destid(&did, *comptag_in);
@@ -1088,10 +1080,10 @@ int RIOCP_SO_ATTR riocp_pe_lock(riocp_pe_handle pe, int flags)
 	} else if (flags == RIOCP_PE_FLAG_FORCE) {
 		/* Force unlock old lock, the lock with our own destid, when old lock is same
 		 as mask, dont unlock old lock. See TSI578 errata 0xffff may lock the PE. */
-		if (lock != RIO_HOST_LOCK_BASE_ID_MASK) {
-			if (riocp_pe_lock_write(pe, did, pe->hopcount, lock)) {
-				return -EIO;
-			}
+		if ((lock != RIO_HOST_LOCK_BASE_ID_MASK)
+				&& (riocp_pe_lock_write(pe, did, pe->hopcount,
+						lock))) {
+			return -EIO;
 		}
 		if (riocp_pe_lock_write(pe, did, pe->hopcount,
 				pe->mport->did_reg_val)) {

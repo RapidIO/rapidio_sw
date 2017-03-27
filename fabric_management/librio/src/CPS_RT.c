@@ -98,18 +98,17 @@ uint32_t cps_rte_translate_std_to_CPS(DAR_DEV_INFO_t *dev_info,
 		if (std_in & ~RIO_RTE_VAL) {
 			break;
 		}
-		if (RIO_RTV_IS_PORT(std_in)) {
-			if (RIO_RTV_GET_PORT(std_in) < NUM_PORTS(dev_info)) {
-				*cps_out = std_in;
-				goto success;
-			}
+
+		if (RIO_RTV_IS_PORT(std_in) &&
+				(RIO_RTV_GET_PORT(std_in) < NUM_PORTS(dev_info))) {
+			*cps_out = std_in;
+			goto success;
 		}
-		if (RIO_RTV_IS_MC_MSK(std_in)) {
-			if (RIO_RTV_GET_MC_MSK(std_in) < CPS_MAX_MC_MASK) {
-				*cps_out =
-					CPS_MC_PORT(RIO_RTV_GET_MC_MSK(std_in));
-				goto success;
-			}
+
+		if (RIO_RTV_IS_MC_MSK(std_in) &&
+				(RIO_RTV_GET_MC_MSK(std_in) < CPS_MAX_MC_MASK)) {
+			*cps_out = CPS_MC_PORT(RIO_RTV_GET_MC_MSK(std_in));
+			goto success;
 		}
 		break;
 	}
@@ -501,6 +500,7 @@ static uint32_t cps_program_rte_entries(DAR_DEV_INFO_t *dev_info,
 
 	for (rte_num = 0; rte_num < RIO_RT_GRP_SZ; rte_num++) {
 		if (in_parms->rt->dom_table[rte_num].changed || set_all) {
+			//@sonar:off - Collapsible "if" statements should be merged
 			// Validate value to be programmed.
 			if (in_parms->rt->dom_table[rte_num].rte_val
 					>= NUM_CPS_PORTS(dev_info)) {
@@ -516,6 +516,7 @@ static uint32_t cps_program_rte_entries(DAR_DEV_INFO_t *dev_info,
 					goto exit;
 				}
 			}
+			//@sonar:on
 			rc =
 					cps_rte_translate_std_to_CPS(dev_info,
 							in_parms->rt->dom_table[rte_num].rte_val,
@@ -538,6 +539,7 @@ static uint32_t cps_program_rte_entries(DAR_DEV_INFO_t *dev_info,
 
 	for (rte_num = 0; rte_num < RIO_RT_GRP_SZ; rte_num++) {
 		if (in_parms->rt->dev_table[rte_num].changed || set_all) {
+			//@sonar:off - Collapsible "if" statements should be merged
 			// Validate value to be programmed.
 			if (in_parms->rt->dev_table[rte_num].rte_val
 					>= NUM_CPS_PORTS(dev_info)) {
@@ -554,6 +556,7 @@ static uint32_t cps_program_rte_entries(DAR_DEV_INFO_t *dev_info,
 					goto exit;
 				}
 			}
+			//@sonar:on
 			rc =
 					cps_rte_translate_std_to_CPS(dev_info,
 							in_parms->rt->dev_table[rte_num].rte_val,
@@ -959,6 +962,7 @@ uint32_t CPS_rio_rt_change_rte(DAR_DEV_INFO_t *dev_info,
 	if (in_parms->dom_entry && !in_parms->idx)
 		goto exit;
 
+	//@sonar:off - Collapsible "if" statements should be merged
 	// If the entry has not already been changed, see if it is being changed
 	if (in_parms->dom_entry) {
 		if (!in_parms->rt->dom_table[in_parms->idx].changed) {
@@ -979,6 +983,7 @@ uint32_t CPS_rio_rt_change_rte(DAR_DEV_INFO_t *dev_info,
 		in_parms->rt->dev_table[in_parms->idx].rte_val =
 				in_parms->rte_value;
 	}
+	//@sonar:on
 
 exit:
 	return rc;
@@ -1039,6 +1044,7 @@ uint32_t CPS_rio_rt_change_mc_mask(DAR_DEV_INFO_t *dev_info,
 		goto exit;
 	}
 
+	//@sonar:off - Collapsible "if" statements should be merged
 	// If entry has not already been changed, see if it is being changed
 	if (!in_parms->rt->mc_masks[chg_idx].changed) {
 		if ((in_parms->rt->mc_masks[chg_idx].mc_mask
@@ -1048,6 +1054,7 @@ uint32_t CPS_rio_rt_change_mc_mask(DAR_DEV_INFO_t *dev_info,
 			in_parms->rt->mc_masks[chg_idx].changed = true;
 		}
 	}
+	//@sonar:on
 
 	// Note: The multicast mask must be in use now.  We must make sure that
 	// the routing tables are set appropriately.

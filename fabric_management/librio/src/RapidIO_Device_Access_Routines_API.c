@@ -297,6 +297,7 @@ uint32_t update_dev_info_regvals(DAR_DEV_INFO_t *dev_info, uint32_t offset,
 {
 	uint32_t rc = RIO_SUCCESS;
 
+	//@sonar:off - Collapsible "if" statements should be merged
 	if (dev_info->extFPtrForPort && RIO_SP_VLD(dev_info->extFPtrPortType)) {
 		if ((offset
 				>= RIO_SPX_CTL(dev_info->extFPtrForPort,
@@ -330,6 +331,7 @@ uint32_t update_dev_info_regvals(DAR_DEV_INFO_t *dev_info, uint32_t offset,
 			}
 		}
 	}
+	//@sonar:on
 
 	return rc;
 }
@@ -372,6 +374,7 @@ uint32_t DARrioGetSwitchPortInfo(DAR_DEV_INFO_t *dev_info,
 	}
 
 	rc = DARRegRead(dev_info, RIO_SW_PORT_INF, portinfo);
+	//@sonar:off - Collapsible "if" statements should be merged
 	if (RIO_SUCCESS == rc) {
 		/* If this is not a switch or a multiport-endpoint, portinfo
 		 should be 0.  Fake the existence of the switch port info register
@@ -385,6 +388,7 @@ uint32_t DARrioGetSwitchPortInfo(DAR_DEV_INFO_t *dev_info,
 			*portinfo = 0x00000100;
 		}
 	}
+	//@sonar:on
 	return rc;
 }
 
@@ -1263,7 +1267,7 @@ uint32_t DAR_Find_Driver_for_Device(bool dev_info_devID_valid,
 	dev_info->dsf_h = VENDOR_ID(dev_info) << 16;
 	rc = DARrioDeviceSupported(dev_info) ;
 
-	if (RIO_SUCCESS == rc) {
+	if ((RIO_SUCCESS == rc) && dev_info->extFPtrForPort) {
 		// NOTE: All register manipulations must be done with
 		// DARReadReg and DARWriteReg, or the application must
 		// manage dev_info->ctl1_reg themselves manually.
@@ -1271,21 +1275,21 @@ uint32_t DAR_Find_Driver_for_Device(bool dev_info_devID_valid,
 		// Otherwise, the EmergencyLockout call may have
 		// unintended consequences.
 
-		if (dev_info->extFPtrForPort) {
-			uint32_t ctl1;
-			uint8_t  idx;
-			for (idx = 0; idx < NUM_PORTS(dev_info); idx++) {
-				rc = ReadReg(dev_info,
-					RIO_SPX_CTL(dev_info->extFPtrForPort, 
-						dev_info->extFPtrPortType, idx),
-						 &ctl1);
-				if (RIO_SUCCESS != rc) {
-					goto fail;
-				}
-				dev_info->ctl1_reg[idx] = ctl1;
+		uint32_t ctl1;
+		uint8_t idx;
+		for (idx = 0; idx < NUM_PORTS(dev_info); idx++) {
+			rc = ReadReg(dev_info,
+					RIO_SPX_CTL(dev_info->extFPtrForPort,
+							dev_info->extFPtrPortType,
+							idx),
+					&ctl1);
+			if (RIO_SUCCESS != rc) {
+				goto fail;
 			}
+			dev_info->ctl1_reg[idx] = ctl1;
 		}
 	}
+
 fail:
 	return rc;
 }

@@ -205,10 +205,8 @@ int CLIDevSelCmd(struct cli_env *env, int argc, char **argv)
 		goto exit;
 	}
 
-	if (argc) {
-		if (select_device(env, pes_count, pes, argv[0])) {
-			goto exit;
-		}
+	if (argc && select_device(env, pes_count, pes, argv[0])) {
+		goto exit;
 	}
 
 	if (NULL != env->h) {

@@ -164,13 +164,11 @@ void shutdown_fml(fmdd_h dd_h)
 		notify_app_of_events();
 	}
 
-	if (fml.dd_mtx != NULL) {
-		if (fml.dd_mtx->dd_ev[fml.app_idx].waiting) {
-			fml.dd_mtx->dd_ev[fml.app_idx].waiting = 0;
-			fml.dd_mtx->dd_ev[fml.app_idx].proc = 0;
-			fml.dd_mtx->dd_ev[fml.app_idx].in_use = 0;
-			sem_post(&fml.dd_mtx->dd_ev[fml.app_idx].dd_event);
-		}
+	if ((NULL != fml.dd_mtx) && (fml.dd_mtx->dd_ev[fml.app_idx].waiting)) {
+		fml.dd_mtx->dd_ev[fml.app_idx].waiting = 0;
+		fml.dd_mtx->dd_ev[fml.app_idx].proc = 0;
+		fml.dd_mtx->dd_ev[fml.app_idx].in_use = 0;
+		sem_post(&fml.dd_mtx->dd_ev[fml.app_idx].dd_event);
 	}
 
 	fmd_dd_cleanup(fml.dd_mtx_fn, &fml.dd_mtx_fd, &fml.dd_mtx, fml.dd_fn,
@@ -236,11 +234,10 @@ int update_devid_status(void)
 				break;
 			}
 		}
-		if (!found) {
-			if (FMDD_FLAG_NOK != fml.devid_status[i]) {
-				fml.devid_status[i] = FMDD_FLAG_NOK;
-				changed = 1;
-			}
+
+		if (!found && (FMDD_FLAG_NOK != fml.devid_status[i])) {
+			fml.devid_status[i] = FMDD_FLAG_NOK;
+			changed = 1;
 		}
 	}
 	return changed;

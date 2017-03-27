@@ -109,16 +109,14 @@ int RIOCP_WU mpsw_drv_reg_wr(struct riocp_pe *pe, uint32_t offset, uint32_t val)
 		return -ret;
 	}
 
-	if (RIO_DEVID == offset) {
-		if (RIOCP_PE_IS_MPORT(pe)) {
-			struct mpsw_drv_pe_acc_info *p_acc;
-			uint16_t dev8_did = ((val >> 16) & 0xFF);
-			p_acc =
-					(struct mpsw_drv_pe_acc_info *)priv_ptr->dev_h.accessInfo;
-			ret = riomp_mgmt_destid_set(p_acc->maint, dev8_did);
-			if (ret) {
-				return -ret;
-			}
+	if ((RIO_DEVID == offset) && RIOCP_PE_IS_MPORT(pe)) {
+		struct mpsw_drv_pe_acc_info *p_acc;
+		uint16_t dev8_did = ((val >> 16) & 0xFF);
+		p_acc =
+				(struct mpsw_drv_pe_acc_info *)priv_ptr->dev_h.accessInfo;
+		ret = riomp_mgmt_destid_set(p_acc->maint, dev8_did);
+		if (ret) {
+			return -ret;
 		}
 	}
 

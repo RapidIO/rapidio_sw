@@ -1019,6 +1019,7 @@ static uint32_t rxs_tidy_routing_table(DAR_DEV_INFO_t *dev_info,
 		goto done;
 	}
 
+	//@sonar:off - Collapsible "if" statements should be merged
 	for (srch = 0; (srch < RIO_RT_GRP_SZ) && !found_one; srch++) {
 		if ((idx != srch) || is_dom_table) {
 			if (rt->dev_table[srch].rte_val == chk_val) {
@@ -1031,6 +1032,7 @@ static uint32_t rxs_tidy_routing_table(DAR_DEV_INFO_t *dev_info,
 			}
 		}
 	}
+	//@sonar:on
 
 	if (!found_one) {
 		rio_rt_dealloc_mc_mask_in_t in_parms;
