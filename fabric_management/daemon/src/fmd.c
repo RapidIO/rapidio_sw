@@ -156,7 +156,7 @@ void *poll_loop(void *poll_interval)
 		if (!console)
 			INFO("\nTick!");
 	}
-	return poll_interval;
+	return NULL;
 }
 
 void spawn_threads(struct fmd_opt_vals *cfg)
@@ -196,12 +196,16 @@ void spawn_threads(struct fmd_opt_vals *cfg)
 	/* Create independent threads each of which will execute function */
 	poll_ret = pthread_create(&poll_thread, NULL, poll_loop,
 			(void*)(pass_poll_interval));
+	//@sonar:off - c:S3584 Allocated memory not released
+	// pass_poll_interval is always deallocated by poll_thread/poll_loop
+	// if it is successfully launched.  Disable the warning.
 	if (poll_ret) {
 		free(pass_poll_interval);
 		free(rlp);
 		CRIT(THREAD_FAIL, poll_ret);
 		exit(EXIT_FAILURE);
 	}
+	//@sonar:on
 
 	rlp->portno = fmd->opts->cli_port_num;
 	SAFE_STRNCPY(rlp->thr_name, "FMD_RLOGIN", sizeof(rlp->thr_name));
@@ -217,6 +221,9 @@ void spawn_threads(struct fmd_opt_vals *cfg)
 	}
 
 	if (cfg->run_cons) {
+		//@sonar:off - c:S3584 Allocated memory not released
+		// Should not have any complaints.  If thread creation fails,
+		// the thread exits, so all process memory is freed.
 		struct cli_env t_env;
 
 		init_cli_env(&t_env);
@@ -227,6 +234,7 @@ void spawn_threads(struct fmd_opt_vals *cfg)
 			CRIT(THREAD_FAIL, cli_ret);
 			exit(EXIT_FAILURE);
 		}
+		//@sonar:on
 	}
 
 	ret = start_fmd_app_handler(cfg->app_port_num, 50, cfg->dd_fn,
@@ -352,6 +360,12 @@ int delete_sysfs_devices(riocp_pe_handle mport_pe, bool delete_all)
 				// regular: only delete auto generated names
 				if (!strncmp(entry->d_name, AUTO_NAME_PREFIX,
 						strlen(AUTO_NAME_PREFIX))) {
+					//@sonar:off - c:S3584 Allocated memory not released
+					// Should not have any complaints.
+					// The loop fails if memory was not
+					// allocated for sysfs_name.  If memory
+					// was allocated, it must remain
+					// allocated to track the devices.
 					tmp = strlen(entry->d_name) + 1;
 					sysfs_name = (char *)malloc(tmp);
 					if (NULL == sysfs_name) {
@@ -363,6 +377,7 @@ int delete_sysfs_devices(riocp_pe_handle mport_pe, bool delete_all)
 					l_push_tail(&names_list,
 							(void *)sysfs_name);
 					continue;
+					//@sonar:on
 				}
 			}
 		}

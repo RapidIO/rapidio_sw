@@ -416,8 +416,12 @@ int riocp_pe_handle_create_pe(struct riocp_pe *pe, struct riocp_pe **handle, hc_
 	return 0;
 
 err:
+	//@sonar:off - c:S3584 Allocated memory not released
+	// The only reason the memory has not been released, is that a new
+	// handle has been successfully created and should be kept around.
 	riocp_pe_handle_destroy(&h);
 	return -EIO;
+	//@sonar:on
 }
 
 /**

@@ -176,6 +176,9 @@ int riomp_mgmt_get_mport_list(mport_list_t **dev_ids, uint8_t *number_of_mports)
 		return -1;
 	}
 
+	//@sonar:off - c:S3584 Allocated memory not released
+	// The memory is not supposed to be released, it is supposed to be
+	// handed back to the user.
 	list = (mport_list_t *)calloc((entries + 1), sizeof(*list));
 	if (NULL == list) {
 		goto outfd;
@@ -194,6 +197,7 @@ int riomp_mgmt_get_mport_list(mport_list_t **dev_ids, uint8_t *number_of_mports)
 	*number_of_mports = *list; /* return real number of mports */
 
 	ret = 0;
+	//@sonar:on
 
 outfd:
 	close(fd);
@@ -243,6 +247,9 @@ int riomp_mgmt_get_ep_list(uint8_t mport_id, did_val_t **did_values,
 	printf("RIODP: %s() has %d entries\n", __func__, entries);
 #endif
 	/* Get list */
+	//@sonar:off - c:S3584 Allocated memory not released
+	// The memory is not supposed to be released,
+	// it is supposed to be handed back to the user.
 	list = (did_val_t *)calloc((entries + 2), sizeof(*list));
 	if (NULL == list) {
 		ret = -1;
@@ -261,6 +268,7 @@ int riomp_mgmt_get_ep_list(uint8_t mport_id, did_val_t **did_values,
 	/* Pass to callee, first entry of list is entries in list */
 	*did_values = &list[2];
 	*number_of_eps = entries;
+	//@sonar:on
 
 outfd:
 	close(fd);

@@ -125,8 +125,12 @@ void *remote_login(void *remote_login_parm)
 		}
 
 		env->sess_socket = 0;
+
+		//@sonar:off - c:S3584 Allocated memory not released
 		sess = (struct rem_sess_parms *)malloc(
 				sizeof(struct rem_sess_parms));
+		//@sonar:on
+
 		if (NULL == sess) {
 			break;
 		}

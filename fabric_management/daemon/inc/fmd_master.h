@@ -61,6 +61,7 @@ struct fmd_peer {
 
 	pthread_t rx_thr; /* Thread listening for responses */
 	sem_t started; /* Wait in this sema to ensure thread starts */
+	sem_t do_the_free; /* Starter tells thread to free memory by posting this thread */
 	int got_hello; /* 0 until received hello request */
 	int rx_alive; /* 1 - RX thread is alive, 0 - RX thread is dead */
 			/* Not 1 until hello response is received */
