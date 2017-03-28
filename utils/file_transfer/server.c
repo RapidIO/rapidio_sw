@@ -960,6 +960,11 @@ close_mport:
 int spawned_threads;
 void fxfr_server_shutdown_cli(struct cli_env *env);
 
+//@sonar:off - c:S3584 Allocated memory not released
+//    conn_loop_rc is freed by conn_thread
+//    pass_idx is freed by rx_bufs[i].xfer_thread
+//    rlp is freed by the remote_login_thread
+//    all are freed by this routine in the appropriate error conditions
 void spawn_threads(int cons_skt, int xfer_skt, int run_cons)
 {
 	struct remote_login_parms *rlp;
@@ -1030,10 +1035,7 @@ void spawn_threads(int cons_skt, int xfer_skt, int run_cons)
 		pass_idx = (int *)(malloc(sizeof(int)));
 		if (NULL == pass_idx) {
 			fprintf(stderr,"Error - could not allocate pass_idx\n");
-			//@sonar:off - c:S3584 Allocated memory not released
-			//    conn_loop_rc is freed by conn_thread
 			exit(EXIT_FAILURE);
-			//@sonar:on
 		}
 
 		*pass_idx = i;
@@ -1052,11 +1054,7 @@ void spawn_threads(int cons_skt, int xfer_skt, int run_cons)
 				malloc(sizeof(struct remote_login_parms));
 	if (NULL == rlp) {
 		printf("\nCould not allocate memory for login parameters\n");
-		//@sonar:off - c:S3584 Allocated memory not released
-		//    conn_loop_rc is freed by conn_thread
-		//    pass_idx is freed by rx_bufs[i].xfer_thread
 		exit(EXIT_FAILURE);
-		//@sonar:on
 	}
 
 	rlp->portno = cons_skt;
@@ -1070,11 +1068,7 @@ void spawn_threads(int cons_skt, int xfer_skt, int run_cons)
 	if(cli_ret) {
 		fprintf(stderr,"Error - remote_login_thread rc: %d\n",cli_ret);
 		free(rlp);
-		//@sonar:off - c:S3584 Allocated memory not released
-		//    conn_loop_rc is freed by conn_thread
-		//    pass_idx is freed by rx_bufs[i].xfer_thread
 		exit(EXIT_FAILURE);
-		//@sonar:on
 	}
 
 	if (debug) {
@@ -1087,12 +1081,8 @@ void spawn_threads(int cons_skt, int xfer_skt, int run_cons)
 				cons_ret);
 		}
 	}
-	//@sonar:off - c:S3584 Allocated memory not released
-	//    conn_loop_rc is freed by conn_thread
-	//    pass_idx is freed by rx_bufs[i].xfer_thread
-	//    rlp is freed by the remote_login_thread
-	//@sonar:on
 }
+//@sonar:on
 
 void fxfr_server_shutdown(void) {
 	int idx;
