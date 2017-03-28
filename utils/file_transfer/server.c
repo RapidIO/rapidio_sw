@@ -960,6 +960,10 @@ close_mport:
 int spawned_threads;
 void fxfr_server_shutdown_cli(struct cli_env *env);
 
+//@sonar:off - c:S3584 Allocated memory not released
+// *rlp is released by the remote_login_thread, or by this procedure
+// if starting the thread fails.
+//
 void spawn_threads(int cons_skt, int xfer_skt, int run_cons)
 {
 	int  conn_ret, cli_ret, cons_ret = 0;
@@ -968,7 +972,7 @@ void spawn_threads(int cons_skt, int xfer_skt, int run_cons)
 	struct remote_login_parms *rlp;
 
 	rlp = (struct remote_login_parms *)
-					malloc(sizeof(struct remote_login_parms));
+				malloc(sizeof(struct remote_login_parms));
 	if (NULL == rlp) {
 		printf("\nCould not allocate memory for login parameters\n");
 		exit(EXIT_FAILURE);
@@ -1063,9 +1067,6 @@ void spawn_threads(int cons_skt, int xfer_skt, int run_cons)
 		exit(EXIT_FAILURE);
 	}
 
-	//@sonar:off - c:S3584 Allocated memory not released
-	// *rlp is released by the remote_login_thread, or by this procedure
-	// if starting the thread fails.
 	if (debug) {
 		printf("pthread_create() for conn_loop returns: %d\n",
 			conn_ret);
@@ -1075,8 +1076,8 @@ void spawn_threads(int cons_skt, int xfer_skt, int run_cons)
 			printf("pthread_create() for console returns: %d\n", 
 				cons_ret);
 	}
-	//@sonar:on
 }
+//@sonar:on
  
 void fxfr_server_shutdown(void) {
 	int idx;
