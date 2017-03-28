@@ -84,7 +84,7 @@ fi
 
 # Uses error codes 140-159
 mkdir -p $LOG_DIR/compile
-. ./compile_test.sh $BT_ARG_SERVER $BT_ARG_NDATA |& tee $LOG_DIR/compile/00_all.txt
+. ./compile_test.sh $BT_ARG_SERVER $BT_ARG_NDATA |& tee $LOG_DIR/compile/000_all.txt
 if [ $? -ne 0 ]; then
     echo "Compile test failed"
     echo "[${BASH_SOURCE[0]}:${LINENO}]"
