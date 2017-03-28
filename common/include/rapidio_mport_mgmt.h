@@ -242,6 +242,7 @@ void riomp_mgmt_display_info(struct riomp_mgmt_mport_properties *prop);
 /**
  * @brief set mport destination ID
  *
+ * @param[in] mport_handle valid mport handle
  * @param[in] did_val mport destination ID
  * @return status of the function call
  * @retval 0 on success
