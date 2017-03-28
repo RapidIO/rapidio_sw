@@ -513,6 +513,34 @@ uint32_t rio_sc_config_dev_ctrs(DAR_DEV_INFO_t *dev_h,
 	return rc;
 }
 
+static int probe_all_rt(DAR_DEV_INFO_t *dev_h, struct mpsw_drv_private_data *priv)
+{
+	rio_rt_probe_all_in_t rt_in;
+	rio_rt_probe_all_out_t rt_out;
+	pe_port_t port;
+	int rc;
+
+	rt_in.probe_on_port = RIO_ALL_PORTS;
+	rt_in.rt = &priv->st.g_rt;
+
+	rc = rio_rt_probe_all(dev_h, &rt_in, &rt_out);
+	if (RIO_SUCCESS != rc) {
+		goto exit;
+	}
+
+	for (port = 0; port < NUM_PORTS(&priv->dev_h); port++) {
+		rt_in.probe_on_port = port;
+		rt_in.rt = &priv->st.pprt[port];
+		rc = rio_rt_probe_all(dev_h, &rt_in, &rt_out);
+		if (RIO_SUCCESS != rc) {
+			goto exit;
+		}
+	}
+
+exit:
+	return rc;
+}
+
 // NOTE: generic_device_init is called when the
 // pe->cap structure has not yet been filled in.
 //
@@ -530,8 +558,6 @@ int generic_device_init(struct riocp_pe *pe)
 	rio_pc_dev_reset_config_out_t rst_out;
 	rio_pc_get_status_in_t ps_in;
 	rio_pc_get_config_in_t pc_in;
-	rio_rt_probe_all_in_t rt_in;
-	rio_rt_probe_all_out_t rt_out;
 	rio_sc_init_dev_ctrs_in_t sc_in;
 	rio_sc_init_dev_ctrs_out_t sc_out;
 	rio_em_dev_rpt_ctl_in_t rpt_in;
@@ -700,46 +726,23 @@ int generic_device_init(struct riocp_pe *pe)
 	}
 
 	if (SWITCH(dev_h)) {
-		pe_port_t port;
-		rt_in.probe_on_port = RIO_ALL_PORTS;
-		rt_in.rt = &priv->st.g_rt;
-		rc = rio_rt_probe_all(dev_h, &rt_in, &rt_out);
-		if (RIO_SUCCESS != rc) {
+		// initialize the status of the routing tables
+		rc = probe_all_rt(dev_h, priv);
+		if (rc) {
 			goto exit;
 		}
 
-		for (port = 0; port < NUM_PORTS((&priv->dev_h)); port++) {
-			rt_in.probe_on_port = port;
-			rt_in.rt = &priv->st.pprt[port];
-			rc = rio_rt_probe_all(dev_h, &rt_in, &rt_out);
-			if (RIO_SUCCESS != rc) {
-				goto exit;
-			}
-		}
-	}
-
-	if (SWITCH((dev_h))) {
-		pe_port_t port;
+		// initialize the routing tables based on the configuration file
 		rc = mpdrv_init_rt(pe, dev_h, priv,
 				RIO_ACCESS_PORT(port_info));
 		if (rc) {
 			goto exit;
 		}
 
-		rt_in.probe_on_port = RIO_ALL_PORTS;
-		rt_in.rt = &priv->st.g_rt;
-		rc = rio_rt_probe_all(dev_h, &rt_in, &rt_out);
-		if (RIO_SUCCESS != rc) {
+		// update the routing tables
+		rc = probe_all_rt(dev_h, priv);
+		if (rc) {
 			goto exit;
-		}
-
-		for (port = 0; port < NUM_PORTS((&priv->dev_h)); port++) {
-			rt_in.probe_on_port = port;
-			rt_in.rt = &priv->st.pprt[port];
-			rc = rio_rt_probe_all(dev_h, &rt_in, &rt_out);
-			if (RIO_SUCCESS != rc) {
-				goto exit;
-			}
 		}
 	}
 
