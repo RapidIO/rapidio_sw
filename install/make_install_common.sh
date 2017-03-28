@@ -30,6 +30,11 @@ SCRIPTS_PATH=$SOURCE_PATH"/install"
 rm -rf $SOURCE_PATH;mkdir -p $SOURCE_PATH
 rm -rf $CONFIG_PATH;mkdir -p $CONFIG_PATH
 
+# Create directories
+#
+mkdir -p /var/tmp/rapidio
+chmod 777 /var/tmp/rapidio
+chown -R root.$GRP /var/tmp/rapidio
 
 # Get the source files from the central server
 #
