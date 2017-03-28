@@ -498,9 +498,6 @@ void *peer_rx_loop(void *p_i)
 	pthread_exit(NULL);
 }
 
-//@sonar:off - c:S3584 Allocated memory not released
-// Peer is always freed, either by this routine or by the new
-// peer thread.
 int start_new_peer(riomp_sock_t new_skt)
 {
 	int rc;
@@ -513,10 +510,12 @@ int start_new_peer(riomp_sock_t new_skt)
 
 	peer->skt_h_valid= 1;
 	peer->cm_skt_h = new_skt;
+
 	sem_init(&peer->init_cplt_mtx, 0, 1);
 	sem_init(&peer->tx_mtx, 0, 1);
 	sem_init(&peer->started, 0, 0);
 	sem_init(&peer->do_the_free, 0, 0);
+
 	peer->rx_buff = (rapidio_mport_socket_msg *) calloc(1, sizeof(rapidio_mport_socket_msg));
 	if (NULL == peer->rx_buff) {
 		free(peer);
@@ -543,6 +542,7 @@ int start_new_peer(riomp_sock_t new_skt)
 		free(peer);
 		goto fail;
 	}
+
 	// Tell the peer that it is responsible for freeing the
 	// "peer" data structure.
 	rc = sem_post(&peer->do_the_free);
@@ -551,11 +551,14 @@ int start_new_peer(riomp_sock_t new_skt)
 		free(peer);
 		goto fail;
 	}
+
+	//@sonar:off - c:S3584 Allocated memory not released
+	// Peer is freed by the new peer thread.
 	return 0;
+	//@sonar:on
 fail:
 	return 1;
 }
-//@sonar:on
 
 void cleanup_acc_handler(void)
 {
