@@ -960,23 +960,14 @@ close_mport:
 int spawned_threads;
 void fxfr_server_shutdown_cli(struct cli_env *env);
 
-//@sonar:off - c:S3584 Allocated memory not released
-// *rlp is released by the remote_login_thread, or by this procedure
-// if starting the thread fails.
-//
 void spawn_threads(int cons_skt, int xfer_skt, int run_cons)
 {
-	int  conn_ret, cli_ret, cons_ret = 0;
+	struct remote_login_parms *rlp;
+	int conn_ret;
+	int cli_ret;
+	int cons_ret = 0;
 	int *conn_loop_rc;
 	int i;
-	struct remote_login_parms *rlp;
-
-	rlp = (struct remote_login_parms *)
-				malloc(sizeof(struct remote_login_parms));
-	if (NULL == rlp) {
-		printf("\nCould not allocate memory for login parameters\n");
-		exit(EXIT_FAILURE);
-	}
 
 	all_must_die = 0;
 	conn_loop_alive = 0;
@@ -1008,7 +999,8 @@ void spawn_threads(int cons_skt, int xfer_skt, int run_cons)
 
 	/* Prepare and start CM connection handling thread */
 	sem_init(&conn_reqs_mutex, 0, 0);
-	conn_reqs.head = conn_reqs.tail = NULL;
+	conn_reqs.head = NULL;
+	conn_reqs.tail = NULL;
 	sem_post(&conn_reqs_mutex);
 
 	sem_init(&conn_loop_started, 0, 0);
@@ -1031,13 +1023,17 @@ void spawn_threads(int cons_skt, int xfer_skt, int run_cons)
 		int *pass_idx;
 		int ibwin_ret;
 
-		if (!rx_bufs[i].valid)
+		if (!rx_bufs[i].valid) {
 			continue;
+		}
 
 		pass_idx = (int *)(malloc(sizeof(int)));
 		if (NULL == pass_idx) {
 			fprintf(stderr,"Error - could not allocate pass_idx\n");
+			//@sonar:off - c:S3584 Allocated memory not released
+			//    conn_loop_rc is freed by conn_thread
 			exit(EXIT_FAILURE);
+			//@sonar:on
 		}
 
 		*pass_idx = i;
@@ -1052,6 +1048,16 @@ void spawn_threads(int cons_skt, int xfer_skt, int run_cons)
 	}
 
 	/* Start remote_login_thread, enabling remote debug over Ethernet */
+	rlp = (struct remote_login_parms *)
+				malloc(sizeof(struct remote_login_parms));
+	if (NULL == rlp) {
+		printf("\nCould not allocate memory for login parameters\n");
+		//@sonar:off - c:S3584 Allocated memory not released
+		//    conn_loop_rc is freed by conn_thread
+		//    pass_idx is freed by rx_bufs[i].xfer_thread
+		exit(EXIT_FAILURE);
+		//@sonar:on
+	}
 
 	rlp->portno = cons_skt;
 	cli_session_portno = cons_skt;
@@ -1064,7 +1070,11 @@ void spawn_threads(int cons_skt, int xfer_skt, int run_cons)
 	if(cli_ret) {
 		fprintf(stderr,"Error - remote_login_thread rc: %d\n",cli_ret);
 		free(rlp);
+		//@sonar:off - c:S3584 Allocated memory not released
+		//    conn_loop_rc is freed by conn_thread
+		//    pass_idx is freed by rx_bufs[i].xfer_thread
 		exit(EXIT_FAILURE);
+		//@sonar:on
 	}
 
 	if (debug) {
@@ -1072,13 +1082,18 @@ void spawn_threads(int cons_skt, int xfer_skt, int run_cons)
 			conn_ret);
 		printf("pthread_create() for remote_login_thread returns: %d\n",
 			cli_ret);
-		if (run_cons) 
+		if (run_cons) {
 			printf("pthread_create() for console returns: %d\n", 
 				cons_ret);
+		}
 	}
+	//@sonar:off - c:S3584 Allocated memory not released
+	//    conn_loop_rc is freed by conn_thread
+	//    pass_idx is freed by rx_bufs[i].xfer_thread
+	//    rlp is freed by the remote_login_thread
+	//@sonar:on
 }
-//@sonar:on
- 
+
 void fxfr_server_shutdown(void) {
 	int idx;
 
