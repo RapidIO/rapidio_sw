@@ -262,12 +262,11 @@ int fmd_traverse_network_from_pe_port(riocp_pe_handle pe, rio_port_t port_num,
 			}
 
 			if (comptag == ct) {
-				HIGH(
-						"PE 0x%x Port %d Connected: DEVICE %s CT 0x%x DID 0x%x\n",
-						curr_pe->comptag, pnum,
-						new_pe->sysfs_name,
-						new_pe->comptag,
-						new_pe->did_reg_val);
+				HIGH("PE 0x%x Port %d Connected: DEVICE %s CT 0x%x DID 0x%x\n",
+					curr_pe->comptag, pnum,
+					new_pe->sysfs_name,
+					new_pe->comptag,
+					new_pe->did_reg_val);
 				// create a new ct (and name) next loop
 				ct = COMPTAG_UNSET;
 
@@ -275,11 +274,13 @@ int fmd_traverse_network_from_pe_port(riocp_pe_handle pe, rio_port_t port_num,
 					// explore the other ports of the switch
 					port_cnt = RIOCP_PE_PORT_COUNT(
 							new_pe->cap);
-					for (pnum = 0; pnum < port_cnt;
-							pnum++) {
-						no_cfg =
-								(struct fmd_no_cfg *)malloc(
-										sizeof(struct fmd_no_cfg));
+					for (pnum = 0; pnum < port_cnt; pnum++) {
+						//@sonar:off - c:S3584 Allocated memory not released
+						// The only reason the memory is not released, is
+						// that the port will be processed later before the
+						// procedure exits.
+						no_cfg = (struct fmd_no_cfg *)malloc(
+								sizeof(struct fmd_no_cfg));
 						if (NULL == no_cfg) {
 							CRIT(MALLOC_FAIL);
 							goto fail;
@@ -288,14 +289,12 @@ int fmd_traverse_network_from_pe_port(riocp_pe_handle pe, rio_port_t port_num,
 						no_cfg->pnum = pnum;
 						l_push_tail(&no_cfg_list,
 								(void *)no_cfg);
-						//@sonar:off - Dynamically allocated memory should be released
 						//@sonar:on
 					}
 				}
 			} else {
-				DBG(
-						"Probed ep ct 0x%x != 0x%x config ct port %d\n",
-						comptag, ct, pnum);
+				DBG("Probed ep ct 0x%x != 0x%x config ct port %d\n",
+					comptag, ct, pnum);
 			}
 		}
 

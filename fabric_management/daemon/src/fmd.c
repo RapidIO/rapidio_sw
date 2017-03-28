@@ -156,7 +156,7 @@ void *poll_loop(void *poll_interval)
 		if (!console)
 			INFO("\nTick!");
 	}
-	return poll_interval;
+	return NULL;
 }
 
 void spawn_threads(struct fmd_opt_vals *cfg)
@@ -196,6 +196,12 @@ void spawn_threads(struct fmd_opt_vals *cfg)
 	/* Create independent threads each of which will execute function */
 	poll_ret = pthread_create(&poll_thread, NULL, poll_loop,
 			(void*)(pass_poll_interval));
+
+	//@sonar:off - c:S3584 Allocated memory not released
+	// pass_poll_interval is always deallocated by poll_thread/poll_loop
+	// if it is successfully launched.  Disable the warning.
+	// Remote_login_parms is always freed either by this thread in the
+	// event of error, or by the remote login procedure.
 	if (poll_ret) {
 		free(pass_poll_interval);
 		free(rlp);
@@ -228,6 +234,7 @@ void spawn_threads(struct fmd_opt_vals *cfg)
 			exit(EXIT_FAILURE);
 		}
 	}
+	//@sonar:on
 
 	ret = start_fmd_app_handler(cfg->app_port_num, 50, cfg->dd_fn,
 			cfg->dd_mtx_fn);
@@ -315,6 +322,10 @@ int delete_sysfs_devices(riocp_pe_handle mport_pe, bool delete_all)
 				continue;
 			}
 
+			//@sonar:off - c:S3584 Allocated memory not released
+			// The loop fails if memory was not allocated for
+			// sysfs_name.  If memory was allocated, it must remain
+			// allocated to track the devices.
 			if (S_ISDIR(st.st_mode)) {
 				// always delete kernel names (dd:a:dddd)
 				if (!regexec(&regex, entry->d_name, 0, NULL,
@@ -365,6 +376,7 @@ int delete_sysfs_devices(riocp_pe_handle mport_pe, bool delete_all)
 					continue;
 				}
 			}
+			//@sonar:on
 		}
 	}
 

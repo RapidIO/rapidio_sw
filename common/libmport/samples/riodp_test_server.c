@@ -191,11 +191,13 @@ void doprocessing(riomp_sock_t new_socket)
 		/** - Receive an inbound message */
 		ret = riomp_sock_receive(new_socket, &msg_rx,
 				60 * 1000, &srv_exit);
+		//@sonar:off - c:S3584 Allocated memory not released
 		if (ret) {
 			printf("CM_SERVER(%d): riomp_sock_receive() ERR=%d\n",
 					(int)getpid(), ret);
 			break;
 		}
+		//@sonar:on
 
 		if (srv_debug) {
 			printf("CM_SERVER(%d): RX_MSG=%s\n", (int)getpid(),
@@ -216,10 +218,12 @@ void doprocessing(riomp_sock_t new_socket)
 	/** - Close a socket assigned to this process if connection closed by
 	 * a client or process terminated */
 	ret = riomp_sock_close(&new_socket);
+	//@sonar:off - c:S3584 Allocated memory not released
 	if (ret) {
 		printf("CM_SERVER(%d): riomp_sock_close() ERR %d\n",
 				(int)getpid(), ret);
 	}
+	//@sonar:on
 
 	if (ret && ret != ECONNRESET) {
 		exit(1);

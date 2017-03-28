@@ -456,6 +456,8 @@ void *peer_rx_loop(void *p_i)
 
 	peer->rx_alive = 1;
 	sem_post(&peer->started);
+	// Do not continue until the starting thread posts this sema.
+	sem_wait(&peer->do_the_free);
 
 	while (!peer->rx_must_die && !peer->tx_rc && !peer->rx_rc) {
 		peer_rx_req(peer);
@@ -490,6 +492,7 @@ void *peer_rx_loop(void *p_i)
 	}
 
 	cleanup_peer(peer);
+	free(peer);
 
 	INFO("Peer(0x%x) EXITING\n", peer->p_ct);
 	pthread_exit(NULL);
@@ -500,6 +503,9 @@ int start_new_peer(riomp_sock_t new_skt)
 	int rc;
 	struct fmd_peer *peer = NULL;
 
+	//@sonar:off - c:S3584 Allocated memory not released
+	// Peer is always freed, either by this routine or by the new
+	// peer thread.
 	peer = (struct fmd_peer *) calloc(1, sizeof(struct fmd_peer));
 	if (NULL == peer) {
 		goto fail;
@@ -510,6 +516,7 @@ int start_new_peer(riomp_sock_t new_skt)
 	sem_init(&peer->init_cplt_mtx, 0, 1);
 	sem_init(&peer->tx_mtx, 0, 1);
 	sem_init(&peer->started, 0, 0);
+	sem_init(&peer->do_the_free, 0, 0);
 	peer->rx_buff = (rapidio_mport_socket_msg *) calloc(1, sizeof(rapidio_mport_socket_msg));
 	if (NULL == peer->rx_buff) {
 		free(peer);
@@ -536,6 +543,15 @@ int start_new_peer(riomp_sock_t new_skt)
 		free(peer);
 		goto fail;
 	}
+	// Tell the peer that it is responsible for freeing the
+	// "peer" data structure.
+	rc = sem_post(&peer->do_the_free);
+	if (rc) { 
+		cleanup_peer(peer);
+		free(peer);
+		goto fail;
+	}
+	//@sonar:on
 
 	return 0;
 fail:

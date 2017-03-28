@@ -588,6 +588,7 @@ void *xfer_loop(void *ibwin_idx)
 	int idx = *(int *)(ibwin_idx);
 	char thr_name[16] = {0};
 
+	free(ibwin_idx);
 	info = &rx_bufs[idx];
 
 	snprintf(thr_name, 15, "XFER_%02x", idx);
@@ -632,8 +633,7 @@ void *xfer_loop(void *ibwin_idx)
 	if (info->debug || debug)
 		printf("\nxfer_loop idx %d EXITING\n", idx);
 
-	*(int *)(ibwin_idx) = EXIT_SUCCESS;
-	pthread_exit(ibwin_idx);
+	pthread_exit(EXIT_SUCCESS);
 }
 
 riomp_mailbox_t conn_mb;
@@ -657,6 +657,7 @@ void *conn_loop(void *ret)
 	}
 
 	xfer_skt_num = *(int *)(ret);
+	free(ret);
 	conn_skt_num = xfer_skt_num;
 	rc = riomp_sock_mbox_create_handle(mp_h_mport_num, 0, &conn_mb);
 	if (rc) {
@@ -743,7 +744,11 @@ void *conn_loop(void *ret)
 		}
 
 		if (!found_one) {
+			//@sonar:off - c:S3584 Allocated memory not released
+			// It is not supposed to be released, the request
+			// must be queued for later processing.
 			add_conn_req( &conn_reqs, new_socket);
+			//@sonar:on
 		}
 
 		if (pause_file_xfer_conn && 
@@ -1058,6 +1063,9 @@ void spawn_threads(int cons_skt, int xfer_skt, int run_cons)
 		exit(EXIT_FAILURE);
 	}
 
+	//@sonar:off - c:S3584 Allocated memory not released
+	// *rlp is released by the remote_login_thread, or by this procedure
+	// if starting the thread fails.
 	if (debug) {
 		printf("pthread_create() for conn_loop returns: %d\n",
 			conn_ret);
@@ -1067,6 +1075,7 @@ void spawn_threads(int cons_skt, int xfer_skt, int run_cons)
 			printf("pthread_create() for console returns: %d\n", 
 				cons_ret);
 	}
+	//@sonar:on
 }
  
 void fxfr_server_shutdown(void) {
