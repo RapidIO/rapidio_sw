@@ -67,7 +67,7 @@ struct fmd_opt_vals {
 	uint32_t mast_cm_port;	/* Master FMD location information */
 	char *fmd_cfg; /* FMD configuration file */
 	char *dd_fn; /* Device directory file name */
-	char *dd_mtx_fn; /* Device directory mutext file name */
+	char *dd_mtx_fn; /* Device directory mutex file name */
 };
 
 extern struct fmd_opt_vals *fmd_parse_options(int argc, char *argv[]);
