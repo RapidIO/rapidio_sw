@@ -46,42 +46,58 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 extern "C" {
 #endif
 
-uint32_t SRIO_API_ReadRegFunc(DAR_DEV_INFO_t *d_info,
-				uint32_t offset, uint32_t *readdata)
+static int get_acc_p(DAR_DEV_INFO_t *d_info, uint32_t offset,
+		riocp_pe_handle *pe_h, struct mpsw_drv_pe_acc_info **acc_p)
+{
+	riocp_pe_handle mport_pe_h;
+
+	if ((NULL == d_info) || (offset >= 0x01000000)) {
+		goto exit;
+	}
+
+	*pe_h = (riocp_pe_handle)d_info->privateData;
+	if (NULL == d_info->accessInfo) {
+
+		/* Not an MPORT, get MPORT access information */
+		mport_pe_h = (*pe_h)->mport;
+		if (NULL == mport_pe_h) {
+			goto exit;
+		}
+
+		if (NULL == mport_pe_h->minfo) {
+			goto exit;
+		}
+		*acc_p = (struct mpsw_drv_pe_acc_info *)(mport_pe_h->minfo->private_data);
+	} else {
+		*acc_p = (struct mpsw_drv_pe_acc_info *)(d_info->accessInfo);
+	}
+
+	return 0;
+exit:
+	return 1;
+}
+
+uint32_t SRIO_API_ReadRegFunc(DAR_DEV_INFO_t *d_info, uint32_t offset,
+		uint32_t *readdata)
 {
 	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
 	uint32_t x;
 	struct mpsw_drv_pe_acc_info *acc_p;
 	riocp_pe_handle pe_h;
 
-	if ((d_info == NULL) || (offset >= 0x01000000)) {
+	if (get_acc_p(d_info, offset, &pe_h, &acc_p)) {
 		goto exit;
 	}
 
-	pe_h = (riocp_pe_handle)d_info->privateData;
-	if (d_info->accessInfo == NULL) {
-		riocp_pe_handle mport_pe_h;
-		/* Not an MPORT, get MPORT access information */
-		mport_pe_h = pe_h->mport;
-		if (NULL == mport_pe_h) {
-			goto exit;
-		}
-		if (NULL == mport_pe_h->minfo) {
-			goto exit;
-		}
-		acc_p = (struct mpsw_drv_pe_acc_info *)
-				(mport_pe_h->minfo->private_data);
-	} else {
-		acc_p = (struct mpsw_drv_pe_acc_info *)(d_info->accessInfo);
-	}
-
-	if (RIOCP_PE_IS_MPORT(pe_h))
-		rc = riomp_mgmt_lcfg_read(acc_p->maint, offset, sizeof(x), &x)?
+	if (RIOCP_PE_IS_MPORT(pe_h)) {
+		rc = riomp_mgmt_lcfg_read(acc_p->maint, offset, sizeof(x), &x) ?
 						RIO_ERR_ACCESS:RIO_SUCCESS;
-	else
+	} else {
 		rc = riomp_mgmt_rcfg_read(acc_p->maint, pe_h->did_reg_val,
 				pe_h->hopcount, offset, sizeof(x), &x) ?
 				RIO_ERR_ACCESS : RIO_SUCCESS;
+	}
+
 	if (RIO_SUCCESS == rc) {
 		*readdata = x;
 	}
@@ -90,33 +106,15 @@ exit:
 	return rc;
 }
 
-uint32_t SRIO_API_WriteRegFunc(DAR_DEV_INFO_t *d_info,
-				uint32_t  offset,
-				uint32_t  writedata)
+uint32_t SRIO_API_WriteRegFunc(DAR_DEV_INFO_t *d_info, uint32_t offset,
+		uint32_t writedata)
 {
 	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
-        struct mpsw_drv_pe_acc_info *acc_p;
+	struct mpsw_drv_pe_acc_info *acc_p;
 	riocp_pe_handle pe_h;
 
-	if ((d_info == NULL) || (offset >= 0x01000000)) {
+	if (get_acc_p(d_info, offset, &pe_h, &acc_p)) {
 		goto exit;
-	}
-
-	pe_h = (riocp_pe_handle)d_info->privateData;
-	if (d_info->accessInfo == NULL) {
-		riocp_pe_handle mport_pe_h;
-		/* Not an MPORT, get MPORT access information */
-		mport_pe_h = pe_h->mport;
-		if (NULL == mport_pe_h) {
-			goto exit;
-		}
-		if (NULL == mport_pe_h->minfo) {
-			goto exit;
-		}
-		acc_p = (struct mpsw_drv_pe_acc_info *)
-				(mport_pe_h->minfo->private_data);
-	} else {
-		acc_p = (struct mpsw_drv_pe_acc_info *)(d_info->accessInfo);
 	}
 
 	if (RIOCP_PE_IS_MPORT(pe_h)) {

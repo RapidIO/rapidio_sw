@@ -118,111 +118,42 @@ uint32_t CPS_rioSetAssmblyInfo(DAR_DEV_INFO_t *dev_info, uint32_t asmblyVendID,
 	return rc;
 }
 
+uint32_t CPS_init_dev_info(DAR_DEV_INFO_t *dev_info, const char *name,uint32_t swPortInfo)
+{
+	SAFE_STRNCPY(dev_info->name, name, sizeof(dev_info->name));
+	dev_info->assyInfo = 0x100;
+	dev_info->devInfo = 0;
+	dev_info->srcOps = 0x4;
+	dev_info->dstOps = 0;
+	dev_info->features = 0x18000779;
+	dev_info->extFPtrPortType = 0x9;
+	dev_info->extFPtrForErr = 0x1000;
+	dev_info->extFPtrForLane = 0x2000;
+	dev_info->extFPtrForPort = 0x100;
+	dev_info->extFPtrForVC = 0;
+	dev_info->extFPtrForVOQ = 0;
+	dev_info->swRtInfo = 0x00FF;
+	dev_info->swPortInfo = swPortInfo;
+	dev_info->swMcastInfo = 0x00FF0028;
+
+	return RIO_SUCCESS;
+}
+
 uint32_t CPS_rioDeviceSupported(DAR_DEV_INFO_t *dev_info)
 {
 	uint32_t rc = DAR_DB_NO_DRIVER;
 
 	if (RIO_VEND_IDT == (DECODE_VENDOR_ID(dev_info->devID))) {
-		if (RIO_DEVI_IDT_CPS1848
-				== (DECODE_DEVICE_ID(dev_info->devID))) {
-			SAFE_STRNCPY(dev_info->name, "CPS1848",
-					sizeof(dev_info->name));
-			dev_info->assyInfo = 0x100;
-			dev_info->devInfo = 0;
-			dev_info->srcOps = 0x4;
-			dev_info->dstOps = 0;
-			dev_info->features = 0x18000779;
-			dev_info->extFPtrPortType = 0x9;
-			dev_info->extFPtrForErr = 0x1000;
-			dev_info->extFPtrForLane = 0x2000;
-			dev_info->extFPtrForPort = 0x100;
-			dev_info->extFPtrForVC = 0;
-			dev_info->extFPtrForVOQ = 0;
-			dev_info->swRtInfo = 0x00FF;
-			dev_info->swPortInfo = 0x1200;
-			dev_info->swMcastInfo = 0x00FF0028;
-
-			rc = RIO_SUCCESS;
-		} else if (RIO_DEVI_IDT_CPS1432
-				== (DECODE_DEVICE_ID(dev_info->devID))) {
-			SAFE_STRNCPY(dev_info->name, "CPS1432",
-					sizeof(dev_info->name));
-			dev_info->assyInfo = 0x100;
-			dev_info->devInfo = 0;
-			dev_info->srcOps = 0x4;
-			dev_info->dstOps = 0;
-			dev_info->features = 0x18000779;
-			dev_info->extFPtrPortType = 0x9;
-			dev_info->extFPtrForErr = 0x1000;
-			dev_info->extFPtrForLane = 0x2000;
-			dev_info->extFPtrForPort = 0x100;
-			dev_info->extFPtrForVC = 0;
-			dev_info->extFPtrForVOQ = 0;
-			dev_info->swRtInfo = 0x00FF;
-			dev_info->swPortInfo = 0x1000;
-			dev_info->swMcastInfo = 0x00FF0028;
-
-			rc = RIO_SUCCESS;
-		} else if (RIO_DEVI_IDT_CPS1616
-				== (DECODE_DEVICE_ID(dev_info->devID))) {
-			SAFE_STRNCPY(dev_info->name, "CPS1616",
-					sizeof(dev_info->name));
-			dev_info->assyInfo = 0x100;
-			dev_info->devInfo = 0;
-			dev_info->srcOps = 0x4;
-			dev_info->dstOps = 0;
-			dev_info->features = 0x18000779;
-			dev_info->extFPtrPortType = 0x9;
-			dev_info->extFPtrForErr = 0x1000;
-			dev_info->extFPtrForLane = 0x2000;
-			dev_info->extFPtrForPort = 0x100;
-			dev_info->extFPtrForVC = 0;
-			dev_info->extFPtrForVOQ = 0;
-			dev_info->swRtInfo = 0x00FF;
-			dev_info->swPortInfo = 0x1000;
-			dev_info->swMcastInfo = 0x00FF0028;
-
-			rc = RIO_SUCCESS;
-		} else if (RIO_DEVI_IDT_VPS1616
-				== (DECODE_DEVICE_ID(dev_info->devID))) {
-			SAFE_STRNCPY(dev_info->name, "VPS1616",
-					sizeof(dev_info->name));
-			dev_info->assyInfo = 0x100;
-			dev_info->devInfo = 0;
-			dev_info->srcOps = 0x4;
-			dev_info->dstOps = 0;
-			dev_info->features = 0x18000779;
-			dev_info->extFPtrPortType = 0x9;
-			dev_info->extFPtrForErr = 0x1000;
-			dev_info->extFPtrForLane = 0x2000;
-			dev_info->extFPtrForPort = 0x100;
-			dev_info->extFPtrForVC = 0;
-			dev_info->extFPtrForVOQ = 0;
-			dev_info->swRtInfo = 0x00FF;
-			dev_info->swPortInfo = 0x1000;
-			dev_info->swMcastInfo = 0x00FF0028;
-
-			rc = RIO_SUCCESS;
-		} else if (RIO_DEVI_IDT_SPS1616
-				== (DECODE_DEVICE_ID(dev_info->devID))) {
-			SAFE_STRNCPY(dev_info->name, "SPS1616",
-					sizeof(dev_info->name));
-			dev_info->assyInfo = 0x100;
-			dev_info->devInfo = 0;
-			dev_info->srcOps = 0x4;
-			dev_info->dstOps = 0;
-			dev_info->features = 0x18000779;
-			dev_info->extFPtrPortType = 0x9;
-			dev_info->extFPtrForErr = 0x1000;
-			dev_info->extFPtrForLane = 0x2000;
-			dev_info->extFPtrForPort = 0x100;
-			dev_info->extFPtrForVC = 0;
-			dev_info->extFPtrForVOQ = 0;
-			dev_info->swRtInfo = 0x00FF;
-			dev_info->swPortInfo = 0x01000;
-			dev_info->swMcastInfo = 0x00FF0028;
-
-			rc = RIO_SUCCESS;
+		if (RIO_DEVI_IDT_CPS1848 == (DECODE_DEVICE_ID(dev_info->devID))) {
+			rc = CPS_init_dev_info(dev_info, "CPS1848", 0x1200);
+		} else if (RIO_DEVI_IDT_CPS1432 == (DECODE_DEVICE_ID(dev_info->devID))) {
+			rc = CPS_init_dev_info(dev_info, "CPS1432", 0x1000);
+		} else if (RIO_DEVI_IDT_CPS1616 == (DECODE_DEVICE_ID(dev_info->devID))) {
+			rc = CPS_init_dev_info(dev_info, "CPS1616", 0x1000);
+		} else if (RIO_DEVI_IDT_VPS1616 == (DECODE_DEVICE_ID(dev_info->devID))) {
+			rc = CPS_init_dev_info(dev_info, "VPS1616", 0x1000);
+		} else if (RIO_DEVI_IDT_SPS1616 == (DECODE_DEVICE_ID(dev_info->devID))) {
+			rc = CPS_init_dev_info(dev_info, "SPS1616", 0x1000);
 		} else if (DECODE_DEVICE_ID( dev_info->devID ) == 0) {
 			/* Now fill out the DAR_info structure... */
 			rc = DARDB_rioDeviceSupported(dev_info);
