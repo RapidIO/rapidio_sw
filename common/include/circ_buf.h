@@ -38,11 +38,6 @@
 #include <string>
 #include <array>
 
-using std::string;
-using std::array;
-using std::cout;
-using std::endl;
-
 template<typename T, size_t N>
 class circ_buf {
 public:
@@ -80,7 +75,7 @@ public:
 
 		/* If list has 1 element, special case since head==tail */
 		if (n == 1) {
-			cout << buffer[head];
+			std::cout << buffer[head];
 			return;
 		}
 
@@ -89,18 +84,18 @@ public:
 
 		/* Start at head and print everything up to the tail */
 		while (head != tail) {
-			cout << buffer[head];
+			std::cout << buffer[head];
 			if ('\n'
 					!= buffer[head].c_str()[strlen(
 							buffer[head].c_str())
 							- 1]) {
-				cout << endl;
+				std::cout << std::endl;
 			}
 			inc_head();
 		}
 
 		/* The tail needs to be printed as well */
-		cout << buffer[tail];
+		std::cout << buffer[tail];
 
 		/* Restore the head */
 		head = orig_head;
@@ -129,7 +124,7 @@ private:
 	}
 
 	/* Buffer, head, and tail indexes */
-	array<T, N> buffer;
+	std::array<T, N> buffer;
 	unsigned head;
 	unsigned tail;
 	unsigned n;
