@@ -1152,8 +1152,6 @@ int riomp_sock_mbox_create_handle(uint8_t mport_id,
 		return -1;
 	}
 
-	/* TODO claim mbox_id */
-
 	/* Create handle */
 	lhandle = (struct rapidio_mport_mailbox *)malloc(
 			sizeof(struct rapidio_mport_mailbox));

@@ -1,6 +1,6 @@
 /*
- * TODO: Check copyright, should be rapidio.org?
- * Copyright 2014, 2015 Integrated Device Technology, Inc.
+ * Copyright 2017 Integrated Device Technology, Inc.
+ * Copyright 2017 RapidIO.org
  *
  * Header file for RapidIO mport device library.
  *

@@ -960,11 +960,6 @@ static void check_write_bc(DAR_DEV_INFO_t *dev_info,
 	rxs_emulate_reg_write(dev_info, offset, writedata);
 }
 
-// TODO: The register support leverages RXS routing table register test support
-// code verbatim, extending it to support emulation of Error Management
-// registers.  Would be nice if the register emulation code could be a common
-// superset for all tests.
-
 static uint32_t RXSWriteReg(DAR_DEV_INFO_t *dev_info,
 			uint32_t  offset, uint32_t writedata)
 {

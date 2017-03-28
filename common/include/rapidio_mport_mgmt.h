@@ -1,6 +1,6 @@
 /*
- * TODO: Check copyright, should be rapidio.org?
- * Copyright 2014, 2015 Integrated Device Technology, Inc.
+ * Copyright 2017 Integrated Device Technology, Inc.
+ * Copyright 2017 RapidIO.org
  *
  * Header file for RapidIO mport device library.
  *
@@ -87,20 +87,19 @@ enum riomp_mgmt_mport_flags {
 	RIO_MPORT_IBSG = (1 << 2), /**< inbound mapping supports SG */
 };
 
-/** TODO: Check if all the listed mport properties are really needed */
 /** @brief RapidIO mport properties */
 struct riomp_mgmt_mport_properties {
 	did_val_t did_val; /**< mport host device ID */
 	uint8_t id; /**< Physical port ID number */
 	uint8_t index; /**< Mport driver index numer */
-	uint32_t flags; /**< TODO: what is this */
+	uint32_t flags; /**< Refer to driver for rio_mport_flags definitions. */
 	uint32_t sys_size; /**< Default addressing size */
 	uint8_t port_ok; /**< link status */
 	uint8_t link_speed; /**< link speed */
 	uint8_t link_width; /**< link width */
-	uint32_t dma_max_sge; /**< TODO: what is this */
-	uint32_t dma_max_size; /**< TODO: what is this */
-	uint32_t dma_align; /**< TODO: what is this */
+	uint32_t dma_max_sge; /**< Maximum DMA Scatter/Gather (SG) Entries */ 
+	uint32_t dma_max_size; /**< Maximum bytes transferred per SG Entry */
+	uint32_t dma_align; /**< SG addresses modulo dma_align must be 0. */
 	uint32_t transfer_mode; /**< Default transfer mode */
 	uint32_t cap_sys_size; /**< Capable system sizes */
 	uint32_t cap_addr_size; /**< Capable addressing sizes */
