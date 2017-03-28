@@ -89,8 +89,7 @@ int CLIDDDumpCmd(struct cli_env *env, int UNUSED(argc), char **UNUSED(argv))
 	uint32_t did_sz;
 
 	if (NULL == *cli_dd) {
-		snprintf(env->output, sizeof(env->output), "\nDevice Directory not available.\n");
-		env->output[sizeof(env->output) - 1] = '\0';
+		LOGMSG(env, "\nDevice Directory not available.\n");
 		goto exit;
 	}
 
@@ -140,7 +139,7 @@ int CLIDDDumpCmd(struct cli_env *env, int UNUSED(argc), char **UNUSED(argv))
 	if (!found) {
 		LOGMSG(env, "\nNo applications connected.\n");
 	}
-		
+
 exit:
 	return 0;
 }
@@ -157,11 +156,8 @@ ATTR_RPT
 
 extern struct cli_cmd CLIDDInc;
 
-int CLIDDIncCmd(struct cli_env *env, int argc, char **argv)
+int CLIDDIncCmd(struct cli_env *env, int UNUSED(argc), char **UNUSED(argv))
 {
-	if (0)
-		argv[0][0] = argc;
-
 	if (NULL == *cli_dd) {
 		LOGMSG(env, "\nDevice Database is not available.\n");
 		goto exit;
@@ -170,6 +166,7 @@ int CLIDDIncCmd(struct cli_env *env, int argc, char **argv)
 	fmd_dd_incr_chg_idx((*cli_dd), 1);
 	LOGMSG(env, "\nIncrement idx value: 0x%8x\n",
 			fmd_dd_get_chg_idx(*cli_dd));
+
 exit:
 	return 0;
 }

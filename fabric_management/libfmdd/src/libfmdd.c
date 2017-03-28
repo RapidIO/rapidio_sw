@@ -324,6 +324,7 @@ void *mon_loop(void *parms)
 		sem_wait(&fml.fmd_mon_started);
 
 		// While the FMD/DD is alive wait for updates
+		fml.fmd_dead = false;
 		do {
 			fml.dd_mtx->dd_ev[fml.app_idx].waiting = 0;
 
@@ -361,6 +362,7 @@ void *mon_loop(void *parms)
 				old_ticks = new_ticks;
 			}
 		} while (fml.fd && !fml.mon_must_die);
+		fml.fmd_dead = true;
 
 cleanup:
 		// Cannot access DD, cleanup
@@ -383,6 +385,7 @@ void libfmdd_init(void) {
 	sem_init(&fml.mon_started, 0, 0);
 	fml.all_must_die = 0;
 	fml.mon_alive = 0;
+	fml.fmd_dead = true;
 
 	/* Startup the connection monitoring thread */
 	if (pthread_create(&fml.mon_thr, NULL, mon_loop, NULL)) {

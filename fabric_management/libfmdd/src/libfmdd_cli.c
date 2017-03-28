@@ -153,22 +153,24 @@ extern struct cli_cmd CLIDDStatus;
 
 int CLIDDStatusCmd(struct cli_env *env, int UNUSED(argc), char **UNUSED(argv))
 {
-	LOGMSG(env,"\nFMD Port number    : %d", fml.portno);
-	LOGMSG(env,"\nInit ok            : %d", fml.init_ok);
-	LOGMSG(env,"\nMy name            : %s", fml.app_name);
-	LOGMSG(env,"\nMy flag            : 0x%x", fml.flag);
-	LOGMSG(env,"\nSocket fileno      : %d", fml.fd);
-	LOGMSG(env,"\nFMD Update pd      : %d", fml.fmd_update_period);
+	LOGMSG(env, "\nFMD Port number    : %d", fml.portno);
+	LOGMSG(env, "\nInit ok            : %d", fml.init_ok);
+	LOGMSG(env, "\nMy name            : %s", fml.app_name);
+	LOGMSG(env, "\nMy flag            : 0x%x", fml.flag);
+	LOGMSG(env, "\nSocket file number : %d", fml.fd);
+	LOGMSG(env, "\nFMD Update period  : %d", fml.fmd_update_period);
+	LOGMSG(env, "\nMonitor alive      : %d", fml.mon_alive);
+	LOGMSG(env, "\nFMD is alive       : %d", !fml.fmd_dead);
 
-	LOGMSG(env,"\nDevice Dir FN      : %s", fml.dd_fn);
-	LOGMSG(env,"\nDevice Dir PTR     : %p", fml.dd);
-	LOGMSG(env,"\nDevice Dir Mtx FN  : %s", fml.dd_mtx_fn);
-	LOGMSG(env,"\nDevice Dir Mtx PTR : %p", fml.dd_mtx);
-	LOGMSG(env,"\nDevice Dir Mtx IDX : %d", fml.app_idx);
+	LOGMSG(env, "\nDevice Dir FN      : %s",
+			(NULL == fml.dd ? "(nil)" : fml.dd_fn));
+	LOGMSG(env, "\nDevice Dir PTR     : %p", fml.dd);
+	LOGMSG(env, "\nDevice Dir Mtx FN  : %s",
+			(NULL == fml.dd_mtx ? "(nil)" : fml.dd_mtx_fn));
+	LOGMSG(env, "\nDevice Dir Mtx PTR : %p", fml.dd_mtx);
+	LOGMSG(env, "\nDevice Dir Mtx IDX : %d", fml.app_idx);
 
-	LOGMSG(env,"\nMonitor Alive      : %d", fml.mon_alive);
-	LOGMSG(env,"\nFMD is dead        : %d", fml.fmd_dead);
-	LOGMSG(env,"\n");
+	LOGMSG(env, "\n");
 
 	return 0;
 }
