@@ -693,6 +693,20 @@ uint32_t tsi721_rio_pc_set_config(DAR_DEV_INFO_t *dev_info,
 		out_parms->imp_rc = PC_SET_CONFIG(0x1);
 		goto exit;
 	}
+ 
+	// The Tsi721 has a separate logical layer response timeout for
+	// the messaging engine, TSI721_RQRPTO.  Set this register to the
+	// same requested value for logical response timeout.
+	//
+	// Computation is for shortest possible timeout, which is
+	// (count value * 8 * 4 nsec)
+	rc = DARRegWrite(dev_info, TSI721_RQRPTO,
+			(((in_parms->log_rto * 100) + 31) / (8 * 4))
+					& TSI721_RQRPTO_REQ_RSP_TO);
+	if (RIO_SUCCESS != rc) {
+		out_parms->imp_rc = PC_SET_CONFIG(0x1);
+		goto exit;
+	}
 
 	curr_cfg_in.ptl.num_ports = RIO_ALL_PORTS;
 	rc = tsi721_rio_pc_get_config(dev_info, &curr_cfg_in, out_parms);
