@@ -1689,8 +1689,7 @@ static void rxs_set_changed_rt_test_success_val(void **state, rio_port_t port,
 	memset(&rt, 0, sizeof(rt));
 
 	assert_int_equal(RIO_SUCCESS,
-		rxs_rio_rt_initialize(&mock_dev_info, &init_in,
-			&init_out));
+		rxs_rio_rt_initialize(&mock_dev_info, &init_in, &init_out));
 	assert_int_equal(RIO_SUCCESS, init_out.imp_rc);
 
 	// Change a routing table entries the conventional way
@@ -2265,6 +2264,12 @@ static void rxs_rio_rt_probe_success_port_test(void **state)
 	rio_rt_probe_out_t pr_out2;
 	rio_rt_state_t rt;
 
+	RXS_test_state_t *l_st = *(RXS_test_state_t **)state;
+
+	if (l_st->real_hw) {
+		return;
+	}
+
 	// Multicast mask for port 2, 4, 5, 9, and 12...
 	uint32_t mc_mask = 0x1234;
 	rio_port_t pt;
@@ -2435,6 +2440,12 @@ static void rxs_rio_rt_probe_success_mc_port_test(void **state)
 	rio_rt_probe_in_t pr_in;
 	rio_rt_probe_out_t pr_out;
 	rio_rt_state_t rt;
+
+	RXS_test_state_t *l_st = *(RXS_test_state_t **)state;
+
+	if (l_st->real_hw) {
+		return;
+	}
 
 	// Set all ports to "perfect"
 	set_all_port_config(cfg_perfect, NO_TTL, NO_FILT, RIO_ALL_PORTS);
@@ -2906,6 +2917,12 @@ static void rxs_rio_rt_probe_discard_pt_fail_test(void **state)
 	rio_rt_change_rte_out_t chg_out;
 	rio_rt_state_t rt;
 
+	RXS_test_state_t *l_st = *(RXS_test_state_t **)state;
+
+	if (l_st->real_hw) {
+		return;
+	}
+
 	// Initialize routing table
 	init_in.set_on_port = 0;
 	init_in.default_route = RIO_RTE_DROP;
@@ -2985,6 +3002,12 @@ static void rxs_rio_rt_probe_discard_mc_fail_test(void **state)
 	uint32_t mc_mask;
 	rio_port_t port;
 	rio_port_t test;
+
+	RXS_test_state_t *l_st = *(RXS_test_state_t **)state;
+
+	if (l_st->real_hw) {
+		return;
+	}
 
 	// Initialize routing table
 	init_in.set_on_port = 0;

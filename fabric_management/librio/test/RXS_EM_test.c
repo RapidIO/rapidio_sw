@@ -96,10 +96,18 @@ static void rxs_em_cfg_pw_success_test(void **state)
 	uint32_t retx = 1000000; // 352 msec
 	uint32_t retx_reg = COMPUTE_RXS_PW_RETX(retx);
 	uint32_t chkdata;
-	rio_port_t dflt_port = 5;
+	rio_port_t dflt_port;
 	rio_rt_initialize_in_t init_in;
 	rio_rt_initialize_out_t init_out;
 	rio_rt_state_t rt;
+	RXS_test_state_t *l_st = *(RXS_test_state_t **)state;
+
+	// Power up and enable all ports...
+	if (l_st->real_hw) {
+		dflt_port = l_st->conn_port;
+	} else {
+		dflt_port = 5;
+	}
 
 	// RXS routes port-writes according to port bit-vector.
 	// RXS EM support computes this bit vector based on current routing
@@ -115,7 +123,9 @@ static void rxs_em_cfg_pw_success_test(void **state)
 		rxs_rio_rt_initialize(&mock_dev_info, &init_in, &init_out));
 
 	// Power up and enable all ports...
-	set_all_port_config(cfg_perfect, false, false, RIO_ALL_PORTS);
+	if (!l_st->real_hw) {
+		set_all_port_config(cfg_perfect, false, false, RIO_ALL_PORTS);
+	}
 
 	// Test for dev16 destIDs...
 	in_parms.imp_rc = 0xFFFFFFFF;
@@ -367,9 +377,9 @@ static void chk_regs_los(rio_em_cfg_t *event, rio_port_t port)
 
 	switch (event->em_detect) {
 	case rio_em_detect_off:
-		assert_int_equal(0, ctl);
+		assert_int_equal(0, ctl & ctl_mask);
 		assert_int_equal(0, dlt_to);
-		assert_int_equal(0, plm_ctl);
+		assert_int_equal(0, plm_ctl & plm_ctl_mask);
 		break;
 
 	case rio_em_detect_on:
@@ -858,13 +868,20 @@ static void rxs_rio_em_cfg_set_success_em_info_test(void **state)
 
 	unsigned int num_events = sizeof(events) / sizeof(events[0]);
 	unsigned int i;
+	RXS_test_state_t *l_st = *(RXS_test_state_t **)state;
 
 	// Power up and enable all ports...
-	set_all_port_config(cfg_perfect, false, false, RIO_ALL_PORTS);
+	if (!l_st->real_hw) {
+		set_all_port_config(cfg_perfect, false, false, RIO_ALL_PORTS);
+	}
 
 	// For each event in the prodigous list above
 	for (i = 0; i < num_events; i++) {
-		port = i % NUM_RXS_PORTS(&mock_dev_info);
+		if (l_st->real_hw) {
+			port = l_st->conn_port;
+		} else {
+			port = i % NUM_RXS_PORTS(&mock_dev_info);
+		}
 		if (DEBUG_PRINTF) {
 			printf(
 			"\nevent idx %d event %d port %d onoff %d info 0x%x\n",
@@ -964,17 +981,24 @@ static void rxs_rio_em_cfg_set_ignore_test(void **state)
 	unsigned int num_events = sizeof(events) / sizeof(events[0]);
 	unsigned int i;
 	rio_port_t port = 0;
+	RXS_test_state_t *l_st = *(RXS_test_state_t **)state;
 
 	assert_in_range(num_events, 0, NUM_RXS_PORTS(&mock_dev_info) - 1);
 
 	// Power up and enable all ports...
-	set_all_port_config(cfg_perfect, false, false, RIO_ALL_PORTS);
+	if (!l_st->real_hw) {
+		set_all_port_config(cfg_perfect, false, false, RIO_ALL_PORTS);
+	}
 
 	for (i = 0; i < num_events; i++) {
 		if (DEBUG_PRINTF) {
 			printf("\nevent idx %d\n",  i);
 		}
-		port = i;
+		if (l_st->real_hw) {
+			port = l_st->conn_port;
+		} else {
+			port = i;
+		}
 		set_cfg_in.ptl.num_ports = 1;
 		set_cfg_in.ptl.pnums[0] = port;
 		set_cfg_in.notfn = rio_em_notfn_both;
@@ -1046,12 +1070,15 @@ static void rxs_rio_em_cfg_set_fail_em_info_test(void **state)
 	rio_em_cfg_t pass_events[2];
 	rio_port_t port;
 	rio_port_t chk_port;
+	RXS_test_state_t *l_st = *(RXS_test_state_t **)state;
 
 	unsigned int num_events = sizeof(events) / sizeof(events[0]);
 	unsigned int i;
 
 	// Power up and enable all ports...
-	set_all_port_config(cfg_perfect, false, false, RIO_ALL_PORTS);
+	if (!l_st->real_hw) {
+		set_all_port_config(cfg_perfect, false, false, RIO_ALL_PORTS);
+	}
 
 	pass_events[0].em_event = rio_em_a_no_event;
 	pass_events[0].em_detect = rio_em_detect_0delta;
@@ -1061,7 +1088,11 @@ static void rxs_rio_em_cfg_set_fail_em_info_test(void **state)
 		if (DEBUG_PRINTF) {
 			printf("\nevent idx %d\n",  i);
 		}
-		port = i;
+		if (l_st->real_hw) {
+			port = l_st->conn_port;
+		} else {
+			port = i;
+		}
 		if ((rio_em_d_log == events[i].em_event) ||
 		    (rio_em_d_ttl == events[i].em_event)) {
 			chk_port = RIO_ALL_PORTS;
@@ -1134,12 +1165,19 @@ static void rxs_rio_em_cfg_set_roundup_test(void **state)
 	unsigned int num_events = sizeof(events) / sizeof(events[0]);
 	unsigned int i;
 	rio_port_t port;
+	RXS_test_state_t *l_st = *(RXS_test_state_t **)state;
 
 	// Power up and enable all ports...
-	set_all_port_config(cfg_perfect, false, false, RIO_ALL_PORTS);
+	if (!l_st->real_hw) {
+		set_all_port_config(cfg_perfect, false, false, RIO_ALL_PORTS);
+	}
 
 	for (i = 0; i < num_events; i++) {
-		port = i & NUM_RXS_PORTS(&mock_dev_info);;
+		if (l_st->real_hw) {
+			port = l_st->conn_port;
+		} else {
+			port = i & NUM_RXS_PORTS(&mock_dev_info);;
+		}
 		if (DEBUG_PRINTF) {
 			printf("\nevent idx %d port %d\n",  i, port);
 		}
@@ -1200,9 +1238,12 @@ static void rxs_rio_em_cfg_get_bad_parms_test(void **state)
 	rio_em_cfg_get_out_t p_out;
 	rio_em_events_t get_cfg_event_req;
 	rio_em_cfg_t get_cfg_event_info;
+	RXS_test_state_t *l_st = *(RXS_test_state_t **)state;
 
 	// Power up and enable all ports...
-	set_all_port_config(cfg_perfect, false, false, RIO_ALL_PORTS);
+	if (!l_st->real_hw) {
+		set_all_port_config(cfg_perfect, false, false, RIO_ALL_PORTS);
+	}
 
 	// Bad port number
 	p_in.port_num = NUM_RXS_PORTS(&mock_dev_info) + 1;
@@ -1430,7 +1471,8 @@ static void rxs_rio_em_dev_rpt_ctl_chk_regs_port(rio_em_notfn_ctl_t chk_notfn,
 	}
 }
 
-static void rxs_rio_em_dev_rpt_ctl_chk_regs(rio_em_notfn_ctl_t chk_notfn,
+static void rxs_rio_em_dev_rpt_ctl_chk_regs(void **state,
+		rio_em_notfn_ctl_t chk_notfn,
 		struct DAR_ptl *ptl)
 {
 	const uint32_t pw_mask = RXS_PW_TRAN_CTL_PW_DIS;
@@ -1438,6 +1480,7 @@ static void rxs_rio_em_dev_rpt_ctl_chk_regs(rio_em_notfn_ctl_t chk_notfn,
 	struct DAR_ptl good_ptl;
 	unsigned int port_idx;
 	rxs_rpt_ctl_regs_t regs;
+	RXS_test_state_t *l_st = *(RXS_test_state_t **)state;
 
 	assert_int_equal(RIO_SUCCESS,
 		DARrioGetPortList(&mock_dev_info, ptl, &good_ptl));
@@ -1470,6 +1513,11 @@ static void rxs_rio_em_dev_rpt_ctl_chk_regs(rio_em_notfn_ctl_t chk_notfn,
 		break;
 	}
 
+	// Cannot check per-port registers on real hardware.
+	if (l_st->real_hw) {
+		return;
+	}
+
 	for (port_idx = 0; port_idx < good_ptl.num_ports; port_idx++) {
 		if (DEBUG_PRINTF) {
 			printf("\nNotfn %d Port %d\n", chk_notfn,
@@ -1488,9 +1536,12 @@ static void rxs_rio_em_dev_rpt_ctl_success_test(void **state)
 	rio_em_dev_rpt_ctl_in_t in_p;
 	rio_em_dev_rpt_ctl_out_t out_p;
 	rio_em_notfn_ctl_t notfn, chk_notfn;
+	RXS_test_state_t *l_st = *(RXS_test_state_t **)state;
 
 	// Power up and enable all ports...
-	set_all_port_config(cfg_perfect, false, false, RIO_ALL_PORTS);
+	if (!l_st->real_hw) {
+		set_all_port_config(cfg_perfect, false, false, RIO_ALL_PORTS);
+	}
 
 	in_p.ptl.num_ports = RIO_ALL_PORTS;
 	for (notfn = rio_em_notfn_none; notfn < rio_em_notfn_0delta; notfn =
@@ -1509,7 +1560,7 @@ static void rxs_rio_em_dev_rpt_ctl_success_test(void **state)
 		assert_int_equal(0, out_p.imp_rc);
 		assert_int_equal(chk_notfn, out_p.notfn);
 
-		rxs_rio_em_dev_rpt_ctl_chk_regs(chk_notfn, &in_p.ptl);
+		rxs_rio_em_dev_rpt_ctl_chk_regs(state, chk_notfn, &in_p.ptl);
 
 		// Repeat check with 0delta
 		if (DEBUG_PRINTF) {
@@ -1525,7 +1576,7 @@ static void rxs_rio_em_dev_rpt_ctl_success_test(void **state)
 		assert_int_equal(0, out_p.imp_rc);
 		assert_int_equal(chk_notfn, out_p.notfn);
 
-		rxs_rio_em_dev_rpt_ctl_chk_regs(chk_notfn, &in_p.ptl);
+		rxs_rio_em_dev_rpt_ctl_chk_regs(state, chk_notfn, &in_p.ptl);
 	}
 	(void)state;
 }
@@ -1542,6 +1593,11 @@ static void rxs_rio_em_dev_rpt_ctl_oddport_test(void **state)
 	rio_port_t port;
 	unsigned int port_idx;
 	struct DAR_ptl other_ptl;
+	RXS_test_state_t *l_st = *(RXS_test_state_t **)state;
+
+	if (l_st->real_hw) {
+		return;
+	}
 
 	// Power up and enable all ports...
 	set_all_port_config(cfg_perfect, false, false, RIO_ALL_PORTS);
@@ -1583,7 +1639,7 @@ static void rxs_rio_em_dev_rpt_ctl_oddport_test(void **state)
 		assert_int_equal(0, out_p.imp_rc);
 		assert_int_equal(chk_notfn, out_p.notfn);
 
-		rxs_rio_em_dev_rpt_ctl_chk_regs(chk_notfn, &in_p.ptl);
+		rxs_rio_em_dev_rpt_ctl_chk_regs(state, chk_notfn, &in_p.ptl);
 
 		for (port_idx = 0; port_idx < other_ptl.num_ports; port_idx++) {
 			rxs_rio_em_dev_rpt_ctl_chk_regs_port(rio_em_notfn_both,
@@ -2152,6 +2208,11 @@ static void rxs_rio_em_create_events_success_test(void **state)
 	unsigned int i;
 	unsigned int j;
 	uint32_t chk_val;
+	RXS_test_state_t *l_st = *(RXS_test_state_t **)state;
+
+	if (l_st->real_hw) {
+		return;
+	}
 
 	// Power up and enable all ports...
 	set_all_port_config(cfg_perfect, false, false, RIO_ALL_PORTS);
@@ -2207,6 +2268,11 @@ static void rxs_rio_em_create_ignored_events_test(void **state)
 	rio_em_events_t tests[] = {rio_em_a_clr_pwpnd, rio_em_a_no_event};
 	const unsigned int test_cnt = sizeof(tests) / sizeof(tests[0]);
 	unsigned int i;
+	RXS_test_state_t *l_st = *(RXS_test_state_t **)state;
+
+	if (l_st->real_hw) {
+		return;
+	}
 
 	// Power up and enable all ports...
 	set_all_port_config(cfg_perfect, false, false, RIO_ALL_PORTS);
@@ -2353,6 +2419,11 @@ static void rxs_rio_em_get_int_stat_success_test(void **state)
 
 	unsigned int i, chk_i, srch_i;
 	rio_port_t port = 0;
+	RXS_test_state_t *l_st = *(RXS_test_state_t **)state;
+
+	if (l_st->real_hw) {
+		return;
+	}
 
 	// Power up and enable all ports...
 	set_all_port_config(cfg_perfect, false, false, RIO_ALL_PORTS);
@@ -3660,6 +3731,11 @@ static void rxs_rio_em_clr_pw_events_success_test(void **state)
 	rio_em_event_n_loc_t c_e[(uint8_t)rio_em_last];
 	rio_em_event_n_loc_t stat_e[(uint8_t)rio_em_last];
 	DAR_DEV_INFO_t *dev_info = &mock_dev_info;
+	RXS_test_state_t *l_st = (RXS_test_state_t *)*state;
+
+	if (l_st->real_hw) {
+		return;
+	}
 
 	rio_port_t port = 7;
 

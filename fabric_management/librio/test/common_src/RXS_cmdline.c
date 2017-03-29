@@ -120,6 +120,10 @@ static int grp_setup(void **state)
 
 	return 0;
 fail:
+        printf("\nSyntax:"
+		"\n-m <mport #>"
+		"\n-h <hopcount>"
+		"\n-d <destID>\n\n");
 	return -1;
 }
 

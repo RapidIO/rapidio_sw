@@ -231,6 +231,12 @@ static void rxs_rio_pc_get_config_success(void **state)
 	uint32_t lane;
 	uint32_t l_vec;
 
+	RXS_test_state_t *l_st = *(RXS_test_state_t **)state;
+
+	if (l_st->real_hw) {
+		return;
+	}
+
 	// Default register values have all ports unavailable
 	curr_pc.port_available = false;
 	curr_pc.powered_up = false;
@@ -517,6 +523,12 @@ static void rxs_rio_pc_get_status_success(void **state)
 
 	uint32_t err_stat = RXS_SPX_ERR_STAT_DFLT;
 	uint32_t ctl = RXS_SPX_CTL_DFLT;
+
+	RXS_test_state_t *l_st = *(RXS_test_state_t **)state;
+
+	if (l_st->real_hw) {
+		return;
+	}
 
 	// Default register values have all ports uninitialized
 	curr_ps.port_ok = false;
@@ -910,6 +922,12 @@ static void rxs_rio_pc_reset_port_exclude_reg_acc(void **state)
 	uint32_t all_1 = 0xFFFFFFFF;
 	rio_port_t port, t_pt;
 
+	RXS_test_state_t *l_st = *(RXS_test_state_t **)state;
+
+	if (l_st->real_hw) {
+		return;
+	}
+
 	// Test on one port at a time.
 	for (port = 0; port < NUM_RXS_PORTS(&mock_dev_info); port++) {
 		// Power up the port so it can be reset
@@ -1062,6 +1080,12 @@ static void rxs_rio_pc_reset_link_partner_success(void **state)
 	uint32_t all_1 = 0xFFFFFFFF;
 	rio_port_t port;
 
+	RXS_test_state_t *l_st = *(RXS_test_state_t **)state;
+
+	if (l_st->real_hw) {
+		return;
+	}
+
 	// Test on one port at a time.
 	for (port = 0; port < NUM_RXS_PORTS(&mock_dev_info); port++) {
 		// Power up the port so it can be reset
@@ -1165,6 +1189,7 @@ static void rxs_rio_pc_clr_errs_bad_parms(void **state)
 	pc_in.port_num = 0;
 	pc_in.clr_lp_port_err = true;
 	pc_in.lp_dev_info = &mock_dev_info;
+	pc_in.num_lp_ports = 0;
 	pc_out.imp_rc = RIO_SUCCESS;
 
 	assert_int_not_equal(RIO_SUCCESS,
@@ -1182,6 +1207,12 @@ static void rxs_rio_pc_clr_errs_success(void **state)
 	uint32_t chk_data;
 	uint32_t all_1 = 0xFFFFFFFF;
 	rio_port_t port;
+
+	RXS_test_state_t *l_st = *(RXS_test_state_t **)state;
+
+	if (l_st->real_hw) {
+		return;
+	}
 
 	// Test on one port at a time.
 	for (port = 0; port < NUM_RXS_PORTS(&mock_dev_info); port++) {
@@ -1237,6 +1268,12 @@ static void rxs_rio_pc_clr_errs_resync_ackids(void **state)
 	uint32_t all_1 = 0xFFFFFFFF;
 	rio_port_t port;
 	uint32_t rc;
+
+	RXS_test_state_t *l_st = *(RXS_test_state_t **)state;
+
+	if (l_st->real_hw) {
+		return;
+	}
 
 	// Test on one port at a time.
 	for (port = 0; port < NUM_RXS_PORTS(&mock_dev_info); port++) {
@@ -1350,6 +1387,12 @@ static void rxs_rio_pc_secure_port_success(void **state)
 	uint32_t ctl_mask = RXS_SPX_CTL_MULT_CS;
 	uint32_t filt_mask = RXS_TLM_SPX_FTYPE_FILT_MTC;
 
+	RXS_test_state_t *l_st = *(RXS_test_state_t **)state;
+
+	if (l_st->real_hw) {
+		return;
+	}
+
 	// Test on one port at a time.
 	for (port = 0; port < NUM_RXS_PORTS(&mock_dev_info); port++) {
 		// Power up the port
@@ -1448,6 +1491,12 @@ static void rxs_rio_pc_secure_port_rst_cfg(void **state)
 	uint32_t exp_plm_ctl = 0;
 	uint32_t exp_em_int = 0;
 	uint32_t exp_em_pw = 0;
+
+	RXS_test_state_t *l_st = *(RXS_test_state_t **)state;
+
+	if (l_st->real_hw) {
+		return;
+	}
 
 	// Test on one port at a time.
 	// Change reset configuration based on port number
@@ -1564,6 +1613,12 @@ static void rxs_rio_pc_dev_reset_config_rst_cfg(void **state)
 	uint32_t exp_em_int;
 	uint32_t exp_em_pw;
 	rio_pc_rst_handling rst;
+
+	RXS_test_state_t *l_st = *(RXS_test_state_t **)state;
+
+	if (l_st->real_hw) {
+		return;
+	}
 
 	// Power up all ports
 	for (port = 0; port < NUM_RXS_PORTS(&mock_dev_info); port++) {
@@ -1709,6 +1764,8 @@ static void rxs_rio_pc_set_config_check_parms_test(void **state)
 	pc_out.imp_rc = RIO_SUCCESS;
 
 	pc_in.pc[0].pnum = 4;
+	pc_in.pc[0].port_available = true;
+	pc_in.pc[0].powered_up = true;
         pc_in.pc[0].pw = rio_pc_pw_last;
 	pc_out.imp_rc = RIO_SUCCESS;
 
@@ -1834,6 +1891,11 @@ static void rxs_rio_pc_set_config_check_conflicts_test(void **state)
 {
 	rio_pc_set_config_in_t pc_in;
 	rio_pc_set_config_out_t pc_out;
+	RXS_test_state_t *l_st = *(RXS_test_state_t **)state;
+
+	if (l_st->real_hw) {
+		return;
+	}
 
 	// Setup for illegal port configuration test...
 	// Port 0 - 2x
@@ -2053,6 +2115,12 @@ static void rxs_rio_pc_set_config_success_two_2x_test(void **state)
 	const unsigned int num_pws = sizeof(twox_pws) / sizeof (twox_pws[0]);
 	unsigned int i, j;
 	uint32_t rc;
+
+	RXS_test_state_t *l_st = *(RXS_test_state_t **)state;
+
+	if (l_st->real_hw) {
+		return;
+	}
 
 	// Check all legal configurations of two 2x wide ports.
 	// Port 0 - 2x
@@ -2306,6 +2374,12 @@ static void rxs_rio_pc_set_config_success_one_4x_test(void **state)
 	rio_pc_set_config_out_t pc_out;
 	unsigned int i, j;
 	uint32_t rc;
+
+	RXS_test_state_t *l_st = *(RXS_test_state_t **)state;
+
+	if (l_st->real_hw) {
+		return;
+	}
 
 	// Check all legal configurations of one 4x wide port.
 	set_all_port_config(cfg_perfect, NO_TTL, NO_FILT, 0);

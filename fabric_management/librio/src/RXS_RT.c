@@ -250,7 +250,7 @@ static uint32_t rxs_program_mc_masks(DAR_DEV_INFO_t *dev_info,
 	uint32_t idx;
 	uint32_t set_base_addr, clr_base_addr, mask_mask;
 	rio_port_t port = in_parms->set_on_port;
-	bool read_reg = true;
+	bool broadcast = false;
 
 	switch (DEV_CODE(dev_info)) {
 	case RIO_DEVI_IDT_RXS2448:
@@ -266,7 +266,9 @@ static uint32_t rxs_program_mc_masks(DAR_DEV_INFO_t *dev_info,
 	}
 
 	if (RIO_ALL_PORTS == port) {
-		read_reg = false;
+		// Must set all bits on broadcast, as it is not certain
+		// what ports have what bits set or cleared.
+		broadcast = true;
 		set_base_addr = RXS_BC_MC_X_S_CSR(0);
 		clr_base_addr = RXS_BC_MC_X_C_CSR(0);
 	} else {
@@ -291,15 +293,13 @@ static uint32_t rxs_program_mc_masks(DAR_DEV_INFO_t *dev_info,
 			goto exit;
 		}
 
-		if (read_reg) {
+		if (!broadcast) {
 			rc = DARRegRead(dev_info,
 				MC_MASK_ADDR(set_base_addr, idx), &curr_msk);
 			if (RIO_SUCCESS != rc) {
 				*imp_rc = RXS_PROGRAM_MC_MASKS(0xf);
 				goto exit;
 			}
-		} else {
-			curr_msk = 0;
 		}
 
 		// If there are bits to set, set them.
@@ -311,6 +311,9 @@ static uint32_t rxs_program_mc_masks(DAR_DEV_INFO_t *dev_info,
 				*imp_rc = RXS_PROGRAM_MC_MASKS(0x10);
 				goto exit;
 			}
+		}
+		if (broadcast) {
+			curr_msk = mask_mask;
 		}
 		// If there are bits to clear, clear them
 		chg_bits = curr_msk & ~mc_mask & mask_mask;

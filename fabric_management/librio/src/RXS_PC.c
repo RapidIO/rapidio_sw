@@ -275,10 +275,9 @@ void determine_ls(rio_pc_ls_t *ls, uint32_t ctl2)
 		if (!(rxs_ls_check[idx].ls_sup & ctl2)) {
 			continue;
 		}
-		// If speed is not enabled, programming error!
+		// If speed is not enabled, continue
 		if (!(rxs_ls_check[idx].ls_en & ctl2)) {
-			*ls = rio_pc_ls_last;
-			break;
+			continue;
 		}
 		// More than one speed supported & enabled,
 		// programming error!
@@ -572,15 +571,21 @@ uint32_t rxs_pc_set_cfg_check_parms(DAR_DEV_INFO_t *dev_info,
 		memcpy(&sorted->pc[port], &in_parms->pc[idx],
 							sizeof(sorted->pc[0]));
 
+		if (!sorted->pc[port].port_available) {
+			continue;
+		}
+
+		if (!sorted->pc[port].powered_up) {
+			continue;
+		}
+
 		if (rio_pc_pw_last <= sorted->pc[port].pw) {
 			*imp_rc = PC_SET_CONFIG(0x05);
 			goto fail;
 		}
 
-		if ((port & 1)
-				&& ((rio_pc_pw_4x == sorted->pc[port].pw)
-						|| (rio_pc_pw_1x_l2
-								== sorted->pc[port].pw))) {
+		if ((port & 1) && ((rio_pc_pw_4x == sorted->pc[port].pw)
+				|| (rio_pc_pw_1x_l2 == sorted->pc[port].pw))) {
 			*imp_rc = PC_SET_CONFIG(0x07);
 			goto fail;
 		}
