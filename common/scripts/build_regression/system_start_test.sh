@@ -106,7 +106,7 @@ do
         OK=0
     fi
 
-    echo "Checking for $RRMAP_PATH on $node" |& tee -a $LOG_DIR/02_install-files.txt
+    echo "Checking for $RRMAP_PATH on $node" |& tee -a $LOG_DIR/02_check-files.txt
     ssh "$MY_USERID"@"$node" [ ! -e $RRMAP_PATH ]
     if [ $? -eq 0 ]; then
         echo "  $RRMAP_PATH does not exist on $node" |& tee -a $LOG_DIR/02_check-files.txt
