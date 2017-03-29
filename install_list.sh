@@ -8,6 +8,7 @@ LOCAL_SOURCE_ROOT="$(pwd)"
 SCRIPTS_PATH=$LOCAL_SOURCE_ROOT/install
 
 NODEDATA_FILE="nodeData.txt"
+TMP_NODEDATA_FILE=/tmp/$$_$NODEDATA_FILE
 SRC_TAR="rapidio_sw.tar"
 TMPL_FILE="config.tmpl"
 
@@ -30,6 +31,11 @@ else
     ALLNODES=();
     # format of input file: <master|slave> <hostname> <rioname> <nodenumber>
     while read -r line || [[ -n "$line" ]]; do
+        # allow empty lines
+        if [ -z "$line" ]; then
+            continue;
+        fi
+
         arr=($line)
         host="${arr[1]}"
         if [ "${arr[0]}" = 'master' ]; then
@@ -40,6 +46,7 @@ else
             MASTER=$host
         fi
         ALLNODES+=("$host")
+        echo $line >> $TMP_NODEDATA_FILE
     done < "$2"
 
     if [ -z "$MASTER" ]; then
@@ -49,6 +56,7 @@ else
 
     if [ $OK -eq 0 ]; then
         echo "Errors in nodeData file $2, exiting..."
+        rm -rf $TMP_NODEDATA_FILE &> /dev/null
         exit
     fi
 
@@ -97,6 +105,7 @@ if [ $PRINTHELP = 1 ] ; then
     echo "         the RapidIO software"
     echo "<rel>    The software release/version to install."
     echo "         If no release is supplied, the current release is installed."
+    rm -rf $TMP_NODEDATA_FILE &> /dev/null
     exit
 fi
 
@@ -129,6 +138,7 @@ done
 
 if [ $OK -eq 0 ]; then
     echo "\nCould not connect to all nodes, exiting..."
+    rm -rf $TMP_NODEDATA_FILE &> /dev/null
     exit
 fi
 
@@ -141,7 +151,7 @@ rm -rf $TMP_DIR;mkdir -p $TMP_DIR
 
 # Copy nodeData.txt
 #
-cp $2 $TMP_DIR/$NODEDATA_FILE
+mv $TMP_NODEDATA_FILE $TMP_DIR/$NODEDATA_FILE
 
 # Create the source.tar
 #
