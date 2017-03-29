@@ -37,6 +37,11 @@ else
         fi
 
         arr=($line)
+        if [ ${#arr[@]} -lt 4 ]; then
+            echo "Incorrect line format ($line) in $2"
+            OK=0
+        fi
+
         host="${arr[1]}"
         if [ "${arr[0]}" = 'master' ]; then
             if [ -n "$MASTER" ]; then
