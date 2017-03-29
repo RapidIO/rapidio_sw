@@ -1109,9 +1109,9 @@ int riomp_mgmt_device_add(riomp_mport_t mport_handle, did_val_t did_val,
 		return -EINVAL;
 	}
 
+	memset(&dev, 0, sizeof(dev));
 	dev.destid = did_val;
 	dev.hopcount = hc;
-	dev.pad0 = 0;
 	dev.comptag = ct;
 	if (name) {
 		SAFE_STRNCPY(dev.name, name, sizeof(dev.name));
@@ -1138,9 +1138,9 @@ int riomp_mgmt_device_del(riomp_mport_t mport_handle, did_val_t did_val,
 		return -EINVAL;
 	}
 
+	memset(&dev, 0, sizeof(dev));
 	dev.destid = did_val;
 	dev.hopcount = hc;
-	dev.pad0 = 0;
 	dev.comptag = ct;
 	if (name) {
 		SAFE_STRNCPY(dev.name, name, sizeof(dev.name));
