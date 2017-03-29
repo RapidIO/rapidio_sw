@@ -119,7 +119,7 @@ if [ $? -ne 0 ]; then
 fi
 
 # Uses error codes 80-109
-mkdir -p $LOG_DIR/file_xfer
+mkdir -p $LOG_DIR/fxfr
 . ./fxfr_test.sh $BT_ARG_NDATA |& tee $LOG_DIR/fxfr/00_all.txt
 if [ $? -ne 0 ]; then
     echo "File transfer test failed"
