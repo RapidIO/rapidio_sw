@@ -127,136 +127,43 @@ if [ $OK -eq 0 ]; then
     exit 44
 fi
 
-# Start/Stop the processes
 OK=1
-touch $LOG_DIR/03_start-stop.txt
-echo "Start/Stop the processes"
-for node in ${ALLNODES[@]}
-do
-    for ((i=1;i<=$MAX_ITERATIONS;i++))
-    do
-        echo "Iteration $i" |& tee -a $LOG_DIR/03_start-stop.txt
-
-        echo "Starting $FMD_NAME on $node" |& tee -a $LOG_DIR/03_start-stop.txt
-        ssh "$MY_USERID"@"$node" screen -dmS $FMD_PROC $FMD_PATH
-        sleep $LONG_SLEEP_INTERVAL
-
-        echo "Starting $RRMAP_NAME on $node" |& tee -a $LOG_DIR/03_start-stop.txt
-        ssh "$MY_USERID"@"$node" screen -dmS $RRMAP_PROC $RRMAP_PATH
-        sleep $LONG_SLEEP_INTERVAL
-
-        echo "Starting $GOODPUT_NAME on $node" |& tee -a $LOG_DIR/03_start-stop.txt
-        ssh "$MY_USERID"@"$node" screen -dmS $GOODPUT_PROC $GOODPUT_PATH
-        sleep $SLEEP_INTERVAL
-
-        echo "Checking $FMD_NAME on $node" |& tee -a $LOG_DIR/03_start-stop.txt
-        tmp=$(ssh "$MY_USERID"@"$node" pgrep -x $FMD_PROC)
-        if [ $? -ne 0 ]; then
-            echo "$FMD_NAME not started on $node" |& tee -a $LOG_DIR/03_start-stop.txt
-            OK=0
-        fi
-
-        echo "Checking $RRMAP_NAME on $node" |& tee -a $LOG_DIR/03_start-stop.txt
-        tmp=$(ssh "$MY_USERID"@"$node" pgrep -x $RRMAP_PROC)
-        if [ $? -ne 0 ]; then
-            echo "$RRMAP_NAME not started on $node" |& tee -a $LOG_DIR/03_start-stop.txt
-            OK=0
-        fi
-
-        echo "Checking $GOODPUT_NAME on $node" |& tee -a $LOG_DIR/03_start-stop.txt
-        tmp=$(ssh "$MY_USERID"@"$node" pgrep -x $GOODPUT_PROC)
-        if [ $? -ne 0 ]; then
-            echo "$GOODPUT_NAME not started on $node" |& tee -a $LOG_DIR/03_start-stop.txt
-            OK=0
-        fi
-
-        echo "Stopping $GOODPUT_NAME on $node" |& tee -a $LOG_DIR/03_start-stop.txt
-        ssh -tt "$MY_USERID"@"$node" <<- EOF &> /dev/null
-            screen -r $GOODPUT_PROC -X stuff "quit\r"
-            sleep $SLEEP_INTERVAL
-            exit
-EOF
-
-        echo "Stopping $RRMAP_NAME on $node" |& tee -a $LOG_DIR/03_start-stop.txt
-        ssh -tt "$MY_USERID"@"$node" <<- EOF &> /dev/null
-            screen -r $RRMAP_PROC -X stuff "quit\r"
-            sleep $LONG_SLEEP_INTERVAL
-            exit
-EOF
-
-        echo "Stopping $FMD_NAME on $node" |& tee -a $LOG_DIR/03_start-stop.txt
-        ssh -tt "$MY_USERID"@"$node" <<- EOF &> /dev/null
-            screen -r $FMD_PROC -X stuff "quit\r"
-            sleep $LONG_SLEEP_INTERVAL
-            exit
-EOF
-
-        echo "Verifying $GOODPUT_NAME stopped on $node" |& tee -a $LOG_DIR/03_start-stop.txt
-        tmp=$(ssh "$MY_USERID"@"$node" pgrep -x $GOODPUT_PROC)
-        if [ $? -eq 0 ]; then
-            echo "$GOODPUT_NAME killed but still alive with PID=$tmp" |& tee -a $LOG_DIR/03_start-stop.txt
-            OK=0
-        fi
-
-        echo "Verifying $RRMAP_NAME stopped on $node" |& tee -a $LOG_DIR/03_start-stop.txt
-        tmp=$(ssh "$MY_USERID"@"$node" pgrep -x $RRMAP_PROC)
-        if [ $? -eq 0 ]; then
-            echo "$RRMAP_NAME killed but still alive with PID=$tmp" |& tee -a $LOG_DIR/03_start-stop.txt
-            OK=0
-        fi
-
-        echo "Verifying $FMD_NAME stopped on $node" |& tee -a $LOG_DIR/03_start-stop.txt
-        tmp=$(ssh "$MY_USERID"@"$node" pgrep -x $FMD_PROC)
-        if [ $? -eq 0 ]; then
-            echo "$FMD_NAME killed but still alive with PID=$tmp" |& tee -a $LOG_DIR/03_start-stop.txt
-            OK=0
-        fi
-
-        if [ $OK -eq 0 ]; then
-            echo "[${BASH_SOURCE[0]}:${LINENO}]"
-            exit 45
-        fi
-        echo ""
-    done
-done
-
-OK=1
-touch $LOG_DIR/04_check-master.txt
+touch $LOG_DIR/03_check-master.txt
 # verify that all_start exists
 ssh "$MY_USERID"@"$MASTER" [ ! -e $INSTALL_ROOT/all_start.sh ]
 if [ $? -eq 0 ]; then
-    echo "File $INSTALL_ROOT/all_start.sh does not exist" |& tee -a $LOG_DIR/04_check-master.txt
+    echo "File $INSTALL_ROOT/all_start.sh does not exist" |& tee -a $LOG_DIR/03_check-master.txt
     OK=0
 fi
 
 # Verify stop_all exists
 ssh "$MY_USERID"@"$MASTER" [ ! -e $INSTALL_ROOT/stop_all.sh ]
 if [ $? -eq 0 ]; then
-    echo "File $INSTALL_ROOT/stop_all.sh does not exist"  |& tee -a $LOG_DIR/04_check-master.txt
+    echo "File $INSTALL_ROOT/stop_all.sh does not exist"  |& tee -a $LOG_DIR/03_check-master.txt
     OK=0
 fi
 
 # Verify check script exists
 ssh "$MY_USERID"@"$MASTER" [ ! -e $INSTALL_ROOT/check_all.sh ]
 if [ $? -eq 0 ]; then
-    echo "File $INSTALL_ROOT/check_all.sh does not exist"  |& tee -a $LOG_DIR/04_check-master.txt
+    echo "File $INSTALL_ROOT/check_all.sh does not exist"  |& tee -a $LOG_DIR/03_check-master.txt
     OK=0
 fi
 
 echo ""
 if [ $OK -eq 0 ]; then
     echo "[${BASH_SOURCE[0]}:${LINENO}]"
-    exit 46
+    exit 45
 fi
 
 # Verify all_start, check_all, stop_all
 
 OK=1
 echo "Verify nothing running"
-ssh "$MY_USERID"@"$MASTER" $INSTALL_ROOT/check_all.sh |& tee $LOG_DIR/05_pre-check.txt
-tmp=`grep FMD $LOG_DIR/05_pre-check.txt | grep NOT | wc -l`
+ssh "$MY_USERID"@"$MASTER" $INSTALL_ROOT/check_all.sh |& tee $LOG_DIR/04_pre-check.txt
+tmp=`grep FMD $LOG_DIR/04_pre-check.txt | grep NOT | wc -l`
 if [ $tmp -ne  ${#ALLNODES[@]} ]; then
-    echo "Processes still running, check log file  $LOG_DIR/05_pre-check.txt"
+    echo "Processes still running, check log file  $LOG_DIR/04_pre-check.txt"
     OK=0
 fi
 
@@ -272,11 +179,11 @@ done
 
 if [ $OK -eq 0 ]; then
     echo "[${BASH_SOURCE[0]}:${LINENO}]"
-    exit 47
+    exit 46
 fi
 
 echo "Starting processes"
-ssh "$MY_USERID"@"$MASTER" $INSTALL_ROOT/all_start.sh |& tee $LOG_DIR/06_start-processes.txt
+ssh "$MY_USERID"@"$MASTER" $INSTALL_ROOT/all_start.sh |& tee $LOG_DIR/05_start-processes.txt
 sleep $SLEEP_INTERVAL
 
 echo "Checking processes"
@@ -302,7 +209,7 @@ done
 
 if [ $OK -eq 0 ]; then
     echo "[${BASH_SOURCE[0]}:${LINENO}]"
-    exit 48
+    exit 47
 fi
 
 # Stop them
@@ -313,7 +220,7 @@ sleep $SLEEP_INTERVAL
 echo "Checking processes"
 ssh "$MY_USERID"@"$MASTER" $INSTALL_ROOT/check_all.sh |& tee $LOG_DIR/08_post-check.txt
 
-# Verify everything is started
+# Verify everything is stopped
 OK=1
 tmp=`grep FMD $LOG_DIR/08_post-check.txt | grep NOT | wc -l`
 if [ $tmp -ne ${#ALLNODES[@]} ]; then
@@ -333,8 +240,101 @@ done
 
 if [ $OK -eq 0 ]; then
     echo "[${BASH_SOURCE[0]}:${LINENO}]"
-    exit 49
+    exit 48
 fi
+
+# Start/Stop the processes
+OK=1
+touch $LOG_DIR/09_start-stop.txt
+echo "Start/Stop the processes"
+for node in ${ALLNODES[@]}
+do
+    for ((i=1;i<=$MAX_ITERATIONS;i++))
+    do
+        echo "Iteration $i" |& tee -a $LOG_DIR/09_start-stop.txt
+
+        echo "Starting $FMD_NAME on $node" |& tee -a $LOG_DIR/09_start-stop.txt
+        ssh "$MY_USERID"@"$node" screen -dmS $FMD_PROC $FMD_PATH
+        sleep $LONG_SLEEP_INTERVAL
+
+        echo "Starting $RRMAP_NAME on $node" |& tee -a $LOG_DIR/09_start-stop.txt
+        ssh "$MY_USERID"@"$node" screen -dmS $RRMAP_PROC $RRMAP_PATH
+        sleep $LONG_SLEEP_INTERVAL
+
+        echo "Starting $GOODPUT_NAME on $node" |& tee -a $LOG_DIR/09_start-stop.txt
+        ssh "$MY_USERID"@"$node" screen -dmS $GOODPUT_PROC $GOODPUT_PATH
+        sleep $SLEEP_INTERVAL
+
+        echo "Checking $FMD_NAME on $node" |& tee -a $LOG_DIR/09_start-stop.txt
+        tmp=$(ssh "$MY_USERID"@"$node" pgrep -x $FMD_PROC)
+        if [ $? -ne 0 ]; then
+            echo "$FMD_NAME not started on $node" |& tee -a $LOG_DIR/09_start-stop.txt
+            OK=0
+        fi
+
+        echo "Checking $RRMAP_NAME on $node" |& tee -a $LOG_DIR/09_start-stop.txt
+        tmp=$(ssh "$MY_USERID"@"$node" pgrep -x $RRMAP_PROC)
+        if [ $? -ne 0 ]; then
+            echo "$RRMAP_NAME not started on $node" |& tee -a $LOG_DIR/09_start-stop.txt
+            OK=0
+        fi
+
+        echo "Checking $GOODPUT_NAME on $node" |& tee -a $LOG_DIR/09_start-stop.txt
+        tmp=$(ssh "$MY_USERID"@"$node" pgrep -x $GOODPUT_PROC)
+        if [ $? -ne 0 ]; then
+            echo "$GOODPUT_NAME not started on $node" |& tee -a $LOG_DIR/09_start-stop.txt
+            OK=0
+        fi
+
+        echo "Stopping $GOODPUT_NAME on $node" |& tee -a $LOG_DIR/09_start-stop.txt
+        ssh -tt "$MY_USERID"@"$node" <<- EOF &> /dev/null
+            screen -r $GOODPUT_PROC -X stuff "quit\r"
+            sleep $SLEEP_INTERVAL
+            exit
+EOF
+
+        echo "Stopping $RRMAP_NAME on $node" |& tee -a $LOG_DIR/09_start-stop.txt
+        ssh -tt "$MY_USERID"@"$node" <<- EOF &> /dev/null
+            screen -r $RRMAP_PROC -X stuff "quit\r"
+            sleep $LONG_SLEEP_INTERVAL
+            exit
+EOF
+
+        echo "Stopping $FMD_NAME on $node" |& tee -a $LOG_DIR/09_start-stop.txt
+        ssh -tt "$MY_USERID"@"$node" <<- EOF &> /dev/null
+            screen -r $FMD_PROC -X stuff "quit\r"
+            sleep $LONG_SLEEP_INTERVAL
+            exit
+EOF
+
+        echo "Verifying $GOODPUT_NAME stopped on $node" |& tee -a $LOG_DIR/09_start-stop.txt
+        tmp=$(ssh "$MY_USERID"@"$node" pgrep -x $GOODPUT_PROC)
+        if [ $? -eq 0 ]; then
+            echo "$GOODPUT_NAME killed but still alive with PID=$tmp" |& tee -a $LOG_DIR/09_start-stop.txt
+            OK=0
+        fi
+
+        echo "Verifying $RRMAP_NAME stopped on $node" |& tee -a $LOG_DIR/09_start-stop.txt
+        tmp=$(ssh "$MY_USERID"@"$node" pgrep -x $RRMAP_PROC)
+        if [ $? -eq 0 ]; then
+            echo "$RRMAP_NAME killed but still alive with PID=$tmp" |& tee -a $LOG_DIR/09_start-stop.txt
+            OK=0
+        fi
+
+        echo "Verifying $FMD_NAME stopped on $node" |& tee -a $LOG_DIR/09_start-stop.txt
+        tmp=$(ssh "$MY_USERID"@"$node" pgrep -x $FMD_PROC)
+        if [ $? -eq 0 ]; then
+            echo "$FMD_NAME killed but still alive with PID=$tmp" |& tee -a $LOG_DIR/09_start-stop.txt
+            OK=0
+        fi
+
+        if [ $OK -eq 0 ]; then
+            echo "[${BASH_SOURCE[0]}:${LINENO}]"
+            exit 49
+        fi
+        echo ""
+    done
+done
 
 echo ""
 echo "$PGM_NAME complete"
