@@ -304,21 +304,21 @@ if [ $OK -eq 0 ]; then
 fi
 
 OK=1
-echo "Verifying all_start.sh exists on $MASTER" |& tee -a $LOG_DIR/08_install-check.txt
+echo "Verifying $INSTALL_ROOT/all_start.sh exists on $MASTER" |& tee -a $LOG_DIR/08_install-check.txt
 ssh "$MY_USERID"@"$MASTER" [ ! -e $INSTALL_ROOT/all_start.sh ]
 if [ $? -eq 0 ]; then
     echo "File $INSTALL_ROOT/all_start.sh does not exist"  |& tee -a $LOG_DIR/08_install-check.txt
     OK=0
 fi
 
-echo "Verifying stop_all.sh exists on $MASTER" |& tee -a $LOG_DIR/08_install-check.txt
+echo "Verifying $INSTALL_ROOT/stop_all.sh exists on $MASTER" |& tee -a $LOG_DIR/08_install-check.txt
 ssh "$MY_USERID"@"$MASTER" [ ! -e $INSTALL_ROOT/stop_all.sh ]
 if [ $? -eq 0 ]; then
     echo "File $INSTALL_ROOT/stop_all.sh does not exist" |& tee -a $LOG_DIR/08_install-check.txt
     OK=0
 fi
 
-echo "Verifying check_all.sh exists on $MASTER" |& tee -a $LOG_DIR/08_install-check.txt
+echo "Verifying $INSTALL_ROOT/check_all.sh exists on $MASTER" |& tee -a $LOG_DIR/08_install-check.txt
 ssh "$MY_USERID"@"$MASTER" [ ! -e $INSTALL_ROOT/check_all.sh ]
 if [ $? -eq 0 ]; then
     echo "File $INSTALL_ROOT/check_all.sh does not exist" |& tee -a $LOG_DIR/08_install-check.txt

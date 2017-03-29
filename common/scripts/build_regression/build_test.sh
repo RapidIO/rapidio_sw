@@ -84,8 +84,9 @@ fi
 
 # Uses error codes 140-159
 mkdir -p $LOG_DIR/compile
-. ./compile_test.sh $BT_ARG_SERVER $BT_ARG_NDATA &> $LOG_DIR/compile/000_all.txt
-if [ $? -ne 0 ]; then
+. ./compile_test.sh $BT_ARG_SERVER $BT_ARG_NDATA |& tee $LOG_DIR/compile/000_all.txt
+tmp=`grep "compile_test.sh complete" $LOG_DIR/compile/000_all.txt | wc -l`
+if [ $tmp -ne 1 ]; then
     echo "Compile test failed"
     echo "[${BASH_SOURCE[0]}:${LINENO}]"
     exit 4
@@ -94,7 +95,8 @@ fi
 # Uses error codes 20-39
 mkdir -p $LOG_DIR/install
 . ./install_test.sh $BT_ARG_SERVER $BT_ARG_NDATA $BT_ARG_MEMSZ $BT_ARG_SW $BT_ARG_GRP $BT_ARG_REL |& tee $LOG_DIR/install/00_all.txt
-if [ $? -ne 0 ]; then
+tmp=`grep "install_test.sh complete" $LOG_DIR/install/00_all.txt | wc -l`
+if [ $tmp -ne 1 ]; then
     echo "Basic installation failed"
     echo "[${BASH_SOURCE[0]}:${LINENO}]"
     exit 5
@@ -102,8 +104,9 @@ fi
 
 # Uses error codes 40-49
 mkdir -p $LOG_DIR/system
-. ./system_start_test.sh $BT_ARG_NDATA &> tee $LOG_DIR/system/00_all.txt
-if [ $? -ne 0 ]; then
+. ./system_start_test.sh $BT_ARG_NDATA |& tee $LOG_DIR/system/00_all.txt
+tmp=`grep "system_test.sh complete" $LOG_DIR/system/00_all.txt | wc -l`
+if [ $tmp -ne 1 ]; then
     echo "System start test failed"
     echo "[${BASH_SOURCE[0]}:${LINENO}]"
     exit 6
@@ -111,8 +114,9 @@ fi
 
 # Uses error codes 50-79
 mkdir -p $LOG_DIR/fmd
-. ./fmd_test.sh $BT_ARG_NDATA &> tee $LOG_DIR/fmd/00_all.txt
-if [ $? -ne 0 ]; then
+. ./fmd_test.sh $BT_ARG_NDATA |& tee $LOG_DIR/fmd/00_all.txt
+tmp=`grep "fmd_test.sh complete" $LOG_DIR/fmd/00_all.txt | wc -l`
+if [ $tmp -ne 1 ]; then
     echo "FMD test failed"
     echo "[${BASH_SOURCE[0]}:${LINENO}]"
     exit 7
@@ -120,8 +124,9 @@ fi
 
 # Uses error codes 80-109
 mkdir -p $LOG_DIR/fxfr
-. ./fxfr_test.sh $BT_ARG_NDATA &> tee $LOG_DIR/fxfr/00_all.txt
-if [ $? -ne 0 ]; then
+. ./fxfr_test.sh $BT_ARG_NDATA |& tee $LOG_DIR/fxfr/00_all.txt
+tmp=`grep "fxfr_test.sh complete" $LOG_DIR/fxfr/00_all.txt | wc -l`
+if [ $tmp -ne 1 ]; then
     echo "File transfer test failed"
     echo "[${BASH_SOURCE[0]}:${LINENO}]"
     exit 8
@@ -129,8 +134,9 @@ fi
 
 # Uses error codes 110-139
 mkdir -p $LOG_DIR/goodput
-. ./goodput_test.sh $BT_ARG_NDATA &> tee $LOG_DIR/goodput/00_all.txt
-if [ $? -ne 0 ]; then
+. ./goodput_test.sh $BT_ARG_NDATA |& tee $LOG_DIR/goodput/00_all.txt
+tmp=`grep "goodput_test.sh complete" $LOG_DIR/goodput/00_all.txt | wc -l`
+if [ $tmp -ne 1 ]; then
     echo "Goodput test failed"
     echo "[${BASH_SOURCE[0]}:${LINENO}]"
     exit 9

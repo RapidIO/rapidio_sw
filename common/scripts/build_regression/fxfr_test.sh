@@ -106,14 +106,14 @@ if [ $? -eq 0 ]; then
     OK=0
 fi
 
-echo "Checking for create_file.sh on $MASTER" |& tee -a $LOG_DIR/02_check-files.txt
+echo "Checking for $FXFR_ROOT/create_file.sh on $MASTER" |& tee -a $LOG_DIR/02_check-files.txt
 ssh "$MY_USERID"@"$MASTER" [ ! -e $FXFR_ROOT/create_file.sh ]
 if [ $? -eq 0 ]; then
     echo " $FXFR_ROOT/create_file.sh does not exist on $MASTER" |& tee -a $LOG_DIR/02_check-files.txt
     OK=0
 fi
 
-echo "Checking for test.sh on $CLIENT" |& tee -a $LOG_DIR/02_check-files.txt
+echo "Checking for $FXFR_ROOT/test.sh on $CLIENT" |& tee -a $LOG_DIR/02_check-files.txt
 ssh "$MY_USERID"@"$CLIENT" [ ! -e $FXFR_ROOT/test.sh ]
 if [ $? -eq 0 ]; then
     echo "File $FXFR_ROOT/test.sh does not exist" |& tee -a $LOG_DIR/02_check-files.txt

@@ -129,21 +129,21 @@ fi
 
 OK=1
 touch $LOG_DIR/03_check-master.txt
-# verify that all_start exists
+echo "Checking for $INSTALL_ROOT/all_start.sh on $MASTER" |& tee -a $LOG_DIR/03_check-master.txt
 ssh "$MY_USERID"@"$MASTER" [ ! -e $INSTALL_ROOT/all_start.sh ]
 if [ $? -eq 0 ]; then
     echo "File $INSTALL_ROOT/all_start.sh does not exist" |& tee -a $LOG_DIR/03_check-master.txt
     OK=0
 fi
 
-# Verify stop_all exists
+echo "Checking for $INSTALL_ROOT/stop_all.sh on $MASTER" |& tee -a $LOG_DIR/03_check-master.txt
 ssh "$MY_USERID"@"$MASTER" [ ! -e $INSTALL_ROOT/stop_all.sh ]
 if [ $? -eq 0 ]; then
     echo "File $INSTALL_ROOT/stop_all.sh does not exist"  |& tee -a $LOG_DIR/03_check-master.txt
     OK=0
 fi
 
-# Verify check script exists
+echo "Checking for $INSTALL_ROOT/check_all.sh on $MASTER" |& tee -a $LOG_DIR/03_check-master.txt
 ssh "$MY_USERID"@"$MASTER" [ ! -e $INSTALL_ROOT/check_all.sh ]
 if [ $? -eq 0 ]; then
     echo "File $INSTALL_ROOT/check_all.sh does not exist"  |& tee -a $LOG_DIR/03_check-master.txt
@@ -186,6 +186,7 @@ echo "Starting processes"
 ssh "$MY_USERID"@"$MASTER" $INSTALL_ROOT/all_start.sh |& tee $LOG_DIR/05_start-processes.txt
 sleep $SLEEP_INTERVAL
 
+echo ""
 echo "Checking processes"
 ssh "$MY_USERID"@"$MASTER" $INSTALL_ROOT/check_all.sh |& tee $LOG_DIR/06_post-check.txt
 
@@ -213,10 +214,12 @@ if [ $OK -eq 0 ]; then
 fi
 
 # Stop them
+echo ""
 echo "Stopping processes"
 ssh "$MY_USERID"@"$MASTER" $INSTALL_ROOT/stop_all.sh |& tee $LOG_DIR/07_stop-processes.txt
 sleep $SLEEP_INTERVAL
 
+echo ""
 echo "Checking processes"
 ssh "$MY_USERID"@"$MASTER" $INSTALL_ROOT/check_all.sh |& tee $LOG_DIR/08_post-check.txt
 
@@ -246,6 +249,7 @@ fi
 # Start/Stop the processes
 OK=1
 touch $LOG_DIR/09_start-stop.txt
+echo ""
 echo "Start/Stop the processes"
 for node in ${ALLNODES[@]}
 do

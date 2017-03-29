@@ -111,21 +111,21 @@ if [ $? -eq 0 ]; then
     OK=0
 fi
 
-echo "Checking for all_start.sh on $MASTER" |& tee -a $LOG_DIR/02_check-files.txt
+echo "Checking for $INSTALL_ROOT/all_start.sh on $MASTER" |& tee -a $LOG_DIR/02_check-files.txt
 ssh "$MY_USERID"@"$MASTER" [ ! -e $INSTALL_ROOT/all_start.sh ]
 if [ $? -eq 0 ]; then
     echo "File $INSTALL_ROOT/all_start.sh does not exist" |& tee -a $LOG_DIR/02_check-files.txt
     OK=0
 fi
 
-echo "Checking for stop_all.sh on $MASTER" |& tee -a $LOG_DIR/02_check-files.txt
+echo "Checking for $INSTALL_ROOT/stop_all.sh on $MASTER" |& tee -a $LOG_DIR/02_check-files.txt
 ssh "$MY_USERID"@"$MASTER" [ ! -e $INSTALL_ROOT/stop_all.sh ]
 if [ $? -eq 0 ]; then
     echo "File $INSTALL_ROOT/stop_all.sh does not exist" |& tee -a $LOG_DIR/02_check-files.txt
     OK=0
 fi
 
-echo "Checking for check_all.sh on $MASTER" |& tee -a $LOG_DIR/02_check-files.txt
+echo "Checking for $INSTALL_ROOT/check_all.sh on $MASTER" |& tee -a $LOG_DIR/02_check-files.txt
 ssh "$MY_USERID"@"$MASTER" [ ! -e $INSTALL_ROOT/check_all.sh ]
 if [ $? -eq 0 ]; then
     echo "File $INSTALL_ROOT/check_all.sh does not exist" |& tee -a $LOG_DIR/02_check-files.txt
