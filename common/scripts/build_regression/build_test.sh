@@ -84,7 +84,7 @@ fi
 
 # Uses error codes 140-159
 mkdir -p $LOG_DIR/compile
-. ./compile_test.sh $BT_ARG_SERVER $BT_ARG_NDATA |& tee $LOG_DIR/compile/000_all.txt
+. ./compile_test.sh $BT_ARG_SERVER $BT_ARG_NDATA &> $LOG_DIR/compile/000_all.txt
 if [ $? -ne 0 ]; then
     echo "Compile test failed"
     echo "[${BASH_SOURCE[0]}:${LINENO}]"
@@ -102,7 +102,7 @@ fi
 
 # Uses error codes 40-49
 mkdir -p $LOG_DIR/system
-. ./system_start_test.sh $BT_ARG_NDATA |& tee $LOG_DIR/system/00_all.txt
+. ./system_start_test.sh $BT_ARG_NDATA &> tee $LOG_DIR/system/00_all.txt
 if [ $? -ne 0 ]; then
     echo "System start test failed"
     echo "[${BASH_SOURCE[0]}:${LINENO}]"
@@ -111,7 +111,7 @@ fi
 
 # Uses error codes 50-79
 mkdir -p $LOG_DIR/fmd
-. ./fmd_test.sh $BT_ARG_NDATA |& tee $LOG_DIR/fmd/00_all.txt
+. ./fmd_test.sh $BT_ARG_NDATA &> tee $LOG_DIR/fmd/00_all.txt
 if [ $? -ne 0 ]; then
     echo "FMD test failed"
     echo "[${BASH_SOURCE[0]}:${LINENO}]"
@@ -120,7 +120,7 @@ fi
 
 # Uses error codes 80-109
 mkdir -p $LOG_DIR/fxfr
-. ./fxfr_test.sh $BT_ARG_NDATA |& tee $LOG_DIR/fxfr/00_all.txt
+. ./fxfr_test.sh $BT_ARG_NDATA &> tee $LOG_DIR/fxfr/00_all.txt
 if [ $? -ne 0 ]; then
     echo "File transfer test failed"
     echo "[${BASH_SOURCE[0]}:${LINENO}]"
@@ -129,7 +129,7 @@ fi
 
 # Uses error codes 110-139
 mkdir -p $LOG_DIR/goodput
-. ./goodput_test.sh $BT_ARG_NDATA |& tee $LOG_DIR/goodput/00_all.txt
+. ./goodput_test.sh $BT_ARG_NDATA &> tee $LOG_DIR/goodput/00_all.txt
 if [ $? -ne 0 ]; then
     echo "Goodput test failed"
     echo "[${BASH_SOURCE[0]}:${LINENO}]"
