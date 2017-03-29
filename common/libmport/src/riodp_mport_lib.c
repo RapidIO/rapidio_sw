@@ -364,11 +364,12 @@ int riomp_dma_write(riomp_mport_t mport_handle, did_val_t did_val,
 		xfer.dssize = interleave->dssize;
 	}
 
+	tran.block = (uintptr_t)&xfer;
+	tran.count = 1;
 	tran.transfer_mode = RIO_TRANSFER_MODE_TRANSFER;
 	tran.sync = convert_directio_sync(sync);
 	tran.dir = RIO_TRANSFER_DIR_WRITE;
-	tran.count = 1;
-	tran.block = (uintptr_t)&xfer;
+	tran.pad0 = 0;
 
 	ret = ioctl(hnd->fd, RIO_TRANSFER, &tran);
 	return (ret < 0) ? -errno : ret;
@@ -412,11 +413,11 @@ int riomp_dma_write_d(riomp_mport_t mport_handle, did_val_t did_val,
 		xfer.dssize = interleave->dssize;
 	}
 
+	tran.block = (uintptr_t)&xfer;
+	tran.count = 1;
 	tran.transfer_mode = RIO_TRANSFER_MODE_TRANSFER;
 	tran.sync = convert_directio_sync(sync);
 	tran.dir = RIO_TRANSFER_DIR_WRITE;
-	tran.count = 1;
-	tran.block = (uintptr_t)&xfer;
 	tran.pad0 = 0;
 
 	ret = ioctl(hnd->fd, RIO_TRANSFER, &tran);
@@ -458,11 +459,12 @@ int riomp_dma_read(riomp_mport_t mport_handle, did_val_t did_val,
 		xfer.dssize = interleave->dssize;
 	}
 
+	tran.block = (uintptr_t)&xfer;
+	tran.count = 1;
 	tran.transfer_mode = RIO_TRANSFER_MODE_TRANSFER;
 	tran.sync = convert_directio_sync(sync);
 	tran.dir = RIO_TRANSFER_DIR_READ;
-	tran.count = 1;
-	tran.block = (uintptr_t)&xfer;
+	tran.pad0 = 0;
 
 	ret = ioctl(hnd->fd, RIO_TRANSFER, &tran);
 	return (ret < 0) ? -errno : ret;
@@ -503,11 +505,11 @@ int riomp_dma_read_d(riomp_mport_t mport_handle, did_val_t did_val,
 		xfer.dssize = interleave->dssize;
 	}
 
+	tran.block = (uintptr_t)&xfer;
+	tran.count = 1;
 	tran.transfer_mode = RIO_TRANSFER_MODE_TRANSFER;
 	tran.sync = convert_directio_sync(sync);
 	tran.dir = RIO_TRANSFER_DIR_READ;
-	tran.count = 1;
-	tran.block = (uintptr_t)&xfer;
 	tran.pad0 = 0;
 
 	ret = ioctl(hnd->fd, RIO_TRANSFER, &tran);
@@ -550,6 +552,7 @@ int riomp_dma_ibwin_map(riomp_mport_t mport_handle, uint64_t *rio_base,
 		return -EINVAL;
 	}
 
+	memset(&ib, 0, sizeof(ib));
 	ib.rio_addr = (*rio_base == RIOMP_MAP_ANY_ADDR ) ?
 			RIO_MAP_ANY_ADDR : *rio_base;
 	ib.length = size;
@@ -592,6 +595,7 @@ int riomp_dma_obwin_map(riomp_mport_t mport_handle, did_val_t did_val,
 		return -EINVAL;
 	}
 
+	memset(&ob, 0, sizeof(ob));
 	ob.rioid = did_val;
 	ob.rio_addr = rio_base;
 	ob.length = size;
@@ -632,6 +636,7 @@ int riomp_dma_dbuf_alloc(riomp_mport_t mport_handle, uint32_t size,
 	}
 
 	db.length = size;
+	db.dma_handle = 0;
 	db.address = (*handle == RIOMP_MAP_ANY_ADDR ) ?
 			RIO_MAP_ANY_ADDR : *handle;
 
@@ -747,6 +752,7 @@ int riomp_mgmt_lcfg_read(riomp_mport_t mport_handle, uint32_t offset,
 	// on a successfull return
 	*data = 0;
 
+	memset(&mt, 0, sizeof(mt));
 	mt.offset = offset;
 	mt.length = size;
 	mt.buffer = (uintptr_t)data;
@@ -771,6 +777,7 @@ int riomp_mgmt_lcfg_write(riomp_mport_t mport_handle, uint32_t offset,
 		return -EINVAL;
 	}
 
+	memset(&mt, 0, sizeof(mt));
 	mt.offset = offset;
 	mt.length = size;
 	mt.buffer = (uintptr_t)&data;
@@ -801,6 +808,7 @@ int riomp_mgmt_rcfg_read(riomp_mport_t mport_handle, did_val_t did_val,
 
 	mt.rioid = did_val;
 	mt.hopcount = hc;
+	memset(&mt.pad0, 0, sizeof(mt.pad0));
 	mt.offset = offset;
 	mt.length = size;
 	mt.buffer = (uintptr_t)data;
@@ -827,6 +835,7 @@ int riomp_mgmt_rcfg_write(riomp_mport_t mport_handle, did_val_t did_val,
 
 	mt.rioid = did_val;
 	mt.hopcount = hc;
+	memset(&mt.pad0, 0, sizeof(mt.pad0));
 	mt.offset = offset;
 	mt.length = size;
 	mt.buffer = (uintptr_t)&data;
@@ -853,6 +862,7 @@ int riomp_mgmt_dbrange_enable(riomp_mport_t mport_handle,
 	dbf.rioid = did_val;
 	dbf.low = start;
 	dbf.high = end;
+	dbf.pad0 = 0;
 
 	if (ioctl(hnd->fd, RIO_ENABLE_DOORBELL_RANGE, &dbf)) {
 		return -errno;
@@ -876,6 +886,7 @@ int riomp_mgmt_dbrange_disable(riomp_mport_t mport_handle,
 	dbf.rioid = did_val;
 	dbf.low = start;
 	dbf.high = end;
+	dbf.pad0 = 0;
 
 	if (ioctl(hnd->fd, RIO_DISABLE_DOORBELL_RANGE, &dbf)) {
 		return -errno;
@@ -899,6 +910,7 @@ int riomp_mgmt_pwrange_enable(riomp_mport_t mport_handle, uint32_t mask,
 	pwf.mask = mask;
 	pwf.low = low;
 	pwf.high = high;
+	pwf.pad0 = 0;
 
 	if (ioctl(hnd->fd, RIO_ENABLE_PORTWRITE_RANGE, &pwf)) {
 		return -errno;
@@ -922,6 +934,7 @@ int riomp_mgmt_pwrange_disable(riomp_mport_t mport_handle, uint32_t mask,
 	pwf.mask = mask;
 	pwf.low = low;
 	pwf.high = high;
+	pwf.pad0 = 0;
 
 	if (ioctl(hnd->fd, RIO_DISABLE_PORTWRITE_RANGE, &pwf)) {
 		return -errno;
@@ -1098,11 +1111,12 @@ int riomp_mgmt_device_add(riomp_mport_t mport_handle, did_val_t did_val,
 
 	dev.destid = did_val;
 	dev.hopcount = hc;
+	dev.pad0 = 0;
 	dev.comptag = ct;
 	if (name) {
 		SAFE_STRNCPY(dev.name, name, sizeof(dev.name));
 	} else {
-		*dev.name = '\0';
+		memset(dev.name, 0, sizeof(dev.name));
 	}
 
 	if (ioctl(hnd->fd, RIO_DEV_ADD, &dev)) {
@@ -1126,11 +1140,12 @@ int riomp_mgmt_device_del(riomp_mport_t mport_handle, did_val_t did_val,
 
 	dev.destid = did_val;
 	dev.hopcount = hc;
+	dev.pad0 = 0;
 	dev.comptag = ct;
 	if (name) {
 		SAFE_STRNCPY(dev.name, name, sizeof(dev.name));
 	} else {
-		*dev.name = '\0';
+		memset(dev.name, 0, sizeof(dev.name));
 	}
 
 	if (ioctl(hnd->fd, RIO_DEV_DEL, &dev)) {
@@ -1197,6 +1212,7 @@ int riomp_sock_send(riomp_sock_t socket_handle,
 	do {
 		msg.ch_num = handle->ch.id;
 		msg.size = size;
+		msg.rxto = 0;
 		msg.msg = (__u64 )skt_msg;
 		errno = 0;
 
@@ -1226,8 +1242,8 @@ int riomp_sock_receive(riomp_sock_t socket_handle,
 	do {
 		msg.ch_num = handle->ch.id;
 		msg.size = sizeof(rapidio_mport_socket_msg);
-		msg.msg = (__u64 )*skt_msg;
 		msg.rxto = timeout;
+		msg.msg = (__u64 )*skt_msg;
 		errno = 0;
 
 		ret = ioctl(handle->mbox->fd, RIO_CM_CHAN_RECEIVE, &msg);
@@ -1302,8 +1318,10 @@ int riomp_sock_bind(riomp_sock_t socket_handle, uint16_t local_channel)
 		return -errno;
 	}
 
+	memset(&cdev, 0, sizeof(cdev));
 	cdev.id = ch_num;
 	cdev.mport_id = handle->mbox->mport_id;
+
 	handle->ch.id = cdev.id;
 	handle->ch.mport_id = cdev.mport_id;
 
@@ -1345,6 +1363,7 @@ int riomp_sock_accept(riomp_sock_t socket_handle, riomp_sock_t *conn,
 
 	do {
 		param.ch_num = handle->ch.id;
+		param.pad0 = 0;
 		param.wait_to = timeout;
 		errno = 0;
 
@@ -1384,10 +1403,11 @@ int riomp_sock_connect(riomp_sock_t socket_handle, did_val_t did_val,
 		/* Configure and Send Connect IOCTL */
 		handle->ch.remote_channel = channel;
 		handle->ch.mport_id = handle->mbox->mport_id;
-		cdev.remote_destid = did_val;
-		cdev.remote_channel = channel;
-		cdev.mport_id = handle->mbox->mport_id;
+
 		cdev.id = handle->ch.id;
+		cdev.remote_channel = channel;
+		cdev.remote_destid = did_val;
+		cdev.mport_id = handle->mbox->mport_id;
 		errno = 0;
 
 		ret = ioctl(handle->mbox->fd, RIO_CM_CHAN_CONNECT, &cdev);
