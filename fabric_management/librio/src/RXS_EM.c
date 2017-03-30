@@ -1548,12 +1548,15 @@ static uint32_t rxs_rio_em_dev_rpt_ctl_reg_read(DAR_DEV_INFO_t *dev_info,
 {
 	uint32_t rc;
 
+	memset(regs, 0, sizeof(*regs));
+
 	rc = DARRegRead(dev_info, RXS_EM_DEV_INT_EN, &regs->dev_int_en);
 	if (RIO_SUCCESS != rc) {
 		goto fail;
 	}
 
 	rc = DARRegRead(dev_info, RXS_PW_TRAN_CTL, &regs->pw_trans_dis);
+
 fail:
 	return rc;
 
@@ -1591,6 +1594,7 @@ static uint32_t rxs_rio_em_dev_rpt_ctl_dev(DAR_DEV_INFO_t *dev_info,
 	if (RIO_SUCCESS != rc) {
 		goto fail;
 	}
+
 fail:
 	return rc;
 }

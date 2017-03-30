@@ -2572,6 +2572,7 @@ uint32_t CPS_rio_pc_set_config(DAR_DEV_INFO_t *dev_info,
 	rio_pc_get_config_out_t curr;
 	uint8_t port_idx;
 
+	memset(&sorted, 0, sizeof(sorted));
 	out_parms->num_ports = 0;
 	out_parms->lrto = 0;
 	out_parms->imp_rc = RIO_SUCCESS;

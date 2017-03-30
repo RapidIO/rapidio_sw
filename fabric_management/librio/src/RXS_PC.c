@@ -1445,6 +1445,7 @@ uint32_t rxs_rio_pc_set_config(
 	rio_pc_set_regs_t curr_regs;
 	rio_pc_set_regs_t chg_regs;
 
+	memset(&sorted, 0, sizeof(sorted));
 	out_parms->imp_rc = RIO_SUCCESS;
 
 	// Error codes 0x01 through 0x1F

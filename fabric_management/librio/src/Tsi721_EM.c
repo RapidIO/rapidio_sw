@@ -1480,6 +1480,8 @@ uint32_t tsi721_rio_em_dev_rpt_ctl_reg_read(DAR_DEV_INFO_t *dev_info,
 {
 	uint32_t rc;
 
+	memset(regs, 0, sizeof(*regs));
+
 	if (tsi721_int_supported) {
 		rc = DARRegRead(dev_info,
 				TSI721_PLM_ALL_INT_EN, &regs->plm_all_int_en);
