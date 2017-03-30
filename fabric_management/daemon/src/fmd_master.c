@@ -670,13 +670,15 @@ int start_peer_mgmt_master(uint32_t mast_acc_skt_num, uint32_t mp_num)
 	sem_init(&fmp.acc.started, 0, 0);
 	sem_init(&fmp.peers_mtx, 0, 1);
 
-        rc = pthread_create(&fmp.acc.acc, NULL, mast_acc, NULL);
-        if (rc)
-                goto fail;
-
-        sem_wait(&fmp.acc.started);
-	if (!fmp.acc.acc_alive)
+	rc = pthread_create(&fmp.acc.acc, NULL, mast_acc, NULL);
+	if (rc) {
 		goto fail;
+	}
+
+	sem_wait(&fmp.acc.started);
+	if (!fmp.acc.acc_alive) {
+		goto fail;
+	}
 
 	return 0;
 fail:
