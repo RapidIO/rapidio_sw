@@ -93,7 +93,7 @@ static void init_rt(rio_rt_state_t *rt)
 	}
 }
 
-static int init_cfg_ptr(char *dd_mtx_fn, char *dd_fn)
+static int init_cfg_ptr()
 {
 	int i, j;
 
@@ -101,10 +101,8 @@ static int init_cfg_ptr(char *dd_mtx_fn, char *dd_fn)
 	if (NULL == cfg) {
 		return 1;
 	}
-	
+
 	cfg->mast_idx = CFG_SLAVE;
-	cfg->dd_mtx_fn = dd_mtx_fn;
-	cfg->dd_fn = dd_fn;
 
 	for (i = 0; i < CFG_MAX_MPORTS; i++) {
 		cfg->mport_info[i].num = -1;
@@ -1325,7 +1323,6 @@ exit:
 	line = NULL;
 	return cfg->init_err;
 }
-	
 
 int cfg_parse_file(char *cfg_fn, char **dd_mtx_fn, char **dd_fn,
 		did_t *m_did, uint32_t *m_cm_port, uint32_t *m_mode)
@@ -1344,7 +1341,7 @@ int cfg_parse_file(char *cfg_fn, char **dd_mtx_fn, char **dd_fn,
 	struct int_cfg_ep_port port;
 	struct int_cfg_sw sw;
 
-	if (init_cfg_ptr(*dd_mtx_fn, *dd_fn)) {
+	if (init_cfg_ptr()) {
 		goto fail;
 	}
 
@@ -1372,6 +1369,7 @@ int cfg_parse_file(char *cfg_fn, char **dd_mtx_fn, char **dd_fn,
 			goto fail;
 		}
 	}
+
 	if (cfg->dd_fn && strlen(cfg->dd_fn)) {
 		if (update_string(dd_fn, cfg->dd_fn, strlen(cfg->dd_fn))) {
 			goto fail;

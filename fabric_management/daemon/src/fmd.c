@@ -159,7 +159,7 @@ void *poll_loop(void *poll_interval)
 	return NULL;
 }
 
-void spawn_threads(struct fmd_opt_vals *cfg)
+void spawn_threads(struct fmd_opt_vals *opts)
 {
 	int poll_ret, cli_ret, cons_ret;
 	int *pass_poll_interval;
@@ -181,8 +181,8 @@ void spawn_threads(struct fmd_opt_vals *cfg)
 		exit(EXIT_FAILURE);
 	}
 
-	pass_poll_interval[0] = cfg->mast_interval;
-	pass_poll_interval[1] = cfg->run_cons;
+	pass_poll_interval[0] = opts->mast_interval;
+	pass_poll_interval[1] = opts->run_cons;
 
 	cli_init_base(custom_quit);
 	bind_dd_cmds(&fmd->dd, &fmd->dd_mtx, fmd->dd_fn, fmd->dd_mtx_fn);
@@ -222,7 +222,7 @@ void spawn_threads(struct fmd_opt_vals *cfg)
 		exit(EXIT_FAILURE);
 	}
 
-	if (cfg->run_cons) {
+	if (opts->run_cons) {
 		struct cli_env t_env;
 
 		init_cli_env(&t_env);
@@ -236,14 +236,15 @@ void spawn_threads(struct fmd_opt_vals *cfg)
 	}
 	//@sonar:on
 
-	ret = start_fmd_app_handler(cfg->app_port_num, 50, cfg->dd_fn,
-			cfg->dd_mtx_fn);
+	ret = start_fmd_app_handler(opts->app_port_num, 50, fmd->dd_fn,
+			fmd->dd_mtx_fn);
 	if (ret) {
 		CRIT(THREAD_FAIL, ret);
 		exit(EXIT_FAILURE);
 	}
-	ret = start_peer_mgmt(cfg->mast_cm_port, 0, cfg->mast_did,
-			cfg->mast_mode);
+
+	ret = start_peer_mgmt(opts->mast_cm_port, 0, opts->mast_did,
+			opts->mast_mode);
 	if (ret) {
 		CRIT(THREAD_FAIL, ret);
 		exit(EXIT_FAILURE);
@@ -619,6 +620,9 @@ fail:
 int main(int argc, char *argv[])
 {
 	char log_file_name[FMD_MAX_LOG_FILE_NAME];
+	char *cfg_dd_mtx_fn;
+	char *cfg_dd_fn;
+
 	signal(SIGINT, sig_handler);
 	signal(SIGHUP, sig_handler);
 	signal(SIGTERM, sig_handler);
@@ -635,7 +639,7 @@ int main(int argc, char *argv[])
 	rdma_log_init(log_file_name, 1);
 
 	g_level = opts->log_level;
-	if ((opts->init_and_quit) && (opts->print_help)) {
+	if (opts->init_and_quit && opts->print_help) {
 		goto fail;
 	}
 
@@ -646,17 +650,63 @@ int main(int argc, char *argv[])
 
 	fmd->opts = opts;
 	fmd->fmd_rw = 1;
-	fmd->dd_mtx_fn = fmd->opts->dd_mtx_fn;
-	fmd->dd_fn = fmd->opts->dd_fn;
 
-	// Parse the configuration file, continue no matter what
-	// errors are found.
-	cfg_parse_file(opts->fmd_cfg, &fmd->dd_mtx_fn, &fmd->dd_fn,
+	// Parse the configuration file, continue no matter what errors are found.
+	cfg_dd_mtx_fn = NULL;
+	cfg_dd_fn = NULL;
+	cfg_parse_file(opts->fmd_cfg, &cfg_dd_mtx_fn, &cfg_dd_fn,
 			&fmd->opts->mast_did, &fmd->opts->mast_cm_port,
 			&fmd->opts->mast_mode);
 
-	if (fmd_dd_init(opts->dd_mtx_fn, &fmd->dd_mtx_fd, &fmd->dd_mtx,
-			opts->dd_fn, &fmd->dd_fd, &fmd->dd)) {
+	// If the user specified the dd_mtx_fn or dd_fn name on the command
+	// line then use those values (opts->dd_mtx_fn/dd_fn).
+	//
+	// If the user didn't specify a value and the config file does,
+	// then use those valuee (cfg_dd_mtx_fn, cfg_dd_fn)
+	//
+	// else use default values
+	if (NULL != opts->dd_mtx_fn) {
+		if (update_string(&fmd->dd_mtx_fn, opts->dd_mtx_fn,
+				strlen(opts->dd_mtx_fn))) {
+			goto fail;
+		}
+	} else {
+		if (NULL != cfg_dd_mtx_fn) {
+			if (update_string(&fmd->dd_mtx_fn, cfg_dd_mtx_fn,
+					strlen(cfg_dd_mtx_fn))) {
+				goto fail;
+			}
+		} else {
+			if (update_string(&fmd->dd_mtx_fn,
+					(char *)FMD_DFLT_DD_MTX_FN,
+					strlen((char *)FMD_DFLT_DD_MTX_FN))) {
+				goto fail;
+			}
+		}
+	}
+
+	if (NULL != opts->dd_fn) {
+		if (update_string(&fmd->dd_fn, opts->dd_fn,
+				strlen(opts->dd_fn))) {
+			goto fail;
+		}
+	} else {
+		if (NULL != cfg_dd_fn) {
+			if (update_string(&fmd->dd_fn, cfg_dd_fn,
+					strlen(cfg_dd_fn))) {
+				goto fail;
+			}
+		} else {
+			if (update_string(&fmd->dd_fn,
+					(char *)FMD_DFLT_DD_FN,
+					strlen((char *)FMD_DFLT_DD_FN))) {
+				goto fail;
+			}
+		}
+	}
+
+	if (fmd_dd_init(fmd->dd_mtx_fn, &fmd->dd_mtx_fd, &fmd->dd_mtx,
+			fmd->dd_fn, &fmd->dd_fd, &fmd->dd)) {
 		goto dd_cleanup;
 	}
 
@@ -681,8 +731,8 @@ int main(int argc, char *argv[])
 	}
 
 dd_cleanup:
-	fmd_dd_cleanup(opts->dd_mtx_fn, &fmd->dd_mtx_fd,
-			&fmd->dd_mtx, opts->dd_fn, &fmd->dd_fd, &fmd->dd,
+	fmd_dd_cleanup(fmd->dd_mtx_fn, &fmd->dd_mtx_fd,
+			&fmd->dd_mtx, fmd->dd_fn, &fmd->dd_fd, &fmd->dd,
 			fmd->fmd_rw);
 
 fail:

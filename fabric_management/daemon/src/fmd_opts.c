@@ -93,8 +93,6 @@ struct fmd_opt_vals *fmd_parse_options(int argc, char *argv[])
 	int c;
 
 	char *dflt_fmd_cfg = (char *)FMD_DFLT_CFG_FN;
-	char *dflt_dd_fn = (char *)FMD_DFLT_DD_FN;
-	char *dflt_dd_mtx_fn = (char *)FMD_DFLT_DD_MTX_FN;
 	struct fmd_opt_vals *opts;
 
 	opts = (struct fmd_opt_vals *)calloc(1, sizeof(struct fmd_opt_vals));
@@ -116,13 +114,6 @@ struct fmd_opt_vals *fmd_parse_options(int argc, char *argv[])
 	opts->mast_cm_port = FMD_DFLT_MAST_CM_PORT;
 
 	if (update_string(&opts->fmd_cfg, dflt_fmd_cfg, strlen(dflt_fmd_cfg))) {
-		goto oom;
-	}
-	if (update_string(&opts->dd_fn, dflt_dd_fn, strlen(dflt_dd_fn))) {
-		goto oom;
-	}
-	if (update_string(&opts->dd_mtx_fn, dflt_dd_mtx_fn,
-			strlen(dflt_dd_mtx_fn))) {
 		goto oom;
 	}
 
