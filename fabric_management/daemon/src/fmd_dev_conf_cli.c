@@ -114,7 +114,7 @@ int CLIConfigCmd(struct cli_env *env, int argc, char **argv)
 			((float )(h->st.pc.log_rto)) / 10.0);
 
 	LOGMSG(env,
-			"\nPt A OK Port Width  Speed   FC   Idle TxEn Enables TX L_INV RX L_INV CONN    \n");
+			"\nLPt PPt A OK Port Width  Speed   FC   Idle TxEn Enables TX L_INV RX L_INV CONN    \n");
 
 	for (int i = 0; i < h->st.pc.num_ports; i++) {
 		char *enables;
@@ -123,18 +123,6 @@ int CLIConfigCmd(struct cli_env *env, int argc, char **argv)
 		char *name = (char *)" ";
 		uint32_t port = 0;
 
-		if (!info_rc) {
-			if (NULL == pe_port_info[i].peer) {
-				name = (char *)"NO_CONN";
-			} else {
-				port = pe_port_info[i].peer->id;
-				if (!riocp_pe_find_comptag(*fmd->mp_h,
-						pe_port_info[i].peer->pe->comptag,
-						&peer_pe)) {
-					name = (char *)peer_pe->sysfs_name;
-				}
-			}
-		}
 		if (h->st.pc.pc[i].port_lockout) {
 			enables = (char *)"LOCKOUT";
 		} else if (h->st.pc.pc[i].nmtc_xfer_enable) {
@@ -158,11 +146,25 @@ int CLIConfigCmd(struct cli_env *env, int argc, char **argv)
 		}
 		if (j == h->st.ps.num_ports) {
 			j = -1;
+			name=(char *)"ERR";
+		}
+		else
+		{
+			if (NULL == pe_port_info[j].peer) {
+				name = (char *)"NO_CONN";
+			} else {
+				port = pe_port_info[j].peer->id;
+				if (!riocp_pe_find_comptag(*fmd->mp_h,
+						pe_port_info[j].peer->pe->comptag,
+						&peer_pe)) {
+					name = (char *)peer_pe->sysfs_name;
+				}
+			}
 		}
 
 		LOGMSG(env,
-				"%2d %1s %2s %5s/%5s %5s %2s/%2s %2s/%2s %4s %7s %2s %5s %2s %5s %8s.%2d\n",
-				i, h->st.pc.pc[i].port_available ? "Y" : "-",
+				"%3d %3d %1s %2s %5s/%5s %5s %2s/%2s %2s/%2s %4s %7s %2s %5s %2s %5s %8s.%2d\n",
+				i, (j!=-1)?pe_port_info[j].id:-1, h->st.pc.pc[i].port_available ? "Y" : "-",
 				(j != -1) ? (h->st.ps.ps[j].port_ok ?
 						"OK" : "no") :
 						"--",
