@@ -228,7 +228,7 @@ extern "C" {
 #define CPS1848_SWITCH_PARAM_2                                     (0x00f2006c)
 #define CPS1848_QUAD_CFG                                           (0x00f20200)
 #define CPS1848_DEVICE_RESET_CTL                                   (0x00f20300)
-#define CPS1848_BCAST__MCAST_MASK_X(X)                   (0xf30000 + 0x004*(X))
+#define CPS1848_BCAST_MCAST_MASK_X(X)                    (0xf30000 + 0x004*(X))
 #define CPS1848_PORT_X_MCAST_MASK_Y(X,Y)       (0xf38000 + 0x100*(X) + 0x4*(Y))
 #define CPS1848_PORT_X_OPS(X)                            (0xf40004 + 0x100*(X))
 #define CPS1848_PORT_X_IMPL_SPEC_ERR_DET(X)              (0xf40008 + 0x100*(X))
