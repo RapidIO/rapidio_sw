@@ -51,6 +51,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "liblog.h"
 #include "assert.h"
 #include "math_util.h"
+#include "CPS1848.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -2038,6 +2039,232 @@ MpdevsCmd,
 ATTR_NONE
 };
 
+// Program multicast mask to include ports for specified device IDs.
+static int program_1848_mc_mask(struct cli_env *env,
+				did_val_t mc_did,
+				int did_cnt,
+				did_val_t *dids)
+{
+	const int mc_mask_idx = 0;
+	uint32_t mc_mask = 0;
+	uint32_t mc_mask_chk;
+	uint32_t id, rte;
+	int ret;
+	int did_i;
+	int rc = 1;
+
+	// Check that this device is connected to a CPS1848 or CPS1432.
+
+	ret = riomp_mgmt_rcfg_read(mp_h, 0, 0, CPS1848_DEV_IDENT_CAR, 4, &id);
+	if (ret) {
+		LOGMSG(env, "ERR: Could not read RIO_DEV_IDENT %d %s\n",
+							ret, strerror(ret));
+		goto exit;
+	}
+
+	if ((id & RIO_DEV_IDENT_VEND) != RIO_VEND_IDT) {
+		LOGMSG(env, "ERR: Unknown device vendor ID 0x%x\n",
+						id & RIO_DEV_IDENT_DEVI);
+		goto exit;
+	}
+
+	if (((id & RIO_DEV_IDENT_DEVI) != (RIO_DEVI_IDT_CPS1848 << 16)) &&
+		((id & RIO_DEV_IDENT_DEVI) != (RIO_DEVI_IDT_CPS1432 << 16))) {
+			LOGMSG(env, "ERR: Unsupported switch 0x%x\n",
+					(id & RIO_DEV_IDENT_DEVI) >> 16);
+		goto exit;
+	}
+
+	// Read routing table values for requested destIDs, fail if they
+	// are not port numbers.
+	// >>** Assumes 8 bit destIDs!!! **<< 
+
+	for (did_i = 0; did_i < did_cnt; did_i++) {
+		ret = riomp_mgmt_rcfg_read(mp_h, 0, 0,
+			CPS_BROADCAST_UC_DEVICE_RT_ENTRY(dids[did_i]), 4, &rte);
+		if (ret) {
+			LOGMSG(env, "ERR: Could not read DID %d ERR %d %s\n",
+					dids[did_i], ret, strerror(ret));
+			goto exit;
+		}
+
+		if (rte >= CPS_MAX_PORTS) {
+			LOGMSG(env,
+			"Routing table value %d for id %d is unsupported\n",
+					rte, dids[did_i]);
+			goto exit;
+		}
+		if ((1 << rte) & mc_mask) {
+			LOGMSG(env, "ERR: Port %d or did %d duplicated\n",
+					rte, dids[did_i]);
+			goto exit;
+		}
+		LOGMSG(env, "Did: %2d Port: %2d\n", dids[did_i], rte);
+		mc_mask |= 1 << rte;
+	}
+
+	LOGMSG(env, "Multicast mask: 0x%05x\n", mc_mask);
+	// Program multicast mask 0.
+	ret = riomp_mgmt_rcfg_write(mp_h, 0, 0,
+		CPS1848_BCAST_MCAST_MASK_X(mc_mask_idx), 4, mc_mask);
+	if (ret) {
+		LOGMSG(env, "ERR: Could not write MC mask %d ERR %d %s\n",
+				mc_mask_idx, ret, strerror(ret));
+		goto exit;
+	}
+
+	// Paranoid check that MC mask is correct
+	ret = riomp_mgmt_rcfg_read(mp_h, 0, 0,
+		CPS1848_BCAST_MCAST_MASK_X(mc_mask_idx), 4, &mc_mask_chk);
+	if (ret) {
+		LOGMSG(env, "ERR: Could not read MC mask %d ERR %d %s\n",
+				mc_mask_idx, ret, strerror(ret));
+		goto exit;
+	}
+
+	if (mc_mask != mc_mask_chk) {
+		LOGMSG(env, "ERR: MC mask 0x%x not 0x%x\n",
+				mc_mask_chk, mc_mask);
+		goto exit;
+	}
+
+	// Program mc_did routing table entry to select MC MASK 0
+	ret = riomp_mgmt_rcfg_write(mp_h, 0, 0,
+		CPS_BROADCAST_UC_DEVICE_RT_ENTRY(mc_did), 4,
+		CPS_MC_PORT(mc_mask_idx));
+	if (ret) {
+		LOGMSG(env, "ERR: Could not write did entry %d ERR %d %s\n",
+				mc_did, ret, strerror(ret));
+		goto exit;
+	}
+
+
+	// Paranoid check that mc_did routing table entry is correct
+	ret = riomp_mgmt_rcfg_read(mp_h, 0, 0,
+		CPS_BROADCAST_UC_DEVICE_RT_ENTRY(mc_did), 4, &rte);
+	if (ret) {
+		LOGMSG(env, "ERR: Could not write did entry %d ERR %d %s\n",
+				mc_did, ret, strerror(ret));
+		goto exit;
+	}
+
+	if (CPS_MC_PORT(mc_mask_idx) != rte) {
+		LOGMSG(env, "ERR: did %d value %d not %d\n",
+				mc_did, rte, CPS_MC_PORT(mc_mask_idx));
+		goto exit;
+	}
+
+	rc = 0;
+exit:
+	return rc;
+}
+
+static int MulticastCmd(struct cli_env *env, int argc, char **argv)
+{
+	did_val_t *ep_list = NULL;
+	uint32_t number_of_eps = 0;
+	uint32_t ep;
+	int did_i;
+	int ret;
+	const int num_dids = 10;
+	did_val_t dids[num_dids];
+	int did_cnt = 0;
+	did_val_t mc_did;
+	bool found_one;
+
+	if (tok_parse_did(argv[0], &mc_did, 0)) {
+		LOGMSG(env, "ERR: %s is not a valid destination ID\n",
+				argv[0]);
+		goto exit;
+	}
+
+	while (did_cnt + 1 < argc) {
+		if (tok_parse_did(argv[did_cnt + 1], &dids[did_cnt], 0)) {
+			LOGMSG(env, "ERR: %s is not a valid destination ID\n",
+				argv[did_cnt + 1]);
+			goto exit;
+		}
+		did_cnt++;
+	}
+
+	// Get EPs for this MPORT
+
+	ret = riomp_mgmt_get_ep_list(mp_h_num, &ep_list, &number_of_eps);
+	if (ret) {
+		LOGMSG(env, "ERR: riodp_ep_get_list() ERR %d: %s\n",
+					ret, strerror(ret));
+		goto exit;
+	}
+
+	// Check that requested DestIDs exist in the system
+	// Allow the destID of this node to be part of the list
+
+	for (did_i = 0; did_i < did_cnt; did_i++) {
+		found_one = (qresp.did_val == dids[did_i]);
+		for (ep = 0; (ep < number_of_eps) && !found_one; ep++) {
+			found_one = (ep_list[ep] == dids[did_i]);
+		}
+		if (!found_one) {
+			LOGMSG(env, "ERR: Endpoint %d does not exist.\n",
+				dids[did_i]);
+			goto exit;
+		}
+	}
+
+	// Check that multicast DestID does not exist in the system
+	// If it does, fail, as multicasting to an existing endpoint would
+	// mess up routing to that endpoint until a reboot occurred.
+
+	found_one = false;
+	for (ep = 0; (ep < number_of_eps) && !found_one; ep++) {
+		found_one = (ep_list[ep] == mc_did);
+	}
+	if (found_one) {
+		LOGMSG(env,
+			"ERR: Endpoint %d cannot be used for as the MC did.\n",
+			mc_did);
+		goto exit;
+	}
+
+	if (qresp.did_val == mc_did) {
+		LOGMSG(env,
+			"ERR: This endpoint's DestID %d "
+			"cannot be used as the MC did.\n",
+			mc_did);
+		goto exit;
+	}
+
+	// Check that multicast DestID does not exist in the system
+
+	ret = riomp_mgmt_free_ep_list(&ep_list);
+	if (ret) {
+		LOGMSG(env, "ERR: riodp_ep_free_list() ERR %d: %s\n",
+				ret, strerror(ret));
+	}
+
+	// Program multicast mask, CPS1848 specific
+	// Assumes use of global routing table.
+
+	if (program_1848_mc_mask(env, mc_did, did_cnt, dids)) {
+		LOGMSG(env, "ERR: program_1848_mc_mask() failed\n");
+	}
+exit:
+	return 0;
+}
+
+struct cli_cmd Multicast = {
+"multicast",
+2,
+2,
+"Set multicast for list of destination IDs",
+"<mc_did> <did>...\n"
+	"<mc_did>: the otherwise unused device ID for multicast\n"
+	"<did>   : device IDs of the target(s) of the multicast\n"
+	"          Must enter at least one, maximum 10.\n",
+MulticastCmd,
+ATTR_NONE
+};
+
 static int UTimeCmd(struct cli_env *env, int argc, char **argv)
 {
 	uint16_t idx, st_i = 0, end_i = MAX_TIMESTAMPS-1;
@@ -2247,6 +2474,7 @@ struct cli_cmd *goodput_cmds[] = {
 	&CPUOccSet,
 	&CPUOccDisplay,
 	&Mpdevs,
+	&Multicast,
 	&UTime,
 };
 
