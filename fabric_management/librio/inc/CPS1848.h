@@ -1276,6 +1276,10 @@ extern "C" {
 #define CPS1848_SWITCH_PARAM_1_BUF_ALLOC                           (0x00020000)
 #define CPS1848_SWITCH_PARAM_1_FB_ALLOC                            (0x001c0000)
 
+#define CPS1848_SWITCH_PARAM_1_ARB_MODE_FAIR_AGING                 (0x00000000)
+#define CPS1848_SWITCH_PARAM_1_ARB_MODE_RR_AGING                   (0x0000C000)
+#define CPS1848_SWITCH_PARAM_1_ARB_MODE_RR_AGELESS                 (0x0001C000)
+
 /* CPS1848_SWITCH_PARAM_2 : Register Bits Masks Definitions */
 #define CPS1848_SWITCH_PARAM_2_OUTPUT_CREDIT_MAX                   (0x0000ffff)
 #define CPS1848_SWITCH_PARAM_2_OUTPUT_CREDIT_MIN                   (0xffff0000)

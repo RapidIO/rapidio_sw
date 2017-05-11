@@ -2206,7 +2206,8 @@ static int program_1848_mc_mask(struct cli_env *env,
 	// - Set arb mode to 0b111
 	//   round robin with input scheduler aging disabled.
 	// - Set crosspoint buffer allocate to '1' buffer per prio 1, 2, 3
-	// - Clear OUTPUT_CREDIT_RSVN and INPUT_STARV_LIM
+	// - Set OUTPUT_CREDIT_RSVN to 0
+	// - Set INPUT_STARV_LIM to 0
 	ret = riomp_mgmt_rcfg_read(mp_h, 0, 0, CPS1848_SWITCH_PARAM_1, 4, &tmp);
 	if (ret) {
 		LOGMSG(env, "ERR: Could not read ARB_MODE ERR %d %s\n",
@@ -2214,7 +2215,7 @@ static int program_1848_mc_mask(struct cli_env *env,
 		goto exit;
 	}
 
-	tmp |= CPS1848_SWITCH_PARAM_1_ARB_MODE;
+	tmp |= CPS1848_SWITCH_PARAM_1_ARB_MODE_RR_AGELESS;
 	tmp |= CPS1848_SWITCH_PARAM_1_BUF_ALLOC;
 	tmp &= ~(CPS1848_SWITCH_PARAM_1_INPUT_STARV_LIM);
 	tmp &= ~(CPS1848_SWITCH_PARAM_1_OUTPUT_CREDIT_RSVN);
