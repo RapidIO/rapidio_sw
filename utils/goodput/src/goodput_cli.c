@@ -68,6 +68,7 @@ char *req_type_str[(int)last_action+1] = {
 	(char *)"DmaNum",
 	(char *)"dT_Lat",
 	(char *)"dR_Lat",
+	(char *)"dR_Gpt",
 	(char *)"MSG_Tx",
 	(char *)"mT_Lat",
 	(char *)"mTx_Oh",
@@ -1327,6 +1328,54 @@ dmaRxLatCmd,
 ATTR_NONE
 };
 
+static int dmaRxGoodputCmd(struct cli_env *env, int UNUSED(argc), char **argv)
+{
+	uint16_t idx;
+	uint64_t bytes;
+
+	int n = 0;
+	if (gp_parse_worker_index_check_thread(env, argv[n++], &idx, 1)) {
+		goto exit;
+	}
+
+	if (tok_parse_ulonglong(argv[n++], &bytes, 1, UINT32_MAX, 0)) {
+		LOGMSG(env, "\n");
+		LOGMSG(env, TOK_ERR_ULONGLONG_HEX_MSG_FMT, "<bytes>",
+				(uint64_t )1, (uint64_t)UINT32_MAX);
+		goto exit;
+	}
+
+	wkr[idx].action = dma_rx_gp;
+	wkr[idx].action_mode = kernel_action;
+	wkr[idx].byte_cnt = bytes;
+	wkr[idx].acc_size = bytes;
+
+	if (bytes < MIN_RDMA_BUFF_SIZE) {
+		wkr[idx].rdma_buff_size = MIN_RDMA_BUFF_SIZE;
+	} else {
+		wkr[idx].rdma_buff_size = bytes;
+	}
+
+	wkr[idx].stop_req = 0;
+	sem_post(&wkr[idx].run);
+
+exit:
+	return 0;
+}
+
+struct cli_cmd dmaRxGoodput = {
+"dRxGoodput",
+2,
+2,
+"Measure bytes received from other nodes DMA.\n",
+"dRxLat <idx> <bytes>\n"
+	"<idx>      is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
+	"<bytes>    total bytes in each transfer\n"
+	"\nNOTE: The dRxGoodput command must be run before dTx!\n",
+dmaRxGoodputCmd,
+ATTR_NONE
+};
+
 static void roundoff_message_size(uint32_t *bytes)
 {
 	if (*bytes > 4096) {
@@ -2048,7 +2097,7 @@ static int program_1848_mc_mask(struct cli_env *env,
 	const int mc_mask_idx = 0;
 	uint32_t mc_mask = 0;
 	uint32_t mc_mask_chk;
-	uint32_t id, rte;
+	uint32_t id, rte, tmp;
 	int ret;
 	int did_i;
 	int rc = 1;
@@ -2138,12 +2187,11 @@ static int program_1848_mc_mask(struct cli_env *env,
 		goto exit;
 	}
 
-
 	// Paranoid check that mc_did routing table entry is correct
 	ret = riomp_mgmt_rcfg_read(mp_h, 0, 0,
 		CPS_BROADCAST_UC_DEVICE_RT_ENTRY(mc_did), 4, &rte);
 	if (ret) {
-		LOGMSG(env, "ERR: Could not write did entry %d ERR %d %s\n",
+		LOGMSG(env, "ERR: Could not read did entry %d ERR %d %s\n",
 				mc_did, ret, strerror(ret));
 		goto exit;
 	}
@@ -2151,6 +2199,30 @@ static int program_1848_mc_mask(struct cli_env *env,
 	if (CPS_MC_PORT(mc_mask_idx) != rte) {
 		LOGMSG(env, "ERR: did %d value %d not %d\n",
 				mc_did, rte, CPS_MC_PORT(mc_mask_idx));
+		goto exit;
+	}
+
+	// One more thing: alter switch parameters
+	// - Set arb mode to 0b111
+	//   round robin with input scheduler aging disabled.
+	// - Set crosspoint buffer allocate to '1' buffer per prio 1, 2, 3
+	// - Clear OUTPUT_CREDIT_RSVN and INPUT_STARV_LIM
+	ret = riomp_mgmt_rcfg_read(mp_h, 0, 0, CPS1848_SWITCH_PARAM_1, 4, &tmp);
+	if (ret) {
+		LOGMSG(env, "ERR: Could not read ARB_MODE ERR %d %s\n",
+						ret, strerror(ret));
+		goto exit;
+	}
+
+	tmp |= CPS1848_SWITCH_PARAM_1_ARB_MODE;
+	tmp |= CPS1848_SWITCH_PARAM_1_BUF_ALLOC;
+	tmp &= ~(CPS1848_SWITCH_PARAM_1_INPUT_STARV_LIM);
+	tmp &= ~(CPS1848_SWITCH_PARAM_1_OUTPUT_CREDIT_RSVN);
+
+	ret = riomp_mgmt_rcfg_write(mp_h, 0, 0, CPS1848_SWITCH_PARAM_1, 4, tmp);
+	if (ret) {
+		LOGMSG(env, "ERR: Could not write ARB_MODE ERR %d %s\n",
+						ret, strerror(ret));
 		goto exit;
 	}
 
@@ -2456,6 +2528,7 @@ struct cli_cmd *goodput_cmds[] = {
 	&dmaRxLat,
 	&dma,
 	&dmaNum,
+	&dmaRxGoodput,
 	&msgTx,
 	&msgRx,
 	&msgTxLat,
