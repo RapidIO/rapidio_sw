@@ -56,7 +56,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sys/socket.h>
 #include <linux/if.h>
 #include <linux/if_tun.h>
-#include <arpa/inet.h> 
+#include <arpa/inet.h>
 #include <sys/select.h>
 
 #include <pthread.h>
@@ -82,8 +82,8 @@ extern "C" {
 void init_worker_info(struct worker *info, int first_time)
 {
 	if (first_time) {
-        	sem_init(&info->started, 0, 0);
-        	sem_init(&info->run, 0, 0);
+		sem_init(&info->started, 0, 0);
+		sem_init(&info->run, 0, 0);
 	}
 
 	info->stat = 0;
@@ -93,35 +93,34 @@ void init_worker_info(struct worker *info, int first_time)
 	info->action = no_action;
 	info->action_mode = kernel_action;
 	info->did_val = (did_val_t)(-1);
-	
 
-        info->rio_addr = 0;
-        info->byte_cnt = 0;
-        info->acc_size = 0; /* Bytes per transfer for direct IO and DMA */
+	info->rio_addr = 0;
+	info->byte_cnt = 0;
+	info->acc_size = 0; /* Bytes per transfer for direct IO and DMA */
 	info->max_iter = -1;
-        info->wr = 0;
-        info->mp_h_is_mine = 0;
-        info->mp_h = NULL;
+	info->wr = 0;
+	info->mp_h_is_mine = 0;
+	info->mp_h = NULL;
 
-        info->ob_valid = 0;
-        info->ob_handle = 0;
-        info->ob_byte_cnt = 0;
+	info->ob_valid = 0;
+	info->ob_handle = 0;
+	info->ob_byte_cnt = 0;
 
-        info->ib_valid = 0;
+	info->ib_valid = 0;
 	info->ib_handle = 0;
-        info->ib_rio_addr = 0;
-        info->ib_byte_cnt = 0;
+	info->ib_rio_addr = 0;
+	info->ib_byte_cnt = 0;
 	info->ib_ptr = NULL;
 
-        info->data8_tx = 0x12;
-        info->data16_tx= 0x3456;
-        info->data32_tx = 0x789abcde;
-        info->data64_tx = 0xf123456789abcdef;
+	info->data8_tx = 0x12;
+	info->data16_tx= 0x3456;
+	info->data32_tx = 0x789abcde;
+	info->data64_tx = 0xf123456789abcdef;
 
-        info->data8_rx = 0;
-        info->data16_rx = 0;
-        info->data32_rx = 0;
-        info->data64_rx = 0;
+	info->data8_rx = 0;
+	info->data16_rx = 0;
+	info->data32_rx = 0;
+	info->data64_rx = 0;
 
 	info->use_kbuf = 0;
 	info->dma_trans_type = RIO_DIRECTIO_TYPE_NWRITE;
@@ -130,14 +129,14 @@ void init_worker_info(struct worker *info, int first_time)
 	info->rdma_ptr = NULL;
 	info->num_trans = 0;
 
-        info-> mb_valid = 0;
-        info->acc_skt = NULL;
-        info->acc_skt_valid = 0;
-        info->con_skt = NULL;
-        info->con_skt_valid = 0;
-        info->sock_num = 0; 
-        info->sock_tx_buf = NULL;
-        info->sock_rx_buf = NULL;
+	info-> mb_valid = 0;
+	info->acc_skt = NULL;
+	info->acc_skt_valid = 0;
+	info->con_skt = NULL;
+	info->con_skt_valid = 0;
+	info->sock_num = 0;
+	info->sock_tx_buf = NULL;
+	info->sock_rx_buf = NULL;
 
 	init_seq_ts(&info->desc_ts, MAX_TIMESTAMPS);
 	init_seq_ts(&info->fifo_ts, MAX_TIMESTAMPS);
@@ -165,7 +164,7 @@ void shutdown_worker_thread(struct worker *info)
 		sem_post(&info->run);
 		pthread_join(info->wkr_thr.thr, NULL);
 	}
-		
+
 	dma_free_ibwin(info);
 	direct_io_obwin_unmap(info);
 	dealloc_dma_tx_buffer(info);
@@ -182,7 +181,7 @@ void shutdown_worker_thread(struct worker *info)
 					rc, strerror(errno));
 		}
 	}
-	
+
 	init_worker_info(info, 0);
 }
 
@@ -303,7 +302,7 @@ void finish_iter_stats(struct worker *info)
 		&info->iter_st_time, &info->iter_end_time,
 		&info->tot_iter_time, &info->min_iter_time,
 		&info->max_iter_time);
-	info->perf_iter_cnt++;	
+	info->perf_iter_cnt++;
 }
 
 void direct_io_tx(struct worker *info, volatile void * volatile ptr)
@@ -395,10 +394,10 @@ int direct_io_wait_for_change(struct worker *info)
 
 void incr_direct_io_data(struct worker *info)
 {
-        info->data8_tx++;
-        info->data16_tx++;
-        info->data32_tx++;
-        info->data64_tx++;
+	info->data8_tx++;
+	info->data16_tx++;
+	info->data32_tx++;
+	info->data64_tx++;
 }
 
 int direct_io_obwin_map(struct worker *info)
@@ -415,7 +414,7 @@ int direct_io_obwin_map(struct worker *info)
 
 	info->ob_valid = 1;
 
-	rc = riomp_dma_map_memory(info->mp_h, info->ob_byte_cnt, 
+	rc = riomp_dma_map_memory(info->mp_h, info->ob_byte_cnt,
 					info->ob_handle, &info->ob_ptr);
 	if (rc)
 		ERR("FAILED: riomp_dma_map_memory rc %d:%s\n",
@@ -469,7 +468,7 @@ void direct_io_goodput(struct worker *info)
 	clock_gettime(CLOCK_MONOTONIC, &info->st_time);
 
 	while (!info->stop_req) {
-		
+
 		uint64_t cnt;
 
 		for (cnt = 0; (cnt < info->byte_cnt) && !info->stop_req;
@@ -488,7 +487,7 @@ void direct_io_goodput(struct worker *info)
 exit:
 	direct_io_obwin_unmap(info);
 }
-					
+
 void direct_io_tx_latency(struct worker *info)
 {
 	if (!info->rio_addr || !info->byte_cnt || !info->acc_size) {
@@ -510,7 +509,7 @@ void direct_io_tx_latency(struct worker *info)
 		ERR("FAILED: ibwin is not valid!\n");
 		return;
 	}
-		
+
 	if (direct_io_obwin_map(info))
 		goto exit;
 
@@ -539,7 +538,7 @@ void direct_io_tx_latency(struct worker *info)
 exit:
 	direct_io_obwin_unmap(info);
 }
-					
+
 void direct_io_rx_latency(struct worker *info)
 {
 	if (!info->rio_addr || !info->byte_cnt || !info->acc_size) {
@@ -578,7 +577,7 @@ exit:
 	direct_io_obwin_unmap(info);
 
 }
-					
+
 #define ADDR_L(x,y) ((uint64_t)((uint64_t)x + (uint64_t)y))
 #define ADDR_P(x,y) ((void *)((uint64_t)x + (uint64_t)y))
 
@@ -747,7 +746,7 @@ void dma_goodput(struct worker *info)
 		for (cnt = 0; (cnt < info->byte_cnt) && !info->stop_req;
 							cnt += info->acc_size) {
 			// FAF transactions go so fast they can overwhelm the
-			// small kernel transmit buffer.  Attempt the 
+			// small kernel transmit buffer.  Attempt the
 			// transaction until the resource is not busy.
 			ts_now_mark(&info->meas_ts, 5);
 			do {
@@ -755,8 +754,8 @@ void dma_goodput(struct worker *info)
 				if (dma_rc < 0) {
 					sleep(0);
 				}
-			} while  ((-EBUSY == dma_rc) && 
-                        (RIO_DIRECTIO_TRANSFER_FAF == info->dma_sync_type));
+			} while  ((-EBUSY == dma_rc) &&
+			(RIO_DIRECTIO_TRANSFER_FAF == info->dma_sync_type));
 
 			if ((RIO_DIRECTIO_TRANSFER_ASYNC == info->dma_sync_type)
 				&& (dma_rc > 0))
@@ -784,7 +783,7 @@ void dma_goodput(struct worker *info)
 				while (dly && (*rx_flag != iter_cnt_as_byte))
 					dly--;
 			}
-			
+
 			finish_iter_stats(info);
 
 			if (dly) {
@@ -847,7 +846,7 @@ void dma_tx_num_cmd(struct worker *info)
 exit:
 	dealloc_dma_tx_buffer(info);
 }
-	
+
 void dma_rx_latency(struct worker *info)
 {
 	uint8_t * volatile rx_flag;
@@ -990,7 +989,7 @@ void msg_cleanup_con_skt(struct worker *info)
 	int rc;
 
 	if (info->sock_rx_buf) {
-		rc = riomp_sock_release_receive_buffer(info->con_skt, 
+		rc = riomp_sock_release_receive_buffer(info->con_skt,
 					info->sock_rx_buf);
 		info->sock_rx_buf = NULL;
 		if (rc)
@@ -999,7 +998,7 @@ void msg_cleanup_con_skt(struct worker *info)
 	}
 
 	if (info->sock_tx_buf) {
-		rc = riomp_sock_release_send_buffer(info->con_skt, 
+		rc = riomp_sock_release_send_buffer(info->con_skt,
 						info->sock_tx_buf);
 		info->sock_tx_buf = NULL;
 		if (rc) {
@@ -1352,7 +1351,7 @@ bool dma_alloc_ibwin(struct worker *info)
 
 	if (!info->ib_byte_cnt || info->ib_valid) {
 		ERR("FAILED: window size of 0 or ibwin already exists\n");
-		return true; 
+		return true;
 	}
 
 	rc = riomp_dma_ibwin_map(info->mp_h, &info->ib_rio_addr,
@@ -1369,7 +1368,7 @@ bool dma_alloc_ibwin(struct worker *info)
 
 
 	info->ib_ptr = NULL;
-	rc = riomp_dma_map_memory(info->mp_h, info->ib_byte_cnt, 
+	rc = riomp_dma_map_memory(info->mp_h, info->ib_byte_cnt,
 					info->ib_handle, &info->ib_ptr);
 	if (rc) {
 		riomp_dma_ibwin_free(info->mp_h, &info->ib_handle);
@@ -1398,7 +1397,7 @@ void dma_free_ibwin(struct worker *info)
 {
 	int rc;
 	if (!info->ib_valid)
-		return; 
+		return;
 
 	if (info->ib_ptr && info->ib_valid) {
 		rc = riomp_dma_unmap_memory(info->ib_byte_cnt,
@@ -1420,6 +1419,36 @@ void dma_free_ibwin(struct worker *info)
 	info->ib_rio_addr = 0;
 	info->ib_byte_cnt = 0;
 	info->ib_handle = 0;
+}
+
+void do_reg_scrub(struct worker *info)
+{
+	uint32_t oset;
+	int ret = 0;
+	hc_t hc = info->data8_tx;
+	uint32_t val = info->data32_tx;
+
+	zero_stats(info);
+
+	while (!info->stop_req) {
+		start_iter_stats(info);
+		for (oset = 0;
+			((oset < info->byte_cnt) && !ret && !info->stop_req);
+				oset += 4) {
+			ret = riomp_mgmt_rcfg_write(info->mp_h,
+				info->did_val,
+				hc,
+				info->rio_addr + oset,
+				4,
+				val);
+		}
+		info->perf_byte_cnt += info->byte_cnt;
+		finish_iter_stats(info);
+	}
+
+	if (ret) {
+		ERR("Register write failed ERR %d %s\n", ret, strerror(ret));
+	}
 }
 
 void *worker_thread(void *parm)
@@ -1478,6 +1507,9 @@ void *worker_thread(void *parm)
 
 		case shutdown_worker:
 			info->stat = 0;
+			break;
+		case reg_scrub:
+			do_reg_scrub(info);
 			break;
 		case no_action:
 		case last_action:

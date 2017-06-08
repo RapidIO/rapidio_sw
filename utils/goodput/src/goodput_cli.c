@@ -79,6 +79,7 @@ char *req_type_str[(int)last_action+1] = {
 	(char *)" IBWIN",
 	(char *)"~IBWIN",
 	(char *)"SHTDWN",
+	(char *)"RgScrb",
 	(char *)"LAST"
 };
 
@@ -2089,6 +2090,94 @@ MpdevsCmd,
 ATTR_NONE
 };
 
+static int RegScrubCmd(struct cli_env *env, int UNUSED(argc), char **argv)
+{
+	uint16_t idx;
+	did_val_t did;
+	hc_t hc;
+	uint32_t offset;
+	uint32_t count;
+	uint32_t val;
+	int n = 0;
+	const uint32_t max_offset = 0xFFFFFC;
+
+	if (gp_parse_worker_index(env, argv[n], &idx)) {
+		goto exit;
+	}
+
+	if (2 != wkr[idx].stat) {
+		LOGMSG(env, "ERR: worker %d is not halted\n", idx);
+		goto exit;
+	}
+
+	n++;
+	if (tok_parse_did(argv[n], &did, 0)) {
+		LOGMSG(env, "ERR: %s is not a valid destination ID\n",
+				argv[n]);
+		goto exit;
+	}
+
+	n++;
+	if (tok_parse_hc(argv[n], &hc, 0)) {
+		LOGMSG(env, "ERR: %s is not a valid hopcount\n",
+				argv[n]);
+		goto exit;
+	}
+
+	// Valid register offsets run from 0 to 0xFFFFFC, since
+	// this routine uses 4 byte register writes.
+	n++;
+	if (tok_parse_ulong(argv[n], &offset, 0, max_offset, 0)) {
+		LOGMSG(env, "ERR: %s is not a valid offset\n",
+				argv[n]);
+		goto exit;
+	}
+	// Ensure offset is a multiple of 4
+	offset &= max_offset;
+
+	n++;
+	if (tok_parse_ulong(argv[n], &count, 1, 0xFFFFFFFF, 0)) {
+		LOGMSG(env, "ERR: %s is not a valid count \n",
+				argv[n]);
+		goto exit;
+	}
+
+	n++;
+	if (tok_parse_ul(argv[n], &val, 0)) {
+		LOGMSG(env, "ERR: %s is not a valid value\n",
+				argv[n]);
+		goto exit;
+	}
+
+	wkr[idx].action = reg_scrub;
+	wkr[idx].did_val = did;
+	wkr[idx].data8_tx = hc;
+	wkr[idx].rio_addr = offset;
+	wkr[idx].byte_cnt = count * 4;
+	wkr[idx].data32_tx = val;
+	wkr[idx].stop_req = 0;
+	sem_post(&wkr[idx].run);
+
+exit:
+	return 0;
+}
+
+struct cli_cmd RegScrub = {
+"regscrub",
+3,
+6,
+"Repeatedly perform register writes to a range of addresses.",
+"<idx> <DevDid> <HC> <offset> <count> <value>\n"
+"<idx>    : a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
+"<DevDid> : Destination ID to use when accessing the device\n"
+"<hc>     : Hop count to use when accessing the device\n"
+"<offset> : Offset to use for first register write\n"
+"<count>  : Number of registers to write\n"
+"<value>  : 4 byte value to write to all registers\n",
+RegScrubCmd,
+ATTR_NONE
+};
+
 static int program_rxs_mc_mask(struct cli_env *env,
 				did_val_t mc_did,
 				int did_cnt,
@@ -2686,6 +2775,7 @@ struct cli_cmd *goodput_cmds[] = {
 	&Mpdevs,
 	&Multicast,
 	&UTime,
+	&RegScrub,
 };
 
 void bind_goodput_cmds(void)

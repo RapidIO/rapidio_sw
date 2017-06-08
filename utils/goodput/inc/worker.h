@@ -75,7 +75,7 @@ extern "C" {
  *
  * Every worker thread is passed one of these structures to control what
  * it is doing.
- * 
+ *
  */
 
 enum req_type {
@@ -97,6 +97,7 @@ enum req_type {
 	alloc_ibwin,
 	free_ibwin,
 	shutdown_worker,
+	reg_scrub,
 	last_action
 };
 
@@ -130,7 +131,7 @@ struct worker {
 	uint64_t acc_size; /* Bytes per transfer for direct IO and DMA */
 	int      max_iter; /* For infinite loop tests make this the upper bound of loops*/
 
-	int wr; 
+	int wr;
 	int mp_num;	/* Mport index */
 	int mp_h_is_mine; /* 0 - common mp_h, 1 - worker specific mp_h */
 	riomp_mport_t mp_h;
@@ -156,12 +157,12 @@ struct worker {
 	uint32_t data32_rx;
 	uint64_t data64_rx;
 
-	int use_kbuf; 
+	int use_kbuf;
 	enum riomp_dma_directio_type dma_trans_type;
 	enum riomp_dma_directio_transfer_sync dma_sync_type;
-	uint64_t rdma_kbuff; 
-	uint64_t rdma_buff_size; 
-	void *rdma_ptr; 
+	uint64_t rdma_kbuff;
+	uint64_t rdma_buff_size;
+	void *rdma_ptr;
 	int num_trans;
 
 	int mb_valid;
@@ -217,7 +218,7 @@ void init_worker_info(struct worker *info, int first_time);
 /**
  * @brief Starts a worker thread that performs Direct IO, DMA, and/or messaging
  *
- * @param[in] info Pointer to worker info, must have been initialized by 
+ * @param[in] info Pointer to worker info, must have been initialized by
  *		init_worker_info prior to this call.
  * @param[in] new_mp_h If <> 0, open mport again to get new DMA channel
  * @param[in] cpu The cpu that should run the thread, -1 for all cpus
