@@ -279,7 +279,8 @@ void *fmd_socket_mon(void *UNUSED(unused))
 
 void *mon_loop(void *parms)
 {
-	const struct timespec delay = {3 * fml.fmd_update_period, 0}; // seconds
+	struct timespec delay = {3 * fml.fmd_update_period, 0}; // seconds
+	DBG("fmd_update_period is %d. Delay is %d %d.\n", fml.fmd_update_period, delay.tv_sec, delay.tv_nsec);
 	const struct timespec loop_delay = {1, 0}; // seconds
 
 	int rc;
@@ -309,6 +310,10 @@ void *mon_loop(void *parms)
 			CRIT(DEV_DB_FAIL, "");
 			goto cleanup;
 		}
+		// get_dd_names_from_fmd updates fml.fmd_update_period, so recalculate the delay value
+		delay.tv_sec = 3 * fml.fmd_update_period;
+		delay.tv_nsec = 0;
+		DBG("fmd_update_period is now %d. Delay is %d %d.\n", fml.fmd_update_period, delay.tv_sec, delay.tv_nsec);
 		if (open_dd()) {
 			CRIT(DEV_DB_FAIL, "");
 			goto cleanup;

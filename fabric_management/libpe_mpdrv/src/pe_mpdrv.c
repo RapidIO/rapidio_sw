@@ -76,7 +76,7 @@ int RIOCP_WU mpsw_drv_reg_rd(struct riocp_pe *pe, uint32_t offset, uint32_t *val
 	int ret;
 	struct mpsw_drv_private_data *priv_ptr;
 
-	DBG("ENTRY: offset 0x%x val 0x%x\n", offset, *val);
+	DBG("ENTRY: offset 0x%x did:%0x%08x hc:%d\n", offset, pe->did_reg_val, pe->hopcount);
 
 	ret = riocp_pe_handle_get_private(pe, (void **)&priv_ptr);
 	if (ret) {
@@ -91,7 +91,7 @@ int RIOCP_WU mpsw_drv_reg_rd(struct riocp_pe *pe, uint32_t offset, uint32_t *val
 		ret = EIO;
 	}
 
-	DBG("EXIT\n");
+	DBG("EXIT: offset 0x%x did:%0x%08x hc:%d val 0x%08x\n", offset, pe->did_reg_val, pe->hopcount, *val);
 	return ret;
 }
 
@@ -100,7 +100,7 @@ int RIOCP_WU mpsw_drv_reg_wr(struct riocp_pe *pe, uint32_t offset, uint32_t val)
 	int ret;
 	struct mpsw_drv_private_data *priv_ptr = NULL;
 
-	DBG("ENTRY: offset 0x%x val 0x%x\n", offset, val);
+	DBG("ENTRY: offset 0x%x did:%0x%08x hc:%d val 0x%08x\n", offset, pe->did_reg_val, pe->hopcount, val);
 
 	ret = riocp_pe_handle_get_private(pe, (void **)&priv_ptr);
 	if (ret) {
@@ -123,6 +123,7 @@ int RIOCP_WU mpsw_drv_reg_wr(struct riocp_pe *pe, uint32_t offset, uint32_t val)
 	ret = DARRegWrite(&priv_ptr->dev_h, offset, val);
 	if (ret) {
 		ERR("Write Failed: offset 0x%x rc 0x%x\n", offset, ret);
+		return -ret;
 	}
 
 	DBG("EXIT\n");
@@ -600,12 +601,13 @@ int generic_device_init(struct riocp_pe *pe)
 	}
 
 	if (RIO_SUCCESS != rc) {
+		ERR("DARrioPortEnable returned %d\n", rc);
 		goto exit;
 	}
 
 	rc = DARrioSetEnumBound(dev_h, &ptl, 0);
 	if (rc) {
-		ERR("Could not clear enumeration indication\n");
+		ERR("Could not clear enumeration indication: %d\n", rc);
 		goto exit;
 	}
 
@@ -654,8 +656,10 @@ int generic_device_init(struct riocp_pe *pe)
 
 	/* Query port configuration and status */
 	pc_in.ptl.num_ports = RIO_ALL_PORTS;
+	DBG("call rio_pc_get_config(family:%d)\n", dev_h->driver_family);
 	rc = rio_pc_get_config(dev_h, &pc_in, &priv->st.pc);
 	if (RIO_SUCCESS != rc) {
+		ERR("rio_pc_get_config returned %d\n", rc);
 		goto exit;
 	}
 
@@ -718,12 +722,14 @@ int generic_device_init(struct riocp_pe *pe)
 
 	rc = rio_pc_set_config(dev_h, &set_pc_in, &priv->st.pc);
 	if (RIO_SUCCESS != rc) {
+		ERR("rio_pc_set_config returned %d\n", rc);
 		goto exit;
 	}
 
 	ps_in.ptl.num_ports = RIO_ALL_PORTS;
 	rc = rio_pc_get_status(dev_h, &ps_in, &priv->st.ps);
 	if (RIO_SUCCESS != rc) {
+		ERR("rio_pc_get_status returned %d\n", rc);
 		goto exit;
 	}
 
@@ -731,6 +737,7 @@ int generic_device_init(struct riocp_pe *pe)
 		// initialize the status of the routing tables
 		rc = probe_all_rt(dev_h, priv);
 		if (rc) {
+			ERR("probe_all_rt returned %d\n", rc);
 			goto exit;
 		}
 
@@ -738,12 +745,14 @@ int generic_device_init(struct riocp_pe *pe)
 		rc = mpdrv_init_rt(pe, dev_h, priv,
 				RIO_ACCESS_PORT(port_info));
 		if (rc) {
+			ERR("mpdrv)init_rt returned %d\n", rc);
 			goto exit;
 		}
 
 		// update the routing tables
 		rc = probe_all_rt(dev_h, priv);
 		if (rc) {
+			ERR("probe_all_rt returned %d\n", rc);
 			goto exit;
 		}
 	}
@@ -757,12 +766,14 @@ int generic_device_init(struct riocp_pe *pe)
 	priv->st.sc_dev.p_ctrs = priv->st.sc;
 
 	rc = rio_sc_init_dev_ctrs(dev_h, &sc_in, &sc_out);
-	if (RIO_SUCCESS != rc) {
+	if ((RIO_SUCCESS != rc) && (RIO_STUBBED != rc)) {
+		ERR("rio_sc_init_dev_ctrs returned %d\n", rc);
 		goto exit;
 	}
 
 	rc = rio_sc_config_dev_ctrs(dev_h, priv);
-	if (RIO_SUCCESS != rc) {
+	if ((RIO_SUCCESS != rc) && (RIO_STUBBED != rc)) {
+		ERR("rio_sc_config_dev_ctrs returned %d\n", rc);
 		goto exit;
 	}
 
@@ -775,10 +786,12 @@ int generic_device_init(struct riocp_pe *pe)
 
 	rc = rio_pc_dev_reset_config(dev_h, &rst_in, &rst_out);
 	if (RIO_SUCCESS != rc) {
+		ERR("rio_pc_dev_reset_config returned %d\n", rc);
 		goto exit;
 	}
 
 	if (RIOCP_PE_IS_MPORT(pe)) {
+		DBG("EXIT 0 (is mport)\n");
 		return 0;
 	}
 
@@ -786,6 +799,7 @@ int generic_device_init(struct riocp_pe *pe)
 	rpt_in.notfn = rio_em_notfn_none;
 	rc = rio_em_dev_rpt_ctl(dev_h, &rpt_in, &priv->st.em_notfn);
 	if (RIO_SUCCESS != rc) {
+		ERR("rio_em_dev_rpt_ctl returned %d\n", rc);
 		goto exit;
 	}
 
@@ -805,9 +819,11 @@ int generic_device_init(struct riocp_pe *pe)
 	if (rc) {
 		goto exit;
 	}
+	DBG("EXIT 0\n");
 	return 0;
 
 exit:
+	DBG("EXIT error %d\n", rc);
 	return rc;
 }
 
@@ -866,7 +882,7 @@ int RIOCP_WU mpsw_drv_init_pe(struct riocp_pe *pe, struct riocp_pe *peer,
 	}
 
 exit:
-	DBG("EXIT\n");
+	DBG("EXIT %d\n", ret);
 	return ret;
 }
 

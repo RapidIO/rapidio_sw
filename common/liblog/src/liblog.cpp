@@ -162,6 +162,7 @@ int rdma_log(unsigned level, const char *level_str, const char *file,
 	}
 	if (log_file) {
 		fputs(log_line.c_str(), log_file);
+		fflush(log_file);
 	}
 	if (level <= g_disp_level) {
 		fflush(stderr);

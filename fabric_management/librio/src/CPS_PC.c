@@ -2,6 +2,7 @@
 ****************************************************************************
 Copyright (c) 2014, Integrated Device Technology Inc.
 Copyright (c) 2014, RapidIO Trade Association
+Copyright (c) 2017, Fabric Embedded Tools Corporation
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -111,6 +112,13 @@ const cps_ports_per_quadrant_t cps1848_ppq = {{ //
 		{{3, 7, 11, 15, RIO_ALL_PORTS}}, //
 	}};
 
+const cps_ports_per_quadrant_t cps1616_ppq = {{ //
+		{{ 0,  1,  2,  3, RIO_ALL_PORTS}}, //
+		{{ 4,  5,  6,  7, RIO_ALL_PORTS}}, //
+		{{ 8,  9, 10, 11, RIO_ALL_PORTS}}, //
+		{{12, 13, 14, 15, RIO_ALL_PORTS}}, //
+	}};
+
 const cps_ports_per_quadrant_t cps1432_ppq = {{ //
 		{{0, 4, 12, RIO_ALL_PORTS, RIO_ALL_PORTS}}, //
 		{{1, 5, 13, RIO_ALL_PORTS, RIO_ALL_PORTS}}, //
@@ -204,6 +212,75 @@ cps_port_relations_t cps1848_cfg[] = {
             {0, 0, {          3, INVALID_PLL}, {RIO_ALL_PORTS, RIO_ALL_PORTS, RIO_ALL_PORTS}},
             {2,38, {          9, INVALID_PLL}, {            9, RIO_ALL_PORTS, RIO_ALL_PORTS}},
             {1, 7, {          1, INVALID_PLL}, {            1,            13, RIO_ALL_PORTS}} } },
+  CONFIG_TERMINATOR 
+};
+
+cps_port_relations_t cps1616_cfg[] = {
+  { 0, 0, { {4, 0, {          0,           1}, {RIO_ALL_PORTS, RIO_ALL_PORTS, RIO_ALL_PORTS}},
+            {2, 0, {          0,           1}, {            2, RIO_ALL_PORTS, RIO_ALL_PORTS}},
+            {2, 0, {          0,           1}, {            2,             3, RIO_ALL_PORTS}},
+            {1, 0, {          0,           1}, {            1,             2,             3}} } },
+  { 1, 0, { {0, 0, {INVALID_PLL, INVALID_PLL}, {RIO_ALL_PORTS, RIO_ALL_PORTS, RIO_ALL_PORTS}},
+            {0, 0, {INVALID_PLL, INVALID_PLL}, {RIO_ALL_PORTS, RIO_ALL_PORTS, RIO_ALL_PORTS}},
+            {0, 0, {INVALID_PLL, INVALID_PLL}, {RIO_ALL_PORTS, RIO_ALL_PORTS, RIO_ALL_PORTS}},
+            {1, 1, {          0,           1}, {            0,             2,             3}} } },
+  { 2, 0, { {0, 0, {INVALID_PLL, INVALID_PLL}, {RIO_ALL_PORTS, RIO_ALL_PORTS, RIO_ALL_PORTS}},
+            {2, 2, {          0,           1}, {            0, RIO_ALL_PORTS, RIO_ALL_PORTS}},
+            {1, 2, {          0,           1}, {            0,             2, RIO_ALL_PORTS}},
+            {1, 2, {          0,           1}, {            0,             1,             3}} } },
+  { 3, 0, { {0, 0, {INVALID_PLL, INVALID_PLL}, {RIO_ALL_PORTS, RIO_ALL_PORTS, RIO_ALL_PORTS}},
+            {0, 0, {INVALID_PLL, INVALID_PLL}, {RIO_ALL_PORTS, RIO_ALL_PORTS, RIO_ALL_PORTS}},
+            {1, 3, {          0,           1}, {            0,             2, RIO_ALL_PORTS}},
+            {1, 3, {          0,           1}, {            0,             1,             2}} } },
+  { 4, 1, { {4, 4, {          2,           3}, {RIO_ALL_PORTS, RIO_ALL_PORTS, RIO_ALL_PORTS}},
+            {2, 4, {          2,           3}, {            6, RIO_ALL_PORTS, RIO_ALL_PORTS}},
+            {2, 4, {          2,           3}, {            6,             7, RIO_ALL_PORTS}},
+            {1, 4, {          2,           3}, {            5,             6,             7}} } },
+  { 5, 1, { {0, 0, {INVALID_PLL, INVALID_PLL}, {RIO_ALL_PORTS, RIO_ALL_PORTS, RIO_ALL_PORTS}},
+            {0, 0, {INVALID_PLL, INVALID_PLL}, {RIO_ALL_PORTS, RIO_ALL_PORTS, RIO_ALL_PORTS}},
+            {0, 0, {INVALID_PLL, INVALID_PLL}, {RIO_ALL_PORTS, RIO_ALL_PORTS, RIO_ALL_PORTS}},
+            {1, 5, {          2,           3}, {            4,             6,             7}} } },
+  { 6, 1, { {0, 0, {INVALID_PLL, INVALID_PLL}, {RIO_ALL_PORTS, RIO_ALL_PORTS, RIO_ALL_PORTS}},
+            {2, 6, {          2,           3}, {            4, RIO_ALL_PORTS, RIO_ALL_PORTS}},
+            {1, 6, {          2,           3}, {            4,             6, RIO_ALL_PORTS}},
+            {1, 6, {          2,           3}, {            4,             5,             7}} } },
+  { 7, 1, { {0, 0, {INVALID_PLL, INVALID_PLL}, {RIO_ALL_PORTS, RIO_ALL_PORTS, RIO_ALL_PORTS}},
+            {0, 0, {INVALID_PLL, INVALID_PLL}, {RIO_ALL_PORTS, RIO_ALL_PORTS, RIO_ALL_PORTS}},
+            {1, 7, {          2,           3}, {            4,             6, RIO_ALL_PORTS}},
+            {1, 7, {          2,           3}, {            4,             5,             6}} } },
+  { 8, 2, { {4, 8, {          4,           5}, {RIO_ALL_PORTS, RIO_ALL_PORTS, RIO_ALL_PORTS}},
+            {2, 8, {          4,           5}, {           10, RIO_ALL_PORTS, RIO_ALL_PORTS}},
+            {2, 8, {          4,           5}, {           10,            11, RIO_ALL_PORTS}},
+            {1, 8, {          4,           5}, {            9,            10,            11}} } },
+  { 9, 2, { {0, 0, {INVALID_PLL, INVALID_PLL}, {RIO_ALL_PORTS, RIO_ALL_PORTS, RIO_ALL_PORTS}},
+            {0, 0, {INVALID_PLL, INVALID_PLL}, {RIO_ALL_PORTS, RIO_ALL_PORTS, RIO_ALL_PORTS}},
+            {0, 0, {INVALID_PLL, INVALID_PLL}, {RIO_ALL_PORTS, RIO_ALL_PORTS, RIO_ALL_PORTS}},
+            {1, 9, {          4,           5}, {            8,            10,            11}} } },
+  {10, 2, { {0, 0, {INVALID_PLL, INVALID_PLL}, {RIO_ALL_PORTS, RIO_ALL_PORTS, RIO_ALL_PORTS}},
+            {2,10, {          4,           5}, {            8, RIO_ALL_PORTS, RIO_ALL_PORTS}},
+            {1,10, {          4,           5}, {            8,            10, RIO_ALL_PORTS}},
+            {1,10, {          4,           5}, {            8,             9,            11}} } },
+  {11, 2, { {0, 0, {INVALID_PLL, INVALID_PLL}, {RIO_ALL_PORTS, RIO_ALL_PORTS, RIO_ALL_PORTS}},
+            {0, 0, {INVALID_PLL, INVALID_PLL}, {RIO_ALL_PORTS, RIO_ALL_PORTS, RIO_ALL_PORTS}},
+            {1,11, {          4,           5}, {            8,            10, RIO_ALL_PORTS}},
+            {1,11, {          4,           5}, {            8,             9,            10}} } },
+
+  {12, 3, { {4,12, {          6,           7}, {RIO_ALL_PORTS, RIO_ALL_PORTS, RIO_ALL_PORTS}},
+            {2,12, {          6,           7}, {           14, RIO_ALL_PORTS, RIO_ALL_PORTS}},
+            {2,12, {          6,           7}, {           14,            15, RIO_ALL_PORTS}},
+            {1,12, {          6,           7}, {           13,            14,            15}} } },
+  {13, 3, { {0, 0, {INVALID_PLL, INVALID_PLL}, {RIO_ALL_PORTS, RIO_ALL_PORTS, RIO_ALL_PORTS}},
+            {0, 0, {INVALID_PLL, INVALID_PLL}, {RIO_ALL_PORTS, RIO_ALL_PORTS, RIO_ALL_PORTS}},
+            {0, 0, {INVALID_PLL, INVALID_PLL}, {RIO_ALL_PORTS, RIO_ALL_PORTS, RIO_ALL_PORTS}},
+            {1,13, {          6,           7}, {           12,            14,            15}} } },
+  {14, 3, { {0, 0, {INVALID_PLL, INVALID_PLL}, {RIO_ALL_PORTS, RIO_ALL_PORTS, RIO_ALL_PORTS}},
+            {2,14, {          6,           7}, {           12, RIO_ALL_PORTS, RIO_ALL_PORTS}},
+            {1,14, {          6,           7}, {           12,            14, RIO_ALL_PORTS}},
+            {1,14, {          6,           7}, {           12,            13,            15}} } },
+  {15, 3, { {0, 0, {INVALID_PLL, INVALID_PLL}, {RIO_ALL_PORTS, RIO_ALL_PORTS, RIO_ALL_PORTS}},
+            {0, 0, {INVALID_PLL, INVALID_PLL}, {RIO_ALL_PORTS, RIO_ALL_PORTS, RIO_ALL_PORTS}},
+            {1,15, {          6,           7}, {           12,            14, RIO_ALL_PORTS}},
+            {1,15, {          6,           7}, {           12,            13,            14}} } },
   CONFIG_TERMINATOR 
 };
 
@@ -371,6 +448,10 @@ uint32_t init_sw_pi(DAR_DEV_INFO_t *dev_info, cps_port_info_t *pi)
 	case RIO_DEVI_IDT_CPS1432:
 		pi->cpr = cps1432_cfg;
 		pi->ppq = &cps1432_ppq;
+		break;
+	case RIO_DEVI_IDT_CPS1616:
+		pi->cpr = cps1616_cfg;
+		pi->ppq = &cps1616_ppq;
 		break;
 	case RIO_DEVI_IDT_SPS1616:
 		pi->cpr = sps1616_cfg;

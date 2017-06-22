@@ -128,18 +128,6 @@ int CLIConfigCmd(struct cli_env *env, int argc, char **argv)
 			continue;
 		}
 		printed_one = true;
-		if (!info_rc) {
-			if (NULL == pe_port_info[i].peer) {
-				name = (char *)"NO_CONN";
-			} else {
-				port = pe_port_info[i].peer->id;
-				if (!riocp_pe_find_comptag(*fmd->mp_h,
-						pe_port_info[i].peer->pe->comptag,
-						&peer_pe)) {
-					name = (char *)peer_pe->sysfs_name;
-				}
-			}
-		}
 		if (h->st.pc.pc[i].port_lockout) {
 			enables = (char *)"LOCKOUT";
 		} else if (h->st.pc.pc[i].nmtc_xfer_enable) {
@@ -163,6 +151,20 @@ int CLIConfigCmd(struct cli_env *env, int argc, char **argv)
 		}
 		if (j == h->st.ps.num_ports) {
 			j = -1;
+			name=(char *)"ERR";
+		}
+		else
+		{
+			if (NULL == pe_port_info[j].peer) {
+				name = (char *)"NO_CONN";
+			} else {
+				port = pe_port_info[j].peer->id;
+				if (!riocp_pe_find_comptag(*fmd->mp_h,
+						pe_port_info[j].peer->pe->comptag,
+						&peer_pe)) {
+					name = (char *)peer_pe->sysfs_name;
+				}
+			}
 		}
 
 		LOGMSG(env,
