@@ -49,9 +49,6 @@
 
 #include "GenericDevice.h"
 
-#define RDMA_LL 7
-#include "liblog.h"
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -206,10 +203,6 @@ uint32_t DSF_rio_pc_get_config(DAR_DEV_INFO_t *dev_info,
                 out_parms->imp_rc = PC_SET_CONFIG(0x3);
                 goto exit;
         }
-DBG("Log timeout is %x\n", temp);
-        temp = ((temp >> 8) * 32) / 10;
-DBG("Log timeout converted to %x\n", temp);
-        out_parms->log_rto = temp;
 
         for (port_idx = 0; port_idx < out_parms->num_ports; port_idx++) {
 		out_parms->pc[port_idx].pnum = 0;
