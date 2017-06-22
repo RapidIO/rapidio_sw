@@ -139,8 +139,8 @@ enum rio_pc_idle_seq {
 	rio_pc_is_one = 0,
 	rio_pc_is_two = 1,
 	rio_pc_is_three = 2,
-	rio_pc_is_dlft = 3,
-	rio_pc_is_last = rio_pc_is_three + 1
+	rio_pc_is_dflt = 3,
+	rio_pc_is_last = 4,
 };
 
 // Convert idle sequenceto a string

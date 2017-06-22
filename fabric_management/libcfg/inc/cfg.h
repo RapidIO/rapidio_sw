@@ -83,6 +83,7 @@ struct cfg_ep_port {
 	int valid;
 	rio_pc_pw_t op_pw;
 	rio_pc_ls_t ls;
+	enum rio_pc_idle_seq iseq;
 	struct dev_id devids[CFG_DEVID_MAX];
 };
 
@@ -91,6 +92,7 @@ struct cfg_sw_port {
 	int port;
 	rio_pc_pw_t op_pw;
 	rio_pc_ls_t ls;
+	enum rio_pc_idle_seq iseq;
 	rio_rt_state_t *rt[CFG_DEVID_MAX];
 };
 

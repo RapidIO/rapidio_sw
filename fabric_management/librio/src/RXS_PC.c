@@ -300,7 +300,7 @@ bool determine_iseq(enum rio_pc_idle_seq *iseq, rio_pc_ls_t ls, uint32_t plm_ctl
 	// RXS_PLM_SPX_IMP_SPEC_CTL_USE_IDLE1,
 	// RXS_PLM_SPX_IMP_SPEC_CTL_USE_IDLE2, and
 	// RXS_PLM_SPX_IMP_SPEC_CTL_USE_IDLE3 set set.
-	*iseq = rio_pc_is_last;
+	*iseq = rio_pc_is_dflt;
 	switch (plm_ctl & idle_overrides) {
 	case 0:
 		break;
@@ -325,12 +325,12 @@ bool determine_iseq(enum rio_pc_idle_seq *iseq, rio_pc_ls_t ls, uint32_t plm_ctl
 	case rio_pc_ls_2p5:
 	case rio_pc_ls_3p125:
 	case rio_pc_ls_5p0:
-		if (rio_pc_is_last == *iseq) {
+		if (rio_pc_is_dflt == *iseq) {
 			*iseq = rio_pc_is_one;
 		}
 		break;
 	case rio_pc_ls_6p25:
-		if (rio_pc_is_last == *iseq) {
+		if (rio_pc_is_dflt == *iseq) {
 			*iseq = rio_pc_is_two;
 		}
 		if (rio_pc_is_one == *iseq) {
@@ -350,9 +350,14 @@ bool determine_iseq(enum rio_pc_idle_seq *iseq, rio_pc_ls_t ls, uint32_t plm_ctl
 			break;
 		case rio_pc_is_three:
 			break;
-		case rio_pc_is_last:
+		case rio_pc_is_dflt:
 			*iseq = rio_pc_is_three;
-			}
+			break;
+		default:
+		case rio_pc_is_last:
+			idle_err = true;
+			break;
+		}
 		break;
 	default:
 		idle_err = true;
@@ -630,6 +635,9 @@ uint32_t rxs_pc_set_cfg_check_parms(DAR_DEV_INFO_t *dev_info,
 			}
 			break;
 		case rio_pc_is_three:
+			// IDLE3 may be used at any baudrate
+			break;
+		case rio_pc_is_dflt:
 			break;
 		default:
 			*imp_rc = PC_SET_CONFIG(0x17);
@@ -1048,6 +1056,11 @@ int32_t rxs_pc_set_cfg_compute_changes(
 			break;
 		case rio_pc_is_three:
 			regs->one_wr |= RXS_PLM_SPX_1WR_IDLE_SEQ_3;
+			break;
+		case rio_pc_is_dflt:
+			// Writing 0 to the idle sequence selection allows the
+			// RXS to use the default IDLE sequence for the
+			// requested baud rate.
 			break;
 		default:
 			// Should not be possible to get here...

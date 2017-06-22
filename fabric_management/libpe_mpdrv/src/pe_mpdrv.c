@@ -707,6 +707,8 @@ int generic_device_init(struct riocp_pe *pe)
 						sw.sw_info.sw_pt[port].ls;
 				set_pc_in.pc[port].pw =
 						sw.sw_info.sw_pt[port].op_pw;
+				set_pc_in.pc[port].iseq =
+						sw.sw_info.sw_pt[port].iseq;
 			}
 		} else {
 			set_pc_in.pc[0].ls = sw.ep_pt.ls;
@@ -1125,6 +1127,12 @@ int RIOCP_WU mpsw_drv_get_port_state(struct riocp_pe *pe, pe_port_t port,
 		break;
 	case rio_pc_ls_6p25:
 		state->port_lane_speed = 6250;
+		break;
+	case rio_pc_ls_10p3:
+		state->port_lane_speed = 10313;
+		break;
+	case rio_pc_ls_12p5:
+		state->port_lane_speed = 12500;
 		break;
 	default:
 		state->port_lane_speed = 0;

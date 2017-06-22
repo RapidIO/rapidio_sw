@@ -76,7 +76,7 @@ FILE *cfg_fd = NULL;
 const char *DEV_TYPE = "ENDPOINT";
 
 static void init_rt(rio_rt_state_t *rt)
-{ 
+{
 	int k;
 
 	memset(rt, 0, sizeof(rio_rt_state_t));
@@ -155,6 +155,7 @@ static int init_cfg_ptr()
 	}
 
 	cfg->auto_config = false;
+	cfg->init_err = false;
 
 	return 0;
 }
@@ -240,14 +241,13 @@ fail:
 	return rc;
 }
 
-static void parse_err(struct int_cfg_parms *cfg, char *err_msg)
-{
-	
-	if (!cfg->init_err) {
-		ERR("\n%s\n", err_msg);
+#define PARSE_ERR(cfg, format, ...)			\
+	if (NULL != cfg) {				\
+		if (!cfg->init_err) {			\
+			ERR(format, ## __VA_ARGS__);	\
+		}					\
+		cfg->init_err = 1;			\
 	}
-	cfg->init_err = 1;
-}
 
 static int get_next_token(struct int_cfg_parms *cfg, char **token)
 {
@@ -258,7 +258,7 @@ static int get_next_token(struct int_cfg_parms *cfg, char **token)
 
 	*token = try_get_next_token(cfg);
 	if (NULL == *token) {
-		parse_err(cfg, (char *)"Unexpected end of file.");
+		PARSE_ERR(cfg, (char *)"Unexpected end of file.");
 	}
 
 	return (NULL == *token);
@@ -266,6 +266,7 @@ static int get_next_token(struct int_cfg_parms *cfg, char **token)
 
 #define DEVID_SZ_TOKENS "dev08 dev16 dev32"
 #define DEVID_SZ_TOKENS_END "dev08 dev16 dev32 END"
+#define DEVID_SZ_TO_STR(x) (!x?"dev08":(1 == x)?"dev16":(2==x)?"dev32":"UNKN")
 
 static int get_devid_sz(struct int_cfg_parms *cfg, uint32_t *devID_sz)
 {
@@ -286,14 +287,14 @@ static int get_devid_sz(struct int_cfg_parms *cfg, uint32_t *devID_sz)
 	case CFG_DEV32: // 2
 		break;
 	default:
-		parse_err(cfg, (char *)"Unknown devID size.");
+		PARSE_ERR(cfg, (char *)"Unknown devID size \"%x\"", tok);
 		goto fail;
 	}
 
 	return 0;
 
 fail:
-	parse_err(cfg, (char *)"Premature EOF.");
+	PARSE_ERR(cfg, (char *)"Premature EOF.");
 	return 1;
 }
 
@@ -311,7 +312,7 @@ static int get_dec_int(struct int_cfg_parms *cfg, uint32_t *dec_int)
 	return 0;
 
 fail:
-	parse_err(cfg, (char *)"get_dec_int error.");
+	PARSE_ERR(cfg, (char *)"get_dec_int error at \"%s\"", tok);
 	return 1;
 }
 
@@ -329,7 +330,7 @@ static int get_hex_int(struct int_cfg_parms *cfg, uint32_t *hex_int)
 	return 0;
 
 fail:
-	parse_err(cfg, (char *)"get_hex_int error.");
+	PARSE_ERR(cfg, (char *)"get_hex_int error at \"%s\"", tok);
 	return 1;
 }
 
@@ -337,9 +338,9 @@ static int get_parm_idx(struct int_cfg_parms *cfg, char *parm_list)
 {
 	char *tok = NULL;
 
-	if (!get_next_token(cfg, &tok))
+	if (!get_next_token(cfg, &tok)) {
 		return parm_idx(tok, parm_list);
-	parse_err(cfg, (char *)"Premature EOF.");
+	}
 	return -1;
 }
 
@@ -350,7 +351,6 @@ static int get_string(struct int_cfg_parms *cfg, char **parm)
 	if (!get_next_token(cfg, &tok)) {
 		return update_string(parm, tok, strlen(tok));
 	}
-	parse_err(cfg, (char *)"Premature EOF.");
 	return 1;
 }
 
@@ -372,7 +372,7 @@ static int get_rt_v(struct int_cfg_parms *cfg, uint32_t *rt_val)
 		*rt_val = (val<RIO_MAX_MC_MASKS)?
 			(val + RIO_MAX_MC_MASKS):RIO_RTE_DROP;
 		if (RIO_RTE_DROP == *rt_val) {
-			parse_err(cfg, (char *)"Illegal MC Mask number.");
+			PARSE_ERR(cfg, (char *)"Illegal MC Mask number.");
 			goto fail;
 		}
 		break;
@@ -387,14 +387,15 @@ static int get_rt_v(struct int_cfg_parms *cfg, uint32_t *rt_val)
 		break;
 	default:
 		if (tok_parse_port_num(tok, &val, 0)) {
-			parse_err(cfg, (char *)"Illegal port index.");
+			PARSE_ERR(cfg, (char *)"Illegal port index \"%s\"",
+					tok);
 			goto fail;
 		}
 		*rt_val = val;
 	}
 	return 0;
 fail:
-	parse_err(cfg, (char *)"Premature EOF.");
+	PARSE_ERR(cfg, (char *)"Premature EOF.");
 	return 1;
 }
 
@@ -403,7 +404,7 @@ static int find_ep_name(struct int_cfg_parms *cfg, char *name, struct int_cfg_ep
 	uint32_t i;
 
 	for (i = 0; i < cfg->ep_cnt; i++) {
-		if (!strcmp(name, cfg->eps[i].name) && 
+		if (!strcmp(name, cfg->eps[i].name) &&
 			(strlen(name) == strlen(cfg->eps[i].name))) {
 			*ep = &cfg->eps[i];
 			return 0;
@@ -418,7 +419,7 @@ static int find_sw_name(struct int_cfg_parms *cfg, char *name, struct int_cfg_sw
 	uint32_t i;
 
 	for (i = 0; i < cfg->sw_cnt; i++) {
-		if (!strcmp(name, cfg->sws[i].name) && 
+		if (!strcmp(name, cfg->sws[i].name) &&
 			(strlen(name) == strlen(cfg->sws[i].name))) {
 			*sw = &cfg->sws[i];
 			return 0;
@@ -445,7 +446,8 @@ static int find_ep_and_port(struct int_cfg_parms *cfg, char *tok,
 	if ('.' == temp[0]) {
 		temp[0] = '\0';
 		if (tok_parse_ulong(&temp[1], &tmp, 0, CFG_MAX_EP_PORT, 0)) {
-			parse_err(cfg, (char *)"Illegal port index.");
+			PARSE_ERR(cfg, (char *)"Illegal port index \"%s\"",
+				&temp[1]);
 			goto fail;
 		}
 		*port = (int)tmp;
@@ -456,7 +458,7 @@ static int find_ep_and_port(struct int_cfg_parms *cfg, char *tok,
 	}
 
 	if (!(*ep)->ports[*port].valid) {
-		parse_err(cfg, (char *)"Invalid port selected.");
+		PARSE_ERR(cfg, (char *)"Invalid port %d selected.", *port);
 		goto fail;
 	}
 	return 0;
@@ -476,20 +478,21 @@ static int get_ep_sw_and_port(struct int_cfg_parms *cfg, struct int_cfg_conn *co
 	conn->ends[idx].sw_h = NULL;
 
 	if (get_next_token(cfg, &tok)) {
-		parse_err(cfg, (char *)"No tokens.");
+		PARSE_ERR(cfg, (char *)"Premature EOF.");
 		goto fail;
 	}
 
 	temp = strchr(tok, '.');
 	if (NULL == temp) {
-		parse_err(cfg, (char *)"Illegal token.");
+		PARSE_ERR(cfg, (char *)"Illegal parameter \"%s\"", tok);
 		goto fail;
 	}
 
 	if ('.' == temp[0]) {
 		temp[0] = '\0';
 		if (tok_parse_port_num(&temp[1], &tmp, 0)) {
-			parse_err(cfg, (char *)"Illegal port index.");
+			PARSE_ERR(cfg, (char *)"Illegal port index \"%s\"",
+				&temp[1]);
 			goto fail;
 		}
 		conn->ends[idx].port_num = (int)tmp;
@@ -497,11 +500,13 @@ static int get_ep_sw_and_port(struct int_cfg_parms *cfg, struct int_cfg_conn *co
 
 	if (!find_ep_name(cfg, tok, &conn->ends[idx].ep_h)) {
 		if (conn->ends[idx].port_num >= CFG_MAX_EP_PORT) {
-			parse_err(cfg, (char *)"Illegal port index.");
+			PARSE_ERR(cfg, (char *)"Endpoint %s illegal port %d",
+				tok, conn->ends[idx].port_num);
 			goto fail;
 		}
 		if (!conn->ends[idx].ep_h->ports[conn->ends[idx].port_num].valid) {
-			parse_err(cfg, (char *)"Invalid port selected.");
+			PARSE_ERR(cfg, (char *)"Endpoint %s Invalid port %d",
+				tok, conn->ends[idx].port_num);
 			goto fail;
 		}
 		conn->ends[idx].ep = 1;
@@ -514,21 +519,23 @@ static int get_ep_sw_and_port(struct int_cfg_parms *cfg, struct int_cfg_conn *co
 
 	if (!find_sw_name(cfg, tok, &conn->ends[idx].sw_h)) {
 		if (conn->ends[idx].port_num >= CFG_MAX_SW_PORT) {
-			parse_err(cfg, (char *)"Illegal port index.");
+			PARSE_ERR(cfg, (char *)"Switch %s Illegal port %d.",
+				tok, conn->ends[idx].port_num);
 			goto fail;
 		}
 		if (!conn->ends[idx].sw_h->ports[conn->ends[idx].port_num].valid) {
-			parse_err(cfg, (char *)"Invalid port selected.");
+			PARSE_ERR(cfg, (char *)"Switch %s Invalid port %d.",
+				tok, conn->ends[idx].port_num);
 			goto fail;
 		}
 		conn->ends[idx].ep = 0;
-		conn->ends[idx].sw_h->ports[conn->ends[idx].port_num].conn 
+		conn->ends[idx].sw_h->ports[conn->ends[idx].port_num].conn
 			= conn;
-		conn->ends[idx].sw_h->ports[conn->ends[idx].port_num].conn_end 
+		conn->ends[idx].sw_h->ports[conn->ends[idx].port_num].conn_end
 			= idx;
 		return 0;
 	}
-	parse_err(cfg, (char *)"Unknown device.");
+	PARSE_ERR(cfg, (char *)"Unknown device \"%s\"", tok);
 
 fail:
 	return 1;
@@ -556,14 +563,15 @@ static int cfg_get_destid(struct int_cfg_parms *cfg, did_val_t *did_val, uint32_
 
 
 	if (!ep->ports[port].devids[devid_sz].valid) {
-		parse_err(cfg, (char *)"Unconfigured devid selected.");
+		PARSE_ERR(cfg, (char *)"Device %s %s devid not configured.",
+			tok, DEVID_SZ_TO_STR(devid_sz));
 		goto fail;
 	}
 	*did_val = ep->ports[port].devids[devid_sz].did_val;
 	return 0;
 
 fail:
-	parse_err(cfg, (char *)"cfg_get_destid error.");
+	PARSE_ERR(cfg, (char *)"cfg_get_destid error.");
 	return 1;
 }
 
@@ -590,7 +598,7 @@ static int parse_mport_mem_size(struct int_cfg_parms *cfg, uint8_t *mem_sz)
 	return 0;
 
 fail:
-	parse_err(cfg, (char *)"parse_mport_mem_size error.");
+	PARSE_ERR(cfg, (char *)"Unknown memory size.");
 	return 1;
 }
 
@@ -641,12 +649,12 @@ static int parse_ep_devids(struct int_cfg_parms *cfg, struct dev_id *devids)
 	return 0;
 
 fail:
-	parse_err(cfg, (char *)"parse_ep_devids error.");
+	PARSE_ERR(cfg, (char *)"parse_ep_devids error.");
 	return 1;
 }
 
 static int check_match (struct dev_id *mp_did, struct dev_id *ep_did,
-		struct int_mport_info *mpi, struct int_cfg_parms *cfg, 
+		struct int_mport_info *mpi, struct int_cfg_parms *cfg,
 		struct int_cfg_ep *ep, int pnum)
 {
 	if (!mp_did->valid) {
@@ -666,7 +674,7 @@ static int check_match (struct dev_id *mp_did, struct dev_id *ep_did,
 	}
 
 	if (mpi->ep != NULL) {
-		parse_err(cfg, (char *)"Duplicate MPORT definitions");
+		PARSE_ERR(cfg, (char *)"Duplicate MPORT definitions");
 		goto fail;
 	}
 
@@ -704,7 +712,7 @@ static int parse_mport_info(struct int_cfg_parms *cfg)
 	int idx, i;
 
 	if (cfg->max_mport_info_idx >= CFG_MAX_MPORTS) {
-		parse_err(cfg, (char *)"Too many MPORTs.");
+		PARSE_ERR(cfg, (char *)"Too many MPORTs.");
 		goto fail;
 	}
 
@@ -716,7 +724,7 @@ static int parse_mport_info(struct int_cfg_parms *cfg)
 
 	for (i = 0; i < idx; i++) {
 		if (cfg->mport_info[i].num == cfg->mport_info[idx].num) {
-			parse_err(cfg, (char *)"Duplicate mport number.");
+			PARSE_ERR(cfg, (char *)"Duplicate mport number.");
 			goto fail;
 		}
 	}
@@ -724,7 +732,7 @@ static int parse_mport_info(struct int_cfg_parms *cfg)
 	switch (get_parm_idx(cfg, (char *)"master slave")) {
 	case 0: // "master"
 		if (CFG_SLAVE != cfg->mast_idx) {
-			parse_err(cfg, 
+			PARSE_ERR(cfg,
 			(char *)"Only one MPORT can be master for now.");
 			goto fail;
 		}
@@ -735,7 +743,7 @@ static int parse_mport_info(struct int_cfg_parms *cfg)
 		cfg->mport_info[idx].op_mode = CFG_OP_MODE_SLAVE;
 		break;
 	default:
-		parse_err(cfg, (char *)"Unknown operating mode.");
+		PARSE_ERR(cfg, (char *)"Unknown operating mode.");
 		goto fail;
 	}
 
@@ -746,7 +754,7 @@ static int parse_mport_info(struct int_cfg_parms *cfg)
 	return parse_ep_devids(cfg, cfg->mport_info[idx].devids);
 
 fail:
-	parse_err(cfg, (char *)"parse_mport_info error.");
+	PARSE_ERR(cfg, (char *)"parse_mport_info error.");
 	return 1;
 }
 
@@ -766,7 +774,7 @@ static int parse_master_info(struct int_cfg_parms *cfg)
 	return 0;
 
 fail:
-	parse_err(cfg, (char *)"parse_master_info error.");
+	PARSE_ERR(cfg, (char *)"parse_master_info error.");
 	return 1;
 }
 
@@ -780,7 +788,7 @@ static int parse_mc_mask(struct int_cfg_parms *cfg, rio_rt_mc_info_t *mc_info)
 	}
 
 	if (mc_mask_idx >= RIO_MAX_MC_MASKS) {
-		parse_err(cfg, (char *)"Illegal multicast mask index.");
+		PARSE_ERR(cfg, (char *)"Illegal multicast mask index.");
 		goto fail;
 	}
 
@@ -797,9 +805,9 @@ static int parse_mc_mask(struct int_cfg_parms *cfg, rio_rt_mc_info_t *mc_info)
 		case 0: // END
 			done = 1;
 			break;
-		default: 
+		default:
 			if (tok_parse_port_num(tok, &pnum, 0)) {
-				parse_err(cfg, (char *)"Illegal multicast port.");
+				PARSE_ERR(cfg, (char *)"Illegal multicast port.");
 				goto fail;
 			}
 			mc_info[mc_mask_idx].mc_mask |= (1 << pnum);
@@ -813,13 +821,13 @@ static int parse_mc_mask(struct int_cfg_parms *cfg, rio_rt_mc_info_t *mc_info)
 	return 0;
 
 fail:
-	parse_err(cfg, (char *)"parse_mc_mask error.");
+	PARSE_ERR(cfg, (char *)"parse_mc_mask error.");
 	return 1;
 }
 
 static int get_lane_speed(struct int_cfg_parms *cfg, rio_pc_ls_t *ls)
 {
-	switch (get_parm_idx(cfg, (char *)"1p25 2p5 3p125 5p0 6p25")) {
+	switch (get_parm_idx(cfg, (char *)"1p25 2p5 3p125 5p0 6p25 10p3 12p5 ")) {
 	case 0: // 1p25
 		*ls = rio_pc_ls_1p25;
 		break;
@@ -835,8 +843,14 @@ static int get_lane_speed(struct int_cfg_parms *cfg, rio_pc_ls_t *ls)
 	case 4: // 6p25
 		*ls = rio_pc_ls_6p25;
 		break;
+	case 5: // 10p3
+		*ls = rio_pc_ls_10p3;
+		break;
+	case 6: // 12p5
+		*ls = rio_pc_ls_12p5;
+		break;
 	default:
-		parse_err(cfg, (char *)"Unknown lane speed.");
+		PARSE_ERR(cfg, (char *)"Unknown lane speed.");
 		goto fail;
 	}
 	return 0;
@@ -867,7 +881,7 @@ static int get_port_width(struct int_cfg_parms *cfg, rio_pc_pw_t *pw)
 		*pw = rio_pc_pw_1x_l2;
 		break;
 	default:
-		parse_err(cfg, (char *)"Unknown port width.");
+		PARSE_ERR(cfg, (char *)"Unknown port width.");
 		goto fail;
 	}
 	return 0;
@@ -876,11 +890,21 @@ fail:
 	return 1;
 }
 
-static int get_idle_seq(struct int_cfg_parms *cfg, int *idle)
+static int get_idle_seq(struct int_cfg_parms *cfg, enum rio_pc_idle_seq *iseq)
 {
-	*idle = get_parm_idx(cfg, (char *)"IDLE1 IDLE2");
-	if ((*idle < 0) || (*idle > 1)) {
-		parse_err(cfg, (char *)"Unknown idle sequence.");
+	switch (get_parm_idx(cfg, (char *)"IDLE1 IDLE2 IDLE3 DFLT "))
+	{
+	case 0: *iseq = rio_pc_is_one;
+		break;
+	case 1: *iseq = rio_pc_is_two;
+		break;
+	case 2: *iseq = rio_pc_is_three;
+		break;
+	case 3: *iseq = rio_pc_is_dflt;
+		break;
+	default:
+		*iseq = rio_pc_is_last;
+		PARSE_ERR(cfg, (char *)"Unknown idle sequence.");
 		goto fail;
 	}
 	return 0;
@@ -903,19 +927,19 @@ static int parse_rapidio(struct int_cfg_parms *cfg, struct int_cfg_rapidio *rio)
 		goto fail;
 	}
 
-	if (get_idle_seq(cfg, &rio->idle2)) {
+	if (get_idle_seq(cfg, &rio->iseq)) {
 		goto fail;
 	}
 
 	switch (get_parm_idx(cfg, (char *)"EM_OFF EM_ON")) {
-	case 0: // "OFF" 
+	case 0: // "OFF"
 		rio->em = 0;
 		break;
-	case 1: // "OFF" 
+	case 1: // "OFF"
 		rio->em = 1;
 		break;
 	default:
-		parse_err(cfg, (char *)"Unknown error management config.");
+		PARSE_ERR(cfg, (char *)"Unknown error management config.");
 		goto fail;
 	}
 	return 0;
@@ -955,7 +979,7 @@ static int parse_endpoint(struct int_cfg_parms *cfg)
 	int done = 0;
 
 	if (i >= CFG_MAX_EP) {
-		parse_err(cfg, (char *)"Too many endpoints.");
+		PARSE_ERR(cfg, (char *)"Too many endpoints.");
 		goto fail;
 	}
 
@@ -970,7 +994,7 @@ static int parse_endpoint(struct int_cfg_parms *cfg)
 		case 0: // "PORT"
 			pt_i = cfg->eps[i].port_cnt;
 			if (cfg->eps[i].port_cnt >= CFG_MAX_EP_PORT) {
-				parse_err(cfg, (char *)"Too many ports!");
+				PARSE_ERR(cfg, (char *)"Too many ports!");
 				goto fail;
 			}
 
@@ -979,7 +1003,7 @@ static int parse_endpoint(struct int_cfg_parms *cfg)
 			}
 
 			cfg->eps[i].port_cnt++;
-			if (match_ep_to_mports(cfg, &cfg->eps[i].ports[pt_i], 
+			if (match_ep_to_mports(cfg, &cfg->eps[i].ports[pt_i],
 						pt_i, &cfg->eps[i])) {
 				goto fail;
 			}
@@ -988,11 +1012,11 @@ static int parse_endpoint(struct int_cfg_parms *cfg)
 			done = 1;
 			break;
 		default:
-			parse_err(cfg, (char *)"Unknown parameter.");
+			PARSE_ERR(cfg, (char *)"Unknown parameter.");
 			goto fail;
 		}
 	}
-				
+
 	cfg->eps[i].valid = 1;
 	cfg->ep_cnt++;
 	return 0;
@@ -1010,7 +1034,7 @@ static int assign_rt_v(int rt_sz, did_val_t st_did_val, did_val_t end_did_val, p
 	case 0: // dev08
 		if ((st_did_val >= RIO_RT_GRP_SZ)
 				|| (end_did_val >= RIO_RT_GRP_SZ)) {
-			parse_err(cfg, (char *)"DestID value too large.");
+			PARSE_ERR(cfg, (char *)"DestID value too large.");
 			goto fail;
 		}
 
@@ -1028,13 +1052,13 @@ static int assign_rt_v(int rt_sz, did_val_t st_did_val, did_val_t end_did_val, p
 		}
 		break;
 	case 1: // dev16
-		parse_err(cfg, (char *)"Dev16 not supported yet.");
+		PARSE_ERR(cfg, (char *)"Dev16 not supported yet.");
 		goto fail;
 	case 2: // dev32
-		parse_err(cfg, (char *)"Dev32 not supported yet.");
+		PARSE_ERR(cfg, (char *)"Dev32 not supported yet.");
 		goto fail;
 	default:
-		parse_err(cfg, (char *)"Unknown rt size.");
+		PARSE_ERR(cfg, (char *)"Unknown rt size.");
 		goto fail;
 	}
 	return 0;
@@ -1076,7 +1100,7 @@ static int parse_switch(struct int_cfg_parms *cfg)
 	rio_rt_state_t *rt = NULL;
 
 	if (cfg->sw_cnt >= CFG_MAX_SW) {
-		parse_err(cfg, (char *)"Too many switches.");
+		PARSE_ERR(cfg, (char *)"Too many switches.");
 		goto fail;
 	}
 	i = cfg->sw_cnt;
@@ -1112,7 +1136,7 @@ static int parse_switch(struct int_cfg_parms *cfg)
 
 			rt_sz = get_parm_idx(cfg, (char *)DEVID_SZ_TOKENS);
 			if (rt_sz > 2) {
-				parse_err(cfg, (char *)"Unknown devID size.");
+				PARSE_ERR(cfg, (char *)"Unknown devID size.");
 				goto fail;
 			}
 
@@ -1128,7 +1152,7 @@ static int parse_switch(struct int_cfg_parms *cfg)
 			default:
 				uint32_t port;
 				if (tok_parse_port_num(token, &port, 0)) {
-					parse_err(cfg, (char *)"Illegal port.");
+					PARSE_ERR(cfg, (char *)"Illegal port.");
 					goto fail;
 				}
 
@@ -1140,7 +1164,6 @@ static int parse_switch(struct int_cfg_parms *cfg)
 				}
 				break;
 			}
-				
 			break;
 		case 2: // DFLTPORT
 			if (get_rt_v(cfg, &rtv)) {
@@ -1150,7 +1173,7 @@ static int parse_switch(struct int_cfg_parms *cfg)
 			// klocwork sees rt as null, but...
 			// rt is set whenever ROUTING_TABLE option (above) is hit
 			if (NULL == rt) {
-				parse_err(cfg, (char *)"DFLTPORT: rt not set.");
+				PARSE_ERR(cfg, (char *)"DFLTPORT: rt not set.");
 				goto fail;
 			}
 			rt->default_route = rtv;
@@ -1172,12 +1195,12 @@ static int parse_switch(struct int_cfg_parms *cfg)
 			// cfg->sws[i].ports[port].rt_valid[rt_sz] = true;
 			//
 			if (NULL == rt) {
-				parse_err(cfg, (char *)"DESTID: rt not set.");
+				PARSE_ERR(cfg, (char *)"DESTID: rt not set.");
 				goto fail;
 			}
 
 			if (assign_rt_v(rt_sz, st_did_val, st_did_val, rtv, rt, cfg)) {
-				parse_err(cfg, (char *)"Illegal destID/rtv.");
+				PARSE_ERR(cfg, (char *)"Illegal destID/rtv.");
 				goto fail;
 			}
 			break;
@@ -1196,19 +1219,19 @@ static int parse_switch(struct int_cfg_parms *cfg)
 
 			// klocwork - see DESTID comment about rt
 			if (NULL == rt) {
-				parse_err(cfg, (char *)"rt not set.");
+				PARSE_ERR(cfg, (char *)"rt not set.");
 				goto fail;
 			}
 
 			if (assign_rt_v(rt_sz, st_did_val, end_did_val, rtv, rt, cfg)) {
-				parse_err(cfg, (char *)"RANGE: Illegal destID/rtv.");
+				PARSE_ERR(cfg, (char *)"RANGE: Illegal destID/rtv.");
 				goto fail;
 			}
 			break;
 		case 5: // MCMASK
 			// klocwork - see DESTID comment about rt
 			if (NULL == rt) {
-				parse_err(cfg, (char *)"MCMASK: rt not set.");
+				PARSE_ERR(cfg, (char *)"MCMASK: rt not set.");
 				goto fail;
 			}
 
@@ -1220,7 +1243,7 @@ static int parse_switch(struct int_cfg_parms *cfg)
 			done = 1;
 			break;
 		default:
-			parse_err(cfg, (char *)"Unknown parameter.");
+			PARSE_ERR(cfg, (char *)"Unknown parameter.");
 			goto fail;
 		}
 	}
@@ -1238,7 +1261,7 @@ static int parse_connect(struct int_cfg_parms *cfg)
 	int idx = cfg->conn_cnt;
 
 	if (cfg->conn_cnt >= CFG_MAX_CONN) {
-		parse_err(cfg, (char *)"Too many connections.");
+		PARSE_ERR(cfg, (char *)"Too many connections.");
 		goto fail;
 	}
 
@@ -1277,7 +1300,7 @@ static int fmd_parse_cfg(struct int_cfg_parms *cfg)
 			}
 
 			if (get_v_str(&cfg->dd_fn, tok, 1)) {
-				parse_err(cfg, (char *)"Bad directory name.");
+				PARSE_ERR(cfg, (char *)"Bad directory name.");
 			}
 			break;
 		case 2: // "DEV_DIR_MTX"
@@ -1286,7 +1309,7 @@ static int fmd_parse_cfg(struct int_cfg_parms *cfg)
 			}
 
 			if (get_v_str(&cfg->dd_mtx_fn, tok, 1)) {
-				parse_err(cfg, (char *)"Bad directory name.");
+				PARSE_ERR(cfg, (char *)"Bad directory name.");
 			}
 			break;
 		case 3: // "MPORT"
@@ -1312,7 +1335,7 @@ static int fmd_parse_cfg(struct int_cfg_parms *cfg)
 			goto exit;
 			break;
 		default:
-			parse_err(cfg, (char *)"Unknown parameter.");
+			PARSE_ERR(cfg, (char *)"Unknown parameter \"%s\"", tok);
 			goto exit;
 		}
 		tok = try_get_next_token(cfg);
@@ -1355,7 +1378,7 @@ int cfg_parse_file(char *cfg_fn, char **dd_mtx_fn, char **dd_fn,
 
 	DBG("\nCFG: Config file contents:");
 	fmd_parse_cfg(cfg);
-	
+
 	if (fclose(cfg_fd)) {
 		ERR("CFG: Config file close failed, errno %d : %s\n",
 				errno, strerror(errno));
@@ -1389,6 +1412,8 @@ int cfg_parse_file(char *cfg_fn, char **dd_mtx_fn, char **dd_fn,
 				port = ep.ports[j];
 				if (port.valid) {
 					if (ct_get_nr(&nr, (ct_t)port.ct)) {
+						ERR("Get NR from CT 0x%x",
+								(ct_t)port.ct);
 						goto fail;
 					}
 
@@ -1400,6 +1425,8 @@ int cfg_parse_file(char *cfg_fn, char **dd_mtx_fn, char **dd_fn,
 
 						did_val = port.devids[k].did_val;
 						if (did_val && ct_create_from_data(&ct, &did, nr, did_val, did_sz)) {
+							ERR("CT create 0x%x",
+								(ct_t)port.ct);
 							goto fail;
 						}
 					}
@@ -1422,6 +1449,7 @@ int cfg_parse_file(char *cfg_fn, char **dd_mtx_fn, char **dd_fn,
 			}
 
 			if (ct_create_from_data(&ct, &did, nr, sw.did_val, did_sz)) {
+				ERR("SW CT create 0x%x", sw.ct);
 				goto fail;
 			}
 		}
@@ -1441,6 +1469,7 @@ int cfg_parse_file(char *cfg_fn, char **dd_mtx_fn, char **dd_fn,
 			// ensure the master did was created
 			if (did_from_value(m_did, cfg->mast_did_val,
 					cfg->mast_did_sz)) {
+				ERR("MAST DID create 0x%x", cfg->mast_did_val);
 				goto fail;
 			}
 		}
@@ -1543,6 +1572,7 @@ static int fill_in_dev_from_ep(struct cfg_dev *dev, struct int_cfg_ep *ep)
 	dev->ep_pt.valid = 1;
 	dev->ep_pt.op_pw = ep->ports[0].rio.op_pw;
 	dev->ep_pt.ls = ep->ports[0].rio.ls;
+	dev->ep_pt.iseq = ep->ports[0].rio.iseq;
 	memcpy(dev->ep_pt.devids, ep->ports[0].devids,
 		sizeof(dev->ep_pt.devids));
 
@@ -1568,6 +1598,7 @@ static int fill_in_dev_from_sw(struct cfg_dev *dev, struct int_cfg_sw *sw)
 		dev->sw_info.sw_pt[i].port = sw->ports[i].port;
 		dev->sw_info.sw_pt[i].op_pw = sw->ports[i].rio.op_pw;
 		dev->sw_info.sw_pt[i].ls = sw->ports[i].rio.ls;
+		dev->sw_info.sw_pt[i].iseq = sw->ports[i].rio.iseq;
 
 		for (int sz = 0; sz < CFG_DEVID_MAX; sz++) {
 			if (sw->ports[i].rt_valid[sz]) {

@@ -88,8 +88,9 @@ static void check_file_exists(const char *filename)
 
 static int grp_setup(void **state)
 {
-	rdma_log_init("cfg_test.log", 1);
+	rdma_log_init("cfg_test.log", 7);
 	g_level = RDMA_LL_OFF;
+	g_disp_level = RDMA_LL_OFF;
 
 	(void)state; // unused
 	return 0;
@@ -347,7 +348,7 @@ static void cfg_parse_master_test(void **state)
 	free(cfg);
 	(void)state; // unused
 }
-	
+
 static void cfg_parse_slave_test(void **state)
 {
 	struct cfg_mport_info mp;
@@ -381,7 +382,7 @@ static void cfg_parse_slave_test(void **state)
 	free(cfg);
 	(void)state; // unused
 }
-	
+
 static void cfg_parse_tor_test(void **state)
 {
 	struct cfg_mport_info mp;
@@ -498,21 +499,72 @@ static void cfg_parse_rxs_test(void **state)
 	assert_int_equal(0, cfg_find_dev_by_ct(0x10005, &dev));
 	assert_int_equal(rio_pc_pw_4x, dev.ep_pt.op_pw);
 	assert_int_equal(rio_pc_ls_5p0, dev.ep_pt.ls);
+	assert_int_equal(rio_pc_is_two, dev.ep_pt.iseq);
 
 	assert_int_equal(0, cfg_find_dev_by_ct(0x20006, &dev));
 	assert_int_equal(rio_pc_pw_2x, dev.ep_pt.op_pw);
 	assert_int_equal(rio_pc_ls_6p25, dev.ep_pt.ls);
+	assert_int_equal(rio_pc_is_two, dev.ep_pt.iseq);
 
 	assert_int_equal(0, cfg_find_dev_by_ct(0x30007, &dev));
 	assert_int_equal(rio_pc_pw_4x, dev.ep_pt.op_pw);
-	assert_int_equal(rio_pc_ls_1p25, dev.ep_pt.ls);
+	assert_int_equal(rio_pc_ls_3p125, dev.ep_pt.ls);
+	assert_int_equal(rio_pc_is_one, dev.ep_pt.iseq);
 
 	assert_int_equal(0, cfg_find_dev_by_ct(0x40008, &dev));
 	assert_int_equal(rio_pc_pw_4x, dev.ep_pt.op_pw);
 	assert_int_equal(rio_pc_ls_2p5, dev.ep_pt.ls);
+	assert_int_equal(rio_pc_is_one, dev.ep_pt.iseq);
 
-	assert_int_equal(0, cfg_find_dev_by_ct(0x70000, &dev));
-	assert_int_equal(0,cfg_get_conn_dev(0x70000, 0, &dev, &conn_pt));
+	assert_int_equal(0, cfg_find_dev_by_ct(0x50009, &dev));
+	assert_int_equal(rio_pc_pw_4x, dev.ep_pt.op_pw);
+	assert_int_equal(rio_pc_ls_10p3, dev.ep_pt.ls);
+	assert_int_equal(rio_pc_is_three, dev.ep_pt.iseq);
+
+	assert_int_equal(0, cfg_find_dev_by_ct(0x6000A, &dev));
+	assert_int_equal(rio_pc_pw_4x, dev.ep_pt.op_pw);
+	assert_int_equal(rio_pc_ls_12p5, dev.ep_pt.ls);
+	assert_int_equal(rio_pc_is_dflt, dev.ep_pt.iseq);
+
+	assert_int_equal(0, cfg_find_dev_by_ct(0x7007b, &dev));
+
+	assert_int_equal(1, dev.sw_info.sw_pt[1].valid);
+	assert_int_equal(1, dev.sw_info.sw_pt[1].port);
+	assert_int_equal(rio_pc_pw_4x, dev.sw_info.sw_pt[1].op_pw);
+	assert_int_equal(rio_pc_ls_5p0, dev.sw_info.sw_pt[1].ls);
+	assert_int_equal(rio_pc_is_two, dev.sw_info.sw_pt[1].iseq);
+
+	assert_int_equal(1, dev.sw_info.sw_pt[2].valid);
+	assert_int_equal(2, dev.sw_info.sw_pt[2].port);
+	assert_int_equal(rio_pc_pw_2x, dev.sw_info.sw_pt[2].op_pw);
+	assert_int_equal(rio_pc_ls_6p25, dev.sw_info.sw_pt[2].ls);
+	assert_int_equal(rio_pc_is_two, dev.sw_info.sw_pt[2].iseq);
+
+	assert_int_equal(1, dev.sw_info.sw_pt[3].valid);
+	assert_int_equal(3, dev.sw_info.sw_pt[3].port);
+	assert_int_equal(rio_pc_pw_4x, dev.sw_info.sw_pt[3].op_pw);
+	assert_int_equal(rio_pc_ls_3p125, dev.sw_info.sw_pt[3].ls);
+	assert_int_equal(rio_pc_is_one, dev.sw_info.sw_pt[3].iseq);
+
+	assert_int_equal(1, dev.sw_info.sw_pt[4].valid);
+	assert_int_equal(4, dev.sw_info.sw_pt[4].port);
+	assert_int_equal(rio_pc_pw_4x, dev.sw_info.sw_pt[4].op_pw);
+	assert_int_equal(rio_pc_ls_2p5, dev.sw_info.sw_pt[4].ls);
+	assert_int_equal(rio_pc_is_one, dev.sw_info.sw_pt[4].iseq);
+
+	assert_int_equal(1, dev.sw_info.sw_pt[5].valid);
+	assert_int_equal(5, dev.sw_info.sw_pt[5].port);
+	assert_int_equal(rio_pc_pw_4x, dev.sw_info.sw_pt[5].op_pw);
+	assert_int_equal(rio_pc_ls_10p3, dev.sw_info.sw_pt[5].ls);
+	assert_int_equal(rio_pc_is_three, dev.sw_info.sw_pt[5].iseq);
+
+	assert_int_equal(1, dev.sw_info.sw_pt[6].valid);
+	assert_int_equal(6, dev.sw_info.sw_pt[6].port);
+	assert_int_equal(rio_pc_pw_4x, dev.sw_info.sw_pt[6].op_pw);
+	assert_int_equal(rio_pc_ls_12p5, dev.sw_info.sw_pt[6].ls);
+	assert_int_equal(rio_pc_is_dflt, dev.sw_info.sw_pt[6].iseq);
+
+	assert_int_equal(0,cfg_get_conn_dev(0x7007b, 0, &dev, &conn_pt));
 
 	count++;
 	free(cfg);

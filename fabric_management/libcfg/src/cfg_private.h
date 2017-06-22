@@ -109,7 +109,7 @@ struct int_cfg_rapidio {
 	rio_pc_pw_t max_pw;
 	rio_pc_pw_t op_pw;
 	rio_pc_ls_t ls;
-	int idle2; /* 0 for idle1, 1 for idle2 */
+	enum rio_pc_idle_seq iseq;
 	int em; /* 0 for no error management, 1 to enable error management */
 };
 

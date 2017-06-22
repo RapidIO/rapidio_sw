@@ -69,14 +69,14 @@ rio_pc_pw_t lanes_to_pw[5] = {
 
 // Converts lane speed to a string
 char *ls_to_str[(int)(rio_pc_ls_last) + 1] = {
-		(char *)"1.25",
-		(char *)"2.5",
-		(char *)"3.125",
-		(char *)"5.0",
-		(char *)"6.25",
-		(char *)"10.3",
-		(char *)"12.5",
-		(char *)"FAIL",
+		(char *)" 1.25 ",
+		(char *)" 2.5  ",
+		(char *)" 3.125",
+		(char *)" 5.0  ",
+		(char *)" 6.25 ",
+		(char *)"10.313",
+		(char *)"12.5  ",
+		(char *)"*FAIL*",
 };
 
 // Converts reset configuration to a string
@@ -99,6 +99,7 @@ char *is_to_str[(int)(rio_pc_is_last) + 1] = {
 		(char *)" 1",
 		(char *)" 2",
 		(char *)" 3",
+		(char *)"DF",
 		(char *)"??",
 };
 

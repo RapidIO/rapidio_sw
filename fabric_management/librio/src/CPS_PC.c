@@ -1090,7 +1090,7 @@ static uint32_t cps_compute_laneswap_config(DAR_DEV_INFO_t *dev_info, cps_port_i
 			chgd->ports[pnum].p_errstat |=
 			CPS1848_PORT_X_ERR_STAT_CSR_IDLE2_EN;
 			break;
-		case rio_pc_is_last: /* No chnage to idle sequence */
+		case rio_pc_is_dflt: /* No chnage to idle sequence */
 			break;
 		default:
 			// Should never get here, illegal value that would be

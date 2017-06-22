@@ -59,6 +59,7 @@ int CLIConfigCmd(struct cli_env *env, int argc, char **argv)
 	int j;
 	struct riocp_pe_port pe_port_info[24];
 	riocp_pe_handle peer_pe;
+	bool printed_one = false;
 
 	if (argc) {
         	riocp_pe_handle *pes = NULL;
@@ -114,7 +115,7 @@ int CLIConfigCmd(struct cli_env *env, int argc, char **argv)
 			((float )(h->st.pc.log_rto)) / 10.0);
 
 	LOGMSG(env,
-			"\nPt A OK Port Width  Speed   FC   Idle TxEn Enables TX L_INV RX L_INV CONN    \n");
+			"\nPt OK Port Width   Speed   FC   Idle TxEn Enables TX L_INV RX L_INV CONN    \n");
 
 	for (int i = 0; i < h->st.pc.num_ports; i++) {
 		char *enables;
@@ -123,6 +124,10 @@ int CLIConfigCmd(struct cli_env *env, int argc, char **argv)
 		char *name = (char *)" ";
 		uint32_t port = 0;
 
+		if (!h->st.pc.pc[i].port_available) {
+			continue;
+		}
+		printed_one = true;
 		if (!info_rc) {
 			if (NULL == pe_port_info[i].peer) {
 				name = (char *)"NO_CONN";
@@ -161,10 +166,10 @@ int CLIConfigCmd(struct cli_env *env, int argc, char **argv)
 		}
 
 		LOGMSG(env,
-				"%2d %1s %2s %5s/%5s %5s %2s/%2s %2s/%2s %4s %7s %2s %5s %2s %5s %8s.%2d\n",
-				i, h->st.pc.pc[i].port_available ? "Y" : "-",
+				"%2d %2s %5s/%5s %6s %2s/%2s %2s/%2s %4s %7s %2s %5s %2s %5s %8s.%2d\n",
+				i,
 				(j != -1) ? (h->st.ps.ps[j].port_ok ?
-						"OK" : "no") :
+						"OK" : "--") :
 						"--",
 				PW_TO_STR(h->st.pc.pc[i].pw),
 				(j != -1)?PW_TO_STR(h->st.ps.ps[j].pw):"-----",
@@ -178,6 +183,9 @@ int CLIConfigCmd(struct cli_env *env, int argc, char **argv)
 				tx_linvert, h->st.pc.pc[i].rx_lswap ? "Y" : "N",
 				rx_linvert, name, port);
 
+	}
+	if (!printed_one) {
+		LOGMSG(env, "No parts available.\n");
 	}
 exit:
 	return 0;
