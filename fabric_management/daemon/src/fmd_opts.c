@@ -76,8 +76,10 @@ void fmd_print_help(void)
 	printf("-h, -H, -?: Print this message.\n");
 	printf("-i <interval>: Interval between Device Directory updates.\n");
 	printf("       Default is %d\n", FMD_DFLT_MAST_INTERVAL);
-	printf("-l, -L <level>: Set starting logging level.\n");
-	printf("       Default is %x\n",FMD_DFLT_LOG_LEVEL); 
+	printf("-l     <level>: Set starting logging capture level.\n");
+	printf("       Default is %x\n",FMD_DFLT_LOG_LEVEL);
+	printf("-L     <level>: Set starting logging display level.\n");
+	printf("       Default is %x\n",FMD_DFLT_LOG_LEVEL);
 	printf("-m, -M <filename>: Device directory Mutex SM file name.\n");
 	printf("       Default is \"%s\"\n", FMD_DFLT_DD_MTX_FN);
 	printf("-n, -N: Do not start console CLI.\n");
@@ -108,6 +110,7 @@ struct fmd_opt_vals *fmd_parse_options(int argc, char *argv[])
 	opts->app_port_num = FMD_DFLT_APP_PORT_NUM;
 	opts->run_cons = 1;
 	opts->log_level = FMD_DFLT_LOG_LEVEL;
+	opts->log_disp_level = FMD_DFLT_LOG_LEVEL;
 	opts->mast_mode = 0;
 	opts->mast_interval = FMD_DFLT_MAST_INTERVAL;
 	opts->mast_did = (did_t){FMD_DFLT_MAST_DEVID, dev08_sz};
@@ -152,9 +155,15 @@ struct fmd_opt_vals *fmd_parse_options(int argc, char *argv[])
 			}
 			break;
 		case 'l':
-		case 'L':
 			if (tok_parse_log_level(optarg,
 						&opts->log_level, 0)) {
+				printf(TOK_ERR_LOG_LEVEL_MSG_FMT);
+				exit(EXIT_FAILURE);
+			}
+			break;
+		case 'L':
+			if (tok_parse_log_level(optarg,
+						&opts->log_disp_level, 0)) {
 				printf(TOK_ERR_LOG_LEVEL_MSG_FMT);
 				exit(EXIT_FAILURE);
 			}

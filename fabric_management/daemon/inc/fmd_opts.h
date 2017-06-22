@@ -61,6 +61,7 @@ struct fmd_opt_vals {
 	uint16_t app_port_num;	/* POSIX Socket for applications to connect */
 	int run_cons;		/* Run a console on this daemon. */
 	uint32_t log_level;	/* Starting log level */
+	uint32_t log_disp_level;	/* Starting log display level */
 	uint32_t mast_mode;	/* 0 - FMD slave, 1 - FMD master */
 	uint32_t mast_interval;	/* Master FMD location information */
 	did_t mast_did;		/* Master FMD location information */

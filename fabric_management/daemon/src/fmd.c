@@ -639,6 +639,7 @@ int main(int argc, char *argv[])
 	rdma_log_init(log_file_name, 1);
 
 	g_level = opts->log_level;
+	g_disp_level = opts->log_disp_level;
 	if (opts->init_and_quit && opts->print_help) {
 		goto fail;
 	}
