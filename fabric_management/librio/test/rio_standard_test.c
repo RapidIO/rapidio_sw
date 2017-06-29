@@ -74,6 +74,54 @@ static void assumptions(void **state)
 	assert_int_equal(RIO_EFB_T_TS, 0x0F);
 	assert_int_equal(RIO_EFB_T_MISC, 0x10);
 
+        assert_int_equal(0x08000000, RIO_SPX_ERR_STAT_TXFC);
+
+        assert_int_equal(0x00001000, RIO_SPX_CTL2_GB_12P5_EN);
+        assert_int_equal(0x00002000, RIO_SPX_CTL2_GB_12P5);
+        assert_int_equal(0x00004000, RIO_SPX_CTL2_GB_10P3_EN);
+        assert_int_equal(0x00008000, RIO_SPX_CTL2_GB_10P3);
+        assert_int_equal(0x00010000, RIO_SPX_CTL2_GB_6P25_EN);
+        assert_int_equal(0x00020000, RIO_SPX_CTL2_GB_6P25);
+        assert_int_equal(0x00040000, RIO_SPX_CTL2_GB_5P0_EN);
+        assert_int_equal(0x00080000, RIO_SPX_CTL2_GB_5P0);
+        assert_int_equal(0x00100000, RIO_SPX_CTL2_GB_3P125_EN);
+        assert_int_equal(0x00200000, RIO_SPX_CTL2_GB_3P125);
+        assert_int_equal(0x00400000, RIO_SPX_CTL2_GB_2P5_EN);
+        assert_int_equal(0x00800000, RIO_SPX_CTL2_GB_2P5);
+        assert_int_equal(0x01000000, RIO_SPX_CTL2_GB_1P25_EN);
+        assert_int_equal(0x02000000, RIO_SPX_CTL2_GB_1P25);
+
+        assert_int_equal(0x02000000, RIO_SPX_CTL2_GB_1P25);
+        assert_int_equal(0x07000000, RIO_SPX_CTL_PTW_OVER);
+        assert_int_equal(0x38000000, RIO_SPX_CTL_PTW_INIT);
+        assert_int_equal(0xc0000000, RIO_SPX_CTL_PTW_MAX);
+
+        assert_int_equal(0x00000000, RIO_SPX_CTL_PTW_INIT_1X_L0);
+        assert_int_equal(0x08000000, RIO_SPX_CTL_PTW_INIT_1X_LR);
+        assert_int_equal(0x10000000, RIO_SPX_CTL_PTW_INIT_4X);
+        assert_int_equal(0x18000000, RIO_SPX_CTL_PTW_INIT_2X);
+
+        assert_int_equal(0x00000000, RIO_SPX_CTL_PTW_OVER_NONE);
+        assert_int_equal(0x01000000, RIO_SPX_CTL_PTW_OVER_RSVD);
+        assert_int_equal(0x02000000, RIO_SPX_CTL_PTW_OVER_1X_L0);
+        assert_int_equal(0x03000000, RIO_SPX_CTL_PTW_OVER_1X_LR);
+        assert_int_equal(0x04000000, RIO_SPX_CTL_PTW_OVER_IMP_SPEC);
+        assert_int_equal(0x05000000, RIO_SPX_CTL_PTW_OVER_2X_NO_4X);
+        assert_int_equal(0x06000000, RIO_SPX_CTL_PTW_OVER_4X_NO_2X);
+        assert_int_equal(0x07000000, RIO_SPX_CTL_PTW_OVER_NONE_2);
+
+        assert_int_equal(0x80000000, RIO_SPX_CTL_PTW_MAX_2X);
+        assert_int_equal(0x40000000, RIO_SPX_CTL_PTW_MAX_4X);
+
+	assert_int_equal(3000000000, THREE_SECS_IN_NSECS);
+	assert_int_equal(6000000000, SIX_SECS_IN_NSECS);
+	assert_int_equal(0x00FFFFFF, RIO_SP_LT_CTL_TVAL_MAX);
+	assert_int_equal(3000000000/0xFFFFFF, RIO_SP_LT_CTL_MIN_GRAN);
+	assert_int_equal(6000000000/0xFFFFFF, RIO_SP_LT_CTL_MAX_GRAN);
+	assert_int_equal(0x00FFFFFF, RIO_SP_RTO_CTL_TVAL_MAX);
+	assert_int_equal(3000000000/0xFFFFFF, RIO_SP_RTO_CTL_MIN_GRAN);
+	assert_int_equal(6000000000/0xFFFFFF, RIO_SP_RTO_CTL_MAX_GRAN);
+
 	assert_int_equal(RIO_SPX_LM_REQ_CMD_RST_PT, 0x2);
 	assert_int_equal(RIO_SPX_LM_REQ_CMD_RST_DEV, 0x3);
 	assert_int_equal(RIO_SPX_LM_REQ_CMD_LR_IS, 0x4);

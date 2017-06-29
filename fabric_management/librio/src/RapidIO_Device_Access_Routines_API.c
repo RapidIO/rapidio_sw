@@ -299,30 +299,22 @@ uint32_t update_dev_info_regvals(DAR_DEV_INFO_t *dev_info, uint32_t offset,
 
 	//@sonar:off - Collapsible "if" statements should be merged
 	if (dev_info->extFPtrForPort && RIO_SP_VLD(dev_info->extFPtrPortType)) {
-		if ((offset
-				>= RIO_SPX_CTL(dev_info->extFPtrForPort,
+		if ((offset >= RIO_SPX_CTL(dev_info->extFPtrForPort,
 						dev_info->extFPtrPortType, 0))
-				&& (offset
-						<= RIO_SPX_CTL(
-								dev_info->extFPtrForPort,
-								dev_info->extFPtrPortType,
-								(NUM_PORTS(dev_info) - 1)))) {
-			if ((0x1C == (offset & 0x1C)
-					&& !RIO_SP3_VLD(
-							dev_info->extFPtrPortType))
-					|| (0x3C == (offset & 0x3C)
-							&& RIO_SP3_VLD(
-									dev_info->extFPtrPortType))) {
+		&& (offset <= RIO_SPX_CTL(dev_info->extFPtrForPort,
+					dev_info->extFPtrPortType,
+					(NUM_PORTS(dev_info) - 1)))) {
+			if ((0x1C == (offset & 0x1C) &&
+				!RIO_SP3_VLD( dev_info->extFPtrPortType))
+				|| (0x3C == (offset & 0x3C)
+				&& RIO_SP3_VLD( dev_info->extFPtrPortType))) {
 				uint8_t idx;
 
-				idx =
-						(offset
-								- RIO_SPX_CTL(
-										dev_info->extFPtrForPort,
-										dev_info->extFPtrPortType,
-										0))
-								/ RIO_SP_STEP(
-										dev_info->extFPtrPortType);
+				idx = (offset -
+					RIO_SPX_CTL(dev_info->extFPtrForPort,
+						dev_info->extFPtrPortType,
+																0))
+				/ RIO_SP_STEP( dev_info->extFPtrPortType);
 				if (idx >= NUM_PORTS(dev_info)) {
 					rc = RIO_ERR_SW_FAILURE;
 				} else {

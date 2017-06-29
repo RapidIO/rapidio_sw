@@ -43,18 +43,18 @@
 #include "RapidIO_Routing_Table_API.h"
 #include "RapidIO_Statistics_Counter_API.h"
 #include "RapidIO_Utilities_API.h"
+#include "RapidIO_Driver_Utilities.h"
 
 #include "DAR_DB_Private.h"
 #include "DSF_DB_Private.h"
-
-#include "GenericDevice.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-uint32_t DARDB_ReadRegNoDriver(DAR_DEV_INFO_t *dev_info, uint32_t UNUSED(offset),
-		uint32_t *UNUSED(readdata))
+uint32_t DARDB_ReadRegNoDriver(DAR_DEV_INFO_t *dev_info,
+				uint32_t UNUSED(offset),
+				uint32_t *UNUSED(readdata))
 {
 	if (!VALIDATE_DEV_INFO(dev_info)) {
 		return DAR_DB_INVALID_HANDLE;
@@ -62,8 +62,9 @@ uint32_t DARDB_ReadRegNoDriver(DAR_DEV_INFO_t *dev_info, uint32_t UNUSED(offset)
 	return DAR_DB_NO_DRIVER;
 }
 
-uint32_t DARDB_WriteRegNoDriver(DAR_DEV_INFO_t *dev_info, uint32_t UNUSED(offset),
-		uint32_t UNUSED(writedata))
+uint32_t DARDB_WriteRegNoDriver(DAR_DEV_INFO_t *dev_info,
+				uint32_t UNUSED(offset),
+				uint32_t UNUSED(writedata))
 {
 	if (!VALIDATE_DEV_INFO(dev_info)) {
 		return DAR_DB_INVALID_HANDLE;
@@ -80,7 +81,7 @@ uint32_t DSF_rio_em_cfg_pw(DAR_DEV_INFO_t *dev_info,
 
 	NULL_CHECK;
 
-	if (dev_info->features & GENDEV_PE_FEAT_SW) {	// generic switch not supported
+	if (dev_info->features & RIO_PE_FEAT_SW) {	// generic switch not supported
 		rc = RIO_STUBBED;
 		goto exit;
 	}
@@ -111,7 +112,7 @@ uint32_t DSF_rio_em_dev_rpt_ctl(DAR_DEV_INFO_t *dev_info,
 
 	NULL_CHECK;
 
-	if (dev_info->features & GENDEV_PE_FEAT_SW) {	// generic switch not supported
+	if (dev_info->features & RIO_PE_FEAT_SW) {	// generic switch not supported
 		rc = RIO_STUBBED;
 		goto exit;
 	}
@@ -166,205 +167,359 @@ uint32_t DSF_rio_pc_get_config(DAR_DEV_INFO_t *dev_info,
 		rio_pc_get_config_in_t *in_parms,
 		rio_pc_get_config_out_t *out_parms)
 {
-	uint32_t port_idx;
-	int32_t lane_num;
+	rio_port_t pt;
+	int pt_idx;
+	rio_lane_t lane;
 	uint32_t temp;
 	uint32_t rc = RIO_SUCCESS;
+	uint32_t addr;
+	struct DAR_ptl good_ptl;
+	const uint32_t nmtc_en_mask = RIO_SPX_CTL_INP_EN | RIO_SPX_CTL_OTP_EN;
 
-	NULL_CHECK;
+	// generic devices
+	out_parms->imp_rc = RIO_SUCCESS;
+	out_parms->lrto = 0;
+	out_parms->log_rto = 0;
 
-	if (dev_info->features & GENDEV_PE_FEAT_SW) {	// generic switch not supported
-		rc = RIO_STUBBED;
+	rc = DARrioGetPortList(dev_info, &in_parms->ptl, &good_ptl);
+	if (RIO_SUCCESS != rc) {
+		out_parms->imp_rc = PC_GET_CONFIG(0x1);
 		goto exit;
 	}
 
-	// generic endpoint
-	out_parms->num_ports = GENDEV_MAX_PORTS;
-	out_parms->imp_rc = RIO_SUCCESS;
+	out_parms->num_ports = good_ptl.num_ports;
 
+	if (!dev_info->extFPtrPortType) {
+		// Get Link Response Timeout and Logical layer Response Timeout
+		// using standard registers.
+		// Timeouts will not occur before this time.
+		// The timeout period may be up to twice this time.
 
-        // Get LRTO
-        // LRTO granularity is 320 nanoseconds.
-	// (maximum delay is therefore ~5.369 seconds)
-        rc = DARRegRead(dev_info, GENDEV_SP_LT_CTL, &temp);
-        if (RIO_SUCCESS != rc) {
-                out_parms->imp_rc = PC_SET_CONFIG(0x2);
-                goto exit;
-        }
-        temp = ((temp >> 8) * 32) / 10;
-        out_parms->lrto = temp;
-
-        // Get LRTO
-        // LRTO granularity is 320 nanoseconds.
-	// (maximum delay is therefore ~5.369 seconds)
-        // Always get LOG_RTO
-        rc = DARRegRead(dev_info, GENDEV_SR_RSP_TO, &temp);
-        if (RIO_SUCCESS != rc) {
-                out_parms->imp_rc = PC_SET_CONFIG(0x3);
-                goto exit;
-        }
-
-        for (port_idx = 0; port_idx < out_parms->num_ports; port_idx++) {
-		out_parms->pc[port_idx].pnum = 0;
-		out_parms->pc[port_idx].port_available = true;
-		out_parms->pc[port_idx].powered_up = true;
-		out_parms->pc[port_idx].pw = rio_pc_pw_last;
-		out_parms->pc[port_idx].ls = rio_pc_ls_last;
-		out_parms->pc[port_idx].fc = rio_pc_fc_rx;
-		out_parms->pc[port_idx].iseq = rio_pc_is_one;
-		out_parms->pc[port_idx].xmitter_disable = true;
-		out_parms->pc[port_idx].port_lockout = false;
-		out_parms->pc[port_idx].nmtc_xfer_enable = false;
-		out_parms->pc[port_idx].tx_lswap = rio_lswap_none;
-		out_parms->pc[port_idx].rx_lswap = rio_lswap_none;
-
-		for (lane_num = 0; lane_num < GENDEV_MAX_LANES; lane_num++) {
-			out_parms->pc[port_idx].tx_linvert[lane_num] = false;
-			out_parms->pc[port_idx].rx_linvert[lane_num] = false;
+		rc = DARRegRead(dev_info,
+			RIO_SP_LT_CTL(dev_info->extFPtrForPort), &temp);
+		if (RIO_SUCCESS != rc) {
+			out_parms->imp_rc = PC_GET_CONFIG(0x2);
+			goto exit;
 		}
+		temp = (temp & RIO_SP_LT_CTL_TVAL) >> 8;
+		temp = (((temp + 1) * RIO_SP_LT_CTL_MIN_GRAN) - 1) / 100;
+		out_parms->lrto = temp;
+
+		rc = DARRegRead(dev_info,
+			RIO_SP_RTO_CTL(dev_info->extFPtrForPort), &temp);
+		if (RIO_SUCCESS != rc) {
+			out_parms->imp_rc = PC_GET_CONFIG(0x3);
+			goto exit;
+		}
+		temp = (temp & RIO_SP_RTO_CTL_TVAL) >> 8;
+		temp = (((temp + 1) * RIO_SP_RTO_CTL_MIN_GRAN) - 1) / 100;
+		out_parms->log_rto = temp;
 	}
 
+	for (pt_idx = 0; pt_idx < out_parms->num_ports; pt_idx++) {
+		// If the registers do not exist, assume
+		// 1x @ 1.25 Gbps, enabled.
+		uint32_t ctl = RIO_SPX_CTL_INP_EN | RIO_SPX_CTL_OTP_EN |
+				RIO_SPX_CTL_PTW_INIT_1X_L0;
+		uint32_t ctl2 = RIO_SPX_CTL2_GB_1P25 | RIO_SPX_CTL2_GB_1P25_EN |
+				RIO_SPX_CTL2_BAUD_SEL_1P25_BR;
+		uint32_t errstat = RIO_SPX_ERR_STAT_OK;
+		rio_pc_one_port_config_t *pc;
+
+		pc = &out_parms->pc[pt_idx];
+		pc->pnum = good_ptl.pnums[pt_idx];
+		pt = pc->pnum;
+
+		pc->powered_up = false;
+		pc->port_available = false;
+		pc->pw = rio_pc_pw_last;
+		pc->ls = rio_pc_ls_last;
+		pc->iseq = rio_pc_is_last;
+		pc->fc = rio_pc_fc_last;
+		pc->xmitter_disable = false;
+		pc->port_lockout = false;
+		pc->nmtc_xfer_enable = false;
+		pc->rx_lswap = rio_lswap_none;
+		pc->tx_lswap = rio_lswap_none;
+		for (lane = 0; lane < RIO_MAX_PORT_LANES; lane++) {
+			pc->tx_linvert[lane] = false;
+			pc->rx_linvert[lane] = false;
+		}
+
+		addr = RIO_SPX_CTL(dev_info->extFPtrForPort,
+				dev_info->extFPtrPortType, pt);
+		if (addr) {
+			rc = DARRegRead(dev_info, addr, &ctl);
+			if (RIO_SUCCESS != rc) {
+				out_parms->imp_rc = PC_GET_CONFIG(0x10);
+				goto exit;
+			}
+		}
+
+		addr = RIO_SPX_ERR_STAT(dev_info->extFPtrForPort,
+				dev_info->extFPtrPortType, pt);
+		if (addr) {
+			rc = DARRegRead(dev_info, addr, &errstat);
+			if (RIO_SUCCESS != rc) {
+				out_parms->imp_rc = PC_GET_CONFIG(0x11);
+				goto exit;
+			}
+		}
+
+		addr = RIO_SPX_CTL2(dev_info->extFPtrForPort,
+				dev_info->extFPtrPortType, pt);
+		if (addr) {
+			rc = DARRegRead(dev_info, addr, &ctl2);
+			if (RIO_SUCCESS != rc) {
+				out_parms->imp_rc = PC_GET_CONFIG(0x12);
+				goto exit;
+			}
+		}
+
+		// If the port is unavailable, continue to next port
+		if (errstat & RIO_SPX_ERR_STAT_UNAVL) {
+			continue;
+		}
+
+		pc->port_available = true;
+		pc->powered_up = true;
+		pc->xmitter_disable = (ctl & RIO_SPX_CTL_PORT_DIS);
+
+		rio_determine_ls(&pc->ls, ctl2);
+		rio_determine_cfg_pw(&pc->pw, ctl);
+		pc->fc = rio_pc_fc_rx;
+		pc->iseq = rio_pc_is_dflt;
+		pc->port_lockout = (ctl & RIO_SPX_CTL_LOCKOUT);
+		pc->nmtc_xfer_enable = ((ctl & nmtc_en_mask) == nmtc_en_mask);
+	}
 exit:
 	return rc;
 
-}
-
-// Note: in_parms contains the configuration to change to,
-//       out_parms contains the current configuration...
-//
-static uint32_t set_config_with_resets(DAR_DEV_INFO_t *dev_info,
-		rio_pc_set_config_in_t *in_parms,
-		rio_pc_set_config_out_t *out_parms,
-		bool manage_resets)
-{
-	uint32_t rc = RIO_SUCCESS;
-	uint32_t spxCtl;
-
-	// Check that RapidIO transmitter is enabled...
-	if ((out_parms->pc[0].xmitter_disable != in_parms->pc[0].xmitter_disable)
-			|| (out_parms->pc[0].port_lockout
-					!= in_parms->pc[0].port_lockout)
-			|| (out_parms->pc[0].nmtc_xfer_enable
-					!= in_parms->pc[0].nmtc_xfer_enable)
-			|| (out_parms->pc[0].pw != in_parms->pc[0].pw)) {
-
-		rc = DARRegRead(dev_info, GENDEV_SP_CTL, &spxCtl);
-		if (RIO_SUCCESS != rc) {
-			out_parms->imp_rc = PC_SET_CONFIG(0x20);
-			goto exit;
-		}
-
-		if (in_parms->pc[0].xmitter_disable) {
-			spxCtl |= GENDEV_SP_CTL_PORT_DIS;
-		} else {
-			spxCtl &= ~GENDEV_SP_CTL_PORT_DIS;
-		}
-
-		if (in_parms->pc[0].port_lockout) {
-			spxCtl |= GENDEV_SP_CTL_PORT_LOCKOUT;
-		} else {
-			spxCtl &= ~GENDEV_SP_CTL_PORT_LOCKOUT;
-		}
-
-		if (in_parms->pc[0].nmtc_xfer_enable) {
-			spxCtl |= GENDEV_SP_CTL_INP_EN | GENDEV_SP_CTL_OTP_EN;
-		} else {
-			spxCtl &=
-					~(GENDEV_SP_CTL_INP_EN
-							| GENDEV_SP_CTL_OTP_EN);
-		}
-
-		//@sonar:off - c:S3458
-		spxCtl &= ~GENDEV_SP_CTL_OVER_PWIDTH;
-		switch (in_parms->pc[0].pw) {
-		case rio_pc_pw_2x:
-			spxCtl |= RIO_SPX_CTL_PTW_OVER_2X_NO_4X;
-			break;
-		case rio_pc_pw_4x:
-			spxCtl |= RIO_SPX_CTL_PTW_OVER_NONE;
-			break;
-		case rio_pc_pw_1x:
-		case rio_pc_pw_1x_l0:
-			spxCtl |= RIO_SPX_CTL_PTW_OVER_1X_L0;
-			break;
-		case rio_pc_pw_1x_l2:
-			spxCtl |= RIO_SPX_CTL_PTW_OVER_1X_LR;
-			break;
-		default:
-		case rio_pc_pw_1x_l1:
-			out_parms->imp_rc = PC_SET_CONFIG(8);
-			goto exit;
-		}
-		//@sonar:on
-
-		rc = DARRegWrite(dev_info, GENDEV_SP_CTL, spxCtl);
-		if (manage_resets) {
-			// Wait a while just in case a reset has occurred, and
-			// ignore register access failures here...
-			DAR_WaitSec(1000000, 0);
-
-			rc = RIO_SUCCESS;
-		}
-		if (RIO_SUCCESS != rc) {
-			out_parms->imp_rc = PC_SET_CONFIG(0x30);
-			goto exit;
-		}
-	}
-
-
-exit:
-	return rc;
 }
 
 uint32_t DSF_rio_pc_set_config(DAR_DEV_INFO_t *dev_info,
 		rio_pc_set_config_in_t *in_parms,
 		rio_pc_set_config_out_t *out_parms)
 {
-        uint32_t rc = RIO_SUCCESS;
-        rio_pc_get_config_in_t curr_cfg_in;
+	uint32_t rc = RIO_SUCCESS;
+	rio_pc_get_config_in_t curr_cfg_in;
+	int pt_idx;
+	rio_port_t pt;
+	struct DAR_ptl good_ptl;
+	const uint32_t nmtc_en_mask = RIO_SPX_CTL_INP_EN | RIO_SPX_CTL_OTP_EN;
+	const uint32_t ctl2_ls_mask = RIO_SPX_CTL2_GB_12P5_EN |
+					RIO_SPX_CTL2_GB_10P3_EN |
+					RIO_SPX_CTL2_GB_6P25_EN |
+					RIO_SPX_CTL2_GB_5P0_EN |
+					RIO_SPX_CTL2_GB_3P125_EN |
+					RIO_SPX_CTL2_GB_2P5_EN |
+					RIO_SPX_CTL2_GB_1P25_EN;
 
-	NULL_CHECK;
-
-	if (dev_info->features & GENDEV_PE_FEAT_SW) {	// generic switch not supported
-		rc = RIO_STUBBED;
+	if ((in_parms->num_ports > NUM_PORTS(dev_info)) ||
+			(in_parms->num_ports > RIO_MAX_PORTS)) {
+		out_parms->imp_rc = PC_SET_CONFIG(0x1);
 		goto exit;
 	}
+	good_ptl.num_ports = in_parms->num_ports;
 
-        // Always set LRTO.  LRTO is in units of 100 ns. Register is in units of 320ns.
-        rc = DARRegWrite(dev_info, GENDEV_SP_LT_CTL,
-                        ((in_parms->lrto * 10 / 320) << 8) & GENDEV_SP_LT_CTL_TVAL);
-        if (RIO_SUCCESS != rc) {
-                out_parms->imp_rc = PC_SET_CONFIG(0x1);
-                goto exit;
-        }
+	if (!dev_info->extFPtrPortType) {
+		uint32_t timeout;
 
-        // Always set LOG_RTO. LOG_RTO is in units of 100 ns. Register is in units of 320ns.
-        rc = DARRegWrite(dev_info, GENDEV_SR_RSP_TO,
-                        ((in_parms->log_rto * 10 / 320) << 8) & GENDEV_SR_RSP_TO); 
-        if (RIO_SUCCESS != rc) {
-                out_parms->imp_rc = PC_SET_CONFIG(0x1);
-                goto exit;
-        }
+		// Set Link Response Timeout and Logical layer Response Timeout
+		// using standard registers.
+		// Timeouts will not occur before this time.
+		// The timeout period may be up to twice this time.
 
-        curr_cfg_in.ptl.num_ports = RIO_ALL_PORTS;
-        rc = DSF_rio_pc_get_config(dev_info, &curr_cfg_in, out_parms);
-        if (RIO_SUCCESS != rc) {
-                out_parms->imp_rc = PC_SET_CONFIG(0x3);
-                goto exit;
-        }
+		timeout = in_parms->lrto * 100;
+		timeout += RIO_SP_LT_CTL_MIN_GRAN - 1;
+		timeout /= RIO_SP_LT_CTL_MIN_GRAN;
+		timeout = (timeout << 8) & RIO_SP_LT_CTL_TVAL;
 
-        // All other changes can be made without causing a reset of the device...
-        // Note that they may cause link reinitialization...
-        rc = set_config_with_resets(dev_info, in_parms, out_parms, true);
-        if (RIO_SUCCESS != rc) {
-                goto exit;
-        }
+		rc = DARRegWrite(dev_info,
+			RIO_SP_LT_CTL(dev_info->extFPtrForPort), timeout);
+		if (RIO_SUCCESS != rc) {
+			out_parms->imp_rc = PC_SET_CONFIG(0x2);
+			goto exit;
+		}
 
+		timeout = in_parms->log_rto * 100;
+		timeout += RIO_SP_RTO_CTL_MIN_GRAN - 1;
+		timeout /= RIO_SP_RTO_CTL_MIN_GRAN;
+		timeout = (timeout << 8) & RIO_SP_LT_CTL_TVAL;
 
-        rc = rio_pc_get_config(dev_info, &curr_cfg_in, out_parms);
+		rc = DARRegWrite(dev_info,
+			RIO_SP_RTO_CTL(dev_info->extFPtrForPort), timeout);
+		if (RIO_SUCCESS != rc) {
+			out_parms->imp_rc = PC_SET_CONFIG(0x3);
+			goto exit;
+		}
+	}
 
+	for (pt_idx = 0; pt_idx < out_parms->num_ports; pt_idx++) {
+		// If the registers do not exist, assume
+		// 1x @ 1.25 Gbps, enabled.
+		uint32_t ctl, ctl_addr;
+		uint32_t ctl2, ctl2_addr;;
+		uint32_t errstat, errstat_addr;
+		rio_pc_one_port_config_t *pc;
+
+		pc = &in_parms->pc[pt_idx];
+		pc->pnum = good_ptl.pnums[pt_idx];
+		pt = pc->pnum;
+		good_ptl.pnums[pt_idx] = pt;
+
+		if ((pt >= NUM_PORTS(dev_info)) || (pt >= RIO_MAX_PORTS)) {
+			out_parms->imp_rc = PC_SET_CONFIG(0x8);
+			goto exit;
+		}
+		// Never change the port we're connected to on this device
+		if (!in_parms->oob_reg_acc && (in_parms->reg_acc_port == pt)) {
+			continue;
+		}
+
+		ctl2_addr = RIO_SPX_CTL2(dev_info->extFPtrForPort,
+				dev_info->extFPtrPortType, pt);
+		ctl_addr = RIO_SPX_CTL(dev_info->extFPtrForPort,
+				dev_info->extFPtrPortType, pt);
+		errstat_addr = RIO_SPX_ERR_STAT(dev_info->extFPtrForPort,
+				dev_info->extFPtrPortType, pt);
+
+		if (!ctl2_addr | !ctl_addr | !errstat_addr) {
+			continue;
+		}
+
+		rc = DARRegRead(dev_info, ctl_addr, &ctl);
+		if (RIO_SUCCESS != rc) {
+			out_parms->imp_rc = PC_SET_CONFIG(0x10);
+			goto exit;
+		}
+
+		rc = DARRegRead(dev_info, errstat_addr, &errstat);
+		if (RIO_SUCCESS != rc) {
+			out_parms->imp_rc = PC_SET_CONFIG(0x11);
+			goto exit;
+		}
+
+		rc = DARRegRead(dev_info, ctl2_addr, &ctl2);
+		if (RIO_SUCCESS != rc) {
+			out_parms->imp_rc = PC_SET_CONFIG(0x12);
+			goto exit;
+		}
+
+		// Device says the port is not available.
+		// Since there is no standard way to make the port available,
+		// continue on to the next port...
+		if (errstat & RIO_SPX_ERR_STAT_UNAVL) {
+			continue;
+		}
+
+		if (pc->powered_up && !pc->xmitter_disable) {
+			ctl &= ~RIO_SPX_CTL_PORT_DIS;
+		} else {
+			ctl |= RIO_SPX_CTL_PORT_DIS;
+		}
+
+		ctl &= ~RIO_SPX_CTL_PTW_OVER;
+		switch (pc->pw) {
+		case rio_pc_pw_1x_l0:
+		case rio_pc_pw_1x:
+			ctl |= RIO_SPX_CTL_PTW_OVER_1X_L0;
+			break;
+
+		case rio_pc_pw_2x:
+			ctl |= RIO_SPX_CTL_PTW_OVER_2X_NO_4X;
+			break;
+
+		case rio_pc_pw_4x:
+			ctl |= RIO_SPX_CTL_PTW_OVER_NONE;
+			break;
+
+		case rio_pc_pw_1x_l1:
+		case rio_pc_pw_1x_l2:
+			ctl |= RIO_SPX_CTL_PTW_OVER_1X_LR;
+			break;
+
+		default:
+			out_parms->imp_rc = PC_SET_CONFIG(0x52);
+			goto exit;
+		}
+
+		ctl2 &= ~ctl2_ls_mask;
+		switch (pc->ls) {
+		case rio_pc_ls_1p25:
+			ctl2 |=	RIO_SPX_CTL2_GB_1P25_EN;
+			break;
+		case rio_pc_ls_2p5:
+			ctl2 |= RIO_SPX_CTL2_GB_2P5_EN;
+			break;
+		case rio_pc_ls_3p125:
+			ctl2 |= RIO_SPX_CTL2_GB_3P125_EN;
+			break;
+		case rio_pc_ls_5p0:
+			ctl2 |=	RIO_SPX_CTL2_GB_5P0_EN;
+			break;
+		case rio_pc_ls_6p25:
+			ctl2 |=	RIO_SPX_CTL2_GB_6P25_EN;
+			break;
+		case rio_pc_ls_10p3:
+			ctl2 |= RIO_SPX_CTL2_GB_10P3_EN;
+			break;
+		case rio_pc_ls_12p5:
+			ctl2 |= RIO_SPX_CTL2_GB_12P5_EN;
+			break;
+		default:
+			out_parms->imp_rc = PC_SET_CONFIG(0x5F);
+			goto exit;
+		}
+		switch (pc->iseq) {
+		case rio_pc_is_one:
+		case rio_pc_is_three:
+			errstat &= ~RIO_SPX_ERR_STAT_IDLE2_EN;
+			break;
+		case rio_pc_is_two:
+		case rio_pc_is_dflt:
+			errstat |= RIO_SPX_ERR_STAT_IDLE2_EN;
+			break;
+		default:
+			out_parms->imp_rc = PC_SET_CONFIG(0x63);
+			goto exit;
+		}
+
+		if (pc->port_lockout) {
+			ctl |= RIO_SPX_CTL_LOCKOUT;
+		} else {
+			ctl &= ~RIO_SPX_CTL_LOCKOUT;
+		}
+
+		if (pc->nmtc_xfer_enable) {
+			ctl |= nmtc_en_mask;
+		} else {
+			ctl &= ~nmtc_en_mask;
+		}
+
+		rc = DARRegWrite(dev_info, ctl_addr, ctl);
+		if (RIO_SUCCESS != rc) {
+			out_parms->imp_rc = PC_SET_CONFIG(0x70);
+			goto exit;
+		}
+
+		rc = DARRegWrite(dev_info, errstat_addr, errstat);
+		if (RIO_SUCCESS != rc) {
+			out_parms->imp_rc = PC_SET_CONFIG(0x71);
+			goto exit;
+		}
+
+		rc = DARRegWrite(dev_info, ctl2_addr, ctl2);
+		if (RIO_SUCCESS != rc) {
+			out_parms->imp_rc = PC_SET_CONFIG(0x72);
+			goto exit;
+		}
+
+	}
+
+	rc = rio_pc_get_config(dev_info, &curr_cfg_in, out_parms);
 exit:
-        return rc;
+	return rc;
 }
 
 uint32_t DSF_rio_pc_get_status(DAR_DEV_INFO_t *dev_info,
@@ -373,13 +528,7 @@ uint32_t DSF_rio_pc_get_status(DAR_DEV_INFO_t *dev_info,
 {
 	uint32_t rc = RIO_SUCCESS;
 	uint8_t port_idx;
-	uint32_t errStat, spxCtl;
 	struct DAR_ptl good_ptl;
-
-	if (dev_info->features & GENDEV_PE_FEAT_SW) {	// generic switch not supported
-		rc = RIO_STUBBED;
-		goto exit;
-	}
 
 	out_parms->num_ports = 0;
 	out_parms->imp_rc = RIO_SUCCESS;
@@ -396,65 +545,64 @@ uint32_t DSF_rio_pc_get_status(DAR_DEV_INFO_t *dev_info,
 	}
 
 	for (port_idx = 0; port_idx < out_parms->num_ports; port_idx++) {
-		out_parms->ps[port_idx].pw = rio_pc_pw_last;
-		out_parms->ps[port_idx].port_error = false;
-		out_parms->ps[port_idx].input_stopped = false;
-		out_parms->ps[port_idx].output_stopped = false;
+		rio_port_t pt;
+		uint32_t ctl_addr;
+		uint32_t errstat_addr;
+		uint32_t ctl = RIO_SPX_CTL_INP_EN | RIO_SPX_CTL_OTP_EN |
+				RIO_SPX_CTL_PTW_INIT_1X_L0;
+		uint32_t errstat = RIO_SPX_ERR_STAT_OK;
+		rio_pc_one_port_status_t *ps;
 
-		out_parms->ps[port_idx].first_lane = 0;
-		out_parms->ps[port_idx].num_lanes = 1;
+		pt = good_ptl.pnums[port_idx];
+		ps = &out_parms->ps[port_idx];
+		ps->pnum = pt;
 
-		// Port is available and powered up, so let's figure out the status...
-		rc = DARRegRead(dev_info, GENDEV_SP_ERR_STAT, &errStat);
-		if (RIO_SUCCESS != rc) {
-			out_parms->imp_rc = PC_GET_STATUS(0x30+port_idx);
-			goto exit;
-		}
+		errstat_addr = RIO_SPX_ERR_STAT( dev_info->extFPtrForPort,
+				dev_info->extFPtrPortType, pt);
+		ctl_addr = RIO_SPX_CTL(dev_info->extFPtrForPort,
+				dev_info->extFPtrPortType, pt);
 
-		rc = DARRegRead(dev_info, GENDEV_SP_CTL, &spxCtl);
-		if (RIO_SUCCESS != rc) {
-			out_parms->imp_rc = PC_GET_STATUS(0x40+port_idx);
-			goto exit;
-		}
-
-		out_parms->ps[port_idx].port_ok =
-				(errStat & GENDEV_SP_ERR_STAT_PORT_OK) ?
-						true : false;
-		out_parms->ps[port_idx].input_stopped =
-				(errStat & GENDEV_SP_ERR_STAT_INPUT_ERR_STOP) ?
-						true : false;
-		out_parms->ps[port_idx].output_stopped =
-				(errStat & GENDEV_SP_ERR_STAT_OUTPUT_ERR_STOP) ?
-						true : false;
-
-		// Port Error is true if a PORT_ERR is present, OR
-		// if a OUTPUT_FAIL is present when STOP_FAIL_EN is set.
-		out_parms->ps[port_idx].port_error =
-				((errStat & GENDEV_SP_ERR_STAT_PORT_ERR)
-						|| ((spxCtl
-								& GENDEV_SP_CTL_STOP_FAIL_EN)
-								&& (errStat
-										& GENDEV_SP_ERR_STAT_OUTPUT_FAIL)));
-
-		// Baudrate and portwidth status are only defined when
-		// PORT_OK is asserted...
-		if (out_parms->ps[port_idx].port_ok) {
-			switch (spxCtl & GENDEV_SP_CTL_INIT_PWIDTH) {
-			case RIO_SPX_CTL_PTW_INIT_1X_L0:
-				out_parms->ps[port_idx].pw = rio_pc_pw_1x_l0;
-				break;
-			case RIO_SPX_CTL_PTW_INIT_1X_LR:
-				out_parms->ps[port_idx].pw = rio_pc_pw_1x_l2;
-				break;
-			case RIO_SPX_CTL_PTW_INIT_2X:
-				out_parms->ps[port_idx].pw = rio_pc_pw_2x;
-				break;
-			case RIO_SPX_CTL_PTW_INIT_4X:
-				out_parms->ps[port_idx].pw = rio_pc_pw_4x;
-				break;
-			default:
-				out_parms->ps[port_idx].pw = rio_pc_pw_last;
+		if (ctl_addr) {
+			rc = DARRegWrite(dev_info, ctl_addr, ctl);
+			if (RIO_SUCCESS != rc) {
+				out_parms->imp_rc = PC_GET_STATUS(0x10);
+				goto exit;
 			}
+		}
+		if (errstat_addr) {
+			rc = DARRegWrite(dev_info, errstat_addr, errstat);
+			if (RIO_SUCCESS != rc) {
+				out_parms->imp_rc = PC_GET_STATUS(0x12);
+				goto exit;
+			}
+		}
+
+		ps->pw = rio_pc_pw_last;
+		ps->fc = rio_pc_fc_last;
+		ps->iseq = rio_pc_is_last;
+		ps->port_error = false;
+		ps->input_stopped = false;
+		ps->output_stopped = false;
+		ps->num_lanes = 0;
+		ps->first_lane = 0;
+
+		if (errstat & RIO_SPX_ERR_STAT_UNAVL) {
+			continue;
+		}
+
+		rio_determine_cfg_pw(&ps->pw, ctl);
+		ps->num_lanes = PW_TO_LANES(ps->pw);
+		ps->port_ok = errstat & RIO_SPX_ERR_STAT_OK;
+		rio_determine_op_fc(&ps->fc, errstat);
+		rio_determine_op_iseq(&ps->iseq, errstat);
+		ps->port_error = ((errstat & RIO_SPX_ERR_STAT_ERR) ||
+				((ctl & RIO_SPX_CTL_STOP_FAIL_EN) &&
+				(errstat & RIO_SPX_ERR_STAT_FAIL)));
+		ps->input_stopped = (errstat & RIO_SPX_ERR_STAT_IES);
+		ps->output_stopped = (errstat & RIO_SPX_ERR_STAT_OES);
+		if (ps->port_ok) {
+			rio_determine_op_pw(&ps->pw, ctl, errstat);
+			ps->num_lanes = PW_TO_LANES(ps->pw);
 		}
 	}
 
@@ -502,7 +650,7 @@ uint32_t DSF_rio_pc_dev_reset_config(DAR_DEV_INFO_t *dev_info,
 
 	NULL_CHECK;
 
-	if (dev_info->features & GENDEV_PE_FEAT_SW) {	// generic switch not supported
+	if (dev_info->features & RIO_PE_FEAT_SW) {	// generic switch not supported
 		rc = RIO_STUBBED;
 		goto exit;
 	}

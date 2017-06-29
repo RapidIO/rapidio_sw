@@ -23,6 +23,7 @@ CFLAGS+=$(addprefix -W,all extra) -fPIC
 CFLAGS+=-DNDEBUG
 CFLAGS+=$(SRC_CFG_LIBRIO)
 CFLAGS+=-I./inc
+CFLAGS+=-I./src
 CFLAGS+=-I../libct/inc
 CFLAGS+=-I../libdid/inc
 CFLAGS+=-I$(FMDDIR)/librio/inc

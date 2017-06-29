@@ -425,9 +425,20 @@ typedef uint32_t pe_rt_val;
 
 /* SP_LT_CTL : Register Bits Masks Definitions */
 #define RIO_SP_LT_CTL_TVAL                                   (0xffffff00)
+#define RIO_SP_LT_CTL_TVAL_MAX (RIO_SP_LT_CTL_TVAL >> 8)
+
+#define THREE_SECS_IN_NSECS	((uint64_t)3000000000)
+#define SIX_SECS_IN_NSECS	((uint64_t)6000000000)
+
+#define RIO_SP_LT_CTL_MIN_GRAN	(THREE_SECS_IN_NSECS/RIO_SP_LT_CTL_TVAL_MAX)
+#define RIO_SP_LT_CTL_MAX_GRAN	(SIX_SECS_IN_NSECS/RIO_SP_LT_CTL_TVAL_MAX)
 
 /* SP_RTO_CTL : Register Bits Masks Definitions */
 #define RIO_SP_RTO_CTL_TVAL                                  (0xffffff00)
+#define RIO_SP_RTO_CTL_TVAL_MAX (RIO_SP_RTO_CTL_TVAL >> 8)
+
+#define RIO_SP_RTO_CTL_MIN_GRAN	(THREE_SECS_IN_NSECS/RIO_SP_RTO_CTL_TVAL_MAX)
+#define RIO_SP_RTO_CTL_MAX_GRAN	(SIX_SECS_IN_NSECS/RIO_SP_RTO_CTL_TVAL_MAX)
 
 /* RIO_SP_GEN_CTL : Register Bits Masks Definitions */
 #define RIO_SP_GEN_CTL_DISC      (0x20000000)
@@ -573,9 +584,10 @@ typedef uint32_t RIO_SPX_ERR_STAT_T;
 #define RIO_SPX_CTL_PTW_INIT_2X     (0x18000000)
 
 #define RIO_SPX_CTL_PTW_OVER_NONE     (0x00000000)
+#define RIO_SPX_CTL_PTW_OVER_RSVD     (0x01000000)
 #define RIO_SPX_CTL_PTW_OVER_1X_L0    (0x02000000)
 #define RIO_SPX_CTL_PTW_OVER_1X_LR    (0x03000000)
-#define RIO_SPX_CTL_PTW_OVER_RSVD     (0x04000000)
+#define RIO_SPX_CTL_PTW_OVER_IMP_SPEC (0x04000000)
 #define RIO_SPX_CTL_PTW_OVER_2X_NO_4X (0x05000000)
 #define RIO_SPX_CTL_PTW_OVER_4X_NO_2X (0x06000000)
 #define RIO_SPX_CTL_PTW_OVER_NONE_2   (0x07000000)
