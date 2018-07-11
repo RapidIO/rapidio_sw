@@ -5,6 +5,7 @@
 #
 INSTALL_ROOT="/opt/rapidio/.install"
 . $INSTALL_ROOT/script/make_install_common.sh $1 $2 $3 $4
+USERID=barry
 
 
 # Install scripts
@@ -51,7 +52,7 @@ awk -vM=$MEM_SIZE $HOSTL '
 # Set ownership of files
 #
 cd $SOURCE_PATH/..
-chown -R root.$GRP rapidio_sw
+chown -R $USERID.$GRP rapidio_sw
 
 cd $CONFIG_PATH/..
-chown -R root.$GRP rapidio
+chown -R $USERID.$GRP rapidio
