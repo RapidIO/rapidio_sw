@@ -76,7 +76,7 @@ int RIOCP_WU mpsw_drv_reg_rd(struct riocp_pe *pe, uint32_t offset, uint32_t *val
 	int ret;
 	struct mpsw_drv_private_data *priv_ptr;
 
-	DBG("ENTRY: offset 0x%x did:%0x%08x hc:%d\n", offset, pe->did_reg_val, pe->hopcount);
+	DBG("ENTRY: offset 0x%x did:0x%08x hc:%d\n", offset, pe->did_reg_val, pe->hopcount);
 
 	ret = riocp_pe_handle_get_private(pe, (void **)&priv_ptr);
 	if (ret) {
@@ -91,7 +91,7 @@ int RIOCP_WU mpsw_drv_reg_rd(struct riocp_pe *pe, uint32_t offset, uint32_t *val
 		ret = EIO;
 	}
 
-	DBG("EXIT: offset 0x%x did:%0x%08x hc:%d val 0x%08x\n", offset, pe->did_reg_val, pe->hopcount, *val);
+	DBG("EXIT: offset 0x%x did:0x%08x hc:%d val 0x%08x\n", offset, pe->did_reg_val, pe->hopcount, *val);
 	return ret;
 }
 
@@ -100,7 +100,7 @@ int RIOCP_WU mpsw_drv_reg_wr(struct riocp_pe *pe, uint32_t offset, uint32_t val)
 	int ret;
 	struct mpsw_drv_private_data *priv_ptr = NULL;
 
-	DBG("ENTRY: offset 0x%x did:%0x%08x hc:%d val 0x%08x\n", offset, pe->did_reg_val, pe->hopcount, val);
+	DBG("ENTRY: offset 0x%x did:0x%08x hc:%d val 0x%08x\n", offset, pe->did_reg_val, pe->hopcount, val);
 
 	ret = riocp_pe_handle_get_private(pe, (void **)&priv_ptr);
 	if (ret) {
