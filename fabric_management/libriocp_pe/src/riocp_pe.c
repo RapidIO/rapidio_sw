@@ -722,15 +722,20 @@ int RIOCP_SO_ATTR riocp_pe_probe(riocp_pe_handle pe,
 				" devinfo 0x%08x, ct 0x%08x\n",
 			p->hopcount, port, p->cap.dev_id, p->cap.dev_info,
 			p->comptag);
+		*peer = p;
 	} else {
 		// Found a device that already exists in the database.
 		// Add peer connection to switch device.
+		// INFW: This will need to be improved in future to support
+		//       endpoints with multiple ports.
 		RIOCP_DEBUG("Peer found h: %d p %d vid 0x%08x devinfo 0x%08x"
 				" ct 0x%08x\n",
 			p->hopcount, port, p->cap.dev_id, p->cap.dev_info,
 			p->comptag);
 
 		if (RIOCP_PE_IS_SWITCH(p->cap)) {
+		        RIOCP_TRACE("Determine connected port, hc %d\n",
+                                     hopcount);
 			ret = riocp_drv_raw_reg_rd(p, DID_ANY_DEV8_ID, hopcount,
 					RIO_SW_PORT_INF, &val);
 			if (ret) {
@@ -739,12 +744,16 @@ int RIOCP_SO_ATTR riocp_pe_probe(riocp_pe_handle pe,
 			}
 			sw_port = RIO_ACCESS_PORT(val);
 
+		        RIOCP_DEBUG("Peer connect to port %d\n", sw_port);
 			ret = riocp_pe_add_peer(pe, p, port, sw_port);
 			if (ret) {
 				RIOCP_ERROR("Could not add peer(p) to pe\n");
 				goto err;
 			}
+		} else {
+			RIOCP_ERROR("DEVICE IS NOT A SWITCH???\n");
 		}
+                *peer = NULL;
 	}
 
 	ret = riocp_pe_maint_unset_anyid_route(p);
@@ -752,8 +761,6 @@ int RIOCP_SO_ATTR riocp_pe_probe(riocp_pe_handle pe,
 		RIOCP_ERROR("Error in unset_anyid_route for peer\n");
 		goto err_out;
 	}
-
-	*peer = p;
 	return 0;
 err:
 	ret = riocp_pe_maint_unset_anyid_route(pe);
@@ -945,20 +952,10 @@ int RIOCP_SO_ATTR riocp_pe_get_capabilities(riocp_pe_handle pe,
  */
 static int riocp_pe_get_ports_add_peer(struct riocp_pe *pe, uint8_t port, struct riocp_pe_port ports[])
 {
-	struct riocp_pe *peer = NULL;
-
-	peer = pe->peers[port].peer;
-
 	ports[port].id = port;
 	ports[port].pe = pe;
-
-	if (peer) {
-		ports[port].peer        = peer->port;
-		ports[port].peer->pe    = peer;
-		ports[port].peer->id    = pe->peers[port].remote_port;
-	} else {
-		ports[port].peer = NULL;
-	}
+	ports[port].peer = pe->peers[port].peer;
+	ports[port].peer_port = pe->peers[port].remote_port;
 
 	return 0;
 }
