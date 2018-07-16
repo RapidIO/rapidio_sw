@@ -722,7 +722,6 @@ int RIOCP_SO_ATTR riocp_pe_probe(riocp_pe_handle pe,
 				" devinfo 0x%08x, ct 0x%08x\n",
 			p->hopcount, port, p->cap.dev_id, p->cap.dev_info,
 			p->comptag);
-		*peer = p;
 	} else {
 		// Found a device that already exists in the database.
 		// Add peer connection to switch device.
@@ -753,8 +752,8 @@ int RIOCP_SO_ATTR riocp_pe_probe(riocp_pe_handle pe,
 		} else {
 			RIOCP_ERROR("DEVICE IS NOT A SWITCH???\n");
 		}
-                *peer = NULL;
 	}
+	*peer = p;
 
 	ret = riocp_pe_maint_unset_anyid_route(p);
 	if (ret) {
