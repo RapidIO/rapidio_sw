@@ -4,6 +4,7 @@ SOURCE_PATH=/opt/rapidio/rapidio_sw
 RIO_CLASS_MPORT_DIR=/sys/class/rio_mport/rio_mport0
 
 . /etc/rapidio/nodelist.sh
+. /etc/rapidio/riosocket_conf.sh
 
 MTU='/bin/true';
 [ -z "$1" ] || {
@@ -36,5 +37,5 @@ for node in $NODES; do
 
 	# XXX This IPv4 assignment is naive at best and works with up to 254 node clusters
 	# XXX DESTID=0 will yield 169.254.0.0 which is bcast addr. Use FMD for enumeration.
-	ssh root@"$node" "$MTU; /sbin/ifconfig rsock0 11.64.0.$DESTID up"
+	ssh root@"$node" "$MTU; /sbin/ifconfig rsock0 $RIOSOCKET_IP$DESTID up"
 done

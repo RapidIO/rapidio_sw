@@ -99,6 +99,10 @@ Open documentation using "firefox html/index.html"
 
 ******* RELEASE NOTES *******
 
+New functionality in RRMAP 8.0 compared to 7.0:
+- A configuration file specifying the riosocket IP subnet is added, and is used
+  by the rsock0_start.sh script.
+
 New functionality in RRMAP 7.0 compared to 6.0:
 - Fabric Management Functionality
   - Support for scread, scdisplay commands to read and dump Statistics Counter
