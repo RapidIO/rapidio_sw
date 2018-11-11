@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Files required for installation
-# Note the names of these file name (different root) are also used by make_install.sh
+# Note these variables (different root) are also used by make_install.sh
 #
 REMOTE_ROOT="/opt/rapidio/.install"
 LOCAL_SOURCE_ROOT="$(pwd)"
@@ -11,7 +11,7 @@ NODEDATA_FILE="nodeData.txt"
 SRC_TAR="rapidio_sw.tar"
 TMPL_FILE="config.tmpl"
 
-MY_USERID=barry
+MY_USERID=root
 
 PGM_NAME=install.sh
 PGM_NUM_PARMS=8
@@ -30,11 +30,16 @@ else
     MEMSZ=$6
     SW_TYPE=$7
     GRP=$8
-    REL=$9
+    NEW_USERID=$9
+    REL=$10
 
     if [ $MEMSZ != 'mem34' -a $MEMSZ != 'mem50' -a $MEMSZ != 'mem66' ] ; then
         echo $'\nmemsz parameter must be mem34, mem50, or mem66.\n'
         PRINTHELP=1
+    fi
+
+    if [ ! -z "$NEW_USERID" ] ; then
+       MY_USERID=$NEW_USERID
     fi
 
     MASTER_CONFIG_FILE=$SCRIPTS_PATH/$SW_TYPE-master.conf
@@ -48,7 +53,7 @@ else
 fi
 
 if [ $PRINTHELP = 1 ] ; then
-    echo "$PGM_NAME <SERVER> <NODE1> <NODE2> <NODE3> <NODE4> <memsz> <sw> <group> <rel>"
+    echo "$PGM_NAME <SERVER> <NODE1> <NODE2> <NODE3> <NODE4> <memsz> <sw> <group> <userid> <rel>"
     echo "<SERVER> Name of the node providing the files required by installation"
     echo "<NODE1>  Name of master, enumerating node"
     echo "<NODE2>  Name of slave node connected to Switch Port 2"
@@ -65,6 +70,7 @@ if [ $PRINTHELP = 1 ] ; then
     echo "         rxs  - StarBridge Inc RXS RapidExpress Switch"
     echo "<group>  Unix file ownership group which should have access to"
     echo "         the RapidIO software"
+    echo "<userid> User ID used to ssh to NODE1-4.  Default is root."
     echo "<rel>    The software release/version to install."
     echo "         If no release is supplied, the current release is installed."
     exit
@@ -164,7 +170,7 @@ done
 echo "Beginning installation..."
 for host in "${ALLNODES[@]}"; do
     [ "$host" = 'none' ] && continue;
-    ssh $MY_USERID@"$host" "$REMOTE_ROOT/script/make_install.sh $SERVER $SERVER_ROOT $MEMSZ $GRP"
+    ssh $MY_USERID@"$host" "$REMOTE_ROOT/script/make_install.sh $SERVER $SERVER_ROOT $MEMSZ $GRP $MY_USERID"
 done
 
 echo "Installation complete."

@@ -1,5 +1,5 @@
 #!/bin/bash
-# usage: ./make_install_common.sh <server> <rootPath> <memSize> <unixGroup>
+# usage: ./make_install_common.sh <server> <rootPath> <memSize> <unixGroup> <USERID>
 
 # Setup passed in parameters
 #
@@ -7,7 +7,7 @@ SERVER=$1
 ROOT_PATH=$2
 MEM_SIZE=$3
 GRP=$4
-USERID=barry
+USERID=$5
 
 # Files required by install, match those names in install.sh
 #
@@ -83,6 +83,7 @@ fi
 cat > $NODELIST_FILE <<EOF
 NODES=" $NODELIST "
 REVNODES=" $REVNODELIST "
+USERID=$USERID
 EOF
 
 
