@@ -37,5 +37,5 @@ for node in $NODES; do
 
 	# XXX This IPv4 assignment is naive at best and works with up to 254 node clusters
 	# XXX DESTID=0 will yield 169.254.0.0 which is bcast addr. Use FMD for enumeration.
-	ssh root@"$node" "$MTU; /sbin/ifconfig rsock0 $RIOSOCKET_IP$DESTID up"
+	ssh root@"$node" "$MTU; /sbin/ifconfig rsock0 $RIOSOCKET_IP$DESTID netmask $RIOSOCKET_MASK up"
 done
