@@ -39,6 +39,7 @@
 #include <stdbool.h>
 
 #include "rio_route.h"
+#include "rio_standard.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -53,6 +54,13 @@ typedef struct {
 	did_sz_t size;
 } did_t;
 
+typedef struct {
+	did_sz_t size;
+	did_val_t base;
+	uint16_t next;
+	did_sz_t l_dev16[RIO_RT_GRP_SZ];
+} did_grp_t;
+
 #define ANY_ID 0xff
 #define DID_ANY_DEV8_ID ((did_t) {RIO_LAST_DEV8, dev08_sz})
 #define DID_ANY_DEV16_ID ((did_t) {RIO_LAST_DEV16, dev16_sz})
@@ -66,6 +74,10 @@ int did_from_value(did_t *did, uint32_t value, uint32_t size);
 int did_to_value(did_t did, uint32_t *value, uint32_t *size);
 int did_release(did_t did);
 int did_not_inuse(did_t did);
+
+int did_alloc_dev16_grp(did_grp_t **group);
+int did_grp_resrv_did(did_grp_t *group, did_t *did);
+int did_grp_unresrv_did(did_grp_t *group, did_t did);
 
 did_val_t did_get_value(did_t did);
 did_sz_t did_get_size(did_t did);

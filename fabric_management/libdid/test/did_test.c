@@ -38,6 +38,7 @@
 
 #include <stdarg.h>
 #include <setjmp.h>
+#include <error.h>
 #include "cmocka.h"
 
 #include "did_test.h"
@@ -65,6 +66,13 @@ static void assumptions(void **state)
 		did_sz_t size;
 	};
 	assert_int_equal(sizeof(struct dup_did_t), sizeof(did_t));
+	struct dup_did_grp_t {
+		did_sz_t size;
+		did_val_t base;
+		uint16_t next;
+		did_sz_t l_dev16[RIO_RT_GRP_SZ];
+	};
+	assert_int_equal(sizeof(struct dup_did_grp_t), sizeof(did_grp_t));
 
 	// verify constants
 	assert_int_equal(0xff, ANY_ID);
@@ -73,6 +81,7 @@ static void assumptions(void **state)
 	assert_int_equal(0,
 			did_match(DID_ANY_DEV16_ID, RIO_LAST_DEV16, dev16_sz));
 	assert_int_equal(0, did_match(DID_INVALID_ID, 0, invld_sz));
+	assert_int_equal(0x100, RIO_RT_GRP_SZ);
 
 	// assuming this is the first test ever ran, then can verify the internal did structures
 	assert_int_equal(0, did_idx);
@@ -976,8 +985,8 @@ static void did_get_size_test(void **state)
 {
 	did_t did;
 
-	// not actually creating them, just populate a structure with the correct
-	// values and query
+	// not actually creating them, just populate a structure with the
+	// correct values and query
 	did.value = 0xf0;
 	did.size = invld_sz;
 	assert_int_equal(invld_sz, did_get_size(did));
@@ -1013,6 +1022,163 @@ static void did_get_size_test(void **state)
 	(void)state; // unused
 }
 
+static void did_alloc_dev16_grp_test(void **state)
+{
+	did_grp_t *group;
+	uint32_t i, chk, chk_idx;
+
+	did_reset();
+	// Bad parameter test
+	assert_int_equal(-EINVAL, did_alloc_dev16_grp(NULL));
+
+	// Allocate all possible groups
+	for (i = 0; i < 0x100; i++) {
+		group = NULL;
+		// Check values of allocated group
+		assert_int_equal(0, did_alloc_dev16_grp(&group));
+		assert_int_equal(dev16_sz, group->size);
+		assert_int_equal(i << 8, group->base);
+		assert_int_equal(1, group->next);
+		assert_int_equal(dev16_sz, group->l_dev16[0]);
+		assert_int_equal(dev16_sz, group->l_dev16[0xFF]);
+		for (chk = 1; chk < RIO_RT_GRP_SZ - 1; chk++) {
+			assert_int_equal(invld_sz, group->l_dev16[chk]);
+		}
+		// Check values of did tracking variables...
+		assert_int_equal((i + 1) << 8, did_idx);
+		for (chk = 0; chk < RIO_RT_GRP_SZ; chk++) {
+			chk_idx = (i << 8) + chk;
+			if (!chk_idx || (RIO_LAST_DEV8 == chk_idx) || (RIO_LAST_DEV16 == chk_idx)) {
+				continue;
+			}
+			assert_int_equal(dev16_sz, did_ids[(i << 8) + chk]);
+		}
+		// Free the groups memory allocation...
+		free((void *)group);
+	}
+	// Check that no more groups are available
+	assert_int_equal(-ENOBUFS, did_alloc_dev16_grp(&group));
+
+	(void)state; // unused
+}
+
+static void did_grp_resrv_did_test(void **state)
+{
+	did_grp_t *group = NULL;
+	did_t did;
+	uint32_t i, j;
+
+	did_reset();
+	// Check detection of NULL group
+	assert_int_equal(-EINVAL, did_grp_resrv_did(NULL, &did));
+
+	// For the first 20 allocated groups
+	for (i = 0; i < 0x20; i ++) {
+		assert_int_equal(0, did_alloc_dev16_grp(&group));
+		assert_int_equal(-EINVAL, did_grp_resrv_did(group, NULL));
+		// Check that it is possible to allocate dids 0xYY01 to 0xYYfe
+		for (j = 1; j < 255; j++) {
+			did.size = invld_sz;
+			did.value = 0xdeadbeef;
+			assert_int_equal(0, did_grp_resrv_did(group, &did));
+			assert_int_equal(dev16_sz, did.size);
+			assert_int_equal((i << 8) + j, did.value);
+		}
+		// Check that it is not possible to allocate more dids
+		assert_int_equal(-ENOBUFS, did_grp_resrv_did(group, &did));
+		assert_int_equal(RIO_RT_GRP_SZ, group->next);
+		// Free the groups memory allocation...
+		free((void *)group);
+	}
+	(void)state; // unused
+}
+
+static void did_grp_unresrv_did_test(void **state)
+{
+	did_grp_t *group = NULL;
+	did_t did;
+	did_val_t i, j, chk;
+
+	did_reset();
+	// Check detection of NULL group pointer
+	assert_int_equal(-EINVAL, did_grp_unresrv_did(NULL, did));
+	assert_int_equal(0, did_alloc_dev16_grp(&group));
+
+	// Check detection of invalid DID sizes
+	did.size = dev08_sz;
+	assert_int_equal(-EINVAL, did_grp_unresrv_did(group, did));
+	did.size = dev32_sz;
+	assert_int_equal(-EINVAL, did_grp_unresrv_did(group, did));
+	did.size = invld_sz;
+	assert_int_equal(-EINVAL, did_grp_unresrv_did(group, did));
+
+	// Check detection of invalid did values
+	did.size = dev16_sz;
+	did.value = 0x9934;
+	assert_int_equal(-EINVAL, did_grp_unresrv_did(group, did));
+	did.value = 0x00FF;
+	assert_int_equal(-EINVAL, did_grp_unresrv_did(group, did));
+	did.value = 0x0000;
+	assert_int_equal(-EINVAL, did_grp_unresrv_did(group, did));
+	did.value = 0x0001;
+	assert_int_equal(0, did_grp_unresrv_did(group, did));
+
+	// Check that unreserving a DID twice is successful
+	did.value = 0x0001;
+	assert_int_equal(0, did_grp_unresrv_did(group, did));
+
+	// Free the groups memory allocation...
+	free((void *)group);
+
+	// For the next 20 allocated groups
+	for (i = 1; i < 0x21; i++) {
+		assert_int_equal(0, did_alloc_dev16_grp(&group));
+
+		// Check that it is possible to reserve and unreserve
+		// dids 0xYY01 to 0xYYfe
+		for (chk = 0; chk < 5; chk++) {
+			for (j = 1; j < 255; j++) {
+				did.size = invld_sz;
+				did.value = 0xdeadbeef;
+				assert_int_equal(0, did_grp_resrv_did(group, &did));
+				assert_int_equal(dev16_sz, did.size);
+				assert_int_equal((i << 8) + j, did.value);
+				assert_int_equal(0, did_grp_unresrv_did(group, did));
+				assert_int_equal(invld_sz, group->l_dev16[j]);
+			}
+		}
+		// Check that it is possible to reserve a DID after a DID is returned
+		// to an completely reserved group.
+		//
+		// First, exhaust the group reservation...
+		for (j = 1; j < 255; j++) {
+			assert_int_equal(0, did_grp_resrv_did(group, &did));
+			assert_int_equal(dev16_sz, did.size);
+			assert_int_equal((i << 8) + j, did.value);
+		}
+
+		// Then check that unreserved dids can be reserved again.
+		for (j = 1; j < 255; j++) {
+			// Group should be completely reserved.
+			assert_int_equal(-ENOBUFS, did_grp_resrv_did(group, &did));
+			assert_int_equal(RIO_RT_GRP_SZ, group->next);
+			// Unreserve one did
+			did.size = dev16_sz;
+			did.value = group->base + j;
+			assert_int_equal(0, did_grp_unresrv_did(group, did));
+			assert_int_equal(j, group->next);
+			assert_int_equal(invld_sz, group->l_dev16[j]);
+			// Reserve that did again
+			assert_int_equal(0, did_grp_resrv_did(group, &did));
+			assert_int_equal(dev16_sz, did.size);
+			assert_int_equal(group->base + j, did.value);
+		}
+		// Free the groups memory allocation...
+		free((void *)group);
+	}
+	(void)state; // unused
+}
+
 int main(int argc, char** argv)
 {
 	(void)argv; // not used
@@ -1035,8 +1201,10 @@ int main(int argc, char** argv)
 	cmocka_unit_test(did_release_test),
 	cmocka_unit_test(did_not_inuse_test),
 	cmocka_unit_test(did_get_value_test),
-	cmocka_unit_test(did_get_size_test)};
-
+	cmocka_unit_test(did_get_size_test),
+	cmocka_unit_test(did_alloc_dev16_grp_test),
+	cmocka_unit_test(did_grp_resrv_did_test),
+	cmocka_unit_test(did_grp_unresrv_did_test)};
 	return cmocka_run_group_tests(tests, NULL, NULL);
 }
 
