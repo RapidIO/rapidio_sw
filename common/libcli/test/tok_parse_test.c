@@ -3759,7 +3759,7 @@ static void tok_parse_did_test(void **state)
 	assert_int_equal(RIO_LAST_DEV8, value);
 
 	memset(buf, 0, sizeof(buf));
-	sprintf(buf, "%d", RIO_LAST_DEV8 + 1);
+	sprintf(buf, "%d", RIO_LAST_DEV16 + 1);
 	errno = 0xcafebabe;
 	value = 0xdead;
 	rc = tok_parse_did(buf, &value, 0);
