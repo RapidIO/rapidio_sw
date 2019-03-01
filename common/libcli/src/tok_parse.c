@@ -397,7 +397,7 @@ int tok_parse_did(char *token, did_val_t *did, int base)
 		return -1;
 	}
 
-	rc = tok_parse_ulonglong(token, &value, 0, RIO_LAST_DEV8, base);
+	rc = tok_parse_ulonglong(token, &value, 0, RIO_LAST_DEV16, base);
 	*did = (did_val_t)value;
 	return rc;
 }
