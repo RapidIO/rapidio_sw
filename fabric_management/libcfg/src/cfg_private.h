@@ -186,9 +186,15 @@ struct int_cfg_parms {
 	uint32_t conn_cnt;
 	struct int_cfg_conn cons[CFG_MAX_CONN];
 	bool auto_config;
+	did_sz_t did_sz;
 };
 
 extern struct int_cfg_parms *cfg;
+
+void init_rt(rio_rt_state_t *rt);
+int assign_dev16_rt_v(did_val_t st_did_val, did_val_t end_did_val,
+			pe_rt_val rtv,
+			rio_rt_state_t *rt, struct int_cfg_parms *cfg);
 
 #ifdef __cplusplus
 }

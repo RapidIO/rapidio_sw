@@ -66,6 +66,9 @@ typedef struct {
 #define DID_ANY_DEV16_ID ((did_t) {RIO_LAST_DEV16, dev16_sz})
 #define DID_INVALID_ID ((did_t) {0, invld_sz})
 
+#define DID_DEV_VAL(x) ((did_val_t)(x & 0x00FF))
+#define DID_DOM_VAL(x) ((did_val_t)((x & 0xFF00) >> 8))
+
 int did_size_from_int(did_sz_t *size, uint32_t asInt);
 int did_create(did_t *did, did_sz_t size);
 int did_create_from_data(did_t *did, did_val_t value, did_sz_t size);

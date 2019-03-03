@@ -117,6 +117,7 @@ int cfg_get_mp_mem_sz(uint32_t mport, uint8_t *mem_sz );
 int cfg_find_dev_by_ct(ct_t ct, struct cfg_dev *dev);
 int cfg_get_conn_dev(ct_t ct, int pt, struct cfg_dev *dev, int *conn_pt);
 bool cfg_auto(void);
+did_sz_t cfg_did_sz(void);
 
 #ifdef __cplusplus
 }

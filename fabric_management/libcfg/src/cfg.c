@@ -75,20 +75,20 @@ struct int_cfg_parms *cfg = NULL;
 FILE *cfg_fd = NULL;
 const char *DEV_TYPE = "ENDPOINT";
 
-static void init_rt(rio_rt_state_t *rt)
+void init_rt(rio_rt_state_t *rt)
 {
 	int k;
 
 	memset(rt, 0, sizeof(rio_rt_state_t));
 	rt->default_route = RIO_RTE_DROP;
-
 	for (k = 0; k < RIO_RT_GRP_SZ; k++) {
 		rt->dev_table[k].rte_val = RIO_RTE_DROP;
 		rt->dom_table[k].rte_val = RIO_RTE_DROP;
 	}
+	rt->dom_table[0].rte_val = RIO_RTE_LVL_G0;
 
 	for (k = 0; k < RIO_MAX_MC_MASKS; k++) {
-		rt->mc_masks[k].mc_destID = (did_reg_t)0xFF;
+		rt->mc_masks[k].mc_destID = RIO_RTE_BAD;
 		rt->mc_masks[k].tt = tt_dev8;
 	}
 }
@@ -123,6 +123,7 @@ static int init_cfg_ptr()
 			cfg->eps[i].ports[j].rio.max_pw = rio_pc_pw_last;
 			cfg->eps[i].ports[j].rio.op_pw = rio_pc_pw_last;
 			cfg->eps[i].ports[j].rio.ls = rio_pc_ls_last;
+			cfg->eps[i].ports[j].rio.iseq = rio_pc_is_last;
 			for (k = 0; k < CFG_DEVID_MAX; k++) {
 				cfg->eps[i].ports[j].devids[k].hc = HC_MP;
 			}
@@ -135,6 +136,7 @@ static int init_cfg_ptr()
 			cfg->sws[i].ports[j].rio.max_pw = rio_pc_pw_last;
 			cfg->sws[i].ports[j].rio.op_pw = rio_pc_pw_last;
 			cfg->sws[i].ports[j].rio.ls = rio_pc_ls_last;
+			cfg->sws[i].ports[j].rio.iseq = rio_pc_is_last;
 			cfg->sws[i].ports[j].conn_end = -1;
 		}
 		for (j = 0; j < CFG_DEVID_MAX; j++) {
@@ -155,6 +157,7 @@ static int init_cfg_ptr()
 	}
 
 	cfg->auto_config = false;
+	cfg->did_sz = dev08_sz;
 	cfg->init_err = false;
 
 	return 0;
@@ -607,7 +610,7 @@ static int parse_ep_devids(struct int_cfg_parms *cfg, struct dev_id *devids)
 	uint32_t devid_sz, done = 0;
 	uint32_t tmp;
 
-	for (devid_sz = 0; devid_sz < 3; devid_sz++) {
+	for (devid_sz = 0; devid_sz < CFG_DEVID_MAX; devid_sz++) {
 		devids[devid_sz].valid = 0;
 		devids[devid_sz].hc = HC_MP;
 		devids[devid_sz].did_val = 0;
@@ -657,6 +660,8 @@ static int check_match (struct dev_id *mp_did, struct dev_id *ep_did,
 		struct int_mport_info *mpi, struct int_cfg_parms *cfg,
 		struct int_cfg_ep *ep, int pnum)
 {
+	DBG("did_vals mp %x ep %x", mp_did->did_val, ep_did->did_val);
+	DBG("did hc   mp %x ep %x", mp_did->hc, ep_did->hc);
 	if (!mp_did->valid) {
 		goto exit;
 	}
@@ -681,27 +686,37 @@ static int check_match (struct dev_id *mp_did, struct dev_id *ep_did,
 	mpi->ep = ep;
 	mpi->ep_pnum = pnum;
 	mpi->ct = ep->ports[mpi->ep_pnum].ct;
-
+	DBG("ASSIGNED.");
 exit:
 	return 0;
 fail:
+	DBG("FAILED.");
 	return -1;
 }
+
+// Each endpoint is checked against the MPORTs entered to
+// find a match based on destID and hopcount.
+// Only dids that match the MASTER_INFO destination ID size
+// are checked.
+// If more than one endpoint matches an MPORT, parsing fails.
+//
+// NOTE: This routine should be enhanced to ensure that all
+//       MPORTs belong to the same device, when multiple
+//       MPORTs per device are supported.
 
 static int match_ep_to_mports(struct int_cfg_parms *cfg, struct int_cfg_ep_port *ep_p,
 			int pt_i, struct int_cfg_ep *ep)
 {
-	uint32_t mp_i, did_sz;
+	uint32_t mp_i, did_sz = cfg->mast_did_sz;
 	struct dev_id *mp_did = NULL;
 	struct dev_id *ep_did = ep_p->devids;
 
 	for (mp_i = 0; mp_i < cfg->max_mport_info_idx; mp_i++) {
 		mp_did = cfg->mport_info[mp_i].devids;
-		for (did_sz = 0; did_sz < CFG_DEVID_MAX; did_sz++) {
-			if (check_match( &mp_did[did_sz], &ep_did[did_sz],
-					&cfg->mport_info[mp_i], cfg, ep, pt_i)) {
-				return -1;
-			}
+		DBG("%s %x %d", ep->name, cfg->mport_info[mp_i].ct, did_sz)
+		if (check_match( &mp_did[did_sz], &ep_did[did_sz],
+				&cfg->mport_info[mp_i], cfg, ep, pt_i)) {
+			return -1;
 		}
 	}
 	return 0;
@@ -764,6 +779,10 @@ static int parse_master_info(struct int_cfg_parms *cfg)
 		goto fail;
 	}
 
+	if (did_size_from_int(&cfg->did_sz, cfg->mast_did_sz)) {
+		goto fail;
+	}
+
 	if (get_hex_int(cfg, &cfg->mast_did_val)) {
 		goto fail;
 	}
@@ -792,7 +811,7 @@ static int parse_mc_mask(struct int_cfg_parms *cfg, rio_rt_mc_info_t *mc_info)
 		goto fail;
 	}
 
-	mc_info[mc_mask_idx].mc_destID = 0;
+	mc_info[mc_mask_idx].mc_destID = RIO_RTE_BAD;
 	mc_info[mc_mask_idx].tt = tt_dev8;
 	mc_info[mc_mask_idx].mc_mask = 0;
 
@@ -1025,10 +1044,91 @@ fail:
 	return 1;
 }
 
+static int assign_rt_v_entry(rio_rt_uc_info_t *entry, pe_rt_val rtv)
+{
+	if (entry->rte_val != rtv) {
+		entry->rte_val = rtv;
+		entry->changed = true;
+	}
+	return 0;
+}
+
+int assign_dev16_rt_v(did_val_t st_did_val, did_val_t end_did_val, pe_rt_val rtv,
+			rio_rt_state_t *rt, struct int_cfg_parms *cfg)
+{
+	did_val_t start_dom = DID_DOM_VAL(st_did_val);
+	did_val_t end_dom   = DID_DOM_VAL(end_did_val);
+	did_val_t start_dev = DID_DEV_VAL(st_did_val);
+	did_val_t end_dev   = DID_DEV_VAL(end_did_val);
+	pe_rt_val dom_rtv = rtv;
+	pe_rt_val dev_rtv = rtv;
+	did_val_t mc_idx;
+
+	if ((st_did_val > RIO_LAST_DEV16) || (end_did_val > RIO_LAST_DEV16)) {
+		PARSE_ERR(cfg, (char *)"dev16 DestID value exceeds 0xFFFF.");
+		goto fail;
+	}
+
+	if (RIO_RTV_IS_PORT(rtv) || RIO_RTE_DROP == rtv || RIO_RTE_DFLT_PORT == rtv) {
+		// If all the destIDs in the domains are set,
+		// just set the domain table, do not set the device table.
+		// If not all the destIDs in the domains are set,
+		// set the domains to point to the device table entries.
+
+		if ((0 == start_dev) && (RIO_RT_GRP_SZ - 1 == end_dev)) {
+			// Never change the first domain table entry, as this
+			// must always point at the device table to route
+			// dev16 0x00YY dids the same way as dev08 dids.
+			if (!start_dom) {
+				start_dom = 1;
+			} else {
+				dev_rtv = RIO_RTE_BAD;
+			}
+		} else {
+			dom_rtv = RIO_RTE_LVL_G0;
+		}
+	}
+
+	// To support CPS1848, only set multicast masks in
+	// the device table. RXS does support them in the
+	// domain table...
+	if (RIO_RTV_IS_MC_MSK(rtv)) {
+		dom_rtv = RIO_RTE_LVL_G0;
+		mc_idx = RIO_RTV_GET_MC_MSK(rtv);
+		if (RIO_RTE_BAD == rt->mc_masks[mc_idx].mc_destID) {
+			rt->mc_masks[mc_idx].mc_destID = st_did_val;
+		}
+	}
+
+	// Level groups must be set in the domain table.
+	// Level groups cannot be set in the device table.
+	if (RIO_RTV_IS_LVL_GRP(rtv)) {
+		dev_rtv = RIO_RTE_BAD;
+	}
+
+	for (did_val_t dom = start_dom; dom <= end_dom; dom++) {
+		assign_rt_v_entry(&rt->dom_table[dom], dom_rtv);
+	}
+	if (dev_rtv != RIO_RTE_BAD) {
+		for (did_val_t dev = start_dev; dev <= end_dev; dev++) {
+			assign_rt_v_entry(&rt->dev_table[dev],  dev_rtv);
+		}
+	}
+	return 0;
+fail:
+	return 1;
+}
+
 static int assign_rt_v(int rt_sz, did_val_t st_did_val, did_val_t end_did_val, pe_rt_val rtv,
 			rio_rt_state_t *rt, struct int_cfg_parms *cfg)
 {
 	did_val_t i;
+
+	if (st_did_val > end_did_val) {
+		did_val_t temp = end_did_val;
+		end_did_val = st_did_val;
+		st_did_val = temp;
+	}
 
 	switch (rt_sz) {
 	case 0: // dev08
@@ -1038,22 +1138,21 @@ static int assign_rt_v(int rt_sz, did_val_t st_did_val, did_val_t end_did_val, p
 			goto fail;
 		}
 
-		if (st_did_val > end_did_val) {
-			did_val_t temp = end_did_val;
-			end_did_val = st_did_val;
-			st_did_val = temp;
-		}
-
 		for (i = st_did_val; i <= end_did_val; i++) {
-			if (rt->dev_table[i].rte_val != rtv) {
-				rt->dev_table[i].rte_val = rtv;
-				rt->dev_table[i].changed = 1;
+			assign_rt_v_entry(&rt->dev_table[i], rtv);
+		}
+		if (RIO_RTV_IS_MC_MSK(rtv)) {
+			uint32_t mc_idx = RIO_RTV_GET_MC_MSK(rtv);
+			if (RIO_RTE_BAD == rt->mc_masks[mc_idx].mc_destID) {
+				rt->mc_masks[mc_idx].mc_destID = st_did_val;
 			}
 		}
 		break;
 	case 1: // dev16
-		PARSE_ERR(cfg, (char *)"Dev16 not supported yet.");
-		goto fail;
+		if (assign_dev16_rt_v(st_did_val, end_did_val, rtv, rt, cfg)) {
+			goto fail;
+		}
+		break;
 	case 2: // dev32
 		PARSE_ERR(cfg, (char *)"Dev32 not supported yet.");
 		goto fail;
@@ -1158,6 +1257,9 @@ static int parse_switch(struct int_cfg_parms *cfg)
 
 				rt = &cfg->sws[i].ports[port].rt[rt_sz];
 				cfg->sws[i].ports[port].rt_valid[rt_sz] = true;
+				// If the global routing table is valid,
+				// copy the global routing table to the
+				// port routing table.
 				if (cfg->sws[i].rt_valid[rt_sz]) {
 					memcpy(rt, &cfg->sws[i].rt[rt_sz],
 							sizeof(rio_rt_state_t));
@@ -1290,7 +1392,7 @@ static int fmd_parse_cfg(struct int_cfg_parms *cfg)
 
 	while ((NULL != tok) && !cfg->init_err) {
 		switch (parm_idx(tok, (char *)
-	"// DEV_DIR DEV_DIR_MTX MPORT MASTER_INFO ENDPOINT SWITCH CONNECT AUTO EOF")) {
+	"// DEV_DIR DEV_DIR_MTX MPORT MASTER_INFO ENDPOINT SWITCH CONNECT AUTO AUTO16 EOF")) {
 		case 0: // "//"
 			flush_comment(tok);
 			break;
@@ -1330,7 +1432,11 @@ static int fmd_parse_cfg(struct int_cfg_parms *cfg)
 		case 8: // "AUTO"
 			cfg->auto_config = true;
 			break;
-		case 9: // "EOF"
+		case 9: // "AUTO16"
+			cfg->auto_config = true;
+			cfg->did_sz = dev16_sz;
+			break;
+		case 10: // "EOF"
 			DBG((char *)"\n");
 			goto exit;
 			break;
@@ -1458,13 +1564,11 @@ int cfg_parse_file(char *cfg_fn, char **dd_mtx_fn, char **dd_fn,
 	// update parameters
 	if (CFG_SLAVE == cfg->mast_idx) {
 		// fake out the creation of the master did
-		did_size_from_int(&did_sz, cfg->mast_did_sz);
-		*m_did = (did_t){cfg->mast_did_val, did_sz};
+		*m_did = (did_t){cfg->mast_did_val, cfg->did_sz};
 	} else {
 		if (cfg_auto()) {
 			// fake out the creation of the master did
-			did_size_from_int(&did_sz, cfg->mast_did_sz);
-			*m_did = (did_t){cfg->mast_did_val, did_sz};
+			*m_did = (did_t){cfg->mast_did_val, cfg->did_sz};
 		} else {
 			// ensure the master did was created
 			if (did_from_value(m_did, cfg->mast_did_val,
@@ -1704,6 +1808,11 @@ fail:
 bool cfg_auto(void)
 {
 	return cfg->auto_config;
+}
+
+did_sz_t cfg_did_sz(void)
+{
+	return cfg->did_sz;
 }
 
 #ifdef __cplusplus
