@@ -51,6 +51,7 @@ extern "C" {
 
 static void assumptions(void **state)
 {
+	did_t did;
 	// ensure enumerated values are correct
 	assert_int_equal(4, sizeof(did_sz_t));
 	assert_int_equal(0, invld_sz);
@@ -82,6 +83,9 @@ static void assumptions(void **state)
 			did_match(DID_ANY_DEV16_ID, RIO_LAST_DEV16, dev16_sz));
 	assert_int_equal(0, did_match(DID_INVALID_ID, 0, invld_sz));
 	assert_int_equal(0x100, RIO_RT_GRP_SZ);
+	assert_int_equal(0, DEV08_INT);
+	assert_int_equal(1, DEV16_INT);
+	assert_int_equal(2, DEV32_INT);
 
 	// assuming this is the first test ever ran, then can verify the internal did structures
 	assert_int_equal(0, did_idx);
@@ -90,6 +94,14 @@ static void assumptions(void **state)
 	assert_int_equal(0, did_ids[0]);
 	assert_int_equal(0, did_ids[100]);
 	assert_int_equal(0, did_ids[RIO_LAST_DEV16 - 1]);
+
+	// verify macros
+	did = DID_ANY_ID(dev08_sz);
+	assert_int_equal(did.value, RIO_LAST_DEV8);
+	assert_int_equal(did.size, dev08_sz);
+	did = DID_ANY_ID(dev16_sz);
+	assert_int_equal(did.value, RIO_LAST_DEV16);
+	assert_int_equal(did.size, dev16_sz);
 
 	(void)state; // unused
 }
@@ -132,6 +144,16 @@ static void did_size_from_int_test(void **state)
 			assert_int_equal(invld_sz, size);
 		}
 	}
+
+	(void)state; // unused
+}
+
+static void did_size_as_int_test(void **state)
+{
+	assert_int_equal(0, did_size_as_int(dev08_sz));
+	assert_int_equal(1, did_size_as_int(dev16_sz));
+	assert_int_equal(2, did_size_as_int(dev32_sz));
+	assert_int_equal(-1, did_size_as_int(invld_sz));
 
 	(void)state; // unused
 }
@@ -1188,6 +1210,7 @@ int main(int argc, char** argv)
 	cmocka_unit_test(assumptions),
 	cmocka_unit_test(did_size_from_int_null_parms_test),
 	cmocka_unit_test(did_size_from_int_test),
+	cmocka_unit_test(did_size_as_int_test),
 	cmocka_unit_test(did_create_null_parms_test),
 	cmocka_unit_test(did_create_test),
 	cmocka_unit_test(did_create_from_data_null_parms_test),
