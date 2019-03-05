@@ -78,14 +78,14 @@ static void assumptions(void **state)
 	// verify constants
 	assert_int_equal(0xff, ANY_ID);
 	assert_int_equal(0,
-			did_match(DID_ANY_DEV8_ID, RIO_LAST_DEV8, dev08_sz));
+			 did_match(DID_ANY_DEV8_ID, RIO_LAST_DEV8, dev08_sz));
 	assert_int_equal(0,
-			did_match(DID_ANY_DEV16_ID, RIO_LAST_DEV16, dev16_sz));
+			did_match(DID_ANY_DEV16_ID, RIO_LAST_DEV8, dev16_sz));
 	assert_int_equal(0, did_match(DID_INVALID_ID, 0, invld_sz));
 	assert_int_equal(0x100, RIO_RT_GRP_SZ);
-	assert_int_equal(0, DEV08_INT);
-	assert_int_equal(1, DEV16_INT);
-	assert_int_equal(2, DEV32_INT);
+	assert_int_equal(0, DEV08_IDX);
+	assert_int_equal(1, DEV16_IDX);
+	assert_int_equal(2, DEV32_IDX);
 
 	// assuming this is the first test ever ran, then can verify the internal did structures
 	assert_int_equal(0, did_idx);
@@ -100,7 +100,7 @@ static void assumptions(void **state)
 	assert_int_equal(did.value, RIO_LAST_DEV8);
 	assert_int_equal(did.size, dev08_sz);
 	did = DID_ANY_ID(dev16_sz);
-	assert_int_equal(did.value, RIO_LAST_DEV16);
+	assert_int_equal(did.value, RIO_LAST_DEV8);
 	assert_int_equal(did.size, dev16_sz);
 
 	(void)state; // unused

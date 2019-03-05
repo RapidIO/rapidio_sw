@@ -85,21 +85,36 @@ struct fmd_slave *slv;
 int send_slave_hello_message(void)
 {
 	struct mport_regs regs;
+	did_sz_t dev_sz = dev08_sz;
+	int dev_sz_int = DEV08_IDX;
+	did_val_t my_did_val, host_did_val;
 
 	if (riocp_get_mport_regs((*fmd->mp_h)->minfo->id, &regs)) {
 		goto fail;
 	}
 
+	if (regs.host_did_reg_val & RIO_EMHS_PW_DESTID_16CTL) {
+		dev_sz = dev16_sz;
+		dev_sz_int = DEV16_IDX;
+	}
+
+	if (DEV16_IDX == dev_sz) {
+		my_did_val = GET_DEV16_FROM_HW(regs.my_did_reg_val);
+		host_did_val = GET_DEV16_FROM_PW_TGT_HW(regs.host_did_reg_val);
+	} else {
+		my_did_val = GET_DEV8_FROM_HW(regs.my_did_reg_val);
+		host_did_val = GET_DEV8_FROM_PW_TGT_HW(regs.host_did_reg_val);
+	}
+
 	sem_wait(&slv->tx_mtx);
 	slv->s2m->msg_type = htonl(FMD_P_REQ_HELLO);
-	slv->s2m->src_did_val = htonl(regs.host_did_reg_val);
-	slv->s2m->src_did_sz = htonl(FMD_DEV08);
+	slv->s2m->src_did_val = htonl(my_did_val);
+	slv->s2m->src_did_sz = htonl(dev_sz_int);
 	SAFE_STRNCPY(slv->s2m->hello_rq.peer_name, (*fmd->mp_h)->sysfs_name,
 			sizeof(slv->s2m->hello_rq.peer_name));
 	slv->s2m->hello_rq.pid = htonl(getpid());
-	slv->s2m->hello_rq.did_val = htonl(
-			(regs.my_did_reg_val & RIO_DEVID_DEV8) >> 16);
-	slv->s2m->hello_rq.did_sz = htonl(FMD_DEV08);
+	slv->s2m->hello_rq.did_val = htonl(host_did_val);
+	slv->s2m->hello_rq.did_sz = htonl(dev_sz_int);
 	slv->s2m->hello_rq.ct = htonl(regs.comptag);
 	slv->s2m->hello_rq.hc_long = htonl(HC_MP);
 

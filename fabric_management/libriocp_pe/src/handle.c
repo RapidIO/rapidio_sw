@@ -402,6 +402,15 @@ int riocp_pe_handle_create_pe(struct riocp_pe *pe, struct riocp_pe **handle, hc_
 		RIOCP_ERROR("Could not add peer(h) to pe\n");
 		goto err;
 	}
+
+	if (RIOCP_PE_IS_SWITCH(h->cap) && (dev16_sz == riocp_pe_did_sz)) {
+		ret = did_alloc_dev16_grp(&h->did_grp);
+		if (ret) {
+			RIOCP_ERROR("Could not allocate dev16 group rc = %d\n", ret);
+			goto err;
+		}
+	}
+
 	RIOCP_DEBUG("Add dev_id 0x%08x ct: 0x%08x, to pe(hc: %u, addr: %s) 0x%08x pe port %u, peer port %u\n",
 		h->cap.dev_id, h->comptag, pe->hopcount, riocp_pe_handle_addr_ntoa(pe->address, pe->hopcount),
 		pe->comptag, port, peer_port);

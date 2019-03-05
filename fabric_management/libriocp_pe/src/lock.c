@@ -27,7 +27,7 @@ int riocp_pe_lock_read(struct riocp_pe *pe, did_t did, hc_t hopcount,
 	int ret;
 	uint32_t _lock;
 
-	ret = riocp_drv_raw_reg_rd(pe, did, hopcount,
+	ret = riocp_drv_raw_reg_rd(pe, did.value, hopcount,
 	RIO_HOST_LOCK, &_lock);
 	if (ret) {
 		return -EIO;
@@ -45,7 +45,7 @@ int riocp_pe_lock_write(struct riocp_pe *pe, did_t did, hc_t hopcount,
 {
 	int ret;
 
-	ret = riocp_drv_raw_reg_wr(pe, did, hopcount,
+	ret = riocp_drv_raw_reg_wr(pe, did.value, hopcount,
 	RIO_HOST_LOCK, lock);
 	if (ret) {
 		return -EIO;

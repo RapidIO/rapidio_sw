@@ -580,13 +580,13 @@ static void cfg_parse_master_test(void **state)
 	assert_int_equal(0, cfg_find_mport(0, &mp));
 	assert_int_equal(0, mp.num);
 	assert_int_equal(0x10005, mp.ct);
-	assert_int_equal(5, mp.devids[CFG_DEV08].did_val);
-	assert_int_equal(0xFF, mp.devids[CFG_DEV08].hc);
-	assert_true(mp.devids[CFG_DEV08].valid);
-	assert_int_equal(0x5555, mp.devids[CFG_DEV16].did_val);
-	assert_int_equal(0xFF, mp.devids[CFG_DEV16].hc);
-	assert_true(mp.devids[CFG_DEV16].valid);
-	assert_false(mp.devids[CFG_DEV32].valid);
+	assert_int_equal(5, mp.devids[DEV08_IDX].did_val);
+	assert_int_equal(0xFF, mp.devids[DEV08_IDX].hc);
+	assert_true(mp.devids[DEV08_IDX].valid);
+	assert_int_equal(0x5555, mp.devids[DEV16_IDX].did_val);
+	assert_int_equal(0xFF, mp.devids[DEV16_IDX].hc);
+	assert_true(mp.devids[DEV16_IDX].valid);
+	assert_false(mp.devids[DEV32_IDX].valid);
 	assert_int_not_equal(0, cfg_find_mport(3, &mp));
 
 	assert_int_equal(0, cfg_find_dev_by_ct(0x10005, &dev));
@@ -596,12 +596,12 @@ static void cfg_parse_master_test(void **state)
 	assert_int_equal(rio_pc_pw_4x, dev.ep_pt.op_pw);
 	assert_int_equal(rio_pc_ls_5p0, dev.ep_pt.ls);
 	assert_int_equal(rio_pc_is_two, dev.ep_pt.iseq);
-	assert_true(dev.ep_pt.devids[CFG_DEV08].valid);
-	assert_int_equal(5, dev.ep_pt.devids[CFG_DEV08].did_val);
-	assert_int_equal(0xFF, dev.ep_pt.devids[CFG_DEV08].hc);
-	assert_true(dev.ep_pt.devids[CFG_DEV16].valid);
-	assert_int_equal(0x5555, dev.ep_pt.devids[CFG_DEV16].did_val);
-	assert_int_equal(0xFF, dev.ep_pt.devids[CFG_DEV16].hc);
+	assert_true(dev.ep_pt.devids[DEV08_IDX].valid);
+	assert_int_equal(5, dev.ep_pt.devids[DEV08_IDX].did_val);
+	assert_int_equal(0xFF, dev.ep_pt.devids[DEV08_IDX].hc);
+	assert_true(dev.ep_pt.devids[DEV16_IDX].valid);
+	assert_int_equal(0x5555, dev.ep_pt.devids[DEV16_IDX].did_val);
+	assert_int_equal(0xFF, dev.ep_pt.devids[DEV16_IDX].hc);
 
 	assert_int_equal(0, cfg_find_dev_by_ct(0x20006, &dev));
 	assert_int_equal(0x20006, dev.ct);
@@ -610,12 +610,12 @@ static void cfg_parse_master_test(void **state)
 	assert_int_equal(rio_pc_pw_2x, dev.ep_pt.op_pw);
 	assert_int_equal(rio_pc_ls_6p25, dev.ep_pt.ls);
 	assert_int_equal(rio_pc_is_two, dev.ep_pt.iseq);
-	assert_true(dev.ep_pt.devids[CFG_DEV08].valid);
-	assert_int_equal(6, dev.ep_pt.devids[CFG_DEV08].did_val);
-	assert_int_equal(1, dev.ep_pt.devids[CFG_DEV08].hc);
-	assert_true(dev.ep_pt.devids[CFG_DEV16].valid);
-	assert_int_equal(0x6666, dev.ep_pt.devids[CFG_DEV16].did_val);
-	assert_int_equal(1, dev.ep_pt.devids[CFG_DEV16].hc);
+	assert_true(dev.ep_pt.devids[DEV08_IDX].valid);
+	assert_int_equal(6, dev.ep_pt.devids[DEV08_IDX].did_val);
+	assert_int_equal(1, dev.ep_pt.devids[DEV08_IDX].hc);
+	assert_true(dev.ep_pt.devids[DEV16_IDX].valid);
+	assert_int_equal(0x6666, dev.ep_pt.devids[DEV16_IDX].did_val);
+	assert_int_equal(1, dev.ep_pt.devids[DEV16_IDX].hc);
 
 	assert_int_equal(0, cfg_find_dev_by_ct(0x30007, &dev));
 	assert_string_equal("GRYPHON_03", dev.name);
@@ -624,12 +624,12 @@ static void cfg_parse_master_test(void **state)
 	assert_int_equal(rio_pc_pw_2x, dev.ep_pt.op_pw);
 	assert_int_equal(rio_pc_ls_1p25, dev.ep_pt.ls);
 	assert_int_equal(rio_pc_is_one, dev.ep_pt.iseq);
-	assert_true(dev.ep_pt.devids[CFG_DEV08].valid);
-	assert_int_equal(7, dev.ep_pt.devids[CFG_DEV08].did_val);
-	assert_int_equal(1, dev.ep_pt.devids[CFG_DEV08].hc);
-	assert_true(dev.ep_pt.devids[CFG_DEV16].valid);
-	assert_int_equal(0x7777, dev.ep_pt.devids[CFG_DEV16].did_val);
-	assert_int_equal(1, dev.ep_pt.devids[CFG_DEV16].hc);
+	assert_true(dev.ep_pt.devids[DEV08_IDX].valid);
+	assert_int_equal(7, dev.ep_pt.devids[DEV08_IDX].did_val);
+	assert_int_equal(1, dev.ep_pt.devids[DEV08_IDX].hc);
+	assert_true(dev.ep_pt.devids[DEV16_IDX].valid);
+	assert_int_equal(0x7777, dev.ep_pt.devids[DEV16_IDX].did_val);
+	assert_int_equal(1, dev.ep_pt.devids[DEV16_IDX].hc);
 
 	assert_int_equal(0, cfg_find_dev_by_ct(0x40008, &dev));
 	assert_string_equal("GRYPHON_04", dev.name);
@@ -638,11 +638,11 @@ static void cfg_parse_master_test(void **state)
 	assert_int_equal(rio_pc_pw_4x, dev.ep_pt.op_pw);
 	assert_int_equal(rio_pc_ls_2p5, dev.ep_pt.ls);
 	assert_int_equal(rio_pc_is_one, dev.ep_pt.iseq);
-	assert_int_equal(8, dev.ep_pt.devids[CFG_DEV08].did_val);
-	assert_int_equal(1, dev.ep_pt.devids[CFG_DEV08].hc);
-	assert_true(dev.ep_pt.devids[CFG_DEV16].valid);
-	assert_int_equal(0x8888, dev.ep_pt.devids[CFG_DEV16].did_val);
-	assert_int_equal(1, dev.ep_pt.devids[CFG_DEV16].hc);
+	assert_int_equal(8, dev.ep_pt.devids[DEV08_IDX].did_val);
+	assert_int_equal(1, dev.ep_pt.devids[DEV08_IDX].hc);
+	assert_true(dev.ep_pt.devids[DEV16_IDX].valid);
+	assert_int_equal(0x8888, dev.ep_pt.devids[DEV16_IDX].did_val);
+	assert_int_equal(1, dev.ep_pt.devids[DEV16_IDX].hc);
 
 	assert_int_equal(0, cfg_find_dev_by_ct(0x70009, &dev));
 	assert_string_equal("MAIN_SWITCH", dev.name);
@@ -651,7 +651,7 @@ static void cfg_parse_master_test(void **state)
 	assert_int_equal(24, dev.sw_info.num_ports);
 	for (rio_port_t pt = 0; pt < dev.sw_info.num_ports; pt++) {
 		// Per port routing tables are all invalid.
-		for (uint32_t idx = 0; idx < CFG_DEVID_MAX; idx++) {
+		for (uint32_t idx = 0; idx < MAX_DEV_SZ_IDX; idx++) {
 			assert_null(dev.sw_info.sw_pt[pt].rt[idx]);
 		}
 		// Undefined ports
@@ -702,8 +702,8 @@ static void cfg_parse_master_test(void **state)
 	}
 	// Check all 256 entries of dev08 global routing domain
 	// and multicast group tables.
-	assert_non_null(dev.sw_info.rt[CFG_DEV08]);
-	rt = dev.sw_info.rt[CFG_DEV08];
+	assert_non_null(dev.sw_info.rt[DEV08_IDX]);
+	rt = dev.sw_info.rt[DEV08_IDX];
 	assert_int_equal(RT_VAL_DROP, rt->default_route);
 	for (uint16_t rti = 0; rti < RIO_RT_GRP_SZ; rti++) {
 		assert_false(rt->dom_table[rti].changed);
@@ -840,13 +840,13 @@ static void cfg_parse_master16_test(void **state)
 	assert_int_equal(0, cfg_find_mport(0, &mp));
 	assert_int_equal(0, mp.num);
 	assert_int_equal(0x10005, mp.ct);
-	assert_int_equal(5, mp.devids[CFG_DEV08].did_val);
-	assert_int_equal(0xFF, mp.devids[CFG_DEV08].hc);
-	assert_true(mp.devids[CFG_DEV08].valid);
-	assert_int_equal(0x5555, mp.devids[CFG_DEV16].did_val);
-	assert_int_equal(0xFF, mp.devids[CFG_DEV16].hc);
-	assert_true(mp.devids[CFG_DEV16].valid);
-	assert_false(mp.devids[CFG_DEV32].valid);
+	assert_int_equal(5, mp.devids[DEV08_IDX].did_val);
+	assert_int_equal(0xFF, mp.devids[DEV08_IDX].hc);
+	assert_true(mp.devids[DEV08_IDX].valid);
+	assert_int_equal(0x5555, mp.devids[DEV16_IDX].did_val);
+	assert_int_equal(0xFF, mp.devids[DEV16_IDX].hc);
+	assert_true(mp.devids[DEV16_IDX].valid);
+	assert_false(mp.devids[DEV32_IDX].valid);
 	assert_int_not_equal(0, cfg_find_mport(3, &mp));
 
 	assert_int_equal(0, cfg_find_dev_by_ct(0x10005, &dev16));
@@ -856,12 +856,12 @@ static void cfg_parse_master16_test(void **state)
 	assert_int_equal(rio_pc_pw_4x, dev16.ep_pt.op_pw);
 	assert_int_equal(rio_pc_ls_5p0, dev16.ep_pt.ls);
 	assert_int_equal(rio_pc_is_two, dev16.ep_pt.iseq);
-	assert_true(dev16.ep_pt.devids[CFG_DEV08].valid);
-	assert_int_equal(5, dev16.ep_pt.devids[CFG_DEV08].did_val);
-	assert_int_equal(0xFF, dev16.ep_pt.devids[CFG_DEV08].hc);
-	assert_true(dev16.ep_pt.devids[CFG_DEV16].valid);
-	assert_int_equal(0x5555, dev16.ep_pt.devids[CFG_DEV16].did_val);
-	assert_int_equal(0xFF, dev16.ep_pt.devids[CFG_DEV16].hc);
+	assert_true(dev16.ep_pt.devids[DEV08_IDX].valid);
+	assert_int_equal(5, dev16.ep_pt.devids[DEV08_IDX].did_val);
+	assert_int_equal(0xFF, dev16.ep_pt.devids[DEV08_IDX].hc);
+	assert_true(dev16.ep_pt.devids[DEV16_IDX].valid);
+	assert_int_equal(0x5555, dev16.ep_pt.devids[DEV16_IDX].did_val);
+	assert_int_equal(0xFF, dev16.ep_pt.devids[DEV16_IDX].hc);
 
 	assert_int_equal(0, cfg_find_dev_by_ct(0x20006, &dev16));
 	assert_int_equal(0x20006, dev16.ct);
@@ -870,12 +870,12 @@ static void cfg_parse_master16_test(void **state)
 	assert_int_equal(rio_pc_pw_2x, dev16.ep_pt.op_pw);
 	assert_int_equal(rio_pc_ls_6p25, dev16.ep_pt.ls);
 	assert_int_equal(rio_pc_is_two, dev16.ep_pt.iseq);
-	assert_true(dev16.ep_pt.devids[CFG_DEV08].valid);
-	assert_int_equal(6, dev16.ep_pt.devids[CFG_DEV08].did_val);
-	assert_int_equal(1, dev16.ep_pt.devids[CFG_DEV08].hc);
-	assert_true(dev16.ep_pt.devids[CFG_DEV16].valid);
-	assert_int_equal(0x6666, dev16.ep_pt.devids[CFG_DEV16].did_val);
-	assert_int_equal(1, dev16.ep_pt.devids[CFG_DEV16].hc);
+	assert_true(dev16.ep_pt.devids[DEV08_IDX].valid);
+	assert_int_equal(6, dev16.ep_pt.devids[DEV08_IDX].did_val);
+	assert_int_equal(1, dev16.ep_pt.devids[DEV08_IDX].hc);
+	assert_true(dev16.ep_pt.devids[DEV16_IDX].valid);
+	assert_int_equal(0x6666, dev16.ep_pt.devids[DEV16_IDX].did_val);
+	assert_int_equal(1, dev16.ep_pt.devids[DEV16_IDX].hc);
 
 	assert_int_equal(0, cfg_find_dev_by_ct(0x30007, &dev16));
 	assert_string_equal("GRYPHON_03", dev16.name);
@@ -884,12 +884,12 @@ static void cfg_parse_master16_test(void **state)
 	assert_int_equal(rio_pc_pw_2x, dev16.ep_pt.op_pw);
 	assert_int_equal(rio_pc_ls_1p25, dev16.ep_pt.ls);
 	assert_int_equal(rio_pc_is_one, dev16.ep_pt.iseq);
-	assert_true(dev16.ep_pt.devids[CFG_DEV08].valid);
-	assert_int_equal(7, dev16.ep_pt.devids[CFG_DEV08].did_val);
-	assert_int_equal(1, dev16.ep_pt.devids[CFG_DEV08].hc);
-	assert_true(dev16.ep_pt.devids[CFG_DEV16].valid);
-	assert_int_equal(0x7777, dev16.ep_pt.devids[CFG_DEV16].did_val);
-	assert_int_equal(1, dev16.ep_pt.devids[CFG_DEV16].hc);
+	assert_true(dev16.ep_pt.devids[DEV08_IDX].valid);
+	assert_int_equal(7, dev16.ep_pt.devids[DEV08_IDX].did_val);
+	assert_int_equal(1, dev16.ep_pt.devids[DEV08_IDX].hc);
+	assert_true(dev16.ep_pt.devids[DEV16_IDX].valid);
+	assert_int_equal(0x7777, dev16.ep_pt.devids[DEV16_IDX].did_val);
+	assert_int_equal(1, dev16.ep_pt.devids[DEV16_IDX].hc);
 
 	assert_int_equal(0, cfg_find_dev_by_ct(0x40008, &dev16));
 	assert_string_equal("GRYPHON_04", dev16.name);
@@ -898,11 +898,11 @@ static void cfg_parse_master16_test(void **state)
 	assert_int_equal(rio_pc_pw_4x, dev16.ep_pt.op_pw);
 	assert_int_equal(rio_pc_ls_2p5, dev16.ep_pt.ls);
 	assert_int_equal(rio_pc_is_one, dev16.ep_pt.iseq);
-	assert_int_equal(8, dev16.ep_pt.devids[CFG_DEV08].did_val);
-	assert_int_equal(1, dev16.ep_pt.devids[CFG_DEV08].hc);
-	assert_true(dev16.ep_pt.devids[CFG_DEV16].valid);
-	assert_int_equal(0x8888, dev16.ep_pt.devids[CFG_DEV16].did_val);
-	assert_int_equal(1, dev16.ep_pt.devids[CFG_DEV16].hc);
+	assert_int_equal(8, dev16.ep_pt.devids[DEV08_IDX].did_val);
+	assert_int_equal(1, dev16.ep_pt.devids[DEV08_IDX].hc);
+	assert_true(dev16.ep_pt.devids[DEV16_IDX].valid);
+	assert_int_equal(0x8888, dev16.ep_pt.devids[DEV16_IDX].did_val);
+	assert_int_equal(1, dev16.ep_pt.devids[DEV16_IDX].hc);
 
 	assert_int_equal(0, cfg_find_dev_by_ct(0x70009, &dev16));
 	assert_string_equal("MAIN_SWITCH", dev16.name);
@@ -911,7 +911,7 @@ static void cfg_parse_master16_test(void **state)
 	assert_int_equal(24, dev16.sw_info.num_ports);
 	for (rio_port_t pt = 0; pt < dev16.sw_info.num_ports; pt++) {
 		// Per port routing tables are all invalid.
-		for (uint32_t idx = 0; idx < CFG_DEVID_MAX; idx++) {
+		for (uint32_t idx = 0; idx < MAX_DEV_SZ_IDX; idx++) {
 			assert_null(dev16.sw_info.sw_pt[pt].rt[idx]);
 		}
 		// Undefined ports
@@ -960,9 +960,9 @@ static void cfg_parse_master16_test(void **state)
 			assert_int_equal(rio_pc_is_one, dev16.sw_info.sw_pt[pt].iseq);
 		}
 	}
-	assert_null(dev16.sw_info.rt[CFG_DEV08]);
-	assert_non_null(dev16.sw_info.rt[CFG_DEV16]);
-	rt = dev16.sw_info.rt[CFG_DEV16];
+	assert_null(dev16.sw_info.rt[DEV08_IDX]);
+	assert_non_null(dev16.sw_info.rt[DEV16_IDX]);
+	rt = dev16.sw_info.rt[DEV16_IDX];
 	assert_int_equal(RT_VAL_DROP, rt->default_route);
 	// Check all 256 entries of the dev16 multicast group tables.
 	for (uint16_t rti = 0; rti < RIO_RT_GRP_SZ; rti++) {
@@ -1180,18 +1180,18 @@ static void cfg_parse_tor_test(void **state)
 	/* Check out the switch routing table parsing in detail. */
 	assert_int_equal(0, cfg_find_dev_by_ct(0x100f1, &dev));
 	assert_int_equal(1, dev.is_sw);
-	assert_int_equal(RIO_RTE_DROP, dev.sw_info.rt[CFG_DEV08]->default_route);
-	assert_int_equal(2, dev.sw_info.rt[CFG_DEV08]->dev_table[0x12].rte_val);
-	assert_int_equal(3, dev.sw_info.rt[CFG_DEV08]->dev_table[0x13].rte_val);
-	assert_int_equal(5, dev.sw_info.rt[CFG_DEV08]->dev_table[0x15].rte_val);
-	assert_int_equal(6, dev.sw_info.rt[CFG_DEV08]->dev_table[0x16].rte_val);
-	assert_int_equal(10, dev.sw_info.rt[CFG_DEV08]->dev_table[0x1A].rte_val);
-	assert_int_equal(11, dev.sw_info.rt[CFG_DEV08]->dev_table[0x1B].rte_val);
+	assert_int_equal(RIO_RTE_DROP, dev.sw_info.rt[DEV08_IDX]->default_route);
+	assert_int_equal(2, dev.sw_info.rt[DEV08_IDX]->dev_table[0x12].rte_val);
+	assert_int_equal(3, dev.sw_info.rt[DEV08_IDX]->dev_table[0x13].rte_val);
+	assert_int_equal(5, dev.sw_info.rt[DEV08_IDX]->dev_table[0x15].rte_val);
+	assert_int_equal(6, dev.sw_info.rt[DEV08_IDX]->dev_table[0x16].rte_val);
+	assert_int_equal(10, dev.sw_info.rt[DEV08_IDX]->dev_table[0x1A].rte_val);
+	assert_int_equal(11, dev.sw_info.rt[DEV08_IDX]->dev_table[0x1B].rte_val);
 
 	for (p_idx = 0; p_idx < 6; p_idx++) {
 		int pnum = pnums[p_idx];
 		for (idx = 0; idx <= RIO_LAST_DEV8; idx++) {
-			assert_int_equal(chk_pnum[p_idx], dev.sw_info.sw_pt[pnum].rt[CFG_DEV08]->dev_table[idx].rte_val);
+			assert_int_equal(chk_pnum[p_idx], dev.sw_info.sw_pt[pnum].rt[DEV08_IDX]->dev_table[idx].rte_val);
 		}
 	}
 

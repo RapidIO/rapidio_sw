@@ -38,12 +38,14 @@
 #define __STDC_FORMAT_MACROS
 #include <inttypes.h>
 
+#include "did.h"
 #include "rio_route.h"
 #include "rio_ecosystem.h"
 #include "rio_standard.h"
 #include "string_util.h"
 
 #define TOK_ERR_DID_MSG_FMT ("Destination Id must be between 0 and 0xff\n")
+#define TOK_ERR_DID_SZ_MSG_FMT ("Destination ID size must be 8, 16, or 32.\n")
 #define TOK_ERR_CT_MSG_FMT ("Component tag must be between 0 and 0xffffffff\n")
 #define TOK_ERR_HC_MSG_FMT ("Hopcount must be between 0 and 0xff\n")
 #define TOK_ERR_MPORT_MSG_FMT ("Mport device index must be between 0 and 7\n")
@@ -94,6 +96,7 @@ int tok_parse_l(char *token, int32_t *value, int base);
 int tok_parse_s(char *token, int16_t *value, int base);
 
 int tok_parse_did(char *token, did_val_t *did, int base);
+int tok_parse_did_sz(char *token, did_sz_t *did_sz, int base);
 int tok_parse_ct(char *token, ct_t *ct, int base);
 int tok_parse_hc(char *token, hc_t *hc, int base);
 int tok_parse_mport_id(char *token, uint32_t *mport_id, int base);

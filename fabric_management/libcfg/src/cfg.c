@@ -108,12 +108,12 @@ static int init_cfg_ptr()
 		cfg->mport_info[i].num = -1;
 		cfg->mport_info[i].op_mode = -1;
 		cfg->mport_info[i].mem_sz = CFG_MEM_SZ_DEFAULT;
-		for (j = 0; j < CFG_DEVID_MAX; j++) {
+		for (j = 0; j < MAX_DEV_SZ_IDX; j++) {
 			cfg->mport_info[i].devids[j].hc = HC_MP;
 		}
 		cfg->mport_info[i].ep_pnum = -1;
 	}
-	cfg->mast_did_sz = CFG_DFLT_MAST_DEVID_SZ;
+	cfg->mast_did_sz_idx = CFG_DFLT_MAST_DEVID_SZ;
 	cfg->mast_did_val = CFG_DFLT_MAST_DEVID;
 	cfg->mast_cm_port = FMD_DFLT_MAST_CM_PORT;
 
@@ -124,7 +124,7 @@ static int init_cfg_ptr()
 			cfg->eps[i].ports[j].rio.op_pw = rio_pc_pw_last;
 			cfg->eps[i].ports[j].rio.ls = rio_pc_ls_last;
 			cfg->eps[i].ports[j].rio.iseq = rio_pc_is_last;
-			for (k = 0; k < CFG_DEVID_MAX; k++) {
+			for (k = 0; k < MAX_DEV_SZ_IDX; k++) {
 				cfg->eps[i].ports[j].devids[k].hc = HC_MP;
 			}
 			cfg->eps[i].ports[j].conn_end = -1;
@@ -139,7 +139,7 @@ static int init_cfg_ptr()
 			cfg->sws[i].ports[j].rio.iseq = rio_pc_is_last;
 			cfg->sws[i].ports[j].conn_end = -1;
 		}
-		for (j = 0; j < CFG_DEVID_MAX; j++) {
+		for (j = 0; j < MAX_DEV_SZ_IDX; j++) {
 			init_rt(&cfg->sws[i].rt[j]);
 			for (int k = 0; k < CFG_MAX_SW_PORT; k++) {
 				init_rt(&cfg->sws[i].ports[k].rt[j]);
@@ -157,7 +157,6 @@ static int init_cfg_ptr()
 	}
 
 	cfg->auto_config = false;
-	cfg->did_sz = dev08_sz;
 	cfg->init_err = false;
 
 	return 0;
@@ -271,7 +270,7 @@ static int get_next_token(struct int_cfg_parms *cfg, char **token)
 #define DEVID_SZ_TOKENS_END "dev08 dev16 dev32 END"
 #define DEVID_SZ_TO_STR(x) (!x?"dev08":(1 == x)?"dev16":(2==x)?"dev32":"UNKN")
 
-static int get_devid_sz(struct int_cfg_parms *cfg, uint32_t *devID_sz)
+static int get_devid_sz(struct int_cfg_parms *cfg, uint32_t *devID_sz_int)
 {
 	char *tok = NULL;
 
@@ -283,11 +282,11 @@ static int get_devid_sz(struct int_cfg_parms *cfg, uint32_t *devID_sz)
 		goto fail;
 	}
 
-	*devID_sz = (uint32_t)parm_idx(tok, (char *)DEVID_SZ_TOKENS);
-	switch (*devID_sz) {
-	case CFG_DEV08: // 0
-	case CFG_DEV16: // 1
-	case CFG_DEV32: // 2
+	*devID_sz_int = (uint32_t)parm_idx(tok, (char *)DEVID_SZ_TOKENS);
+	switch (*devID_sz_int) {
+	case DEV08_IDX: // 0
+	case DEV16_IDX: // 1
+	case DEV32_IDX: // 2
 		break;
 	default:
 		PARSE_ERR(cfg, (char *)"Unknown devID size \"%x\"", tok);
@@ -610,7 +609,7 @@ static int parse_ep_devids(struct int_cfg_parms *cfg, struct dev_id *devids)
 	uint32_t devid_sz, done = 0;
 	uint32_t tmp;
 
-	for (devid_sz = 0; devid_sz < CFG_DEVID_MAX; devid_sz++) {
+	for (devid_sz = 0; devid_sz < MAX_DEV_SZ_IDX; devid_sz++) {
 		devids[devid_sz].valid = 0;
 		devids[devid_sz].hc = HC_MP;
 		devids[devid_sz].did_val = 0;
@@ -707,7 +706,7 @@ fail:
 static int match_ep_to_mports(struct int_cfg_parms *cfg, struct int_cfg_ep_port *ep_p,
 			int pt_i, struct int_cfg_ep *ep)
 {
-	uint32_t mp_i, did_sz = cfg->mast_did_sz;
+	uint32_t mp_i, did_sz = cfg->mast_did_sz_idx;
 	struct dev_id *mp_did = NULL;
 	struct dev_id *ep_did = ep_p->devids;
 
@@ -775,11 +774,7 @@ fail:
 
 static int parse_master_info(struct int_cfg_parms *cfg)
 {
-	if (get_devid_sz(cfg, &cfg->mast_did_sz)) {
-		goto fail;
-	}
-
-	if (did_size_from_int(&cfg->did_sz, cfg->mast_did_sz)) {
+	if (get_devid_sz(cfg, &cfg->mast_did_sz_idx)) {
 		goto fail;
 	}
 
@@ -1208,7 +1203,7 @@ static int parse_switch(struct int_cfg_parms *cfg)
 		goto fail;
 	if (get_string(cfg, &cfg->sws[i].name))
 		goto fail;
-	if (get_devid_sz(cfg, &cfg->sws[i].did_sz))
+	if (get_devid_sz(cfg, &cfg->sws[i].did_sz_idx))
 		goto fail;
 	if (get_hex_int(cfg, &cfg->sws[i].did_val))
 		goto fail;
@@ -1434,7 +1429,7 @@ static int fmd_parse_cfg(struct int_cfg_parms *cfg)
 			break;
 		case 9: // "AUTO16"
 			cfg->auto_config = true;
-			cfg->did_sz = dev16_sz;
+			cfg->mast_did_sz_idx = DEV16_IDX;
 			break;
 		case 10: // "EOF"
 			DBG((char *)"\n");
@@ -1523,7 +1518,7 @@ int cfg_parse_file(char *cfg_fn, char **dd_mtx_fn, char **dd_fn,
 						goto fail;
 					}
 
-					for (k = 0; k < CFG_DEVID_MAX; k++) {
+					for (k = 0; k < MAX_DEV_SZ_IDX; k++) {
 						// Continue for unsupported sizes
 						if (did_size_from_int(&did_sz, k)) {
 							continue;
@@ -1550,7 +1545,7 @@ int cfg_parse_file(char *cfg_fn, char **dd_mtx_fn, char **dd_fn,
 			}
 
 			// Continue for unsupported sizes
-			if (did_size_from_int(&did_sz, sw.did_sz)) {
+			if (did_size_from_int(&did_sz, sw.did_sz_idx)) {
 				continue;
 			}
 
@@ -1562,17 +1557,21 @@ int cfg_parse_file(char *cfg_fn, char **dd_mtx_fn, char **dd_fn,
 	}
 
 	// update parameters
+	if (did_size_from_int(&did_sz, cfg->mast_did_sz_idx)) {
+		ERR("Cannot convert %d to did_sz_t\n", cfg->mast_did_sz_idx);
+		goto fail;
+	}
 	if (CFG_SLAVE == cfg->mast_idx) {
 		// fake out the creation of the master did
-		*m_did = (did_t){cfg->mast_did_val, cfg->did_sz};
+		*m_did = (did_t){cfg->mast_did_val, did_sz};
 	} else {
 		if (cfg_auto()) {
 			// fake out the creation of the master did
-			*m_did = (did_t){cfg->mast_did_val, cfg->did_sz};
+			*m_did = (did_t){cfg->mast_did_val, did_sz};
 		} else {
 			// ensure the master did was created
 			if (did_from_value(m_did, cfg->mast_did_val,
-					cfg->mast_did_sz)) {
+					cfg->mast_did_sz_idx)) {
 				ERR("MAST DID create 0x%x", cfg->mast_did_val);
 				goto fail;
 			}
@@ -1704,7 +1703,7 @@ static int fill_in_dev_from_sw(struct cfg_dev *dev, struct int_cfg_sw *sw)
 		dev->sw_info.sw_pt[i].ls = sw->ports[i].rio.ls;
 		dev->sw_info.sw_pt[i].iseq = sw->ports[i].rio.iseq;
 
-		for (int sz = 0; sz < CFG_DEVID_MAX; sz++) {
+		for (int sz = 0; sz < MAX_DEV_SZ_IDX; sz++) {
 			if (sw->ports[i].rt_valid[sz]) {
 				dev->sw_info.sw_pt[i].rt[sz] =
 					&sw->ports[i].rt[sz];
@@ -1714,7 +1713,7 @@ static int fill_in_dev_from_sw(struct cfg_dev *dev, struct int_cfg_sw *sw)
 		}
 	}
 
-	for (int sz = 0; sz < CFG_DEVID_MAX; sz++) {
+	for (int sz = 0; sz < MAX_DEV_SZ_IDX; sz++) {
 		if (sw->rt_valid[sz]) {
 			dev->sw_info.rt[sz] = &sw->rt[sz];
 		} else {
@@ -1812,7 +1811,11 @@ bool cfg_auto(void)
 
 did_sz_t cfg_did_sz(void)
 {
-	return cfg->did_sz;
+	did_sz_t did_sz;
+	if (did_size_from_int(&did_sz, cfg->mast_did_sz_idx)) {
+		return invld_sz;
+	}
+	return did_sz;
 }
 
 #ifdef __cplusplus

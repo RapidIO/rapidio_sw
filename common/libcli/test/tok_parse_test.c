@@ -3770,6 +3770,61 @@ static void tok_parse_did_test(void **state)
 	(void)state; // unused
 }
 
+static void tok_parse_did_sz_test(void **state)
+{
+	did_sz_t value;
+	char buf[128];
+	int rc;
+
+	// Check all success values
+	memset(buf, 0, sizeof(buf));
+	sprintf(buf, "%d", dev08_sz);
+	errno = 0xcafebabe;
+	value = invld_sz;
+	rc = tok_parse_did_sz(buf, &value, 0);
+	assert_int_equal(0, rc);
+	assert_int_equal(0, errno);
+	assert_int_equal(dev08_sz, value);
+
+	memset(buf, 0, sizeof(buf));
+	sprintf(buf, "%d", dev16_sz);
+	errno = 0xcafebabe;
+	value = invld_sz;
+	rc = tok_parse_did_sz(buf, &value, 0);
+	assert_int_equal(0, rc);
+	assert_int_equal(0, errno);
+	assert_int_equal(dev16_sz, value);
+
+	memset(buf, 0, sizeof(buf));
+	sprintf(buf, "%d", dev32_sz);
+	errno = 0xcafebabe;
+	value = invld_sz;
+	rc = tok_parse_did_sz(buf, &value, 0);
+	assert_int_equal(0, rc);
+	assert_int_equal(0, errno);
+	assert_int_equal(dev32_sz, value);
+
+	// Check bad value
+	memset(buf, 0, sizeof(buf));
+	sprintf(buf, "%d", 3);
+	errno = 0xcafebabe;
+	value = dev32_sz;
+	rc = tok_parse_did_sz(buf, &value, 0);
+	assert_int_equal(-1, rc);
+	assert_int_equal(EINVAL, errno);
+	assert_int_equal(invld_sz, value);
+
+	// Check bad pointer
+	memset(buf, 0, sizeof(buf));
+	sprintf(buf, "%d", 3);
+	errno = 0xcafebabe;
+	rc = tok_parse_did_sz(buf, NULL, 0);
+	assert_int_equal(-1, rc);
+	assert_int_equal(EINVAL, errno);
+
+	(void)state; // unused
+}
+
 static void tok_parse_ct_test(void **state)
 {
 	ct_t value;
@@ -4006,6 +4061,7 @@ int main(int argc, char** argv)
 	cmocka_unit_test(tok_parse_s_bounds_test),
 	cmocka_unit_test(tok_parse_s_nan_test),
 	cmocka_unit_test(tok_parse_did_test),
+	cmocka_unit_test(tok_parse_did_sz_test),
 	cmocka_unit_test(tok_parse_ct_test),
 	cmocka_unit_test(tok_parse_hc_test),
 	cmocka_unit_test(tok_parse_mport_test),

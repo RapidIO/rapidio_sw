@@ -452,33 +452,37 @@ int riocp_pe_probe_verify_found(struct riocp_pe *pe, uint8_t port, struct riocp_
 	ct_t comptag_peer;
 	ct_t comptag_alt;
 	hc_t hopcount_alt;
+	did_val_t did_val = RIO_LAST_DEV8;
 
+	if (dev16_sz == riocp_pe_did_sz) {
+		did_val = RIO_LAST_DEV16;
+	}
 	// initialize the hopcount
 	HC_INCR(hopcount_alt, pe->hopcount);
 
 	RIOCP_TRACE("Probe verify pe: hc: %u, comptag: 0x%08x, port %u\n",
 			pe->hopcount, pe->comptag, port);
 	RIOCP_TRACE("Probe verify pe_alt: hc: %u, d: %u\n", hopcount_alt,
-			did_get_value(DID_ANY_DEV8_ID));
+			did_val);
 	RIOCP_TRACE("Probe verify peer: hc: %u, comptag: 0x%08x\n",
 			peer->hopcount, peer->comptag, port);
 
 	/* Reset the component tag for alternative route */
-	ret = riocp_drv_raw_reg_wr(pe, DID_ANY_DEV8_ID, hopcount_alt,
+	ret = riocp_drv_raw_reg_wr(pe, did_val, hopcount_alt,
 			RIO_COMPTAG, 0);
 	if (ret) {
 		RIOCP_ERROR("Error reading comptag from d: %u, hc: %u\n",
-				did_get_value(DID_ANY_DEV8_ID), hopcount_alt);
+				did_val, hopcount_alt);
 		return -EIO;
 	}
 
 	/* read same comptag again to make sure write has been performed
 	 (we read pe comptag from potentially (shorter) different path) */
-	ret = riocp_drv_raw_reg_rd(pe, DID_ANY_DEV8_ID, hopcount_alt,
+	ret = riocp_drv_raw_reg_rd(pe, did_val, hopcount_alt,
 			RIO_COMPTAG, &comptag_alt);
 	if (ret) {
 		RIOCP_ERROR("Error reading comptag from d: %u, hc: %u\n",
-				did_get_value(DID_ANY_DEV8_ID), hopcount_alt);
+				did_val, hopcount_alt);
 		return -EIO;
 	}
 

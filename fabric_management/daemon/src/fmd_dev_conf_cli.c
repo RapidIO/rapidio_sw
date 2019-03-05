@@ -158,9 +158,9 @@ int CLIConfigCmd(struct cli_env *env, int argc, char **argv)
 			if (NULL == pe_port_info[j].peer) {
 				name = (char *)"NO_CONN";
 			} else {
-				port = pe_port_info[j].peer->id;
+				port = pe_port_info[j].peer_port;
 				if (!riocp_pe_find_comptag(*fmd->mp_h,
-						pe_port_info[j].peer->pe->comptag,
+						pe_port_info[j].peer->comptag,
 						&peer_pe)) {
 					name = (char *)peer_pe->sysfs_name;
 				}

@@ -55,10 +55,6 @@ extern "C" {
 
 #define CFG_OP_MODE_SLAVE 0
 #define CFG_OP_MODE_MASTER 1
-#define CFG_DEV08 0
-#define CFG_DEV16 1
-#define CFG_DEV32 2
-#define CFG_DEVID_MAX (CFG_DEV32+1)
 
 #define CFG_MAX_SW_PORT 24 //18
 
@@ -76,7 +72,7 @@ struct dev_id {
 struct cfg_mport_info {
 	uint32_t num; /* Kernel index of this mport */
 	ct_t ct; /* Updated when MPORT is initialized */
-	struct dev_id devids[CFG_DEVID_MAX]; /* Device IDs for each size */
+	struct dev_id devids[MAX_DEV_SZ_IDX]; /* Device IDs for each size */
 };
 
 struct cfg_ep_port {
@@ -84,7 +80,7 @@ struct cfg_ep_port {
 	rio_pc_pw_t op_pw;
 	rio_pc_ls_t ls;
 	enum rio_pc_idle_seq iseq;
-	struct dev_id devids[CFG_DEVID_MAX];
+	struct dev_id devids[MAX_DEV_SZ_IDX];
 };
 
 struct cfg_sw_port {
@@ -93,13 +89,13 @@ struct cfg_sw_port {
 	rio_pc_pw_t op_pw;
 	rio_pc_ls_t ls;
 	enum rio_pc_idle_seq iseq;
-	rio_rt_state_t *rt[CFG_DEVID_MAX];
+	rio_rt_state_t *rt[MAX_DEV_SZ_IDX];
 };
 
 struct cfg_sw {
 	int num_ports;
 	struct cfg_sw_port sw_pt[CFG_MAX_SW_PORT];
-	rio_rt_state_t *rt[CFG_DEVID_MAX];
+	rio_rt_state_t *rt[MAX_DEV_SZ_IDX];
 };
 
 struct cfg_dev {

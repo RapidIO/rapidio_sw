@@ -61,18 +61,21 @@ typedef struct {
 	did_sz_t l_dev16[RIO_RT_GRP_SZ];
 } did_grp_t;
 
-#define ANY_ID 0xff
-#define DID_ANY_DEV8_ID ((did_t) {RIO_LAST_DEV8, dev08_sz})
-#define DID_ANY_DEV16_ID ((did_t) {RIO_LAST_DEV16, dev16_sz})
+#define DEV08_IDX 0
+#define DEV16_IDX 1
+#define DEV32_IDX 2
+#define MAX_DEV_SZ_IDX (DEV32_IDX + 1)
+
+#define ANY_ID RIO_LAST_DEV8
+#define DID_ANY_DEV8_ID ((did_t) {ANY_ID, dev08_sz})
+#define DID_ANY_DEV16_ID ((did_t) {ANY_ID, dev16_sz})
+#define DID_ANY_DEV32_ID ((did_t) {ANY_ID, dev32_sz})
 #define DID_INVALID_ID ((did_t) {0, invld_sz})
 #define DID_ANY_ID(s) ((dev08_sz == s) ? DID_ANY_DEV8_ID : DID_ANY_DEV16_ID)
+#define DID_ANY_VAL(s) ((dev08_sz == s) ? RIO_LAST_DEV8 : RIO_LAST_DEV16)
 
 #define DID_DEV_VAL(x) ((did_val_t)(x & 0x00FF))
 #define DID_DOM_VAL(x) ((did_val_t)((x & 0xFF00) >> 8))
-
-#define DEV08_INT 0
-#define DEV16_INT 1
-#define DEV32_INT 2
 
 int did_size_from_int(did_sz_t *size, uint32_t asInt);
 int did_size_as_int(did_sz_t size);

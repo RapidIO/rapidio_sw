@@ -221,6 +221,9 @@ typedef uint32_t RIO_DST_OPS_T;
 	((uint64_t)RIO_LCS_LOW64(a0, a1, RIO_LCS_ADDR0_66L, RIO_LCS_ADDR1_66))
 
 /* RIO_DEVID : Register Bits Masks Definitions */
+
+typedef uint32_t did_reg_t;
+
 #define RIO_DEVID_DEV16             (0x0000ffff)
 #define RIO_DEVID_DEV8              (0x00ff0000)
 #define GET_DEV8_FROM_HW(x) ((x & RIO_DEVID_DEV8) >> 16)
@@ -275,6 +278,7 @@ typedef uint32_t pe_rt_val;
 
 #define RIO_LAST_DEV8 (0x0FF)
 #define RIO_LAST_DEV16 (0x0FFFF)
+#define RIO_LAST_DEV32 (0xFFFFFFFF)
 
 #define RIO_RTV_IS_PORT(n) (RIO_RTE_TYPE_PORT == ((n) & RIO_RTE_TYPE))
 #define RIO_RTV_IS_MC_MSK(n) (RIO_RTE_TYPE_MC_MSK == ((n) & RIO_RTE_TYPE))
@@ -1090,8 +1094,6 @@ typedef uint32_t RIO_SPX_ERR_STAT_T;
 #define RIO_RT_MC_CLR_MASK_ADDR(ptr,sz,m)  ((ptr & RIO_RT_PTR_MASK) + \
 			((RIO_RT_MC_MASK_SZ(sz)) * m) + \
 			((RIO_RT_MC_MASK_SZ(sz)) / 2))
-
-typedef uint32_t did_reg_t;
 
 #ifdef __cplusplus
 }

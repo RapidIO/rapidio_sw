@@ -97,11 +97,11 @@ int did_size_as_int(did_sz_t size)
 {
 	switch (size) {
 	case dev08_sz:
-		return DEV08_INT;
+		return DEV08_IDX;
 	case dev16_sz:
-		return DEV16_INT;
+		return DEV16_IDX;
 	case dev32_sz:
-		return DEV32_INT;
+		return DEV32_IDX;
 	default:
 		return -1;
 	}

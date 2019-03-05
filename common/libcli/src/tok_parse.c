@@ -382,7 +382,7 @@ int tok_parse_s(char *token, int16_t *value, int base)
  * Parse a string for a destination Id value
  *
  * @param[in] token the string representation of the destination Id
- * @param[out] did the destination Id, limited to dev08_sz range
+ * @param[out] did the destination Id, limited to dev16_sz range
  * @param[in] base the base of the numeric value
  *
  * @retval 0 on success, -1 on failure
@@ -400,6 +400,44 @@ int tok_parse_did(char *token, did_val_t *did, int base)
 	rc = tok_parse_ulonglong(token, &value, 0, RIO_LAST_DEV16, base);
 	*did = (did_val_t)value;
 	return rc;
+}
+
+/**
+ * Parse a string for a destination Id size value
+ *
+ * @param[in] token the string representation of the destination Id size
+ * @param[out] did the destination Id, limited to dev08_sz range
+ * @param[in] base the base of the numeric value
+ *
+ * @retval 0 on success, -1 on failure
+ */
+int tok_parse_did_sz(char *token, did_sz_t *did_sz, int base)
+{
+	uint16_t value;
+
+	if (NULL == did_sz) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	*did_sz = invld_sz;
+
+	if (tok_parse_us(token, &value, base)) {
+		errno = EINVAL;
+		return -1;
+	}
+	switch (value) {
+		case 8: *did_sz = dev08_sz;
+				break;
+		case 16: *did_sz = dev16_sz;
+				break;
+		case 32: *did_sz = dev32_sz;
+				break;
+		default:
+			errno = EINVAL;
+			return -1;
+	}
+	return 0;
 }
 
 /**
