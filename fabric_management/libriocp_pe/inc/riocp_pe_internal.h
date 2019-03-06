@@ -177,6 +177,7 @@ int riocp_pe_handle_free_list(riocp_pe_handle **list);
 extern did_sz_t riocp_pe_did_sz;
 #define FMD_DID_SZ ((dev08_sz == riocp_pe_did_sz) ? FMD_DEV08 : FMD_DEV16)
 #define ANY_DID (DID_ANY_ID(riocp_pe_did_sz))
+#define ANY_DID_VAL (DID_ANY_VAL(riocp_pe_did_sz))
 
 /* Dot graph */
 int riocp_pe_dot_dump(const char *filename, riocp_pe_handle mport);

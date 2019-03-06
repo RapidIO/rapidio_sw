@@ -1074,6 +1074,10 @@ uint32_t rxs_rio_rt_change_rte(DAR_DEV_INFO_t *dev_info,
 	// as this is the behavior required by the RXS RIO Domain register.
 
 	if (in_parms->dom_entry && !in_parms->idx) {
+		if (in_parms->rte_value == in_parms->rt->dom_table[0].rte_val) {
+			rc = 0;
+			goto exit;
+		}
 		out_parms->imp_rc = RT_CHANGE_RTE(4);
 		goto exit;
 	}

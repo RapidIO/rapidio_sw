@@ -412,25 +412,25 @@ int riocp_pe_probe_prepare(struct riocp_pe *pe, uint8_t port)
 		ret = riocp_pe_maint_set_anyid_route(pe);
 		if (ret) {
 			RIOCP_ERROR(
-					"Could not program DID_ANY_DEV8_ID route\n");
+					"Could not program ANY_DID route\n");
 			return -EIO;
 		}
 
 		ret = riocp_drv_get_port_state(pe, port, &state);
 		if (ret) {
-			RIOCP_ERROR("Unable to read port state\n");
+			RIOCP_ERROR("Unable to read port %d state\n", port);
 			return -EIO;
 		}
 
 		if (!state.port_ok) {
-			RIOCP_ERROR("Try to probe inactive port\n");
+			RIOCP_ERROR("Try to probe inactive port %d\n", port);
 			return -ENODEV;
 		}
 
 		ret = riocp_drv_set_route_entry(pe, RIOCP_PE_ANY_PORT,
 				DID_ANY_DEV8_ID, port);
 		if (ret) {
-			RIOCP_ERROR("Could not program route\n");
+			RIOCP_ERROR("Could not program route for port %d\n", port);
 			return -EIO;
 		}
 	}
@@ -452,11 +452,8 @@ int riocp_pe_probe_verify_found(struct riocp_pe *pe, uint8_t port, struct riocp_
 	ct_t comptag_peer;
 	ct_t comptag_alt;
 	hc_t hopcount_alt;
-	did_val_t did_val = RIO_LAST_DEV8;
+	did_val_t did_val = ANY_DID_VAL;
 
-	if (dev16_sz == riocp_pe_did_sz) {
-		did_val = RIO_LAST_DEV16;
-	}
 	// initialize the hopcount
 	HC_INCR(hopcount_alt, pe->hopcount);
 

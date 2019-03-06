@@ -418,6 +418,7 @@ int setup_mport_master(int mport)
 	struct cfg_dev cfg_dev;
 	did_t did;
 	char *name;
+	did_sz_t did_sz = cfg_did_sz();
 
 	if (cfg_find_mport(mport, &mp)) {
 		CRIT("\nRequested mport %d does not exist, exiting\n", mport);
@@ -437,8 +438,12 @@ int setup_mport_master(int mport)
 		return 1;
 	}
 
+	if (riocp_set_did_sz(did_sz)) {
+		CRIT("Unsupported did size %d, exiting\n", did_sz);
+		return 1;
+	};
+
 	if ((COMPTAG_UNSET == comptag) && cfg_auto()) {
-		did_sz_t did_sz = cfg_did_sz();
 		int did_sz_idx = did_size_as_int(did_sz);
 
 		if (did_sz_idx < 0) {

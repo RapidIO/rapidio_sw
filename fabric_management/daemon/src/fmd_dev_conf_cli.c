@@ -57,9 +57,13 @@ int CLIConfigCmd(struct cli_env *env, int argc, char **argv)
 	riocp_pe_handle pe_h;
 	struct mpsw_drv_private_data *h;
 	int j;
-	struct riocp_pe_port pe_port_info[24];
+	struct riocp_pe_port pe_port_info[RIO_MAX_PORTS];
 	riocp_pe_handle peer_pe;
 	bool printed_one = false;
+	char *blank_dev = (char *)"        ";
+	char *fmt_str;
+
+	memset((void *)pe_port_info, 0, sizeof(pe_port_info));
 
 	if (argc) {
         	riocp_pe_handle *pes = NULL;
@@ -115,7 +119,7 @@ int CLIConfigCmd(struct cli_env *env, int argc, char **argv)
 			((float )(h->st.pc.log_rto)) / 10.0);
 
 	LOGMSG(env,
-			"\nPt OK Port Width   Speed   FC   Idle TxEn Enables TX L_INV RX L_INV CONN    \n");
+			"\nPt OK Port Width   Speed   FC   Idle TxEn Enables TX L_INV RX L_INV CONN     PT\n");
 
 	for (int i = 0; i < h->st.pc.num_ports; i++) {
 		char *enables;
@@ -144,31 +148,30 @@ int CLIConfigCmd(struct cli_env *env, int argc, char **argv)
 		}
 		tx_linvert[4] = rx_linvert[4] = '\0';
 
+		name=(char *)"ERR";
+
 		for (j = 0; j < h->st.ps.num_ports; j++) {
 			if (h->st.pc.pc[i].pnum == h->st.ps.ps[j].pnum) {
+				if (NULL == pe_port_info[j].peer) {
+					name = blank_dev;
+				} else {
+					port = pe_port_info[j].peer_port;
+					if (!riocp_pe_find_comptag(*fmd->mp_h,
+								pe_port_info[j].peer->comptag,
+							&peer_pe)) {
+						name = (char *)peer_pe->sysfs_name;
+					}
+				}
 				break;
 			}
 		}
-		if (j == h->st.ps.num_ports) {
-			j = -1;
-			name=(char *)"ERR";
-		}
-		else
-		{
-			if (NULL == pe_port_info[j].peer) {
-				name = (char *)"NO_CONN";
-			} else {
-				port = pe_port_info[j].peer_port;
-				if (!riocp_pe_find_comptag(*fmd->mp_h,
-						pe_port_info[j].peer->comptag,
-						&peer_pe)) {
-					name = (char *)peer_pe->sysfs_name;
-				}
-			}
-		}
 
-		LOGMSG(env,
-				"%2d %2s %5s/%5s %6s %2s/%2s %2s/%2s %4s %7s %2s %5s %2s %5s %8s.%2d\n",
+		if (name == blank_dev) {
+			fmt_str = (char *)"%2d %2s %5s/%5s %6s %2s/%2s %2s/%2s %4s %7s %2s %5s %2s %5s %8s %1.0d\n";
+		} else {
+			fmt_str = (char *)"%2d %2s %5s/%5s %6s %2s/%2s %2s/%2s %4s %7s %2s %5s %2s %5s %8s.%02d\n";
+		}
+		LOGMSG(env, fmt_str, 
 				i,
 				(j != -1) ? (h->st.ps.ps[j].port_ok ?
 						"OK" : "--") :

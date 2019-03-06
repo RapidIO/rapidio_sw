@@ -58,7 +58,7 @@ int riocp_pe_maint_set_anyid_route(struct riocp_pe *pe)
 
 	RIOCP_TRACE("Programming ANY_DID route to PE 0x%08x\n", pe->comptag);
 
-	/* Write ANY_ID route until pe */
+	/* Write ANY_DID route until pe */
 	for (i = 0; i < pe->hopcount; i++) {
 		pes[i] = ith_pe;
 
@@ -81,7 +81,7 @@ int riocp_pe_maint_set_anyid_route(struct riocp_pe *pe)
 
 	pe->mport->minfo->any_id_target = pe;
 
-	RIOCP_TRACE("Programming ANY_ID route to PE 0x%08x successfull\n",
+	RIOCP_TRACE("Programming ANY_DID route to PE 0x%08x successfull\n",
 			pe->comptag);
 
 	return ret;
@@ -97,7 +97,7 @@ err:
 
 fail:
 	pe->mport->minfo->any_id_target = NULL;
-	RIOCP_TRACE("Error in programming ANY_ID route\n");
+	RIOCP_TRACE("Error in programming ANY_DID route\n");
 	return ret;
 }
 
@@ -240,8 +240,8 @@ int RIOCP_SO_ATTR riocp_pe_maint_read(struct riocp_pe *pe, uint32_t offset, uint
 			return -EIO;
 		}
 
-		RIOCP_TRACE("Read remote ok %s o: %x\n",
-			pe->sysfs_name, offset);
+		RIOCP_TRACE("Read remote ok %s o: 0x%x v: 0x%x\n",
+			pe->sysfs_name, offset, *val);
 
 		/* Unlock ANY_DID route */
 		ret = riocp_pe_maint_unset_anyid_route(pe);

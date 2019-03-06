@@ -72,7 +72,7 @@ typedef struct {
 #define DID_ANY_DEV32_ID ((did_t) {ANY_ID, dev32_sz})
 #define DID_INVALID_ID ((did_t) {0, invld_sz})
 #define DID_ANY_ID(s) ((dev08_sz == s) ? DID_ANY_DEV8_ID : DID_ANY_DEV16_ID)
-#define DID_ANY_VAL(s) ((dev08_sz == s) ? RIO_LAST_DEV8 : RIO_LAST_DEV16)
+#define DID_ANY_VAL(s) ((dev08_sz == s) ? RIO_LAST_DEV8 : RIO_LAST_DEV8)
 
 #define DID_DEV_VAL(x) ((did_val_t)(x & 0x00FF))
 #define DID_DOM_VAL(x) ((did_val_t)((x & 0xFF00) >> 8))

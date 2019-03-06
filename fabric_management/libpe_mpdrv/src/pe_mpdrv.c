@@ -341,7 +341,7 @@ int mpdrv_auto_init_rt(struct riocp_pe *pe, DAR_DEV_INFO_t *dh,
 	rio_rt_initialize_out_t init_out;
 	rio_rt_change_rte_in_t rte_in;
 	rio_rt_change_rte_out_t rte_out;
-	uint32_t rc;
+	uint32_t rc = 1;
 
 	init_in.set_on_port = RIO_ALL_PORTS;
 	init_in.default_route = RIO_RTE_DROP;
@@ -361,6 +361,7 @@ int mpdrv_auto_init_rt(struct riocp_pe *pe, DAR_DEV_INFO_t *dh,
 
 	rc = rio_rt_change_rte(dh, &rte_in, &rte_out);
 	if (rc) {
+		rc = 2;
 		goto fail;
 	}
 
@@ -370,6 +371,7 @@ int mpdrv_auto_init_rt(struct riocp_pe *pe, DAR_DEV_INFO_t *dh,
 		rte_in.rte_value = RIO_RTE_LVL_G0;
 		rc = rio_rt_change_rte(dh, &rte_in, &rte_out);
 		if (rc) {
+			rc = 2;
 			goto fail;
 		}
 	}
@@ -379,6 +381,7 @@ int mpdrv_auto_init_rt(struct riocp_pe *pe, DAR_DEV_INFO_t *dh,
 
 	rc = rio_rt_set_all(dh, &set_in, &set_out);
 	if (rc) {
+		rc = 2;
 		goto fail;
 	}
 	return 0;
@@ -761,7 +764,7 @@ int generic_device_init(struct riocp_pe *pe)
 		rc = mpdrv_init_rt(pe, dev_h, priv,
 				RIO_ACCESS_PORT(port_info));
 		if (rc) {
-			ERR("mpdrv)init_rt returned %d\n", rc);
+			ERR("mpdrv_init_rt returned %d\n", rc);
 			goto exit;
 		}
 
