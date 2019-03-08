@@ -101,7 +101,7 @@ static uint32_t mstore_address;
 static uint32_t mstore_numbytes;
 static uint32_t mstore_numacc;
 static uint32_t mstore_data;
-static did_t mstore_did;
+static did_val_t mstore_did_val;
 static hc_t mstore_hc;
 
 void aligningAddress(struct cli_env *env, uint32_t address)
@@ -235,16 +235,20 @@ int CLIDevSelCmd(struct cli_env *env, int argc, char **argv)
 	LOGMSG(env, "Number of endpoints: %d\n", num_endpoints);
 
 	LOGMSG(env,
-			"\n  CompTag -->Sysfs Name<-- ----------->> Vendor <<-------------------  Device\n");
+			"\n  CompTag -->Sysfs Name<-- ----------->> Vendor <<-------------------  Device -- DID -- Size\n");
 	for (i = 0; i < pes_count; i++) {
+		did_t pe_did;
 		pe_ct = pes[i]->comptag;
+		if (riocp_pe_get_destid(pes[i], &pe_did)) {
+			pe_did = DID_INVALID_ID;
+		}
 		sysfs_name = riocp_pe_get_sysfs_name(pes[i]);
 		dev_name = riocp_pe_get_device_name(pes[i]);
 		vend_name = riocp_pe_get_vendor_name(pes[i]);
 
-		LOGMSG(env, "%s%08x %16s %42s %10s\n",
+		LOGMSG(env, "%s%08x %16s %42s %10s 0x%04x dev%d\n",
 				(pe_ct == comptag) ? "*" : " ", pe_ct,
-				sysfs_name, vend_name, dev_name);
+				sysfs_name, vend_name, dev_name, pe_did.value, pe_did.size);
 	}
 
 exit:
@@ -814,12 +818,11 @@ int CLIMRegReadCmd(struct cli_env *env, int argc, char **argv)
 	uint32_t data, prevRead;
 	uint32_t numReads, i;
 	did_val_t did_val;
-	did_t did;
 	hc_t hc;
 	int rc;
 
 	address = mstore_address;
-	did = mstore_did;
+	did_val = mstore_did_val;
 	hc = mstore_hc;
 	numReads = (argc ? 1 : mstore_numacc);
 
@@ -844,7 +847,6 @@ int CLIMRegReadCmd(struct cli_env *env, int argc, char **argv)
 			LOGMSG(env, TOK_ERR_DID_MSG_FMT);
 			goto exit;
 		}
-		did = (did_t){did_val, dev08_sz};
 		// no break
 	case 1:
 		if (tok_parse_ul(argv[0], &address, 0)) {
@@ -865,13 +867,13 @@ int CLIMRegReadCmd(struct cli_env *env, int argc, char **argv)
 	}
 
 	mstore_address = address;
-	mstore_did = did;
+	mstore_did_val = did_val;
 	mstore_hc = hc;
 	mstore_numacc = numReads;
 
 	for (i = 0; i < numReads; i++) {
 		rc = riocp_drv_raw_reg_rd((riocp_pe_handle)env->h,
-			did, hc, address, &data);
+			did_val, hc, address, &data);
 
 		if (rc) {
 			failedReading(env, address, rc);
@@ -911,14 +913,13 @@ int CLIMRegWriteCmd(struct cli_env *env, int argc, char **argv)
 	int errorStat = 0;
 	uint32_t address;
 	did_val_t did_val;
-	did_t did;
 	hc_t hc;
 	uint32_t data;
 	uint32_t rc;
 
 	address = mstore_address;
 	data = mstore_data;
-	did = mstore_did;
+	did_val = mstore_did_val;
 	hc = mstore_hc;
 
 	switch(argc) {
@@ -935,7 +936,6 @@ int CLIMRegWriteCmd(struct cli_env *env, int argc, char **argv)
 			LOGMSG(env, TOK_ERR_DID_MSG_FMT);
 			goto exit;
 		}
-		did = (did_t){did_val, dev08_sz};
 		// no break
 	case 2:
 		if (tok_parse_ul(argv[1], &data, 0)) {
@@ -964,13 +964,13 @@ int CLIMRegWriteCmd(struct cli_env *env, int argc, char **argv)
 
 	mstore_address = address;
 	mstore_data = data;
-	mstore_did = did;
+	mstore_did_val = did_val;
 	mstore_hc = hc;
 
 	/* Command arguments are syntactically correct - do write */
 
 	rc = riocp_drv_raw_reg_wr((riocp_pe_handle)env->h,
-		did, hc, address, data);
+		did_val, hc, address, data);
 
 	if (0 != rc) {
 		failedWrite(env, address, data, rc);
@@ -979,7 +979,7 @@ int CLIMRegWriteCmd(struct cli_env *env, int argc, char **argv)
 
 	/* read data back */
 	rc = riocp_drv_raw_reg_rd((riocp_pe_handle)env->h,
-		did, hc, address, &data);
+		did_val, hc, address, &data);
 
 	if (0 != rc) {
 		failedReading(env, address, rc);
@@ -1009,6 +1009,121 @@ CLIMRegWriteCmd,
 ATTR_RPT
 };
 
+int CLIDIDCmd(struct cli_env *env, int argc, char **argv)
+{
+	int errorStat = 0;
+	did_t did = DID_INVALID_ID;
+	did_val_t did_val;
+	int action = 0;
+	int rc;
+	char *action_str = (char *)"C c R r F f";
+
+	switch(argc) {
+	case 3:
+		if (tok_parse_did_sz(argv[2], &did.size, 10)) {
+			LOGMSG(env, TOK_ERR_DID_SZ_MSG_FMT);
+			goto exit;
+		}
+		// NO BREAK!
+	case 2:
+		switch (parm_idx(argv[1], action_str)) {
+		case 0:
+		case 1: // Check
+			action = 0;
+			break;
+		case 2:
+		case 3: // Reserve
+			action = 1;
+			if (did.size == invld_sz) {
+				LOGMSG(env, "\n");
+				LOGMSG(env, "Must enter size value to reserve a did.\n");
+				goto exit;
+			}
+			break;
+		case 4:
+		case 5: // Free
+			action = 2;
+			break;
+		default:
+			LOGMSG(env, "\n");
+			LOGMSG(env, "%s is not one of %s\n",
+				argv[1], action_str);
+			goto exit;
+		}
+		// NO BREAK!
+	case 1:
+		if (tok_parse_did(argv[0], &did_val, 0)) {
+			LOGMSG(env, "\n");
+			LOGMSG(env, TOK_ERR_DID_MSG_FMT);
+			goto exit;
+		}
+		break;
+	default:
+		LOGMSG(env, "\nInvalid number of arguments: %d\n", argc);
+		goto exit;
+	}
+	/* Command arguments are syntactically correct */
+	switch (action) {
+	case 0: // Check
+		rc = did_get(&did, did_val);
+		if (rc) {
+			LOGMSG(env, "ERROR %d: Did value 0x%x is not reserved.\n", rc, did_val);
+			break;
+		}
+		LOGMSG(env, "SUCCESS:Did value 0x%x is reserved for size %d.\n", did_val, did.size);
+		break;
+	case 1: // Reserve
+		rc = did_create_from_data(&did, did_val, did.size);
+		switch (rc) {
+		case 0:
+			LOGMSG(env, "SUCCESS: DID 0x%x size %d is now reserved.\n", did_val, did.size);
+			break;
+		case -ENOTUNIQ:
+			LOGMSG(env, "ERROR:Did value 0x%x is already reserved.\n", did_val);
+			break;
+		default:
+			LOGMSG(env, "ERROR %d, did value 0x%x unknown state.\n", rc, did_val);
+			break;
+		}
+		break;
+	default: // Free
+		did = (did_t){did_val, did.size};
+		rc = did_release(did);
+		switch (rc) {
+		case 0:
+			LOGMSG(env, "SUCCESS: Did value 0x%x now not reserved.\n", did_val);
+			break;
+		case -EKEYEXPIRED:
+			LOGMSG(env, "ERROR: Did value 0x%x was not reserved.\n", did_val);
+			break;
+		default:
+			LOGMSG(env, "ERROR %d, did value 0x%x unknown state.\n", rc, did_val);
+			break;
+		}
+		break;
+	};
+exit:
+	return errorStat;
+}
+
+struct cli_cmd CLIDID= {
+(char *)"DID",
+2,
+1,
+(char *)"Query, reserve, or free device IDs",
+(char *)"<devid> {<action> {<size>}\n"
+	"Query <devid>, reserve <devid><size>, or free <devid>.\n"
+	"<devid>   Device ID, 0-0xFF for size 8, 0-0xFFFF for size 16.\n"
+	"<action>  C or c to check status of devid.\n"
+	"          R or r to reserve devid.\n"
+	"          F or f to free the reserved devid.\n"
+	"<size>    8 or 16.\n"
+	"          Must be entered to reserve a devid.\n",
+CLIDIDCmd,
+ATTR_NONE
+};
+
+
 struct cli_cmd *reg_cmd_list[] = {
 &CLIRegRead,
 &CLIRegWrite,
@@ -1019,7 +1134,8 @@ struct cli_cmd *reg_cmd_list[] = {
 &CLIRegDump,
 &CLIMRegRead,
 &CLIMRegWrite,
-&CLIDevSel
+&CLIDevSel,
+&CLIDID,
 };
 
 void fmd_bind_dev_rw_cmds(void)
@@ -1031,7 +1147,7 @@ void fmd_bind_dev_rw_cmds(void)
 	store_data = 0;
 
 	mstore_address = 0;
-	mstore_did = DID_INVALID_ID;
+	mstore_did_val = 0;
 	mstore_hc = HC_MP;
 	mstore_numbytes = 4;
 	mstore_numacc = 1;

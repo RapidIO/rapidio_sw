@@ -125,6 +125,7 @@ struct riocp_pe {
 	uint32_t efptr_phys;			/**< RapidIO Physical extended feature pointer */
 	uint32_t efptr_phys_type;		/**< RapidIO Physical extended feature pointer type */
 	uint32_t efptr_em;			/**< RapidIO Error Management feature pointer */
+	did_grp_t *did_grp; /**< Dev16 device ID group, if one exists for this PE. */
 	struct riocp_pe *mport;			/**< Mport that created this PE */
 	struct riocp_pe_mport *minfo;		/**< Mport information (set when PE is mport) */
 	struct riocp_pe_peer *peers;		/**< Connected peers (size RIOCP_PE_PORT_COUNT(pe->cap)) */
@@ -138,9 +139,9 @@ int RIOCP_WU riocp_drv_reg_rd(struct riocp_pe *pe, uint32_t offset,
 		uint32_t *val);
 int RIOCP_WU riocp_drv_reg_wr(struct riocp_pe *pe, uint32_t offset,
 		uint32_t val);
-int RIOCP_WU riocp_drv_raw_reg_rd(struct riocp_pe *pe, did_t did,
+int RIOCP_WU riocp_drv_raw_reg_rd(struct riocp_pe *pe, did_val_t did_val,
 		hc_t hc, uint32_t offset, uint32_t *val);
-int RIOCP_WU riocp_drv_raw_reg_wr(struct riocp_pe *pe, did_t did,
+int RIOCP_WU riocp_drv_raw_reg_wr(struct riocp_pe *pe, did_val_t did_val,
 		hc_t hc, uint32_t offset, uint32_t val);
 
 /* RapidIO control plane logging facility */
@@ -170,6 +171,13 @@ int riocp_pe_handle_get_peer_list(riocp_pe_handle pe,
 		riocp_pe_handle **pe_peer_list,
 		size_t *pe_peer_list_size);
 int riocp_pe_handle_free_list(riocp_pe_handle **list);
+
+/* Device ID size management */
+
+extern did_sz_t riocp_pe_did_sz;
+#define FMD_DID_SZ ((dev08_sz == riocp_pe_did_sz) ? FMD_DEV08 : FMD_DEV16)
+#define ANY_DID (DID_ANY_ID(riocp_pe_did_sz))
+#define ANY_DID_VAL (DID_ANY_VAL(riocp_pe_did_sz))
 
 /* Dot graph */
 int riocp_pe_dot_dump(const char *filename, riocp_pe_handle mport);

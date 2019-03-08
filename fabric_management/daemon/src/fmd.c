@@ -105,6 +105,9 @@ DAR_DEV_INFO_t *dev_h = NULL;
 
 struct fmd_opt_vals *opts = NULL;
 struct fmd_state *fmd = NULL;
+char *cfg_dd_mtx_fn;
+char *cfg_dd_fn;
+
 
 void custom_quit(struct cli_env *env)
 {
@@ -417,6 +420,7 @@ int setup_mport_master(int mport)
 	struct cfg_dev cfg_dev;
 	did_t did;
 	char *name;
+	did_sz_t did_sz = cfg_did_sz();
 
 	if (cfg_find_mport(mport, &mp)) {
 		CRIT("\nRequested mport %d does not exist, exiting\n", mport);
@@ -424,10 +428,8 @@ int setup_mport_master(int mport)
 	}
 
 	comptag = mp.ct;
-
 	if (cfg_find_dev_by_ct(comptag, &cfg_dev) && !cfg_auto()) {
-		CRIT(
-				"\nRequested mport %d device component tag 0x%x does not exist\n.",
+		CRIT("\nRequested mport %d device component tag 0x%x does not exist\n.",
 				mport, comptag);
 		return 1;
 	}
@@ -438,10 +440,22 @@ int setup_mport_master(int mport)
 		return 1;
 	}
 
+	if (riocp_set_did_sz(did_sz)) {
+		CRIT("Unsupported did size %d, exiting\n", did_sz);
+		return 1;
+	};
+
 	if ((COMPTAG_UNSET == comptag) && cfg_auto()) {
-		if (did_create_from_data(&did, mp.devids[CFG_DEV08].did_val,
-				dev08_sz)) {
-			CRIT("\nCannot create dev08 did 0x%d, exiting...\n");
+		int did_sz_idx = did_size_as_int(did_sz);
+
+		if (did_sz_idx < 0) {
+			CRIT("Unsupported mport %d did size %d, exiting\n", mport, did_sz);
+			return 1;
+		}
+
+		if (did_create_from_data(&did, mp.devids[did_sz_idx].did_val, did_sz)) {
+			CRIT("Cannot create did 0x%d size %d, exiting...\n",
+				mp.devids[did_sz_idx].did_val, did_sz_idx);
 			return 1;
 		}
 		if (ct_create_from_did(&comptag, did)) {
@@ -499,9 +513,15 @@ int slave_get_ct_and_name(int mport, ct_t *comptag, char *dev_name)
 		*comptag = regs.comptag;
 		memset(dev_name, 0, FMD_MAX_DEV_FN);
 		snprintf(dev_name, FMD_MAX_DEV_FN, "LOCAL_MP%d", mp_num);
-		did_from_value(&fmd->opts->mast_did,
+		if (regs.host_did_reg_val & RIO_EMHS_PW_DESTID_16CTL) {
+			did_from_value(&fmd->opts->mast_did,
+				GET_DEV16_FROM_PW_TGT_HW(regs.host_did_reg_val),
+				DEV16_IDX);
+		} else {
+			did_from_value(&fmd->opts->mast_did,
 				GET_DEV8_FROM_PW_TGT_HW(regs.host_did_reg_val),
-				FMD_DEV08);
+				DEV08_IDX);
+		}
 		fmd->opts->mast_cm_port = regs.scratch_cm_sock;
 		return 0;
 	}
@@ -607,7 +627,11 @@ int fmd_dd_update(riocp_pe_handle mp_h, struct fmd_dd *dd,
 		goto fail;
 	}
 
-	did_from_value(&did, mp_h->did_reg_val, FMD_DEV08);
+	if (dev08_sz == opts->mast_did.size) {
+		did_from_value(&did, mp_h->did_reg_val, DEV08_IDX);
+	} else {
+		did_from_value(&did, mp_h->did_reg_val, DEV16_IDX);
+	}
 	add_device_to_dd(mp_h->comptag, did, mp_h->hopcount,
 			1, FMDD_FLAG_OK_MP, (char *)mp_h->sysfs_name);
 
@@ -619,48 +643,8 @@ fail:
 	return 1;
 }
 
-int main(int argc, char *argv[])
+int fmd_update_file_names(void)
 {
-	char log_file_name[FMD_MAX_LOG_FILE_NAME];
-	char *cfg_dd_mtx_fn;
-	char *cfg_dd_fn;
-
-	signal(SIGINT, sig_handler);
-	signal(SIGHUP, sig_handler);
-	signal(SIGTERM, sig_handler);
-	signal(SIGUSR1, sig_handler);
-	signal(SIGPIPE, sig_handler);
-
-	opts = fmd_parse_options(argc, argv);
-	if (NULL == opts) {
-		goto fail;
-	}
-
-	snprintf(log_file_name, FMD_MAX_LOG_FILE_NAME,
-			FMD_LOG_FILE_FMT, opts->app_port_num);
-	rdma_log_init(log_file_name, 1);
-
-	g_level = opts->log_level;
-	g_disp_level = opts->log_disp_level;
-	if (opts->init_and_quit && opts->print_help) {
-		goto fail;
-	}
-
-	fmd = (struct fmd_state *)calloc(1, sizeof(struct fmd_state));
-	if (NULL == fmd) {
-		goto fail;
-	}
-
-	fmd->opts = opts;
-	fmd->fmd_rw = 1;
-
-	// Parse the configuration file, continue no matter what errors are found.
-	cfg_dd_mtx_fn = NULL;
-	cfg_dd_fn = NULL;
-	cfg_parse_file(opts->fmd_cfg, &cfg_dd_mtx_fn, &cfg_dd_fn,
-			&fmd->opts->mast_did, &fmd->opts->mast_cm_port,
-			&fmd->opts->mast_mode);
-
 	// If the user specified the dd_mtx_fn or dd_fn name on the command
 	// line then use those values (opts->dd_mtx_fn/dd_fn).
 	//
@@ -706,6 +690,54 @@ int main(int argc, char *argv[])
 				goto fail;
 			}
 		}
+	}
+	return 0;
+fail:
+	return 1;
+}
+
+int main(int argc, char *argv[])
+{
+	char log_file_name[FMD_MAX_LOG_FILE_NAME];
+
+	signal(SIGINT, sig_handler);
+	signal(SIGHUP, sig_handler);
+	signal(SIGTERM, sig_handler);
+	signal(SIGUSR1, sig_handler);
+	signal(SIGPIPE, sig_handler);
+
+	opts = fmd_parse_options(argc, argv);
+	if (NULL == opts) {
+		goto fail;
+	}
+
+	snprintf(log_file_name, FMD_MAX_LOG_FILE_NAME,
+			FMD_LOG_FILE_FMT, opts->app_port_num);
+	rdma_log_init(log_file_name, 1);
+
+	g_level = opts->log_level;
+	g_disp_level = opts->log_disp_level;
+	if (opts->init_and_quit && opts->print_help) {
+		goto fail;
+	}
+
+	fmd = (struct fmd_state *)calloc(1, sizeof(struct fmd_state));
+	if (NULL == fmd) {
+		goto fail;
+	}
+
+	fmd->opts = opts;
+	fmd->fmd_rw = 1;
+
+	// Parse the configuration file, continue no matter what errors are found.
+	cfg_dd_mtx_fn = NULL;
+	cfg_dd_fn = NULL;
+	cfg_parse_file(opts->fmd_cfg, &cfg_dd_mtx_fn, &cfg_dd_fn,
+			&fmd->opts->mast_did, &fmd->opts->mast_cm_port,
+			&fmd->opts->mast_mode);
+
+	if (fmd_update_file_names()) {
+		goto fail;
 	}
 
 	if (fmd_dd_init(fmd->dd_mtx_fn, &fmd->dd_mtx_fd, &fmd->dd_mtx,

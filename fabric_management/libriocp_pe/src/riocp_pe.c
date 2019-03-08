@@ -32,8 +32,10 @@
 #include "maint.h"
 #include "handle.h"
 #include "comptag.h"
+#include "did.h"
 #include "driver.h"
 #include "liblog.h"
+#include "ct.h"
 
 #include "rapidio_mport_mgmt.h"
 
@@ -42,6 +44,28 @@ extern "C" {
 #endif
 
 static struct riocp_pe_llist_item _riocp_mport_list_head; /**< List of created mport lists */
+did_sz_t riocp_pe_did_sz = dev08_sz;
+
+/**
+ * Set the device ID size for network management.  This controls the
+ * size of destination IDs used in the entire system.
+ * @param[in] did_sz Size of the destination ID, either 8 or 16.
+ * @retval 0 When successfully assigned
+ * @retval < 0 if anything other than dev08_sz or dev16_sz are passed in.
+ */
+int riocp_set_did_sz(did_sz_t did_sz)
+{
+	if ((dev08_sz != did_sz) && (dev16_sz != did_sz)) {
+		return -EINVAL;
+	}
+	riocp_pe_did_sz = did_sz;
+	return 0;
+}
+
+did_sz_t RIOCP_WU riocp_get_did_sz(void)
+{
+	return riocp_pe_did_sz;
+}
 
 /**
  * Create a list of available mports
@@ -303,7 +327,7 @@ static int riocp_pe_create_mport_handle(riocp_pe_handle *handle,
 	}
 
 	if (is_host) {
-		if (riocp_pe_lock_clear(pe, DID_ANY_DEV8_ID, 0)) {
+		if (riocp_pe_lock_clear(pe, DID_ANY_ID(riocp_pe_did_sz), 0)) {
 			return -EAGAIN;
 		}
 
@@ -405,7 +429,7 @@ int RIOCP_SO_ATTR riocp_pe_discover(riocp_pe_handle pe, uint8_t port,
 		}
 	}
 
-	did = DID_ANY_DEV8_ID;
+	did = DID_ANY_ID(riocp_pe_did_sz);
 	if (RIOCP_PE_IS_MPORT(pe)) {
 		goto found;
 	}
@@ -434,7 +458,7 @@ int RIOCP_SO_ATTR riocp_pe_discover(riocp_pe_handle pe, uint8_t port,
 	}
 
 	/* Search for route behind port in switch LUT */
-	upb = did_get_value(DID_ANY_DEV8_ID) - 1;
+	upb = did_get_value(did) - 1;
 	for (did_val = 0; did_val < upb; did_val++) {
 		if (did_get(&tmp_did, did_val)) {
 			continue;
@@ -474,7 +498,7 @@ found:
 	HC_INCR(hopcount, pe->hopcount);
 
 	/* Read comptag */
-	ret = riocp_drv_raw_reg_rd(pe->mport, did, hopcount, RIO_COMPTAG,
+	ret = riocp_drv_raw_reg_rd(pe->mport, did_val, hopcount, RIO_COMPTAG,
 			&comptag);
 	if (ret) {
 		RIOCP_ERROR("Found not working route d: %u, h: %u\n", did_val,
@@ -617,7 +641,7 @@ int RIOCP_SO_ATTR riocp_pe_probe(riocp_pe_handle pe,
 
 	*temp_p = *pe;
 	temp_p->hopcount = hopcount;
-	temp_p->did_reg_val = did_get_value(DID_ANY_DEV8_ID);
+	temp_p->did_reg_val = DID_ANY_VAL(riocp_pe_did_sz);
 	temp_p->address = NULL;
 	temp_p->mport = pe->mport;
 	temp_p->minfo = NULL;
@@ -626,11 +650,11 @@ int RIOCP_SO_ATTR riocp_pe_probe(riocp_pe_handle pe,
 	temp_p->private_data = NULL;
 
 	/* Read component tag on peer */
-	ret = riocp_drv_raw_reg_rd(temp_p, DID_ANY_DEV8_ID, hopcount,
+	ret = riocp_drv_raw_reg_rd(temp_p, ANY_DID_VAL, hopcount,
 					RIO_COMPTAG, &comptag);
 	if (ret) {
 		RIOCP_WARN("Trying reading again component tag on h: %u\n", hopcount);
-		ret = riocp_drv_raw_reg_rd(temp_p, DID_ANY_DEV8_ID, hopcount,
+		ret = riocp_drv_raw_reg_rd(temp_p, ANY_ID, hopcount,
 					RIO_COMPTAG, &comptag);
 		if (ret) {
 			RIOCP_ERROR("Retry read comptag failed on h: %u\n", hopcount);
@@ -651,7 +675,7 @@ int RIOCP_SO_ATTR riocp_pe_probe(riocp_pe_handle pe,
 	// see an old component tag value.
 	if (force_ct && (*comptag_in != comptag)) {
 		comptag = *comptag_in;
-		ret = riocp_drv_raw_reg_wr(temp_p, DID_ANY_DEV8_ID, hopcount,
+		ret = riocp_drv_raw_reg_wr(temp_p, ANY_DID_VAL, hopcount,
 				RIO_COMPTAG, comptag);
 		if (ret) {
 			RIOCP_ERROR("Update comptag failed on h: %u\n",
@@ -700,7 +724,7 @@ int RIOCP_SO_ATTR riocp_pe_probe(riocp_pe_handle pe,
 			goto err;
 		}
 		
-		ret = riocp_pe_lock_clear(pe->mport, DID_ANY_DEV8_ID, hopcount);
+		ret = riocp_pe_lock_clear(pe->mport, ANY_DID, hopcount);
 		if (ret) {
 			RIOCP_ERROR(
 			"Failed lock clear, new PE CT 0x%08x on port %d, %s\n",
@@ -710,7 +734,7 @@ int RIOCP_SO_ATTR riocp_pe_probe(riocp_pe_handle pe,
 
 		// Create peer handle using new component tag
 		ret = riocp_pe_handle_create_pe(pe, &p, hopcount,
-				DID_ANY_DEV8_ID, port, comptag_in, name);
+				did, port, comptag_in, name);
 		if (ret) {
 			RIOCP_ERROR(
 			"Create peer failed for ct 0x%08x on port %d, %s\n",
@@ -733,24 +757,23 @@ int RIOCP_SO_ATTR riocp_pe_probe(riocp_pe_handle pe,
 			p->comptag);
 
 		if (RIOCP_PE_IS_SWITCH(p->cap)) {
-		        RIOCP_TRACE("Determine connected port, hc %d\n",
-                                     hopcount);
-			ret = riocp_drv_raw_reg_rd(p, DID_ANY_DEV8_ID, hopcount,
+			RIOCP_TRACE("Determine connected port, hc %d\n",
+						hopcount);
+			ret = riocp_drv_raw_reg_rd(p, ANY_ID, hopcount,
 					RIO_SW_PORT_INF, &val);
 			if (ret) {
 				RIOCP_ERROR("Could not read switch port info CAR at hc %u\n", hopcount);
 				goto err;
 			}
 			sw_port = RIO_ACCESS_PORT(val);
-
-		        RIOCP_DEBUG("Peer connect to port %d\n", sw_port);
+			RIOCP_DEBUG("Peer connected to port %d\n", sw_port);
 			ret = riocp_pe_add_peer(pe, p, port, sw_port);
 			if (ret) {
 				RIOCP_ERROR("Could not add peer(p) to pe\n");
 				goto err;
 			}
 		} else {
-			RIOCP_ERROR("DEVICE IS NOT A SWITCH???\n");
+			RIOCP_ERROR("CONNECTED DEVICE IS NOT A SWITCH???\n");
 		}
 	}
 	*peer = p;
@@ -972,13 +995,16 @@ int RIOCP_SO_ATTR riocp_pe_get_ports(riocp_pe_handle pe, struct riocp_pe_port po
 	unsigned int i;
 	struct riocp_pe *sw = NULL;
 
+	RIOCP_TRACE("ENTRY\n");
 
 	if (ports == NULL)
 		return -EINVAL;
 	if (riocp_pe_handle_check(pe))
 		return -EINVAL;
 
-	if (RIOCP_PE_IS_SWITCH(pe->cap)) {
+	if (RIOCP_PE_IS_SWITCH(pe->cap) || RIOCP_PE_IS_MPORT(pe)) {
+		RIOCP_DEBUG("Getting state for %d ports\n",
+			RIOCP_PE_PORT_COUNT(pe->cap));
 		/* Fetch speed and width of all available ports */
 		for (i = 0; i < RIOCP_PE_PORT_COUNT(pe->cap); i++) {
 			ret = riocp_drv_get_port_state(pe, i, &ports[i].state);
@@ -988,9 +1014,12 @@ int RIOCP_SO_ATTR riocp_pe_get_ports(riocp_pe_handle pe, struct riocp_pe_port po
 			}
 
 			ret = riocp_pe_get_ports_add_peer(pe, i, ports);
-			if (ret)
+			if (ret) {
+				RIOCP_DEBUG("FAILED: %d\n", ret);
 				return ret;
+			}
 		}
+		goto exit;
 	} else {
 		for (i = 0; i < RIOCP_PE_PORT_COUNT(pe->cap); i++) {
 			struct riocp_pe_port_state_t state;
@@ -1014,15 +1043,17 @@ int RIOCP_SO_ATTR riocp_pe_get_ports(riocp_pe_handle pe, struct riocp_pe_port po
 			} else {
 				RIOCP_DEBUG("[0x%08x:%s:hc %u] Port %u is inactive\n",
 					sw->comptag, pe->sysfs_name,  sw->hopcount, pe->peers[i].remote_port);
-
 			}
 
 			ret = riocp_pe_get_ports_add_peer(pe, i, ports);
 			if (ret)
+				RIOCP_TRACE("EXIT\n");
 				return ret;
 		}
 	}
 
+exit:
+	RIOCP_TRACE("EXIT\n");
 	return 0;
 }
 
@@ -1146,18 +1177,35 @@ int RIOCP_SO_ATTR riocp_pe_get_destid(riocp_pe_handle pe, did_t *did)
 		return -EINVAL;
 	}
 
-	if (RIOCP_PE_IS_SWITCH(pe->cap) && !RIOCP_PE_IS_MPORT(pe)) {
-		return -ENOSYS;
+	if (RIOCP_PE_IS_SWITCH(pe->cap)) {
+		// No DestID register for a switch, so extract the
+		// destID from the component tag value.
+		int rc = ct_get_destid(did, pe->comptag);
+		RIOCP_TRACE("SWITCH COMPTAG rc %d 0x%x Did 0x%04x Sz %d\n",
+			rc, pe->comptag, did->value, did->size);
+		return rc;
 	}
 
 	if (riocp_pe_maint_read(pe, RIO_DEVID, &reg_val)) {
 		return -EIO;
 	}
+	switch (riocp_pe_did_sz) {
+		case dev08_sz: reg_val = GET_DEV8_FROM_HW(reg_val);
+				break;
+		case dev16_sz: reg_val = GET_DEV16_FROM_HW(reg_val);
+				break;
+		default:
+			RIOCP_ERROR("riocp_pe_did_sz invalid %d", riocp_pe_did_sz);
+			return -EINVAL;
+	}
 
-	did_from_value(did, RIO_DID_GET_BASE_DEVICE_ID(reg_val), FMD_DEV08);
+	if (did_get(did, reg_val)) {
+		return -EINVAL;
+	};
 
-	RIOCP_DEBUG("PE 0x%08x has destid %u (0x%08x)\n", pe->comptag,
-			did_get_value(*did), did_get_value(*did));
+	RIOCP_DEBUG("PE 0x%08x has destid %u (0x%08x sz %d exp %d)\n",
+			pe->comptag, did_get_value(*did), did_get_value(*did),
+			did_get_size(*did), riocp_pe_did_sz);
 
 	return 0;
 }
@@ -1169,15 +1217,17 @@ int RIOCP_SO_ATTR riocp_pe_get_destid(riocp_pe_handle pe, did_t *did)
  *  transport size of the host. Note that setting or updating the destination
  *  ID of a PE does not imply that routes toward this PE are updated.
  * @param pe  Target PE
- * @param did Destination ID; DID_ANY_DEV8_ID is not allowed
+ * @param did Destination ID; DID_ANY_DEV8_ID/DID_ANY_DEV16_ID is not allowed
  * @returns
  *    - -EPERM Handle is not allowed to lock this device
- *    - -EACCESS did DID_ANY_DEV8_ID is not allowed
+ *    - -EACCESS did DID_ANY_DEV8_ID/DID_ANY_DEV16_ID is not allowed
  *    - -ENOSYS Handle is not of switch type
  */
 int RIOCP_SO_ATTR riocp_pe_set_destid(riocp_pe_handle pe, did_t did)
 {
 	did_val_t did_val;
+	did_sz_t did_sz;
+	did_val_t wr_val = 0xFFFFFFFF;
 	int ret;
 
 	ret = riocp_pe_handle_check(pe);
@@ -1190,8 +1240,8 @@ int RIOCP_SO_ATTR riocp_pe_set_destid(riocp_pe_handle pe, did_t did)
 		return -EPERM;
 	}
 
-	if (did_equal(DID_ANY_DEV8_ID, did)) {
-		RIOCP_ERROR("Cannot program DID_ANY_DEV8_ID destid\n");
+	if (did_equal(DID_ANY_ID(riocp_pe_did_sz), did)) {
+		RIOCP_ERROR("Cannot program DID_ANY_DEV8_ID or DID_ANY_DEV16_ID destid\n");
 		return -EACCES;
 	}
 
@@ -1201,7 +1251,19 @@ int RIOCP_SO_ATTR riocp_pe_set_destid(riocp_pe_handle pe, did_t did)
 	}
 
 	did_val = did_get_value(did);
-	ret = riocp_pe_maint_write(pe, RIO_DEVID, (did_val << 16) & 0x00ff0000);
+	did_sz = did_get_size(did);
+	switch (did_sz) {
+		case dev08_sz:
+			wr_val = MAKE_HW_FROM_DEV8(did_val);
+			break;
+		case dev16_sz:
+			wr_val = MAKE_HW_FROM_DEV16(did_val);
+			break;
+		default:
+			RIOCP_ERROR("Invalid did size %d", did_sz);
+			return -EINVAL;
+	}
+	ret = riocp_pe_maint_write(pe, RIO_DEVID, wr_val);
 	if (ret) {
 		return ret;
 	}
@@ -1315,7 +1377,7 @@ int RIOCP_SO_ATTR riocp_sw_set_route_entry(riocp_pe_handle sw, uint8_t lut,
 		return -ENOSYS;
 	}
 
-	if (did_equal(DID_ANY_DEV8_ID, did)) {
+	if (did_equal(DID_ANY_ID(riocp_pe_did_sz), did)) {
 		return -EACCES;
 	}
 
@@ -1388,6 +1450,7 @@ int RIOCP_SO_ATTR riocp_pe_update_comptag(riocp_pe_handle pe, uint32_t wr_did)
 	did_t did;
 	did_val_t did_val;
 
+	RIOCP_INFO("ENTRY\n");
 	if (riocp_pe_handle_check(pe)) {
 		return -EINVAL;
 	}
@@ -1412,7 +1475,12 @@ int RIOCP_SO_ATTR riocp_pe_update_comptag(riocp_pe_handle pe, uint32_t wr_did)
 	}
 
 	did_val =  RIOCP_PE_COMPTAG_DESTID(pe->comptag);
-	did_from_value(&did, did_val, FMD_DEV08);
+	ret = did_get(&did, did_val);
+	if (ret) {
+		RIOCP_ERROR("Cannot get did from 0x%x rc 0x%x\n",
+				did_val, ret);
+		return -EBADF;
+	}
 
 	if (wr_did) {
 		RIOCP_TRACE("Writing device ID to  %x\n", pe->did_reg_val);
@@ -1423,6 +1491,7 @@ int RIOCP_SO_ATTR riocp_pe_update_comptag(riocp_pe_handle pe, uint32_t wr_did)
 	}
 	pe->did_reg_val = did_val;
 
+	RIOCP_INFO("EXIT ret 0x%x\n", ret);
 	return ret;
 }
 
@@ -1467,6 +1536,20 @@ int RIOCP_SO_ATTR riocp_pe_get_comptag(riocp_pe_handle pe,
         }
 
         return ret;
+}
+
+int RIOCP_WU riocp_pe_alloc_ct_did(riocp_pe_handle pe,
+								ct_t *ct, did_t *did, did_sz_t did_sz)
+{
+	if (dev08_sz == did_sz || !pe->did_grp) {
+		return ct_create_all(ct, did, did_sz);
+	}
+
+	// dev16_sz and pe->did_grp is not NULL.
+	if (did_grp_resrv_did(pe->did_grp, did)) {
+		RIOCP_ERROR("pe->comptag(0x%08x) could not allocate did & ct\n");
+	}
+	return ct_create_from_did(ct, *did);
 }
 
 #ifdef __cplusplus

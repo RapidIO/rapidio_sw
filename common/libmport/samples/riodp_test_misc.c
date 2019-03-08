@@ -79,6 +79,8 @@ static void usage(char *program)
 	printf("  -M mport_id\n");
 	printf("  --mport mport_id\n");
 	printf("    local mport device index (default 0)\n");
+	printf("  -m set mport destID\n");
+	printf("  -l set mport destID using dev16 size\n");
 	printf("  --debug (or -d)\n");
 	printf("  -D xxxx\n");
 	printf("  --destid xxxx\n");
@@ -122,6 +124,8 @@ int main(int argc, char** argv)
 	// command line parameters
 	did_val_t tgt_did_val = RIO_LAST_DEV8;
 	uint32_t mport_id = 0;
+	uint32_t set_mport_did = 0;
+	uint32_t set_mport_did_dev16 = 0;
 	hc_t tgt_hc = HC_MP;
 	uint32_t tgt_remote = 0, tgt_write = 0, do_query = 0;
 	uint32_t op_size = 4; // sizeof(uint32_t);
@@ -146,7 +150,7 @@ int main(int argc, char** argv)
 
 	/** Parse command line options, if any */
 	while (-1
-			!= (c = getopt_long_only(argc, argv, "wdhqH:D:O:M:S:V:",
+			!= (c = getopt_long_only(argc, argv, "mlwdhqH:D:O:M:S:V:",
 					options, NULL))) {
 		switch (c) {
 		case 'D':
@@ -188,6 +192,12 @@ int main(int argc, char** argv)
 				return (EXIT_FAILURE);
 			}
 			break;
+		case 'm':
+			set_mport_did = 1;
+			break;
+		case 'l':
+			set_mport_did_dev16 = 1;
+			break;
 		case 'w':
 			tgt_write = 1;
 			break;
@@ -217,6 +227,22 @@ int main(int argc, char** argv)
 	if (rc < 0) {
 		printf("Unable to open mport%d device err=%d\n", mport_id, rc);
 		exit(EXIT_FAILURE);
+	}
+
+	if (set_mport_did) {
+		if (set_mport_did_dev16) {
+			tgt_did_val &= RIOMP_MGMT_DEV16_MASK;
+			tgt_did_val |= RIOMP_MGMT_DEV16_FLAG;
+		} else {
+			tgt_did_val &= RIOMP_MGMT_DEV08_MASK;
+			tgt_did_val |= RIOMP_MGMT_DEV08_FLAG;
+		}
+		rc = riomp_mgmt_destid_set(mport_hnd, tgt_did_val);
+		if (!rc) {
+			// If the destid was set successfully, display
+			// the updated mport properties.
+			do_query = 1;
+		}
 	}
 
 	if (do_query) {

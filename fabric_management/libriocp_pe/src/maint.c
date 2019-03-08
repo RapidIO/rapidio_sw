@@ -35,7 +35,7 @@ extern "C" {
 #endif
 
 /**
- * Program the ANY_ID route from hopcount 0 to pe->hopcount in the global switch LUT
+ * Program the ANY_DID route from hopcount 0 to pe->hopcount in the global switch LUT
  *  it will program according to route in variable pe->address.
  * @note Keep in mind that this function will set the locks of the path!
  * @param pe Target PE
@@ -52,17 +52,17 @@ int riocp_pe_maint_set_anyid_route(struct riocp_pe *pe)
 	if (!RIOCP_PE_IS_HOST(pe))
 		return 0;
 
-	/* If the ANY_ID is already programmed for this pe, skip it */
+	/* If the ANY_DID is already programmed for this pe, skip it */
 	if (pe == pe->mport->minfo->any_id_target)
 		return 0;
 
-	RIOCP_TRACE("Programming ANY_ID route to PE 0x%08x\n", pe->comptag);
+	RIOCP_TRACE("Programming ANY_DID route to PE 0x%08x\n", pe->comptag);
 
-	/* Write ANY_ID route until pe */
+	/* Write ANY_DID route until pe */
 	for (i = 0; i < pe->hopcount; i++) {
 		pes[i] = ith_pe;
 
-		ret = riocp_pe_lock_set(ith_pe->mport, DID_ANY_DEV8_ID, i);
+		ret = riocp_pe_lock_set(ith_pe->mport, ANY_DID, i);
 		if (ret) {
 			RIOCP_TRACE("Could not set lock at hopcount %u\n", i);
 			ret = -EIO;
@@ -72,7 +72,7 @@ int riocp_pe_maint_set_anyid_route(struct riocp_pe *pe)
 		ret = riocp_drv_set_route_entry(ith_pe, RIOCP_PE_ALL_PE_PORTS,
 				DID_ANY_DEV8_ID, pe->address[i]);
 
-		RIOCP_TRACE("switch[hop: %d] DID_ANY_DEV8_ID -> port %d programmed\n",
+		RIOCP_TRACE("switch[hop: %d] ANY_DID -> port %d programmed\n",
 				i, pe->address[i]);
 		if (i + 1 < pe->hopcount) {
 			ith_pe = ith_pe->peers[pe->address[i]].peer;
@@ -81,7 +81,7 @@ int riocp_pe_maint_set_anyid_route(struct riocp_pe *pe)
 
 	pe->mport->minfo->any_id_target = pe;
 
-	RIOCP_TRACE("Programming ANY_ID route to PE 0x%08x successfull\n",
+	RIOCP_TRACE("Programming ANY_DID route to PE 0x%08x successfull\n",
 			pe->comptag);
 
 	return ret;
@@ -89,7 +89,7 @@ int riocp_pe_maint_set_anyid_route(struct riocp_pe *pe)
 err:
 	/* Write DID_ANY_DEV8_ID route until pe */
 	for (; i >= 0; i--) {
-		if (riocp_pe_lock_clear(pes[i], DID_ANY_DEV8_ID, i)) {
+		if (riocp_pe_lock_clear(pes[i], ANY_DID, i)) {
 			RIOCP_TRACE("Could not clear lock at hopcount %u\n", i);
 			goto fail;
 		}
@@ -97,7 +97,7 @@ err:
 
 fail:
 	pe->mport->minfo->any_id_target = NULL;
-	RIOCP_TRACE("Error in programming ANY_ID route\n");
+	RIOCP_TRACE("Error in programming ANY_DID route\n");
 	return ret;
 }
 
@@ -148,7 +148,7 @@ err:
 }
 
 /**
- * Clear the ANY_ID route locks from pe->hopcount - 1 to 0
+ * Clear the ANY_DID route locks from pe->hopcount - 1 to 0
  * @note Keep in mind that this function will clear the locks of the path in reverse order!
  * @param pe Target PE
  * @retval 0 When read/write was successfull or skipped
@@ -168,11 +168,11 @@ int riocp_pe_maint_unset_anyid_route(struct riocp_pe *pe)
 	if (RIOCP_PE_IS_MPORT(pe))
 		return 0;
 
-	/* If the ANY_ID is already programmed for this pe, skip it */
+	/* If the ANY_DID is already programmed for this pe, skip it */
 	if (pe->mport->minfo->any_id_target == NULL)
 		return 0;
 
-	RIOCP_TRACE("Unset DID_ANY_DEV8_ID route locks to PE 0x%08x\n", pe->comptag);
+	RIOCP_TRACE("Unset ANY_DID route locks to PE 0x%08x\n", pe->comptag);
 
 	for (i = 0; i < pe->hopcount; i++) {
 		pes[i] = ith_pe;
@@ -180,10 +180,10 @@ int riocp_pe_maint_unset_anyid_route(struct riocp_pe *pe)
 			ith_pe = ith_pe->peers[pe->address[i]].peer;
 	}
 
-	/* Write ANY_ID route until pe */
+	/* Write ANY_DID route until pe */
 	for (i = pe->hopcount - 1; i >= 0; i--) {
 
-		ret = riocp_pe_lock_clear(pes[i], DID_ANY_DEV8_ID, (hc_t)i);
+		ret = riocp_pe_lock_clear(pes[i], ANY_DID, (hc_t)i);
 		if (ret) {
 			RIOCP_TRACE("Could not clear lock at hopcount %u\n", i);
 			ret = -EIO;
@@ -193,20 +193,20 @@ int riocp_pe_maint_unset_anyid_route(struct riocp_pe *pe)
 
 	pe->mport->minfo->any_id_target = NULL;
 
-	RIOCP_TRACE("Unset DID_ANY_DEV8_ID route to PE 0x%08x successfull\n",
+	RIOCP_TRACE("Unset ANY_DID route to PE 0x%08x successfull\n",
 			pe->comptag);
 
 	return ret;
 
 err:
 	pe->mport->minfo->any_id_target = NULL;
-	RIOCP_TRACE("Error in unset DID_ANY_DEV8_ID route\n");
+	RIOCP_TRACE("Error in unset ANY_DID route\n");
 	return ret;
 }
 
 /**
  * Maintenance read from local (when mport) or remote device
- * @note  When writing to the remote PE the ANY_ID rioid is always used and not the pe->destid
+ * @note  When writing to the remote PE the ANY_DID rioid is always used and not the pe->destid
  * @param pe     Target PE
  * @param offset Offset in the RapidIO maintenance address space
  * @param val    Value of register
@@ -226,10 +226,10 @@ int RIOCP_SO_ATTR riocp_pe_maint_read(struct riocp_pe *pe, uint32_t offset, uint
 		if (ret)
 			return -EIO;
 	} else {
-		/* Program and lock ANY_ID route */
+		/* Program and lock ANY_DID route */
 		ret = riocp_pe_maint_set_anyid_route(pe);
 		if (ret) {
-			RIOCP_ERROR("Could not program ANY_ID to pe: %s\n", strerror(-ret));
+			RIOCP_ERROR("Could not program ANY_DID to pe: %s\n", strerror(-ret));
 			return -EIO;
 		}
 
@@ -240,13 +240,13 @@ int RIOCP_SO_ATTR riocp_pe_maint_read(struct riocp_pe *pe, uint32_t offset, uint
 			return -EIO;
 		}
 
-		RIOCP_TRACE("Read remote ok %s o: %x\n",
-			pe->sysfs_name, offset);
+		RIOCP_TRACE("Read remote ok %s o: 0x%x v: 0x%x\n",
+			pe->sysfs_name, offset, *val);
 
-		/* Unlock ANY_ID route */
+		/* Unlock ANY_DID route */
 		ret = riocp_pe_maint_unset_anyid_route(pe);
 		if (ret) {
-			RIOCP_ERROR("Could unset ANY_ID route to pe: %s\n",
+			RIOCP_ERROR("Could unset ANY_DID route to pe: %s\n",
 				strerror(-ret));
 			return -EIO;
 		}
@@ -257,7 +257,7 @@ int RIOCP_SO_ATTR riocp_pe_maint_read(struct riocp_pe *pe, uint32_t offset, uint
 
 /**
  * Maintenance write to local (when mport) or remote device
- * @note  When writing to the remote PE the ANY_ID rioid is always used and not the pe->destid
+ * @note  When writing to the remote PE the ANY_DID rioid is always used and not the pe->destid
  * @param pe     Target PE
  * @param offset Offset in the RapidIO maintenance address space
  * @param val    Value to write register
@@ -277,10 +277,10 @@ int RIOCP_SO_ATTR riocp_pe_maint_write(struct riocp_pe *pe, uint32_t offset, uin
 		if (ret)
 			return -EIO;
 	} else {
-		/* Program and lock ANY_ID route */
+		/* Program and lock ANY_DID route */
 		ret = riocp_pe_maint_set_anyid_route(pe);
 		if (ret) {
-			RIOCP_ERROR("Could not program ANY_ID to pe: %s\n", strerror(-ret));
+			RIOCP_ERROR("Could not program ANY_DID to pe: %s\n", strerror(-ret));
 			return -EIO;
 		}
 
@@ -294,10 +294,10 @@ int RIOCP_SO_ATTR riocp_pe_maint_write(struct riocp_pe *pe, uint32_t offset, uin
 			return -EIO;
 		}
 
-		/* Unlock ANY_ID route */
+		/* Unlock ANY_DID route */
 		ret = riocp_pe_maint_unset_anyid_route(pe);
 		if (ret) {
-			RIOCP_ERROR("Could unset ANY_ID route to pe: %s\n", strerror(-ret));
+			RIOCP_ERROR("Could unset ANY_DID route to pe: %s\n", strerror(-ret));
 			return -EIO;
 		}
 	}

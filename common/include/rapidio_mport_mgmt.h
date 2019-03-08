@@ -89,7 +89,7 @@ enum riomp_mgmt_mport_flags {
 
 /** @brief RapidIO mport properties */
 struct riomp_mgmt_mport_properties {
-	did_val_t did_val; /**< mport host device ID */
+	uint16_t did_val; /**< mport host device ID, can't be did_val_t */
 	uint8_t id; /**< Physical port ID number */
 	uint8_t index; /**< Mport driver index numer */
 	uint32_t flags; /**< Refer to driver for rio_mport_flags definitions. */
@@ -97,6 +97,7 @@ struct riomp_mgmt_mport_properties {
 	uint8_t port_ok; /**< link status */
 	uint8_t link_speed; /**< link speed */
 	uint8_t link_width; /**< link width */
+	uint8_t pad0;
 	uint32_t dma_max_sge; /**< Maximum DMA Scatter/Gather (SG) Entries */ 
 	uint32_t dma_max_size; /**< Maximum bytes transferred per SG Entry */
 	uint32_t dma_align; /**< SG addresses modulo dma_align must be 0. */
@@ -248,6 +249,11 @@ void riomp_mgmt_display_info(struct riomp_mgmt_mport_properties *prop);
  * @retval 0 on success
  * @retval -errno on error
  */
+#define RIOMP_MGMT_DEV16_FLAG 0x00010000
+#define RIOMP_MGMT_DEV16_MASK 0x0000FFFF
+#define RIOMP_MGMT_DEV08_FLAG 0x00000000
+#define RIOMP_MGMT_DEV08_MASK 0x000000FF
+
 int riomp_mgmt_destid_set(riomp_mport_t mport_handle, did_val_t did_val);
 
 /**

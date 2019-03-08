@@ -50,6 +50,7 @@ echo "Creating configuration files..."
 CONFIG_FILE=$CONFIG_PATH/fmd.conf
 NODELIST_FILE=$CONFIG_PATH/nodelist.sh
 RSRV_CONF=$CONFIG_PATH/rsvd_phys_mem.conf
+RSOCK_CONF=$CONFIG_PATH/riosocket_conf.sh
 
 # Create the nodelist.sh file
 # format of input file: <master|slave> <hostname> <rioname> <nodenumber>
@@ -104,6 +105,14 @@ then
 fi
 
 cp $SCRIPTS_PATH/rsvd_phys_mem.conf $RSRV_CONF
+result=$?
+if [ $result -ne 0 ]
+then
+	echo Copy failed, exiting...
+	exit $result
+fi
+
+cp $SCRIPTS_PATH/riosocket_conf.sh $RSOCK_CONF
 result=$?
 if [ $result -ne 0 ]
 then

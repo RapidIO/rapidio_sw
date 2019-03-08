@@ -226,7 +226,7 @@ int fmd_traverse_network_from_pe_port(riocp_pe_handle pe, rio_port_t port_num,
 
 			if (COMPTAG_UNSET == ct) {
 				// create a comptag and a device name
-				ct_create_all(&ct, &did, dev08_sz);
+				ct_create_all(&ct, &did, cfg_did_sz());
 				memset(sysfs_name, 0, sizeof(sysfs_name));
 				snprintf(sysfs_name, RIO_MAX_DEVNAME_SZ,
 						sysfs_name_format,
@@ -242,20 +242,20 @@ int fmd_traverse_network_from_pe_port(riocp_pe_handle pe, rio_port_t port_num,
 					sysfs_name, false);
 			if (rc) {
 				if ((-ENODEV != rc) && (-EIO != rc)) {
-					HIGH("PE 0x%0x Port %d probe failed %d",
+					HIGH("AUTO PE 0x%0x Port %d probe failed %d",
 							curr_pe->comptag, pnum,
 							rc);
 					ct_release(ct, did);
 					goto fail;
 				}
-				HIGH("PE 0x%x Port %d NO DEVICE\n",
+				HIGH("AUTO PE 0x%x Port %d NO DEVICE\n",
 						curr_pe->comptag, pnum);
 				// note re-use of ct (and sysfs_name)
 				continue;
 			}
 
 			if (NULL == new_pe) {
-				HIGH("PE 0x%x Port %d ALREADY CONNECTED\n",
+				HIGH("AUTO PE 0x%x Port %d ALREADY CONNECTED\n",
 						curr_pe->comptag, pnum);
 				// note re-use of ct (and sysfs_name)
 				continue;
@@ -270,13 +270,13 @@ int fmd_traverse_network_from_pe_port(riocp_pe_handle pe, rio_port_t port_num,
 
 			rc = riocp_pe_get_comptag(new_pe, &comptag);
 			if (rc) {
-				HIGH("Get new comptag failed, rc %d\n", rc);
+				HIGH("AUTO Get new comptag failed, rc %d\n", rc);
 				ct_release(ct, did);
 				goto fail;
 			}
 
 			if (comptag == ct) {
-				HIGH("PE 0x%x Port %d Connected: DEVICE %s CT 0x%x DID 0x%x\n",
+				HIGH("AUTO PE 0x%x Port %d Connected: DEVICE %s CT 0x%x DID 0x%x\n",
 					curr_pe->comptag, pnum,
 					new_pe->sysfs_name,
 					new_pe->comptag,
@@ -307,7 +307,7 @@ int fmd_traverse_network_from_pe_port(riocp_pe_handle pe, rio_port_t port_num,
 					}
 				}
 			} else {
-				DBG("Probed ep ct 0x%x != 0x%x config ct port %d\n",
+				DBG("AUTO Probed ep ct 0x%x != 0x%x config ct port %d\n",
 					comptag, ct, pnum);
 			}
 		}

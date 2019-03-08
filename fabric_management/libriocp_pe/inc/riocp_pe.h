@@ -77,7 +77,6 @@ struct riocp_pe_port_state_t
 	int port_lane_speed;
 };
 
-
 /*
  * Device Driver Functions
  */
@@ -130,6 +129,22 @@ struct riocp_pe_port {
 #define RIOCP_PE_GET_EGRESS_PORT(n)      (RIOCP_PE_IS_EGRESS_PORT(n)?(((n) & 0xff)):RT_VAL_BAD)
 #define RIOCP_PE_GET_MULTICAST_MASK(n)   (RIOCP_PE_IS_MULTICAST_MASK(n)?(((n) - 0x100) & 0xff):RT_VAL_BAD)
 #define RIOCP_PE_GET_NEXT_LEVEL_GROUP(n) (RIOCP_PE_IS_NEXT_LEVEL_GROUP(n)?(((n) - 0x200) & 0xff):RT_VAL_BAD)
+
+/* Structure describing a RapidIO port and its status */
+struct riocp_pe_port {
+	// Owner of this port
+	riocp_pe_handle pe;
+
+	// Physical port number
+	pe_port_t id;
+
+	// Port state
+	struct riocp_pe_port_state_t state;
+
+	// Peer port of this port (NULL=no peer)
+	riocp_pe_handle peer;
+	pe_port_t peer_port;
+};
 
 struct mport_regs {
 	uint32_t memaddr_sz; // RIO_PE_LL_CTL
@@ -185,6 +200,8 @@ int RIOCP_WU riocp_pe_get_comptag(riocp_pe_handle pe, ct_t *comptag);
 int RIOCP_WU riocp_pe_update_comptag(riocp_pe_handle pe, uint32_t wr_did);
 int RIOCP_WU riocp_pe_find_comptag(riocp_pe_handle mport, ct_t comptag,
 		riocp_pe_handle *pe);
+int RIOCP_WU riocp_pe_alloc_ct_did(riocp_pe_handle pe,
+								ct_t *ct, did_t *did, did_sz_t did_sz);
 
 int RIOCP_WU riocp_pe_clear_enumerated(struct riocp_pe *pe);
 
@@ -192,6 +209,8 @@ int RIOCP_WU riocp_pe_reset_port(riocp_pe_handle sw, pe_port_t port,
 bool reset_lp);
 
 /* Routing */
+int RIOCP_WU riocp_set_did_sz(did_sz_t did_sz);
+did_sz_t RIOCP_WU riocp_get_did_sz(void);
 int RIOCP_WU riocp_sw_get_route_entry(riocp_pe_handle sw, pe_port_t port,
 		did_t did, pe_rt_val *rt_val);
 int RIOCP_WU riocp_sw_set_route_entry(riocp_pe_handle sw, pe_port_t port,

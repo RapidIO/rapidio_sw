@@ -414,25 +414,25 @@ int riocp_pe_probe_prepare(struct riocp_pe *pe, uint8_t port)
 		ret = riocp_pe_maint_set_anyid_route(pe);
 		if (ret) {
 			RIOCP_ERROR(
-					"Could not program DID_ANY_DEV8_ID route\n");
+					"Could not program ANY_DID route\n");
 			return -EIO;
 		}
 
 		ret = riocp_drv_get_port_state(pe, port, &state);
 		if (ret) {
-			RIOCP_ERROR("Unable to read port state\n");
+			RIOCP_ERROR("Unable to read port %d state\n", port);
 			return -EIO;
 		}
 
 		if (!state.port_ok) {
-			RIOCP_ERROR("Try to probe inactive port\n");
+			RIOCP_ERROR("Try to probe inactive port %d\n", port);
 			return -ENODEV;
 		}
 
 		ret = riocp_drv_set_route_entry(pe, RIOCP_PE_ANY_PORT,
 				DID_ANY_DEV8_ID, port);
 		if (ret) {
-			RIOCP_ERROR("Could not program route\n");
+			RIOCP_ERROR("Could not program route for port %d\n", port);
 			return -EIO;
 		}
 	}
@@ -454,6 +454,7 @@ int riocp_pe_probe_verify_found(struct riocp_pe *pe, uint8_t port, struct riocp_
 	ct_t comptag_peer;
 	ct_t comptag_alt;
 	hc_t hopcount_alt;
+	did_val_t did_val = ANY_DID_VAL;
 
 	// initialize the hopcount
 	HC_INCR(hopcount_alt, pe->hopcount);
@@ -461,26 +462,26 @@ int riocp_pe_probe_verify_found(struct riocp_pe *pe, uint8_t port, struct riocp_
 	RIOCP_TRACE("Probe verify pe: hc: %u, comptag: 0x%08x, port %u\n",
 			pe->hopcount, pe->comptag, port);
 	RIOCP_TRACE("Probe verify pe_alt: hc: %u, d: %u\n", hopcount_alt,
-			did_get_value(DID_ANY_DEV8_ID));
+			did_val);
 	RIOCP_TRACE("Probe verify peer: hc: %u, comptag: 0x%08x\n",
 			peer->hopcount, peer->comptag, port);
 
 	/* Reset the component tag for alternative route */
-	ret = riocp_drv_raw_reg_wr(pe, DID_ANY_DEV8_ID, hopcount_alt,
+	ret = riocp_drv_raw_reg_wr(pe, did_val, hopcount_alt,
 			RIO_COMPTAG, 0);
 	if (ret) {
 		RIOCP_ERROR("Error reading comptag from d: %u, hc: %u\n",
-				did_get_value(DID_ANY_DEV8_ID), hopcount_alt);
+				did_val, hopcount_alt);
 		return -EIO;
 	}
 
 	/* read same comptag again to make sure write has been performed
 	 (we read pe comptag from potentially (shorter) different path) */
-	ret = riocp_drv_raw_reg_rd(pe, DID_ANY_DEV8_ID, hopcount_alt,
+	ret = riocp_drv_raw_reg_rd(pe, did_val, hopcount_alt,
 			RIO_COMPTAG, &comptag_alt);
 	if (ret) {
 		RIOCP_ERROR("Error reading comptag from d: %u, hc: %u\n",
-				did_get_value(DID_ANY_DEV8_ID), hopcount_alt);
+				did_val, hopcount_alt);
 		return -EIO;
 	}
 
