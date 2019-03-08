@@ -352,8 +352,6 @@ int riocp_pe_add_peer(struct riocp_pe *pe, struct riocp_pe *peer,
 	peer->peers[peer_port].peer = pe;
 	peer->peers[peer_port].remote_port = pe_port;
 
-	RIOCP_TRACE("PE %s port %d connected to PE %s port %d\n",
-                    pe->sysfs_name, pe_port, peer->sysfs_name, peer_port);
 	return 0;
 }
 

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Files required for installation
-# Note these variables (different root) are also used by make_install.sh
+# Note the names of these file name (different root) are also used by make_install.sh
 #
 REMOTE_ROOT="/opt/rapidio/.install"
 LOCAL_SOURCE_ROOT="$(pwd)"
@@ -68,16 +68,11 @@ else
     MEMSZ=$3
     SW_TYPE=$4
     GRP=$5
-    NEW_USERID=$6
-    REL=$7
+    REL=$6
 
     if [ $MEMSZ != 'mem34' -a $MEMSZ != 'mem50' -a $MEMSZ != 'mem66' ] ; then
         echo $'\nmemsz parameter must be mem34, mem50, or mem66.\n'
         PRINTHELP=1
-    fi
-
-    if [ ! -z "$NEW_USERID" ] ; then
-       MY_USERID=$NEW_USERID
     fi
 
     MASTER_CONFIG_FILE=$SCRIPTS_PATH/$SW_TYPE-master.conf
@@ -91,7 +86,7 @@ else
 fi
 
 if [ $PRINTHELP = 1 ] ; then
-    echo "$PGM_NAME <SERVER> <nData> <memsz> <sw> <group> <userid> <rel>"
+    echo "$PGM_NAME <SERVER> <nData> <memsz> <sw> <group> <rel>"
     echo "<SERVER> Name of the node providing the files required by installation"
     echo "<nData>  The file describing the target nodes of the install"
     echo "         The file has the format:"
@@ -113,7 +108,6 @@ if [ $PRINTHELP = 1 ] ; then
     echo "         rxs  - StarBridge Inc RXS RapidExpress Switch"
     echo "<group>  Unix file ownership group which should have access to"
     echo "         the RapidIO software"
-    echo "<userid> User ID used to ssh to IP_names in nodelist. Default is root."
     echo "<rel>    The software release/version to install."
     echo "         If no release is supplied, the current release is installed."
     rm -rf $TMP_NODEDATA_FILE &> /dev/null
@@ -181,7 +175,7 @@ echo "Transferring install files to $SERVER..."
 SERVER_ROOT="/opt/rapidio/.server"
 ssh $MY_USERID@"$SERVER" "rm -rf $SERVER_ROOT;mkdir -p $SERVER_ROOT"
 scp $TMP_DIR/* $MY_USERID@"$SERVER":$SERVER_ROOT/. > /dev/null
-ssh $MY_USERID@"$SERVER" "chown -R $MY_USERID.$GRP $SERVER_ROOT"
+ssh $MY_USERID@"$SERVER" "chown -R root.$GRP $SERVER_ROOT"
 rm -rf $TMP_DIR
 
 # Transfer the make_install.sh script to a known location on the target machines
@@ -196,7 +190,7 @@ for host in "${ALLNODES[@]}"; do
     else
         scp $SCRIPTS_PATH/make_install-slave.sh $MY_USERID@"$host":$REMOTE_ROOT/script/make_install.sh > /dev/null
     fi
-    ssh $MY_USERID@"$host" "chown -R $MY_USERID.$GRP $REMOTE_ROOT;chmod 755 $REMOTE_ROOT/script/make_install.sh"
+    ssh $MY_USERID@"$host" "chown -R root.$GRP $REMOTE_ROOT;chmod 755 $REMOTE_ROOT/script/make_install.sh"
 done
 
 
@@ -204,7 +198,7 @@ done
 echo "Beginning installation..."
 for host in "${ALLNODES[@]}"; do
     [ "$host" = 'none' ] && continue;
-    ssh $MY_USERID@"$host" "$REMOTE_ROOT/script/make_install.sh $SERVER $SERVER_ROOT $MEMSZ $GRP $MY_USERID"
+    ssh $MY_USERID@"$host" "$REMOTE_ROOT/script/make_install.sh $SERVER $SERVER_ROOT $MEMSZ $GRP"
 done
 
 echo "Installation complete."
