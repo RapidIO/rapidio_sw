@@ -1,11 +1,10 @@
 #!/bin/bash
-# usage: ./make_install.sh <server> <rootPath> <memSize> <unixGroup> <USERID>
+# usage: ./make_install.sh <server> <rootPath> <memSize> <unixGroup>
 
 # Common to both master and slave
 #
 INSTALL_ROOT="/opt/rapidio/.install"
-. $INSTALL_ROOT/script/make_install_common.sh $1 $2 $3 $4 $5
-USERID=$5
+. $INSTALL_ROOT/script/make_install_common.sh $1 $2 $3 $4
 
 result=$?
 if [ $result -ne 0 ]
@@ -115,7 +114,7 @@ awk -vM=$MEM_SIZE $HOSTL '
 # Set ownership of files
 #
 cd $SOURCE_PATH/..
-chown -R $USERID.$GRP rapidio_sw
+chown -R root.$GRP rapidio_sw
 
 cd $CONFIG_PATH/..
-chown -R $USERID.$GRP rapidio
+chown -R root.$GRP rapidio

@@ -140,13 +140,6 @@ int fmd_traverse_network_from_pe_port(riocp_pe_handle pe, rio_port_t port_num,
 				continue;
 			}
 
-			if (curr_pe == new_pe) {
-				HIGH("PE 0x%x Port %d Loopback to port %d\n",
-					curr_pe->comptag, pnum,
-					curr_pe->peers[pnum].remote_port);
-				continue;
-			}
-
 			rc = riocp_pe_get_comptag(new_pe, &comptag);
 			if (rc) {
 				HIGH("Get new comptag failed, rc %d\n", rc);
@@ -248,8 +241,8 @@ int fmd_traverse_network_from_pe_port(riocp_pe_handle pe, rio_port_t port_num,
 					ct_release(ct, did);
 					goto fail;
 				}
-				HIGH("PE 0x%x Port %d NO DEVICE\n",
-						curr_pe->comptag, pnum);
+				HIGH("PE 0x%x Port %d NO DEVICE, expected %x\n",
+						curr_pe->comptag, pnum, ct);
 				// note re-use of ct (and sysfs_name)
 				continue;
 			}
@@ -258,13 +251,6 @@ int fmd_traverse_network_from_pe_port(riocp_pe_handle pe, rio_port_t port_num,
 				HIGH("PE 0x%x Port %d ALREADY CONNECTED\n",
 						curr_pe->comptag, pnum);
 				// note re-use of ct (and sysfs_name)
-				continue;
-			}
-
-			if (curr_pe == new_pe) {
-				HIGH("PE 0x%x Port %d Loopback to port %d\n",
-					curr_pe->comptag, pnum,
-					curr_pe->peers[pnum].remote_port);
 				continue;
 			}
 

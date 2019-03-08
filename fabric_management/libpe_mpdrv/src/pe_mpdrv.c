@@ -1,7 +1,5 @@
 /* Implementation for libriocp_pe register read/write driver  and	 */
 /* libriocp_pe PE driver based on librio and libmport.	      */
-//
-/* First test for validation. */
 /*
  ****************************************************************************
  Copyright (c) 2014, Integrated Device Technology Inc.
@@ -43,7 +41,6 @@
 #include <sys/stat.h>
 #include <sys/sem.h>
 #include <fcntl.h>
-#include <unistd.h>
 
 #include <stdint.h>
 #include <unistd.h>
@@ -63,7 +60,6 @@
 #include "RapidIO_Statistics_Counter_API.h"
 #include "RapidIO_Device_Access_Routines_API.h"
 #include "RapidIO_Routing_Table_API.h"
-#include "RapidIO_Port_Config_API.h"
 #include "cfg.h"
 #include "Tsi578.h"
 #include "RXS2448.h"
@@ -80,7 +76,7 @@ int RIOCP_WU mpsw_drv_reg_rd(struct riocp_pe *pe, uint32_t offset, uint32_t *val
 	int ret;
 	struct mpsw_drv_private_data *priv_ptr;
 
-	DBG("ENTRY: offset 0x%x did:0x%08x hc:%d\n", offset, pe->did_reg_val, pe->hopcount);
+	DBG("ENTRY: offset 0x%x did:%0x%08x hc:%d\n", offset, pe->did_reg_val, pe->hopcount);
 
 	ret = riocp_pe_handle_get_private(pe, (void **)&priv_ptr);
 	if (ret) {
@@ -95,7 +91,7 @@ int RIOCP_WU mpsw_drv_reg_rd(struct riocp_pe *pe, uint32_t offset, uint32_t *val
 		ret = EIO;
 	}
 
-	DBG("EXIT: offset 0x%x did:0x%08x hc:%d val 0x%08x\n", offset, pe->did_reg_val, pe->hopcount, *val);
+	DBG("EXIT: offset 0x%x did:%0x%08x hc:%d val 0x%08x\n", offset, pe->did_reg_val, pe->hopcount, *val);
 	return ret;
 }
 
@@ -104,7 +100,7 @@ int RIOCP_WU mpsw_drv_reg_wr(struct riocp_pe *pe, uint32_t offset, uint32_t val)
 	int ret;
 	struct mpsw_drv_private_data *priv_ptr = NULL;
 
-	DBG("ENTRY: offset 0x%x did:0x%08x hc:%d val 0x%08x\n", offset, pe->did_reg_val, pe->hopcount, val);
+	DBG("ENTRY: offset 0x%x did:%0x%08x hc:%d val 0x%08x\n", offset, pe->did_reg_val, pe->hopcount, val);
 
 	ret = riocp_pe_handle_get_private(pe, (void **)&priv_ptr);
 	if (ret) {
@@ -1314,282 +1310,6 @@ int RIOCP_WU mpsw_enable_pe(struct riocp_pe *pe, pe_port_t port)
 	return 0;
 fail:
 	return -1;
-}
-
-int check_cfg(rio_pc_one_port_config_t *pc)
-{
-	int rc = 1;
-	if (!pc->port_available) {
-		goto fail;
-	}
-	if (!pc->powered_up) {
-		goto fail;
-	}
-	if (pc->pw == rio_pc_pw_last) {
-		goto fail;
-	}
-	if (pc->ls == rio_pc_ls_last) {
-		goto fail;
-	}
-	if (pc->fc == rio_pc_fc_last) {
-		goto fail;
-	}
-	if (pc->iseq == rio_pc_is_last) {
-		goto fail;
-	}
-	if (pc->xmitter_disable) {
-		goto fail;
-	}
-	if (pc->port_lockout) {
-		goto fail;
-	}
-	if ((pc->tx_lswap != rio_lswap_none)
-					|| (pc->rx_lswap != rio_lswap_none)) {
-		goto fail;
-	}
-	for (uint8_t lane = 0; lane < RIO_MAX_PORT_LANES; lane++) {
-		if ((pc->tx_linvert[lane] || pc->rx_linvert[lane])) {
-			goto fail;
-		}
-	}
-	rc = 0;
-fail:
-	return rc;
-}
-
-int check_cfg_match(rio_pc_one_port_config_t *pc, rio_pc_one_port_config_t *lp)
-{
-	int rc = 1;
-	if (check_cfg(pc) || check_cfg(lp)) {
-		DBG("Check port config failed.");
-		goto fail;
-	}
-
-	if (pc->pw != lp->pw) {
-		goto fail;
-	}
-	if (pc->ls != lp->ls) {
-		goto fail;
-	}
-	if (pc->fc != lp->fc) {
-		goto fail;
-	}
-	if (pc->iseq != lp->iseq) {
-		goto fail;
-	}
-	rc = 0;
-fail:
-	return rc;
-}
-
-int check_stat(rio_pc_one_port_status_t *ps)
-{
-	int rc = 1;
-	if (!ps->port_ok) {
-		goto fail;
-	}
-	if (ps->pw == rio_pc_pw_last) {
-		goto fail;
-	}
-	if (ps->fc == rio_pc_fc_last) {
-		goto fail;
-	}
-	if (ps->iseq == rio_pc_is_last) {
-		goto fail;
-	}
-	if (ps->port_error) {
-		goto fail;
-	}
-	if (ps->input_stopped) {
-		goto fail;
-	}
-	if (ps->output_stopped) {
-		goto fail;
-	}
-	if (!ps->num_lanes) {
-		goto fail;
-	}
-	rc = 0;
-fail:
-	return rc;
-}
-
-int check_stat_match(rio_pc_one_port_status_t *ps, rio_pc_one_port_status_t *lp)
-{
-	int rc = 0;
-	if (check_stat(ps) | check_stat(lp)) {
-		DBG("Check port status failed.");
-		goto fail;
-	}
-	if (ps->pw != lp->pw) {
-		goto fail;
-	}
-	if (ps->fc != lp->fc) {
-		goto fail;
-	}
-	if (ps->iseq != lp->iseq) {
-		goto fail;
-	}
-	if (ps->num_lanes != lp->num_lanes) {
-		goto fail;
-	}
-	rc = 0;
-fail:
-	return rc;
-}
-
-// Note that verify_pe performs a RapidIO compliance test.  This functionality
-// is not generally required for most systems.
-
-int RIOCP_WU mpsw_verify_pe(struct riocp_pe *pe, pe_port_t port)
-{
-	int rc = -1;
-	uint32_t ret;
-	riocp_pe_handle peer;
-	pe_port_t peer_port;
-	struct mpsw_drv_private_data *pe_priv = NULL;
-	DAR_DEV_INFO_t *pe_dev_h;
-	struct mpsw_drv_private_data *peer_priv = NULL;
-	DAR_DEV_INFO_t *peer_dev_h;
-	rio_pc_get_config_in_t pe_get_cfg, peer_get_cfg;
-	rio_pc_get_config_out_t pe_cfg, peer_cfg;
-	rio_pc_get_config_out_t peer_saved_cfg;
-	rio_pc_set_config_in_t peer_set_cfg;
-	rio_pc_set_config_out_t peer_set_cfg_o;
-	rio_pc_get_status_in_t pe_get_stat, peer_get_stat;
-	rio_pc_get_status_out_t pe_stat, peer_stat;
-
-	if (NULL == pe->peers[port].peer) {
-		ERR("%s port %d is not connected to anything, exiting.",
-                                pe->sysfs_name, port)
-		rc = 1;
-                goto fail;
-        }
-
-	peer = pe->peers[port].peer;
-	peer_port = pe->peers[port].remote_port;
-
-	if (riocp_pe_handle_get_private(pe, (void **)&pe_priv)) {
-		DBG("Private Data does not exist for PE... EXITING!\n");
-		rc = 0x10;
-		goto fail;
-	}
-	pe_dev_h = &pe_priv->dev_h;
-	
-	if (riocp_pe_handle_get_private(peer, (void **)&peer_priv)) {
-		DBG("Private Data does not exist for PEER... EXITING!\n");
-		rc = 0x11;
-		goto fail;
-	}
-	peer_dev_h = &peer_priv->dev_h;
-
-	pe_get_cfg.ptl.num_ports = 1;
-	pe_get_cfg.ptl.pnums[0] = port;
-
-	peer_get_cfg.ptl.num_ports = 1;
-	peer_get_cfg.ptl.pnums[0] = peer_port;
-
-	ret = rio_pc_get_config(pe_dev_h, &pe_get_cfg, &pe_cfg);
-	if (RIO_SUCCESS != ret) {
-		DBG("Could not get PE config, ret = 0x%x! 0x%x\n",
-			ret, pe_cfg.imp_rc);
-		rc = 0x21;
-		goto fail;
-	}
-
-	ret = rio_pc_get_config(peer_dev_h, &peer_get_cfg, &peer_cfg);
-	if (RIO_SUCCESS != ret) {
-		DBG("Could not get PEER config, ret = 0x%x 0x%x!\n",
-			ret, peer_cfg.imp_rc);
-		rc = 0x22;
-		goto fail;
-	}
-
-	if (check_cfg_match(&pe_cfg.pc[0], &peer_cfg.pc[0])) {
-		DBG("Port configs do not match.");
-		rc = 0x23;
-		goto fail;
-	}
-
-	pe_get_stat.ptl.num_ports = 1;
-	pe_get_stat.ptl.pnums[0] = port;
-
-	peer_get_stat.ptl.num_ports = 1;
-	peer_get_stat.ptl.pnums[0] = peer_port;
-
-	ret = rio_pc_get_status(pe_dev_h, &pe_get_stat, &pe_stat);
-	if (RIO_SUCCESS != ret) {
-		DBG("Could not get PE status, ret = 0x%x 0x%x!\n",
-			ret, pe_stat.imp_rc);
-		rc = 0x31;
-		goto fail;
-	}
-
-	ret = rio_pc_get_status(peer_dev_h, &peer_get_stat, &peer_stat);
-	if (RIO_SUCCESS != ret) {
-		DBG("Could not get PEER status, ret = 0x%x 0x%x!\n",
-			ret, peer_stat.imp_rc);
-		rc = 0x32;
-		goto fail;
-	}
-
-	if (check_stat_match(&pe_stat.ps[0], &peer_stat.ps[0])) {
-		DBG("Check port status failed.");
-		rc = 0x33;
-		goto fail;
-	}
-
-	// Try downgrading to a 1x port, then upgrading again.
-	peer_saved_cfg = peer_cfg;
-
-	peer_set_cfg.lrto = peer_cfg.lrto;
-	peer_set_cfg.log_rto = peer_cfg.log_rto;
-	peer_set_cfg.num_ports = 1;
-	peer_set_cfg.pc[0] = peer_cfg.pc[0];
-	peer_set_cfg.pc[0].pw = rio_pc_pw_1x_l0;
-
-	ret = rio_pc_set_config(peer_dev_h, &peer_set_cfg, &peer_set_cfg_o);
-	if (RIO_SUCCESS != ret) {
-		DBG("Could not set PEER CONFIG, ret = 0x%x 0x%x!\n",
-			ret, peer_set_cfg_o.imp_rc);
-		rc = 0x40;
-		goto fail;
-	}
-
-	sleep(5);
-
-	ret = rio_pc_get_status(pe_dev_h, &pe_get_stat, &pe_stat);
-	if (RIO_SUCCESS != ret) {
-		DBG("Could not get PE status after CFG, ret = 0x%x 0x%x!\n",
-			ret, pe_stat.imp_rc);
-		rc = 0x41;
-		goto restore;
-	}
-
-	if (!pe_stat.ps[0].port_ok) {
-		DBG("PE port did not train.");
-		rc = 0x42;
-		goto restore;
-	}
-
-	if (pe_stat.ps[0].pw != rio_pc_pw_1x_l0) {
-		DBG("PE port did not downgrade, width is %s.",
-			PW_TO_STR(pe_stat.ps[0].pw));
-		rc = 0x43;
-		goto restore;
-	}
-	rc = 0;
-
-restore:
-	peer_set_cfg.pc[0] = peer_cfg.pc[0];
-	ret = rio_pc_set_config(peer_dev_h, &peer_set_cfg, &peer_set_cfg_o);
-	if (RIO_SUCCESS != ret) {
-		DBG("RESTORE PEER CONFIG ret = 0x%x 0x%x!\n",
-			ret, peer_set_cfg_o.imp_rc);
-		rc = 0x50;
-	}
-fail:
-	return rc;
 }
 
 #ifdef __cplusplus
