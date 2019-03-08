@@ -1,5 +1,5 @@
 #!/bin/bash
-# usage: ./make_install_common.sh <server> <rootPath> <memSize> <unixGroup>
+# usage: ./make_install_common.sh <server> <rootPath> <memSize> <unixGroup> <USERID>
 
 # Setup passed in parameters
 #
@@ -7,6 +7,7 @@ SERVER=$1
 ROOT_PATH=$2
 MEM_SIZE=$3
 GRP=$4
+USERID=$5
 
 # Files required by install, match those names in install.sh
 #
@@ -34,13 +35,13 @@ rm -rf $CONFIG_PATH;mkdir -p $CONFIG_PATH
 #
 mkdir -p /var/tmp/rapidio
 chmod 777 /var/tmp/rapidio
-chown -R root.$GRP /var/tmp/rapidio
+chown -R $USERID.$GRP /var/tmp/rapidio
 
 # Get the source files from the central server
 #
-echo "Transferring install files from $SERVER..."
-scp root@"$SERVER":$ROOT_PATH/* $INSTALL_ROOT/ > /dev/null
-chown -R root.$GRP $INSTALL_ROOT
+echo "Transferring install files from server $SERVER..."
+scp $USERID@"$SERVER":$ROOT_PATH/* $INSTALL_ROOT/ > /dev/null
+chown -R $USERID.$GRP $INSTALL_ROOT
 
 
 # Configuration files generated as part of the install
@@ -83,6 +84,7 @@ fi
 cat > $NODELIST_FILE <<EOF
 NODES=" $NODELIST "
 REVNODES=" $REVNODELIST "
+USERID=$USERID
 EOF
 
 

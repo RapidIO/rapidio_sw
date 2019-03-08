@@ -62,19 +62,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "RapidIO_Port_Config_API.h"
 #include "riocp_pe.h"
 #include "fmd_dd.h"
+#include "cfg.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#define CFG_OP_MODE_SLAVE 0
-#define CFG_OP_MODE_MASTER 1
-#define CFG_DEV08 0
-#define CFG_DEV16 1
-#define CFG_DEV32 2
-#define CFG_DEVID_MAX (CFG_DEV32+1)
-
-struct int_cfg_ep;
 
 struct int_mport_info {
 	uint32_t num;
@@ -82,7 +74,7 @@ struct int_mport_info {
 	ct_t ct; /* Updated when MPORT is initialized */
 	int op_mode;
 	uint8_t mem_sz;	/* Memory size to use for this network */
-	struct dev_id devids[CFG_DEVID_MAX];
+	struct dev_id devids[MAX_DEV_SZ_IDX];
 	struct int_cfg_ep *ep; /* Link to endpoint definition for this MPORT */
 	int ep_pnum; /* EP port number that matches this MPORT */
 };
@@ -90,7 +82,7 @@ struct int_mport_info {
 #define CFG_MAX_MPORTS 4
 #define CFG_DFLT_INIT_DD 0
 #define CFG_DFLT_RUN_CONS 1
-#define CFG_DFLT_MAST_DEVID_SZ FMD_DEV08
+#define CFG_DFLT_MAST_DEVID_SZ DEV08_IDX
 #define CFG_DFLT_MAST_DEVID 1
 #define CFG_DFLT_MAST_INTERVAL 5
 #define CFG_INVALID_CT 0
@@ -118,7 +110,7 @@ struct int_cfg_ep_port {
 	uint32_t port;
 	ct_t ct;
 	struct int_cfg_rapidio rio;
-	struct dev_id devids[CFG_DEVID_MAX];
+	struct dev_id devids[MAX_DEV_SZ_IDX];
 	struct int_cfg_conn *conn;
 	int conn_end; /* index of *conn for this switch */
 };
@@ -137,8 +129,8 @@ struct int_cfg_sw_port {
 	struct int_cfg_conn *conn;
 	int conn_end; /* index of *conn for this switch */
 	// One routing table for each devID size
-	bool rt_valid[CFG_DEVID_MAX];
-	rio_rt_state_t rt[CFG_DEVID_MAX];
+	bool rt_valid[MAX_DEV_SZ_IDX];
+	rio_rt_state_t rt[MAX_DEV_SZ_IDX];
 };
 
 struct int_cfg_sw {
@@ -146,13 +138,13 @@ struct int_cfg_sw {
 	char *name;
 	char *dev_type;
 	did_val_t did_val;
-	uint32_t did_sz;
+	uint32_t did_sz_idx;
 	hc_t hc;
 	ct_t ct;
 	struct int_cfg_sw_port ports[CFG_MAX_SW_PORT];
 	// One routing table for each devID size
-	bool rt_valid[CFG_DEVID_MAX]; 
-	rio_rt_state_t rt[CFG_DEVID_MAX];
+	bool rt_valid[MAX_DEV_SZ_IDX];
+	rio_rt_state_t rt[MAX_DEV_SZ_IDX];
 };
 
 struct int_cfg_conn_pe {
@@ -177,7 +169,7 @@ struct int_cfg_parms {
 	uint32_t max_mport_info_idx; /* Maximum number of mports */
 	struct int_mport_info mport_info[CFG_MAX_MPORTS];
 	did_val_t mast_did_val;	/* Master CFG location information */
-	uint32_t mast_did_sz;
+	uint32_t mast_did_sz_idx;
 	uint32_t mast_cm_port; 	/* Master CFG location information */
 	uint32_t ep_cnt;
 	struct int_cfg_ep eps[CFG_MAX_EP];
@@ -189,6 +181,11 @@ struct int_cfg_parms {
 };
 
 extern struct int_cfg_parms *cfg;
+
+void init_rt(rio_rt_state_t *rt);
+int assign_dev16_rt_v(did_val_t st_did_val, did_val_t end_did_val,
+			pe_rt_val rtv,
+			rio_rt_state_t *rt, struct int_cfg_parms *cfg);
 
 #ifdef __cplusplus
 }

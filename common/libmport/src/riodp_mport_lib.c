@@ -1489,7 +1489,7 @@ void riomp_mgmt_display_info(struct riomp_mgmt_mport_properties *attr)
 	printf("\n+++ SRIO mport configuration +++\n");
 	printf("mport: hdid=%d, id=%d, idx=%d, flags=0x%x, sys_size=%s\n",
 			attr->did_val, attr->id, attr->index, attr->flags,
-			attr->sys_size ? "large" : "small");
+			attr->sys_size ? "dev16" : "dev08");
 
 	printf("link: speed=%s width=%s\n", speed_to_string(attr->link_speed),
 			width_to_string(attr->link_width));

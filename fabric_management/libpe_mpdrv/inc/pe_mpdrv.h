@@ -68,13 +68,15 @@ int RIOCP_WU mpsw_drv_reset_port(struct riocp_pe *pe, uint8_t port,
 int RIOCP_WU mpsw_get_mport_regs(int mp_num, struct mport_regs *regs);
 int RIOCP_WU mpsw_enable_pe(struct riocp_pe *pe, pe_port_t port);
 
+int RIOCP_WU mpsw_verify_pe(struct riocp_pe *pe, pe_port_t port);
+
 int RIOCP_WU mpsw_drv_reg_rd(struct riocp_pe *pe, uint32_t offset,
 		uint32_t *val);
 int RIOCP_WU mpsw_drv_reg_wr(struct riocp_pe *pe, uint32_t offset,
 		uint32_t val);
-int RIOCP_WU mpsw_drv_raw_reg_wr(struct riocp_pe *pe, did_t did, hc_t hc,
+int RIOCP_WU mpsw_drv_raw_reg_wr(struct riocp_pe *pe, did_val_t did_val, hc_t hc,
 		uint32_t addr, uint32_t val);
-int RIOCP_WU mpsw_drv_raw_reg_rd(struct riocp_pe *pe, did_t did, hc_t hc,
+int RIOCP_WU mpsw_drv_raw_reg_rd(struct riocp_pe *pe, did_val_t did_val, hc_t hc,
 		uint32_t addr, uint32_t *val);
 
 #ifdef __cplusplus

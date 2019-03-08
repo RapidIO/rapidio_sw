@@ -36,6 +36,7 @@
 #include <string.h>
 #include <stdbool.h>
 #include <errno.h>
+#include <stdlib.h>
 
 #include "did_test.h"
 #include "rio_standard.h"
@@ -55,6 +56,7 @@ uint32_t did_idx = 0;
 
 static void did_init()
 {
+	memset(did_ids, invld_sz, sizeof(did_ids));
 	did_ids[0] = dev08_sz;
 	did_ids[RIO_LAST_DEV8] = dev08_sz;
 	did_ids[RIO_LAST_DEV16] = dev16_sz;
@@ -95,11 +97,11 @@ int did_size_as_int(did_sz_t size)
 {
 	switch (size) {
 	case dev08_sz:
-		return 0;
+		return DEV08_IDX;
 	case dev16_sz:
-		return 1;
+		return DEV16_IDX;
 	case dev32_sz:
-		return 2;
+		return DEV32_IDX;
 	default:
 		return -1;
 	}
@@ -507,6 +509,156 @@ bool did_equal(did_t did, did_t other)
 	return (did.value == other.value);
 }
 
+/**
+ * Allocate 256 continuous DIDs with the same most significant byte.
+ * Corresponds to an hierarchical routing table "group"
+ *
+ * @param[in] **group pointer to new did group allocated by this procedure
+ *
+ * @retval 0 success
+ * @retval -EINVAL group is NULL
+ * @retval -ENOBUFS no free group is available
+ */
+int did_alloc_dev16_grp(did_grp_t **group)
+{
+	did_val_t start_idx = 0, idx, g_idx;
+	did_grp_t *tmp;
+	uint32_t limit;
+	bool avail;
+
+	if (NULL == group) {
+		return -EINVAL;
+	}
+
+	// lazy initialization
+	if (0 == did_idx) {
+		did_init();
+	}
+
+	// Entry at did_idx has not been allocated, so use the last
+	// allocated entry to find the first group.
+	//
+	// This enables allocating group 0 (0x0000 to 0x00FF).
+
+	start_idx = (did_idx - 1 + RIO_RT_GRP_SZ - 1) & ~(RIO_RT_GRP_SZ - 1);
+	limit = sizeof(did_ids) / sizeof(did_ids[0]);
+
+	for (idx = start_idx; idx < limit; idx += RIO_RT_GRP_SZ) {
+		avail = true;
+		for (g_idx = 0; g_idx < RIO_RT_GRP_SZ; g_idx++) {
+			did_val_t chk_idx = idx + g_idx;
+			if (!chk_idx || (RIO_LAST_DEV8 == chk_idx) || (RIO_LAST_DEV16 == chk_idx)) {
+				continue;
+			}
+			if (invld_sz != did_ids[chk_idx]) {
+				avail = false;
+			break;
+			}
+		}
+		if (!avail) {
+			continue;
+		}
+		for (g_idx = 0; g_idx < RIO_RT_GRP_SZ; g_idx++) {
+			did_val_t chk_idx = idx + g_idx;
+			if ((RIO_LAST_DEV8 == chk_idx) || (RIO_LAST_DEV16 == chk_idx)) {
+				continue;
+			}
+			did_ids[chk_idx] = dev16_sz;
+		}
+		tmp = (did_grp_t *)calloc(1, sizeof(did_grp_t));
+		memset((void *)tmp, 0, sizeof(did_grp_t));
+
+		tmp->base = idx;
+		tmp->size = dev16_sz;
+		// Never use the first or last group entry...
+		tmp->next = 1;
+		tmp->l_dev16[0] = tmp->size;
+		tmp->l_dev16[RIO_RT_GRP_SZ - 1] = tmp->size;
+		*group = tmp;
+		did_idx = idx + RIO_RT_GRP_SZ;
+		return 0;
+	}
+	*group = NULL;
+	return -ENOBUFS;
+}
+
+/**
+ * Reserve a did in a group.
+ *
+ * @param[in] *group group where the did will be reserved
+ * @param[in] *did pointer newly reserved did value
+ *
+ * @retval 0 success
+ * @retval -EINVAL group is NULL
+ * @retval -ENOBUFS all dids are reserved, none are available
+ */
+int did_grp_resrv_did(did_grp_t *group, did_t *did)
+{
+	did_val_t idx, offset;
+
+	if ((NULL == group) || (NULL == did)) {
+		return -EINVAL;
+	}
+
+	if (RIO_RT_GRP_SZ <= group->next) {
+		did->size = invld_sz;
+		return -ENOBUFS;
+	}
+
+	for (offset = 0; offset < RIO_RT_GRP_SZ; offset++) {
+		idx = (offset + group->next) % RIO_RT_GRP_SZ;
+		if (invld_sz != group->l_dev16[idx]) {
+			continue;
+		}
+		group->l_dev16[idx] = group->size;
+		group->next = (idx + 1) % RIO_RT_GRP_SZ;
+		did->size = group->size;
+		did->value = group->base + idx;
+		return 0;
+	}
+	group->next = RIO_RT_GRP_SZ;
+	did->size = invld_sz;
+	return -ENOBUFS;
+}
+
+/**
+ * Unreserve (free) a did in a group.
+ *
+ * @param[in] *group group where the did should be released
+ * @param[in] did did to be released
+ *
+ * @retval 0 success
+ * @retval -EINVAL group is NULL
+ */
+int did_grp_unresrv_did(did_grp_t *group, did_t did)
+{
+	did_val_t idx;
+
+	if ((NULL == group) || (dev16_sz != did.size)) {
+		return -EINVAL;
+	}
+
+	// did does not belong to this group
+	if ((did.value & 0xFF00) != group->base) {
+		return -EINVAL;
+	}
+
+	// Cannot free first or last group entries
+	idx = did.value & (RIO_RT_GRP_SZ - 1);
+	if ((0 == idx) || ((RIO_RT_GRP_SZ -1) == idx)) {
+		return -EINVAL;
+	}
+
+	// Free the DID.
+	group->l_dev16[idx] = invld_sz;
+
+	if (RIO_RT_GRP_SZ <= group->next) {
+		group->next = idx;
+	}
+
+	return -0;
+}
+
 #ifdef UNIT_TESTING
 void did_reset()
 {
@@ -555,6 +707,7 @@ int did_invalid(did_t did)
 {
 	return did_match(did, 0, invld_sz);
 }
+
 #endif
 
 #ifdef __cplusplus
