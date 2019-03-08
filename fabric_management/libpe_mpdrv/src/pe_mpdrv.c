@@ -122,6 +122,7 @@ int RIOCP_WU mpsw_drv_reg_wr(struct riocp_pe *pe, uint32_t offset, uint32_t val)
 			did_val = GET_DEV16_FROM_HW(val) | RIOMP_MGMT_DEV16_FLAG;
 		}
 		p_acc = (struct mpsw_drv_pe_acc_info *)priv_ptr->dev_h.accessInfo;
+		DBG("DESTID SET: HW_VAL 0x%x DID VAL 0x%x", val, did_val);
 		ret = riomp_mgmt_destid_set(p_acc->maint, did_val);
 		if (ret) {
 			return -ret;

@@ -98,23 +98,6 @@ typedef uint32_t pe_rt_val;
 typedef uint8_t pe_port_t;
 #define RIOCP_PE_ALL_PORTS (pe_port_t)0xff /* Use the global LUT */
 
-/* Structure describing a RapidIO port and its status */
-struct riocp_pe_port {
-	// Owner of this port
-	riocp_pe_handle pe;
-
-	// Physical port number
-	uint8_t id;
-
-	// Port state
-	struct riocp_pe_port_state_t state;
-
-	// Peer port of this port (NULL=no peer)
-	riocp_pe_handle peer;
-        pe_port_t peer_port;
-};
-
-
 /* Routing table entry values */
 #define RIOCP_PE_EGRESS_PORT(n)	((pe_rt_val)(RT_VAL_FIRST_PORT + ((n) & 0xff)))
 #define RIOCP_PE_MULTICAST_MASK(n) ((pe_rt_val)(RT_VAL_FIRST_MC + ((n) & 0xff)))

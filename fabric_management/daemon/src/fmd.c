@@ -604,6 +604,7 @@ void setup_mport(struct fmd_state *fmd)
 
 	fmd->mp_h = &mport_pe;
 
+	INFO("Master mode is %d\n", fmd->opts->mast_mode);
 	if (fmd->opts->mast_mode) {
 		rc = setup_mport_master(mport);
 	} else {

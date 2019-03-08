@@ -1451,7 +1451,7 @@ exit:
 int cfg_parse_file(char *cfg_fn, char **dd_mtx_fn, char **dd_fn,
 		did_t *m_did, uint32_t *m_cm_port, uint32_t *m_mode)
 {
-	int j,k;
+	int j;
 	uint32_t i;
 
 	ct_t ct;
@@ -1517,19 +1517,15 @@ int cfg_parse_file(char *cfg_fn, char **dd_mtx_fn, char **dd_fn,
 								(ct_t)port.ct);
 						goto fail;
 					}
+					
+					if (did_size_from_int(&did_sz, cfg->mast_did_sz_idx)) {
+						continue;
+					}
 
-					for (k = 0; k < MAX_DEV_SZ_IDX; k++) {
-						// Continue for unsupported sizes
-						if (did_size_from_int(&did_sz, k)) {
-							continue;
-						}
-
-						did_val = port.devids[k].did_val;
-						if (did_val && ct_create_from_data(&ct, &did, nr, did_val, did_sz)) {
-							ERR("CT create 0x%x",
-								(ct_t)port.ct);
-							goto fail;
-						}
+					did_val = port.devids[cfg->mast_did_sz_idx].did_val;
+					if (did_val && ct_create_from_data(&ct, &did, nr, did_val, did_sz)) {
+						ERR("CT create CT 0x%x size %d", (ct_t)port.ct, did_sz);
+						goto fail;
 					}
 				}
 			}
@@ -1563,16 +1559,21 @@ int cfg_parse_file(char *cfg_fn, char **dd_mtx_fn, char **dd_fn,
 	}
 	if (CFG_SLAVE == cfg->mast_idx) {
 		// fake out the creation of the master did
+		INFO("fake slave did 0x%x sz %d\n", cfg->mast_did_val, did_sz);
 		*m_did = (did_t){cfg->mast_did_val, did_sz};
 	} else {
 		if (cfg_auto()) {
 			// fake out the creation of the master did
+		    INFO("fake MASTER did 0x%x sz %d\n", cfg->mast_did_val, did_sz);
 			*m_did = (did_t){cfg->mast_did_val, did_sz};
 		} else {
 			// ensure the master did was created
+		    INFO("CREATE MASTER did 0x%x sz %d\n",
+				cfg->mast_did_val, cfg->mast_did_sz_idx);
 			if (did_from_value(m_did, cfg->mast_did_val,
 					cfg->mast_did_sz_idx)) {
-				ERR("MAST DID create 0x%x", cfg->mast_did_val);
+				ERR("MAST DID create 0x%x size %d",
+					cfg->mast_did_val, cfg->mast_did_sz_idx);
 				goto fail;
 			}
 		}
@@ -1583,6 +1584,7 @@ int cfg_parse_file(char *cfg_fn, char **dd_mtx_fn, char **dd_fn,
 	return 0;
 
 fail:
+	ERR("FAILED!\n");
 	return 1;
 }
 

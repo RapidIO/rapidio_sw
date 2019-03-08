@@ -152,25 +152,6 @@ int CLIConfigCmd(struct cli_env *env, int argc, char **argv)
 
 		for (j = 0; j < h->st.ps.num_ports; j++) {
 			if (h->st.pc.pc[i].pnum == h->st.ps.ps[j].pnum) {
-<<<<<<< HEAD
-				break;
-			}
-		}
-		if (j == h->st.ps.num_ports) {
-			j = -1;
-			name=(char *)"ERR";
-		}
-		else
-		{
-			if (NULL == pe_port_info[j].peer) {
-				name = (char *)"NO_CONN";
-			} else {
-				port = pe_port_info[j].peer_port;
-				if (!riocp_pe_find_comptag(*fmd->mp_h,
-						pe_port_info[j].peer->comptag,
-						&peer_pe)) {
-					name = (char *)peer_pe->sysfs_name;
-=======
 				if (NULL == pe_port_info[j].peer) {
 					name = blank_dev;
 				} else {
@@ -180,7 +161,6 @@ int CLIConfigCmd(struct cli_env *env, int argc, char **argv)
 							&peer_pe)) {
 						name = (char *)peer_pe->sysfs_name;
 					}
->>>>>>> dev16_enhancements
 				}
 				break;
 			}

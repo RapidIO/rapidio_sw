@@ -55,10 +55,12 @@ did_sz_t riocp_pe_did_sz = dev08_sz;
  */
 int riocp_set_did_sz(did_sz_t did_sz)
 {
+	RIOCP_TRACE("ENTRY: Size is %d\n", did_sz);
 	if ((dev08_sz != did_sz) && (dev16_sz != did_sz)) {
 		return -EINVAL;
 	}
 	riocp_pe_did_sz = did_sz;
+	RIOCP_TRACE("EXIT\n");
 	return 0;
 }
 
