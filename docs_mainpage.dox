@@ -65,32 +65,32 @@
  *         - mem50 : all \<NODEn\> have 2 TB of addressable memory or less
  *         - mem66 : all \<NODEn\> have 2 PB of addressable memory or less
  *     - \<sw_type\>
- *       - PD_tor: Prodrive Top of Rack switch.  The devices must be
- *                 connected as follows.  All locations are described from
- *                 the perspective of facing the front of the switch.
- *                 Note that node labels run from 1 to 32, left to right,
- *                 with odd numbers on top and even numbers on the bottom.
- *                 - NODE1: Top, leftmost QSFP
- *                 - NODE2: Bottom, leftmost QSFP
- *                 - NODE3: Top QSFP to the right of NODE1
- *                 - NODE4: Bottom QSFP to the right of NODE1
- *       - SB_re: StarBridge Inc RapidExpress Switch.  The devices must
- *                 be connected as follows.  All locations are described
- *                 from the perspective of facing the front of the switch.
- *                 Note that node names are node1..8, left to right
- *                 - NODE1: QSFP labelled Port 1
- *                 - NODE2: QSFP labelled Port 2
- *                 - NODE3: QSFP labelled Port 3
- *                 - NODE4: QSFP labelled Port 4
- *       - RXS: StarBridge Inc Gen3 RapidExpress Switch.  The devices must
- *                 be connected as follows.  All locations are described
- *                 from the perspective of facing the front of the switch:
- *                 Note that node names are node1..12, left to right
- *                 - NODE1: QSFP labelled Port 1
- *                 - NODE2: QSFP labelled Port 2
- *                 - NODE3: QSFP labelled Port 3
- *                 - NODE4: QSFP labelled Port 4
- *       - AUTO: No node names are required, they will be assigned node names
+ *       - tor: Prodrive Top of Rack switch.  The devices must be
+ *              connected as follows.  All locations are described from
+ *              the perspective of facing the front of the switch.
+ *              Note that node labels run from 1 to 32, left to right,
+ *              with odd numbers on top and even numbers on the bottom.
+ *              - NODE1: Top, leftmost QSFP
+ *              - NODE2: Bottom, leftmost QSFP
+ *              - NODE3: Top QSFP to the right of NODE1
+ *              - NODE4: Bottom QSFP to the right of NODE1
+ *       - cps: StarBridge Inc RapidExpress Switch.  The devices must
+ *              be connected as follows.  All locations are described
+ *              from the perspective of facing the front of the switch.
+ *              Note that node names are node1..8, left to right
+ *              - NODE1: QSFP labelled Port 1
+ *              - NODE2: QSFP labelled Port 2
+ *              - NODE3: QSFP labelled Port 3
+ *              - NODE4: QSFP labelled Port 4
+ *       - rxs: StarBridge Inc Gen3 RapidExpress Switch.  The devices must
+ *              be connected as follows.  All locations are described
+ *              from the perspective of facing the front of the switch:
+ *              Note that node names are node1..12, left to right
+ *              - NODE1: QSFP labelled Port 1
+ *              - NODE2: QSFP labelled Port 2
+ *              - NODE3: QSFP labelled Port 3
+ *              - NODE4: QSFP labelled Port 4
+ *       - auto: No node names are required, they will be assigned node names
  *               automatically during initialization.
  *     - \<group\> Unix file ownership group which should have access to
  *       the RapidIO software
@@ -98,6 +98,8 @@
  *
  * -# For a system with more than four nodes:
  *    - Create a node data file, as described by the install_list.sh script.
+ *      The node data file creates a mapping between node names and connections
+        beyond NODE04 in the switch configuration files.
  *    - Invoke the install_list.sh script as follows:
  *      install_list.sh \<SERVER\> \<nData\> \<memsz\> \<sw_type\> \<group\> \<userid\>
  *      - \<SERVER\> : Same as for install.sh above
