@@ -1461,8 +1461,7 @@ exit:
 	return cfg->init_err;
 }
 
-int cfg_parse_file(char *cfg_fn, char **dd_mtx_fn, char **dd_fn,
-		did_t *m_did, uint32_t *m_cm_port, uint32_t *m_mode)
+int cfg_update_comp_tags(did_sz_t did_sz)
 {
 	int j;
 	uint32_t i;
@@ -1472,57 +1471,10 @@ int cfg_parse_file(char *cfg_fn, char **dd_mtx_fn, char **dd_fn,
 
 	did_t did;
 	did_val_t did_val;
-	did_sz_t did_sz;
 
 	struct int_cfg_ep *ep;
 	struct int_cfg_ep_port *port;
 	struct int_cfg_sw *sw;
-
-	if (init_cfg_ptr()) {
-		goto fail;
-	}
-
-	INFO("\nCFG: Opening configuration file \"%s\"...\n", cfg_fn);
-	cfg_fd = fopen(cfg_fn, "r");
-	if (NULL == cfg_fd) {
-		WARN("CFG: Config file open failed, errno %d : %s\n",
-				errno, strerror(errno));
-		goto fail;
-	}
-
-	DBG("\nCFG: Config file contents:");
-	fmd_parse_cfg(cfg);
-
-	if (fclose(cfg_fd)) {
-		ERR("CFG: Config file close failed, errno %d : %s\n",
-				errno, strerror(errno));
-	}
-
-	cfg_fd = NULL;
-
-	//@sonar:off - Collapsible "if" statements should be merged
-	if (cfg->dd_mtx_fn && strlen(cfg->dd_mtx_fn)) {
-		if (update_string(dd_mtx_fn, cfg->dd_mtx_fn, strlen(cfg->dd_mtx_fn))) {
-			goto fail;
-		}
-	}
-
-	if (cfg->dd_fn && strlen(cfg->dd_fn)) {
-		if (update_string(dd_fn, cfg->dd_fn, strlen(cfg->dd_fn))) {
-			goto fail;
-		}
-	}
-	//@sonar:on
-
-	if (cfg->init_err) {
-		goto fail;
-	}
-
-	// update parameters
-	if (did_size_from_int(&did_sz, cfg->mast_did_sz_idx)) {
-		ERR("Cannot convert %d to did_sz_t\n", cfg->mast_did_sz_idx);
-		goto fail;
-	}
 
 	// mark the endpoint ct and devIds from the configuration as in use
 	// Update the ct's to reflect the dev08/dev16 devIds in use.
@@ -1577,6 +1529,65 @@ int cfg_parse_file(char *cfg_fn, char **dd_mtx_fn, char **dd_fn,
 			sw->ct = ct;
 			INFO("Updated Switch %s CT to 0x%x", sw->name, sw->ct);
 		}
+	}
+	return 0;
+fail:
+	return -1;
+}
+
+int cfg_parse_file(char *cfg_fn, char **dd_mtx_fn, char **dd_fn,
+		did_t *m_did, uint32_t *m_cm_port, uint32_t *m_mode)
+{
+	did_sz_t did_sz;
+
+	if (init_cfg_ptr()) {
+		goto fail;
+	}
+
+	INFO("\nCFG: Opening configuration file \"%s\"...\n", cfg_fn);
+	cfg_fd = fopen(cfg_fn, "r");
+	if (NULL == cfg_fd) {
+		WARN("CFG: Config file open failed, errno %d : %s\n",
+				errno, strerror(errno));
+		goto fail;
+	}
+
+	DBG("\nCFG: Config file contents:");
+	fmd_parse_cfg(cfg);
+
+	if (fclose(cfg_fd)) {
+		ERR("CFG: Config file close failed, errno %d : %s\n",
+				errno, strerror(errno));
+	}
+
+	cfg_fd = NULL;
+
+	//@sonar:off - Collapsible "if" statements should be merged
+	if (cfg->dd_mtx_fn && strlen(cfg->dd_mtx_fn)) {
+		if (update_string(dd_mtx_fn, cfg->dd_mtx_fn, strlen(cfg->dd_mtx_fn))) {
+			goto fail;
+		}
+	}
+
+	if (cfg->dd_fn && strlen(cfg->dd_fn)) {
+		if (update_string(dd_fn, cfg->dd_fn, strlen(cfg->dd_fn))) {
+			goto fail;
+		}
+	}
+	//@sonar:on
+
+	if (cfg->init_err) {
+		goto fail;
+	}
+
+	// update parameters
+	if (did_size_from_int(&did_sz, cfg->mast_did_sz_idx)) {
+		ERR("Cannot convert %d to did_sz_t\n", cfg->mast_did_sz_idx);
+		goto fail;
+	}
+
+	if (cfg_update_comp_tags(did_sz)) {
+		goto fail;
 	}
 
 	if (CFG_SLAVE == cfg->mast_idx) {
