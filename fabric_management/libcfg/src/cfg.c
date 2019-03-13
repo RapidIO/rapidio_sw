@@ -604,7 +604,7 @@ fail:
 	return 1;
 }
 
-static int parse_ep_devids(struct int_cfg_parms *cfg, struct dev_id *devids)
+static int parse_devid_array(struct int_cfg_parms *cfg, struct dev_id *devids)
 {
 	uint32_t devid_sz, done = 0;
 	uint32_t tmp;
@@ -651,7 +651,7 @@ static int parse_ep_devids(struct int_cfg_parms *cfg, struct dev_id *devids)
 	return 0;
 
 fail:
-	PARSE_ERR(cfg, (char *)"parse_ep_devids error.");
+	PARSE_ERR(cfg, (char *)"parse_devid_array error.");
 	return 1;
 }
 
@@ -764,7 +764,7 @@ static int parse_mport_info(struct int_cfg_parms *cfg)
 		goto fail;
 	}
 
-	return parse_ep_devids(cfg, cfg->mport_info[idx].devids);
+	return parse_devid_array(cfg, cfg->mport_info[idx].devids);
 
 fail:
 	PARSE_ERR(cfg, (char *)"parse_mport_info error.");
@@ -990,7 +990,7 @@ static int parse_ep_port(struct int_cfg_parms *cfg, struct int_cfg_ep_port *prt)
 		goto fail;
 	}
 
-	if (parse_ep_devids(cfg, prt->devids)) {
+	if (parse_devid_array(cfg, prt->devids)) {
 		goto fail;
 	}
 	prt->valid = 1;
@@ -1203,7 +1203,6 @@ static int parse_switch(struct int_cfg_parms *cfg)
 	did_val_t st_did_val;
 	did_val_t end_did_val;
 	uint32_t rtv;
-	uint32_t tmp;
 	rio_rt_state_t *rt = NULL;
 
 	if (cfg->sw_cnt >= CFG_MAX_SW) {
@@ -1216,16 +1215,9 @@ static int parse_switch(struct int_cfg_parms *cfg)
 		goto fail;
 	if (get_string(cfg, &cfg->sws[i].name))
 		goto fail;
-	if (get_devid_sz(cfg, &cfg->sws[i].did_sz_idx))
-		goto fail;
-	if (get_hex_int(cfg, &cfg->sws[i].did_val))
-		goto fail;
-	if (get_dec_int(cfg, &tmp))
-		goto fail;
-	if (tmp > HC_MP)
+	if (parse_devid_array(cfg, cfg->sws[i].devids))
 		goto fail;
 
-	cfg->sws[i].hc = tmp;
 	if (get_hex_int(cfg, &cfg->sws[i].ct)) {
 		goto fail;
 	}
@@ -1485,6 +1477,11 @@ int cfg_update_comp_tags(did_sz_t did_sz)
 			for (j = 0; j < ep->port_cnt; j++) {
 				port = &ep->ports[j];
 				if (port->valid) {
+					if (!port->devids[cfg->mast_did_sz_idx].valid) {
+						ERR("Dev%d destination ID value not defined for %s port %d.\n",
+							did_sz, ep->name, j);
+						goto fail;
+					}
 					if (ct_get_nr(&nr, (ct_t)port->ct)) {
 						ERR("Get NR from CT 0x%x",
 								(ct_t)port->ct);
@@ -1517,13 +1514,19 @@ int cfg_update_comp_tags(did_sz_t did_sz)
 	for(i=0; i < cfg->sw_cnt; i++) {
 		sw = &cfg->sws[i];
 		if (sw->valid) {
+			if (!sw->devids[cfg->mast_did_sz_idx].valid) {
+				ERR("Dev%d destination ID value not defined for %s.\n",
+						did_sz, sw->name);
+						goto fail;
+			}
 			if (ct_get_nr(&nr, sw->ct)) {
 				goto fail;
 			}
+			did_val = sw->devids[cfg->mast_did_sz_idx].did_val;
 
-			if (ct_create_from_data(&ct, &did, nr, sw->did_val, did_sz)) {
+			if (ct_create_from_data(&ct, &did, nr, did_val, did_sz)) {
 				ERR("SW CT create 0x%x nr %d DID 0x%x sz %d",
-					sw->ct, nr, sw->did_val, did_sz);
+					sw->ct, nr, did_val, did_sz);
 				goto fail;
 			}
 			sw->ct = ct;
@@ -1730,6 +1733,8 @@ static int fill_in_dev_from_sw(struct cfg_dev *dev, struct int_cfg_sw *sw)
 	dev->ct = sw->ct;
 	dev->is_sw = 1;
 	dev->sw_info.num_ports = CFG_MAX_SW_PORT;
+	memcpy(dev->sw_info.devids, sw->devids,
+		sizeof(dev->sw_info.devids));
 
 	for (i = 0; i < CFG_MAX_SW_PORT; i++) {
 		dev->sw_info.sw_pt[i].valid = sw->ports[i].valid;

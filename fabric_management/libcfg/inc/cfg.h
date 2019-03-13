@@ -93,6 +93,7 @@ struct cfg_sw_port {
 };
 
 struct cfg_sw {
+	struct dev_id devids[MAX_DEV_SZ_IDX];
 	int num_ports;
 	struct cfg_sw_port sw_pt[CFG_MAX_SW_PORT];
 	rio_rt_state_t *rt[MAX_DEV_SZ_IDX];

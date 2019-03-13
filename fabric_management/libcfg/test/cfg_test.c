@@ -904,9 +904,9 @@ static void cfg_parse_master16_test(void **state)
 	assert_int_equal(0x8888, dev16.ep_pt.devids[DEV16_IDX].did_val);
 	assert_int_equal(1, dev16.ep_pt.devids[DEV16_IDX].hc);
 
-	assert_int_equal(0, cfg_find_dev_by_ct(0x70009, &dev16));
+	assert_int_equal(0, cfg_find_dev_by_ct(0x79999, &dev16));
 	assert_string_equal("MAIN_SWITCH", dev16.name);
-	assert_int_equal(0x70009, dev16.ct);
+	assert_int_equal(0x79999, dev16.ct);
 	assert_int_equal(1, dev16.is_sw);
 	assert_int_equal(24, dev16.sw_info.num_ports);
 	for (rio_port_t pt = 0; pt < dev16.sw_info.num_ports; pt++) {
@@ -1060,45 +1060,45 @@ static void cfg_parse_master16_test(void **state)
 	}
 
 	// Check connections were set up correctly
-	assert_int_equal(0, cfg_get_conn_dev(0x70009, 0, &dev16, &conn_pt));
+	assert_int_equal(0, cfg_get_conn_dev(0x79999, 0, &dev16, &conn_pt));
 	assert_string_equal("GRYPHON_01", dev16.name);
 	assert_int_equal(0x15555, dev16.ct);
 	assert_false(dev16.is_sw);
 	assert_int_equal(0, conn_pt);
-	assert_int_equal(0, cfg_get_conn_dev(0x70009, 1, &dev16, &conn_pt));
+	assert_int_equal(0, cfg_get_conn_dev(0x79999, 1, &dev16, &conn_pt));
 	assert_string_equal("GRYPHON_03", dev16.name);
 	assert_int_equal(0x37777, dev16.ct);
 	assert_false(dev16.is_sw);
 	assert_int_equal(0, conn_pt);
-	assert_int_equal(0, cfg_get_conn_dev(0x70009, 4, &dev16, &conn_pt));
+	assert_int_equal(0, cfg_get_conn_dev(0x79999, 4, &dev16, &conn_pt));
 	assert_string_equal("GRYPHON_02", dev16.name);
 	assert_int_equal(0x26666, dev16.ct);
 	assert_false(dev16.is_sw);
 	assert_int_equal(0, conn_pt);
-	assert_int_equal(0, cfg_get_conn_dev(0x70009, 5, &dev16, &conn_pt));
+	assert_int_equal(0, cfg_get_conn_dev(0x79999, 5, &dev16, &conn_pt));
 	assert_string_equal("GRYPHON_04", dev16.name);
 	assert_int_equal(0x48888, dev16.ct);
 	assert_false(dev16.is_sw);
 	assert_int_equal(0, conn_pt);
-	assert_int_not_equal(0, cfg_get_conn_dev(0x70009, 7, &dev16, &conn_pt));
+	assert_int_not_equal(0, cfg_get_conn_dev(0x79999, 7, &dev16, &conn_pt));
 	assert_int_equal(0, cfg_get_conn_dev(0x15555, 0, &dev16, &conn_pt));
 	assert_string_equal("MAIN_SWITCH", dev16.name);
-	assert_int_equal(0x70009, dev16.ct);
+	assert_int_equal(0x79999, dev16.ct);
 	assert_true(dev16.is_sw);
 	assert_int_equal(0, conn_pt);
 	assert_int_equal(0, cfg_get_conn_dev(0x26666, 0, &dev16, &conn_pt));
 	assert_string_equal("MAIN_SWITCH", dev16.name);
-	assert_int_equal(0x70009, dev16.ct);
+	assert_int_equal(0x79999, dev16.ct);
 	assert_true(dev16.is_sw);
 	assert_int_equal(4, conn_pt);
 	assert_int_equal(0, cfg_get_conn_dev(0x37777, 0, &dev16, &conn_pt));
 	assert_string_equal("MAIN_SWITCH", dev16.name);
-	assert_int_equal(0x70009, dev16.ct);
+	assert_int_equal(0x79999, dev16.ct);
 	assert_true(dev16.is_sw);
 	assert_int_equal(1, conn_pt);
 	assert_int_equal(0, cfg_get_conn_dev(0x48888, 0, &dev16, &conn_pt));
 	assert_string_equal("MAIN_SWITCH", dev16.name);
-	assert_int_equal(0x70009, dev16.ct);
+	assert_int_equal(0x79999, dev16.ct);
 	assert_true(dev16.is_sw);
 	assert_int_equal(5, conn_pt);
 	assert_int_not_equal(0, cfg_get_conn_dev(0x48888, 1, &dev16, &conn_pt));

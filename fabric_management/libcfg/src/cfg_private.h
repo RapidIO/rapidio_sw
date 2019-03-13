@@ -137,10 +137,8 @@ struct int_cfg_sw {
 	int valid;
 	char *name;
 	char *dev_type;
-	did_val_t did_val;
-	uint32_t did_sz_idx;
-	hc_t hc;
 	ct_t ct;
+	struct dev_id devids[MAX_DEV_SZ_IDX];
 	struct int_cfg_sw_port ports[CFG_MAX_SW_PORT];
 	// One routing table for each devID size
 	bool rt_valid[MAX_DEV_SZ_IDX];
