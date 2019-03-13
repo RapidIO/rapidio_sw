@@ -426,6 +426,7 @@ int setup_mport_master(int mport)
 		CRIT("\nRequested mport %d does not exist, exiting\n", mport);
 		return 1;
 	}
+	INFO("Found mport %d ct 0x%x in configuration file.", mport, mp.ct);
 
 	comptag = mp.ct;
 	if (cfg_find_dev_by_ct(comptag, &cfg_dev) && !cfg_auto()) {
@@ -433,6 +434,8 @@ int setup_mport_master(int mport)
 				mport, comptag);
 		return 1;
 	}
+	INFO("Found device %s ct 0x%x in configuration file.",
+		cfg_dev.name, cfg_dev.ct);
 
 	name = (char *)calloc(1, FMD_MAX_NAME + 1);
 	if (NULL == name) {
