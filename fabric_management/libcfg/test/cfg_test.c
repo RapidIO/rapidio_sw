@@ -839,7 +839,7 @@ static void cfg_parse_master16_test(void **state)
 
 	assert_int_equal(0, cfg_find_mport(0, &mp));
 	assert_int_equal(0, mp.num);
-	assert_int_equal(0x10005, mp.ct);
+	assert_int_equal(0x15555, mp.ct);
 	assert_int_equal(5, mp.devids[DEV08_IDX].did_val);
 	assert_int_equal(0xFF, mp.devids[DEV08_IDX].hc);
 	assert_true(mp.devids[DEV08_IDX].valid);
@@ -849,9 +849,9 @@ static void cfg_parse_master16_test(void **state)
 	assert_false(mp.devids[DEV32_IDX].valid);
 	assert_int_not_equal(0, cfg_find_mport(3, &mp));
 
-	assert_int_equal(0, cfg_find_dev_by_ct(0x10005, &dev16));
+	assert_int_equal(0, cfg_find_dev_by_ct(0x15555, &dev16));
 	assert_string_equal("GRYPHON_01", dev16.name);
-	assert_int_equal(0x10005, dev16.ct);
+	assert_int_equal(0x15555, dev16.ct);
 	assert_int_equal(0, dev16.is_sw);
 	assert_int_equal(rio_pc_pw_4x, dev16.ep_pt.op_pw);
 	assert_int_equal(rio_pc_ls_5p0, dev16.ep_pt.ls);
@@ -863,8 +863,8 @@ static void cfg_parse_master16_test(void **state)
 	assert_int_equal(0x5555, dev16.ep_pt.devids[DEV16_IDX].did_val);
 	assert_int_equal(0xFF, dev16.ep_pt.devids[DEV16_IDX].hc);
 
-	assert_int_equal(0, cfg_find_dev_by_ct(0x20006, &dev16));
-	assert_int_equal(0x20006, dev16.ct);
+	assert_int_equal(0, cfg_find_dev_by_ct(0x26666, &dev16));
+	assert_int_equal(0x26666, dev16.ct);
 	assert_string_equal("GRYPHON_02", dev16.name);
 	assert_int_equal(0, dev16.is_sw);
 	assert_int_equal(rio_pc_pw_2x, dev16.ep_pt.op_pw);
@@ -877,10 +877,10 @@ static void cfg_parse_master16_test(void **state)
 	assert_int_equal(0x6666, dev16.ep_pt.devids[DEV16_IDX].did_val);
 	assert_int_equal(1, dev16.ep_pt.devids[DEV16_IDX].hc);
 
-	assert_int_equal(0, cfg_find_dev_by_ct(0x30007, &dev16));
+	assert_int_equal(0, cfg_find_dev_by_ct(0x37777, &dev16));
 	assert_string_equal("GRYPHON_03", dev16.name);
 	assert_int_equal(0, dev16.is_sw);
-	assert_int_equal(0x30007, dev16.ct);
+	assert_int_equal(0x37777, dev16.ct);
 	assert_int_equal(rio_pc_pw_2x, dev16.ep_pt.op_pw);
 	assert_int_equal(rio_pc_ls_1p25, dev16.ep_pt.ls);
 	assert_int_equal(rio_pc_is_one, dev16.ep_pt.iseq);
@@ -891,9 +891,9 @@ static void cfg_parse_master16_test(void **state)
 	assert_int_equal(0x7777, dev16.ep_pt.devids[DEV16_IDX].did_val);
 	assert_int_equal(1, dev16.ep_pt.devids[DEV16_IDX].hc);
 
-	assert_int_equal(0, cfg_find_dev_by_ct(0x40008, &dev16));
+	assert_int_equal(0, cfg_find_dev_by_ct(0x48888, &dev16));
 	assert_string_equal("GRYPHON_04", dev16.name);
-	assert_int_equal(0x40008, dev16.ct);
+	assert_int_equal(0x48888, dev16.ct);
 	assert_int_equal(0, dev16.is_sw);
 	assert_int_equal(rio_pc_pw_4x, dev16.ep_pt.op_pw);
 	assert_int_equal(rio_pc_ls_2p5, dev16.ep_pt.ls);
@@ -1062,46 +1062,46 @@ static void cfg_parse_master16_test(void **state)
 	// Check connections were set up correctly
 	assert_int_equal(0, cfg_get_conn_dev(0x70009, 0, &dev16, &conn_pt));
 	assert_string_equal("GRYPHON_01", dev16.name);
-	assert_int_equal(0x10005, dev16.ct);
+	assert_int_equal(0x15555, dev16.ct);
 	assert_false(dev16.is_sw);
 	assert_int_equal(0, conn_pt);
 	assert_int_equal(0, cfg_get_conn_dev(0x70009, 1, &dev16, &conn_pt));
 	assert_string_equal("GRYPHON_03", dev16.name);
-	assert_int_equal(0x30007, dev16.ct);
+	assert_int_equal(0x37777, dev16.ct);
 	assert_false(dev16.is_sw);
 	assert_int_equal(0, conn_pt);
 	assert_int_equal(0, cfg_get_conn_dev(0x70009, 4, &dev16, &conn_pt));
 	assert_string_equal("GRYPHON_02", dev16.name);
-	assert_int_equal(0x20006, dev16.ct);
+	assert_int_equal(0x26666, dev16.ct);
 	assert_false(dev16.is_sw);
 	assert_int_equal(0, conn_pt);
 	assert_int_equal(0, cfg_get_conn_dev(0x70009, 5, &dev16, &conn_pt));
 	assert_string_equal("GRYPHON_04", dev16.name);
-	assert_int_equal(0x40008, dev16.ct);
+	assert_int_equal(0x48888, dev16.ct);
 	assert_false(dev16.is_sw);
 	assert_int_equal(0, conn_pt);
 	assert_int_not_equal(0, cfg_get_conn_dev(0x70009, 7, &dev16, &conn_pt));
-	assert_int_equal(0, cfg_get_conn_dev(0x10005, 0, &dev16, &conn_pt));
+	assert_int_equal(0, cfg_get_conn_dev(0x15555, 0, &dev16, &conn_pt));
 	assert_string_equal("MAIN_SWITCH", dev16.name);
 	assert_int_equal(0x70009, dev16.ct);
 	assert_true(dev16.is_sw);
 	assert_int_equal(0, conn_pt);
-	assert_int_equal(0, cfg_get_conn_dev(0x20006, 0, &dev16, &conn_pt));
+	assert_int_equal(0, cfg_get_conn_dev(0x26666, 0, &dev16, &conn_pt));
 	assert_string_equal("MAIN_SWITCH", dev16.name);
 	assert_int_equal(0x70009, dev16.ct);
 	assert_true(dev16.is_sw);
 	assert_int_equal(4, conn_pt);
-	assert_int_equal(0, cfg_get_conn_dev(0x30007, 0, &dev16, &conn_pt));
+	assert_int_equal(0, cfg_get_conn_dev(0x37777, 0, &dev16, &conn_pt));
 	assert_string_equal("MAIN_SWITCH", dev16.name);
 	assert_int_equal(0x70009, dev16.ct);
 	assert_true(dev16.is_sw);
 	assert_int_equal(1, conn_pt);
-	assert_int_equal(0, cfg_get_conn_dev(0x40008, 0, &dev16, &conn_pt));
+	assert_int_equal(0, cfg_get_conn_dev(0x48888, 0, &dev16, &conn_pt));
 	assert_string_equal("MAIN_SWITCH", dev16.name);
 	assert_int_equal(0x70009, dev16.ct);
 	assert_true(dev16.is_sw);
 	assert_int_equal(5, conn_pt);
-	assert_int_not_equal(0, cfg_get_conn_dev(0x40008, 1, &dev16, &conn_pt));
+	assert_int_not_equal(0, cfg_get_conn_dev(0x48888, 1, &dev16, &conn_pt));
 	assert_int_not_equal(0,cfg_find_dev_by_ct(0x99999, &dev16));
 
 	count++;

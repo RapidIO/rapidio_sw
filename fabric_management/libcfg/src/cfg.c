@@ -684,7 +684,6 @@ static int check_match (struct dev_id *mp_did, struct dev_id *ep_did,
 
 	mpi->ep = ep;
 	mpi->ep_pnum = pnum;
-	mpi->ct = ep->ports[mpi->ep_pnum].ct;
 	DBG("ASSIGNED.");
 exit:
 	return 0;
@@ -712,7 +711,7 @@ static int match_ep_to_mports(struct int_cfg_parms *cfg, struct int_cfg_ep_port 
 
 	for (mp_i = 0; mp_i < cfg->max_mport_info_idx; mp_i++) {
 		mp_did = cfg->mport_info[mp_i].devids;
-		DBG("%s %x %d", ep->name, cfg->mport_info[mp_i].ct, did_sz)
+		DBG("%s %d", ep->name, did_sz)
 		if (check_match( &mp_did[did_sz], &ep_did[did_sz],
 				&cfg->mport_info[mp_i], cfg, ep, pt_i)) {
 			return -1;
@@ -774,6 +773,8 @@ fail:
 
 static int parse_master_info(struct int_cfg_parms *cfg)
 {
+	struct dev_id *devid;
+
 	if (get_devid_sz(cfg, &cfg->mast_did_sz_idx)) {
 		goto fail;
 	}
@@ -784,6 +785,18 @@ static int parse_master_info(struct int_cfg_parms *cfg)
 
 	if (get_dec_int(cfg, &cfg->mast_cm_port)) {
 		goto fail;
+	}
+
+	INFO("Mast idx %d mast_did_sz_idx %d\n",
+		cfg->mast_idx, cfg->mast_did_sz_idx);
+
+	if (CFG_SLAVE != cfg->mast_idx) {
+		devid = &cfg->mport_info[cfg->mast_idx].devids[cfg->mast_did_sz_idx];
+		if (!devid->valid) {
+			goto fail;
+		}
+		cfg->mast_did_val = devid->did_val;
+		INFO("Mast_did_val 0x%x\n", cfg->mast_did_val)
 	}
 	return 0;
 
@@ -1461,9 +1474,9 @@ int cfg_parse_file(char *cfg_fn, char **dd_mtx_fn, char **dd_fn,
 	did_val_t did_val;
 	did_sz_t did_sz;
 
-	struct int_cfg_ep ep;
-	struct int_cfg_ep_port port;
-	struct int_cfg_sw sw;
+	struct int_cfg_ep *ep;
+	struct int_cfg_ep_port *port;
+	struct int_cfg_sw *sw;
 
 	if (init_cfg_ptr()) {
 		goto fail;
@@ -1505,58 +1518,67 @@ int cfg_parse_file(char *cfg_fn, char **dd_mtx_fn, char **dd_fn,
 		goto fail;
 	}
 
-	// mark the endpoint ct and devIds from the configuration as in use
-	for(i = 0; i < cfg->ep_cnt; i++) {
-		ep = cfg->eps[i];
-		if (ep.valid) {
-			for (j = 0; j < ep.port_cnt; j++) {
-				port = ep.ports[j];
-				if (port.valid) {
-					if (ct_get_nr(&nr, (ct_t)port.ct)) {
-						ERR("Get NR from CT 0x%x",
-								(ct_t)port.ct);
-						goto fail;
-					}
-					
-					if (did_size_from_int(&did_sz, cfg->mast_did_sz_idx)) {
-						continue;
-					}
-
-					did_val = port.devids[cfg->mast_did_sz_idx].did_val;
-					if (did_val && ct_create_from_data(&ct, &did, nr, did_val, did_sz)) {
-						ERR("CT create CT 0x%x size %d", (ct_t)port.ct, did_sz);
-						goto fail;
-					}
-				}
-			}
-		}
-	}
-
-	// mark the switch ct and devIds from the configuration as in use
-	for(i=0; i < cfg->sw_cnt; i++) {
-		sw = cfg->sws[i];
-		if (sw.valid) {
-			if (ct_get_nr(&nr, sw.ct)) {
-				goto fail;
-			}
-
-			// Continue for unsupported sizes
-			if (did_size_from_int(&did_sz, sw.did_sz_idx)) {
-				continue;
-			}
-
-			if (ct_create_from_data(&ct, &did, nr, sw.did_val, did_sz)) {
-				ERR("SW CT create 0x%x", sw.ct);
-				goto fail;
-			}
-		}
-	}
-
 	// update parameters
 	if (did_size_from_int(&did_sz, cfg->mast_did_sz_idx)) {
 		ERR("Cannot convert %d to did_sz_t\n", cfg->mast_did_sz_idx);
 		goto fail;
 	}
+
+	// mark the endpoint ct and devIds from the configuration as in use
+	// Update the ct's to reflect the dev08/dev16 devIds in use.
+	for(i = 0; i < cfg->ep_cnt; i++) {
+		ep = &cfg->eps[i];
+		if (ep->valid) {
+			INFO("EP %s", ep->name);
+			for (j = 0; j < ep->port_cnt; j++) {
+				port = &ep->ports[j];
+				if (port->valid) {
+					if (ct_get_nr(&nr, (ct_t)port->ct)) {
+						ERR("Get NR from CT 0x%x",
+								(ct_t)port->ct);
+						goto fail;
+					}
+					
+					did_val = port->devids[cfg->mast_did_sz_idx].did_val;
+					if (did_val && ct_create_from_data(&ct, &did, nr, did_val, did_sz)) {
+						ERR("CT create CT nr %d did_val 0x%x size %d", nr, did_val, did_sz);
+						goto fail;
+					}
+					port->ct = ct;
+					INFO("Updated EP %s Port %d CT 0x%x\n", ep->name, j, port->ct);
+				}
+			}
+		}
+	}
+
+	// Update MPORT ct values from EP ct values, if the EP exists.
+	for (i=0; i < cfg->max_mport_info_idx; i++) {
+		if (NULL != cfg->mport_info[i].ep) {
+			cfg->mport_info[i].ct = cfg->mport_info[i].ep->ports[cfg->mport_info[i].ep_pnum].ct;
+			INFO("Updated MPORT Port %d Endpoint %s Port %d ct to 0x%x",
+				i, cfg->mport_info[i].ep->name, cfg->mport_info[i].ep_pnum, cfg->mport_info[i].ct);
+		}
+	}
+
+	// mark the switch ct and devIds from the configuration as in use
+	// and update the switch to reflect the dev08/dev16 chosen.
+	for(i=0; i < cfg->sw_cnt; i++) {
+		sw = &cfg->sws[i];
+		if (sw->valid) {
+			if (ct_get_nr(&nr, sw->ct)) {
+				goto fail;
+			}
+
+			if (ct_create_from_data(&ct, &did, nr, sw->did_val, did_sz)) {
+				ERR("SW CT create 0x%x nr %d DID 0x%x sz %d",
+					sw->ct, nr, sw->did_val, did_sz);
+				goto fail;
+			}
+			sw->ct = ct;
+			INFO("Updated Switch %s CT to 0x%x", sw->name, sw->ct);
+		}
+	}
+
 	if (CFG_SLAVE == cfg->mast_idx) {
 		// fake out the creation of the master did
 		INFO("fake slave did 0x%x sz %d\n", cfg->mast_did_val, did_sz);
