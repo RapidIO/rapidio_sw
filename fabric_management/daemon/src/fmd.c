@@ -509,21 +509,28 @@ int slave_get_ct_and_name(int mport, ct_t *comptag, char *dev_name)
 		check |= !(regs.p_err_stat & RIO_SPX_ERR_STAT_OK);
 		check |= !(regs.p_ctl1 & RIO_SPX_CTL_INP_EN);
 		check |= !(regs.p_ctl1 & RIO_SPX_CTL_OTP_EN);
+		did_val_t did_val;
+		did_sz_t did_sz;
+		ct_nr_t nr;
 		if (check) {
 			time_sleep(&delay);
 			continue;
 		}
-		*comptag = regs.comptag;
+		if (ct_get_nr(&nr, regs.comptag)) {
+			continue;
+		}
 		memset(dev_name, 0, FMD_MAX_DEV_FN);
 		snprintf(dev_name, FMD_MAX_DEV_FN, "LOCAL_MP%d", mp_num);
 		if (regs.host_did_reg_val & RIO_EMHS_PW_DESTID_16CTL) {
-			did_from_value(&fmd->opts->mast_did,
-				GET_DEV16_FROM_PW_TGT_HW(regs.host_did_reg_val),
-				DEV16_IDX);
+			did_sz = dev16_sz;
+			did_val = GET_DEV16_FROM_PW_TGT_HW(regs.host_did_reg_val);
 		} else {
-			did_from_value(&fmd->opts->mast_did,
-				GET_DEV8_FROM_PW_TGT_HW(regs.host_did_reg_val),
-				DEV08_IDX);
+			did_sz = dev08_sz;
+			did_val = GET_DEV8_FROM_PW_TGT_HW(regs.host_did_reg_val);
+		}
+		if (ct_create_from_data(comptag, &fmd->opts->mast_did,
+					nr, did_val, did_sz)) {
+			break;
 		}
 		fmd->opts->mast_cm_port = regs.scratch_cm_sock;
 		return 0;

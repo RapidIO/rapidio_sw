@@ -310,7 +310,8 @@ int riocp_pe_handle_create_pe(struct riocp_pe *pe, struct riocp_pe **handle, hc_
 	uint8_t peer_port = 0;
 	int ret = 0;
 
-	RIOCP_TRACE("Creating new handle\n");
+	RIOCP_TRACE("Creating new handle CT_in 0x%x did 0x%x sz %d\n",
+		*comptag_in, did.size, did.value);
 
 	/* Create new empty handle */
 	h = (struct riocp_pe *)calloc(1, sizeof(struct riocp_pe));
@@ -448,7 +449,7 @@ int riocp_pe_handle_create_mport(uint8_t mport, bool is_host,
 	did_t did;
 	int ret = 0;
 
-	RIOCP_TRACE("Creating mport %d handle\n", mport);
+	RIOCP_TRACE("Creating mport %d handle CT= 0x%x\n", mport, *comptag);
 
 	/* Create new empty handle */
 	h = (struct riocp_pe *)calloc(1, sizeof(struct riocp_pe));
