@@ -11,6 +11,6 @@ for node in $REVNODES
 do
 	echo "${node}"
 
-	ssh root@"${node}" $INSTALL_PATH/kernel_clean.sh
-	ssh root@"${node}" $INSTALL_PATH/kernel_stop.sh
+	ssh "$USERID"@"${node}" $INSTALL_PATH/kernel_clean.sh
+	ssh "$USERID"@"${node}" $INSTALL_PATH/kernel_stop.sh
 done

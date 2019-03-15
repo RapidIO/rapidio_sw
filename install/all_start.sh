@@ -21,11 +21,11 @@ if [ "$START_FMD" = 'y' ]; then
 	$SOURCE_PATH/rio_start.sh noenum
 
         for node in $NODES; do
-                DESTID=$(ssh root@"$node" "cat $RIO_CLASS_MPORT_DIR/device/port_destid")
+                DESTID=$(ssh "$USERID"@"$node" "cat $RIO_CLASS_MPORT_DIR/device/port_destid")
                 echo "Starting fmd on $node destID=$DESTID"
-                ssh root@"$node" screen -dmS fmd $SOURCE_PATH/fabric_management/daemon/fmd -l 3
+                ssh "$USERID"@"$node" screen -dmS fmd $SOURCE_PATH/fabric_management/daemon/fmd -l 3
                 sleep 1
-                FMD_PID=$(ssh root@"$node" pgrep -x fmd)
+                FMD_PID=$(ssh "$USERID"@"$node" pgrep -x fmd)
                 echo "$node fmd pid=$FMD_PID"
         sleep 1; # Allow FMD to enumerate nodes
         done

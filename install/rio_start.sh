@@ -20,9 +20,9 @@ do
 
 	if [ -z "$1" ]
 	then
-		ssh root@"${node}" $INSTALL_PATH/kernel_start.sh
+		ssh "$USERID"@"${node}" $INSTALL_PATH/kernel_start.sh
 	else
-		ssh root@"${node}" $INSTALL_PATH/kernel_start.sh noenum
+		ssh "$USERID"@"${node}" $INSTALL_PATH/kernel_start.sh noenum
 	fi
 
 	if [ $c -eq 1 ]

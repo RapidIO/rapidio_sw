@@ -16,16 +16,16 @@ done
 for node in $REVNODES
 do
 	# Kill FMD
-	THE_PID=$(ssh root@"$node" pgrep -x fmd)
+	THE_PID=$(ssh "$USERID"@"$node" pgrep -x fmd)
 	echo "Killing -fmd- on $node  FMD  PID=$THE_PID"
 	for proc in $THE_PID
 	do
-		ssh root@"$node" "kill -s 2 $proc"
+		ssh "$USERID"@"$node" "kill -s 2 $proc"
 	done
 
 	sleep 2
 
-	ssh root@"$node" "rm -f /dev/shm/RIO_SM_DEV_DIR"
-	ssh root@"$node" "rm -f /dev/shm/RIO_SM_DEV_DIR_MUTEX"
+	ssh "$USERID"@"$node" "rm -f /dev/shm/RIO_SM_DEV_DIR"
+	ssh "$USERID"@"$node" "rm -f /dev/shm/RIO_SM_DEV_DIR_MUTEX"
 done
 

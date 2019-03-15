@@ -16,7 +16,7 @@ echo ' '
 for node in $NODES
 do
 	# Check that the node was properly enumerated
-	RIODEVS=$(ssh root@"$node" "ls /sys/bus/rapidio/devices/")
+	RIODEVS=$(ssh "$USERID"@"$node" "ls /sys/bus/rapidio/devices/")
 	if [ -z "$RIODEVS" ]
 	then
 		RIODEVS="NOT ENUMERATED!"
@@ -25,11 +25,11 @@ do
 		RIODEVS="Devices: "$RIODEVS
 	fi
 	# Display node name, and the 'destid' for the node
-	DESTID=$(ssh root@"$node" "cat $RIO_CLASS_MPORT_DIR/device/port_destid 2>/dev/null")
+	DESTID=$(ssh "$USERID"@"$node" "cat $RIO_CLASS_MPORT_DIR/device/port_destid 2>/dev/null")
 	echo "+++ $node +++   DestID:" $DESTID $RIODEVS
 
 	# Check that rio_mport_cdev was loaded
-	RIO_MPORT_CDEV=$(ssh root@"$node" "lsmod | grep rio_mport_cdev")
+	RIO_MPORT_CDEV=$(ssh "$USERID"@"$node" "lsmod | grep rio_mport_cdev")
 	if [ -z "$RIO_MPORT_CDEV" ]
 	then
 		echo "   rio_mport_cdev *NOT* loaded"
@@ -39,7 +39,7 @@ do
 	fi
 
 	# Check that rio_cm was loaded
-	RIO_CM=$(ssh root@"$node" "lsmod | grep rio_cm")
+	RIO_CM=$(ssh "$USERID"@"$node" "lsmod | grep rio_cm")
 	if [ -z "$RIO_CM" ]
 	then
 		echo "   rio_cm         *NOT* loaded"
@@ -49,7 +49,7 @@ do
 	fi
 
 	# Check that fmd is running
-	FMD_PID=$(ssh root@"$node" pgrep -x fmd)
+	FMD_PID=$(ssh "$USERID"@"$node" pgrep -x fmd)
 	if [ -z "$FMD_PID" ]
 	then
 		echo "   FMD            *NOT* running"
