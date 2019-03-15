@@ -831,7 +831,11 @@ int generic_device_init(struct riocp_pe *pe)
 	// Note that this tells the endpoints the destination ID of the
 	// system Host.
 
-	priv->st.em_pw_cfg.deviceID_tt = tt_dev8;
+	if (dev16_sz == riocp_get_did_sz()) {
+		priv->st.em_pw_cfg.deviceID_tt = tt_dev16;
+	} else {
+		priv->st.em_pw_cfg.deviceID_tt = tt_dev8;
+	}
 	priv->st.em_pw_cfg.port_write_destID = pe->mport->did_reg_val;
 	priv->st.em_pw_cfg.srcID_valid = true;
 	priv->st.em_pw_cfg.port_write_srcID = pe->did_reg_val;
