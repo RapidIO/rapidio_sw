@@ -486,7 +486,7 @@ int setup_mport_master(int mport)
 
 int slave_get_ct_and_name(int mport, ct_t *comptag, char *dev_name)
 {
-	const struct timespec delay = {0, 1000 * 1000}; // 1000 microseconds
+	const struct timespec delay = {0, 500 * 1000 * 1000}; // 0.5 seconds
 
 	uint32_t mp_num = 0;
 	struct cfg_mport_info mp;
@@ -509,10 +509,13 @@ int slave_get_ct_and_name(int mport, ct_t *comptag, char *dev_name)
 		check |= !(regs.p_err_stat & RIO_SPX_ERR_STAT_OK);
 		check |= !(regs.p_ctl1 & RIO_SPX_CTL_INP_EN);
 		check |= !(regs.p_ctl1 & RIO_SPX_CTL_OTP_EN);
-		did_val_t did_val;
+		check |= !(regs.host_did_reg_val);
+		check |= !(regs.my_did_reg_val);
+		did_val_t did_val, mast_did_val;
 		did_sz_t did_sz;
 		ct_nr_t nr;
 		if (check) {
+			CRIT("\nFMD Master initialization incomplete, wait & try again\n");
 			time_sleep(&delay);
 			continue;
 		}
@@ -523,16 +526,30 @@ int slave_get_ct_and_name(int mport, ct_t *comptag, char *dev_name)
 		snprintf(dev_name, FMD_MAX_DEV_FN, "LOCAL_MP%d", mp_num);
 		if (regs.host_did_reg_val & RIO_EMHS_PW_DESTID_16CTL) {
 			did_sz = dev16_sz;
-			did_val = GET_DEV16_FROM_PW_TGT_HW(regs.host_did_reg_val);
+			did_val = GET_DEV16_FROM_HW(regs.my_did_reg_val);
+			mast_did_val = GET_DEV16_FROM_PW_TGT_HW(regs.host_did_reg_val);
 		} else {
 			did_sz = dev08_sz;
-			did_val = GET_DEV8_FROM_PW_TGT_HW(regs.host_did_reg_val);
+			did_val = GET_DEV8_FROM_HW(regs.my_did_reg_val);
+			mast_did_val = GET_DEV8_FROM_PW_TGT_HW(regs.host_did_reg_val);
+		}
+		if (riocp_set_did_sz(did_sz)) {
+			ERR("Failed setting did size to %d\n", did_sz);
+			return 1;
 		}
 		if (ct_create_from_data(comptag, &fmd->opts->mast_did,
 					nr, did_val, did_sz)) {
-			break;
+			ERR("Failed creating mport component tag from nr %d did 0x%x sz %d\n",
+					nr, did_val, did_sz);
+			return 1;
+		}
+		if (did_create_from_data(&fmd->opts->mast_did, mast_did_val, did_sz)) {
+			ERR("Failed creating host did from did 0x%x sz %d\n",
+					mast_did_val, did_sz);
+			return 1;
 		}
 		fmd->opts->mast_cm_port = regs.scratch_cm_sock;
+
 		return 0;
 	}
 
@@ -582,7 +599,7 @@ int setup_mport_slave(int mport)
 	 */
 	memset(mast_dev_fn, 0, FMD_MAX_DEV_FN);
 	snprintf(mast_dev_fn, FMD_MAX_DEV_FN - 1, "%s%s",
-	FMD_DFLT_DEV_DIR, FMD_SLAVE_MASTER_NAME);
+		FMD_DFLT_DEV_DIR, FMD_SLAVE_MASTER_NAME);
 	do {
 		if (access(mast_dev_fn, F_OK) != -1) {
 			rc = 0;
@@ -595,7 +612,7 @@ int setup_mport_slave(int mport)
 			CRIT("\nFMD Master inaccessible, wait & try again\n");
 			sleep(5);
 		}
-	} while (EIO == rc);
+	} while (-EIO == rc);
 	return rc;
 }
 
