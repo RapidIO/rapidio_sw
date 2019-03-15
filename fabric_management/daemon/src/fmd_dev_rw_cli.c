@@ -821,6 +821,11 @@ int CLIMRegReadCmd(struct cli_env *env, int argc, char **argv)
 	hc_t hc;
 	int rc;
 
+	if (NULL == env->h) {
+		LOGMSG(env, "\nNo Device Selected...\n");
+		goto exit;
+	}
+
 	address = mstore_address;
 	did_val = mstore_did_val;
 	hc = mstore_hc;
@@ -871,6 +876,9 @@ int CLIMRegReadCmd(struct cli_env *env, int argc, char **argv)
 	mstore_hc = hc;
 	mstore_numacc = numReads;
 
+	if (RIOCP_PE_IS_MPORT((riocp_pe_handle)env->h)) {
+		LOGMSG(env, "\nWARNING: reading from MPORT!\n")
+	}
 	for (i = 0; i < numReads; i++) {
 		rc = riocp_drv_raw_reg_rd((riocp_pe_handle)env->h,
 			did_val, hc, address, &data);
@@ -916,6 +924,11 @@ int CLIMRegWriteCmd(struct cli_env *env, int argc, char **argv)
 	hc_t hc;
 	uint32_t data;
 	uint32_t rc;
+
+	if (NULL == env->h) {
+		LOGMSG(env, "\nNo Device Selected...\n");
+		goto exit;
+	}
 
 	address = mstore_address;
 	data = mstore_data;
@@ -985,6 +998,9 @@ int CLIMRegWriteCmd(struct cli_env *env, int argc, char **argv)
 		failedReading(env, address, rc);
 		goto exit;
 	} else {
+		if (RIOCP_PE_IS_MPORT((riocp_pe_handle)env->h)) {
+			LOGMSG(env, "\nWARNING: written/read from MPORT!\n")
+		}
 		LOGMSG(env, "\nRead back %08x\n", data);
 	}
 
