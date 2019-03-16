@@ -72,7 +72,8 @@ char *rio_em_disc_reason_names[(uint8_t)(rio_rt_disc_last)] = {
 void rio_rt_check_multicast_routing(DAR_DEV_INFO_t *dev_info,
 		rio_rt_probe_in_t *in_parms, rio_rt_probe_out_t *out_parms)
 {
-	uint8_t mc_idx, bit;
+	uint16_t mc_idx;
+	rio_port_t bit;
 	uint32_t mc_mask;
 	bool found = false;
 

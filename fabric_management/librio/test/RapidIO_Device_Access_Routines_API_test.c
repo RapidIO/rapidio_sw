@@ -59,6 +59,30 @@ static void assumptions(void **state)
 	(void)state; // unused
 }
 
+static void rio_device_access_macros_test(void **state)
+{
+	DAR_DEV_INFO_t info, *h = &info;
+
+	info.swPortInfo = 0x0FEDCBA9;
+	assert_int_equal(0xCB, NUM_PORTS(h));
+
+	info.swMcastInfo = 0x9ABCDEF0;
+	assert_int_equal(0xDEF0, NUM_MC_MASKS(h));
+
+	info.devID = 0x12345678;
+	assert_int_equal(0x5678, VEND_CODE(h));
+	assert_int_equal(0x1234, DEV_CODE(h));
+
+	info.features =  0x10000000;
+	assert_int_equal(true, SWITCH(h));
+	assert_int_equal(false, MEMORY(h));
+	info.features = 0x40000000;
+	assert_int_equal(false, SWITCH(h));
+	assert_int_equal(true, MEMORY(h));
+
+	(void)state; // unused
+}
+
 static void rio_get_driver_family_test(void **state)
 {
 	rio_driver_family_t expected;
@@ -263,6 +287,7 @@ int main(int argc, char** argv)
 
 	const struct CMUnitTest tests[] = {
 	cmocka_unit_test(assumptions),
+	cmocka_unit_test(rio_device_access_macros_test),
 	cmocka_unit_test(rio_get_driver_family_test),
 	cmocka_unit_test(DAR_proc_ptr_init_test),
 	cmocka_unit_test(DAR_add_poreg_bad_parms_test),
