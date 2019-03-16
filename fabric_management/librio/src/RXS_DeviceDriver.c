@@ -114,6 +114,7 @@ uint32_t rxs_rioDeviceSupported(DAR_DEV_INFO_t *dev_info)
 			}
 		}
 	}
+	dev_info->swMcastInfo = 0x00000100;
 	return rc;
 }
 
