@@ -1017,7 +1017,7 @@ struct cli_cmd CLIMRegWrite = {
 	"Write <data> at <address> for device <devid> at <hc> hops away.\n"
 	"<address> Register offset. Must be 4 byte aligned.\n"
 	"<data>    4 byte value to write.\n"
-	"<did>     Optional, device ID to access.\n"
+	"<devid>   Optional, device ID to access.\n"
 	"          If not present, use last <did> entered.\n"
 	"<hc>      Optional, hop count. Use 0xFF to access local mport registers.\n"
 	"          If not present, use last <hc> entered.\n",
