@@ -85,6 +85,7 @@
 #include "fmd_cli.h"
 #include "fmd_dev_rw_cli.h"
 #include "fmd_sc_cli.h"
+#include "fmd_rt_cli.h"
 #include "fmd_dev_conf_cli.h"
 #include "fmd_rio_compliance_cli.h"
 #include "fmd_master.h"
@@ -195,6 +196,7 @@ void spawn_threads(struct fmd_opt_vals *opts)
 	fmd_bind_mgmt_dbg_cmds();
 	fmd_bind_dev_rw_cmds();
 	fmd_bind_dev_sc_cmds();
+	fmd_bind_dev_rt_cmds();
 	fmd_bind_dev_conf_cmds();
 	fmd_bind_compliance_cmds();
 
