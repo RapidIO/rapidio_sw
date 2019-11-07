@@ -53,6 +53,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rio_standard.h"
 #include "RXS2448.h"
 #include "RapidIO_Routing_Table_API.h"
+#include "rio_misc.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -1139,6 +1140,246 @@ CLIDIDCmd,
 ATTR_NONE
 };
 
+int CLIPrepCmd(struct cli_env *env, int UNUSED(argc), char **UNUSED(argv))
+{
+	int rc;
+	int p[2] = {8, 14};
+	riocp_pe_handle h = (riocp_pe_handle)env->h;
+
+	// Disable port write transmission
+	rc = mport_write(h, RXS_PW_TRAN_CTL, RXS_PW_TRAN_CTL_PW_DIS);
+	if (rc) goto exit;
+
+	// Set dead link timers on ports 8 and 14
+	for (int i = 0; i < 2 && !rc; i++) {
+		rc = mport_write(h, RXS_SPX_DLT_CSR(p[i]), 0x00FFFF00);
+	}
+	if (rc) goto exit;
+
+	// Set STOP_FAIL_EN and DROP_EN bit enable on ports 8 and 14
+	for (int i = 0; i < 2 && !rc; i++) {
+		uint32_t data;
+		rc = mport_read(h, RXS_SPX_CTL(p[i]), &data);
+		if (rc) break;
+		data |= RXS_SPX_CTL_DROP_EN | RXS_SPX_CTL_STOP_FAIL_EN;
+		rc = mport_write(h, RXS_SPX_CTL(p[i]), data);
+	}
+
+	// Clear errors in ERR_DET CSR
+	for (int i = 0; i < 2 && !rc; i++) {
+		rc = mport_write(h, RXS_SPX_ERR_DET(p[i]),
+							RXS_SPX_ERR_DET_LINK_INIT |
+							RXS_SPX_ERR_DET_DLT |
+							RXS_SPX_ERR_DET_OK_TO_UNINIT);
+	}
+	if (rc) goto exit;
+
+	// Set DLT bit enable on ports 8 and 14
+	for (int i = 0; i < 2 && !rc; i++) {
+		rc = mport_write(h, RXS_SPX_RATE_EN(p[i]),
+					RXS_SPX_RATE_EN_DLT);
+	}
+
+exit:
+	if (rc) {
+		LOGMSG(env, "ERROR: Register access failed %d\n", rc)
+	}
+	return 0;
+}
+
+struct cli_cmd CLIPrep= {
+(char *)"Prep",
+2,
+0,
+(char *)"Prep command",
+(char *)"<No Parameters\n",
+CLIPrepCmd,
+ATTR_NONE
+};
+
+int CLITwoCmd(struct cli_env *env, int UNUSED(argc), char **UNUSED(argv))
+{
+	int rc;
+	uint32_t data;
+	riocp_pe_handle h = (riocp_pe_handle)env->h;
+
+	// Change port 8 baudrate to 2.5 Gbps
+	rc = mport_read(h, RXS_PLM_SPX_1WR(8), &data);
+	if (rc) goto exit;
+	data &= ~RXS_PLM_SPX_1WR_BAUD_EN;
+	data |= RXS_PLM_SPX_1WR_BAUD_EN_2P5;
+	rc = mport_write(h, RXS_PLM_SPX_1WR(8), data);
+
+exit:
+	if (rc) {
+		LOGMSG(env, "ERROR: Register access failed %d\n", rc)
+	}
+	return 0;
+}
+
+struct cli_cmd CLITwo= {
+(char *)"Two",
+3,
+0,
+(char *)"Two command",
+(char *)"<No Parameters\n",
+CLITwoCmd,
+ATTR_NONE
+};
+
+int CLIFiveCmd(struct cli_env *env, int UNUSED(argc), char **UNUSED(argv))
+{
+	int rc;
+	uint32_t data;
+	riocp_pe_handle h = (riocp_pe_handle)env->h;
+
+	// Change port 8 baudrate to 2.5 Gbps
+	rc = mport_read(h, RXS_PLM_SPX_1WR(8), &data);
+	if (rc) goto exit;
+	data &= ~RXS_PLM_SPX_1WR_BAUD_EN;
+	data |= RXS_PLM_SPX_1WR_BAUD_EN_5P0;
+	rc = mport_write(h, RXS_PLM_SPX_1WR(8), data);
+
+exit:
+	if (rc) {
+		LOGMSG(env, "ERROR: Register access failed %d\n", rc)
+	}
+	return 0;
+}
+
+struct cli_cmd CLIFive= {
+(char *)"Five",
+2,
+0,
+(char *)"Five command",
+(char *)"<No Parameters\n",
+CLIFiveCmd,
+ATTR_NONE
+};
+
+int CLIInsertCmd(struct cli_env *env, int UNUSED(argc), char **UNUSED(argv))
+{
+	int rc;
+	int p[2] = {8, 14};
+	uint32_t data;
+	riocp_pe_handle h = (riocp_pe_handle)env->h;
+
+	// Clear port lockout
+	for (int i = 0; i < 2 && !rc; i++) {
+		uint32_t data;
+		rc = mport_read(h, RXS_SPX_CTL(p[i]), &data);
+		if (rc) break;
+		data &= ~RXS_SPX_CTL_PORT_LOCKOUT;
+		rc = mport_write(h, RXS_SPX_CTL(p[i]), data);
+	}
+	if (rc) goto exit;
+
+	// Perform port soft resets
+	for (int i = 0; i < 2 && !rc; i++) {
+		uint32_t data;
+		rc = mport_read(h, RXS_PLM_SPX_IMP_SPEC_CTL(p[i]), &data);
+		if (rc) break;
+		data |= RXS_PLM_SPX_IMP_SPEC_CTL_SOFT_RST_PORT;
+		rc = mport_write(h, RXS_PLM_SPX_IMP_SPEC_CTL(p[i]), data);
+		if (rc) break;
+		data &= ~RXS_PLM_SPX_IMP_SPEC_CTL_SOFT_RST_PORT;
+		rc = mport_write(h, RXS_PLM_SPX_IMP_SPEC_CTL(p[i]), data);
+	}
+	if (rc) goto exit;
+	sleep(1);
+
+	// Insert up from baudrate to 2.5 Gbps
+	rc = mport_read(h, RXS_PLM_SPX_1WR(8), &data);
+	if (rc) goto exit;
+	data &= ~RXS_PLM_SPX_1WR_BAUD_EN;
+	data |= RXS_PLM_SPX_1WR_BAUD_EN_5P0;
+	rc = mport_write(h, RXS_PLM_SPX_1WR(8), data);
+
+	// Clear Error Detect
+	for (int i = 0; i < 2 && !rc; i++) {
+		rc = mport_write(h, RXS_SPX_ERR_DET(p[i]), 0);
+	}
+
+exit:
+	if (rc) {
+		LOGMSG(env, "ERROR: Register access failed %d\n", rc)
+	}
+	return 0;
+}
+
+struct cli_cmd CLIInsert= {
+(char *)"Insert",
+2,
+0,
+(char *)"Insert command",
+(char *)"<No Parameters\n",
+CLIInsertCmd,
+ATTR_NONE
+};
+
+int CLIExtractCmd(struct cli_env *env, int UNUSED(argc), char **UNUSED(argv))
+{
+	int rc;
+	int p[2] = {8, 14};
+	riocp_pe_handle h = (riocp_pe_handle)env->h;
+
+	// Set port lockout
+	for (int i = 0; i < 2 && !rc; i++) {
+		uint32_t data;
+		rc = mport_read(h, RXS_SPX_CTL(p[i]), &data);
+		if (rc) break;
+		data |= RXS_SPX_CTL_PORT_LOCKOUT;
+		rc = mport_write(h, RXS_SPX_CTL(p[i]), data);
+	}
+	if (rc) goto exit;
+
+	// Perform port soft resets
+	for (int i = 0; i < 2 && !rc; i++) {
+		uint32_t data;
+		rc = mport_read(h, RXS_PLM_SPX_IMP_SPEC_CTL(p[i]), &data);
+		if (rc) break;
+		data |= RXS_PLM_SPX_IMP_SPEC_CTL_SOFT_RST_PORT;
+		rc = mport_write(h, RXS_PLM_SPX_IMP_SPEC_CTL(p[i]), data);
+		if (rc) break;
+		data &= ~RXS_PLM_SPX_IMP_SPEC_CTL_SOFT_RST_PORT;
+		rc = mport_write(h, RXS_PLM_SPX_IMP_SPEC_CTL(p[i]), data);
+	}
+	if (rc) goto exit;
+	sleep(1);
+
+	// Clear ackIDs
+	for (int i = 0; i < 2 && !rc; i++) {
+		rc = mport_write(h, RXS_SPX_OUT_ACKID_CSR(p[i]),
+					RXS_SPX_OUT_ACKID_CSR_CLR_OUTSTD_ACKID);
+		if (rc) goto exit;
+		rc = mport_write(h, RXS_SPX_IN_ACKID_CSR(p[i]), 0);
+	}
+	if (rc) goto exit;
+
+	// Disable and clear DLT   
+	for (int i = 0; i < 2 && !rc; i++) {
+		rc = mport_write(h, RXS_SPX_DLT_CSR(p[i]), 0);
+		if (rc) goto exit;
+		rc = mport_write(h, RXS_SPX_ERR_DET(p[i]), 0);
+	}
+
+exit:
+	if (rc) {
+		LOGMSG(env, "ERROR: Register access failed %d\n", rc)
+	}
+	return 0;
+}
+
+struct cli_cmd CLIExtract= {
+(char *)"Extract",
+2,
+0,
+(char *)"Extract command",
+(char *)"<No Parameters\n",
+CLIExtractCmd,
+ATTR_NONE
+};
+
 
 struct cli_cmd *reg_cmd_list[] = {
 &CLIRegRead,
@@ -1152,6 +1393,11 @@ struct cli_cmd *reg_cmd_list[] = {
 &CLIMRegWrite,
 &CLIDevSel,
 &CLIDID,
+&CLIPrep,
+&CLITwo,
+&CLIFive,
+&CLIExtract,
+&CLIInsert
 };
 
 void fmd_bind_dev_rw_cmds(void)
